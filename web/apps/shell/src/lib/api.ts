@@ -137,3 +137,16 @@ export const helmApi = {
   upgrade: (b: { cluster: string; ns: string; name: string; chartRef: string; version?: string; valuesYaml: string }) =>
     send<HelmRelease>("POST", "/api/helm/upgrade", b),
 };
+
+export interface APIResourceEntry {
+  gvr: string;
+  group: string;
+  version: string;
+  resource: string;
+  kind: string;
+  namespaced: boolean;
+}
+
+export const discoveryApi = {
+  apis: (cluster: string) => get<APIResourceEntry[]>(`/api/apis?cluster=${encodeURIComponent(cluster)}`),
+};

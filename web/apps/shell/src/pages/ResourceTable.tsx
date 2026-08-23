@@ -1,10 +1,33 @@
 import { useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Badge, Skeleton, StatusDot } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { useResourceStream } from "../lib/useResourceStream";
 import { DEFS, EXTRA_DEFS, ageOf, fmtAge, num, str, type ResourceDef } from "../lib/resources";
+
+function lookupDef(kind: string, sp: URLSearchParams): ResourceDef | undefined {
+  if (DEFS[kind]) return DEFS[kind];
+  if (EXTRA_DEFS[kind]) return EXTRA_DEFS[kind];
+  if (kind.startsWith("ext--")) {
+    const parts = kind.slice(5).split("--");
+    if (parts.length < 3) return undefined;
+    const resource = parts[parts.length - 1] ?? "";
+    const version = parts[parts.length - 2] ?? "";
+    const group = parts.slice(0, -2).join(".");
+    const gvr = group ? `${group}/${version}/${resource}` : `${version}/${resource}`;
+    return {
+      slug: kind,
+      label: resource,
+      gvr,
+      group,
+      resource,
+      scoped: sp.get("scoped") === "0",
+      mode: "full",
+    };
+  }
+  return undefined;
+}
 import GenericDrawer from "../components/GenericDrawer";
 
 type Row = Record<string, unknown>;
@@ -153,7 +176,8 @@ function extraColumns(slug: string): Record<string, (o: Row) => Cell> {
 
 export default function ResourceTable() {
   const { kind = "" } = useParams();
-  const def: ResourceDef | undefined = DEFS[kind] ?? EXTRA_DEFS[kind];
+  const [sp] = useSearchParams();
+  const def: ResourceDef | undefined = lookupDef(kind, sp);
 
   const clusters = useQuery({ queryKey: ["clusters"], queryFn: api.clusters });
   const list = clusters.data ?? [];

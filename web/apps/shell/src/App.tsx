@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { NavLink, Route, Routes } from "react-router-dom";
 import { StatusDot } from "@kubebay/ui";
@@ -27,6 +27,9 @@ import Rbac from "./pages/Rbac";
 import Helm from "./pages/Helm";
 import Fleet from "./pages/Fleet";
 import ResourceTable from "./pages/ResourceTable";
+import { Palette } from "./components/Palette";
+import { discoveryApi } from "./lib/api";
+import { KNOWN_GVRS, extSlug } from "./lib/resources";
 
 interface NavLeaf {
   to: string;
@@ -58,6 +61,10 @@ const GROUPS: NavGroupDef[] = [
     leaves: [
       { to: "/r/configmaps", label: "ConfigMaps" },
       { to: "/r/secrets", label: "Secrets" },
+      { to: "/r/resourcequotas", label: "ResourceQuotas" },
+      { to: "/r/limitranges", label: "LimitRanges" },
+      { to: "/r/horizontalpodautoscalers", label: "HPAs" },
+      { to: "/r/poddisruptionbudgets", label: "PDBs" },
     ],
   },
   {
@@ -66,6 +73,7 @@ const GROUPS: NavGroupDef[] = [
     leaves: [
       { to: "/r/services", label: "Services" },
       { to: "/r/ingresses", label: "Ingresses" },
+      { to: "/r/networkpolicies", label: "NetworkPolicies" },
     ],
   },
   {
@@ -75,6 +83,17 @@ const GROUPS: NavGroupDef[] = [
       { to: "/r/persistentvolumeclaims", label: "PVCs" },
       { to: "/r/persistentvolumes", label: "PVs" },
       { to: "/r/storageclasses", label: "StorageClasses" },
+    ],
+  },
+  {
+    label: "Access Control",
+    icon: <IconShield />,
+    leaves: [
+      { to: "/r/serviceaccounts", label: "ServiceAccounts" },
+      { to: "/r/roles", label: "Roles" },
+      { to: "/r/clusterroles", label: "ClusterRoles" },
+      { to: "/r/rolebindings", label: "RoleBindings" },
+      { to: "/r/clusterrolebindings", label: "ClusterRoleBindings" },
     ],
   },
   {
@@ -104,7 +123,45 @@ function NavSub({ leaf }: { leaf: NavLeaf }) {
   );
 }
 
-function Sidebar({ up }: { up: boolean }) {
+function CustomResourcesGroup() {
+  const clusters = useQuery({ queryKey: ["clusters"], queryFn: api.clusters });
+  const cluster = (clusters.data ?? []).find((c) => c.status === "connected")?.id ?? "";
+  const disc = useQuery({
+    queryKey: ["apis", cluster],
+    queryFn: () => discoveryApi.apis(cluster),
+    enabled: !!cluster,
+    staleTime: 60_000,
+    retry: false,
+  });
+  const [open, setOpen] = useState(false);
+  const items = useMemo(
+    () => (disc.data ?? []).filter((e) => e.group !== "" && !KNOWN_GVRS.has(e.gvr)).slice(0, 40),
+    [disc.data],
+  );
+  if (!items.length) return null;
+  return (
+    <div className={`nav-group${open ? " open" : ""}`}>
+      <button className="nav-group-title" onClick={() => setOpen((o) => !o)}>
+        <span className="nav-icon"><IconCube /></span>
+        <span>Custom Resources</span>
+        <span className="chev" style={{ marginLeft: "auto" }}>▸</span>
+      </button>
+      <div className="nav-group-items">
+        {items.map((e) => (
+          <NavLink
+            key={e.gvr}
+            to={`/r/ext--${extSlug(e.gvr)}?scoped=${e.namespaced ? 1 : 0}`}
+            className={({ isActive }) => (isActive ? "nav-item sub active" : "nav-item sub")}
+          >
+            {e.kind}
+          </NavLink>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function Sidebar({ up, onOpenPalette }: { up: boolean; onOpenPalette: () => void }) {
   const initialOpen = () => {
     const map: Record<string, boolean> = { Workloads: true };
     for (const g of GROUPS) if (!map[g.label]) map[g.label] = false;
@@ -130,7 +187,7 @@ function Sidebar({ up }: { up: boolean }) {
         <span>Kubebay</span>
       </div>
 
-      <button className="palette-hint">
+      <button className="palette-hint" onClick={onOpenPalette}>
         <IconSearch size={13} />
         <span>Search…</span>
         <kbd>⌘K</kbd>
@@ -155,7 +212,7 @@ function Sidebar({ up }: { up: boolean }) {
             >
               <span className="nav-icon">{g.icon}</span>
               <span>{g.label}</span>
-              <span className="chev">▸</span>
+              <span className="chev" style={{ marginLeft: "auto" }}>▸</span>
             </button>
             <div className="nav-group-items">
               {g.leaves.map((l) => (
@@ -164,6 +221,8 @@ function Sidebar({ up }: { up: boolean }) {
             </div>
           </div>
         ))}
+
+        <CustomResourcesGroup />
 
         <div className="nav-section">Tools</div>
         {TOOLS.map((t) => (
@@ -185,10 +244,23 @@ function Sidebar({ up }: { up: boolean }) {
 export default function App() {
   const health = useQuery({ queryKey: ["health"], queryFn: api.health, refetchInterval: 10_000 });
   const up = health.data?.ok === true;
+  const [paletteOpen, setPaletteOpen] = useState(false);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPaletteOpen((o) => !o);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   return (
     <div className="app">
-      <Sidebar up={up} />
+      <Sidebar up={up} onOpenPalette={() => setPaletteOpen(true)} />
+      <Palette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
 
       <main className="content">
         <Routes>

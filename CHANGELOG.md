@@ -7,6 +7,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 ## [Unreleased]
 
 ### Added
+- Feature-verification pass fixes: nil-request panic in RBAC/metrics identity helper (caught by live API battery)
+- `/api/apis` discovery endpoint; sidebar now covers the full Lens surface — NetworkPolicies, HPAs, PDBs, ResourceQuotas, LimitRanges, ServiceAccounts, Roles/ClusterRoles/Bindings — plus a dynamic Custom Resources section built from API discovery (`/r/ext/:group/:version/:resource`)
+- Functional ⌘K command palette: fuzzy navigation across every page and resource view
+
+### Added
 - In-cluster web mode: `--in-cluster` flag, OIDC login (authorization-code flow against any standard IdP with session cookies + logout), and per-user impersonation on every K8s access path — informer pools are keyed per identity so cluster RBAC governs streams too
 - Deployment artifacts: multi-stage Dockerfile (web+UI embedded, distroless runtime), `charts/kubebay` Helm chart (SA + impersonation ClusterRole, Service, optional Ingress/TLS, OIDC values), GHCR image publish workflow (amd64+arm64)
 - Helm manager: releases list (all namespaces, live status), history with two-step rollback, user-values editor (Monaco) with chart-ref/version inputs and Save-&-upgrade via install-or-upgrade resolution, deployed-manifest view, typed-confirm uninstall — Helm SDK v3 wired through per-context kubeconfig ConfigFlags

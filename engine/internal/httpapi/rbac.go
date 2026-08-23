@@ -48,8 +48,8 @@ type RBAC struct {
 	Clusters *clusters.Manager
 }
 
-func (rb *RBAC) clientset(cluster string) (*kubernetes.Clientset, error) {
-	cfg, err := restConfigFor(nil, rb.Clusters, cluster)
+func (rb *RBAC) clientset(r *http.Request, cluster string) (*kubernetes.Clientset, error) {
+	cfg, err := restConfigFor(r.Context(), rb.Clusters, cluster)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +72,7 @@ func (rb *RBAC) HandleAll(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "cluster required", http.StatusBadRequest)
 		return
 	}
-	cs, err := rb.clientset(cluster)
+	cs, err := rb.clientset(r, cluster)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("client: %v", err), http.StatusInternalServerError)
 		return
@@ -148,7 +148,7 @@ func (rb *RBAC) HandleSelfCheck(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "cluster, verb, resource required", http.StatusBadRequest)
 		return
 	}
-	cs, err := rb.clientset(req.Cluster)
+	cs, err := rb.clientset(r, req.Cluster)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("client: %v", err), http.StatusInternalServerError)
 		return

@@ -44,7 +44,21 @@ export const DEFS: Record<string, ResourceDef> = {
   persistentvolumes: def("persistentvolumes", "PVs", "v1/persistentvolumes", { scoped: true, mode: "full" }),
   storageclasses: def("storageclasses", "StorageClasses", "storage.k8s.io/v1/storageclasses", { scoped: true }),
   nodes: def("nodes", "Nodes", "v1/nodes", { scoped: true, mode: "full" }),
+  networkpolicies: def("networkpolicies", "NetworkPolicies", "networking.k8s.io/v1/networkpolicies"),
+  horizontalpodautoscalers: def("horizontalpodautoscalers", "HPAs", "autoscaling/v2/horizontalpodautoscalers", { mode: "full" }),
+  poddisruptionbudgets: def("poddisruptionbudgets", "PDBs", "policy/v1/poddisruptionbudgets"),
+  resourcequotas: def("resourcequotas", "ResourceQuotas", "v1/resourcequotas"),
+  limitranges: def("limitranges", "LimitRanges", "v1/limitranges"),
+  serviceaccounts: def("serviceaccounts", "ServiceAccounts", "v1/serviceaccounts"),
+  roles: def("roles", "Roles", "rbac.authorization.k8s.io/v1/roles"),
+  clusterroles: def("clusterroles", "ClusterRoles", "rbac.authorization.k8s.io/v1/clusterroles", { scoped: true }),
+  rolebindings: def("rolebindings", "RoleBindings", "rbac.authorization.k8s.io/v1/rolebindings"),
+  clusterrolebindings: def("clusterrolebindings", "ClusterRoleBindings", "rbac.authorization.k8s.io/v1/clusterrolebindings", { scoped: true }),
 };
+
+export function extSlug(gvr: string): string {
+  return gvr.replaceAll("/", "--");
+}
 
 export function fmtAge(ms: number): string {
   const s = Math.floor(ms / 1000);
@@ -73,3 +87,7 @@ export function str(v: unknown): string {
 export const EXTRA_DEFS: Record<string, ResourceDef> = {
   namespaces: def("namespaces", "Namespaces", "v1/namespaces", { scoped: true }),
 };
+
+export const KNOWN_GVRS = new Set(
+  [...Object.values(DEFS), ...Object.values(EXTRA_DEFS)].map((d) => d.gvr),
+);
