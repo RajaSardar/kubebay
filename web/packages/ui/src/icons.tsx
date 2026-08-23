@@ -137,3 +137,13 @@ export function IconDatabase({ size, strokeWidth }: IconProps) {
     </svg>
   );
 }
+
+export function IconLayers({ size, strokeWidth }: IconProps) {
+  return (
+    <svg {...base(size, strokeWidth)}>
+      <path d="m12 2 9 5-9 5-9-5 9-5z" />
+      <path d="m3 12 9 5 9-5" />
+      <path d="m3 17 9 5 9-5" />
+    </svg>
+  );
+}

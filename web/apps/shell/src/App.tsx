@@ -8,6 +8,7 @@ import {
   IconForward,
   IconGrid,
   IconHelm,
+  IconLayers,
   IconNetwork,
   IconSearch,
   IconShield,
@@ -24,6 +25,7 @@ import Timeline from "./pages/Timeline";
 import Topology from "./pages/Topology";
 import Rbac from "./pages/Rbac";
 import Helm from "./pages/Helm";
+import Fleet from "./pages/Fleet";
 import ResourceTable from "./pages/ResourceTable";
 
 interface NavLeaf {
@@ -140,6 +142,10 @@ function Sidebar({ up }: { up: boolean }) {
           <span className="nav-icon"><IconGrid /></span>
           <span>Overview</span>
         </NavLink>
+        <NavLink to="/fleet" className={({ isActive }) => (isActive ? "nav-item active" : "nav-item")}>
+          <span className="nav-icon"><IconLayers /></span>
+          <span>Fleet</span>
+        </NavLink>
 
         {GROUPS.map((g) => (
           <div key={g.label} className={`nav-group${open[g.label] ? " open" : ""}`}>
@@ -187,6 +193,7 @@ export default function App() {
       <main className="content">
         <Routes>
           <Route path="/" element={<Overview />} />
+          <Route path="/fleet" element={<Fleet />} />
           <Route path="/workloads" element={<Workloads />} />
           <Route path="/r/:kind" element={<ResourceTable />} />
           <Route path="/ports" element={<Ports />} />

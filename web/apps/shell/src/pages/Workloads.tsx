@@ -123,7 +123,7 @@ const STATUS_TONE: Record<PodRow["status"], { color: string; badge?: "ok" | "err
 
 export default function Workloads() {
   const clusters = useQuery({ queryKey: ["clusters"], queryFn: api.clusters });
-  const [clusterId, setClusterId] = useState<string>("");
+  const [clusterId, setClusterId] = useState<string>(() => new URLSearchParams(window.location.search).get("cluster") ?? "");
   const [filter, setFilter] = useState("");
 
   const list = clusters.data ?? [];
