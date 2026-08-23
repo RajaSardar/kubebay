@@ -1,0 +1,9 @@
+{
+  "name": "@kubebay/web",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --filter @kubebay/shell dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck"
+  }
+}

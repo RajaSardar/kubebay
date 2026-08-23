@@ -1,0 +1,176 @@
+:root {
+  --kb-font:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, "Helvetica Neue",
+    Arial, sans-serif;
+  --kb-font-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+
+  --kb-radius-sm: 6px;
+  --kb-radius: 10px;
+  --kb-radius-lg: 14px;
+
+  --kb-dur-fast: 110ms;
+  --kb-dur: 170ms;
+  --kb-dur-slow: 260ms;
+  --kb-ease: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --kb-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --kb-space-1: 4px;
+  --kb-space-2: 8px;
+  --kb-space-3: 12px;
+  --kb-space-4: 16px;
+  --kb-space-5: 24px;
+  --kb-space-6: 32px;
+}
+
+:root,
+:root[data-theme="dusk"] {
+  color-scheme: dark;
+
+  --kb-bg-canvas: #0a0b10;
+  --kb-bg-surface: #101218;
+  --kb-bg-raised: #171a24;
+  --kb-bg-overlay: #1d2130;
+  --kb-bg-inset: #0c0e14;
+
+  --kb-fg-default: #e9ebf2;
+  --kb-fg-muted: #9aa2b6;
+  --kb-fg-subtle: #667089;
+
+  --kb-accent: #5b8def;
+  --kb-accent-hover: #6f9cf5;
+  --kb-accent-subtle: rgba(91, 141, 239, 0.13);
+  --kb-accent-fg: #ffffff;
+
+  --kb-status-ok: #41c98e;
+  --kb-status-warn: #dca154;
+  --kb-status-err: #ef5f68;
+  --kb-status-pending: #8b93a7;
+
+  --kb-border-subtle: #1d212e;
+  --kb-border-strong: #293041;
+  --kb-highlight-inset: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+
+  --kb-shadow-rest: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --kb-shadow-lift: 0 10px 30px -10px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.3);
+
+  --kb-focus-ring: 0 0 0 2px rgba(91, 141, 239, 0.55);
+  --kb-selection: rgba(91, 141, 239, 0.3);
+
+  --kb-glow-a: rgba(91, 141, 239, 0.07);
+  --kb-glow-b: rgba(65, 201, 142, 0.05);
+  --kb-theme-color: #0a0b10;
+}
+
+:root[data-theme="dawn"] {
+  color-scheme: light;
+
+  --kb-bg-canvas: #f7f8fb;
+  --kb-bg-surface: #ffffff;
+  --kb-bg-raised: #ffffff;
+  --kb-bg-overlay: #ffffff;
+  --kb-bg-inset: #eef0f5;
+
+  --kb-fg-default: #191f2c;
+  --kb-fg-muted: #5d6577;
+  --kb-fg-subtle: #8a92a5;
+
+  --kb-accent: #3067d6;
+  --kb-accent-hover: #2456bd;
+  --kb-accent-subtle: rgba(48, 103, 214, 0.09);
+  --kb-accent-fg: #ffffff;
+
+  --kb-status-ok: #178a52;
+  --kb-status-warn: #b07422;
+  --kb-status-err: #d33b47;
+  --kb-status-pending: #6f7789;
+
+  --kb-border-subtle: #e7eaf0;
+  --kb-border-strong: #d3d9e4;
+  --kb-highlight-inset: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+
+  --kb-shadow-rest: 0 1px 2px rgba(20, 28, 46, 0.06);
+  --kb-shadow-lift: 0 10px 26px -10px rgba(20, 28, 46, 0.16), 0 2px 6px rgba(20, 28, 46, 0.07);
+
+  --kb-focus-ring: 0 0 0 2px rgba(48, 103, 214, 0.4);
+  --kb-selection: rgba(48, 103, 214, 0.18);
+
+  --kb-glow-a: rgba(48, 103, 214, 0.05);
+  --kb-glow-b: rgba(23, 138, 82, 0.04);
+  --kb-theme-color: #f7f8fb;
+}
+
+:root[data-theme="dusk-hc"] {
+  color-scheme: dark;
+
+  --kb-bg-canvas: #000000;
+  --kb-bg-surface: #0b0b0b;
+  --kb-bg-raised: #161616;
+  --kb-bg-overlay: #1f1f1f;
+  --kb-bg-inset: #000000;
+
+  --kb-fg-default: #ffffff;
+  --kb-fg-muted: #d0d0d0;
+  --kb-fg-subtle: #a8a8a8;
+
+  --kb-accent: #7cabff;
+  --kb-accent-hover: #93bcff;
+  --kb-accent-subtle: rgba(124, 171, 255, 0.18);
+  --kb-accent-fg: #000000;
+
+  --kb-status-ok: #00d974;
+  --kb-status-warn: #ffb340;
+  --kb-status-err: #ff606b;
+  --kb-status-pending: #d0d0d0;
+
+  --kb-border-subtle: #333333;
+  --kb-border-strong: #525252;
+  --kb-highlight-inset: none;
+
+  --kb-shadow-rest: none;
+  --kb-shadow-lift: 0 0 0 1px #525252;
+
+  --kb-focus-ring: 0 0 0 2px #7cabff;
+  --kb-selection: rgba(124, 171, 255, 0.4);
+
+  --kb-glow-a: transparent;
+  --kb-glow-b: transparent;
+  --kb-theme-color: #000000;
+}
+
+:root[data-theme="dawn-hc"] {
+  color-scheme: light;
+
+  --kb-bg-canvas: #ffffff;
+  --kb-bg-surface: #ffffff;
+  --kb-bg-raised: #ffffff;
+  --kb-bg-overlay: #ffffff;
+  --kb-bg-inset: #f0f0f0;
+
+  --kb-fg-default: #000000;
+  --kb-fg-muted: #2d2d2d;
+  --kb-fg-subtle: #4d4d4d;
+
+  --kb-accent: #003fb3;
+  --kb-accent-hover: #002e87;
+  --kb-accent-subtle: rgba(0, 63, 179, 0.12);
+  --kb-accent-fg: #ffffff;
+
+  --kb-status-ok: #006638;
+  --kb-status-warn: #7a4d00;
+  --kb-status-err: #ad0015;
+  --kb-status-pending: #2d2d2d;
+
+  --kb-border-subtle: #c9c9c9;
+  --kb-border-strong: #999999;
+  --kb-highlight-inset: none;
+
+  --kb-shadow-rest: none;
+  --kb-shadow-lift: 0 0 0 1px #999999;
+
+  --kb-focus-ring: 0 0 0 2px #003fb3;
+  --kb-selection: rgba(0, 63, 179, 0.25);
+
+  --kb-glow-a: transparent;
+  --kb-glow-b: transparent;
+  --kb-theme-color: #ffffff;
+}
