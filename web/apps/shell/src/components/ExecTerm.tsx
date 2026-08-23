@@ -80,6 +80,13 @@ export function ExecTerm({
           openWith(next);
           return;
         }
+        if (failed && !gotOutput) {
+          term.write(
+            "\r\n\x1b[31m■ This container ships no shell (distroless image?).\x1b[0m\r\n" +
+              "\x1b[2mTip: use the Logs tab, or run a debug pod via Node shell.\x1b[0m\r\n",
+          );
+          return;
+        }
         term.write(`\r\n\x1b[33m■ session ended${msg && msg !== "done" ? ` — ${msg}` : ""}\x1b[0m\r\n`);
       },
       onStatus: (up) => {
