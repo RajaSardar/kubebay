@@ -11,3 +11,8 @@ engine/kubebay
 
 web/apps/shell/dist/
 *.tsbuildinfo
+
+desktop/src-tauri/target/
+desktop/src-tauri/binaries/
+desktop/node_modules/
+desktop/src-tauri/gen/
