@@ -22,11 +22,25 @@ func main() {
 	addr := flag.String("addr", "127.0.0.1:9898", "listen address")
 	kubeconfig := flag.String("kubeconfig", "", "explicit kubeconfig path (default: KUBECONFIG / ~/.kube/config)")
 	webDist := flag.String("web-dist", "", "serve SPA from this directory")
+	inCluster := flag.Bool("in-cluster", false, "use in-cluster ServiceAccount config instead of kubeconfig")
+	oidcIssuer := flag.String("oidc-issuer-url", os.Getenv("KUBEBAY_OIDC_ISSUER"), "OIDC issuer URL (enables login)")
+	oidcClientID := flag.String("oidc-client-id", os.Getenv("KUBEBAY_OIDC_CLIENT_ID"), "OIDC client id")
+	oidcClientSecret := flag.String("oidc-client-secret", os.Getenv("KUBEBAY_OIDC_CLIENT_SECRET"), "OIDC client secret")
+	oidcRedirect := flag.String("oidc-redirect-url", os.Getenv("KUBEBAY_OIDC_REDIRECT"), "OAuth2 redirect URL")
 	flag.Parse()
 
 	log := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 
-	mgr, err := clusters.NewManager(log, *kubeconfig)
+	var mgr *clusters.Manager
+	var err error
+	if *inCluster {
+		mgr, err = clusters.NewManager(log, "")
+		if err == nil {
+			err = mgr.LoadInCluster()
+		}
+	} else {
+		mgr, err = clusters.NewManager(log, *kubeconfig)
+	}
 	if err != nil {
 		log.Error("cluster manager init failed", "err", err)
 		os.Exit(1)
@@ -46,8 +60,15 @@ func main() {
 		os.Exit(1)
 	}
 
+	auth, authErr := httpapi.NewAuthenticator(*oidcIssuer, *oidcClientID, *oidcClientSecret, *oidcRedirect)
+	if authErr != nil {
+		log.Error("oidc init failed", "err", authErr)
+		os.Exit(1)
+	}
+
 	handler := httpapi.Router(httpapi.Deps{
 		Log:      log,
+		Auth:     auth,
 		Clusters: mgr,
 		Pools:    registry,
 		Hub:      hub,

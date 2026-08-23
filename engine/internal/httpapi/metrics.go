@@ -32,7 +32,7 @@ func (m *Metrics) HandlePodMetrics(w http.ResponseWriter, r *http.Request) {
 	}
 	ns := q.Get("ns")
 
-	cfg, err := m.Clusters.RestConfig(cluster)
+	cfg, err := restConfigFor(nil, m.Clusters, cluster)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("connect: %v", err), http.StatusInternalServerError)
 		return

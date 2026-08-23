@@ -1,0 +1,27 @@
+image:
+  repository: ghcr.io/rajasardar/kubebay
+  tag: latest
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+oidc:
+  issuerUrl: ""
+  clientId: ""
+  clientSecret: ""
+  redirectUrl: ""
+
+ingress:
+  enabled: false
+  className: nginx
+  host: kubebay.example.com
+  tls:
+    enabled: false
+    secretName: kubebay-tls
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 96Mi
+  limits:
+    memory: 512Mi

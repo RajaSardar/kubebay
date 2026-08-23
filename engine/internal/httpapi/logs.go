@@ -16,8 +16,8 @@ type Channels struct {
 	Clusters *clusters.Manager
 }
 
-func (c *Channels) clientset(cluster string) (*kubernetes.Clientset, error) {
-	cfg, err := c.Clusters.RestConfig(cluster)
+func (c *Channels) clientset(ctx context.Context, cluster string) (*kubernetes.Clientset, error) {
+	cfg, err := c.Clusters.RestConfigWithIdentity(cluster, clusters.IdentityFromContext(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -25,7 +25,7 @@ func (c *Channels) clientset(cluster string) (*kubernetes.Clientset, error) {
 }
 
 func (c *Channels) OpenLogs(ctx context.Context, spec stream.ChanSpec, write func([]byte) error) error {
-	cs, err := c.clientset(spec.Cluster)
+	cs, err := c.clientset(ctx, spec.Cluster)
 	if err != nil {
 		return fmt.Errorf("connect: %w", err)
 	}

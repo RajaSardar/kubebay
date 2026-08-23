@@ -49,7 +49,7 @@ type RBAC struct {
 }
 
 func (rb *RBAC) clientset(cluster string) (*kubernetes.Clientset, error) {
-	cfg, err := rb.Clusters.RestConfig(cluster)
+	cfg, err := restConfigFor(nil, rb.Clusters, cluster)
 	if err != nil {
 		return nil, err
 	}

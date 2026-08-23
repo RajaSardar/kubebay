@@ -15,8 +15,8 @@ import (
 	"github.com/RajaSardar/kubebay/engine/internal/informers"
 )
 
-func (c *Channels) dynClient(cluster string) (dynamic.Interface, error) {
-	cfg, err := c.Clusters.RestConfig(cluster)
+func (c *Channels) dynClient(ctx context.Context, cluster string) (dynamic.Interface, error) {
+	cfg, err := c.Clusters.RestConfigWithIdentity(cluster, IdentityFromContext(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("connect: %w", err)
 	}
@@ -43,12 +43,12 @@ func stripNoisyFields(obj map[string]interface{}) {
 	}
 }
 
-func (c *Channels) resourceFor(cluster, gvrStr string) (dynamic.ResourceInterface, error) {
+func (c *Channels) resourceFor(ctx context.Context, cluster, gvrStr string) (dynamic.ResourceInterface, error) {
 	g, err := informers.ParseGVR(gvrStr)
 	if err != nil {
 		return nil, err
 	}
-	d, err := c.dynClient(cluster)
+	d, err := c.dynClient(ctx, cluster)
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +69,7 @@ func (c *Channels) HandleGetYAML(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	d, err := c.dynClient(cluster)
+	d, err := c.dynClient(r.Context(), cluster)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -138,7 +138,7 @@ func (c *Channels) HandleApplyYAML(w http.ResponseWriter, r *http.Request) {
 		patchOpts.DryRun = []string{metav1.DryRunAll}
 	}
 
-	d, err := c.dynClient(req.Cluster)
+	d, err := c.dynClient(r.Context(), req.Cluster)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

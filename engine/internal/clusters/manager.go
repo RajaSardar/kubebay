@@ -1,6 +1,7 @@
 package clusters
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
@@ -13,6 +14,11 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
+
+type Identity struct {
+	Name   string
+	Groups []string
+}
 
 type Status string
 
@@ -209,6 +215,68 @@ func (m *Manager) healthLoop() {
 		wg.Wait()
 		time.Sleep(30 * time.Second)
 	}
+}
+
+func (m *Manager) LoadInCluster() error {
+	cfg, err := rest.InClusterConfig()
+	if err != nil {
+		return fmt.Errorf("in-cluster config: %w", err)
+	}
+	m.mu.Lock()
+	m.entries = map[string]*entry{
+		"in-cluster": {
+			cfg: cfg,
+			cluster: &Cluster{
+				ID:      "in-cluster",
+				Context: "in-cluster",
+				Server:  "(in-cluster)",
+				Status:  StatusUnreachable,
+			},
+		},
+	}
+	m.order = []string{"in-cluster"}
+	m.mu.Unlock()
+	go func() {
+		time.Sleep(time.Second)
+		m.mu.RLock()
+		e := m.entries["in-cluster"]
+		m.mu.RUnlock()
+		if e != nil {
+			m.healthOnce(e)
+		}
+	}()
+	return nil
+}
+
+type ctxKey int
+
+const identityKey ctxKey = 1
+
+func WithIdentity(ctx context.Context, ident *Identity) context.Context {
+	return context.WithValue(ctx, identityKey, ident)
+}
+
+func IdentityFromContext(ctx context.Context) *Identity {
+	v, _ := ctx.Value(identityKey).(*Identity)
+	return v
+}
+
+// RestConfigWithIdentity returns a copy of the cluster config that
+// impersonates the given identity (nil = engine's own identity).
+func (m *Manager) RestConfigWithIdentity(id string, ident *Identity) (*rest.Config, error) {
+	base, err := m.RestConfig(id)
+	if err != nil {
+		return nil, err
+	}
+	if ident == nil || ident.Name == "" {
+		return base, nil
+	}
+	cp := *base
+	cp.Impersonate = rest.ImpersonationConfig{
+		UserName: ident.Name,
+		Groups:   ident.Groups,
+	}
+	return &cp, nil
 }
 
 func (m *Manager) List() []Cluster {

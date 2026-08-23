@@ -24,6 +24,10 @@ export interface ClusterInfo {
 
 async function get<T>(path: string): Promise<T> {
   const res = await fetch(`${path}?token=${encodeURIComponent(getToken())}`);
+  if (res.status === 401 && !getToken()) {
+    window.location.href = "/api/auth/login";
+    throw new Error("login required");
+  }
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
   return res.json() as Promise<T>;
 }

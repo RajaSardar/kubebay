@@ -6,10 +6,13 @@ import (
 	"sync"
 
 	"k8s.io/client-go/rest"
+
+	"github.com/RajaSardar/kubebay/engine/internal/clusters"
 )
 
 type ClusterConfigSource interface {
 	RestConfig(id string) (*rest.Config, error)
+	RestConfigWithIdentity(id string, ident *clusters.Identity) (*rest.Config, error)
 }
 
 type PoolRegistry struct {
@@ -23,12 +26,21 @@ func NewPoolRegistry(mgr ClusterConfigSource) *PoolRegistry {
 }
 
 func (r *PoolRegistry) For(_ context.Context, clusterID string) (*Pool, error) {
+	ident := clusters.IdentityFromContext(context.Background())
+	return r.ForUser(context.Background(), clusterID, ident)
+}
+
+func (r *PoolRegistry) ForUser(ctx context.Context, clusterID string, ident *clusters.Identity) (*Pool, error) {
+	key := clusterID
+	if ident != nil && ident.Name != "" {
+		key = clusterID + "\u007c" + ident.Name
+	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if p, ok := r.pools[clusterID]; ok {
+	if p, ok := r.pools[key]; ok {
 		return p, nil
 	}
-	cfg, err := r.mgr.RestConfig(clusterID)
+	cfg, err := r.mgr.RestConfigWithIdentity(clusterID, ident)
 	if err != nil {
 		return nil, fmt.Errorf("resolve cluster %q: %w", clusterID, err)
 	}
@@ -36,6 +48,6 @@ func (r *PoolRegistry) For(_ context.Context, clusterID string) (*Pool, error) {
 	if err != nil {
 		return nil, fmt.Errorf("init pool for %q: %w", clusterID, err)
 	}
-	r.pools[clusterID] = p
+	r.pools[key] = p
 	return p, nil
 }

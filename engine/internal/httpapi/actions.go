@@ -20,8 +20,8 @@ type Actions struct {
 	Clusters *clusters.Manager
 }
 
-func (a *Actions) dyn(cluster string) (dynamic.Interface, error) {
-	cfg, err := a.Clusters.RestConfig(cluster)
+func (a *Actions) dyn(ctx context.Context, cluster string) (dynamic.Interface, error) {
+	cfg, err := a.Clusters.RestConfigWithIdentity(cluster, clusters.IdentityFromContext(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("connect: %w", err)
 	}
@@ -33,7 +33,7 @@ func mustGVR(s string) (schema.GroupVersionResource, error) {
 }
 
 func (a *Actions) Scale(ctx context.Context, cluster, gvr, ns, name string, replicas int64) error {
-	d, err := a.dyn(cluster)
+	d, err := a.dyn(ctx, cluster)
 	if err != nil {
 		return err
 	}
@@ -64,7 +64,7 @@ func setNestedReplicas(obj map[string]interface{}, replicas int64) error {
 }
 
 func (a *Actions) Restart(ctx context.Context, cluster, gvr, ns, name string) error {
-	d, err := a.dyn(cluster)
+	d, err := a.dyn(ctx, cluster)
 	if err != nil {
 		return err
 	}
@@ -78,7 +78,7 @@ func (a *Actions) Restart(ctx context.Context, cluster, gvr, ns, name string) er
 }
 
 func (a *Actions) Delete(ctx context.Context, cluster, gvr, ns, name string) error {
-	d, err := a.dyn(cluster)
+	d, err := a.dyn(ctx, cluster)
 	if err != nil {
 		return err
 	}

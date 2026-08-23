@@ -11,6 +11,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/remotecommand"
 
+	"github.com/RajaSardar/kubebay/engine/internal/clusters"
 	"github.com/RajaSardar/kubebay/engine/internal/stream"
 )
 
@@ -50,7 +51,7 @@ func (w chanWriter) Write(p []byte) (int, error) {
 }
 
 func (c *Channels) OpenExec(ctx context.Context, spec stream.ChanSpec, write func([]byte) error, stdin io.Reader, resize <-chan stream.TermSize) error {
-	cfg, err := c.Clusters.RestConfig(spec.Cluster)
+	cfg, err := c.Clusters.RestConfigWithIdentity(spec.Cluster, clusters.IdentityFromContext(ctx))
 	if err != nil {
 		return fmt.Errorf("connect: %w", err)
 	}

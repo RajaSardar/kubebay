@@ -27,7 +27,10 @@ type Deps struct {
 	Metrics  *Metrics
 	RBAC     *RBAC
 	Helm     *HelmManager
+	Auth     *Authenticator
 }
+
+func (d Deps) authEnabled() bool { return d.Auth != nil && d.Auth.Enabled() }
 
 func NewChannels(mgr *clusters.Manager) *Channels {
 	return &Channels{Clusters: mgr}
@@ -49,8 +52,27 @@ func Router(d Deps, token string) http.Handler {
 		writeJSON(w, map[string]bool{"ok": true})
 	})
 
+	if d.authEnabled() {
+		r.Route("/api/auth", func(r chi.Router) {
+			r.Get("/login", d.Auth.HandleLogin)
+			r.Get("/callback", d.Auth.HandleCallback)
+			r.Get("/me", func(w http.ResponseWriter, req *http.Request) {
+				s := d.Auth.sessionFrom(req)
+				if s == nil {
+					writeJSON(w, map[string]any{"authenticated": false})
+					return
+				}
+				writeJSON(w, map[string]any{"authenticated": true, "user": s.Ident.Name, "groups": s.Ident.Groups})
+			})
+			r.Get("/logout", d.Auth.HandleLogout)
+		})
+	}
+
 	r.Group(func(r chi.Router) {
-		r.Use(requireToken(token))
+		r.Use(requireToken(token, d.Auth))
+		if d.authEnabled() {
+			r.Use(d.Auth.Middleware)
+		}
 		r.Get("/api/clusters", func(w http.ResponseWriter, _ *http.Request) {
 			writeJSON(w, d.Clusters.List())
 		})
@@ -159,9 +181,13 @@ func Router(d Deps, token string) http.Handler {
 	return r
 }
 
-func requireToken(token string) func(http.Handler) http.Handler {
+func requireToken(token string, auth *Authenticator) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if auth != nil && auth.Enabled() && auth.sessionFrom(r) != nil {
+				next.ServeHTTP(w, r)
+				return
+			}
 			if token != "" && r.URL.Query().Get("token") != token {
 				http.Error(w, "unauthorized", http.StatusUnauthorized)
 				return
