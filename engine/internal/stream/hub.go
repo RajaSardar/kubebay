@@ -2,6 +2,8 @@ package stream
 
 import (
 	"context"
+	"encoding/binary"
+	"io"
 	"log/slog"
 	"net/http"
 	"sync"
@@ -12,12 +14,13 @@ import (
 
 const (
 	writeTimeout  = 10 * time.Second
-	maxFrameSize  = 8 << 20
+	maxFrameSize  = 16 << 20
 	itemsPerFrame = 200
 )
 
 type Hub struct {
-	log *slog.Logger
+	log      *slog.Logger
+	chandeps ChannelDeps
 }
 
 type SubSource interface {
@@ -30,7 +33,37 @@ type SubHandle interface {
 	Deltas() <-chan []Op
 }
 
-func NewHub(log *slog.Logger) *Hub { return &Hub{log: log} }
+type TermSize struct {
+	Cols uint16
+	Rows uint16
+}
+
+type ChanSpec struct {
+	Kind      string
+	Cluster   string
+	Namespace string
+	Pod       string
+	Container string
+	Tail      int64
+	Follow    bool
+	Previous  bool
+	Command   []string
+	Cols      uint16
+	Rows      uint16
+}
+
+type ChannelDeps interface {
+	OpenLogs(ctx context.Context, spec ChanSpec, write func([]byte) error) error
+	OpenExec(ctx context.Context, spec ChanSpec, write func([]byte) error, stdin io.Reader, resize <-chan TermSize) error
+}
+
+func NewHub(log *slog.Logger, deps ChannelDeps) *Hub { return &Hub{log: log, chandeps: deps} }
+
+type chanEntry struct {
+	cancel context.CancelFunc
+	stdin  io.Writer
+	resize chan<- TermSize
+}
 
 type subTable struct {
 	mu sync.Mutex
@@ -39,13 +72,14 @@ type subTable struct {
 
 func newSubTable() *subTable { return &subTable{m: map[string]context.CancelFunc{}} }
 
-func (t *subTable) put(id string, cancel context.CancelFunc) {
+func (t *subTable) put(id string, cancel context.CancelFunc) bool {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	if prev, ok := t.m[id]; ok {
-		prev()
+	if _, exists := t.m[id]; exists {
+		return false
 	}
 	t.m[id] = cancel
+	return true
 }
 
 func (t *subTable) drop(id string) bool {
@@ -73,7 +107,7 @@ type connWriter struct {
 	c  *websocket.Conn
 }
 
-func (w *connWriter) write(ctx context.Context, typ websocket.MessageType, b []byte) error {
+func (w *connWriter) write(typ websocket.MessageType, b []byte) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	wctx, cancel := context.WithTimeout(context.Background(), writeTimeout)
@@ -86,7 +120,7 @@ func (w *connWriter) sendControl(f ControlFrame) error {
 	if err != nil {
 		return err
 	}
-	return w.write(context.Background(), websocket.MessageText, b)
+	return w.write(websocket.MessageText, b)
 }
 
 func (w *connWriter) sendData(f *DataFrame) error {
@@ -94,12 +128,26 @@ func (w *connWriter) sendData(f *DataFrame) error {
 	if err != nil {
 		return err
 	}
-	return w.write(context.Background(), websocket.MessageBinary, b)
+	return w.write(websocket.MessageBinary, b)
 }
+
+func decodeChanEnvelope(payload []byte) (string, []byte, bool) {
+	if len(payload) < 4 {
+		return "", nil, false
+	}
+	n := binary.BigEndian.Uint32(payload[:4])
+	if int(n) > len(payload)-4 || n == 0 {
+		return "", nil, false
+	}
+	id := string(payload[4 : 4+n])
+	return id, payload[4+n:], true
+}
+
+func validChanKind(k string) bool { return k == ChanKindLogs || k == ChanKindExec }
 
 func (h *Hub) Handle(w http.ResponseWriter, r *http.Request, src SubSource) {
 	c, err := websocket.Accept(w, r, &websocket.AcceptOptions{
-		OriginPatterns: []string{"localhost:*", "127.0.0.1:*"},
+		OriginPatterns: []string{"localhost:*", "127.0.0.1:*", "tauri://localhost", "http://tauri.localhost"},
 	})
 	if err != nil {
 		return
@@ -110,46 +158,173 @@ func (h *Hub) Handle(w http.ResponseWriter, r *http.Request, src SubSource) {
 	ctx := r.Context()
 	writer := &connWriter{c: c}
 	table := newSubTable()
-	var wg sync.WaitGroup
-	defer func() {
+	chans := map[string]*chanEntry{}
+	var chanMu sync.Mutex
+
+	closeChan := func(id string, entry *chanEntry) {
+		entry.cancel()
+		if cw, ok := entry.stdin.(io.Closer); ok {
+			_ = cw.Close()
+		}
+		chanMu.Lock()
+		delete(chans, id)
+		chanMu.Unlock()
+	}
+	cleanupAll := func() {
 		table.stopAll()
-		wg.Wait()
-	}()
+		chanMu.Lock()
+		snapshot := make(map[string]*chanEntry, len(chans))
+		for id, ch := range chans {
+			snapshot[id] = ch
+		}
+		chans = map[string]*chanEntry{}
+		chanMu.Unlock()
+		for _, ch := range snapshot {
+			ch.cancel()
+			if cw, ok := ch.stdin.(io.Closer); ok {
+				_ = cw.Close()
+			}
+		}
+	}
+	defer cleanupAll()
 
 	for {
 		msgType, data, err := c.Read(ctx)
 		if err != nil {
 			return
 		}
-		if msgType != websocket.MessageText {
+
+		if msgType == websocket.MessageBinary {
+			if id, payload, ok := decodeChanEnvelope(data); ok {
+				chanMu.Lock()
+				ch, exists := chans[id]
+				chanMu.Unlock()
+				if exists && ch.stdin != nil {
+					if _, errw := ch.stdin.Write(payload); errw != nil {
+						h.log.Warn("stdin write failed", "chan", id, "err", errw)
+					}
+				}
+			}
 			continue
 		}
+
 		frame, err := DecodeClient(data)
 		if err != nil {
 			_ = writer.sendControl(ControlFrame{Type: TypeError, Message: err.Error()})
 			continue
 		}
+
 		switch frame.Type {
 		case TypePing:
 			_ = writer.sendControl(ControlFrame{Type: "pong", ID: frame.ID})
+
 		case TypeUnsub:
-			if table.drop(frame.ID) {
-				wg.Wait()
-				_ = writer.sendControl(ControlFrame{Type: TypeAck, ID: frame.ID, Message: "unsubscribed"})
-			} else {
+			if !table.drop(frame.ID) {
 				_ = writer.sendControl(ControlFrame{Type: TypeError, ID: frame.ID, Message: "unknown subscription"})
+				continue
 			}
+			_ = writer.sendControl(ControlFrame{Type: TypeAck, ID: frame.ID, Message: "unsubscribed"})
+
 		case TypeResync:
 			table.drop(frame.ID)
-			wg.Wait()
-			h.start(ctx, frame, src, writer, table, &wg)
+			h.start(ctx, frame, src, writer, table)
+
 		case TypeSub:
-			h.start(ctx, frame, src, writer, table, &wg)
+			h.start(ctx, frame, src, writer, table)
+
+		case TypeChanOpen:
+			if !validChanKind(frame.Kind) {
+				_ = writer.sendControl(ControlFrame{Type: TypeError, ID: frame.ID, Message: "invalid channel kind"})
+				continue
+			}
+			chanMu.Lock()
+			_, dup := chans[frame.ID]
+			chanMu.Unlock()
+			if dup {
+				_ = writer.sendControl(ControlFrame{Type: TypeError, ID: frame.ID, Message: "channel id already open"})
+				continue
+			}
+
+			chCtx, cancel := context.WithCancel(context.Background())
+			entry := &chanEntry{cancel: cancel}
+
+			switch frame.Kind {
+			case ChanKindExec:
+				pr, pw := io.Pipe()
+				entry.stdin = pw
+				rz := make(chan TermSize, 8)
+				entry.resize = rz
+				go h.runExec(chCtx, frame, writer, pr, rz, func() { closeChan(frame.ID, entry) })
+			default:
+				go h.runLogs(chCtx, frame, writer, func() { closeChan(frame.ID, entry) })
+			}
+
+			chanMu.Lock()
+			chans[frame.ID] = entry
+			chanMu.Unlock()
+			_ = writer.sendControl(ControlFrame{Type: TypeAck, ID: frame.ID, Message: "channel open"})
+
+		case TypeChanResize:
+			chanMu.Lock()
+			ch, exists := chans[frame.ID]
+			chanMu.Unlock()
+			if exists && ch.resize != nil {
+				select {
+				case ch.resize <- TermSize{Cols: frame.Cols, Rows: frame.Rows}:
+				default:
+				}
+			}
+
+		case TypeChanClose:
+			chanMu.Lock()
+			ch, exists := chans[frame.ID]
+			chanMu.Unlock()
+			if exists {
+				closeChan(frame.ID, ch)
+			}
+			_ = writer.sendControl(ControlFrame{Type: TypeAck, ID: frame.ID, Message: "channel closed"})
 		}
 	}
 }
 
-func (h *Hub) start(parent context.Context, frame *ClientFrame, src SubSource, writer *connWriter, table *subTable, wg *sync.WaitGroup) {
+func (h *Hub) runLogs(ctx context.Context, frame *ClientFrame, writer *connWriter, finished func()) {
+	defer finished()
+	spec := ChanSpec{
+		Kind: ChanKindLogs, Cluster: frame.Cluster, Namespace: frame.Namespace,
+		Pod: frame.Pod, Container: frame.Container, Tail: frame.Tail,
+		Follow: frame.Follow, Previous: frame.Previous,
+	}
+	write := func(b []byte) error {
+		return writer.sendData(&DataFrame{Type: TypeChanData, ID: frame.ID, Data: b})
+	}
+	err := h.chandeps.OpenLogs(ctx, spec, write)
+	msg := "done"
+	if err != nil {
+		msg = err.Error()
+	}
+	_ = writer.sendControl(ControlFrame{Type: TypeChanClosed, ID: frame.ID, Message: msg})
+}
+
+func (h *Hub) runExec(ctx context.Context, frame *ClientFrame, writer *connWriter, stdin *io.PipeReader, resize chan TermSize, finished func()) {
+	defer finished()
+	defer stdin.Close()
+	spec := ChanSpec{
+		Kind: ChanKindExec, Cluster: frame.Cluster, Namespace: frame.Namespace,
+		Pod: frame.Pod, Container: frame.Container, Command: frame.Command,
+		Cols: frame.Cols, Rows: frame.Rows,
+	}
+	write := func(b []byte) error {
+		return writer.sendData(&DataFrame{Type: TypeChanData, ID: frame.ID, Data: b})
+	}
+	err := h.chandeps.OpenExec(ctx, spec, write, stdin, resize)
+	msg := "done"
+	if err != nil {
+		msg = err.Error()
+	}
+	_ = writer.sendControl(ControlFrame{Type: TypeChanClosed, ID: frame.ID, Message: msg})
+}
+
+func (h *Hub) start(parent context.Context, frame *ClientFrame, src SubSource, writer *connWriter, table *subTable) {
 	subCtx, cancel := context.WithCancel(parent)
 	handle, err := src.Subscribe(subCtx, frame.Cluster, frame.GVR, frame.Namespaces, frame.LabelSelector, frame.Mode)
 	if err != nil {
@@ -160,9 +335,7 @@ func (h *Hub) start(parent context.Context, frame *ClientFrame, src SubSource, w
 	table.put(frame.ID, cancel)
 	_ = writer.sendControl(ControlFrame{Type: TypeAck, ID: frame.ID, Message: "subscribed"})
 
-	wg.Add(1)
 	go func() {
-		defer wg.Done()
 		synced := false
 		for {
 			select {

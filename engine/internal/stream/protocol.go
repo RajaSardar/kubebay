@@ -13,16 +13,25 @@ const (
 	TypeResync = "resync"
 	TypePing   = "ping"
 
-	TypeAck   = "ack"
-	TypeError = "error"
-	TypeSync  = "sync"
+	TypeChanOpen    = "chan-open"
+	TypeChanClose   = "chan-close"
+	TypeChanResize  = "chan-resize"
 
-	TypeBegin = "begin"
-	TypeItems = "items"
-	TypeDelta = "delta"
+	TypeAck        = "ack"
+	TypeError      = "error"
+	TypeSync       = "sync"
+	TypeChanClosed = "chan-closed"
+
+	TypeBegin    = "begin"
+	TypeItems    = "items"
+	TypeDelta    = "delta"
+	TypeChanData = "chan-data"
 
 	ModeMetadata = "metadata"
 	ModeFull     = "full"
+
+	ChanKindLogs = "logs"
+	ChanKindExec = "exec"
 )
 
 type ClientFrame struct {
@@ -33,6 +42,17 @@ type ClientFrame struct {
 	Namespaces    []string `json:"ns,omitempty"`
 	LabelSelector string   `json:"labelSelector,omitempty"`
 	Mode          string   `json:"mode,omitempty"`
+
+	Kind      string   `json:"kind,omitempty"`
+	Namespace string   `json:"namespace,omitempty"`
+	Pod       string   `json:"pod,omitempty"`
+	Container string   `json:"container,omitempty"`
+	Tail      int64    `json:"tail,omitempty"`
+	Follow    bool     `json:"follow,omitempty"`
+	Previous  bool     `json:"previous,omitempty"`
+	Command   []string `json:"command,omitempty"`
+	Cols      uint16   `json:"cols,omitempty"`
+	Rows      uint16   `json:"rows,omitempty"`
 }
 
 type ControlFrame struct {
@@ -55,10 +75,12 @@ type Op struct {
 }
 
 type DataFrame struct {
-	Type string `msgpack:"type"`
-	ID   string `msgpack:"id"`
-	RV   string `msgpack:"rv,omitempty"`
-	Ops  []Op   `msgpack:"ops"`
+	Type string         `msgpack:"type"`
+	ID   string         `msgpack:"id"`
+	RV   string         `msgpack:"rv,omitempty"`
+	Ops  []Op           `msgpack:"ops,omitempty"`
+	Data []byte         `msgpack:"data,omitempty"`
+	Meta map[string]any `msgpack:"meta,omitempty"`
 }
 
 func EncodeControl(f ControlFrame) ([]byte, error) {
@@ -71,7 +93,7 @@ func DecodeClient(b []byte) (*ClientFrame, error) {
 		return nil, err
 	}
 	switch f.Type {
-	case TypeSub, TypeUnsub, TypeResync, TypePing:
+	case TypeSub, TypeUnsub, TypeResync, TypePing, TypeChanOpen, TypeChanClose, TypeChanResize:
 	default:
 		return nil, fmt.Errorf("unknown client frame type %q", f.Type)
 	}

@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Badge, Skeleton, StatusDot } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { useResourceStream } from "../lib/useResourceStream";
+import PodPanel, { type SelectedPod } from "./PodPanel";
 
 interface PodRow {
   key: string;
@@ -13,6 +14,7 @@ interface PodRow {
   statusLabel: string;
   restarts: number;
   ageMs: number;
+  containers: string[];
 }
 
 function asRecord(v: unknown): Record<string, unknown> {
@@ -62,17 +64,25 @@ function derivePod(obj: Record<string, unknown>): PodRow | null {
     }
   }
 
+  const containerNames = [
+    ...new Set([
+      ...containerStatuses.map((cs) => cs.name as string).filter(Boolean),
+      ...((spec.containers ?? []) as Record<string, unknown>[]).map((c) => asRecord(c).name as string).filter(Boolean),
+    ]),
+  ];
+
   const created = meta.creationTimestamp ? Date.parse(meta.creationTimestamp as string) : Date.now();
 
   return {
     key: `${namespace}/${name}`,
     name,
     namespace,
-    ready: `${readyCount}/${containers.length || "?"}`,
+    ready: `${readyCount}/${containerNames.length || "?"}`,
     status: state,
     statusLabel: label,
     restarts,
     ageMs: Math.max(0, Date.now() - created),
+    containers: containerNames,
   };
 }
 
@@ -103,6 +113,8 @@ export default function Workloads() {
   const effectiveCluster = clusterId || list.find((c) => c.status === "connected")?.id || list[0]?.id || "";
 
   const { rows, synced, connected } = useResourceStream(effectiveCluster || undefined, "v1/pods", { mode: "full" });
+
+  const [selected, setSelected] = useState<SelectedPod | null>(null);
 
   const pods = useMemo(
     () =>
@@ -197,7 +209,14 @@ export default function Workloads() {
               {pods.map((p) => {
                 const tone = STATUS_TONE[p.status];
                 return (
-                  <tr key={p.key}>
+                  <tr key={p.key} className="row-clickable" onClick={() =>
+                    setSelected({
+                      cluster: effectiveCluster,
+                      namespace: p.namespace,
+                      pod: p.name,
+                      containers: p.containers.length ? p.containers : [""],
+                    })
+                  }>
                     <td className="mono strong">{p.name}</td>
                     <td className="mono muted">{p.namespace}</td>
                     <td className="mono">{p.ready}</td>
@@ -216,6 +235,8 @@ export default function Workloads() {
           </table>
         </div>
       )}
+
+      {selected && <PodPanel pod={selected} onClose={() => setSelected(null)} />}
     </div>
   );
 }

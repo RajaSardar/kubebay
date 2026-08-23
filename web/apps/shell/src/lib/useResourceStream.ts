@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { KubebayStream, type Op, type StreamHandlers } from "../lib/ws";
-import { getToken } from "./api";
+import { attach, subscribe, unsubscribe, type Op } from "./ws";
 
 export interface StreamState {
   rows: Record<string, unknown>[];
@@ -37,23 +36,23 @@ export function useResourceStream(
       setRows(Array.from(m.values()));
     };
 
-    let stream: KubebayStream | null = null;
+    let streamDetach: (() => void) | null = null;
     let subId = "";
 
-    const handlers: StreamHandlers = {
+    const handlers = {
       onStatus: setConnected,
       onBegin: () => {
         storeRef.current = new Map();
         setRows([]);
       },
-      onItems: (_id, ops) => applyOps(ops, false),
-      onDelta: (_id, ops) => applyOps(ops, false),
+      onItems: (_id: string, ops: Op[]) => applyOps(ops, false),
+      onDelta: (_id: string, ops: Op[]) => applyOps(ops, false),
       onSync: () => setSynced(true),
-      onError: (msg) => console.warn("[kubebay-stream]", msg),
+      onError: (msg: string) => console.warn("[kubebay-stream]", msg),
     };
-    stream = new KubebayStream(getToken(), handlers);
+    streamDetach = attach(handlers);
     subId = `ui-${Math.random().toString(36).slice(2, 10)}`;
-    stream.subscribe({
+    subscribe({
       id: subId,
       cluster,
       gvr,
@@ -63,8 +62,8 @@ export function useResourceStream(
     });
 
     return () => {
-      stream?.unsubscribe(subId);
-      stream?.close();
+      unsubscribe(subId);
+      streamDetach?.();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [specKey]);

@@ -21,6 +21,11 @@ type Deps struct {
 	Clusters *clusters.Manager
 	Pools    *informers.PoolRegistry
 	Hub      *stream.Hub
+	Channels *Channels
+}
+
+func NewChannels(mgr *clusters.Manager) *Channels {
+	return &Channels{Clusters: mgr}
 }
 
 func NewToken() (string, error) {

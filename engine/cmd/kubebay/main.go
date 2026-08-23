@@ -33,7 +33,8 @@ func main() {
 	}
 
 	registry := informers.NewPoolRegistry(mgr)
-	hub := stream.NewHub(log)
+	channels := httpapi.NewChannels(mgr)
+	hub := stream.NewHub(log, channels)
 	token, err := httpapi.NewToken()
 	if err != nil {
 		log.Error("token generation failed", "err", err)
@@ -45,6 +46,7 @@ func main() {
 		Clusters: mgr,
 		Pools:    registry,
 		Hub:      hub,
+		Channels: channels,
 	}, token)
 
 	if *webDist != "" {
