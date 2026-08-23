@@ -92,3 +92,8 @@ export const api = {
     force: boolean;
   }) => send<{ applied: boolean; dryRun: boolean }>("PUT", "/api/yaml", b),
 };
+
+export const rbacApi = {
+  self: (b: { cluster: string; verb: string; group: string; resource: string; ns: string }) =>
+    send<{ allowed?: boolean; denied?: boolean; reason?: string }>("POST", "/api/rbac/self", b),
+};

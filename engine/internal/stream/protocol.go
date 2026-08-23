@@ -13,9 +13,9 @@ const (
 	TypeResync = "resync"
 	TypePing   = "ping"
 
-	TypeChanOpen    = "chan-open"
-	TypeChanClose   = "chan-close"
-	TypeChanResize  = "chan-resize"
+	TypeChanOpen   = "chan-open"
+	TypeChanClose  = "chan-close"
+	TypeChanResize = "chan-resize"
 
 	TypeAck        = "ack"
 	TypeError      = "error"
@@ -69,9 +69,9 @@ const (
 )
 
 type Op struct {
-	Op   string         `msgpack:"op"`
-	Key  string         `msgpack:"key"`
-	Obj  map[string]any `msgpack:"obj,omitempty"`
+	Op  string         `msgpack:"op"`
+	Key string         `msgpack:"key"`
+	Obj map[string]any `msgpack:"obj,omitempty"`
 }
 
 type DataFrame struct {

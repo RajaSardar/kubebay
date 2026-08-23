@@ -48,9 +48,9 @@ type entry struct {
 }
 
 type Pool struct {
-	dyn dynamic.Interface
-	md  metadata.Interface
-	mu  sync.Mutex
+	dyn     dynamic.Interface
+	md      metadata.Interface
+	mu      sync.Mutex
 	entries map[poolKey]*entry
 }
 

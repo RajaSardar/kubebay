@@ -38,6 +38,7 @@ func main() {
 	pfManager := httpapi.NewPFManager(mgr)
 	actions := &httpapi.Actions{Clusters: mgr}
 	metrics := &httpapi.Metrics{Clusters: mgr}
+	rbac := &httpapi.RBAC{Clusters: mgr}
 	token, err := httpapi.NewToken()
 	if err != nil {
 		log.Error("token generation failed", "err", err)
@@ -53,6 +54,7 @@ func main() {
 		PF:       pfManager,
 		Actions:  actions,
 		Metrics:  metrics,
+		RBAC:     rbac,
 	}, token)
 
 	switch {

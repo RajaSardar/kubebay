@@ -34,11 +34,11 @@ type entry struct {
 }
 
 type Manager struct {
-	log       *slog.Logger
-	mu        sync.RWMutex
-	entries   map[string]*entry
-	order     []string
-	watcher   *fsnotify.Watcher
+	log        *slog.Logger
+	mu         sync.RWMutex
+	entries    map[string]*entry
+	order      []string
+	watcher    *fsnotify.Watcher
 	kubeconfig string
 }
 

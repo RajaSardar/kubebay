@@ -25,6 +25,7 @@ type Deps struct {
 	PF       *PFManager
 	Actions  *Actions
 	Metrics  *Metrics
+	RBAC     *RBAC
 }
 
 func NewChannels(mgr *clusters.Manager) *Channels {
@@ -143,6 +144,8 @@ func Router(d Deps, token string) http.Handler {
 		r.Get("/api/yaml", d.Channels.HandleGetYAML)
 		r.Put("/api/yaml", d.Channels.HandleApplyYAML)
 		r.Get("/api/metrics/pods", d.Metrics.HandlePodMetrics)
+		r.Get("/api/rbac/all", d.RBAC.HandleAll)
+		r.Post("/api/rbac/self", d.RBAC.HandleSelfCheck)
 	})
 
 	return r

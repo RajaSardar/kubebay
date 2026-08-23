@@ -747,3 +747,54 @@ h2 {
   border-radius: 4px;
   flex-shrink: 0;
 }
+
+.rbac-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--kb-fg-subtle);
+  margin-bottom: 10px;
+}
+
+.rbac-results {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rbac-subject {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border: 1px solid var(--kb-border-subtle);
+  border-radius: 8px;
+  background: var(--kb-bg-inset);
+}
+
+.rbac-bindings {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.rbac-self-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 8px;
+}
+
+.rbac-self-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 11px;
+  border-radius: 8px;
+  border: 1px solid var(--kb-border-subtle);
+  background: var(--kb-bg-inset);
+}
+
+.rbac-self-item.no span:last-child {
+  margin-left: auto;
+}
