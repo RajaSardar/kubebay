@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Badge, Button, StatusDot } from "@kubebay/ui";
+import { api } from "../lib/api";
 import { usePodLogs, type PodLogsSpec } from "../lib/usePodLogs";
 import { ExecTerm } from "../components/ExecTerm";
+import { YamlTab } from "../components/YamlTab";
 
 export interface SelectedPod {
   cluster: string;
@@ -18,13 +20,17 @@ function classify(line: string): "" | "err" | "warn" {
   return "";
 }
 
-export default function PodPanel({ pod, onClose }: { pod: SelectedPod; onClose: () => void }) {
-  const [tab, setTab] = useState<"logs" | "shell">("logs");
+export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod; onClose: () => void; onDeleted?: () => void }) {
+  const [tab, setTab] = useState<"logs" | "shell" | "yaml">("logs");
   const [container, setContainer] = useState<string | undefined>(pod.containers[0]);
   const [tail, setTail] = useState(2000);
   const [follow, setFollow] = useState(true);
   const [previous, setPrevious] = useState(false);
   const [filter, setFilter] = useState("");
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleteInput, setDeleteInput] = useState("");
+  const [deleteErr, setDeleteErr] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
   const spec: PodLogsSpec = useMemo(
     () => ({
@@ -59,6 +65,24 @@ export default function PodPanel({ pod, onClose }: { pod: SelectedPod; onClose: 
     URL.revokeObjectURL(a.href);
   }
 
+  async function doDelete() {
+    if (deleteInput !== pod.pod) {
+      setDeleteErr("Name does not match.");
+      return;
+    }
+    setDeleting(true);
+    setDeleteErr("");
+    try {
+      await api.deleteResource({ cluster: pod.cluster, gvr: "v1/pods", ns: pod.namespace, name: pod.pod });
+      onDeleted?.();
+      onClose();
+    } catch (e) {
+      setDeleteErr(String(e instanceof Error ? e.message : e));
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   return (
     <aside className="drawer">
       <div className="drawer-head">
@@ -70,16 +94,52 @@ export default function PodPanel({ pod, onClose }: { pod: SelectedPod; onClose: 
         <div className="drawer-head-actions">
           {status === "closed" && <Badge tone="err">ended</Badge>}
           {error && <span className="error-text small">{error}</span>}
-          <Button variant="ghost" onClick={onClose}>
-            Close
-          </Button>
+          {!confirmingDelete ? (
+            <>
+              <Button variant="ghost" className="kb-btn-danger-ghost" onClick={() => setConfirmingDelete(true)}>
+                Delete
+              </Button>
+              <Button variant="ghost" onClick={onClose}>
+                Close
+              </Button>
+            </>
+          ) : (
+            <>
+              <input
+                className="toolbar-input"
+                style={{ maxWidth: 180 }}
+                placeholder={`type "${pod.pod}"`}
+                value={deleteInput}
+                onChange={(e) => setDeleteInput(e.target.value)}
+                spellCheck={false}
+              />
+              <Button variant="danger" disabled={deleting} onClick={() => void doDelete()}>
+                Confirm
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setConfirmingDelete(false);
+                  setDeleteInput("");
+                  setDeleteErr("");
+                }}
+              >
+                Cancel
+              </Button>
+            </>
+          )}
         </div>
       </div>
+      {deleteErr && (
+        <div className="error-banner" style={{ margin: "10px 14px 0" }}>
+          {deleteErr}
+        </div>
+      )}
 
       <div className="tabs">
-        {(["logs", "shell"] as const).map((t) => (
+        {(["logs", "shell", "yaml"] as const).map((t) => (
           <button key={t} className={`tab${tab === t ? " active" : ""}`} onClick={() => setTab(t)}>
-            {t === "logs" ? "Logs" : "Terminal"}
+            {t === "logs" ? "Logs" : t === "shell" ? "Terminal" : "YAML"}
           </button>
         ))}
         <select
@@ -141,13 +201,22 @@ export default function PodPanel({ pod, onClose }: { pod: SelectedPod; onClose: 
             ))}
           </div>
         </>
-      ) : (
+      ) : tab === "shell" ? (
         <div className="term-wrap">
           <ExecTerm
             cluster={pod.cluster}
             namespace={pod.namespace}
             pod={pod.pod}
             container={container}
+          />
+        </div>
+      ) : (
+        <div className="yaml-wrap">
+          <YamlTab
+            cluster={pod.cluster}
+            gvr="v1/pods"
+            ns={pod.namespace}
+            name={pod.pod}
           />
         </div>
       )}

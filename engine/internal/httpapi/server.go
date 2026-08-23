@@ -22,6 +22,8 @@ type Deps struct {
 	Pools    *informers.PoolRegistry
 	Hub      *stream.Hub
 	Channels *Channels
+	PF       *PFManager
+	Actions  *Actions
 }
 
 func NewChannels(mgr *clusters.Manager) *Channels {
@@ -52,6 +54,93 @@ func Router(d Deps, token string) http.Handler {
 		r.Get("/ws", func(w http.ResponseWriter, req *http.Request) {
 			d.Hub.Handle(w, req, poolSource{d.Pools})
 		})
+
+		r.Get("/api/pf", func(w http.ResponseWriter, _ *http.Request) {
+			writeJSON(w, d.PF.List())
+		})
+		r.Post("/api/pf", func(w http.ResponseWriter, r *http.Request) {
+			var body struct {
+				Cluster   string `json:"cluster"`
+				Namespace string `json:"namespace"`
+				Pod       string `json:"pod"`
+				PodPort   int32  `json:"podPort"`
+				LocalPort int32  `json:"localPort"`
+			}
+			if err := decodeBody(r, &body); err != nil || body.Cluster == "" || body.Pod == "" || body.PodPort == 0 {
+				http.Error(w, "cluster, pod, podPort required", http.StatusBadRequest)
+				return
+			}
+			fw, err := d.PF.Start(r.Context(), body.Cluster, body.Namespace, body.Pod, body.PodPort, body.LocalPort)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadGateway)
+				return
+			}
+			writeJSON(w, fw)
+		})
+		r.Delete("/api/pf/{id}", func(w http.ResponseWriter, r *http.Request) {
+			id := chi.URLParam(r, "id")
+			if !d.PF.Stop(id) {
+				http.Error(w, "unknown forward", http.StatusNotFound)
+				return
+			}
+			writeJSON(w, map[string]bool{"stopped": true})
+		})
+
+		r.Post("/api/action/scale", func(w http.ResponseWriter, r *http.Request) {
+			var body struct {
+				Cluster  string `json:"cluster"`
+				GVR      string `json:"gvr"`
+				NS       string `json:"ns"`
+				Name     string `json:"name"`
+				Replicas int64  `json:"replicas"`
+			}
+			if err := decodeBody(r, &body); err != nil || body.Cluster == "" || body.GVR == "" || body.Name == "" {
+				http.Error(w, "cluster, gvr, name required", http.StatusBadRequest)
+				return
+			}
+			if err := d.Actions.Scale(r.Context(), body.Cluster, body.GVR, body.NS, body.Name, body.Replicas); err != nil {
+				http.Error(w, err.Error(), http.StatusBadGateway)
+				return
+			}
+			writeJSON(w, map[string]bool{"ok": true})
+		})
+		r.Post("/api/action/restart", func(w http.ResponseWriter, r *http.Request) {
+			var body struct {
+				Cluster string `json:"cluster"`
+				GVR     string `json:"gvr"`
+				NS      string `json:"ns"`
+				Name    string `json:"name"`
+			}
+			if err := decodeBody(r, &body); err != nil || body.Cluster == "" || body.GVR == "" || body.Name == "" {
+				http.Error(w, "cluster, gvr, name required", http.StatusBadRequest)
+				return
+			}
+			if err := d.Actions.Restart(r.Context(), body.Cluster, body.GVR, body.NS, body.Name); err != nil {
+				http.Error(w, err.Error(), http.StatusBadGateway)
+				return
+			}
+			writeJSON(w, map[string]bool{"ok": true})
+		})
+		r.Post("/api/action/delete", func(w http.ResponseWriter, r *http.Request) {
+			var body struct {
+				Cluster string `json:"cluster"`
+				GVR     string `json:"gvr"`
+				NS      string `json:"ns"`
+				Name    string `json:"name"`
+			}
+			if err := decodeBody(r, &body); err != nil || body.Cluster == "" || body.GVR == "" || body.Name == "" {
+				http.Error(w, "cluster, gvr, name required", http.StatusBadRequest)
+				return
+			}
+			if err := d.Actions.Delete(r.Context(), body.Cluster, body.GVR, body.NS, body.Name); err != nil {
+				http.Error(w, err.Error(), http.StatusBadGateway)
+				return
+			}
+			writeJSON(w, map[string]bool{"ok": true})
+		})
+
+		r.Get("/api/yaml", d.Channels.HandleGetYAML)
+		r.Put("/api/yaml", d.Channels.HandleApplyYAML)
 	})
 
 	return r

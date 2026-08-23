@@ -109,3 +109,12 @@ export function IconAlert({ size, strokeWidth }: IconProps) {
     </svg>
   );
 }
+
+export function IconForward({ size, strokeWidth }: IconProps) {
+  return (
+    <svg {...base(size, strokeWidth)}>
+      <path d="M20 8H6l3-3M6 8l3 3" />
+      <path d="M4 16h14l-3-3M18 16l-3 3" />
+    </svg>
+  );
+}

@@ -661,3 +661,37 @@ h2 {
   flex: 1;
   min-height: 0;
 }
+
+.yaml-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.yaml-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.yaml-editor {
+  flex: 1;
+  min-height: 0;
+}
+
+.pf-form {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.4fr) minmax(100px, 1fr) minmax(160px, 1.6fr) minmax(90px, 1fr) minmax(110px, 1fr) auto;
+  gap: 10px;
+}
+
+.pf-link {
+  color: var(--kb-accent);
+  text-decoration: none;
+}
+
+.pf-link:hover {
+  text-decoration: underline;
+}

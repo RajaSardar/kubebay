@@ -28,7 +28,58 @@ async function get<T>(path: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+async function send<T>(method: string, path: string, body?: unknown): Promise<T> {
+  const res = await fetch(`${path}?token=${encodeURIComponent(getToken())}`, {
+    method,
+    headers: body ? { "Content-Type": "application/json" } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || `${res.status} ${res.statusText}`);
+  }
+  return res.json() as Promise<T>;
+}
+
+export interface PortForwardInfo {
+  id: string;
+  cluster: string;
+  namespace: string;
+  pod: string;
+  podPort: number;
+  localPort: number;
+  startedAt: string;
+}
+
 export const api = {
   health: () => get<{ ok: boolean }>("/api/healthz"),
   clusters: () => get<ClusterInfo[]>("/api/clusters"),
+
+  pfList: () => get<PortForwardInfo[]>("/api/pf"),
+  pfStart: (b: { cluster: string; namespace: string; pod: string; podPort: number; localPort?: number }) =>
+    send<PortForwardInfo>("POST", "/api/pf", b),
+  pfStop: (id: string) => send<{ stopped: boolean }>("DELETE", `/api/pf/${encodeURIComponent(id)}`),
+
+  scale: (b: { cluster: string; gvr: string; ns: string; name: string; replicas: number }) =>
+    send<{ ok: boolean }>("POST", "/api/action/scale", b),
+  restart: (b: { cluster: string; gvr: string; ns: string; name: string }) =>
+    send<{ ok: boolean }>("POST", "/api/action/restart", b),
+  deleteResource: (b: { cluster: string; gvr: string; ns: string; name: string }) =>
+    send<{ ok: boolean }>("POST", "/api/action/delete", b),
+
+  getYamlText: async (cluster: string, gvr: string, ns: string, name: string): Promise<string> => {
+    const q = new URLSearchParams({ token: getToken(), cluster, gvr, ns, name });
+    const res = await fetch(`/api/yaml?${q}`);
+    if (!res.ok) throw new Error(await res.text());
+    return res.text();
+  },
+  applyYaml: (b: {
+    cluster: string;
+    gvr: string;
+    ns: string;
+    name: string;
+    yaml: string;
+    dryRun: boolean;
+    force: boolean;
+  }) => send<{ applied: boolean; dryRun: boolean }>("PUT", "/api/yaml", b),
 };

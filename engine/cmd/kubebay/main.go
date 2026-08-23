@@ -35,6 +35,8 @@ func main() {
 	registry := informers.NewPoolRegistry(mgr)
 	channels := httpapi.NewChannels(mgr)
 	hub := stream.NewHub(log, channels)
+	pfManager := httpapi.NewPFManager(mgr)
+	actions := &httpapi.Actions{Clusters: mgr}
 	token, err := httpapi.NewToken()
 	if err != nil {
 		log.Error("token generation failed", "err", err)
@@ -47,6 +49,8 @@ func main() {
 		Pools:    registry,
 		Hub:      hub,
 		Channels: channels,
+		PF:       pfManager,
+		Actions:  actions,
 	}, token)
 
 	switch {

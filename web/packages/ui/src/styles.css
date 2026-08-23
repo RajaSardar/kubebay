@@ -117,6 +117,26 @@
   background: color-mix(in srgb, var(--kb-status-err) 10%, transparent);
 }
 
+.kb-btn-danger {
+  background: var(--kb-status-err);
+  color: #fff;
+}
+
+.kb-btn-danger:hover:not([disabled]) {
+  background: color-mix(in srgb, var(--kb-status-err) 85%, #000);
+}
+
+.kb-btn-ghost.kb-btn-danger-ghost,
+.kb-btn-ghost:where(.kb-btn-danger-ghost) {
+  color: var(--kb-status-err);
+  border-color: color-mix(in srgb, var(--kb-status-err) 40%, transparent);
+}
+
+.kb-btn-ghost.kb-btn-danger-ghost:hover:not([disabled]) {
+  background: color-mix(in srgb, var(--kb-status-err) 10%, transparent);
+  color: var(--kb-status-err);
+}
+
 .kb-skeleton {
   position: relative;
   overflow: hidden;

@@ -1,11 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { NavLink, Route, Routes } from "react-router-dom";
 import { Badge, StatusDot } from "@kubebay/ui";
-import { IconCube, IconGrid, IconHelm, IconSearch, IconShield, IconSliders, IconTimeline, IconTopology } from "@kubebay/ui/src/icons";
+import { IconCube, IconForward, IconGrid, IconHelm, IconSearch, IconShield, IconSliders, IconTimeline, IconTopology } from "@kubebay/ui/src/icons";
 import { api } from "./lib/api";
 import Overview from "./pages/Overview";
 import Settings from "./pages/Settings";
 import Workloads from "./pages/Workloads";
+import Ports from "./pages/Ports";
 
 const NAV_MAIN = [
   { to: "/", label: "Overview", icon: <IconGrid /> },
@@ -15,6 +16,7 @@ const NAV_MAIN = [
 ];
 
 const NAV_TOOLS = [
+  { to: "/ports", label: "Ports", icon: <IconForward /> },
   { to: "/rbac", label: "RBAC", icon: <IconShield />, soon: true },
   { to: "/helm", label: "Helm", icon: <IconHelm />, soon: true },
   { to: "/settings", label: "Settings", icon: <IconSliders /> },
@@ -96,6 +98,7 @@ export default function App() {
           <Route path="/" element={<Overview />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/workloads" element={<Workloads />} />
+          <Route path="/ports" element={<Ports />} />
           <Route path="/topology" element={<Placeholder title="Topology" />} />
           <Route path="/timeline" element={<Placeholder title="Timeline" />} />
           <Route path="/rbac" element={<Placeholder title="RBAC explorer" />} />
