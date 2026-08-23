@@ -21,7 +21,14 @@ function classify(line: string): "" | "err" | "warn" {
 }
 
 export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod; onClose: () => void; onDeleted?: () => void }) {
-  const [tab, setTab] = useState<"logs" | "shell" | "yaml">("logs");
+  const [tab, setTabState] = useState<"logs" | "shell" | "yaml">(() => {
+    const saved = localStorage.getItem("kb.drawerTab");
+    return saved === "shell" || saved === "yaml" ? saved : "logs";
+  });
+  const setTab = (t: "logs" | "shell" | "yaml") => {
+    localStorage.setItem("kb.drawerTab", t);
+    setTabState(t);
+  };
   const [container, setContainer] = useState<string | undefined>(pod.containers[0]);
   const [tail, setTail] = useState(2000);
   const [follow, setFollow] = useState(true);

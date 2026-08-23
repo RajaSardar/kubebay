@@ -9,7 +9,7 @@ const SHELL_CANDIDATES: Record<string, string[][]> = {
   bash: [["bash", "-l"]],
   sh: [["sh"]],
   ash: [["ash"]],
-  powershell: ["powershell"].map((c) => [c]),
+  powershell: [["powershell"]],
 };
 
 export function ExecTerm({
@@ -60,6 +60,37 @@ export function ExecTerm({
       fit.fit();
     } catch {}
 
+    let candIdx = 0;
+    let gotOutput = false;
+    const candidates = SHELL_CANDIDATES[shell] ?? SHELL_CANDIDATES.auto!;
+
+    const detachFallback = attach({});
+
+    const openWith = (cmd: string[]) => {
+      chanRef.current = `exec-${Math.random().toString(36).slice(2, 10)}`;
+      let cols = 80;
+      let rows = 24;
+      try {
+        const dm = fit.proposeDimensions();
+        if (dm && dm.cols > 2 && dm.rows > 2) {
+          cols = dm.cols;
+          rows = dm.rows;
+        }
+      } catch {}
+      openChannel({
+        id: chanRef.current,
+        kind: "exec",
+        cluster,
+        namespace,
+        pod,
+        container,
+        command: cmd,
+        cols,
+        rows,
+      });
+    };
+    openWith(candidates[0]!);
+
     const detach = attach({
       onChanData: (id, data) => {
         if (id === chanRef.current) {
@@ -74,9 +105,12 @@ export function ExecTerm({
           msg !== "done" &&
           /not found|no such file|executable|OCI runtime/i.test(msg);
         if (failed && candIdx < candidates.length - 1 && !gotOutput) {
+          const triedShell = candidates[candIdx]![0];
           candIdx += 1;
           const next = candidates[candIdx]!;
-          term.write(`\r\n\x1b[2m[${next[0]} not available — retrying with fallback…]\x1b[0m\r\n`);
+          term.write(
+            `\r\n\x1b[2m[${triedShell} not available — falling back to ${next[0]}…]\x1b[0m\r\n`,
+          );
           openWith(next);
           return;
         }
@@ -87,46 +121,20 @@ export function ExecTerm({
           );
           return;
         }
-        term.write(`\r\n\x1b[33m■ session ended${msg && msg !== "done" ? ` — ${msg}` : ""}\x1b[0m\r\n`);
+        let exitNote = "";
+        const m = /exit code (\d+)/.exec(msg ?? "");
+        if (m) {
+          const code = Number(m[1]);
+          exitNote = code >= 128 ? ` — terminated by signal ${code - 128}` : ` — exit ${code}`;
+        }
+        term.write(
+          `\r\n\x1b[33m■ session ended${exitNote || (msg && msg !== "done" ? ` — ${msg}` : "")}\x1b[0m\r\n` +
+            "\x1b[2mSwitch tabs and back to reopen the session.\x1b[0m\r\n",
+        );
       },
       onStatus: (up) => {
         if (!up && chanRef.current) term.write("\r\n\x1b[31m■ engine offline\x1b[0m\r\n");
       },
-    });
-
-    const dims = (() => {
-      try {
-        return fit.proposeDimensions();
-      } catch {
-        return undefined;
-      }
-    })();
-
-    const candidates = SHELL_CANDIDATES[shell] ?? SHELL_CANDIDATES.auto!;
-    let candIdx = 0;
-    let gotOutput = false;
-
-    const openWith = (cmd: string[]) => {
-      chanRef.current = `exec-${Math.random().toString(36).slice(2, 10)}`;
-      openChannel({
-        id: chanRef.current,
-        kind: "exec",
-        cluster,
-        namespace,
-        pod,
-        container,
-        command: cmd,
-        cols: dims?.cols ?? 80,
-        rows: dims?.rows ?? 24,
-      });
-    };
-    openWith(candidates[0]!);
-
-    const detachFallback = attach({
-      onChanData: (id) => {
-        if (id === chanRef.current) gotOutput = true;
-      },
-      onAck: () => {},
     });
 
     term.onData((d) => {
@@ -137,7 +145,8 @@ export function ExecTerm({
       try {
         fit.fit();
         const dm = fit.proposeDimensions();
-        if (dm && chanRef.current) resizeChannel(chanRef.current, dm.cols, dm.rows);
+        if (dm && dm.cols > 2 && dm.rows > 2 && chanRef.current)
+          resizeChannel(chanRef.current, dm.cols, dm.rows);
       } catch {}
     });
     ro.observe(host);
@@ -150,7 +159,7 @@ export function ExecTerm({
       detachFallback();
       term.dispose();
     };
-  }, [cluster, namespace, pod, container]);
+  }, [cluster, namespace, pod, container, shell]);
 
   return <div ref={hostRef} className="term-host" />;
 }
