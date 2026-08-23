@@ -695,3 +695,55 @@ h2 {
 .pf-link:hover {
   text-decoration: underline;
 }
+
+.page-full {
+  max-width: none;
+}
+
+.topo-canvas {
+  height: calc(100vh - 235px);
+  border: 1px solid var(--kb-border-subtle);
+  border-radius: var(--kb-radius);
+  background: var(--kb-bg-surface);
+  box-shadow: var(--kb-shadow-rest), var(--kb-highlight-inset);
+  overflow: hidden;
+}
+
+.topo-canvas.empty-state {
+  display: grid;
+  place-items: center;
+  border-style: dashed;
+}
+
+.topo-card {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  background: var(--kb-bg-raised);
+  border: 1px solid var(--kb-border-strong);
+  border-radius: 10px;
+  padding: 7px 11px;
+  width: 205px;
+  box-shadow: var(--kb-shadow-rest), var(--kb-highlight-inset);
+}
+
+.topo-svc {
+  width: 190px;
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--kb-accent) 45%, var(--kb-border-strong));
+}
+
+.topo-rs {
+  width: 170px;
+  padding: 5px 9px;
+}
+
+.topo-kind {
+  font-family: var(--kb-font-mono);
+  font-size: 10px;
+  color: var(--kb-fg-muted);
+  border: 1px solid var(--kb-border-subtle);
+  padding: 1px 5px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}

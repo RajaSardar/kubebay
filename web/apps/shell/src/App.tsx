@@ -8,12 +8,13 @@ import Settings from "./pages/Settings";
 import Workloads from "./pages/Workloads";
 import Ports from "./pages/Ports";
 import Timeline from "./pages/Timeline";
+import Topology from "./pages/Topology";
 
 const NAV_MAIN = [
   { to: "/", label: "Overview", icon: <IconGrid /> },
   { to: "/workloads", label: "Workloads", icon: <IconCube /> },
   { to: "/timeline", label: "Timeline", icon: <IconTimeline /> },
-  { to: "/topology", label: "Topology", icon: <IconTopology />, soon: true },
+  { to: "/topology", label: "Topology", icon: <IconTopology /> },
 ];
 
 const NAV_TOOLS = [
@@ -23,7 +24,9 @@ const NAV_TOOLS = [
   { to: "/settings", label: "Settings", icon: <IconSliders /> },
 ];
 
-function NavItem({ item }: { item: (typeof NAV_MAIN)[number] }) {
+type NavItemDef = { to: string; label: string; icon: JSX.Element; soon?: boolean };
+
+function NavItem({ item }: { item: NavItemDef }) {
   return (
     <NavLink to={item.to} className={({ isActive }) => (isActive ? "nav-item active" : "nav-item")}>
       <span className="nav-icon">{item.icon}</span>
@@ -101,7 +104,7 @@ export default function App() {
           <Route path="/workloads" element={<Workloads />} />
           <Route path="/ports" element={<Ports />} />
           <Route path="/timeline" element={<Timeline />} />
-          <Route path="/topology" element={<Placeholder title="Topology" />} />
+          <Route path="/topology" element={<Topology />} />
           <Route path="/rbac" element={<Placeholder title="RBAC explorer" />} />
           <Route path="/helm" element={<Placeholder title="Helm manager" />} />
         </Routes>
