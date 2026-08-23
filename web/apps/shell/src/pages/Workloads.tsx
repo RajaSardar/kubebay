@@ -5,6 +5,23 @@ import { api } from "../lib/api";
 import { useResourceStream } from "../lib/useResourceStream";
 import PodPanel, { type SelectedPod } from "./PodPanel";
 
+export function fmtCpu(millis: number): string {
+  if (millis >= 1000) return `${(millis / 1000).toFixed(2)} core`;
+  return `${Math.max(1, Math.round(millis))}m`;
+}
+
+export function fmtBytes(bytes: number): string {
+  if (bytes <= 0) return "0";
+  const units = ["B", "Ki", "Mi", "Gi"];
+  let v = bytes;
+  let i = 0;
+  while (v >= 1024 && i < units.length - 1) {
+    v /= 1024;
+    i += 1;
+  }
+  return `${v.toFixed(v >= 100 || i === 0 ? 0 : 1)}${units[i]}`;
+}
+
 interface PodRow {
   key: string;
   name: string;
@@ -114,6 +131,19 @@ export default function Workloads() {
 
   const { rows, synced, connected } = useResourceStream(effectiveCluster || undefined, "v1/pods", { mode: "full" });
 
+  const metrics = useQuery({
+    queryKey: ["podmetrics", effectiveCluster],
+    queryFn: () => api.podMetrics(effectiveCluster),
+    refetchInterval: 15_000,
+    enabled: !!effectiveCluster && connected,
+    retry: false,
+  });
+  const usage = useMemo(() => {
+    const m = new Map<string, { cpuMillis: number; memBytes: number }>();
+    for (const u of metrics.data ?? []) m.set(`${u.namespace}/${u.name}`, u);
+    return m;
+  }, [metrics.data]);
+
   const [selected, setSelected] = useState<SelectedPod | null>(null);
 
   const pods = useMemo(
@@ -173,7 +203,7 @@ export default function Workloads() {
             <tbody>
               {[0, 1, 2, 3, 4, 5].map((i) => (
                 <tr key={i}>
-                  {[140, 80, 40, 70, 30, 30].map((w, j) => (
+                  {[140, 80, 40, 70, 30, 50, 60, 30].map((w, j) => (
                     <td key={j}>
                       <Skeleton w={w} />
                     </td>
@@ -202,6 +232,8 @@ export default function Workloads() {
                 <th>Ready</th>
                 <th>Status</th>
                 <th>Restarts</th>
+                <th>CPU</th>
+                <th>Memory</th>
                 <th>Age</th>
               </tr>
             </thead>
@@ -227,6 +259,8 @@ export default function Workloads() {
                       </span>
                     </td>
                     <td className={`mono${p.restarts > 0 ? " restart-warn" : ""}`}>{p.restarts}</td>
+                    <td className="mono muted">{usage.get(p.key)?.cpuMillis != null ? fmtCpu(usage.get(p.key)!.cpuMillis) : "–"}</td>
+                    <td className="mono muted">{usage.get(p.key)?.memBytes != null ? fmtBytes(usage.get(p.key)!.memBytes) : "–"}</td>
                     <td className="mono muted">{fmtAge(p.ageMs)}</td>
                   </tr>
                 );

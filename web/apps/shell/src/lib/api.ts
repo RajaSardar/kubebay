@@ -51,9 +51,18 @@ export interface PortForwardInfo {
   startedAt: string;
 }
 
+export interface PodUsage {
+  namespace: string;
+  name: string;
+  cpuMillis: number;
+  memBytes: number;
+}
+
 export const api = {
   health: () => get<{ ok: boolean }>("/api/healthz"),
   clusters: () => get<ClusterInfo[]>("/api/clusters"),
+  podMetrics: (cluster: string, ns = "*") =>
+    get<PodUsage[]>(`/api/metrics/pods?cluster=${encodeURIComponent(cluster)}&ns=${encodeURIComponent(ns)}`),
 
   pfList: () => get<PortForwardInfo[]>("/api/pf"),
   pfStart: (b: { cluster: string; namespace: string; pod: string; podPort: number; localPort?: number }) =>

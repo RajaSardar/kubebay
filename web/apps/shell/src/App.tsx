@@ -7,12 +7,13 @@ import Overview from "./pages/Overview";
 import Settings from "./pages/Settings";
 import Workloads from "./pages/Workloads";
 import Ports from "./pages/Ports";
+import Timeline from "./pages/Timeline";
 
 const NAV_MAIN = [
   { to: "/", label: "Overview", icon: <IconGrid /> },
   { to: "/workloads", label: "Workloads", icon: <IconCube /> },
+  { to: "/timeline", label: "Timeline", icon: <IconTimeline /> },
   { to: "/topology", label: "Topology", icon: <IconTopology />, soon: true },
-  { to: "/timeline", label: "Timeline", icon: <IconTimeline />, soon: true },
 ];
 
 const NAV_TOOLS = [
@@ -99,8 +100,8 @@ export default function App() {
           <Route path="/settings" element={<Settings />} />
           <Route path="/workloads" element={<Workloads />} />
           <Route path="/ports" element={<Ports />} />
+          <Route path="/timeline" element={<Timeline />} />
           <Route path="/topology" element={<Placeholder title="Topology" />} />
-          <Route path="/timeline" element={<Placeholder title="Timeline" />} />
           <Route path="/rbac" element={<Placeholder title="RBAC explorer" />} />
           <Route path="/helm" element={<Placeholder title="Helm manager" />} />
         </Routes>
