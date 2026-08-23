@@ -107,6 +107,17 @@ export const metricsApi = {
     get<{ name: string; cpuMillis: number; memBytes: number }[]>(`/api/metrics/nodes?cluster=${encodeURIComponent(cluster)}`),
 };
 
+export const actionApi = {
+  cordon: (b: { cluster: string; node: string; cordon: boolean }) =>
+    send<{ ok: boolean }>("POST", "/api/action/cordon", b),
+  drain: (b: { cluster: string; node: string; ignoreDaemonsets?: boolean }) =>
+    send<{ evicted: string[]; skipped: string[]; errors?: Record<string, string> }>("POST", "/api/action/drain", b),
+  triggerCronJob: (b: { cluster: string; ns: string; name: string }) =>
+    send<{ job: string }>("POST", "/api/action/trigger-cronjob", b),
+  suspendCronJob: (b: { cluster: string; ns: string; name: string; suspend: boolean }) =>
+    send<{ ok: boolean }>("POST", "/api/action/suspend-cronjob", b),
+};
+
 export const rbacApi = {
   self: (b: { cluster: string; verb: string; group: string; resource: string; ns: string }) =>
     send<{ allowed?: boolean; denied?: boolean; reason?: string }>("POST", "/api/rbac/self", b),

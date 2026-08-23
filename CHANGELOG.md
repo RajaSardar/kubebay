@@ -7,6 +7,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 ## [Unreleased]
 
 ### Added
+- Freelens-parity batch (see docs/PARITY_FRELENS.md): workload quick-actions in drawers — Scale, Rollout-restart, CronJob Trigger-now/Suspend/Resume; Node cordon/uncordon/drain via the Eviction API (PDB-aware, mirror/daemonset skipping); parity matrix doc tracking every remaining gap with upstream refs
 - Helm marketplace: browse charts from your configured repositories (`~/.config/helm/repositories.yaml`), index refresh button, search, one-click install drawer with chart default-values prefill, version pin and release/namespace naming — full Lens Apps parity
 - Node shell: one-click root shell on any node via ephemeral privileged busybox pod (hostPID, tolerates taints), auto-deleted when panel closes — `/api/node-shell`
 - Node metrics columns (CPU/Memory) in the Nodes table via `/api/metrics/nodes`

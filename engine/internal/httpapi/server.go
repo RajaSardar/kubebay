@@ -181,6 +181,77 @@ func Router(d Deps, token string) http.Handler {
 		r.Get("/api/helm/history", d.Helm.HandleHistory)
 		r.Get("/api/helm/values", d.Helm.HandleValues)
 		r.Get("/api/helm/manifest", d.Helm.HandleManifest)
+		r.Post("/api/action/cordon", func(w http.ResponseWriter, r *http.Request) {
+			var body struct {
+				Cluster string `json:"cluster"`
+				Node    string `json:"node"`
+				Cordon  bool   `json:"cordon"`
+			}
+			if err := decodeBody(r, &body); err != nil || body.Cluster == "" || body.Node == "" {
+				http.Error(w, "cluster, node required", http.StatusBadRequest)
+				return
+			}
+			if err := d.Actions.Cordon(r.Context(), body.Cluster, body.Node, body.Cordon); err != nil {
+				http.Error(w, err.Error(), http.StatusBadGateway)
+				return
+			}
+			writeJSON(w, map[string]bool{"ok": true})
+		})
+		r.Post("/api/action/drain", func(w http.ResponseWriter, r *http.Request) {
+			var body struct {
+				Cluster          string `json:"cluster"`
+				Node             string `json:"node"`
+				IgnoreDaemonsets bool   `json:"ignoreDaemonsets"`
+			}
+			if err := decodeBody(r, &body); err != nil || body.Cluster == "" || body.Node == "" {
+				http.Error(w, "cluster, node required", http.StatusBadRequest)
+				return
+			}
+			if body.IgnoreDaemonsets == false {
+				body.IgnoreDaemonsets = true
+			}
+			sum, err := d.Actions.Drain(r.Context(), body.Cluster, body.Node, body.IgnoreDaemonsets)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadGateway)
+				return
+			}
+			writeJSON(w, sum)
+		})
+		r.Post("/api/action/trigger-cronjob", func(w http.ResponseWriter, r *http.Request) {
+			var body struct {
+				Cluster string `json:"cluster"`
+				NS      string `json:"ns"`
+				Name    string `json:"name"`
+			}
+			if err := decodeBody(r, &body); err != nil || body.Cluster == "" || body.NS == "" || body.Name == "" {
+				http.Error(w, "cluster, ns, name required", http.StatusBadRequest)
+				return
+			}
+			jobName, err := d.Actions.TriggerCronJob(r.Context(), body.Cluster, body.NS, body.Name)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadGateway)
+				return
+			}
+			writeJSON(w, map[string]string{"job": jobName})
+		})
+		r.Post("/api/action/suspend-cronjob", func(w http.ResponseWriter, r *http.Request) {
+			var body struct {
+				Cluster string `json:"cluster"`
+				NS      string `json:"ns"`
+				Name    string `json:"name"`
+				Suspend bool   `json:"suspend"`
+			}
+			if err := decodeBody(r, &body); err != nil || body.Cluster == "" || body.NS == "" || body.Name == "" {
+				http.Error(w, "cluster, ns, name required", http.StatusBadRequest)
+				return
+			}
+			if err := d.Actions.SetCronSuspend(r.Context(), body.Cluster, body.NS, body.Name, body.Suspend); err != nil {
+				http.Error(w, err.Error(), http.StatusBadGateway)
+				return
+			}
+			writeJSON(w, map[string]bool{"ok": true})
+		})
+
 		r.Post("/api/node-shell", d.NodeShell.HandleStart)
 
 		r.Post("/api/helm/rollback", d.Helm.HandleRollback)

@@ -3,6 +3,7 @@ import { Badge, Button, StatusDot } from "@kubebay/ui";
 import { api, nodeApi } from "../lib/api";
 import { YamlTab } from "./YamlTab";
 import { ExecTerm } from "./ExecTerm";
+import { ActionsBar } from "./ActionsBar";
 import type { ResourceDef } from "../lib/resources";
 
 export default function GenericDrawer({
@@ -126,6 +127,10 @@ export default function GenericDrawer({
           {err}
         </div>
       )}
+      {["deployments", "statefulsets", "daemonsets", "cronjobs", "nodes"].includes(def.slug) && (
+        <ActionsBar slug={def.slug as "deployments"} cluster={cluster} ns={ns} name={name} />
+      )}
+
       {isNode && (
         <div className="tabs">
           {(["shell", "yaml"] as const).map((t) => (
