@@ -11,9 +11,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
-	"github.com/kubebayapp/kubebay/engine/internal/clusters"
-	"github.com/kubebayapp/kubebay/engine/internal/informers"
-	"github.com/kubebayapp/kubebay/engine/internal/stream"
+	"github.com/RajaSardar/kubebay/engine/internal/clusters"
+	"github.com/RajaSardar/kubebay/engine/internal/informers"
+	"github.com/RajaSardar/kubebay/engine/internal/stream"
 )
 
 type Deps struct {

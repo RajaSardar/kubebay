@@ -1,0 +1,32 @@
+name: Feature request
+description: Propose an improvement or new capability
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / job-to-be-done
+      description: What are you trying to accomplish? What hurts today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Including how Lens / Freelens / Headlamp / k9s handle it, if applicable
+  - type: checkboxes
+    id: principles
+    attributes:
+      label: Principles check
+      description: Kubebay is local-first and telemetry-free by contract
+      options:
+        - label: This feature works fully locally without accounts or cloud services
+          required: true
+        - label: It respects Kubernetes RBAC (no shadow permissions)
+          required: true

@@ -12,10 +12,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/kubebayapp/kubebay/engine/internal/clusters"
-	"github.com/kubebayapp/kubebay/engine/internal/httpapi"
-	"github.com/kubebayapp/kubebay/engine/internal/informers"
-	"github.com/kubebayapp/kubebay/engine/internal/stream"
+	"github.com/RajaSardar/kubebay/engine/internal/clusters"
+	"github.com/RajaSardar/kubebay/engine/internal/httpapi"
+	"github.com/RajaSardar/kubebay/engine/internal/informers"
+	"github.com/RajaSardar/kubebay/engine/internal/stream"
 )
 
 func main() {

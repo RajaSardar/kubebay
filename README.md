@@ -1,89 +1,87 @@
 # Kubebay
 
-> *A bay is where ships anchor safely. Kubebay is where your clusters come to rest.*
+<div align="center">
 
-**Kubebay** is a free, open-source, local-first Kubernetes IDE — a modern alternative to
-Lens / Freelens / Headlamp with a cleaner UI, dramatically lower resource usage, and the
-features power users actually miss: live topology, event timeline, RBAC explorer, and
-guarded AI assistance.
+[![CI](https://github.com/RajaSardar/kubebay/actions/workflows/ci.yml/badge.svg)](https://github.com/RajaSardar/kubebay/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-41c98e.svg)](LICENSE)
+[![Go](https://img.shields.io/badge/Go-1.22%2B-5b8def.svg)](https://go.dev)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-ef5f68.svg)](CONTRIBUTING.md)
 
-| | |
-|---|---|
-| **Status** | 📐 Design & architecture phase (pre-code) |
-| **License** | MIT *(planned — see principles)* |
-| **Platforms** | macOS · Windows · Linux · Web (self-hosted in-cluster) |
-| **Docs** | [Architecture](docs/ARCHITECTURE.md) · [Tech Stack](docs/TECH_STACK.md) · [Product Requirements](docs/PRODUCT_REQUIREMENTS.md) · [Roadmap](docs/ROADMAP.md) · [Security](docs/SECURITY.md) |
+**A bay is where ships anchor safely. Kubebay is where your clusters come to rest.**
+
+A free, open-source, **local-first Kubernetes IDE** — cleaner than Lens, lighter than
+Freelens, friendlier than k9s.
+
+</div>
 
 ---
 
+| | |
+|---|---|
+| **Status** | 🚧 Phase 0 — foundation working; daily-driver features landing now |
+| **License** | MIT |
+| **Platforms** | macOS · Windows · Linux · Web (self-hosted) |
+| **Docs** | [Architecture](docs/ARCHITECTURE.md) · [Tech Stack](docs/TECH_STACK.md) · [Product Requirements](docs/PRODUCT_REQUIREMENTS.md) · [Roadmap](docs/ROADMAP.md) · [Security](SECURITY.md) |
+
 ## Why Kubebay
 
-The Kubernetes UI landscape in 2026 has a trust and quality vacuum:
+The Kubernetes UI landscape has a trust and quality vacuum:
 
 - **Lens** went closed-source + subscription + mandatory accounts; telemetry phones home.
-- **OpenLens** died unpatched; **Freelens** keeps it alive but Electron-heavy (300–600 MB RAM)
-  on an aging UX foundation.
-- **Headlamp** is well-governed but visually plain and slow for daily driver use.
+- **OpenLens** died unpatched; **Freelens** keeps it alive but Electron-heavy on an aging UX.
+- **Headlamp** is well-governed but visually plain for daily-driver use.
 - The official **Kubernetes Dashboard was archived** in Jan 2026.
 
 Kubebay's answer: **one Go engine, three surfaces, zero compromises on trust or performance.**
 
-## Principles (non-negotiable)
+### Principles (non-negotiable)
 
 1. **Local-first.** No accounts, no cloud control plane, no mandatory telemetry. Opt-in only, ever.
 2. **Instant by default.** Every view is a live watch stream. There are no Refresh buttons.
-3. **Lightweight by contract.** Hard performance budgets enforced in CI — see [Performance Budgets](docs/PRODUCT_REQUIREMENTS.md#performance-budgets).
-4. **One engine, many surfaces.** Desktop (Tauri), standalone web binary, and in-cluster Helm chart all share the same core.
+3. **Lightweight by contract.** Hard performance budgets (≤150 MB idle RAM, ≤1.5 s cold start,
+   ≤40 MB installer) enforced in CI — see [PRD §6](docs/PRODUCT_REQUIREMENTS.md).
+4. **One engine, many surfaces.** Desktop (Tauri), standalone web binary, in-cluster Helm chart.
 5. **RBAC-aware everywhere.** The UI reflects what you're actually allowed to do.
-6. **Keyboard-first.** Command palette (`⌘K`) drives everything; mouse optional.
-7. **Truly open source.** MIT license, public roadmap, no bait-and-switch.
+6. **Keyboard-first.** Command palette drives everything; mouse optional.
+7. **Truly open source.** MIT, public roadmap, no bait-and-switch.
 
-## What it looks like (architecture in one paragraph)
+## What's inside today
 
-A single static **Go engine** owns all cluster communication: shared informers per
-`(cluster, resource)` fanning out MessagePack deltas over **one multiplexed WebSocket**, plus
-logs/exec/port-forward streaming (WebSocket-first, SPDY fallback). A **React/TypeScript SPA**
-renders virtualized views on top of that stream. The same engine ships as a Tauri 2 sidecar
-(desktop), a standalone web server (personal), and an in-cluster deployment behind OIDC (teams).
+- **Go engine**: multi-cluster kubeconfig manager (hot-reload), health monitoring,
+  metadata-only shared informers per `(cluster, resource)` with lazy lifecycle,
+  coalescing delta broadcaster, single multiplexed WebSocket protocol v1
+  (`sub` → snapshot → `sync` → live deltas), token-authed REST API, embedded SPA serving
+- **Web shell**: Dusk/Dawn theme system (+ high-contrast variants) with live switching,
+  icon navigation, cluster overview reading your real kubeconfig, skeleton/error/empty states
 
-Full details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
-
-## Feature highlights (planned)
-
-- Live resource tables & detail views for every built-in kind **and any CRD** (discovery-driven)
-- Best-in-class log viewer: multi-pod tail, regex, JSON/logfmt pretty-print, previous container
-- Integrated terminals (xterm.js) and port-forward manager with persistent sessions
-- **Topology view**: real-time owner-reference graph of workloads, services, ingress
-- **Event timeline**: chronological cluster story across resources
-- **RBAC explorer**: who-can-do-what visualization
-- **Helm manager**: install/upgrade/rollback with values-diff preview
-- Themes: **Dusk** (default dark), **Dawn** (light), system-follow, high-contrast variants
-- Built-in **MCP server** + AI copilot: deterministic analyzers free/keyless, LLM explanations opt-in,
-  anonymization toggle, read-only by default
-- In-cluster team mode: OIDC SSO, user impersonation → native K8s RBAC decides
-
-## Platform support
-
-| Platform | Form | Phase |
-|---|---|---|
-| macOS 12+ (Apple Silicon & Intel) | Desktop app (Tauri 2 + engine sidecar) | Phase 1 |
-| Windows 10/11 | Desktop app | Phase 1 |
-| Linux (.deb / .rpm / AppImage) | Desktop app | Phase 1 |
-| Any browser | Self-hosted web mode (`kubebay serve`) | Phase 2 |
-| In-cluster (Helm chart, OIDC) | Shared team dashboard | Phase 2 |
-| Mobile (iOS/Android) | Read-only triage via responsive web first; native deferred — see [PRD §Platforms](docs/PRODUCT_REQUIREMENTS.md#platforms) | Phase 4 |
-
-## Getting started
-
-Not yet — Kubebay is in the architecture/documentation phase. See the [Roadmap](docs/ROADMAP.md).
-Once Phase 0 lands this will become:
+## Quick start (from source)
 
 ```bash
-brew install kubebay/tap/kubebay   # planned
-kubebay                             # opens the app
+git clone https://github.com/RajaSardar/kubebay && cd kubebay
+make run          # builds SPA + engine, serves at http://127.0.0.1:9898
 ```
+
+`make run` prints a one-time session token — open the URL it logs:
+`http://127.0.0.1:9898/?token=…`
+
+Prerequisites: Go ≥ 1.22, Node 20+ (`corepack enable pnpm`). Your real `~/.kube/config`
+is read and hot-reloaded; nothing leaves your machine.
+
+## Roadmap
+
+Phase 1 lands daily-driver parity: log viewer, terminals, port-forward manager,
+YAML edit+diff, metrics, command palette, packaged desktop apps (Tauri).
+Then the differentiators nobody ships well: live topology, event timeline, RBAC explorer,
+Helm manager, fleet dashboard, built-in MCP server + guarded AI copilot.
+
+Full plan: [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Contributing
 
-Repository scaffolding begins at Phase 0 kickoff. Until then, discussion happens through issues
-on design docs. All docs are living documents — propose changes via PR.
+Issues and PRs are welcome — start with [CONTRIBUTING.md](CONTRIBUTING.md).
+Good first issues are labeled `good first issue`. If you care about developer-tool craft,
+you'll feel at home here.
+
+## License
+
+[MIT](LICENSE) © 2026 RajaSardar

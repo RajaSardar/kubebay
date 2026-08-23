@@ -1,4 +1,4 @@
-module github.com/kubebayapp/kubebay/engine
+module github.com/RajaSardar/kubebay/engine
 
 go 1.22.0
 

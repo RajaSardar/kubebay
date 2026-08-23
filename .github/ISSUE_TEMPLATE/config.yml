@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions & discussions
+    url: https://github.com/RajaSardar/kubebay/discussions
+    about: Ask anything about using or building Kubebay
+  - name: Security vulnerabilities
+    url: https://github.com/RajaSardar/kubebay/security/advisories/new
+    about: Report privately — never open a public issue for security problems

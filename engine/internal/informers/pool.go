@@ -16,7 +16,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
-	"github.com/kubebayapp/kubebay/engine/internal/stream"
+	"github.com/RajaSardar/kubebay/engine/internal/stream"
 )
 
 const (
