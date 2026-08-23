@@ -16,3 +16,4 @@ desktop/src-tauri/target/
 desktop/src-tauri/binaries/
 desktop/node_modules/
 desktop/src-tauri/gen/
+static/dist/

@@ -49,9 +49,22 @@ func main() {
 		Channels: channels,
 	}, token)
 
-	if *webDist != "" {
-		fs := http.FileServer(http.Dir(*webDist))
-		handler = wrapSPA(handler, fs)
+	switch {
+	case *webDist != "":
+		if ui, ok := diskUI(*webDist); ok {
+			handler = spaHandler(ui, handler)
+			log.Info("serving web UI from directory", "dir", *webDist)
+		} else {
+			log.Warn("web-dist has no index.html, serving notice page")
+			handler = fallbackNotice(handler)
+		}
+	default:
+		if ui, ok := embeddedUI(); ok {
+			handler = spaHandler(ui, handler)
+			log.Info("serving embedded web UI")
+		} else {
+			handler = fallbackNotice(handler)
+		}
 	}
 
 	srv := &http.Server{
