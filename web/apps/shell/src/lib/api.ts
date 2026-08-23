@@ -160,3 +160,31 @@ export interface APIResourceEntry {
 export const discoveryApi = {
   apis: (cluster: string) => get<APIResourceEntry[]>(`/api/apis?cluster=${encodeURIComponent(cluster)}`),
 };
+
+export interface HelmRepo {
+  name: string;
+  url: string;
+}
+
+export interface HelmChartEntry {
+  name: string;
+  description: string;
+  version: string;
+  appVersion?: string;
+  versions: number;
+}
+
+export const helmMarketApi = {
+  repos: (cluster: string) => get<HelmRepo[]>(`/api/helm/repos?cluster=${encodeURIComponent(cluster)}`),
+  updateRepos: (cluster: string) =>
+    send<Record<string, string>>("POST", `/api/helm/repos/update?cluster=${encodeURIComponent(cluster)}`, {}),
+  charts: (cluster: string, repo: string) =>
+    get<HelmChartEntry[]>(`/api/helm/charts?cluster=${encodeURIComponent(cluster)}&repo=${encodeURIComponent(repo)}`),
+  chartValuesText: async (cluster: string, ref: string, version?: string): Promise<string> => {
+    const q = new URLSearchParams({ token: getToken(), cluster, ref });
+    if (version) q.set("version", version);
+    const res = await fetch(`/api/helm/chart-values?${q}`);
+    if (!res.ok) throw new Error(await res.text());
+    return res.text();
+  },
+};

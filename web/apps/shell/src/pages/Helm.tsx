@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Editor from "@monaco-editor/react";
 import { Badge, Button, Skeleton, StatusDot } from "@kubebay/ui";
 import { api, helmApi, type HelmRelease } from "../lib/api";
+import { ChartsTab } from "../components/HelmCharts";
 
 type DotT = "connected" | "degraded" | "unreachable" | "pending";
 interface Tone {
@@ -278,6 +279,7 @@ function ReleaseDrawer({
 }
 
 export default function Helm() {
+  const [view, setView] = useState<"releases" | "charts">("releases");
   const clusters = useQuery({ queryKey: ["clusters"], queryFn: api.clusters });
   const list = clusters.data ?? [];
   const effectiveCluster = list.find((c) => c.status === "connected")?.id || list[0]?.id || "";
@@ -308,6 +310,20 @@ export default function Helm() {
 
   return (
     <div className="page">
+      <div className="tabs" style={{ padding: 0, marginBottom: 14 }}>
+        {(["releases", "charts"] as const).map((t) => (
+          <button key={t} className={`tab${view === t ? " active" : ""}`} onClick={() => setView(t)}>
+            {t === "releases" ? "Releases" : "Charts — install"}
+          </button>
+        ))}
+      </div>
+
+      {view === "charts" && clusterListReady && (
+        <ChartsTab cluster={effectiveCluster} />
+      )}
+
+      {view === "releases" && (
+      <>
       <div className="page-header">
         <h2>
           Helm releases{" "}
@@ -399,6 +415,10 @@ export default function Helm() {
       )}
 
       {selected && <ReleaseDrawer cluster={effectiveCluster} rel={selected} onClose={() => setSelected(null)} />}
+      </>
+      )}
     </div>
   );
 }
+
+const clusterListReady = true;
