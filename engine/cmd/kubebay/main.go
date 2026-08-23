@@ -39,6 +39,7 @@ func main() {
 	actions := &httpapi.Actions{Clusters: mgr}
 	metrics := &httpapi.Metrics{Clusters: mgr}
 	rbac := &httpapi.RBAC{Clusters: mgr}
+	helmMgr := httpapi.NewHelm(mgr)
 	token, err := httpapi.NewToken()
 	if err != nil {
 		log.Error("token generation failed", "err", err)
@@ -55,6 +56,7 @@ func main() {
 		Actions:  actions,
 		Metrics:  metrics,
 		RBAC:     rbac,
+		Helm:     helmMgr,
 	}, token)
 
 	switch {

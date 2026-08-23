@@ -3,6 +3,8 @@ package clusters
 import (
 	"fmt"
 	"log/slog"
+	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -29,8 +31,19 @@ type Cluster struct {
 }
 
 type entry struct {
-	cluster *Cluster
-	cfg     *rest.Config
+	cluster        *Cluster
+	cfg            *rest.Config
+	kubeconfigPath string
+}
+
+func (m *Manager) HelmEnv(id string) (contextName string, kubeconfigPaths string, err error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	e, ok := m.entries[id]
+	if !ok {
+		return "", "", fmt.Errorf("unknown cluster %q", id)
+	}
+	return e.cluster.Context, e.kubeconfigPath, nil
 }
 
 type Manager struct {
@@ -90,7 +103,8 @@ func (m *Manager) Load() error {
 		id := sanitizeID(name)
 		order = append(order, id)
 		newEntries[id] = &entry{
-			cfg: cfg,
+			cfg:            cfg,
+			kubeconfigPath: strings.Join(rules.Precedence, string(os.PathListSeparator)),
 			cluster: &Cluster{
 				ID:      id,
 				Context: name,

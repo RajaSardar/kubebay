@@ -26,6 +26,7 @@ type Deps struct {
 	Actions  *Actions
 	Metrics  *Metrics
 	RBAC     *RBAC
+	Helm     *HelmManager
 }
 
 func NewChannels(mgr *clusters.Manager) *Channels {
@@ -146,6 +147,13 @@ func Router(d Deps, token string) http.Handler {
 		r.Get("/api/metrics/pods", d.Metrics.HandlePodMetrics)
 		r.Get("/api/rbac/all", d.RBAC.HandleAll)
 		r.Post("/api/rbac/self", d.RBAC.HandleSelfCheck)
+
+		r.Get("/api/helm/releases", d.Helm.HandleReleases)
+		r.Get("/api/helm/history", d.Helm.HandleHistory)
+		r.Get("/api/helm/values", d.Helm.HandleValues)
+		r.Get("/api/helm/manifest", d.Helm.HandleManifest)
+		r.Post("/api/helm/rollback", d.Helm.HandleRollback)
+		r.Post("/api/helm/uninstall", d.Helm.HandleUninstall)
 	})
 
 	return r

@@ -97,3 +97,39 @@ export const rbacApi = {
   self: (b: { cluster: string; verb: string; group: string; resource: string; ns: string }) =>
     send<{ allowed?: boolean; denied?: boolean; reason?: string }>("POST", "/api/rbac/self", b),
 };
+
+export interface HelmRelease {
+  name: string;
+  namespace: string;
+  chart: string;
+  chartVersion: string;
+  appVersion?: string;
+  status: string;
+  revision: number;
+  updated?: string;
+  description?: string;
+}
+
+export const helmApi = {
+  releases: (cluster: string) => get<HelmRelease[]>(`/api/helm/releases?cluster=${encodeURIComponent(cluster)}`),
+  history: (cluster: string, ns: string, name: string) =>
+    get<HelmRelease[]>(`/api/helm/history?cluster=${encodeURIComponent(cluster)}&ns=${encodeURIComponent(ns)}&name=${encodeURIComponent(name)}`),
+  valuesText: async (cluster: string, ns: string, name: string): Promise<string> => {
+    const q = new URLSearchParams({ token: getToken(), cluster, ns, name });
+    const res = await fetch(`/api/helm/values?${q}`);
+    if (!res.ok) throw new Error(await res.text());
+    return res.text();
+  },
+  manifestText: async (cluster: string, ns: string, name: string): Promise<string> => {
+    const q = new URLSearchParams({ token: getToken(), cluster, ns, name });
+    const res = await fetch(`/api/helm/manifest?${q}`);
+    if (!res.ok) throw new Error(await res.text());
+    return res.text();
+  },
+  rollback: (b: { cluster: string; ns: string; name: string; revision: number }) =>
+    send<{ ok: boolean }>("POST", "/api/helm/rollback", b),
+  uninstall: (b: { cluster: string; ns: string; name: string }) =>
+    send<{ ok: boolean }>("POST", "/api/helm/uninstall", b),
+  upgrade: (b: { cluster: string; ns: string; name: string; chartRef: string; version?: string; valuesYaml: string }) =>
+    send<HelmRelease>("POST", "/api/helm/upgrade", b),
+};

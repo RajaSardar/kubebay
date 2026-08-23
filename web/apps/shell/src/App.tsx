@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { NavLink, Route, Routes } from "react-router-dom";
-import { Badge, StatusDot } from "@kubebay/ui";
+import { StatusDot } from "@kubebay/ui";
 import {
   IconCube,
   IconDatabase,
   IconForward,
   IconGrid,
+  IconHelm,
   IconNetwork,
   IconSearch,
   IconShield,
@@ -22,6 +23,7 @@ import Ports from "./pages/Ports";
 import Timeline from "./pages/Timeline";
 import Topology from "./pages/Topology";
 import Rbac from "./pages/Rbac";
+import Helm from "./pages/Helm";
 import ResourceTable from "./pages/ResourceTable";
 
 interface NavLeaf {
@@ -85,6 +87,7 @@ const GROUPS: NavGroupDef[] = [
 
 const TOOLS = [
   { to: "/ports", label: "Ports", icon: <IconForward /> },
+  { to: "/helm", label: "Helm", icon: <IconHelm /> },
   { to: "/rbac", label: "RBAC", icon: <IconShield /> },
   { to: "/timeline", label: "Timeline", icon: <IconTimeline /> },
   { to: "/topology", label: "Topology", icon: <IconTopology /> },
@@ -173,20 +176,6 @@ function Sidebar({ up }: { up: boolean }) {
   );
 }
 
-function Placeholder({ title }: { title: string }) {
-  return (
-    <div className="page">
-      <div className="page-header">
-        <h2>{title}</h2>
-        <Badge>phase 2</Badge>
-      </div>
-      <div className="empty-state">
-        <p>This surface arrives in an upcoming milestone.</p>
-      </div>
-    </div>
-  );
-}
-
 export default function App() {
   const health = useQuery({ queryKey: ["health"], queryFn: api.health, refetchInterval: 10_000 });
   const up = health.data?.ok === true;
@@ -204,7 +193,7 @@ export default function App() {
           <Route path="/timeline" element={<Timeline />} />
           <Route path="/topology" element={<Topology />} />
           <Route path="/rbac" element={<Rbac />} />
-          <Route path="/helm" element={<Placeholder title="Helm manager" />} />
+          <Route path="/helm" element={<Helm />} />
           <Route path="/settings" element={<Settings />} />
         </Routes>
       </main>

@@ -7,6 +7,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 ## [Unreleased]
 
 ### Added
+- Helm manager: releases list (all namespaces, live status), history with two-step rollback, user-values editor (Monaco) with chart-ref/version inputs and Save-&-upgrade via install-or-upgrade resolution, deployed-manifest view, typed-confirm uninstall — Helm SDK v3 wired through per-context kubeconfig ConfigFlags
 - RBAC explorer: "who can …" queries resolved locally from live Role/ClusterRole/RoleBinding/ClusterRoleBinding snapshots (subject → granting bindings), plus My-access panel running SelfSubjectAccessReviews for common verb/resource pairs
 - Topology view (flagship): live owner-reference graph — Deployments → ReplicaSets → Pods, StatefulSets/DaemonSets → Pods, Service selector edges collapsed to workloads when unambiguous; namespace picker from live namespaces stream; click a pod node to open logs/terminal/YAML drawer
 - Live pod metrics: `/api/metrics/pods` via the Kubernetes Metrics API; CPU and Memory columns in the Workloads table (15 s refresh)
