@@ -25,10 +25,7 @@ fn parse_token(line: &str) -> Option<String> {
 
 fn wait_for_engine(addr: &str, attempts: u32) -> bool {
     let host = addr.rsplit_once(':').map(|(h, _)| h).unwrap_or("127.0.0.1");
-    let port: u16 = addr
-        .rsplit_once(':')
-        .and_then(|(_, p)| p.parse().ok())
-        .unwrap_or(9898);
+    let port: u16 = addr.rsplit_once(':').and_then(|(_, p)| p.parse().ok()).unwrap_or(9898);
     for i in 0..attempts {
         if TcpStream::connect((host, port)).is_ok() {
             return true;
@@ -38,6 +35,14 @@ fn wait_for_engine(addr: &str, attempts: u32) -> bool {
     false
 }
 
+fn pick_free_port() -> u16 {
+    std::net::TcpListener::bind("127.0.0.1:0")
+        .ok()
+        .and_then(|l| l.local_addr().ok())
+        .map(|a| a.port())
+        .unwrap_or(9898)
+}
+
 fn main() {
     ENGINE_CHILD.get_or_init(|| Mutex::new(None));
 
@@ -45,10 +50,9 @@ fn main() {
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {
             let handle = app.handle().clone();
-            let cmd = app.shell().sidecar("kubebay-engine")?.args([
-                "--addr",
-                "127.0.0.1:9898",
-            ]);
+            let port = pick_free_port();
+            let addr = format!("127.0.0.1:{port}");
+            let cmd = app.shell().sidecar("kubebay-engine")?.args(["--addr", &addr]);
 
             let (mut rx, child) = cmd.spawn()?;
             *ENGINE_CHILD
@@ -81,13 +85,13 @@ fn main() {
                     }
                 }
 
-                if token.is_empty() || !wait_for_engine("127.0.0.1:9898", 40) {
+                if token.is_empty() || !wait_for_engine(&addr, 40) {
                     eprintln!("[kubebay] engine failed to become ready");
                     return;
                 }
                 std::thread::sleep(Duration::from_millis(300));
 
-                let url = format!("http://127.0.0.1:9898/?token={token}")
+                let url = format!("http://{addr}/?token={token}")
                     .parse()
                     .expect("valid url");
 
