@@ -73,10 +73,10 @@ type poolSource struct {
 	reg *informers.PoolRegistry
 }
 
-func (p poolSource) Subscribe(ctx context.Context, cluster, gvr string, namespaces []string, selector string) (stream.SubHandle, error) {
+func (p poolSource) Subscribe(ctx context.Context, cluster, gvr string, namespaces []string, selector, mode string) (stream.SubHandle, error) {
 	pool, err := p.reg.For(ctx, cluster)
 	if err != nil {
 		return nil, err
 	}
-	return pool.Subscribe(ctx, gvr, namespaces, selector)
+	return pool.Subscribe(ctx, gvr, namespaces, selector, mode)
 }

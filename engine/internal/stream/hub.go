@@ -21,7 +21,7 @@ type Hub struct {
 }
 
 type SubSource interface {
-	Subscribe(ctx context.Context, cluster, gvr string, namespaces []string, selector string) (SubHandle, error)
+	Subscribe(ctx context.Context, cluster, gvr string, namespaces []string, selector, mode string) (SubHandle, error)
 }
 
 type SubHandle interface {
@@ -151,7 +151,7 @@ func (h *Hub) Handle(w http.ResponseWriter, r *http.Request, src SubSource) {
 
 func (h *Hub) start(parent context.Context, frame *ClientFrame, src SubSource, writer *connWriter, table *subTable, wg *sync.WaitGroup) {
 	subCtx, cancel := context.WithCancel(parent)
-	handle, err := src.Subscribe(subCtx, frame.Cluster, frame.GVR, frame.Namespaces, frame.LabelSelector)
+	handle, err := src.Subscribe(subCtx, frame.Cluster, frame.GVR, frame.Namespaces, frame.LabelSelector, frame.Mode)
 	if err != nil {
 		cancel()
 		_ = writer.sendControl(ControlFrame{Type: TypeError, ID: frame.ID, Message: err.Error()})

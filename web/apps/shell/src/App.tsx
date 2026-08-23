@@ -5,6 +5,7 @@ import { IconCube, IconGrid, IconHelm, IconSearch, IconShield, IconSliders, Icon
 import { api } from "./lib/api";
 import Overview from "./pages/Overview";
 import Settings from "./pages/Settings";
+import Workloads from "./pages/Workloads";
 
 const NAV_MAIN = [
   { to: "/", label: "Overview", icon: <IconGrid /> },
@@ -94,7 +95,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Overview />} />
           <Route path="/settings" element={<Settings />} />
-          <Route path="/workloads" element={<Placeholder title="Workloads" />} />
+          <Route path="/workloads" element={<Workloads />} />
           <Route path="/topology" element={<Placeholder title="Topology" />} />
           <Route path="/timeline" element={<Placeholder title="Timeline" />} />
           <Route path="/rbac" element={<Placeholder title="RBAC explorer" />} />

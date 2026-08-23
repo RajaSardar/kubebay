@@ -32,6 +32,7 @@ type ClientFrame struct {
 	GVR           string   `json:"gvr,omitempty"`
 	Namespaces    []string `json:"ns,omitempty"`
 	LabelSelector string   `json:"labelSelector,omitempty"`
+	Mode          string   `json:"mode,omitempty"`
 }
 
 type ControlFrame struct {

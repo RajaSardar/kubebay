@@ -40,3 +40,20 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm build
+
+  integration:
+    name: integration (kind)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: engine
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: engine/go.mod
+      - uses: helm/kind-action@v1.10.0
+        with:
+          cluster_name: kubebay-ci
+      - name: Live delta-stream round-trip test
+        run: KUBEBAY_INTEGRATION_TEST=1 go test ./internal/integration/ -v -timeout 300s

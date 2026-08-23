@@ -9,8 +9,10 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/rest"
@@ -22,12 +24,16 @@ import (
 const (
 	evictAfter = 5 * time.Minute
 	sweepEvery = time.Minute
+
+	ModeMetadata = "metadata"
+	ModeFull     = "full"
 )
 
 type poolKey struct {
 	gvr       schema.GroupVersionResource
 	namespace string
 	selector  string
+	mode      string
 }
 
 type entry struct {
@@ -42,12 +48,10 @@ type entry struct {
 }
 
 type Pool struct {
-	dyn     dynamic.Interface
-	md      metadata.Interface
-	mu      sync.Mutex
+	dyn dynamic.Interface
+	md  metadata.Interface
+	mu  sync.Mutex
 	entries map[poolKey]*entry
-
-	nextSubID int64
 }
 
 type Subscription struct {
@@ -59,9 +63,9 @@ type Subscription struct {
 	closeOnce sync.Once
 }
 
-func (s *Subscription) ID() string                            { return s.id }
-func (s *Subscription) Snapshot() <-chan []stream.Op          { return s.Snap }
-func (s *Subscription) Deltas() <-chan []stream.Op            { return s.Coal.Out() }
+func (s *Subscription) ID() string                   { return s.id }
+func (s *Subscription) Snapshot() <-chan []stream.Op { return s.Snap }
+func (s *Subscription) Deltas() <-chan []stream.Op   { return s.Coal.Out() }
 
 func ParseGVR(s string) (schema.GroupVersionResource, error) {
 	parts := strings.Split(s, "/")
@@ -73,6 +77,13 @@ func ParseGVR(s string) (schema.GroupVersionResource, error) {
 	default:
 		return schema.GroupVersionResource{}, fmt.Errorf("invalid gvr %q (want group/version/resource)", s)
 	}
+}
+
+func NormalizeMode(m string) string {
+	if m == ModeFull {
+		return ModeFull
+	}
+	return ModeMetadata
 }
 
 func New(restCfg *rest.Config) (*Pool, error) {
@@ -89,14 +100,12 @@ func New(restCfg *rest.Config) (*Pool, error) {
 	return p, nil
 }
 
-func (p *Pool) Subscribe(ctx context.Context, gvrStr string, namespaces []string, selector string) (*Subscription, error) {
-	if p.md == nil {
-		return nil, fmt.Errorf("metadata client unavailable")
-	}
+func (p *Pool) Subscribe(ctx context.Context, gvrStr string, namespaces []string, selector, mode string) (*Subscription, error) {
 	gvr, err := ParseGVR(gvrStr)
 	if err != nil {
 		return nil, err
 	}
+	mode = NormalizeMode(mode)
 	sub := &Subscription{
 		id:   fmt.Sprintf("sub-%d", time.Now().UnixNano()),
 		Coal: stream.NewCoalescer(),
@@ -110,7 +119,7 @@ func (p *Pool) Subscribe(ctx context.Context, gvrStr string, namespaces []string
 		nsList = []string{metav1.NamespaceAll}
 	}
 	for _, ns := range nsList {
-		e, err := p.entryFor(poolKey{gvr: gvr, namespace: ns, selector: selector})
+		e, err := p.entryFor(poolKey{gvr: gvr, namespace: ns, selector: selector, mode: mode})
 		if err != nil {
 			return nil, err
 		}
@@ -152,32 +161,41 @@ func (p *Pool) entryFor(key poolKey) (*entry, error) {
 	if e, ok := p.entries[key]; ok {
 		return e, nil
 	}
-	factoryOptsNs := key.namespace
-	var tweak metadatainformer.TweakListOptionsFunc
+
+	var tweak func(*metav1.ListOptions)
 	if key.selector != "" {
 		tweak = func(o *metav1.ListOptions) { o.LabelSelector = key.selector }
 	}
-	factory := metadatainformer.NewFilteredSharedInformerFactory(p.md, 0, factoryOptsNs, tweak)
-	inf := factory.ForResource(key.gvr)
+
+	var inf cache.SharedIndexInformer
+	switch key.mode {
+	case ModeFull:
+		factory := dynamicinformer.NewFilteredDynamicSharedInformerFactory(p.dyn, 0, key.namespace, tweak)
+		inf = factory.ForResource(key.gvr).Informer()
+	default:
+		factory := metadatainformer.NewFilteredSharedInformerFactory(p.md, 0, key.namespace, tweak)
+		inf = factory.ForResource(key.gvr).Informer()
+	}
+
 	e := &entry{
 		key:      key,
-		informer: inf.Informer(),
+		informer: inf,
 		fanout:   make(chan stream.Op, 2048),
 		stop:     make(chan struct{}),
 		subs:     map[*Subscription]struct{}{},
 	}
-	inf.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj any) { e.emit(stream.OpAdd, obj) },
+	inf.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    func(obj any) { e.emit(stream.OpAdd, obj) },
 		UpdateFunc: func(_, newObj any) { e.emit(stream.OpModify, newObj) },
 		DeleteFunc: func(obj any) { e.emit(stream.OpDelete, obj) },
 	})
 	p.entries[key] = e
 	go func() {
 		defer close(e.fanout)
-		inf.Informer().Run(e.stop)
+		inf.Run(e.stop)
 	}()
 	go func() {
-		ok := cache.WaitForCacheSync(e.stop, inf.Informer().HasSynced)
+		ok := cache.WaitForCacheSync(e.stop, inf.HasSynced)
 		e.mu.Lock()
 		e.synced = ok
 		subs := make([]*Subscription, 0, len(e.subs))
@@ -196,18 +214,35 @@ func (p *Pool) entryFor(key poolKey) (*entry, error) {
 	return e, nil
 }
 
-func (e *entry) emit(opType string, obj any) {
-	meta, ok := obj.(*metav1.PartialObjectMetadata)
-	if !ok {
-		if tomb, ok := obj.(cache.DeletedFinalStateUnknown); ok {
-			meta, ok = tomb.Obj.(*metav1.PartialObjectMetadata)
-		}
-		if !ok {
-			return
+func unwrap(obj any) map[string]any {
+	switch o := obj.(type) {
+	case *unstructured.Unstructured:
+		return o.UnstructuredContent()
+	case *metav1.PartialObjectMetadata:
+		return jsonToMap(o)
+	case cache.DeletedFinalStateUnknown:
+		if inner := o.Obj; inner != nil {
+			return unwrap(inner)
 		}
 	}
-	m, err := toMap(meta)
+	return nil
+}
+
+func jsonToMap(v any) map[string]any {
+	b, err := json.Marshal(v)
 	if err != nil {
+		return nil
+	}
+	var m map[string]any
+	if err := json.Unmarshal(b, &m); err != nil {
+		return nil
+	}
+	return m
+}
+
+func (e *entry) emit(opType string, obj any) {
+	m := unwrap(obj)
+	if m == nil {
 		return
 	}
 	key, err := stream.ObjectKey(m)
@@ -237,40 +272,21 @@ func (p *Pool) drainFanout(e *entry) {
 func (e *entry) deliverSnapshot(sub *Subscription) {
 	items := e.informer.GetIndexer().List()
 	ops := make([]stream.Op, 0, len(items))
-	rv := ""
 	for _, it := range items {
-		meta, ok := it.(*metav1.PartialObjectMetadata)
-		if !ok {
-			continue
-		}
-		m, err := toMap(meta)
-		if err != nil {
+		m := unwrap(it)
+		if m == nil {
 			continue
 		}
 		key, err := stream.ObjectKey(m)
 		if err != nil {
 			continue
 		}
-		rv = stream.ObjectRV(m)
 		ops = append(ops, stream.Op{Op: stream.OpAdd, Key: key, Obj: m})
 	}
 	select {
 	case sub.Snap <- ops:
 	case <-sub.done:
 	}
-	_ = rv
-}
-
-func toMap(o any) (map[string]any, error) {
-	b, err := json.Marshal(o)
-	if err != nil {
-		return nil, err
-	}
-	var m map[string]any
-	if err := json.Unmarshal(b, &m); err != nil {
-		return nil, err
-	}
-	return m, nil
 }
 
 func (p *Pool) sweeper() {
