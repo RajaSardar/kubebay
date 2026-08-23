@@ -1,0 +1,311 @@
+import { useMemo, useState } from "react";
+import { useParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { Badge, Skeleton, StatusDot } from "@kubebay/ui";
+import { api } from "../lib/api";
+import { useResourceStream } from "../lib/useResourceStream";
+import { DEFS, EXTRA_DEFS, ageOf, fmtAge, num, str, type ResourceDef } from "../lib/resources";
+import GenericDrawer from "../components/GenericDrawer";
+
+type Row = Record<string, unknown>;
+
+function rec(v: unknown): Record<string, unknown> {
+  return (v ?? {}) as Record<string, unknown>;
+}
+
+interface Cell {
+  v: string;
+  dot?: "ok" | "warn" | "err" | "pending";
+  cls?: string;
+}
+
+const DOT: Record<NonNullable<Cell["dot"]>, string> = {
+  ok: "connected",
+  warn: "degraded",
+  err: "unreachable",
+  pending: "pending",
+};
+
+function healthDot(h: Cell["dot"]) {
+  return h ? <StatusDot status={DOT[h]} /> : null;
+}
+
+function workloadCells(o: Row): Record<string, Cell> {
+  const status = rec(o.status);
+  const spec = rec(o.spec);
+  const desired = num(spec.replicas);
+  const ready = num(status.readyReplicas);
+  const updated = num(status.updatedReplicas);
+  const available = num(status.availableReplicas);
+  const health: Cell["dot"] = ready >= desired && desired > 0 ? "ok" : ready === 0 ? "err" : "warn";
+  return {
+    Ready: { v: `${ready}/${desired}`, dot: health },
+    "Up to date": { v: String(updated) },
+    Available: { v: String(available) },
+  };
+}
+
+function extraColumns(slug: string): Record<string, (o: Row) => Cell> {
+  switch (slug) {
+    case "deployments":
+      return {
+        Ready: (o) => workloadCells(o).Ready ?? { v: "" },
+        "Up to date": (o) => workloadCells(o)["Up to date"] ?? { v: "" },
+        Available: (o) => workloadCells(o).Available ?? { v: "" },
+      };
+    case "statefulsets":
+      return { Ready: (o) => workloadCells(o).Ready ?? { v: "" } };
+    case "replicasets":
+      return { Ready: (o) => workloadCells(o).Ready ?? { v: "" } };
+    case "daemonsets":
+      return {
+        Desired: (o) => ({ v: String(num(rec(o.status).desiredNumberScheduled)) }),
+        Current: (o) => ({ v: String(num(rec(o.status).currentNumberScheduled)) }),
+        Ready: (o) => ({
+          v: `${num(rec(o.status).numberReady)}/${num(rec(o.spec).desiredNumberScheduled)}`,
+          dot:
+            num(rec(o.status).numberReady) >= num(rec(o.spec).desiredNumberScheduled)
+              ? "ok"
+              : num(rec(o.status).numberReady) === 0
+                ? "err"
+                : "warn",
+        }),
+      };
+    case "jobs":
+      return {
+        Completions: (o) => {
+          const c = rec(o.spec).completions;
+          return { v: c == null ? "1" : String(c) };
+        },
+        Succeeded: (o) => ({ v: String(num(rec(o.status).succeeded)), dot: "ok" }),
+        Failed: (o) => ({ v: String(num(rec(o.status).failed)), dot: num(rec(o.status).failed) ? "err" : undefined }),
+      };
+    case "persistentvolumeclaims":
+      return {
+        Status: (o) => {
+          const phase = str(rec(o.status).phase);
+          return { v: phase, dot: phase === "Bound" ? "ok" : phase === "Lost" ? "err" : "warn" };
+        },
+        Volume: (o) => ({ v: str(rec(o.spec).volumeName) || "–" }),
+        Capacity: (o) => {
+          const req = rec(rec(o.spec).resources).requests;
+          return { v: str(rec(req).storage) || "–" };
+        },
+      };
+    case "persistentvolumes":
+      return {
+        Status: (o) => {
+          const phase = str(rec(o.status).phase);
+          return { v: phase, dot: phase === "Available" || phase === "Bound" ? "ok" : phase === "Released" ? "warn" : phase === "Failed" ? "err" : "pending" };
+        },
+        Capacity: (o) => ({ v: str(rec(rec(o.spec).capacity).storage) || "–" }),
+      };
+    case "storageclasses":
+      return {
+        Provisioner: (o) => ({ v: str(rec(o.spec).provisioner) }),
+        Reclaim: (o) => ({ v: str(rec(o.spec).reclaimPolicy) || "Delete" }),
+      };
+    case "services":
+      return {
+        Type: (o) => ({ v: str(rec(o.spec).type) || "ClusterIP" }),
+        "Cluster IP": (o) => ({ v: str(rec(o.spec).clusterIP) || "–" }),
+        Port: (o) => {
+          const ports = (rec(o.spec).ports ?? []) as Record<string, unknown>[];
+          if (!ports.length) return { v: "–" };
+          const p = ports[0] ?? {};
+          return { v: `${str(p.port)}${p.nodePort ? ":" + str(p.nodePort) : ""}/${str(p.protocol) || "TCP"}` };
+        },
+      };
+    case "ingresses":
+      return {
+        Class: (o) => ({ v: str(rec(o.spec).ingressClassName) || "–" }),
+        Hosts: (o) => {
+          const rules = (rec(o.spec).rules ?? []) as Record<string, unknown>[];
+          return { v: rules.map((r) => str(r.host)).filter(Boolean).slice(0, 2).join(", ") || "–" };
+        },
+      };
+    case "configmaps":
+      return {
+        Data: (o) => {
+          const d = rec(o.data);
+          return { v: `${Object.keys(d).length} keys` };
+        },
+      };
+    case "secrets":
+      return {
+        Type: (o) => ({ v: str(rec(o).type) || "Opaque" }),
+        Data: (o) => ({ v: `${Object.keys(rec(o.data)).length} keys` }),
+      };
+    case "nodes":
+      return {
+        Status: (o) => {
+          const conds = (rec(o.status).conditions ?? []) as Record<string, unknown>[];
+          const ready = conds.find((c) => c.type === "Ready");
+          const ok = ready?.status === "True";
+          return { v: ok ? "Ready" : "NotReady", dot: ok ? "ok" : "err" };
+        },
+        Version: (o) => ({ v: str(rec(rec(o.status).nodeInfo).kubeletVersion) }),
+      };
+    default:
+      return {};
+  }
+}
+
+export default function ResourceTable() {
+  const { kind = "" } = useParams();
+  const def: ResourceDef | undefined = DEFS[kind] ?? EXTRA_DEFS[kind];
+
+  const clusters = useQuery({ queryKey: ["clusters"], queryFn: api.clusters });
+  const list = clusters.data ?? [];
+  const effectiveCluster = list.find((c) => c.status === "connected")?.id || list[0]?.id || "";
+
+  const [nsFilter, setNsFilter] = useState("");
+  const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState<{ ns: string; name: string } | null>(null);
+
+  const stream = useResourceStream(effectiveCluster || undefined, def?.gvr ?? "v1/configmaps", {
+    mode: def?.mode,
+    ns: def && !def.scoped && nsFilter ? [nsFilter] : undefined,
+  });
+
+  const cols = useMemo(() => Object.keys(def ? extraColumns(def.slug) : {}), [def]);
+
+  const rows = useMemo(() => {
+    let out = [...stream.rows];
+    out.sort((a, b) => {
+      const an = str(rec(a.metadata).name);
+      const bn = str(rec(b.metadata).name);
+      return an.localeCompare(bn);
+    });
+    if (search) {
+      out = out.filter((r) => str(rec(r.metadata).name).includes(search));
+    }
+    return out;
+  }, [stream.rows, search]);
+
+  if (!def) {
+    return (
+      <div className="page">
+        <div className="empty-state">
+          <p>Unknown resource “{kind}”.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const headers = ["Name", ...(def.scoped ? [] : ["Namespace"]), ...cols, "Age"];
+
+  function cellFor(slug: string, col: string, o: Row): Cell {
+    return extraColumns(slug)[col]?.(o) ?? { v: "" };
+  }
+
+  return (
+    <div className="page">
+      <div className="page-header">
+        <h2>
+          {def.label}
+          {stream.synced && (
+            <span className="live-pill">● live</span>
+          )}
+        </h2>
+        <Badge>{rows.length}</Badge>
+      </div>
+
+      <div className="toolbar">
+        <select className="toolbar-select" value={effectiveCluster} onChange={() => undefined} aria-label="cluster">
+          {list.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.id}
+            </option>
+          ))}
+        </select>
+        {!def.scoped && (
+          <input
+            className="toolbar-input"
+            placeholder="namespace…"
+            value={nsFilter}
+            onChange={(e) => setNsFilter(e.target.value)}
+            spellCheck={false}
+            style={{ maxWidth: 160 }}
+          />
+        )}
+        <input
+          className="toolbar-input"
+          placeholder={`Filter ${def.label.toLowerCase()}…`}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          spellCheck={false}
+        />
+      </div>
+
+      {!stream.synced ? (
+        <div className="table-wrap">
+          <table className="kb-table">
+            <thead>
+              <tr>{headers.map((h) => <th key={h}>{h}</th>)}</tr>
+            </thead>
+            <tbody>
+              {[0, 1, 2, 3, 4].map((i) => (
+                <tr key={i}>
+                  {headers.map((_, j) => (
+                    <td key={j}>
+                      <Skeleton w={[150, 90, 60, 70, 60, 50][j % 6]} />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : rows.length === 0 ? (
+        <div className="empty-state">
+          <p>No {def.label.toLowerCase()} match.</p>
+          <p className="muted small">{search || nsFilter ? "Loosen the filters." : `Nothing in this ${def.scoped ? "cluster" : "namespace"} yet.`}</p>
+        </div>
+      ) : (
+        <div className="table-wrap">
+          <table className="kb-table">
+            <thead>
+              <tr>{headers.map((h) => <th key={h}>{h}</th>)}</tr>
+            </thead>
+            <tbody>
+              {rows.map((o) => {
+                const meta = rec(o.metadata);
+                const name = str(meta.name);
+                const key = `${str(meta.namespace)}/${name}`;
+                return (
+                  <tr key={key} className="row-clickable" onClick={() => setSelected({ ns: str(meta.namespace), name })}>
+                    <td className="mono strong">{name}</td>
+                    {!def.scoped && <td className="mono muted">{str(meta.namespace)}</td>}
+                    {cols.map((col) => {
+                      const cell = cellFor(def.slug, col, o);
+                      return (
+                        <td key={col} className="mono muted">
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
+                            {cell.dot ? healthDot(cell.dot) : null}
+                            <span style={{ color: cell.cls }}>{cell.v}</span>
+                          </span>
+                        </td>
+                      );
+                    })}
+                    <td className="mono muted">{fmtAge(ageOf(o))}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {selected && (
+        <GenericDrawer
+          cluster={effectiveCluster}
+          def={def}
+          ns={selected.ns}
+          name={selected.name}
+          onClose={() => setSelected(null)}
+        />
+      )}
+    </div>
+  );
+}
