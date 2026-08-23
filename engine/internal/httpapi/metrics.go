@@ -71,3 +71,40 @@ func (m *Metrics) HandlePodMetrics(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(out)
 }
+
+func (m *Metrics) HandleNodeMetrics(w http.ResponseWriter, r *http.Request) {
+	cluster := r.URL.Query().Get("cluster")
+	if cluster == "" {
+		http.Error(w, "cluster required", http.StatusBadRequest)
+		return
+	}
+	cfg, err := m.Clusters.RestConfigWithIdentity(cluster, clusters.IdentityFromContext(r.Context()))
+	if err != nil {
+		http.Error(w, fmt.Sprintf("connect: %v", err), http.StatusInternalServerError)
+		return
+	}
+	mc, err := metricsv.NewForConfig(cfg)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("client: %v", err), http.StatusInternalServerError)
+		return
+	}
+	list, err := mc.MetricsV1beta1().NodeMetricses().List(r.Context(), metav1.ListOptions{})
+	if err != nil {
+		http.Error(w, fmt.Sprintf("metrics API: %v", err), http.StatusBadGateway)
+		return
+	}
+	type nodeUsage struct {
+		Name      string `json:"name"`
+		CPUMillis int64  `json:"cpuMillis"`
+		MemBytes  int64  `json:"memBytes"`
+	}
+	out := make([]nodeUsage, 0, len(list.Items))
+	for _, n := range list.Items {
+		var cpuMillis, memBytes int64
+		cpuMillis += n.Usage.Cpu().MilliValue()
+		memBytes += n.Usage.Memory().Value()
+		out = append(out, nodeUsage{Name: n.Name, CPUMillis: cpuMillis, MemBytes: memBytes})
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(out)
+}

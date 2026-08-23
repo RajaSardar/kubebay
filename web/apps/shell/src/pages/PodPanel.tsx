@@ -31,6 +31,7 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
   const [deleteInput, setDeleteInput] = useState("");
   const [deleteErr, setDeleteErr] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [shell, setShell] = useState<"auto" | "bash" | "sh" | "ash" | "powershell">("auto");
 
   const spec: PodLogsSpec = useMemo(
     () => ({
@@ -153,6 +154,19 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
             </option>
           ))}
         </select>
+        {tab === "shell" && (
+          <select
+            className="toolbar-select drawer-select"
+            value={shell}
+            onChange={(e) => setShell(e.target.value as typeof shell)}
+            aria-label="shell"
+          >
+            <option value="auto">auto</option>
+            <option value="bash">bash</option>
+            <option value="sh">sh</option>
+            <option value="ash">ash</option>
+          </select>
+        )}
       </div>
 
       {tab === "logs" ? (
@@ -208,6 +222,7 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
             namespace={pod.namespace}
             pod={pod.pod}
             container={container}
+            shell={shell}
           />
         </div>
       ) : (

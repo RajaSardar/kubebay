@@ -97,6 +97,16 @@ export const api = {
   }) => send<{ applied: boolean; dryRun: boolean }>("PUT", "/api/yaml", b),
 };
 
+export const nodeApi = {
+  shellStart: (b: { cluster: string; node: string }) =>
+    send<{ namespace: string; pod: string }>("POST", "/api/node-shell", b),
+};
+
+export const metricsApi = {
+  nodes: (cluster: string) =>
+    get<{ name: string; cpuMillis: number; memBytes: number }[]>(`/api/metrics/nodes?cluster=${encodeURIComponent(cluster)}`),
+};
+
 export const rbacApi = {
   self: (b: { cluster: string; verb: string; group: string; resource: string; ns: string }) =>
     send<{ allowed?: boolean; denied?: boolean; reason?: string }>("POST", "/api/rbac/self", b),

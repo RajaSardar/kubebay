@@ -7,6 +7,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 ## [Unreleased]
 
 ### Added
+- Node shell: one-click root shell on any node via ephemeral privileged busybox pod (hostPID, tolerates taints), auto-deleted when panel closes — `/api/node-shell`
+- Node metrics columns (CPU/Memory) in the Nodes table via `/api/metrics/nodes`
+- Exec shell fallback chain (bash → sh → ash) with manual picker; fixes exec into distroless/minimal images
+
+### Fixed
 - Feature-verification pass fixes: nil-request panic in RBAC/metrics identity helper (caught by live API battery)
 - `/api/apis` discovery endpoint; sidebar now covers the full Lens surface — NetworkPolicies, HPAs, PDBs, ResourceQuotas, LimitRanges, ServiceAccounts, Roles/ClusterRoles/Bindings — plus a dynamic Custom Resources section built from API discovery (`/r/ext/:group/:version/:resource`)
 - Functional ⌘K command palette: fuzzy navigation across every page and resource view

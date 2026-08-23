@@ -17,17 +17,18 @@ import (
 )
 
 type Deps struct {
-	Log      *slog.Logger
-	Clusters *clusters.Manager
-	Pools    *informers.PoolRegistry
-	Hub      *stream.Hub
-	Channels *Channels
-	PF       *PFManager
-	Actions  *Actions
-	Metrics  *Metrics
-	RBAC     *RBAC
-	Helm     *HelmManager
-	Auth     *Authenticator
+	Log       *slog.Logger
+	Clusters  *clusters.Manager
+	Pools     *informers.PoolRegistry
+	Hub       *stream.Hub
+	Channels  *Channels
+	PF        *PFManager
+	Actions   *Actions
+	Metrics   *Metrics
+	RBAC      *RBAC
+	Helm      *HelmManager
+	NodeShell *NodeShellManager
+	Auth      *Authenticator
 }
 
 func (d Deps) authEnabled() bool { return d.Auth != nil && d.Auth.Enabled() }
@@ -168,6 +169,7 @@ func Router(d Deps, token string) http.Handler {
 		r.Put("/api/yaml", d.Channels.HandleApplyYAML)
 		r.Get("/api/metrics/pods", d.Metrics.HandlePodMetrics)
 		r.Get("/api/apis", d.Metrics.HandleDiscovery)
+		r.Get("/api/metrics/nodes", d.Metrics.HandleNodeMetrics)
 		r.Get("/api/rbac/all", d.RBAC.HandleAll)
 		r.Post("/api/rbac/self", d.RBAC.HandleSelfCheck)
 
@@ -175,6 +177,8 @@ func Router(d Deps, token string) http.Handler {
 		r.Get("/api/helm/history", d.Helm.HandleHistory)
 		r.Get("/api/helm/values", d.Helm.HandleValues)
 		r.Get("/api/helm/manifest", d.Helm.HandleManifest)
+		r.Post("/api/node-shell", d.NodeShell.HandleStart)
+
 		r.Post("/api/helm/rollback", d.Helm.HandleRollback)
 		r.Post("/api/helm/uninstall", d.Helm.HandleUninstall)
 	})

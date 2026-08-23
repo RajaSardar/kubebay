@@ -2,9 +2,11 @@ import { useMemo, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Badge, Skeleton, StatusDot } from "@kubebay/ui";
-import { api } from "../lib/api";
+import { api, metricsApi } from "../lib/api";
+import { useQuery as useRQQuery } from "@tanstack/react-query";
 import { useResourceStream } from "../lib/useResourceStream";
 import { DEFS, EXTRA_DEFS, ageOf, fmtAge, num, str, type ResourceDef } from "../lib/resources";
+import { fmtBytes, fmtCpu } from "./Workloads";
 
 function lookupDef(kind: string, sp: URLSearchParams): ResourceDef | undefined {
   if (DEFS[kind]) return DEFS[kind];
@@ -68,7 +70,30 @@ function workloadCells(o: Row): Record<string, Cell> {
   };
 }
 
-function extraColumns(slug: string): Record<string, (o: Row) => Cell> {
+function extraColumns(
+  slug: string,
+  ctx?: { nodeUsage?: Map<string, { cpuMillis: number; memBytes: number }> },
+): Record<string, (o: Row) => Cell> {
+  if (slug === "nodes") {
+    const usage = ctx?.nodeUsage;
+    return {
+      Status: (o) => {
+        const conds = (rec(o.status).conditions ?? []) as Record<string, unknown>[];
+        const ready = conds.find((c) => c.type === "Ready");
+        const ok = ready?.status === "True";
+        return { v: ok ? "Ready" : "NotReady", dot: ok ? "ok" : "err" };
+      },
+      Version: (o) => ({ v: str(rec(rec(o.status).nodeInfo).kubeletVersion) }),
+      CPU: (o) => {
+        const u = usage?.get(str(rec(o.metadata).name));
+        return { v: u ? fmtCpu(u.cpuMillis) : "–" };
+      },
+      Memory: (o) => {
+        const u = usage?.get(str(rec(o.metadata).name));
+        return { v: u ? fmtBytes(u.memBytes) : "–" };
+      },
+    };
+  }
   switch (slug) {
     case "deployments":
       return {
@@ -119,7 +144,17 @@ function extraColumns(slug: string): Record<string, (o: Row) => Cell> {
       return {
         Status: (o) => {
           const phase = str(rec(o.status).phase);
-          return { v: phase, dot: phase === "Available" || phase === "Bound" ? "ok" : phase === "Released" ? "warn" : phase === "Failed" ? "err" : "pending" };
+          return {
+            v: phase,
+            dot:
+              phase === "Available" || phase === "Bound"
+                ? "ok"
+                : phase === "Released"
+                  ? "warn"
+                  : phase === "Failed"
+                    ? "err"
+                    : "pending",
+          };
         },
         Capacity: (o) => ({ v: str(rec(rec(o.spec).capacity).storage) || "–" }),
       };
@@ -149,25 +184,12 @@ function extraColumns(slug: string): Record<string, (o: Row) => Cell> {
       };
     case "configmaps":
       return {
-        Data: (o) => {
-          const d = rec(o.data);
-          return { v: `${Object.keys(d).length} keys` };
-        },
+        Data: (o) => ({ v: `${Object.keys(rec(o.data)).length} keys` }),
       };
     case "secrets":
       return {
         Type: (o) => ({ v: str(rec(o).type) || "Opaque" }),
         Data: (o) => ({ v: `${Object.keys(rec(o.data)).length} keys` }),
-      };
-    case "nodes":
-      return {
-        Status: (o) => {
-          const conds = (rec(o.status).conditions ?? []) as Record<string, unknown>[];
-          const ready = conds.find((c) => c.type === "Ready");
-          const ok = ready?.status === "True";
-          return { v: ok ? "Ready" : "NotReady", dot: ok ? "ok" : "err" };
-        },
-        Version: (o) => ({ v: str(rec(rec(o.status).nodeInfo).kubeletVersion) }),
       };
     default:
       return {};
@@ -192,7 +214,23 @@ export default function ResourceTable() {
     ns: def && !def.scoped && nsFilter ? [nsFilter] : undefined,
   });
 
-  const cols = useMemo(() => Object.keys(def ? extraColumns(def.slug) : {}), [def]);
+  const nodeUsageQ = useRQQuery({
+    queryKey: ["nodemetrics", effectiveCluster],
+    queryFn: () => metricsApi.nodes(effectiveCluster),
+    enabled: !!effectiveCluster && def?.slug === "nodes",
+    refetchInterval: 15_000,
+    retry: false,
+  });
+  const nodeUsage = useMemo(() => {
+    const m = new Map<string, { cpuMillis: number; memBytes: number }>();
+    for (const u of nodeUsageQ.data ?? []) m.set(u.name, u);
+    return m;
+  }, [nodeUsageQ.data]);
+
+  const cols = useMemo(
+    () => Object.keys(def ? extraColumns(def.slug, { nodeUsage }) : {}),
+    [def, nodeUsage],
+  );
 
   const rows = useMemo(() => {
     let out = [...stream.rows];
@@ -220,7 +258,7 @@ export default function ResourceTable() {
   const headers = ["Name", ...(def.scoped ? [] : ["Namespace"]), ...cols, "Age"];
 
   function cellFor(slug: string, col: string, o: Row): Cell {
-    return extraColumns(slug)[col]?.(o) ?? { v: "" };
+    return extraColumns(slug, { nodeUsage })[col]?.(o) ?? { v: "" };
   }
 
   return (

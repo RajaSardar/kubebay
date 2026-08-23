@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Badge, Button, StatusDot } from "@kubebay/ui";
-import { api } from "../lib/api";
+import { api, nodeApi } from "../lib/api";
 import { YamlTab } from "./YamlTab";
+import { ExecTerm } from "./ExecTerm";
 import type { ResourceDef } from "../lib/resources";
 
 export default function GenericDrawer({
@@ -21,6 +22,36 @@ export default function GenericDrawer({
   const [input, setInput] = useState("");
   const [err, setErr] = useState("");
   const [deleting, setDeleting] = useState(false);
+
+  const isNode = def.slug === "nodes";
+  const [nodeTab, setNodeTab] = useState<"yaml" | "shell">("shell");
+  const [creating, setCreating] = useState(false);
+  const [shellPod, setShellPod] = useState<{ ns: string; pod: string } | null>(null);
+  const [shellErr, setShellErr] = useState("");
+
+  async function startShell() {
+    setCreating(true);
+    setShellErr("");
+    try {
+      const r = await nodeApi.shellStart({ cluster, node: name });
+      setShellPod({ ns: r.namespace, pod: r.pod });
+    } catch (e) {
+      setShellErr(String(e instanceof Error ? e.message : e));
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  useEffect(() => {
+    return () => {
+      if (shellPod) {
+        void api
+          .deleteResource({ cluster, gvr: "v1/pods", ns: shellPod.ns, name: shellPod.pod })
+          .catch(() => undefined);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     setConfirming(false);
@@ -95,9 +126,39 @@ export default function GenericDrawer({
           {err}
         </div>
       )}
-      <div className="yaml-wrap">
-        <YamlTab cluster={cluster} gvr={def.gvr} ns={ns} name={name} />
-      </div>
+      {isNode && (
+        <div className="tabs">
+          {(["shell", "yaml"] as const).map((t) => (
+            <button key={t} className={`tab${nodeTab === t ? " active" : ""}`} onClick={() => setNodeTab(t)}>
+              {t === "shell" ? "Terminal" : "YAML"}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {isNode && nodeTab === "shell" ? (
+        shellPod ? (
+          <div className="term-wrap">
+            <ExecTerm cluster={cluster} namespace={shellPod.ns} pod={shellPod.pod} container="shell" shell="sh" />
+          </div>
+        ) : (
+          <div className="page" style={{ paddingTop: 24 }}>
+            {shellErr && <div className="error-banner">{shellErr}</div>}
+            <p className="muted small" style={{ marginTop: 0 }}>
+              Starts a short-lived privileged helper pod (busybox + hostPID) pinned to{" "}
+              <span className="mono">{name}</span>, giving you a root shell on the node.
+              It is deleted automatically when this panel closes.
+            </p>
+            <Button disabled={creating} onClick={() => void startShell()}>
+              {creating ? "Creating…" : "Start node shell"}
+            </Button>
+          </div>
+        )
+      ) : (
+        <div className="yaml-wrap">
+          <YamlTab cluster={cluster} gvr={def.gvr} ns={ns} name={name} />
+        </div>
+      )}
     </aside>
   );
 }

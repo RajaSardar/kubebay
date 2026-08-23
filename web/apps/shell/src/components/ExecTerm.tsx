@@ -4,16 +4,26 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { attach, chanSend, closeChannel, openChannel, resizeChannel } from "../lib/ws";
 
+const SHELL_CANDIDATES: Record<string, string[][]> = {
+  auto: [["bash", "-l"], ["sh"], ["ash"]],
+  bash: [["bash", "-l"]],
+  sh: [["sh"]],
+  ash: [["ash"]],
+  powershell: ["powershell"].map((c) => [c]),
+};
+
 export function ExecTerm({
   cluster,
   namespace,
   pod,
   container,
+  shell = "auto",
 }: {
   cluster: string;
   namespace: string;
   pod: string;
   container?: string;
+  shell?: "auto" | "bash" | "sh" | "ash" | "powershell";
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const chanRef = useRef("");
@@ -52,10 +62,24 @@ export function ExecTerm({
 
     const detach = attach({
       onChanData: (id, data) => {
-        if (id === chanRef.current) term.write(data);
+        if (id === chanRef.current) {
+          gotOutput = true;
+          term.write(data);
+        }
       },
       onChanClosed: (id, msg) => {
         if (id !== chanRef.current) return;
+        const failed =
+          !!msg &&
+          msg !== "done" &&
+          /not found|no such file|executable|OCI runtime/i.test(msg);
+        if (failed && candIdx < candidates.length - 1 && !gotOutput) {
+          candIdx += 1;
+          const next = candidates[candIdx]!;
+          term.write(`\r\n\x1b[2m[${next[0]} not available — retrying with fallback…]\x1b[0m\r\n`);
+          openWith(next);
+          return;
+        }
         term.write(`\r\n\x1b[33m■ session ended${msg && msg !== "done" ? ` — ${msg}` : ""}\x1b[0m\r\n`);
       },
       onStatus: (up) => {
@@ -70,17 +94,32 @@ export function ExecTerm({
         return undefined;
       }
     })();
-    chanRef.current = `exec-${Math.random().toString(36).slice(2, 10)}`;
-    openChannel({
-      id: chanRef.current,
-      kind: "exec",
-      cluster,
-      namespace,
-      pod,
-      container,
-      command: ["bash", "-l"],
-      cols: dims?.cols ?? 80,
-      rows: dims?.rows ?? 24,
+
+    const candidates = SHELL_CANDIDATES[shell] ?? SHELL_CANDIDATES.auto!;
+    let candIdx = 0;
+    let gotOutput = false;
+
+    const openWith = (cmd: string[]) => {
+      chanRef.current = `exec-${Math.random().toString(36).slice(2, 10)}`;
+      openChannel({
+        id: chanRef.current,
+        kind: "exec",
+        cluster,
+        namespace,
+        pod,
+        container,
+        command: cmd,
+        cols: dims?.cols ?? 80,
+        rows: dims?.rows ?? 24,
+      });
+    };
+    openWith(candidates[0]!);
+
+    const detachFallback = attach({
+      onChanData: (id) => {
+        if (id === chanRef.current) gotOutput = true;
+      },
+      onAck: () => {},
     });
 
     term.onData((d) => {
@@ -101,6 +140,7 @@ export function ExecTerm({
       closeChannel(chanRef.current);
       chanRef.current = "";
       detach();
+      detachFallback();
       term.dispose();
     };
   }, [cluster, namespace, pod, container]);

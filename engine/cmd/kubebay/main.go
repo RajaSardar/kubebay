@@ -54,6 +54,7 @@ func main() {
 	metrics := &httpapi.Metrics{Clusters: mgr}
 	rbac := &httpapi.RBAC{Clusters: mgr}
 	helmMgr := httpapi.NewHelm(mgr)
+	nodeShell := &httpapi.NodeShellManager{Clusters: mgr}
 	token, err := httpapi.NewToken()
 	if err != nil {
 		log.Error("token generation failed", "err", err)
@@ -67,17 +68,18 @@ func main() {
 	}
 
 	handler := httpapi.Router(httpapi.Deps{
-		Log:      log,
-		Auth:     auth,
-		Clusters: mgr,
-		Pools:    registry,
-		Hub:      hub,
-		Channels: channels,
-		PF:       pfManager,
-		Actions:  actions,
-		Metrics:  metrics,
-		RBAC:     rbac,
-		Helm:     helmMgr,
+		Log:       log,
+		Auth:      auth,
+		Clusters:  mgr,
+		Pools:     registry,
+		Hub:       hub,
+		Channels:  channels,
+		PF:        pfManager,
+		Actions:   actions,
+		Metrics:   metrics,
+		RBAC:      rbac,
+		Helm:      helmMgr,
+		NodeShell: nodeShell,
 	}, token)
 
 	switch {
