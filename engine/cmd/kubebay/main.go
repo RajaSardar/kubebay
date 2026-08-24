@@ -18,7 +18,11 @@ import (
 	"github.com/RajaSardar/kubebay/engine/internal/stream"
 )
 
+var version = "dev"
+
 func main() {
+	showVersion := flag.Bool("version", false, "print version and exit")
+	noOpen := flag.Bool("no-open", false, "do not open the browser automatically")
 	addr := flag.String("addr", "127.0.0.1:9898", "listen address")
 	kubeconfig := flag.String("kubeconfig", "", "explicit kubeconfig path (default: KUBECONFIG / ~/.kube/config)")
 	webDist := flag.String("web-dist", "", "serve SPA from this directory")
@@ -28,6 +32,11 @@ func main() {
 	oidcClientSecret := flag.String("oidc-client-secret", os.Getenv("KUBEBAY_OIDC_CLIENT_SECRET"), "OIDC client secret")
 	oidcRedirect := flag.String("oidc-redirect-url", os.Getenv("KUBEBAY_OIDC_REDIRECT"), "OAuth2 redirect URL")
 	flag.Parse()
+
+	if *showVersion {
+		fmt.Println("kubebay", version)
+		return
+	}
 
 	log := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 
@@ -112,7 +121,12 @@ func main() {
 	}
 
 	go func() {
-		log.Info("kubebay engine listening", "addr", fmt.Sprintf("http://%s", *addr), "token", token)
+		url := fmt.Sprintf("http://%s", *addr)
+		log.Info("kubebay engine listening", "addr", url, "token", token, "version", version)
+		log.Info(fmt.Sprintf("open %s/?token=%s in your browser", url, token))
+		if !*noOpen && isTerminal() {
+			go tryOpenBrowser(url + "/?token=" + token)
+		}
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Error("server error", "err", err)
 			os.Exit(1)

@@ -1,0 +1,129 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  binaries:
+    strategy:
+      matrix:
+        include:
+          - { goos: darwin, goarch: arm64 }
+          - { goos: darwin, goarch: amd64 }
+          - { goos: linux, goarch: amd64 }
+          - { goos: linux, goarch: arm64 }
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - run: cd web && pnpm install --frozen-lockfile && pnpm build
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: engine/go.mod
+      - name: Build embedded engine binary
+        run: |
+          rm -rf engine/internal/httpapi/static/dist
+          mkdir -p engine/internal/httpapi/static
+          cp -R web/apps/shell/dist engine/internal/httpapi/static/dist
+          cd engine
+          CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \
+            go build -trimpath -ldflags "-s -w -X main.version=${{ github.ref_name }}" \
+            -o ../kubebay ./cmd/kubebay
+      - name: Package
+        run: |
+          DIR="kubebay-${{ matrix.goos }}-${{ matrix.goarch }}"
+          mkdir "$DIR"
+          cp kubebay "$DIR/"
+          cp README.md LICENSE "$DIR/"
+          tar czf "$DIR.tar.gz" "$DIR"
+          shasum -a 256 "$DIR.tar.gz" > "$DIR.tar.gz.sha256"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kubebay-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: kubebay-*.tar.gz*
+
+  github-release:
+    needs: binaries
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+          path: dist
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
+
+  homebrew-tap:
+    needs: github-release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update homebrew tap
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          VERSION="${TAG#v}"
+          gh repo clone RajaSardar/homebrew-tap tap || { echo "tap missing; create RajaSardar/homebrew-tap"; exit 1; }
+          cd tap
+          ARM=$(curl -sL "https://github.com/RajaSardar/kubebay/releases/download/$TAG/kubebay-darwin-arm64.tar.gz.sha256" | awk '{print $1}')
+          AMD=$(curl -sL "https://github.com/RajaSardar/kubebay/releases/download/$TAG/kubebay-darwin-amd64.tar.gz.sha256" | awk '{print $1}')
+          mkdir -p Formula
+          cat > Formula/kubebay.rb <<RUBY
+          class Kubebay < Formula
+            desc "Local-first Kubernetes IDE — engine + web UI in one binary"
+            homepage "https://github.com/RajaSardar/kubebay"
+            version "$VERSION"
+
+            on_macos do
+              if Hardware::CPU.arm?
+                url "https://github.com/RajaSardar/kubebay/releases/download/#{version}/kubebay-darwin-arm64.tar.gz"
+                sha256 "$ARM"
+              else
+                url "https://github.com/RajaSardar/kubebay/releases/download/#{version}/kubebay-darwin-amd64.tar.gz"
+                sha256 "$AMD"
+              end
+            end
+            on_linux do
+              if Hardware::CPU.arm? || Hardware::CPU.intel?
+                url "https://github.com/RajaSardar/kubebay/releases/download/#{version}/kubebay-linux-#{Hardware::CPU.arm? ? "arm64" : "amd64"}.tar.gz"
+                sha256 "LINUX_PLACEHOLDER"
+              end
+            end
+
+            def install
+              bin.install "kubebay"
+            end
+
+            service do
+              run [bin/"kubebay", "--addr", "127.0.0.1:9898", "--no-open"]
+              keep_alive true
+            end
+
+            def caveats
+              <<~EOS
+                Run directly:  kubebay
+                As a service:  brew services start rajasardar/tap/kubebay
+                The UI token is printed on first start.
+              EOS
+            end
+          end
+          RUBY
+          git config user.name "kubebay-release-bot"
+          git config user.email "bot@kubebay.local"
+          git add Formula/kubebay.rb
+          git commit -m "kubebay $VERSION" || echo "no changes"
+          git push
