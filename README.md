@@ -54,6 +54,23 @@ Kubebay's answer: **one Go engine, three surfaces, zero compromises on trust or 
 - **Web shell**: Dusk/Dawn theme system (+ high-contrast variants) with live switching,
   icon navigation, cluster overview reading your real kubeconfig, skeleton/error/empty states
 
+## Install
+
+```bash
+brew install rajasardar/tap/kubebay
+kubebay          # serves the UI, opens your browser, prints a session token
+```
+
+Or run as a background service:
+
+```bash
+brew services start rajasardar/tap/kubebay
+# UI at http://127.0.0.1:9898 — token in `brew services info rajasardar/tap/kubebay`
+```
+
+Binaries for macOS (arm64/amd64) and Linux are on the
+[releases page](https://github.com/RajaSardar/kubebay/releases).
+
 ## Quick start (from source)
 
 ```bash
