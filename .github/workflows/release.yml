@@ -16,6 +16,7 @@ jobs:
           - { goos: darwin, goarch: amd64 }
           - { goos: linux, goarch: amd64 }
           - { goos: linux, goarch: arm64 }
+          - { goos: windows, goarch: amd64 }
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -44,7 +45,11 @@ jobs:
         run: |
           DIR="kubebay-${{ matrix.goos }}-${{ matrix.goarch }}"
           mkdir "$DIR"
-          cp kubebay "$DIR/"
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            mv kubebay "$DIR/kubebay.exe"
+          else
+            cp kubebay "$DIR/"
+          fi
           cp README.md LICENSE "$DIR/"
           tar czf "$DIR.tar.gz" "$DIR"
           shasum -a 256 "$DIR.tar.gz" > "$DIR.tar.gz.sha256"
