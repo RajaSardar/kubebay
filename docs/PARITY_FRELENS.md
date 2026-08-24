@@ -79,7 +79,7 @@ Based on source-level analysis of Freelens' sidebar registration, resource views
 
 | Freelens detail feature | Kubebay | Status |
 |---|---|---|
-| **Pod details**: env vars, volumes, probes, conditions, container status, scheduler name, QoS, node link, IP | YAML only | ❌ **BIGGEST GAP** |
+| **Pod details**: env vars, volumes, probes, conditions, container status, scheduler name, QoS, node link, IP | ✅ PodSummary tab (default) | ✅ |
 | **Node details**: conditions, taints, capacity/allocatable, pod list on node, cloud provider ID, OS/arch/kernel/runtime | YAML + shell only | ❌ |
 | **Service details**: endpoints, session affinity, traffic policies, external IPs, port mappings | YAML only | ❌ |
 | **CronJob details**: job history, active jobs count, suspend toggle | ✅ (trigger/suspend in ActionsBar) | ✅ |

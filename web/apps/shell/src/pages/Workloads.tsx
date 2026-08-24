@@ -5,6 +5,10 @@ import { api } from "../lib/api";
 import { useResourceStream } from "../lib/useResourceStream";
 import PodPanel, { type SelectedPod } from "./PodPanel";
 
+function rec(v: unknown): Record<string, unknown> {
+  return (v ?? {}) as Record<string, unknown>;
+}
+
 export function fmtCpu(millis: number): string {
   if (millis >= 1000) return `${(millis / 1000).toFixed(2)} core`;
   return `${Math.max(1, Math.round(millis))}m`;
@@ -241,14 +245,19 @@ export default function Workloads() {
               {pods.map((p) => {
                 const tone = STATUS_TONE[p.status];
                 return (
-                  <tr key={p.key} className="row-clickable" onClick={() =>
+                  <tr key={p.key} className="row-clickable" onClick={() => {
+                    const rawObj = rows.find((r) => {
+                      const m = rec((r ?? {}) as Record<string, unknown>).metadata as Record<string, unknown> | undefined;
+                      return (m?.name as string) === p.name && (m?.namespace as string) === p.namespace;
+                    });
                     setSelected({
                       cluster: effectiveCluster,
                       namespace: p.namespace,
                       pod: p.name,
                       containers: p.containers.length ? p.containers : [""],
-                    })
-                  }>
+                      obj: rawObj,
+                    });
+                  }}>
                     <td className="mono strong">{p.name}</td>
                     <td className="mono muted">{p.namespace}</td>
                     <td className="mono">{p.ready}</td>

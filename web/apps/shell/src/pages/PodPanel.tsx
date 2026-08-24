@@ -4,6 +4,7 @@ import { api } from "../lib/api";
 import { usePodLogs, type PodLogsSpec } from "../lib/usePodLogs";
 import { ExecTerm } from "../components/ExecTerm";
 import { YamlTab } from "../components/YamlTab";
+import { PodSummary } from "../components/PodSummary";
 import { PodGraphs } from "../components/PodGraphs";
 
 export interface SelectedPod {
@@ -11,6 +12,7 @@ export interface SelectedPod {
   namespace: string;
   pod: string;
   containers: string[];
+  obj?: Record<string, unknown>;
 }
 
 const TAILS = [200, 2000, 10000];
@@ -22,11 +24,11 @@ function classify(line: string): "" | "err" | "warn" {
 }
 
 export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod; onClose: () => void; onDeleted?: () => void }) {
-  const [tab, setTabState] = useState<"logs" | "shell" | "yaml" | "graphs" | "size">(() => {
+  const [tab, setTabState] = useState<"summary" | "logs" | "shell" | "graphs" | "size" | "yaml">(() => {
     const saved = localStorage.getItem("kb.drawerTab");
-    return saved === "shell" || saved === "yaml" || saved === "graphs" || saved === "size" ? saved : "logs";
+    return saved === "shell" || saved === "yaml" || saved === "graphs" || saved === "size" || saved === "summary" ? saved : "summary";
   });
-  const setTab = (t: "logs" | "shell" | "yaml" | "graphs" | "size") => {
+  const setTab = (t: "summary" | "logs" | "shell" | "graphs" | "size" | "yaml") => {
     localStorage.setItem("kb.drawerTab", t);
     setTabState(t);
   };
@@ -158,9 +160,9 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
       )}
 
       <div className="tabs">
-        {(["logs", "shell", "graphs", "size", "yaml"] as const).map((t) => (
+        {(["summary", "logs", "shell", "graphs", "size", "yaml"] as const).map((t) => (
           <button key={t} className={`tab${tab === t ? " active" : ""}`} onClick={() => setTab(t)}>
-            {t === "logs" ? "Logs" : t === "shell" ? "Terminal" : t === "graphs" ? "Graphs" : t === "size" ? "Size" : "YAML"}
+            {t === "summary" ? "Summary" : t === "logs" ? "Logs" : t === "shell" ? "Terminal" : t === "graphs" ? "Graphs" : t === "size" ? "Size" : "YAML"}
           </button>
         ))}
         <select
@@ -239,6 +241,8 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
         <div style={{ overflow: "auto" }}>
           <PodGraphs cluster={pod.cluster} namespace={pod.namespace} pod={pod.pod} />
         </div>
+      ) : tab === "summary" ? (
+        <PodSummary obj={pod.obj ?? {}} />
       ) : tab === "size" ? (
         <ResizePanel
           cluster={pod.cluster}
