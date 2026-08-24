@@ -26,6 +26,7 @@ import Topology from "./pages/Topology";
 import Rbac from "./pages/Rbac";
 import Helm from "./pages/Helm";
 import Fleet from "./pages/Fleet";
+import WorkloadsOverview from "./pages/WorkloadsOverview";
 import ResourceTable from "./pages/ResourceTable";
 import { Palette } from "./components/Palette";
 import { discoveryApi } from "./lib/api";
@@ -46,6 +47,7 @@ const GROUPS: NavGroupDef[] = [
     label: "Workloads",
     icon: <IconCube />,
     leaves: [
+      { to: "/workloads-overview", label: "Overview" },
       { to: "/workloads", label: "Pods" },
       { to: "/r/deployments", label: "Deployments" },
       { to: "/r/replicasets", label: "ReplicaSets" },
@@ -72,6 +74,8 @@ const GROUPS: NavGroupDef[] = [
     icon: <IconNetwork />,
     leaves: [
       { to: "/r/services", label: "Services" },
+      { to: "/r/endpoints", label: "Endpoints" },
+      { to: "/r/endpointslices", label: "EndpointSlices" },
       { to: "/r/ingresses", label: "Ingresses" },
       { to: "/r/networkpolicies", label: "NetworkPolicies" },
     ],
@@ -267,6 +271,7 @@ export default function App() {
           <Route path="/" element={<Overview />} />
           <Route path="/fleet" element={<Fleet />} />
           <Route path="/workloads" element={<Workloads />} />
+          <Route path="/workloads-overview" element={<WorkloadsOverview />} />
           <Route path="/r/:kind" element={<ResourceTable />} />
           <Route path="/ports" element={<Ports />} />
           <Route path="/timeline" element={<Timeline />} />

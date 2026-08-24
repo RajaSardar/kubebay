@@ -7,6 +7,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 ## [Unreleased]
 
 ### Added
+- **Workloads Overview page**: status summary cards per kind (Pods/Deployments/STS/DS/Jobs/Nodes) with live healthy/unhealthy counts, ratio bars, and quick navigation — Freelens Workloads > Overview parity
+- **Endpoints + EndpointSlices** tables under Network group with endpoint-count columns
+- **Column sorting** on all resource tables — click any header to sort ascending/descending
 - **Force delete**: grace-0 + finalizer-stripping option on every delete confirmation (Freelens #1147 parity)
 - **In-place pod resize**: Size tab in the pod drawer — patch CPU/memory requests/limits per container (K8s ≥1.33 vertical scaling)
 - Nodes table: Instance-type, Zone, live Pods-count and Capacity columns

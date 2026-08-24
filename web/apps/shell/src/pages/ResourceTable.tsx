@@ -171,6 +171,26 @@ function extraColumns(
         Provisioner: (o) => ({ v: str(rec(o.spec).provisioner) }),
         Reclaim: (o) => ({ v: str(rec(o.spec).reclaimPolicy) || "Delete" }),
       };
+    case "endpoints":
+      return {
+        "EndPoints": (o) => {
+          const subsets = (rec(o.subsets) ?? []) as Record<string, unknown>[];
+          let count = 0;
+          for (const ss of subsets) {
+            const addrs = (ss.addresses ?? []) as unknown[];
+            count += addrs.length;
+          }
+          return { v: String(count), dot: count > 0 ? "ok" : "warn" };
+        },
+      };
+    case "endpointslices":
+      return {
+        "EndPoints": (o) => {
+          const eps = (rec(o).endpoints ?? []) as unknown[];
+          return { v: String(eps.length), dot: eps.length > 0 ? "ok" : "warn" };
+        },
+        "Address Type": (o) => ({ v: str(rec(o).addressType) || "IPv4" }),
+      };
     case "services":
       return {
         Type: (o) => ({ v: str(rec(o.spec).type) || "ClusterIP" }),
@@ -215,6 +235,8 @@ export default function ResourceTable() {
 
   const [nsFilter, setNsFilter] = useState("");
   const [search, setSearch] = useState("");
+  const [sortCol, setSortCol] = useState<string | null>(null);
+  const [sortAsc, setSortAsc] = useState(true);
   const [selected, setSelected] = useState<{ ns: string; name: string } | null>(null);
 
   const stream = useResourceStream(effectiveCluster || undefined, def?.gvr ?? "v1/configmaps", {
@@ -254,18 +276,41 @@ export default function ResourceTable() {
     [def, nodeUsage, podsPerNode],
   );
 
+  function cellFor(slug: string, col: string, o: Row): Cell {
+    return extraColumns(slug, { nodeUsage, podsPerNode })[col]?.(o) ?? { v: "" };
+  }
+
   const rows = useMemo(() => {
     let out = [...stream.rows];
-    out.sort((a, b) => {
-      const an = str(rec(a.metadata).name);
-      const bn = str(rec(b.metadata).name);
-      return an.localeCompare(bn);
-    });
     if (search) {
       out = out.filter((r) => str(rec(r.metadata).name).includes(search));
     }
+    if (sortCol) {
+      out.sort((a, b) => {
+        let av: string | number, bv: string | number;
+        if (sortCol === "Name") {
+          av = str(rec(a.metadata).name);
+          bv = str(rec(b.metadata).name);
+        } else if (sortCol === "Namespace") {
+          av = str(rec(a.metadata).namespace);
+          bv = str(rec(b.metadata).namespace);
+        } else if (sortCol === "Age") {
+          av = ageOf(a);
+          bv = ageOf(b);
+        } else {
+          const cellA = cellFor(def?.slug ?? "", sortCol, a);
+          const cellB = cellFor(def?.slug ?? "", sortCol, b);
+          av = cellA.v;
+          bv = cellB.v;
+        }
+        if (typeof av === "number" && typeof bv === "number") return sortAsc ? av - bv : bv - av;
+        return sortAsc ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
+      });
+    } else {
+      out.sort((a, b) => str(rec(a.metadata).name).localeCompare(str(rec(b.metadata).name)));
+    }
     return out;
-  }, [stream.rows, search]);
+  }, [stream.rows, search, sortCol, sortAsc, def]);
 
   if (!def) {
     return (
@@ -278,10 +323,6 @@ export default function ResourceTable() {
   }
 
   const headers = ["Name", ...(def.scoped ? [] : ["Namespace"]), ...cols, "Age"];
-
-  function cellFor(slug: string, col: string, o: Row): Cell {
-    return extraColumns(slug, { nodeUsage, podsPerNode })[col]?.(o) ?? { v: "" };
-  }
 
   return (
     <div className="page">
@@ -350,7 +391,18 @@ export default function ResourceTable() {
         <div className="table-wrap">
           <table className="kb-table">
             <thead>
-              <tr>{headers.map((h) => <th key={h}>{h}</th>)}</tr>
+              <tr>
+                {headers.map((h) => (
+                  <th key={h} className={h ? "th-sortable" : ""} onClick={() => {
+                    if (!h) return;
+                    if (sortCol === h) setSortAsc(!sortAsc);
+                    else { setSortCol(h); setSortAsc(true); }
+                  }}>
+                    {h}
+                    {sortCol === h && <span className="sort-indicator">{sortAsc ? " ↑" : " ↓"}</span>}
+                  </th>
+                ))}
+              </tr>
             </thead>
             <tbody>
               {rows.map((o) => {

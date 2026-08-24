@@ -948,3 +948,18 @@ h2 {
 .palette-item.active {
   background: var(--kb-accent-subtle);
 }
+
+.th-sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.th-sortable:hover {
+  color: var(--kb-fg-default);
+}
+
+.sort-indicator {
+  font-size: 9px;
+  opacity: 0.7;
+  margin-left: 2px;
+}
