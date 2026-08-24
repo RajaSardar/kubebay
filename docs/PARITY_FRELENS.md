@@ -80,8 +80,8 @@ Based on source-level analysis of Freelens' sidebar registration, resource views
 | Freelens detail feature | Kubebay | Status |
 |---|---|---|
 | **Pod details**: env vars, volumes, probes, conditions, container status, scheduler name, QoS, node link, IP | ✅ PodSummary tab (default) | ✅ |
-| **Node details**: conditions, taints, capacity/allocatable, pod list on node, cloud provider ID, OS/arch/kernel/runtime | YAML + shell only | ❌ |
-| **Service details**: endpoints, session affinity, traffic policies, external IPs, port mappings | YAML only | ❌ |
+| **Node details**: conditions, taints, capacity/allocatable, cloud provider ID, OS/arch/kernel/runtime | ✅ NodeSummary tab (default) | ✅ |
+| **Service details**: session affinity, traffic policies, external IPs, port mappings, selector | ✅ ServiceSummary tab (default) | ✅ |
 | **CronJob details**: job history, active jobs count, suspend toggle | ✅ (trigger/suspend in ActionsBar) | ✅ |
 | **CRD details**: names, scope, printer columns, OpenAPI schema in Monaco | — | ❌ |
 | **Events embedded in resource drawers** (filtered by parent object) | — | ❌ |

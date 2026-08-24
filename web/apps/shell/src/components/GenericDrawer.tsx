@@ -4,6 +4,8 @@ import { api, nodeApi } from "../lib/api";
 import { YamlTab } from "./YamlTab";
 import { ExecTerm } from "./ExecTerm";
 import { ActionsBar } from "./ActionsBar";
+import { NodeSummary } from "./NodeSummary";
+import { ServiceSummary } from "./ServiceSummary";
 import type { ResourceDef } from "../lib/resources";
 
 export default function GenericDrawer({
@@ -26,7 +28,10 @@ export default function GenericDrawer({
   const [force, setForce] = useState(false);
 
   const isNode = def.slug === "nodes";
-  const [nodeTab, setNodeTab] = useState<"yaml" | "shell">("shell");
+  const [nodeTab, setNodeTab] = useState<"summary" | "shell" | "yaml">("summary");
+  const [svcTab, setSvcTab] = useState<"summary" | "yaml">("summary");
+  const [obj, setObj] = useState<Record<string, unknown> | null>(null);
+  const [objLoading, setObjLoading] = useState(false);
   const [creating, setCreating] = useState(false);
   const [shellPod, setShellPod] = useState<{ ns: string; pod: string } | null>(null);
   const [shellErr, setShellErr] = useState("");
@@ -60,6 +65,20 @@ export default function GenericDrawer({
     setInput("");
     setErr("");
   }, [name, ns]);
+
+  const isService = def.slug === "services";
+
+  useEffect(() => {
+    if (!isNode && !isService) return;
+    setObjLoading(true);
+    api.getYamlText(cluster, def.gvr, ns, name).then((text) => {
+      try {
+        setObj(JSON.parse(text));
+      } catch {
+        setObj(null);
+      }
+    }).catch(() => setObj(null)).finally(() => setObjLoading(false));
+  }, [cluster, def.gvr, ns, name, isNode, isService]);
 
   async function doDelete() {
     if (input !== name) {
@@ -145,15 +164,41 @@ export default function GenericDrawer({
 
       {isNode && (
         <div className="tabs">
-          {(["shell", "yaml"] as const).map((t) => (
+          {(["summary", "shell", "yaml"] as const).map((t) => (
             <button key={t} className={`tab${nodeTab === t ? " active" : ""}`} onClick={() => setNodeTab(t)}>
-              {t === "shell" ? "Terminal" : "YAML"}
+              {t === "summary" ? "Summary" : t === "shell" ? "Terminal" : "YAML"}
             </button>
           ))}
         </div>
       )}
 
-      {isNode && nodeTab === "shell" ? (
+      {isService && (
+        <div className="tabs">
+          {(["summary", "yaml"] as const).map((t) => (
+            <button key={t} className={`tab${svcTab === t ? " active" : ""}`} onClick={() => setSvcTab(t)}>
+              {t === "summary" ? "Summary" : "YAML"}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {isService && svcTab === "summary" ? (
+        objLoading ? (
+          <div className="muted small" style={{ padding: 14 }}>Loading…</div>
+        ) : obj ? (
+          <ServiceSummary obj={obj} />
+        ) : (
+          <div className="muted small" style={{ padding: 14 }}>Could not load service data.</div>
+        )
+      ) : isNode && nodeTab === "summary" ? (
+        objLoading ? (
+          <div className="muted small" style={{ padding: 14 }}>Loading…</div>
+        ) : obj ? (
+          <NodeSummary obj={obj} />
+        ) : (
+          <div className="muted small" style={{ padding: 14 }}>Could not load node data.</div>
+        )
+      ) : isNode && nodeTab === "shell" ? (
         shellPod ? (
           <div className="term-wrap">
             <ExecTerm cluster={cluster} namespace={shellPod.ns} pod={shellPod.pod} container="shell" shell="sh" />
@@ -171,11 +216,11 @@ export default function GenericDrawer({
             </Button>
           </div>
         )
-      ) : (
+      ) : (isNode && nodeTab === "yaml") || (!isNode && !isService) || (isService && svcTab === "yaml") ? (
         <div className="yaml-wrap">
           <YamlTab cluster={cluster} gvr={def.gvr} ns={ns} name={name} />
         </div>
-      )}
+      ) : null}
     </aside>
   );
 }
