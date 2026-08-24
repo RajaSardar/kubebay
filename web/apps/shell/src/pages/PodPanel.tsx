@@ -4,6 +4,7 @@ import { api } from "../lib/api";
 import { usePodLogs, type PodLogsSpec } from "../lib/usePodLogs";
 import { ExecTerm } from "../components/ExecTerm";
 import { YamlTab } from "../components/YamlTab";
+import { PodGraphs } from "../components/PodGraphs";
 
 export interface SelectedPod {
   cluster: string;
@@ -21,11 +22,11 @@ function classify(line: string): "" | "err" | "warn" {
 }
 
 export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod; onClose: () => void; onDeleted?: () => void }) {
-  const [tab, setTabState] = useState<"logs" | "shell" | "yaml">(() => {
+  const [tab, setTabState] = useState<"logs" | "shell" | "yaml" | "graphs">(() => {
     const saved = localStorage.getItem("kb.drawerTab");
-    return saved === "shell" || saved === "yaml" ? saved : "logs";
+    return saved === "shell" || saved === "yaml" || saved === "graphs" ? saved : "logs";
   });
-  const setTab = (t: "logs" | "shell" | "yaml") => {
+  const setTab = (t: "logs" | "shell" | "yaml" | "graphs") => {
     localStorage.setItem("kb.drawerTab", t);
     setTabState(t);
   };
@@ -145,9 +146,9 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
       )}
 
       <div className="tabs">
-        {(["logs", "shell", "yaml"] as const).map((t) => (
+        {(["logs", "shell", "graphs", "yaml"] as const).map((t) => (
           <button key={t} className={`tab${tab === t ? " active" : ""}`} onClick={() => setTab(t)}>
-            {t === "logs" ? "Logs" : t === "shell" ? "Terminal" : "YAML"}
+            {t === "logs" ? "Logs" : t === "shell" ? "Terminal" : t === "graphs" ? "Graphs" : "YAML"}
           </button>
         ))}
         <select
@@ -222,6 +223,10 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
             ))}
           </div>
         </>
+      ) : tab === "graphs" ? (
+        <div style={{ overflow: "auto" }}>
+          <PodGraphs cluster={pod.cluster} namespace={pod.namespace} pod={pod.pod} />
+        </div>
       ) : tab === "shell" ? (
         <div className="term-wrap">
           <ExecTerm

@@ -2,9 +2,11 @@ package clusters
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -14,6 +16,8 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
+
+const settingsDirName = ".kubebay"
 
 type Identity struct {
 	Name   string
@@ -59,6 +63,8 @@ type Manager struct {
 	order      []string
 	watcher    *fsnotify.Watcher
 	kubeconfig string
+	extraPaths []string
+	isolated   bool
 }
 
 func NewManager(log *slog.Logger, kubeconfigPath string) (*Manager, error) {
@@ -77,11 +83,71 @@ func NewManager(log *slog.Logger, kubeconfigPath string) (*Manager, error) {
 }
 
 func (m *Manager) loadingRules() *clientcmd.ClientConfigLoadingRules {
-	r := clientcmd.NewDefaultClientConfigLoadingRules()
 	if m.kubeconfig != "" {
-		r.ExplicitPath = m.kubeconfig
+		return &clientcmd.ClientConfigLoadingRules{ExplicitPath: m.kubeconfig}
 	}
+	if m.isolated {
+		return &clientcmd.ClientConfigLoadingRules{Precedence: append([]string{}, m.extraPaths...)}
+	}
+	r := clientcmd.NewDefaultClientConfigLoadingRules()
+	r.Precedence = append(r.Precedence, m.extraPaths...)
 	return r
+}
+
+// SetIsolated when true loads ONLY the explicitly listed extra kubeconfig
+// files — the default ~/.kube/config and KUBECONFIG env are ignored.
+func (m *Manager) SetIsolated(v bool) {
+	m.mu.Lock()
+	m.isolated = v
+	m.mu.Unlock()
+}
+
+func (m *Manager) validateKubeconfigs(paths []string) error {
+	for _, p := range paths {
+		if _, err := os.ReadFile(p); err != nil {
+			return fmt.Errorf("%s: %w", p, err)
+		}
+		if _, err := clientcmd.LoadFromFile(p); err != nil {
+			return fmt.Errorf("%s: not a kubeconfig: %w", p, err)
+		}
+	}
+	return nil
+}
+
+// SetExtraKubeconfigs validates and applies additional kubeconfig files,
+// then reloads all clusters (file watchers re-register automatically).
+func (m *Manager) SetExtraKubeconfigs(paths []string) error {
+	if err := m.validateKubeconfigs(paths); err != nil {
+		return err
+	}
+	m.mu.Lock()
+	m.extraPaths = paths
+	m.mu.Unlock()
+	return m.Load()
+}
+
+// ApplySavedSettings reads ~/.kubebay/settings.json and applies extras.
+func (m *Manager) ApplySavedSettings() error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+	b, err := os.ReadFile(filepath.Join(home, settingsDirName, "settings.json"))
+	if err != nil {
+		return nil
+	}
+	var parsed struct {
+		ExtraKubeconfigs []string `json:"extraKubeconfigs"`
+		OnlyListed       bool     `json:"onlyListedKubeconfigs"`
+	}
+	if err := json.Unmarshal(b, &parsed); err != nil {
+		return err
+	}
+	m.SetIsolated(parsed.OnlyListed)
+	if len(parsed.ExtraKubeconfigs) == 0 {
+		return nil
+	}
+	return m.SetExtraKubeconfigs(parsed.ExtraKubeconfigs)
 }
 
 func (m *Manager) Load() error {

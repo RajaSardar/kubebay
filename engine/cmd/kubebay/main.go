@@ -55,6 +55,10 @@ func main() {
 	rbac := &httpapi.RBAC{Clusters: mgr}
 	helmMgr := httpapi.NewHelm(mgr)
 	nodeShell := &httpapi.NodeShellManager{Clusters: mgr}
+	settingsMgr := httpapi.NewSettingsManager(mgr)
+	if err := mgr.ApplySavedSettings(); err != nil {
+		log.Warn("saved settings apply failed", "err", err)
+	}
 	token, err := httpapi.NewToken()
 	if err != nil {
 		log.Error("token generation failed", "err", err)
@@ -80,6 +84,7 @@ func main() {
 		RBAC:      rbac,
 		Helm:      helmMgr,
 		NodeShell: nodeShell,
+		Settings:  settingsMgr,
 	}, token)
 
 	switch {

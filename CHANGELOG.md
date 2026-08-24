@@ -7,6 +7,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 ## [Unreleased]
 
 ### Added
+- Kubeconfig catalog manager: Settings → Kubeconfig sources with add/remove and **isolated mode** (`onlyListedKubeconfigs`) that ignores default ~/.kube/config and KUBECONFIG entirely — test clusters only, prod never listed
+- Prometheus history graphs: Settings → Prometheus URL; pod drawer **Graphs** tab with per-container CPU + memory working-set over 15m/1h/6h/24h ranges, rendered via dependency-free SVG charts through the engine's `/api/prom/query_range` proxy
+- Settings persistence at `~/.kubebay/settings.json` (applied at engine boot)
 - Freelens-parity batch (see docs/PARITY_FRELENS.md): workload quick-actions in drawers — Scale, Rollout-restart, CronJob Trigger-now/Suspend/Resume; Node cordon/uncordon/drain via the Eviction API (PDB-aware, mirror/daemonset skipping); parity matrix doc tracking every remaining gap with upstream refs
 - Helm marketplace: browse charts from your configured repositories (`~/.config/helm/repositories.yaml`), index refresh button, search, one-click install drawer with chart default-values prefill, version pin and release/namespace naming — full Lens Apps parity
 - Node shell: one-click root shell on any node via ephemeral privileged busybox pod (hostPID, tolerates taints), auto-deleted when panel closes — `/api/node-shell`

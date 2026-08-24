@@ -199,3 +199,29 @@ export const helmMarketApi = {
     return res.text();
   },
 };
+
+export interface AppSettings {
+  prometheusUrl?: string;
+  extraKubeconfigs: string[];
+  onlyListedKubeconfigs?: boolean;
+}
+
+export const settingsApi = {
+  get: () => get<AppSettings>("/api/settings"),
+  save: (b: AppSettings) => send<{ ok: boolean; saved: AppSettings }>("POST", "/api/settings", b),
+};
+
+export const promApi = {
+  queryRange: async (params: { query: string; startMs: number; endMs: number; stepSec: number }): Promise<{ data: { result: { metric: Record<string, string>; values: [number, string][] }[] } }> => {
+    const q = new URLSearchParams({
+      token: getToken(),
+      query: params.query,
+      start: String(Math.floor(params.startMs / 1000)),
+      end: String(Math.floor(params.endMs / 1000)),
+      step: String(params.stepSec),
+    });
+    const res = await fetch(`/api/prom/query_range?${q}`);
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  },
+};

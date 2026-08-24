@@ -21,6 +21,13 @@
 | Topology graph | Kubebay-only (Octant successor) |
 | Fleet dashboard · RBAC who-can-what · Themes+HC · Web mode · Tauri footprint | Kubebay-only |
 
+## ✅ Recently closed (this batch)
+
+| Gap | Status |
+|---|---|
+| Kubeconfig catalog management | ✅ Settings → Kubeconfig sources (add/remove + **isolated mode**: only listed files, default/KUBECONFIG ignored) |
+| Prometheus history graphs + time ranges | ✅ Settings → Prometheus URL; pod drawer Graphs tab (CPU/mem per container, 15m/1h/6h/24h) via engine query_range proxy |
+
 ## 🔧 Shipping this release
 
 | Gap | Freelens ref | Implementation |
@@ -35,13 +42,11 @@
 
 ## 📋 Documented pending (ordered)
 
-1. **Prometheus/Thanos history graphs** + time-range selector (#1475) — needs Prom settings UI
-2. **Kubeconfig catalog management** (add/remove sources in-app, symlink watch) 
-3. **Force delete / force finalize** (#1147) — gracePeriod 0 + finalizers patch
-4. **Pod resize resources** (#1805/#1840) — patch containers.resources live
-5. **Nodes extra columns**: instance-type/node-group/capacity/pods-count overlay (#2097)
-6. **Command palette depth**: port-forwards + cluster-switch entries (#1330)
-7. **SOCKS5/bastion proxies for exec/PF upgrades** (#2092) — engine transport work
-8. **Attach** (vs exec) action; default-container also for attach
-9. Multi-pod split log view; log wrap/timestamp toggles persistence
-10. Extensions API + marketplace UI (Phase 3 WASM plan supersedes)
+1. **Force delete / force finalize** (#1147) — gracePeriod 0 + finalizers patch
+2. **Pod resize resources** (#1805/#1840) — patch containers.resources live
+3. **Nodes extra columns**: instance-type/node-group/capacity/pods-count overlay (#2097)
+4. **Command palette depth**: port-forwards + cluster-switch entries (#1330)
+5. **SOCKS5/bastion proxies for exec/PF upgrades** (#2092) — engine transport work
+6. **Attach** (vs exec) action; default-container also for attach
+7. Multi-pod split log view; log wrap/timestamp toggles persistence
+8. Extensions API + marketplace UI (Phase 3 WASM plan supersedes)
