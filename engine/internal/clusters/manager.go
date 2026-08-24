@@ -57,18 +57,19 @@ func (m *Manager) HelmEnv(id string) (contextName string, kubeconfigPaths string
 }
 
 type Manager struct {
-	log        *slog.Logger
-	mu         sync.RWMutex
-	entries    map[string]*entry
-	order      []string
-	watcher    *fsnotify.Watcher
-	kubeconfig string
-	extraPaths []string
-	isolated   bool
+	log         *slog.Logger
+	mu          sync.RWMutex
+	entries     map[string]*entry
+	order       []string
+	watcher     *fsnotify.Watcher
+	kubeconfig  string
+	extraPaths  []string
+	isolated    bool
+	firstLoad   bool
 }
 
 func NewManager(log *slog.Logger, kubeconfigPath string) (*Manager, error) {
-	m := &Manager{log: log, entries: map[string]*entry{}, kubeconfig: kubeconfigPath}
+	m := &Manager{log: log, entries: map[string]*entry{}, kubeconfig: kubeconfigPath, firstLoad: true}
 	w, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, err
@@ -80,6 +81,31 @@ func NewManager(log *slog.Logger, kubeconfigPath string) (*Manager, error) {
 	go m.watchFiles()
 	go m.healthLoop()
 	return m, nil
+}
+
+// LoadFromSettings reads ~/.kubebay/settings.json, applies isolated mode and
+// extra kubeconfig paths, then reloads. Called INSTEAD of Load() when settings exist.
+func (m *Manager) LoadFromSettings() error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return m.Load()
+	}
+	b, err := os.ReadFile(filepath.Join(home, ".kubebay", "settings.json"))
+	if err != nil {
+		return m.Load()
+	}
+	var parsed struct {
+		ExtraKubeconfigs []string `json:"extraKubeconfigs"`
+		OnlyListed       bool     `json:"onlyListedKubeconfigs"`
+	}
+	if err := json.Unmarshal(b, &parsed); err != nil {
+		return m.Load()
+	}
+	m.SetIsolated(parsed.OnlyListed)
+	if err := m.SetExtraKubeconfigs(parsed.ExtraKubeconfigs); err != nil {
+		return m.Load()
+	}
+	return nil
 }
 
 func (m *Manager) loadingRules() *clientcmd.ClientConfigLoadingRules {
@@ -192,14 +218,17 @@ func (m *Manager) Load() error {
 	m.order = order
 	m.mu.Unlock()
 
-	for id := range old {
-		if _, ok := newEntries[id]; !ok {
-			m.log.Info("cluster removed", "cluster", id)
+	if !m.firstLoad {
+		for id := range old {
+			if _, ok := newEntries[id]; !ok {
+				m.log.Info("cluster removed", "cluster", id)
+			}
 		}
 	}
 	for _, f := range rules.Precedence {
 		_ = m.watcher.Add(f)
 	}
+	m.firstLoad = false
 	return nil
 }
 
