@@ -49,9 +49,6 @@ func main() {
 		}
 	} else {
 		mgr, err = clusters.NewManager(log, *kubeconfig)
-		if err == nil && *kubeconfig == "" {
-			err = mgr.LoadFromSettings()
-		}
 	}
 	if err != nil {
 		log.Error("cluster manager init failed", "err", err)
