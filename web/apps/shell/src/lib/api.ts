@@ -77,8 +77,21 @@ export const api = {
     send<{ ok: boolean }>("POST", "/api/action/scale", b),
   restart: (b: { cluster: string; gvr: string; ns: string; name: string }) =>
     send<{ ok: boolean }>("POST", "/api/action/restart", b),
-  deleteResource: (b: { cluster: string; gvr: string; ns: string; name: string }) =>
-    send<{ ok: boolean }>("POST", "/api/action/delete", b),
+  deleteResource: (b: {
+    cluster: string;
+    gvr: string;
+    ns: string;
+    name: string;
+    graceSeconds?: number;
+    forceFinalizers?: boolean;
+  }) => send<{ ok: boolean }>("POST", "/api/action/delete", b),
+  resizePod: (b: {
+    cluster: string;
+    ns: string;
+    name: string;
+    container: string;
+    resources: { requests?: Record<string, string>; limits?: Record<string, string> };
+  }) => send<{ ok: boolean }>("POST", "/api/action/resize-pod", b),
 
   getYamlText: async (cluster: string, gvr: string, ns: string, name: string): Promise<string> => {
     const q = new URLSearchParams({ token: getToken(), cluster, gvr, ns, name });

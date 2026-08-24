@@ -22,11 +22,11 @@ function classify(line: string): "" | "err" | "warn" {
 }
 
 export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod; onClose: () => void; onDeleted?: () => void }) {
-  const [tab, setTabState] = useState<"logs" | "shell" | "yaml" | "graphs">(() => {
+  const [tab, setTabState] = useState<"logs" | "shell" | "yaml" | "graphs" | "size">(() => {
     const saved = localStorage.getItem("kb.drawerTab");
-    return saved === "shell" || saved === "yaml" || saved === "graphs" ? saved : "logs";
+    return saved === "shell" || saved === "yaml" || saved === "graphs" || saved === "size" ? saved : "logs";
   });
-  const setTab = (t: "logs" | "shell" | "yaml" | "graphs") => {
+  const setTab = (t: "logs" | "shell" | "yaml" | "graphs" | "size") => {
     localStorage.setItem("kb.drawerTab", t);
     setTabState(t);
   };
@@ -39,6 +39,7 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
   const [deleteInput, setDeleteInput] = useState("");
   const [deleteErr, setDeleteErr] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [force, setForce] = useState(false);
   const [shell, setShell] = useState<"auto" | "bash" | "sh" | "ash" | "powershell">("auto");
 
   const spec: PodLogsSpec = useMemo(
@@ -82,7 +83,14 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
     setDeleting(true);
     setDeleteErr("");
     try {
-      await api.deleteResource({ cluster: pod.cluster, gvr: "v1/pods", ns: pod.namespace, name: pod.pod });
+      await api.deleteResource({
+        cluster: pod.cluster,
+        gvr: "v1/pods",
+        ns: pod.namespace,
+        name: pod.pod,
+        graceSeconds: force ? 0 : undefined,
+        forceFinalizers: force,
+      });
       onDeleted?.();
       onClose();
     } catch (e) {
@@ -122,6 +130,10 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
                 onChange={(e) => setDeleteInput(e.target.value)}
                 spellCheck={false}
               />
+              <label className="ctl" style={{ cursor: "pointer" }}>
+                <input type="checkbox" checked={force} onChange={(e) => setForce(e.target.checked)} />
+                force
+              </label>
               <Button variant="danger" disabled={deleting} onClick={() => void doDelete()}>
                 Confirm
               </Button>
@@ -146,9 +158,9 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
       )}
 
       <div className="tabs">
-        {(["logs", "shell", "graphs", "yaml"] as const).map((t) => (
+        {(["logs", "shell", "graphs", "size", "yaml"] as const).map((t) => (
           <button key={t} className={`tab${tab === t ? " active" : ""}`} onClick={() => setTab(t)}>
-            {t === "logs" ? "Logs" : t === "shell" ? "Terminal" : t === "graphs" ? "Graphs" : "YAML"}
+            {t === "logs" ? "Logs" : t === "shell" ? "Terminal" : t === "graphs" ? "Graphs" : t === "size" ? "Size" : "YAML"}
           </button>
         ))}
         <select
@@ -227,6 +239,13 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
         <div style={{ overflow: "auto" }}>
           <PodGraphs cluster={pod.cluster} namespace={pod.namespace} pod={pod.pod} />
         </div>
+      ) : tab === "size" ? (
+        <ResizePanel
+          cluster={pod.cluster}
+          namespace={pod.namespace}
+          pod={pod.pod}
+          containers={pod.containers}
+        />
       ) : tab === "shell" ? (
         <div className="term-wrap">
           <ExecTerm

@@ -10,7 +10,7 @@ export interface StreamState {
 export function useResourceStream(
   cluster: string | undefined,
   gvr: string,
-  opts: { ns?: string[]; labelSelector?: string; mode?: "metadata" | "full" } = {},
+  opts: { ns?: string[]; labelSelector?: string; mode?: "metadata" | "full"; enabled?: boolean } = {},
 ): StreamState {
   const [rows, setRows] = useState<Record<string, unknown>[]>([]);
   const [synced, setSynced] = useState(false);
@@ -20,7 +20,11 @@ export function useResourceStream(
   const specKey = `${cluster ?? ""}|${gvr}|${opts.ns?.join(",") ?? "*"}|${opts.labelSelector ?? ""}|${opts.mode ?? "metadata"}`;
 
   useEffect(() => {
-    if (!cluster) return;
+    if (!cluster || opts.enabled === false) {
+      setRows([]);
+      setSynced(false);
+      return;
+    }
 
     storeRef.current = new Map();
     setRows([]);
@@ -60,6 +64,7 @@ export function useResourceStream(
       labelSelector: opts.labelSelector,
       mode: opts.mode,
     });
+    void subId;
 
     return () => {
       unsubscribe(subId);

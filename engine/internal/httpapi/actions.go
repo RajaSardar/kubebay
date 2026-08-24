@@ -85,7 +85,7 @@ func (a *Actions) Restart(ctx context.Context, cluster, gvr, ns, name string) er
 	return err
 }
 
-func (a *Actions) Delete(ctx context.Context, cluster, gvr, ns, name string) error {
+func (a *Actions) Delete(ctx context.Context, cluster, gvr, ns, name string, graceSeconds *int64, forceFinalizers bool) error {
 	d, err := a.dyn(ctx, cluster)
 	if err != nil {
 		return err
@@ -94,10 +94,73 @@ func (a *Actions) Delete(ctx context.Context, cluster, gvr, ns, name string) err
 	if err != nil {
 		return err
 	}
-	if ns != "" {
-		return d.Resource(g).Namespace(ns).Delete(ctx, name, metav1.DeleteOptions{})
+	ri := d.Resource(g)
+	if forceFinalizers {
+		var obj interface{}
+		if ns != "" {
+			obj, err = ri.Namespace(ns).Get(ctx, name, metav1.GetOptions{})
+		} else {
+			obj, err = ri.Get(ctx, name, metav1.GetOptions{})
+		}
+		if err == nil {
+			if u, ok := obj.(interface{ UnstructuredContent() map[string]interface{} }); ok {
+				if meta, ok := u.UnstructuredContent()["metadata"].(map[string]interface{}); ok {
+					if fl, ok := meta["finalizers"].([]interface{}); ok && len(fl) > 0 {
+						fp := []byte(`{"metadata":{"finalizers":null}}`)
+						if ns != "" {
+							_, _ = ri.Namespace(ns).Patch(ctx, name, types.MergePatchType, fp, metav1.PatchOptions{FieldManager: "kubebay"})
+						} else {
+							_, _ = ri.Patch(ctx, name, types.MergePatchType, fp, metav1.PatchOptions{FieldManager: "kubebay"})
+						}
+					}
+				}
+			}
+		}
 	}
-	return d.Resource(g).Delete(ctx, name, metav1.DeleteOptions{})
+	opts := metav1.DeleteOptions{}
+	if graceSeconds != nil {
+		opts.GracePeriodSeconds = graceSeconds
+	}
+	if ns != "" {
+		return ri.Namespace(ns).Delete(ctx, name, opts)
+	}
+	return ri.Delete(ctx, name, opts)
+}
+
+func (a *Actions) ResizePod(ctx context.Context, cluster, ns, podName, container string, res map[string]interface{}) error {
+	if container == "" {
+		return fmt.Errorf("container required")
+	}
+	d, err := a.dyn(ctx, cluster)
+	if err != nil {
+		return err
+	}
+	g, err := mustGVR("v1/pods")
+	if err != nil {
+		return err
+	}
+	resources := map[string]interface{}{}
+	for _, section := range []string{"requests", "limits"} {
+		if m, ok := res[section].(map[string]interface{}); ok && len(m) > 0 {
+			resources[section] = m
+		}
+	}
+	if len(resources) == 0 {
+		return fmt.Errorf("no resources provided")
+	}
+	patch := map[string]interface{}{
+		"spec": map[string]interface{}{
+			"containers": []interface{}{
+				map[string]interface{}{"name": container, "resources": resources},
+			},
+		},
+	}
+	data, err := json.Marshal(patch)
+	if err != nil {
+		return err
+	}
+	_, err = d.Resource(g).Namespace(ns).Patch(ctx, podName, types.StrategicMergePatchType, data, metav1.PatchOptions{FieldManager: "kubebay"})
+	return err
 }
 
 func decodeBody(r *http.Request, v interface{}) error {

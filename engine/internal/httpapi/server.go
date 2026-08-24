@@ -150,16 +150,36 @@ func Router(d Deps, token string) http.Handler {
 		})
 		r.Post("/api/action/delete", func(w http.ResponseWriter, r *http.Request) {
 			var body struct {
-				Cluster string `json:"cluster"`
-				GVR     string `json:"gvr"`
-				NS      string `json:"ns"`
-				Name    string `json:"name"`
+				Cluster         string `json:"cluster"`
+				GVR             string `json:"gvr"`
+				NS              string `json:"ns"`
+				Name            string `json:"name"`
+				GraceSeconds    *int64 `json:"graceSeconds,omitempty"`
+				ForceFinalizers bool   `json:"forceFinalizers,omitempty"`
 			}
 			if err := decodeBody(r, &body); err != nil || body.Cluster == "" || body.GVR == "" || body.Name == "" {
 				http.Error(w, "cluster, gvr, name required", http.StatusBadRequest)
 				return
 			}
-			if err := d.Actions.Delete(r.Context(), body.Cluster, body.GVR, body.NS, body.Name); err != nil {
+			if err := d.Actions.Delete(r.Context(), body.Cluster, body.GVR, body.NS, body.Name, body.GraceSeconds, body.ForceFinalizers); err != nil {
+				http.Error(w, err.Error(), http.StatusBadGateway)
+				return
+			}
+			writeJSON(w, map[string]bool{"ok": true})
+		})
+		r.Post("/api/action/resize-pod", func(w http.ResponseWriter, r *http.Request) {
+			var body struct {
+				Cluster   string                 `json:"cluster"`
+				NS        string                 `json:"ns"`
+				Name      string                 `json:"name"`
+				Container string                 `json:"container"`
+				Resources map[string]interface{} `json:"resources"`
+			}
+			if err := decodeBody(r, &body); err != nil || body.Cluster == "" || body.Name == "" || body.Container == "" {
+				http.Error(w, "cluster, ns, name, container required", http.StatusBadRequest)
+				return
+			}
+			if err := d.Actions.ResizePod(r.Context(), body.Cluster, body.NS, body.Name, body.Container, body.Resources); err != nil {
 				http.Error(w, err.Error(), http.StatusBadGateway)
 				return
 			}

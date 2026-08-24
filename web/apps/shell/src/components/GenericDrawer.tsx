@@ -23,6 +23,7 @@ export default function GenericDrawer({
   const [input, setInput] = useState("");
   const [err, setErr] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [force, setForce] = useState(false);
 
   const isNode = def.slug === "nodes";
   const [nodeTab, setNodeTab] = useState<"yaml" | "shell">("shell");
@@ -67,7 +68,14 @@ export default function GenericDrawer({
     }
     setDeleting(true);
     try {
-      await api.deleteResource({ cluster, gvr: def.gvr, ns, name });
+      await api.deleteResource({
+        cluster,
+        gvr: def.gvr,
+        ns,
+        name,
+        graceSeconds: force ? 0 : undefined,
+        forceFinalizers: force,
+      });
       onClose();
     } catch (e) {
       setErr(String(e instanceof Error ? e.message : e));
@@ -96,6 +104,10 @@ export default function GenericDrawer({
             </>
           ) : (
             <>
+              <label className="ctl" style={{ cursor: "pointer" }}>
+                <input type="checkbox" checked={force} onChange={(e) => setForce(e.target.checked)} />
+                force
+              </label>
               <Badge tone="err">type name to confirm</Badge>
               <input
                 className="toolbar-input"

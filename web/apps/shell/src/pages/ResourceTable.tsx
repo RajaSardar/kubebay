@@ -72,16 +72,24 @@ function workloadCells(o: Row): Record<string, Cell> {
 
 function extraColumns(
   slug: string,
-  ctx?: { nodeUsage?: Map<string, { cpuMillis: number; memBytes: number }> },
+  ctx?: { nodeUsage?: Map<string, { cpuMillis: number; memBytes: number }>; podsPerNode?: Map<string, number> },
 ): Record<string, (o: Row) => Cell> {
   if (slug === "nodes") {
     const usage = ctx?.nodeUsage;
+    const podCounts = ctx?.podsPerNode;
     return {
       Status: (o) => {
         const conds = (rec(o.status).conditions ?? []) as Record<string, unknown>[];
         const ready = conds.find((c) => c.type === "Ready");
         const ok = ready?.status === "True";
         return { v: ok ? "Ready" : "NotReady", dot: ok ? "ok" : "err" };
+      },
+      "Instance type": (o) => ({ v: str(rec(o.metadata).labels?.["node.kubernetes.io/instance-type"]) || "–" }),
+      Zone: (o) => ({ v: str(rec(o.metadata).labels?.["topology.kubernetes.io/zone"]) || "–" }),
+      Pods: (o) => ({ v: podCounts ? String(podCounts.get(str(rec(o.metadata).name)) ?? 0) : "–" }),
+      Capacity: (o) => {
+        const cap = rec(o.status).capacity;
+        return { v: `${str(rec(cap).cpu)} cpu · ${str(rec(cap).memory).replace("Ki", "Ki")}` };
       },
       Version: (o) => ({ v: str(rec(rec(o.status).nodeInfo).kubeletVersion) }),
       CPU: (o) => {
@@ -227,9 +235,23 @@ export default function ResourceTable() {
     return m;
   }, [nodeUsageQ.data]);
 
+  const nodePods = useResourceStream(
+    effectiveCluster || undefined,
+    "v1/pods",
+    { mode: "full", enabled: def?.slug === "nodes" },
+  );
+  const podsPerNode = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of nodePods.rows as Record<string, unknown>[]) {
+      const nodeName = str(rec(rec(r.spec).nodeName));
+      if (nodeName) m.set(nodeName, (m.get(nodeName) ?? 0) + 1);
+    }
+    return m;
+  }, [nodePods.rows]);
+
   const cols = useMemo(
-    () => Object.keys(def ? extraColumns(def.slug, { nodeUsage }) : {}),
-    [def, nodeUsage],
+    () => Object.keys(def ? extraColumns(def.slug, { nodeUsage, podsPerNode }) : {}),
+    [def, nodeUsage, podsPerNode],
   );
 
   const rows = useMemo(() => {
@@ -258,7 +280,7 @@ export default function ResourceTable() {
   const headers = ["Name", ...(def.scoped ? [] : ["Namespace"]), ...cols, "Age"];
 
   function cellFor(slug: string, col: string, o: Row): Cell {
-    return extraColumns(slug, { nodeUsage })[col]?.(o) ?? { v: "" };
+    return extraColumns(slug, { nodeUsage, podsPerNode })[col]?.(o) ?? { v: "" };
   }
 
   return (

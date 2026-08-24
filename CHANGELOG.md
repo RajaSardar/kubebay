@@ -7,6 +7,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 ## [Unreleased]
 
 ### Added
+- **Force delete**: grace-0 + finalizer-stripping option on every delete confirmation (Freelens #1147 parity)
+- **In-place pod resize**: Size tab in the pod drawer — patch CPU/memory requests/limits per container (K8s ≥1.33 vertical scaling)
+- Nodes table: Instance-type, Zone, live Pods-count and Capacity columns
+- Command palette depth: active port-forwards and cluster-switch entries (#1330 parity)
 - Kubeconfig catalog manager: Settings → Kubeconfig sources with add/remove and **isolated mode** (`onlyListedKubeconfigs`) that ignores default ~/.kube/config and KUBECONFIG entirely — test clusters only, prod never listed
 - Prometheus history graphs: Settings → Prometheus URL; pod drawer **Graphs** tab with per-container CPU + memory working-set over 15m/1h/6h/24h ranges, rendered via dependency-free SVG charts through the engine's `/api/prom/query_range` proxy
 - Settings persistence at `~/.kubebay/settings.json` (applied at engine boot)

@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "../lib/api";
 
 export interface PaletteItem {
   label: string;
@@ -8,8 +10,6 @@ export interface PaletteItem {
 }
 
 export function usePaletteItems(): PaletteItem[] {
-  const nav = useNavigate();
-  void nav;
   return useMemo(
     () => [
       { label: "Overview", to: "/" },
@@ -51,6 +51,24 @@ export function usePaletteItems(): PaletteItem[] {
   );
 }
 
+function useDynamicItems(): PaletteItem[] {
+  const clusters = useQuery({ queryKey: ["clusters"], queryFn: api.clusters, staleTime: 30_000 });
+  const pfs = useQuery({ queryKey: ["pf-palette"], queryFn: api.pfList, staleTime: 10_000, refetchInterval: 30_000 });
+  return useMemo(() => {
+    const out: PaletteItem[] = [];
+    for (const c of clusters.data ?? []) {
+      out.push({ label: `Cluster: ${c.id}`, hint: c.status, to: `/workloads?cluster=${encodeURIComponent(c.id)}` });
+    }
+    for (const f of pfs.data ?? []) {
+      out.push({
+        label: `Port-forward 127.0.0.1:${f.localPort} → ${f.namespace}/${f.pod}:${f.podPort}`,
+        to: "/ports",
+      });
+    }
+    return out;
+  }, [clusters.data, pfs.data]);
+}
+
 export function Palette({
   open,
   onClose,
@@ -58,7 +76,9 @@ export function Palette({
   open: boolean;
   onClose: () => void;
 }) {
-  const items = usePaletteItems();
+  const staticItems = usePaletteItems();
+  const dynamicItems = useDynamicItems();
+  const items = useMemo(() => [...staticItems, ...dynamicItems], [staticItems, dynamicItems]);
   const nav = useNavigate();
   const [q, setQ] = useState("");
   const [idx, setIdx] = useState(0);
@@ -108,12 +128,12 @@ export function Palette({
         <div className="palette-list">
           {filtered.map((f, i) => (
             <button
-              key={f.to}
+              key={f.to + f.label}
               className={`palette-item${i === idx ? " active" : ""}`}
               onMouseEnter={() => setIdx(i)}
               onClick={() => go(f.to)}
             >
-              {f.label}
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.label}</span>
               <kbd>↵</kbd>
             </button>
           ))}
