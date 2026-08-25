@@ -7,6 +7,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 ## [Unreleased]
 
 ### Added
+- **Multi-namespace chip filter**: searchable dropdown with checkboxes, selected namespaces shown as removable chips — replaces the single text input on all namespaced resource tables
 - **Node Summary pane**: conditions w/ status dots, taints w/ effect badges, capacity/allocatable (CPU/Mem/Pods), OS/arch/kernel/runtime info, pod CIDR, provider ID, instance type/zone/region
 - **Service Summary pane**: type badge, ports table (port/proto/target/nodePort), selector labels, traffic policies (internal/external), session affinity, external IPs, load-balancer ingress
 - **Pod Summary pane** (the biggest visual gap vs Freelens): rendered view of pod status, conditions, per-container detail (image, ports, resources, env vars, mounts, liveness/readiness/startup probes), volumes with type+source, QoS, node, scheduler, service account — opens by default when clicking a pod

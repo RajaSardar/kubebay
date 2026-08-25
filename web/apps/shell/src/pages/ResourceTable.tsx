@@ -31,6 +31,7 @@ function lookupDef(kind: string, sp: URLSearchParams): ResourceDef | undefined {
   return undefined;
 }
 import GenericDrawer from "../components/GenericDrawer";
+import { NamespaceFilter } from "../components/NamespaceFilter";
 
 type Row = Record<string, unknown>;
 
@@ -233,7 +234,7 @@ export default function ResourceTable() {
   const list = clusters.data ?? [];
   const effectiveCluster = list.find((c) => c.status === "connected")?.id || list[0]?.id || "";
 
-  const [nsFilter, setNsFilter] = useState("");
+  const [nsFilter, setNsFilter] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [sortCol, setSortCol] = useState<string | null>(null);
   const [sortAsc, setSortAsc] = useState(true);
@@ -241,7 +242,7 @@ export default function ResourceTable() {
 
   const stream = useResourceStream(effectiveCluster || undefined, def?.gvr ?? "v1/configmaps", {
     mode: def?.mode,
-    ns: def && !def.scoped && nsFilter ? [nsFilter] : undefined,
+    ns: def && !def.scoped && nsFilter.length > 0 ? nsFilter : undefined,
   });
 
   const nodeUsageQ = useRQQuery({
@@ -345,13 +346,10 @@ export default function ResourceTable() {
           ))}
         </select>
         {!def.scoped && (
-          <input
-            className="toolbar-input"
-            placeholder="namespace…"
-            value={nsFilter}
-            onChange={(e) => setNsFilter(e.target.value)}
-            spellCheck={false}
-            style={{ maxWidth: 160 }}
+          <NamespaceFilter
+            cluster={effectiveCluster || undefined}
+            selected={nsFilter}
+            onChange={setNsFilter}
           />
         )}
         <input
@@ -385,7 +383,7 @@ export default function ResourceTable() {
       ) : rows.length === 0 ? (
         <div className="empty-state">
           <p>No {def.label.toLowerCase()} match.</p>
-          <p className="muted small">{search || nsFilter ? "Loosen the filters." : `Nothing in this ${def.scoped ? "cluster" : "namespace"} yet.`}</p>
+          <p className="muted small">{search || nsFilter.length ? "Loosen the filters." : `Nothing in this ${def.scoped ? "cluster" : "namespace"} yet.`}</p>
         </div>
       ) : (
         <div className="table-wrap">
