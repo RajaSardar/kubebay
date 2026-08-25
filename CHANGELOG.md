@@ -7,6 +7,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 ## [Unreleased]
 
 ### Added
+- **Line progress bars** for CPU and Memory columns in the Pods table — visual indicator alongside numeric values
 - **Multi-namespace chip filter**: searchable dropdown with checkboxes, selected namespaces shown as removable chips — replaces the single text input on all namespaced resource tables
 - **Node Summary pane**: conditions w/ status dots, taints w/ effect badges, capacity/allocatable (CPU/Mem/Pods), OS/arch/kernel/runtime info, pod CIDR, provider ID, instance type/zone/region
 - **Service Summary pane**: type badge, ports table (port/proto/target/nodePort), selector labels, traffic policies (internal/external), session affinity, external IPs, load-balancer ingress

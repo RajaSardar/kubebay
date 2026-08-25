@@ -268,8 +268,26 @@ export default function Workloads() {
                       </span>
                     </td>
                     <td className={`mono${p.restarts > 0 ? " restart-warn" : ""}`}>{p.restarts}</td>
-                    <td className="mono muted">{usage.get(p.key)?.cpuMillis != null ? fmtCpu(usage.get(p.key)!.cpuMillis) : "–"}</td>
-                    <td className="mono muted">{usage.get(p.key)?.memBytes != null ? fmtBytes(usage.get(p.key)!.memBytes) : "–"}</td>
+                    <td>
+                      {usage.get(p.key)?.cpuMillis != null ? (
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <div className="line-progress" style={{ width: 50 }}>
+                            <div className="line-progress-fill" style={{ width: `${Math.min(100, (usage.get(p.key)!.cpuMillis / 1000) * 100)}%`, background: "var(--kb-accent)" }} />
+                          </div>
+                          <span className="mono muted small">{fmtCpu(usage.get(p.key)!.cpuMillis)}</span>
+                        </div>
+                      ) : <span className="mono muted">–</span>}
+                    </td>
+                    <td>
+                      {usage.get(p.key)?.memBytes != null ? (
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <div className="line-progress" style={{ width: 50 }}>
+                            <div className="line-progress-fill" style={{ width: `${Math.min(100, (usage.get(p.key)!.memBytes / (1024 * 1024 * 1024)) * 100)}%`, background: "var(--kb-status-warn)" }} />
+                          </div>
+                          <span className="mono muted small">{fmtBytes(usage.get(p.key)!.memBytes)}</span>
+                        </div>
+                      ) : <span className="mono muted">–</span>}
+                    </td>
                     <td className="mono muted">{fmtAge(p.ageMs)}</td>
                   </tr>
                 );
@@ -280,6 +298,17 @@ export default function Workloads() {
       )}
 
       {selected && <PodPanel pod={selected} onClose={() => setSelected(null)} />}
+    </div>
+  );
+}
+
+function LineBar({ value, max, color }: { value: number; max: number; color: string }) {
+  const pct = Math.min(100, max > 0 ? (value / max) * 100 : 0);
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      <div style={{ flex: 1, height: 4, borderRadius: 2, background: "var(--kb-bg-inset)", overflow: "hidden" }}>
+        <div style={{ width: `${pct}%`, height: "100%", borderRadius: 2, background: color, transition: "width 300ms" }} />
+      </div>
     </div>
   );
 }
