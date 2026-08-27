@@ -219,14 +219,14 @@ kbd {
 
 .page {
   max-width: 100%;
-  padding: 20px 24px 40px;
+  padding: 12px 16px 24px;
 }
 
 .page-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 20px;
+  margin-bottom: 12px;
 }
 
 h2 {
@@ -467,7 +467,7 @@ h2 {
   overflow: auto;
   background: var(--kb-bg-surface);
   box-shadow: var(--kb-shadow-rest), var(--kb-highlight-inset);
-  max-height: calc(100vh - 220px);
+  max-height: calc(100vh - 180px);
 }
 
 .kb-table {
@@ -532,7 +532,7 @@ h2 {
   top: 0;
   right: 0;
   bottom: 0;
-  width: min(640px, 62vw);
+  width: min(820px, 75vw);
   background: var(--kb-bg-surface);
   border-left: 1px solid var(--kb-border-strong);
   box-shadow: -20px 0 48px rgba(0, 0, 0, 0.35);

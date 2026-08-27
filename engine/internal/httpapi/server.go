@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -179,7 +180,9 @@ func Router(d Deps, token string) http.Handler {
 				http.Error(w, "cluster, ns, name, container required", http.StatusBadRequest)
 				return
 			}
-			if err := d.Actions.ResizePod(r.Context(), body.Cluster, body.NS, body.Name, body.Container, body.Resources); err != nil {
+			ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+			defer cancel()
+			if err := d.Actions.ResizePod(ctx, body.Cluster, body.NS, body.Name, body.Container, body.Resources); err != nil {
 				http.Error(w, err.Error(), http.StatusBadGateway)
 				return
 			}

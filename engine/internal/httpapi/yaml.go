@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -57,6 +58,8 @@ func (c *Channels) resourceFor(ctx context.Context, cluster, gvrStr string) (dyn
 }
 
 func (c *Channels) HandleGetYAML(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
 	q := r.URL.Query()
 	cluster, gvr := q.Get("cluster"), q.Get("gvr")
 	ns, name := q.Get("ns"), q.Get("name")
@@ -69,16 +72,16 @@ func (c *Channels) HandleGetYAML(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	d, err := c.dynClient(r.Context(), cluster)
+	d, err := c.dynClient(ctx, cluster)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	var obj interface{}
 	if ns != "" {
-		obj, err = d.Resource(g).Namespace(ns).Get(r.Context(), name, metav1.GetOptions{})
+		obj, err = d.Resource(g).Namespace(ns).Get(ctx, name, metav1.GetOptions{})
 	} else {
-		obj, err = d.Resource(g).Get(r.Context(), name, metav1.GetOptions{})
+		obj, err = d.Resource(g).Get(ctx, name, metav1.GetOptions{})
 	}
 	if err != nil {
 		http.Error(w, fmt.Sprintf("get: %v", err), http.StatusBadGateway)

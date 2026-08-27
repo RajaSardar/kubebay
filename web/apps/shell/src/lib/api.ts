@@ -95,9 +95,15 @@ export const api = {
 
   getYamlText: async (cluster: string, gvr: string, ns: string, name: string): Promise<string> => {
     const q = new URLSearchParams({ token: getToken(), cluster, gvr, ns, name });
-    const res = await fetch(`/api/yaml?${q}`);
-    if (!res.ok) throw new Error(await res.text());
-    return res.text();
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 10_000);
+    try {
+      const res = await fetch(`/api/yaml?${q}`, { signal: ctrl.signal });
+      if (!res.ok) throw new Error(await res.text());
+      return res.text();
+    } finally {
+      clearTimeout(timer);
+    }
   },
   applyYaml: (b: {
     cluster: string;

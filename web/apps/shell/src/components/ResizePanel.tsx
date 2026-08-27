@@ -78,7 +78,7 @@ export function ResizePanel({
       <div className="rbac-section-title">Resize container "{container}"</div>
       {live.isLoading && <div className="muted small" style={{ marginBottom: 8 }}>Loading current resources…</div>}
       {live.isError && <div className="error-banner" style={{ marginBottom: 10 }}>Could not load current resources.</div>}
-      <div className="pf-form" style={{ gridTemplateColumns: "repeat(2, minmax(160px, 1fr))", maxWidth: 520 }}>
+      <div className="pf-form" style={{ gridTemplateColumns: "repeat(2, minmax(160px, 1fr))" }}>
         {FIELDS.map((f) => (
           <label key={f.key} className="ctl" style={{ flexDirection: "column", alignItems: "flex-start", gap: 3 }}>
             <span className="muted small">{f.label} <span className="subtle">({current(f.section, f.res) || "unset"})</span></span>
