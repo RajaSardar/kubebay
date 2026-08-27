@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Badge, Button, StatusDot } from "@kubebay/ui";
 import { api, nodeApi } from "../lib/api";
 import { YamlTab } from "./YamlTab";
+import { EventsDrawer } from "./EventsDrawer";
 import { ExecTerm } from "./ExecTerm";
 import { ActionsBar } from "./ActionsBar";
 import { NodeSummary } from "./NodeSummary";
@@ -30,6 +31,7 @@ export default function GenericDrawer({
   const isNode = def.slug === "nodes";
   const [nodeTab, setNodeTab] = useState<"summary" | "shell" | "yaml">("summary");
   const [svcTab, setSvcTab] = useState<"summary" | "yaml">("summary");
+  const [genTab, setGenTab] = useState<"yaml" | "events">("yaml");
   const [obj, setObj] = useState<Record<string, unknown> | null>(null);
   const [objLoading, setObjLoading] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -182,6 +184,16 @@ export default function GenericDrawer({
         </div>
       )}
 
+      {!isNode && !isService && (
+        <div className="tabs">
+          {(["yaml", "events"] as const).map((t) => (
+            <button key={t} className={`tab${genTab === t ? " active" : ""}`} onClick={() => setGenTab(t)}>
+              {t === "yaml" ? "YAML" : "Events"}
+            </button>
+          ))}
+        </div>
+      )}
+
       {isService && svcTab === "summary" ? (
         objLoading ? (
           <div className="muted small" style={{ padding: 14 }}>Loading…</div>
@@ -216,9 +228,21 @@ export default function GenericDrawer({
             </Button>
           </div>
         )
-      ) : (isNode && nodeTab === "yaml") || (!isNode && !isService) || (isService && svcTab === "yaml") ? (
+      ) : isNode && nodeTab === "yaml" ? (
         <div className="yaml-wrap">
           <YamlTab cluster={cluster} gvr={def.gvr} ns={ns} name={name} />
+        </div>
+      ) : isService && svcTab === "yaml" ? (
+        <div className="yaml-wrap">
+          <YamlTab cluster={cluster} gvr={def.gvr} ns={ns} name={name} />
+        </div>
+      ) : !isNode && !isService && genTab === "yaml" ? (
+        <div className="yaml-wrap">
+          <YamlTab cluster={cluster} gvr={def.gvr} ns={ns} name={name} />
+        </div>
+      ) : !isNode && !isService && genTab === "events" ? (
+        <div style={{ padding: 14 }}>
+          <EventsDrawer cluster={cluster} namespace={ns} name={name} kind={def.label} />
         </div>
       ) : null}
     </aside>

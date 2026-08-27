@@ -28,9 +28,11 @@ import Helm from "./pages/Helm";
 import Fleet from "./pages/Fleet";
 import WorkloadsOverview from "./pages/WorkloadsOverview";
 import ResourceTable from "./pages/ResourceTable";
+import Crds from "./pages/Crds";
 import { Palette } from "./components/Palette";
 import { discoveryApi } from "./lib/api";
 import { KNOWN_GVRS, extSlug } from "./lib/resources";
+import { FavoritesSidebar, useFavorites } from "./components/Favorites";
 
 interface NavLeaf {
   to: string;
@@ -111,6 +113,7 @@ const GROUPS: NavGroupDef[] = [
 ];
 
 const TOOLS = [
+  { to: "/crds", label: "CRDs", icon: <IconGrid /> },
   { to: "/ports", label: "Ports", icon: <IconForward /> },
   { to: "/helm", label: "Helm", icon: <IconHelm /> },
   { to: "/rbac", label: "RBAC", icon: <IconShield /> },
@@ -172,6 +175,7 @@ function Sidebar({ up, onOpenPalette }: { up: boolean; onOpenPalette: () => void
     return map;
   };
   const [open, setOpen] = useState(initialOpen);
+  const { favorites, remove: removeFav } = useFavorites();
 
   return (
     <aside className="sidebar">
@@ -228,6 +232,8 @@ function Sidebar({ up, onOpenPalette }: { up: boolean; onOpenPalette: () => void
 
         <CustomResourcesGroup />
 
+        {favorites.length > 0 && <FavoritesSidebar favorites={favorites} onRemove={removeFav} />}
+
         <div className="nav-section">Tools</div>
         {TOOLS.map((t) => (
           <NavLink key={t.to} to={t.to} className={({ isActive }) => (isActive ? "nav-item active" : "nav-item")}>
@@ -278,6 +284,7 @@ export default function App() {
           <Route path="/topology" element={<Topology />} />
           <Route path="/rbac" element={<Rbac />} />
           <Route path="/helm" element={<Helm />} />
+          <Route path="/crds" element={<Crds />} />
           <Route path="/settings" element={<Settings />} />
         </Routes>
       </main>

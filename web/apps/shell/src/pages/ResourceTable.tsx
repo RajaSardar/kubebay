@@ -31,6 +31,8 @@ function lookupDef(kind: string, sp: URLSearchParams): ResourceDef | undefined {
   return undefined;
 }
 import GenericDrawer from "../components/GenericDrawer";
+import { ContextMenu } from "../components/ContextMenu";
+import { StarButton } from "../components/Favorites";
 import { NamespaceFilter } from "../components/NamespaceFilter";
 
 type Row = Record<string, unknown>;
@@ -239,6 +241,7 @@ export default function ResourceTable() {
   const [sortCol, setSortCol] = useState<string | null>(null);
   const [sortAsc, setSortAsc] = useState(true);
   const [selected, setSelected] = useState<{ ns: string; name: string } | null>(null);
+  const [ctx, setCtx] = useState<{ x: number; y: number; ns: string; name: string } | null>(null);
 
   const stream = useResourceStream(effectiveCluster || undefined, def?.gvr ?? "v1/configmaps", {
     mode: def?.mode,
@@ -330,6 +333,7 @@ export default function ResourceTable() {
       <div className="page-header">
         <h2>
           {def.label}
+          <StarButton path={`/r/${kind}`} />
           {stream.synced && (
             <span className="live-pill">● live</span>
           )}
@@ -408,7 +412,7 @@ export default function ResourceTable() {
                 const name = str(meta.name);
                 const key = `${str(meta.namespace)}/${name}`;
                 return (
-                  <tr key={key} className="row-clickable" onClick={() => setSelected({ ns: str(meta.namespace), name })}>
+                  <tr key={key} className="row-clickable" onClick={() => setSelected({ ns: str(meta.namespace), name })} onContextMenu={(e) => { e.preventDefault(); setCtx({ x: e.clientX, y: e.clientY, ns: str(meta.namespace), name }); }}>
                     <td className="mono strong">{name}</td>
                     {!def.scoped && <td className="mono muted">{str(meta.namespace)}</td>}
                     {cols.map((col) => {
@@ -429,6 +433,24 @@ export default function ResourceTable() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {ctx && (
+        <ContextMenu
+          x={ctx.x}
+          y={ctx.y}
+          onClose={() => setCtx(null)}
+          items={[
+            { label: "View details", icon: "📋", onClick: () => setSelected({ ns: ctx.ns, name: ctx.name }) },
+            { label: "Edit YAML", icon: "📝", onClick: () => setSelected({ ns: ctx.ns, name: ctx.name }) },
+            { separator: true, label: "", onClick: () => {} },
+            { label: "Delete", icon: "🗑", danger: true, onClick: () => {
+              if (confirm(`Delete ${ctx.name}?`)) {
+                api.deleteResource({ cluster: effectiveCluster, gvr: def?.gvr ?? "", ns: ctx.ns, name: ctx.name });
+              }
+            }},
+          ]}
+        />
       )}
 
       {selected && (

@@ -7,6 +7,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 ## [Unreleased]
 
 ### Added
+- **CRD Definitions page** (/crds) — browse all custom resources by API group, search by kind, click to view instances
+- **Context menu** on resource table rows — right-click to view details, edit YAML, or delete
+- **Favorites sidebar** — star any resource page, persistent across sessions, shown in sidebar when present
+- **Events tab** in resource drawers — view related events for any non-node, non-service resource
 - **Line progress bars** for CPU and Memory columns in the Pods table — visual indicator alongside numeric values
 - **Multi-namespace chip filter**: searchable dropdown with checkboxes, selected namespaces shown as removable chips — replaces the single text input on all namespaced resource tables
 - **Node Summary pane**: conditions w/ status dots, taints w/ effect badges, capacity/allocatable (CPU/Mem/Pods), OS/arch/kernel/runtime info, pod CIDR, provider ID, instance type/zone/region
