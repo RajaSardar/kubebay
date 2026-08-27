@@ -31,7 +31,10 @@ export function ResizePanel({
     queryKey: ["resize-current", cluster, namespace, pod],
     queryFn: () => api.getYamlText(cluster, "v1/pods", namespace, pod),
     staleTime: 15_000,
-    retry: false,
+    retry: 1,
+    retryDelay: 2000,
+    refetchOnWindowFocus: false,
+    enabled: !!cluster && !!namespace && !!pod,
   });
 
   function current(section: string, res: string): string {
@@ -72,7 +75,8 @@ export function ResizePanel({
 
   return (
     <div style={{ padding: 14 }}>
-      <div className="rbac-section-title">Resize container “{container}”</div>
+      <div className="rbac-section-title">Resize container "{container}"</div>
+      {live.isLoading && <div className="muted small" style={{ marginBottom: 8 }}>Loading current resources…</div>}
       {live.isError && <div className="error-banner" style={{ marginBottom: 10 }}>Could not load current resources.</div>}
       <div className="pf-form" style={{ gridTemplateColumns: "repeat(2, minmax(160px, 1fr))", maxWidth: 520 }}>
         {FIELDS.map((f) => (
@@ -90,7 +94,7 @@ export function ResizePanel({
         ))}
       </div>
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 12 }}>
-        <Button disabled={busy} onClick={() => void apply()}>
+        <Button disabled={busy || live.isLoading} onClick={() => void apply()}>
           {busy ? "Patching…" : "Apply resize"}
         </Button>
         {msg && <span className="small" style={{ color: "var(--kb-status-ok)" }}>{msg}</span>}
