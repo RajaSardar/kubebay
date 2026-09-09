@@ -45,6 +45,15 @@
   --kb-status-warn: #dca154;
   --kb-status-err: #ef5f68;
   --kb-status-pending: #8b93a7;
+  --kb-status-info: #5ba8ef;
+  --kb-status-terminated: #636b7e;
+
+  --kb-status-ok-subtle: color-mix(in srgb, #41c98e 11%, transparent);
+  --kb-status-ok-fg: #41c98e;
+  --kb-status-warn-subtle: color-mix(in srgb, #dca154 11%, transparent);
+  --kb-status-warn-fg: #dca154;
+  --kb-status-err-subtle: color-mix(in srgb, #ef5f68 11%, transparent);
+  --kb-status-err-fg: #ef5f68;
 
   --kb-border-subtle: #1d212e;
   --kb-border-strong: #293041;
@@ -83,6 +92,15 @@
   --kb-status-warn: #b07422;
   --kb-status-err: #d33b47;
   --kb-status-pending: #6f7789;
+  --kb-status-info: #2874c4;
+  --kb-status-terminated: #8a92a5;
+
+  --kb-status-ok-subtle: color-mix(in srgb, #178a52 10%, transparent);
+  --kb-status-ok-fg: #14774a;
+  --kb-status-warn-subtle: color-mix(in srgb, #b07422 10%, transparent);
+  --kb-status-warn-fg: #8f5e1a;
+  --kb-status-err-subtle: color-mix(in srgb, #d33b47 10%, transparent);
+  --kb-status-err-fg: #b82e3a;
 
   --kb-border-subtle: #e7eaf0;
   --kb-border-strong: #d3d9e4;
@@ -121,6 +139,15 @@
   --kb-status-warn: #ffb340;
   --kb-status-err: #ff606b;
   --kb-status-pending: #d0d0d0;
+  --kb-status-info: #6db8ff;
+  --kb-status-terminated: #888888;
+
+  --kb-status-ok-subtle: color-mix(in srgb, #00d974 12%, transparent);
+  --kb-status-ok-fg: #00d974;
+  --kb-status-warn-subtle: color-mix(in srgb, #ffb340 12%, transparent);
+  --kb-status-warn-fg: #ffb340;
+  --kb-status-err-subtle: color-mix(in srgb, #ff606b 12%, transparent);
+  --kb-status-err-fg: #ff606b;
 
   --kb-border-subtle: #333333;
   --kb-border-strong: #525252;
@@ -159,6 +186,15 @@
   --kb-status-warn: #7a4d00;
   --kb-status-err: #ad0015;
   --kb-status-pending: #2d2d2d;
+  --kb-status-info: #00529e;
+  --kb-status-terminated: #6b6b6b;
+
+  --kb-status-ok-subtle: color-mix(in srgb, #006638 12%, transparent);
+  --kb-status-ok-fg: #005530;
+  --kb-status-warn-subtle: color-mix(in srgb, #7a4d00 12%, transparent);
+  --kb-status-warn-fg: #634000;
+  --kb-status-err-subtle: color-mix(in srgb, #ad0015 12%, transparent);
+  --kb-status-err-fg: #910011;
 
   --kb-border-subtle: #c9c9c9;
   --kb-border-strong: #999999;
