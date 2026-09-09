@@ -17,3 +17,8 @@ desktop/src-tauri/binaries/
 desktop/node_modules/
 desktop/src-tauri/gen/
 static/dist/
+
+# Tool-generated artifacts
+.superbrain/
+context.md
+memory.md
