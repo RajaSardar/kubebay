@@ -48,10 +48,18 @@ func shouldFallback(err error) bool {
 	if err == nil {
 		return false
 	}
-	return apierrors.IsBadRequest(err) ||
+	if apierrors.IsBadRequest(err) ||
 		apierrors.IsNotFound(err) ||
 		apierrors.IsMethodNotSupported(err) ||
-		apierrors.IsUnsupportedMediaType(err)
+		apierrors.IsUnsupportedMediaType(err) ||
+		apierrors.IsForbidden(err) {
+		return true
+	}
+	// Catch untyped websocket handshake errors (e.g. "websocket: bad handshake" with 403)
+	// that aren't wrapped as proper API status errors.
+	msg := err.Error()
+	return strings.Contains(msg, "websocket: bad handshake") ||
+		strings.Contains(msg, "403")
 }
 
 type sizeQueue struct {
