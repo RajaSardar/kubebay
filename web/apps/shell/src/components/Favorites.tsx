@@ -31,7 +31,7 @@ const ROUTE_LABELS: Record<string, string> = {
 function labelFor(path: string): string {
   if (ROUTE_LABELS[path]) return ROUTE_LABELS[path];
   const m = path.match(/^\/r\/(.+)$/);
-  if (m) {
+  if (m && m[1]) {
     return m[1]
       .replace(/^ext--/, "")
       .replace(/--/g, "/")

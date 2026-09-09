@@ -1,10 +1,9 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Badge, Card, Skeleton, StatusDot } from "@kubebay/ui";
+import { Badge, Card, Skeleton } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { useResourceStream } from "../lib/useResourceStream";
 import type { KObj } from "../lib/topology";
-import { fmtBytes, fmtCpu } from "./Workloads";
 
 function rec(v: unknown): Record<string, unknown> {
   return (v ?? {}) as Record<string, unknown>;
@@ -92,14 +91,6 @@ export default function WorkloadsOverview() {
   const effectiveCluster = list.find((c) => c.status === "connected")?.id || list[0]?.id || "";
 
   const { kinds, synced } = useKindCounts(effectiveCluster || undefined);
-
-  const metrics = useQuery({
-    queryKey: ["nodemetrics", effectiveCluster],
-    queryFn: () => api.podMetrics(effectiveCluster),
-    refetchInterval: 15_000,
-    enabled: !!effectiveCluster,
-    retry: false,
-  });
 
   const totals = useMemo(() => {
     let total = 0, healthy = 0, unhealthy = 0;

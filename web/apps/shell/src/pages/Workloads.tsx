@@ -301,14 +301,3 @@ export default function Workloads() {
     </div>
   );
 }
-
-function LineBar({ value, max, color }: { value: number; max: number; color: string }) {
-  const pct = Math.min(100, max > 0 ? (value / max) * 100 : 0);
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-      <div style={{ flex: 1, height: 4, borderRadius: 2, background: "var(--kb-bg-inset)", overflow: "hidden" }}>
-        <div style={{ width: `${pct}%`, height: "100%", borderRadius: 2, background: color, transition: "width 300ms" }} />
-      </div>
-    </div>
-  );
-}

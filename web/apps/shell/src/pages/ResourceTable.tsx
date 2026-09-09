@@ -87,8 +87,8 @@ function extraColumns(
         const ok = ready?.status === "True";
         return { v: ok ? "Ready" : "NotReady", dot: ok ? "ok" : "err" };
       },
-      "Instance type": (o) => ({ v: str(rec(o.metadata).labels?.["node.kubernetes.io/instance-type"]) || "–" }),
-      Zone: (o) => ({ v: str(rec(o.metadata).labels?.["topology.kubernetes.io/zone"]) || "–" }),
+      "Instance type": (o) => ({ v: str((rec(o.metadata).labels as Record<string, unknown> | undefined)?.["node.kubernetes.io/instance-type"]) || "–" }),
+      Zone: (o) => ({ v: str((rec(o.metadata).labels as Record<string, unknown> | undefined)?.["topology.kubernetes.io/zone"]) || "–" }),
       Pods: (o) => ({ v: podCounts ? String(podCounts.get(str(rec(o.metadata).name)) ?? 0) : "–" }),
       Capacity: (o) => {
         const cap = rec(o.status).capacity;
@@ -177,7 +177,7 @@ function extraColumns(
     case "endpoints":
       return {
         "EndPoints": (o) => {
-          const subsets = (rec(o.subsets) ?? []) as Record<string, unknown>[];
+          const subsets = (rec(o.subsets) ?? []) as unknown as Record<string, unknown>[];
           let count = 0;
           for (const ss of subsets) {
             const addrs = (ss.addresses ?? []) as unknown[];

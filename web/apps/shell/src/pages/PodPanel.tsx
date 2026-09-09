@@ -6,6 +6,7 @@ import { ExecTerm } from "../components/ExecTerm";
 import { YamlTab } from "../components/YamlTab";
 import { PodSummary } from "../components/PodSummary";
 import { PodGraphs } from "../components/PodGraphs";
+import { ResizePanel } from "../components/ResizePanel";
 
 export interface SelectedPod {
   cluster: string;

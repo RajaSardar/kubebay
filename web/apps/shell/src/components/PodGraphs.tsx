@@ -87,6 +87,11 @@ export function PodGraphs({
     );
 
   const anyErr = cpu.isError || mem.isError;
+  const errBody = cpu.error ?? mem.error;
+  const cause = errBody instanceof Error ? (errBody as { cause?: { hint?: string } }).cause : undefined;
+  const isUnreachable =
+    (errBody instanceof Error && errBody.message.includes("prometheus-unreachable")) ||
+    !!cause?.hint;
 
   return (
     <div style={{ padding: 12, overflowY: "auto", height: "100%" }}>
@@ -103,7 +108,16 @@ export function PodGraphs({
         {(cpu.isFetching || mem.isFetching) && <span className="muted small">loading…</span>}
       </div>
 
-      {anyErr && (
+      {isUnreachable && (
+        <div className="error-banner">
+          Prometheus is not running. Start it with:
+          <pre className="mono" style={{ margin: "8px 0 0", fontSize: 11, whiteSpace: "pre-wrap" }}>
+            kubectl -n monitoring port-forward svc/&lt;prometheus-server&gt; 19090:80
+          </pre>
+        </div>
+      )}
+
+      {anyErr && !isUnreachable && (
         <div className="error-banner">Prometheus query failed — check URL/reachability in Settings.</div>
       )}
 

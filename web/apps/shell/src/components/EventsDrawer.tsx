@@ -19,7 +19,6 @@ export function EventsDrawer({
     return events.rows
       .filter((row) => {
         const r = (row ?? {}) as Record<string, unknown>;
-        const meta = (r.metadata ?? {}) as Record<string, unknown>;
         const involved = (r.involvedObject ?? {}) as Record<string, unknown>;
         return (
           involved.name === name &&

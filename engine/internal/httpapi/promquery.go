@@ -1,13 +1,12 @@
 package httpapi
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"time"
-
-	promclient "github.com/prometheus/client_golang/api"
 )
 
 func (s *SettingsManager) HandlePromQueryRange(w http.ResponseWriter, r *http.Request) {
@@ -38,16 +37,14 @@ func (s *SettingsManager) HandlePromQueryRange(w http.ResponseWriter, r *http.Re
 	}
 	up.RawQuery = uq.Encode()
 
-	client := &http.Client{Timeout: 30 * time.Second}
+	client := &http.Client{Timeout: 10 * time.Second}
 	req, _ := http.NewRequestWithContext(r.Context(), http.MethodGet, up.String(), nil)
 	resp, err := client.Do(req)
 	if err != nil {
-		wrapped := fmt.Sprintf("prometheus unreachable: %v", err)
-		var perr error
-		if _, perr = promclient.NewClient(promclient.Config{Address: set.PrometheusURL}); perr == nil {
-			wrapped += ""
-		}
-		http.Error(w, wrapped, http.StatusBadGateway)
+		writeJSONStatus(w, http.StatusBadGateway, map[string]string{
+			"error": "prometheus-unreachable",
+			"hint":  "Prometheus is not reachable. Start it with: kubectl -n monitoring port-forward svc/<prometheus-server> <port>:80",
+		})
 		return
 	}
 	defer resp.Body.Close()
@@ -55,4 +52,10 @@ func (s *SettingsManager) HandlePromQueryRange(w http.ResponseWriter, r *http.Re
 	w.Header().Set("Content-Type", resp.Header.Get("Content-Type"))
 	w.WriteHeader(resp.StatusCode)
 	_, _ = w.Write(body)
+}
+
+func writeJSONStatus(w http.ResponseWriter, code int, v interface{}) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(code)
+	_ = json.NewEncoder(w).Encode(v)
 }

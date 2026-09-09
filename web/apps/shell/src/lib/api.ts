@@ -240,7 +240,21 @@ export const promApi = {
       step: String(params.stepSec),
     });
     const res = await fetch(`/api/prom/query_range?${q}`);
-    if (!res.ok) throw new Error(await res.text());
+    if (!res.ok) {
+      const text = await res.text();
+      let json: { error?: string; hint?: string } | undefined;
+      try {
+        json = JSON.parse(text) as { error?: string; hint?: string };
+      } catch {
+        json = undefined;
+      }
+      if (json?.error === "prometheus-unreachable") {
+        const e = new Error(json.hint || "prometheus-unreachable");
+        (e as { cause?: { hint?: string } }).cause = { hint: json.hint };
+        throw e;
+      }
+      throw new Error(text || `${res.status} ${res.statusText}`);
+    }
     return res.json();
   },
 };

@@ -53,10 +53,8 @@ function str(v: unknown): string {
 
 export function PodSummary({
   obj,
-  onNavigate,
 }: {
   obj: Record<string, unknown>;
-  onNavigate?: (to: string) => void;
 }) {
   const data = useMemo(() => {
     const meta = rec(obj.metadata);
@@ -103,7 +101,7 @@ export function PodSummary({
         restarts: Number(cst?.restartCount ?? 0),
         stateType,
         stateReason: str(state.reason) || str(state.exitCode ? `exit ${state.exitCode}` : ""),
-        startedAt: str(rec(cst?.state).running?.startedAt),
+        startedAt: str(rec(rec(cst?.state).running).startedAt),
         requests,
         limits,
         env,
@@ -265,7 +263,7 @@ export function PodSummary({
               const type = keys[0] ?? "unknown";
               const detail = rec(v[type]);
               const detailStr =
-                str(detail.claimName) || str(detail.configMap?.name) || str(detail.secret?.secretName) || str(detail.hostPath?.path) || type;
+                str(detail.claimName) || str(rec(detail.configMap).name) || str(rec(detail.secret).secretName) || str(rec(detail.hostPath).path) || type;
               return (
                 <div key={i} style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   <span className="mono small">{name}</span>
