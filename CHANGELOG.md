@@ -4,7 +4,7 @@ All notable changes to Kubebay are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows
 [SemVer](https://semver.org/) once v1.0 is reached (pre-1.0: minor = breaking, patch = features/fixes).
 
-## [Unreleased]
+## [0.1.3] — 2026-09-09
 
 ### Added
 - **CRD Definitions page** (/crds) — browse all custom resources by API group, search by kind, click to view instances
@@ -33,6 +33,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 - Exec shell fallback chain (bash → sh → ash) with manual picker; fixes exec into distroless/minimal images
 
 ### Fixed
+- **Prometheus error handling**: structured JSON error with actionable "not running" banner and port-forward command hint; removed `promclient` dependency; reduced proxy timeout to 10s
+- **Size tab hang**: missing `ResizePanel` import in PodPanel — caused runtime failure on the Size tab
+- **Exec fallback**: extended `shouldFallback` predicate to handle `403 Forbidden` websocket handshake errors on fresh clusters, enabling SPDY fallback
+- **Timeouts**: 10s backend contexts on `/api/yaml` and `/api/action/resize-pod`; 10s frontend AbortController on YAML fetch
+- **Layout**: full-width pages, drawer widened to `min(820px, 75vw)`, taller table viewport, reduced padding
+- **TypeScript strict fixes**: null-guards in Favorites regex match, type-safe label indexing in ResourceTable, fixed nested property access in PodSummary volumes, removed dead code across Workloads/WorkloadsOverview/EventsDrawer
 - Feature-verification pass fixes: nil-request panic in RBAC/metrics identity helper (caught by live API battery)
 - `/api/apis` discovery endpoint; sidebar now covers the full Lens surface — NetworkPolicies, HPAs, PDBs, ResourceQuotas, LimitRanges, ServiceAccounts, Roles/ClusterRoles/Bindings — plus a dynamic Custom Resources section built from API discovery (`/r/ext/:group/:version/:resource`)
 - Functional ⌘K command palette: fuzzy navigation across every page and resource view
