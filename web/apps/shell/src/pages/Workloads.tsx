@@ -4,6 +4,7 @@ import { Badge, Skeleton, StatusDot } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { useResourceStream } from "../lib/useResourceStream";
 import PodPanel, { type SelectedPod } from "./PodPanel";
+import { useActiveCluster } from "../App";
 
 function rec(v: unknown): Record<string, unknown> {
   return (v ?? {}) as Record<string, unknown>;
@@ -127,11 +128,11 @@ const STATUS_TONE: Record<PodRow["status"], { color: string; badge?: "ok" | "err
 
 export default function Workloads() {
   const clusters = useQuery({ queryKey: ["clusters"], queryFn: api.clusters });
-  const [clusterId, setClusterId] = useState<string>(() => new URLSearchParams(window.location.search).get("cluster") ?? "");
+  const { active: activeCluster, setActive: setActiveCluster } = useActiveCluster();
   const [filter, setFilter] = useState("");
 
   const list = clusters.data ?? [];
-  const effectiveCluster = clusterId || list.find((c) => c.status === "connected")?.id || list[0]?.id || "";
+  const effectiveCluster = activeCluster || list.find((c) => c.status === "connected")?.id || list[0]?.id || "";
 
   const { rows, synced, connected } = useResourceStream(effectiveCluster || undefined, "v1/pods", { mode: "full" });
 
@@ -177,7 +178,7 @@ export default function Workloads() {
         <select
           className="toolbar-select"
           value={effectiveCluster}
-          onChange={(e) => setClusterId(e.target.value)}
+          onChange={(e) => setActiveCluster(e.target.value)}
         >
           {list.map((c) => (
             <option key={c.id} value={c.id}>
