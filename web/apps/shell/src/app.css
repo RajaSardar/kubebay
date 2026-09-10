@@ -93,17 +93,18 @@ kbd {
   flex-direction: column;
   align-items: center;
   padding: 10px 0 8px;
-  gap: 6px;
-  background: color-mix(in srgb, var(--kb-bg-sidebar) 80%, var(--kb-bg-canvas));
+  gap: 8px;
+  background: var(--kb-bg-canvas);
   border-right: 1px solid var(--kb-border-strong);
   overflow-y: auto;
 }
 
 .cluster-strip-logo {
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   flex-shrink: 0;
-  margin-bottom: 10px;
+  margin-bottom: 6px;
+  opacity: 0.9;
 }
 
 .cluster-avatar {
@@ -276,6 +277,8 @@ kbd {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  /* explicit height so flex children can fill via flex:1 in all WebView versions */
+  height: 100%;
 }
 
 .page {
@@ -566,7 +569,28 @@ h2 {
 .kb-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: var(--kb-table-font-size, 13px);
+  table-layout: fixed;
+}
+
+/* Name column: truncate long names */
+.kb-table th:first-child,
+.kb-table td:first-child {
+  width: 30%;
+  max-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Namespace column */
+.kb-table th:nth-child(2),
+.kb-table td:nth-child(2) {
+  width: 20%;
+  max-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .kb-table th {
@@ -587,7 +611,7 @@ h2 {
 }
 
 .kb-table td {
-  padding: 8px 14px;
+  padding: var(--kb-row-padding, 8px 14px);
   border-bottom: 1px solid var(--kb-border-subtle);
   white-space: nowrap;
 }
@@ -1667,6 +1691,72 @@ tr.row-clickable:active {
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+/* ──── Settings ──── */
+.settings-section-wrap {
+  padding: 14px 16px 18px;
+  border-bottom: 1px solid var(--kb-border-subtle);
+}
+
+.settings-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--kb-fg-subtle);
+  margin-bottom: 14px;
+}
+
+.settings-option-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.settings-option-row:last-child {
+  margin-bottom: 0;
+}
+
+.settings-option-label {
+  font-size: 13px;
+  color: var(--kb-fg-muted);
+  width: 110px;
+  flex-shrink: 0;
+}
+
+.settings-option-group {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.settings-chip {
+  font: inherit;
+  font-size: 12px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--kb-border-strong);
+  background: var(--kb-bg-inset);
+  color: var(--kb-fg-muted);
+  cursor: pointer;
+  transition:
+    background var(--kb-dur-fast) var(--kb-ease),
+    color var(--kb-dur-fast) var(--kb-ease),
+    border-color var(--kb-dur-fast) var(--kb-ease);
+}
+
+.settings-chip:hover {
+  background: var(--kb-bg-raised);
+  color: var(--kb-fg-default);
+}
+
+.settings-chip.active {
+  background: var(--kb-accent-subtle);
+  color: var(--kb-accent);
+  border-color: var(--kb-accent);
+  font-weight: 600;
 }
 
 /* ──── Button styles ──── */

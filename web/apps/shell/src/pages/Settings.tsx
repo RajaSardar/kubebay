@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button, Card } from "@kubebay/ui";
 import { settingsApi } from "../lib/api";
 import { useTheme, type ThemeName } from "../lib/theme";
+import { useDisplay, type FontSize, type FontFamily, type Density } from "../lib/display";
 
 const THEMES: { id: ThemeName; label: string; hint: string; swatch: [string, string, string] }[] = [
   { id: "dusk", label: "Dusk", hint: "Dark · default", swatch: ["#0a0b10", "#171a24", "#5b8def"] },
@@ -137,49 +138,107 @@ function PrometheusSettings({ initial }: { initial?: string }) {
   );
 }
 
+function OptionRow<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: T;
+  options: { id: T; label: string }[];
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div className="settings-option-row">
+      <span className="settings-option-label">{label}</span>
+      <div className="settings-option-group">
+        {options.map((o) => (
+          <button
+            key={o.id}
+            className={value === o.id ? "settings-chip active" : "settings-chip"}
+            onClick={() => onChange(o.id)}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function Settings() {
   const { theme, setTheme } = useTheme();
+  const { fontSize, fontFamily, density, setFontSize, setFontFamily, setDensity } = useDisplay();
   const settings = useQuery({ queryKey: ["settings"], queryFn: settingsApi.get });
 
   return (
-    <div className="page">
+    <div className="page" style={{ overflowY: "auto" }}>
       <div className="page-header">
         <h2>Settings</h2>
       </div>
 
-      <div className="page-header" style={{ marginBottom: 10 }}>
-        <h2 style={{ fontSize: 14 }}>Appearance</h2>
+      <div className="settings-section-wrap">
+        <div className="settings-section-title">Theme</div>
+        <div className="theme-grid">
+          {THEMES.map((t) => (
+            <button
+              key={t.id}
+              className={theme === t.id ? "theme-card active" : "theme-card"}
+              onClick={() => setTheme(t.id)}
+            >
+              <span
+                className="swatch"
+                style={{ background: `linear-gradient(135deg, ${t.swatch[0]} 45%, ${t.swatch[1]} 55%)` }}
+                ref={(el) => {
+                  if (!el) return;
+                  el.style.setProperty("--dot", t.swatch[2]);
+                }}
+              />
+              <span style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                <strong style={{ fontWeight: 600 }}>{t.label}</strong>
+                <span className="muted small">{t.hint}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+        <Button variant="ghost" style={{ marginTop: 10 }} onClick={() => setTheme("system")}>Reset to system</Button>
       </div>
 
-      <div className="theme-grid">
-        {THEMES.map((t) => (
-          <button
-            key={t.id}
-            className={theme === t.id ? "theme-card active" : "theme-card"}
-            onClick={() => setTheme(t.id)}
-          >
-            <span
-              className="swatch"
-              style={{ background: `linear-gradient(135deg, ${t.swatch[0]} 45%, ${t.swatch[1]} 55%)` }}
-              ref={(el) => {
-                if (!el) return;
-                el.style.setProperty("--dot", t.swatch[2]);
-              }}
-            />
-            <span style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-              <strong style={{ fontWeight: 600 }}>{t.label}</strong>
-              <span className="muted small">{t.hint}</span>
-            </span>
-          </button>
-        ))}
+      <div className="settings-section-wrap">
+        <div className="settings-section-title">Display</div>
+        <OptionRow<FontSize>
+          label="Font size"
+          value={fontSize}
+          options={[
+            { id: "xs", label: "XS (11px)" },
+            { id: "sm", label: "S (12px)" },
+            { id: "md", label: "M (13px)" },
+            { id: "lg", label: "L (14px)" },
+          ]}
+          onChange={setFontSize}
+        />
+        <OptionRow<FontFamily>
+          label="Font family"
+          value={fontFamily}
+          options={[
+            { id: "system", label: "Inter (default)" },
+            { id: "jetbrains", label: "JetBrains Mono" },
+            { id: "mono", label: "System Mono" },
+          ]}
+          onChange={setFontFamily}
+        />
+        <OptionRow<Density>
+          label="Table density"
+          value={density}
+          options={[
+            { id: "compact", label: "Compact" },
+            { id: "default", label: "Default" },
+            { id: "relaxed", label: "Relaxed" },
+          ]}
+          onChange={setDensity}
+        />
       </div>
-
-      <p className="subtle small" style={{ marginBottom: 18 }}>
-        Themes are token-driven — plugins inherit them read-only. Switching is flicker-free and persisted locally.
-      </p>
-      <Button variant="ghost" onClick={() => setTheme("system")}>
-        Reset to system
-      </Button>
 
       <KubeconfigSources />
       {settings.isSuccess && <PrometheusSettings initial={settings.data.prometheusUrl} />}
