@@ -17,9 +17,24 @@ import (
 	"github.com/RajaSardar/kubebay/engine/internal/stream"
 )
 
+func safeKubeconfigRules(t *testing.T) *clientcmd.ClientConfigLoadingRules {
+	t.Helper()
+	// Prod-safety: prefer KUBEBAY_KUBECONFIG, then KUBECONFIG.
+	// Never silently fall through to ~/.kube/config which may contain
+	// production credentials.
+	if p := os.Getenv("KUBEBAY_KUBECONFIG"); p != "" {
+		return &clientcmd.ClientConfigLoadingRules{ExplicitPath: p}
+	}
+	if p := os.Getenv("KUBECONFIG"); p != "" {
+		return &clientcmd.ClientConfigLoadingRules{ExplicitPath: p}
+	}
+	t.Log("WARNING: neither KUBEBAY_KUBECONFIG nor KUBECONFIG is set — falling back to default kubeconfig")
+	return clientcmd.NewDefaultClientConfigLoadingRules()
+}
+
 func restConfigOrSkip(t *testing.T) (*kubernetes.Clientset, error) {
 	t.Helper()
-	rules := clientcmd.NewDefaultClientConfigLoadingRules()
+	rules := safeKubeconfigRules(t)
 	cfg, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(rules, &clientcmd.ConfigOverrides{}).ClientConfig()
 	if err != nil {
 		return nil, err
@@ -56,7 +71,7 @@ func TestLiveDeltaStream(t *testing.T) {
 	}
 
 	cfg, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-		clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{}).ClientConfig()
+		safeKubeconfigRules(t), &clientcmd.ConfigOverrides{}).ClientConfig()
 	if err != nil {
 		t.Fatalf("rest config: %v", err)
 	}

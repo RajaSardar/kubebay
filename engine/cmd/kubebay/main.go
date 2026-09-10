@@ -24,7 +24,8 @@ func main() {
 	showVersion := flag.Bool("version", false, "print version and exit")
 	noOpen := flag.Bool("no-open", false, "do not open the browser automatically")
 	addr := flag.String("addr", "127.0.0.1:9898", "listen address")
-	kubeconfig := flag.String("kubeconfig", "", "explicit kubeconfig path (default: KUBECONFIG / ~/.kube/config)")
+	kubeconfigDefault := os.Getenv("KUBEBAY_KUBECONFIG") // prod-safety: dedicated override
+	kubeconfig := flag.String("kubeconfig", kubeconfigDefault, "explicit kubeconfig path (KUBEBAY_KUBECONFIG > flag > KUBECONFIG > ~/.kube/config)")
 	webDist := flag.String("web-dist", "", "serve SPA from this directory")
 	inCluster := flag.Bool("in-cluster", false, "use in-cluster ServiceAccount config instead of kubeconfig")
 	oidcIssuer := flag.String("oidc-issuer-url", os.Getenv("KUBEBAY_OIDC_ISSUER"), "OIDC issuer URL (enables login)")

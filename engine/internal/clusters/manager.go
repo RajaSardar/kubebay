@@ -69,6 +69,15 @@ type Manager struct {
 }
 
 func NewManager(log *slog.Logger, kubeconfigPath string) (*Manager, error) {
+	// KUBEBAY_KUBECONFIG is a prod-safety override: when set it is the ONLY
+	// kubeconfig the engine will ever load, regardless of --kubeconfig flag,
+	// KUBECONFIG env, or the default ~/.kube/config.  This prevents dev/test
+	// runs from accidentally hitting production clusters.
+	if override := os.Getenv("KUBEBAY_KUBECONFIG"); override != "" {
+		log.Info("KUBEBAY_KUBECONFIG set — using dedicated kubeconfig only", "path", override)
+		kubeconfigPath = override
+	}
+
 	m := &Manager{log: log, entries: map[string]*entry{}, kubeconfig: kubeconfigPath, firstLoad: true}
 	w, err := fsnotify.NewWatcher()
 	if err != nil {

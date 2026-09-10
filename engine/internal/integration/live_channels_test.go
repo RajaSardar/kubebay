@@ -29,7 +29,13 @@ import (
 
 func buildTestServer(t *testing.T) (*httptest.Server, *clusters.Manager) {
 	t.Helper()
-	kc := os.Getenv("KUBECONFIG")
+	// Prod-safety: prefer KUBEBAY_KUBECONFIG over KUBECONFIG.
+	// NewManager also checks KUBEBAY_KUBECONFIG, but we resolve it here so
+	// the explicit path is visible in test logs.
+	kc := os.Getenv("KUBEBAY_KUBECONFIG")
+	if kc == "" {
+		kc = os.Getenv("KUBECONFIG")
+	}
 	log := testLogger(t)
 	mgr, err := clusters.NewManager(log, kc)
 	if err != nil {
@@ -158,7 +164,7 @@ func TestLiveChannelsHTTP(t *testing.T) {
 	if os.Getenv("KUBEBAY_INTEGRATION_TEST") != "1" {
 		t.Skip("set KUBEBAY_INTEGRATION_TEST=1 against a reachable API server")
 	}
-	rules := clientcmd.NewDefaultClientConfigLoadingRules()
+	rules := safeKubeconfigRules(t)
 	cfg, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(rules, &clientcmd.ConfigOverrides{}).ClientConfig()
 	if err != nil {
 		t.Skipf("no kubeconfig: %v", err)
