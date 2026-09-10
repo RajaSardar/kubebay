@@ -76,20 +76,20 @@
 :root[data-theme="dawn"] {
   color-scheme: light;
 
-  --kb-bg-canvas: #f7f8fb;
-  --kb-bg-surface: #ffffff;
+  --kb-bg-canvas: #eef1f5;
+  --kb-bg-surface: #f9fafb;
   --kb-bg-raised: #ffffff;
   --kb-bg-overlay: #ffffff;
-  --kb-bg-inset: #eef0f5;
-  --kb-bg-sidebar: #f0f1f6;
+  --kb-bg-inset: #e5e8ee;
+  --kb-bg-sidebar: #e4e7ed;
 
-  --kb-fg-default: #191f2c;
-  --kb-fg-muted: #5d6577;
-  --kb-fg-subtle: #8a92a5;
+  --kb-fg-default: #141820;
+  --kb-fg-muted: #4a5264;
+  --kb-fg-subtle: #6b7385;
 
   --kb-accent: #0891b2;
   --kb-accent-hover: #0e7490;
-  --kb-accent-subtle: rgba(8, 145, 178, 0.09);
+  --kb-accent-subtle: rgba(8, 145, 178, 0.10);
   --kb-accent-fg: #ffffff;
 
   --kb-status-ok: #178a52;
@@ -97,7 +97,7 @@
   --kb-status-err: #d33b47;
   --kb-status-pending: #b07422;
   --kb-status-info: #0891b2;
-  --kb-status-terminated: #8a92a5;
+  --kb-status-terminated: #6b7385;
 
   --kb-status-ok-subtle: color-mix(in srgb, #178a52 10%, transparent);
   --kb-status-ok-fg: #14774a;
@@ -108,18 +108,18 @@
   --kb-status-pending-subtle: color-mix(in srgb, #b07422 10%, transparent);
   --kb-status-pending-fg: #8f5e1a;
 
-  --kb-border-subtle: #e7eaf0;
-  --kb-border-strong: #d3d9e4;
+  --kb-border-subtle: #d0d5de;
+  --kb-border-strong: #b8bfcc;
   --kb-highlight-inset: inset 0 1px 0 rgba(255, 255, 255, 0.7);
 
-  --kb-shadow-rest: 0 1px 2px rgba(20, 28, 46, 0.06);
-  --kb-shadow-lift: 0 10px 26px -10px rgba(20, 28, 46, 0.16), 0 2px 6px rgba(20, 28, 46, 0.07);
+  --kb-shadow-rest: 0 1px 3px rgba(20, 28, 46, 0.08);
+  --kb-shadow-lift: 0 10px 26px -10px rgba(20, 28, 46, 0.18), 0 2px 6px rgba(20, 28, 46, 0.08);
 
-  --kb-focus-ring: 0 0 0 2px rgba(8, 145, 178, 0.4);
-  --kb-selection: rgba(8, 145, 178, 0.18);
+  --kb-focus-ring: 0 0 0 2px rgba(8, 145, 178, 0.45);
+  --kb-selection: rgba(8, 145, 178, 0.2);
 
-  --kb-glow-a: rgba(8, 145, 178, 0.05);
-  --kb-glow-b: rgba(23, 138, 82, 0.04);
+  --kb-glow-a: transparent;
+  --kb-glow-b: transparent;
   --kb-theme-color: #f7f8fb;
 }
 

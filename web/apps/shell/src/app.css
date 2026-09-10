@@ -29,8 +29,8 @@ body::before {
   z-index: -1;
   pointer-events: none;
   background:
-    radial-gradient(720px 380px at 18% -8%, var(--kb-glow-a), transparent 70%),
-    radial-gradient(600px 320px at 96% 4%, var(--kb-glow-b), transparent 70%);
+    radial-gradient(600px 300px at 0% 0%, var(--kb-glow-a), transparent 70%),
+    radial-gradient(400px 250px at 100% 0%, var(--kb-glow-b), transparent 70%);
 }
 
 ::selection {
@@ -91,9 +91,9 @@ kbd {
   display: flex;
   flex-direction: column;
   background: var(--kb-bg-sidebar, var(--kb-bg-surface));
-  border-right: 1px solid var(--kb-border-subtle);
-  padding: 14px;
-  backdrop-filter: blur(12px);
+  border-right: 1px solid var(--kb-border-strong);
+  padding: 12px;
+  overflow-y: auto;
 }
 
 .brand {
@@ -187,24 +187,13 @@ kbd {
 }
 
 .nav-item.active {
-  background: var(--kb-accent-subtle);
-  color: var(--kb-fg-default);
+  background: var(--kb-accent);
+  color: var(--kb-accent-fg);
   font-weight: 550;
 }
 
-.nav-item.active::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 5px;
-  bottom: 5px;
-  width: 3px;
-  border-radius: 0 3px 3px 0;
-  background: var(--kb-accent);
-}
-
 .nav-item.active .nav-icon {
-  color: var(--kb-accent);
+  color: var(--kb-accent-fg);
   opacity: 1;
 }
 
@@ -220,29 +209,39 @@ kbd {
 
 .sidebar-footer {
   margin-top: auto;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 10px 4px;
+  padding: 10px 10px 2px;
   border-top: 1px solid var(--kb-border-subtle);
   color: var(--kb-fg-muted);
+  font-size: 12px;
 }
 
 .content {
   grid-area: content;
-  overflow-y: auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .page {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
   max-width: 100%;
-  padding: 16px 20px 28px;
+  padding: 14px 18px 0;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .page-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
+  flex-shrink: 0;
 }
 
 h2 {
@@ -405,11 +404,18 @@ h2 {
 }
 
 .empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   border: 1px dashed var(--kb-border-strong);
-  border-radius: var(--kb-radius-lg);
+  border-radius: var(--kb-radius-sm);
   padding: 44px 24px;
   text-align: center;
-  background: color-mix(in srgb, var(--kb-bg-surface) 55%, transparent);
+  background: var(--kb-bg-surface);
+  min-height: 200px;
+  margin-bottom: 14px;
 }
 
 .error-banner {
@@ -454,7 +460,8 @@ h2 {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 16px;
+  margin-bottom: 10px;
+  flex-shrink: 0;
 }
 
 .toolbar-select,
@@ -495,12 +502,13 @@ h2 {
 }
 
 .table-wrap {
-  border: 1px solid var(--kb-border-subtle);
-  border-radius: var(--kb-radius);
+  flex: 1;
+  border: 1px solid var(--kb-border-strong);
+  border-radius: var(--kb-radius-sm);
   overflow: auto;
   background: var(--kb-bg-surface);
-  box-shadow: var(--kb-shadow-rest), var(--kb-highlight-inset);
-  max-height: calc(100vh - 180px);
+  min-height: 0;
+  margin-bottom: 14px;
 }
 
 .kb-table {
@@ -513,21 +521,21 @@ h2 {
   position: sticky;
   top: 0;
   z-index: 1;
-  background: var(--kb-bg-raised);
+  background: var(--kb-bg-inset);
   text-align: left;
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--kb-fg-subtle);
-  padding: 10px 16px;
+  color: var(--kb-fg-muted);
+  padding: 10px 14px;
   border-bottom: 1px solid var(--kb-border-strong);
   white-space: nowrap;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .kb-table td {
-  padding: 9px 16px;
+  padding: 8px 14px;
   border-bottom: 1px solid var(--kb-border-subtle);
   white-space: nowrap;
 }
@@ -541,7 +549,7 @@ h2 {
 }
 
 .kb-table tbody tr:nth-child(even) {
-  background: color-mix(in srgb, var(--kb-bg-inset) 35%, transparent);
+  background: color-mix(in srgb, var(--kb-bg-inset) 50%, transparent);
 }
 
 .kb-table tbody tr.selected {
@@ -910,7 +918,13 @@ tr.row-clickable:active {
 }
 
 .nav-item.sub.active {
+  background: var(--kb-accent-subtle);
+  color: var(--kb-accent);
   font-weight: 550;
+}
+
+.nav-item.sub.active .nav-icon {
+  color: var(--kb-accent);
 }
 
 .fleet-stats {
