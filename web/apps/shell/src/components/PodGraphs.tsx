@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@kubebay/ui";
 import { LineChart } from "./LineChart";
 import { promApi } from "../lib/api";
@@ -10,6 +10,57 @@ const RANGES = [
   { label: "6h", ms: 21_600_000, step: 300 },
   { label: "24h", ms: 86_400_000, step: 900 },
 ];
+
+const MAX_RETRIES = 3;
+const RETRY_INTERVAL = 15_000;
+
+function CopyableCommand({ command }: { command: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = useCallback(() => {
+    navigator.clipboard.writeText(command).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }, [command]);
+  return (
+    <div style={{ position: "relative", margin: "8px 0 0" }}>
+      <pre
+        className="mono"
+        style={{
+          fontSize: 11,
+          whiteSpace: "pre-wrap",
+          background: "var(--bg-inset, #1a1a2e)",
+          padding: "8px 40px 8px 8px",
+          borderRadius: 4,
+          margin: 0,
+          cursor: "pointer",
+          userSelect: "all",
+        }}
+        onClick={copy}
+      >
+        {command}
+      </pre>
+      <button
+        onClick={copy}
+        title="Copy to clipboard"
+        style={{
+          position: "absolute",
+          top: 4,
+          right: 4,
+          background: "transparent",
+          border: "1px solid var(--border, #444)",
+          borderRadius: 3,
+          padding: "2px 6px",
+          fontSize: 10,
+          cursor: "pointer",
+          color: "var(--fg-muted, #aaa)",
+        }}
+      >
+        {copied ? "Copied!" : "Copy"}
+      </button>
+    </div>
+  );
+}
 
 export function PodGraphs({
   cluster,
@@ -36,6 +87,7 @@ export function PodGraphs({
   const memQ = `sum(container_memory_working_set_bytes{namespace="${namespace}",pod="${pod}",container!="",image!=""}) by (container)`;
 
   const enabled = !!promUrl && !!cluster;
+  const queryClient = useQueryClient();
 
   const cpu = useQuery({
     queryKey: ["prom-cpu", cluster, cpuQ, rangeIdx],
@@ -51,6 +103,41 @@ export function PodGraphs({
     refetchInterval: 60_000,
     retry: false,
   });
+
+  // Auto-retry logic for unreachable prometheus
+  const [retryCount, setRetryCount] = useState(0);
+  const [retrying, setRetrying] = useState(false);
+  const retryTimer = useRef<ReturnType<typeof setTimeout>>();
+
+  const anyErr = cpu.isError || mem.isError;
+  const errBody = cpu.error ?? mem.error;
+  const cause = errBody instanceof Error ? (errBody as { cause?: { hint?: string } }).cause : undefined;
+  const isUnreachable =
+    (errBody instanceof Error && errBody.message.includes("prometheus-unreachable")) ||
+    !!cause?.hint;
+
+  useEffect(() => {
+    if (!anyErr || !isUnreachable) {
+      // Reset retry state on success or non-unreachable error
+      setRetryCount(0);
+      setRetrying(false);
+      if (retryTimer.current) clearTimeout(retryTimer.current);
+      return;
+    }
+    if (retryCount >= MAX_RETRIES) {
+      setRetrying(false);
+      return;
+    }
+    setRetrying(true);
+    retryTimer.current = setTimeout(() => {
+      setRetryCount((c) => c + 1);
+      queryClient.invalidateQueries({ queryKey: ["prom-cpu"] });
+      queryClient.invalidateQueries({ queryKey: ["prom-mem"] });
+    }, RETRY_INTERVAL);
+    return () => {
+      if (retryTimer.current) clearTimeout(retryTimer.current);
+    };
+  }, [anyErr, isUnreachable, retryCount, queryClient]);
 
   const palette = ["#5b8def", "#41c98e", "#dca154", "#c586e8", "#4fc4cf"];
 
@@ -76,22 +163,17 @@ export function PodGraphs({
   const cpuSeries = useMemo(() => toSeries(cpu.data, 0, (v) => v * 1000), [cpu.data]);
   const memSeries = useMemo(() => toSeries(mem.data, 2, (v) => v), [mem.data]);
 
-  if (settings.isLoading) return <div className="muted small" style={{ padding: 14 }}>Loading…</div>;
+  if (settings.isLoading) return <div className="muted small" style={{ padding: 14 }}>Loading...</div>;
 
   if (!promUrl)
     return (
       <div className="empty-state" style={{ margin: 14 }}>
         <p>History graphs need Prometheus.</p>
-        <p className="muted small">Set the server URL in Settings → Prometheus.</p>
+        <p className="muted small">Set the server URL in Settings &rarr; Prometheus.</p>
       </div>
     );
 
-  const anyErr = cpu.isError || mem.isError;
-  const errBody = cpu.error ?? mem.error;
-  const cause = errBody instanceof Error ? (errBody as { cause?: { hint?: string } }).cause : undefined;
-  const isUnreachable =
-    (errBody instanceof Error && errBody.message.includes("prometheus-unreachable")) ||
-    !!cause?.hint;
+  const pfCommand = "kubectl -n monitoring port-forward svc/<prometheus-server> 19090:80";
 
   return (
     <div style={{ padding: 12, overflowY: "auto", height: "100%" }}>
@@ -105,20 +187,46 @@ export function PodGraphs({
             {r.label}
           </Button>
         ))}
-        {(cpu.isFetching || mem.isFetching) && <span className="muted small">loading…</span>}
+        {(cpu.isFetching || mem.isFetching) && <span className="muted small">loading...</span>}
       </div>
 
       {isUnreachable && (
         <div className="error-banner">
-          Prometheus is not running. Start it with:
-          <pre className="mono" style={{ margin: "8px 0 0", fontSize: 11, whiteSpace: "pre-wrap" }}>
-            kubectl -n monitoring port-forward svc/&lt;prometheus-server&gt; 19090:80
-          </pre>
+          Prometheus is not reachable. Start a port-forward with:
+          <CopyableCommand command={pfCommand} />
+          {retrying && retryCount < MAX_RETRIES && (
+            <p className="muted small" style={{ margin: "8px 0 0" }}>
+              Retrying automatically... ({retryCount + 1}/{MAX_RETRIES})
+            </p>
+          )}
+          {retryCount >= MAX_RETRIES && (
+            <p className="muted small" style={{ margin: "8px 0 0" }}>
+              Auto-retry exhausted ({MAX_RETRIES} attempts).{" "}
+              <button
+                onClick={() => {
+                  setRetryCount(0);
+                  queryClient.invalidateQueries({ queryKey: ["prom-cpu"] });
+                  queryClient.invalidateQueries({ queryKey: ["prom-mem"] });
+                }}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "var(--accent, #5b8def)",
+                  cursor: "pointer",
+                  textDecoration: "underline",
+                  padding: 0,
+                  fontSize: "inherit",
+                }}
+              >
+                Retry again
+              </button>
+            </p>
+          )}
         </div>
       )}
 
       {anyErr && !isUnreachable && (
-        <div className="error-banner">Prometheus query failed — check URL/reachability in Settings.</div>
+        <div className="error-banner">Prometheus query failed -- check URL/reachability in Settings.</div>
       )}
 
       {!anyErr && (
