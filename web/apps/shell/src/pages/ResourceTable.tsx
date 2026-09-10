@@ -414,7 +414,7 @@ export default function ResourceTable() {
                 return (
                   <tr key={key} className="row-clickable" onClick={() => setSelected({ ns: str(meta.namespace), name })} onContextMenu={(e) => { e.preventDefault(); setCtx({ x: e.clientX, y: e.clientY, ns: str(meta.namespace), name }); }}>
                     <td className="mono strong">{name}</td>
-                    {!def.scoped && <td className="mono muted">{str(meta.namespace)}</td>}
+                    {!def.scoped && <td className="mono"><span className="cell-link">{str(meta.namespace)}</span></td>}
                     {cols.map((col) => {
                       const cell = cellFor(def.slug, col, o);
                       return (

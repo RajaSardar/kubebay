@@ -117,10 +117,10 @@ function fmtAge(ms: number): string {
   return `${Math.floor(h / 24)}d`;
 }
 
-const STATUS_TONE: Record<PodRow["status"], { color: string; badge?: "ok" | "err" }> = {
+const STATUS_TONE: Record<PodRow["status"], { color: string; badge?: "ok" | "err" | "pending" }> = {
   running: { color: "var(--kb-status-ok)", badge: "ok" },
-  succeeded: { color: "var(--kb-status-pending)" },
-  pending: { color: "var(--kb-status-warn)" },
+  succeeded: { color: "var(--kb-status-info)" },
+  pending: { color: "var(--kb-status-pending)", badge: "pending" },
   failed: { color: "var(--kb-status-err)", badge: "err" },
   warning: { color: "var(--kb-status-err)", badge: "err" },
 };
@@ -259,11 +259,11 @@ export default function Workloads() {
                     });
                   }}>
                     <td className="mono strong">{p.name}</td>
-                    <td className="mono muted">{p.namespace}</td>
+                    <td className="mono"><span className="cell-link">{p.namespace}</span></td>
                     <td className="mono">{p.ready}</td>
                     <td>
                       <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
-                        <StatusDot status={tone.badge === "ok" ? "connected" : tone.badge === "err" ? "unreachable" : "degraded"} />
+                        <StatusDot status={tone.badge === "ok" ? "connected" : tone.badge === "err" ? "unreachable" : tone.badge === "pending" ? "degraded" : "pending"} />
                         <span style={{ color: tone.color }}>{p.statusLabel}</span>
                       </span>
                     </td>

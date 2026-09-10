@@ -31,29 +31,32 @@
   --kb-bg-raised: #171a24;
   --kb-bg-overlay: #1d2130;
   --kb-bg-inset: #0c0e14;
+  --kb-bg-sidebar: #0d0e15;
 
   --kb-fg-default: #e9ebf2;
   --kb-fg-muted: #9aa2b6;
   --kb-fg-subtle: #667089;
 
-  --kb-accent: #5b8def;
-  --kb-accent-hover: #6f9cf5;
-  --kb-accent-subtle: rgba(91, 141, 239, 0.13);
+  --kb-accent: #22d3ee;
+  --kb-accent-hover: #45ddf3;
+  --kb-accent-subtle: rgba(34, 211, 238, 0.12);
   --kb-accent-fg: #ffffff;
 
   --kb-status-ok: #41c98e;
-  --kb-status-warn: #dca154;
+  --kb-status-warn: #f0a840;
   --kb-status-err: #ef5f68;
-  --kb-status-pending: #8b93a7;
-  --kb-status-info: #5ba8ef;
+  --kb-status-pending: #f0a840;
+  --kb-status-info: #22d3ee;
   --kb-status-terminated: #636b7e;
 
   --kb-status-ok-subtle: color-mix(in srgb, #41c98e 11%, transparent);
   --kb-status-ok-fg: #41c98e;
-  --kb-status-warn-subtle: color-mix(in srgb, #dca154 11%, transparent);
-  --kb-status-warn-fg: #dca154;
+  --kb-status-warn-subtle: color-mix(in srgb, #f0a840 11%, transparent);
+  --kb-status-warn-fg: #f0a840;
   --kb-status-err-subtle: color-mix(in srgb, #ef5f68 11%, transparent);
   --kb-status-err-fg: #ef5f68;
+  --kb-status-pending-subtle: color-mix(in srgb, #f0a840 11%, transparent);
+  --kb-status-pending-fg: #f0a840;
 
   --kb-border-subtle: #1d212e;
   --kb-border-strong: #293041;
@@ -62,11 +65,11 @@
   --kb-shadow-rest: 0 1px 2px rgba(0, 0, 0, 0.35);
   --kb-shadow-lift: 0 10px 30px -10px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.3);
 
-  --kb-focus-ring: 0 0 0 2px rgba(91, 141, 239, 0.55);
-  --kb-selection: rgba(91, 141, 239, 0.3);
+  --kb-focus-ring: 0 0 0 2px rgba(34, 211, 238, 0.5);
+  --kb-selection: rgba(34, 211, 238, 0.25);
 
-  --kb-glow-a: rgba(91, 141, 239, 0.07);
-  --kb-glow-b: rgba(65, 201, 142, 0.05);
+  --kb-glow-a: rgba(34, 211, 238, 0.06);
+  --kb-glow-b: rgba(65, 201, 142, 0.04);
   --kb-theme-color: #0a0b10;
 }
 
@@ -78,21 +81,22 @@
   --kb-bg-raised: #ffffff;
   --kb-bg-overlay: #ffffff;
   --kb-bg-inset: #eef0f5;
+  --kb-bg-sidebar: #f0f1f6;
 
   --kb-fg-default: #191f2c;
   --kb-fg-muted: #5d6577;
   --kb-fg-subtle: #8a92a5;
 
-  --kb-accent: #3067d6;
-  --kb-accent-hover: #2456bd;
-  --kb-accent-subtle: rgba(48, 103, 214, 0.09);
+  --kb-accent: #0891b2;
+  --kb-accent-hover: #0e7490;
+  --kb-accent-subtle: rgba(8, 145, 178, 0.09);
   --kb-accent-fg: #ffffff;
 
   --kb-status-ok: #178a52;
   --kb-status-warn: #b07422;
   --kb-status-err: #d33b47;
-  --kb-status-pending: #6f7789;
-  --kb-status-info: #2874c4;
+  --kb-status-pending: #b07422;
+  --kb-status-info: #0891b2;
   --kb-status-terminated: #8a92a5;
 
   --kb-status-ok-subtle: color-mix(in srgb, #178a52 10%, transparent);
@@ -101,6 +105,8 @@
   --kb-status-warn-fg: #8f5e1a;
   --kb-status-err-subtle: color-mix(in srgb, #d33b47 10%, transparent);
   --kb-status-err-fg: #b82e3a;
+  --kb-status-pending-subtle: color-mix(in srgb, #b07422 10%, transparent);
+  --kb-status-pending-fg: #8f5e1a;
 
   --kb-border-subtle: #e7eaf0;
   --kb-border-strong: #d3d9e4;
@@ -109,10 +115,10 @@
   --kb-shadow-rest: 0 1px 2px rgba(20, 28, 46, 0.06);
   --kb-shadow-lift: 0 10px 26px -10px rgba(20, 28, 46, 0.16), 0 2px 6px rgba(20, 28, 46, 0.07);
 
-  --kb-focus-ring: 0 0 0 2px rgba(48, 103, 214, 0.4);
-  --kb-selection: rgba(48, 103, 214, 0.18);
+  --kb-focus-ring: 0 0 0 2px rgba(8, 145, 178, 0.4);
+  --kb-selection: rgba(8, 145, 178, 0.18);
 
-  --kb-glow-a: rgba(48, 103, 214, 0.05);
+  --kb-glow-a: rgba(8, 145, 178, 0.05);
   --kb-glow-b: rgba(23, 138, 82, 0.04);
   --kb-theme-color: #f7f8fb;
 }
@@ -125,21 +131,22 @@
   --kb-bg-raised: #161616;
   --kb-bg-overlay: #1f1f1f;
   --kb-bg-inset: #000000;
+  --kb-bg-sidebar: #050505;
 
   --kb-fg-default: #ffffff;
   --kb-fg-muted: #d0d0d0;
   --kb-fg-subtle: #a8a8a8;
 
-  --kb-accent: #7cabff;
-  --kb-accent-hover: #93bcff;
-  --kb-accent-subtle: rgba(124, 171, 255, 0.18);
+  --kb-accent: #44e4f7;
+  --kb-accent-hover: #6eedf9;
+  --kb-accent-subtle: rgba(68, 228, 247, 0.18);
   --kb-accent-fg: #000000;
 
   --kb-status-ok: #00d974;
   --kb-status-warn: #ffb340;
   --kb-status-err: #ff606b;
-  --kb-status-pending: #d0d0d0;
-  --kb-status-info: #6db8ff;
+  --kb-status-pending: #ffb340;
+  --kb-status-info: #44e4f7;
   --kb-status-terminated: #888888;
 
   --kb-status-ok-subtle: color-mix(in srgb, #00d974 12%, transparent);
@@ -148,6 +155,8 @@
   --kb-status-warn-fg: #ffb340;
   --kb-status-err-subtle: color-mix(in srgb, #ff606b 12%, transparent);
   --kb-status-err-fg: #ff606b;
+  --kb-status-pending-subtle: color-mix(in srgb, #ffb340 12%, transparent);
+  --kb-status-pending-fg: #ffb340;
 
   --kb-border-subtle: #333333;
   --kb-border-strong: #525252;
@@ -156,8 +165,8 @@
   --kb-shadow-rest: none;
   --kb-shadow-lift: 0 0 0 1px #525252;
 
-  --kb-focus-ring: 0 0 0 2px #7cabff;
-  --kb-selection: rgba(124, 171, 255, 0.4);
+  --kb-focus-ring: 0 0 0 2px #44e4f7;
+  --kb-selection: rgba(68, 228, 247, 0.4);
 
   --kb-glow-a: transparent;
   --kb-glow-b: transparent;
@@ -172,21 +181,22 @@
   --kb-bg-raised: #ffffff;
   --kb-bg-overlay: #ffffff;
   --kb-bg-inset: #f0f0f0;
+  --kb-bg-sidebar: #ebebeb;
 
   --kb-fg-default: #000000;
   --kb-fg-muted: #2d2d2d;
   --kb-fg-subtle: #4d4d4d;
 
-  --kb-accent: #003fb3;
-  --kb-accent-hover: #002e87;
-  --kb-accent-subtle: rgba(0, 63, 179, 0.12);
+  --kb-accent: #0e7490;
+  --kb-accent-hover: #0a5d73;
+  --kb-accent-subtle: rgba(14, 116, 144, 0.12);
   --kb-accent-fg: #ffffff;
 
   --kb-status-ok: #006638;
   --kb-status-warn: #7a4d00;
   --kb-status-err: #ad0015;
-  --kb-status-pending: #2d2d2d;
-  --kb-status-info: #00529e;
+  --kb-status-pending: #7a4d00;
+  --kb-status-info: #0e7490;
   --kb-status-terminated: #6b6b6b;
 
   --kb-status-ok-subtle: color-mix(in srgb, #006638 12%, transparent);
@@ -195,6 +205,8 @@
   --kb-status-warn-fg: #634000;
   --kb-status-err-subtle: color-mix(in srgb, #ad0015 12%, transparent);
   --kb-status-err-fg: #910011;
+  --kb-status-pending-subtle: color-mix(in srgb, #7a4d00 12%, transparent);
+  --kb-status-pending-fg: #634000;
 
   --kb-border-subtle: #c9c9c9;
   --kb-border-strong: #999999;
@@ -203,8 +215,8 @@
   --kb-shadow-rest: none;
   --kb-shadow-lift: 0 0 0 1px #999999;
 
-  --kb-focus-ring: 0 0 0 2px #003fb3;
-  --kb-selection: rgba(0, 63, 179, 0.25);
+  --kb-focus-ring: 0 0 0 2px #0e7490;
+  --kb-selection: rgba(14, 116, 144, 0.25);
 
   --kb-glow-a: transparent;
   --kb-glow-b: transparent;

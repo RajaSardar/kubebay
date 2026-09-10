@@ -183,7 +183,7 @@ function Sidebar({ up, onOpenPalette }: { up: boolean; onOpenPalette: () => void
         <svg className="brand-logo" viewBox="0 0 32 32" aria-hidden>
           <defs>
             <linearGradient id="kb-g" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stopColor="#5b8def" />
+              <stop offset="0%" stopColor="#22d3ee" />
               <stop offset="100%" stopColor="#41c98e" />
             </linearGradient>
           </defs>
