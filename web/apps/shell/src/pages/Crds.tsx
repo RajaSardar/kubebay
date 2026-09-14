@@ -1,12 +1,12 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { NavLink } from "react-router-dom";
-import { api, discoveryApi, type APIResourceEntry } from "../lib/api";
+import { discoveryApi, type APIResourceEntry } from "../lib/api";
 import { extSlug, KNOWN_GVRS } from "../lib/resources";
+import { useCluster } from "../lib/useCluster";
 
 export default function Crds() {
-  const clusters = useQuery({ queryKey: ["clusters"], queryFn: api.clusters });
-  const cluster = (clusters.data ?? []).find((c) => c.status === "connected")?.id ?? "";
+  const { cluster } = useCluster();
   const allApis = useQuery({
     queryKey: ["apis", cluster],
     queryFn: () => discoveryApi.apis(cluster),
@@ -62,7 +62,7 @@ export default function Crds() {
   }
 
   return (
-    <div className="page">
+    <div className="page" style={{ overflowY: "auto" }}>
       <h1>Custom Resource Definitions</h1>
 
       <div className="toolbar" style={{ gap: 8 }}>

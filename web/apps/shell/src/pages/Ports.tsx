@@ -2,15 +2,13 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button, Card } from "@kubebay/ui";
 import { api } from "../lib/api";
+import { useCluster } from "../lib/useCluster";
 
 export default function Ports() {
   const qc = useQueryClient();
   const forwards = useQuery({ queryKey: ["pf"], queryFn: api.pfList, refetchInterval: 5000 });
-  const clusters = useQuery({ queryKey: ["clusters"], queryFn: api.clusters });
-  const list = clusters.data ?? [];
-  const firstConnected = list.find((c) => c.status === "connected")?.id ?? "";
-
-  const [cluster, setCluster] = useState(firstConnected);
+  const { cluster: contextCluster, setCluster: setContextCluster, list } = useCluster();
+  const [localCluster, setLocalCluster] = useState("");
   const [ns, setNs] = useState("default");
   const [pod, setPod] = useState("");
   const [podPort, setPodPort] = useState("");
@@ -18,7 +16,7 @@ export default function Ports() {
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const effectiveCluster = cluster || firstConnected;
+  const effectiveCluster = localCluster || contextCluster;
 
   async function create() {
     setErr("");
@@ -69,7 +67,7 @@ export default function Ports() {
           <select
             className="toolbar-select"
             value={effectiveCluster}
-            onChange={(e) => setCluster(e.target.value)}
+            onChange={(e) => { setLocalCluster(e.target.value); setContextCluster(e.target.value); }}
             aria-label="cluster"
           >
             {list.map((c) => (

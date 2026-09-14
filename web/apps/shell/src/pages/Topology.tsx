@@ -1,5 +1,4 @@
 import { useCallback, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import {
   Background,
   BackgroundVariant,
@@ -11,7 +10,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { Badge } from "@kubebay/ui";
-import { api } from "../lib/api";
+import { useCluster } from "../lib/useCluster";
 import { useResourceStream } from "../lib/useResourceStream";
 import { buildTopology, type Health, type KObj, type TopoNode } from "../lib/topology";
 import PodPanel from "./PodPanel";
@@ -106,9 +105,7 @@ const NODE_TYPES = {
 };
 
 export default function Topology() {
-  const clusters = useQuery({ queryKey: ["clusters"], queryFn: api.clusters });
-  const list = clusters.data ?? [];
-  const effectiveCluster = list.find((c) => c.status === "connected")?.id || list[0]?.id || "";
+  const { cluster: effectiveCluster, setCluster, list } = useCluster();
 
   const namespaces = useResourceStream(effectiveCluster || undefined, "v1/namespaces", { mode: "metadata" });
   const nsOptions = useMemo(() => {
@@ -171,7 +168,7 @@ export default function Topology() {
       </div>
 
       <div className="toolbar">
-        <select className="toolbar-select" value={effectiveCluster} onChange={() => undefined} aria-label="cluster">
+        <select className="toolbar-select" value={effectiveCluster} onChange={(e) => setCluster(e.target.value)} aria-label="cluster">
           {list.map((c) => (
             <option key={c.id} value={c.id}>
               {c.id}

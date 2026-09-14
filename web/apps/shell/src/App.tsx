@@ -17,7 +17,7 @@ import {
   IconTopology,
 } from "@kubebay/ui/src/icons";
 import { api } from "./lib/api";
-import Overview from "./pages/Overview";
+import Fleet from "./pages/Fleet";
 import Settings from "./pages/Settings";
 import Workloads from "./pages/Workloads";
 import Ports from "./pages/Ports";
@@ -25,7 +25,6 @@ import Timeline from "./pages/Timeline";
 import Topology from "./pages/Topology";
 import Rbac from "./pages/Rbac";
 import Helm from "./pages/Helm";
-import Fleet from "./pages/Fleet";
 import WorkloadsOverview from "./pages/WorkloadsOverview";
 import ResourceTable from "./pages/ResourceTable";
 import Crds from "./pages/Crds";
@@ -68,6 +67,8 @@ const GROUPS: NavGroupDef[] = [
       { to: "/r/daemonsets", label: "DaemonSets" },
       { to: "/r/jobs", label: "Jobs" },
       { to: "/r/cronjobs", label: "CronJobs" },
+      { to: "/r/replicationcontrollers", label: "ReplicationControllers" },
+      { to: "/r/controllerrevisions", label: "ControllerRevisions" },
     ],
   },
   {
@@ -80,6 +81,7 @@ const GROUPS: NavGroupDef[] = [
       { to: "/r/limitranges", label: "LimitRanges" },
       { to: "/r/horizontalpodautoscalers", label: "HPAs" },
       { to: "/r/poddisruptionbudgets", label: "PDBs" },
+      { to: "/r/priorityclasses", label: "PriorityClasses" },
     ],
   },
   {
@@ -90,6 +92,7 @@ const GROUPS: NavGroupDef[] = [
       { to: "/r/endpoints", label: "Endpoints" },
       { to: "/r/endpointslices", label: "EndpointSlices" },
       { to: "/r/ingresses", label: "Ingresses" },
+      { to: "/r/ingressclasses", label: "IngressClasses" },
       { to: "/r/networkpolicies", label: "NetworkPolicies" },
     ],
   },
@@ -100,6 +103,10 @@ const GROUPS: NavGroupDef[] = [
       { to: "/r/persistentvolumeclaims", label: "PVCs" },
       { to: "/r/persistentvolumes", label: "PVs" },
       { to: "/r/storageclasses", label: "StorageClasses" },
+      { to: "/r/volumeattachments", label: "VolumeAttachments" },
+      { to: "/r/csidrivers", label: "CSI Drivers" },
+      { to: "/r/csinodes", label: "CSI Nodes" },
+      { to: "/r/csistoragecapacities", label: "CSI Capacities" },
     ],
   },
   {
@@ -114,11 +121,28 @@ const GROUPS: NavGroupDef[] = [
     ],
   },
   {
+    label: "Admission",
+    icon: <IconShield />,
+    leaves: [
+      { to: "/r/mutatingwebhookconfigurations", label: "Mutating Webhooks" },
+      { to: "/r/validatingwebhookconfigurations", label: "Validating Webhooks" },
+      { to: "/r/validatingadmissionpolicies", label: "Admission Policies" },
+      { to: "/r/validatingadmissionpolicybindings", label: "Policy Bindings" },
+    ],
+  },
+  {
     label: "Cluster",
     icon: <IconTopology />,
     leaves: [
       { to: "/r/nodes", label: "Nodes" },
       { to: "/r/namespaces", label: "Namespaces" },
+      { to: "/r/events", label: "Events" },
+      { to: "/r/runtimeclasses", label: "RuntimeClasses" },
+      { to: "/r/leases", label: "Leases" },
+      { to: "/r/certificatesigningrequests", label: "CertSigningRequests" },
+      { to: "/r/apiservices", label: "API Services" },
+      { to: "/r/flowschemas", label: "FlowSchemas" },
+      { to: "/r/prioritylevelconfigurations", label: "Priority Levels" },
     ],
   },
 ];
@@ -304,10 +328,6 @@ function Sidebar({ up, onOpenPalette }: { up: boolean; onOpenPalette: () => void
       <nav className="nav">
         <div className="nav-section">Navigate</div>
         <NavLink to="/" end className={({ isActive }) => (isActive ? "nav-item active" : "nav-item")}>
-          <span className="nav-icon"><IconGrid /></span>
-          <span>Overview</span>
-        </NavLink>
-        <NavLink to="/fleet" className={({ isActive }) => (isActive ? "nav-item active" : "nav-item")}>
           <span className="nav-icon"><IconLayers /></span>
           <span>Fleet</span>
         </NavLink>
@@ -343,10 +363,6 @@ function Sidebar({ up, onOpenPalette }: { up: boolean; onOpenPalette: () => void
         ))}
       </nav>
 
-      <div className="sidebar-footer">
-        <StatusDot status={up ? "connected" : "unreachable"} pulse={!up} />
-        <span className="small">{up ? "engine connected" : "engine offline"}</span>
-      </div>
     </aside>
   );
 }
@@ -390,8 +406,7 @@ function AppInner() {
 
         <main className="content">
           <Routes>
-            <Route path="/" element={<Overview />} />
-            <Route path="/fleet" element={<Fleet />} />
+            <Route path="/" element={<Fleet />} />
             <Route path="/workloads" element={<Workloads />} />
             <Route path="/workloads-overview" element={<WorkloadsOverview />} />
             <Route path="/r/:kind" element={<ResourceTable />} />

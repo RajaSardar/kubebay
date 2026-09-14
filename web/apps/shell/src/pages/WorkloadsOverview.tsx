@@ -1,7 +1,6 @@
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { Badge, Card, Skeleton } from "@kubebay/ui";
-import { api } from "../lib/api";
+import { useCluster } from "../lib/useCluster";
 import { useResourceStream } from "../lib/useResourceStream";
 import type { KObj } from "../lib/topology";
 
@@ -86,9 +85,7 @@ function useKindCounts(cluster: string | undefined) {
 }
 
 export default function WorkloadsOverview() {
-  const clusters = useQuery({ queryKey: ["clusters"], queryFn: api.clusters });
-  const list = clusters.data ?? [];
-  const effectiveCluster = list.find((c) => c.status === "connected")?.id || list[0]?.id || "";
+  const { cluster: effectiveCluster, setCluster, list } = useCluster();
 
   const { kinds, synced } = useKindCounts(effectiveCluster || undefined);
 
@@ -113,13 +110,14 @@ export default function WorkloadsOverview() {
       </div>
 
       <div className="toolbar">
-        <select className="toolbar-select" value={effectiveCluster} onChange={() => undefined} aria-label="cluster">
+        <select className="toolbar-select" value={effectiveCluster} onChange={(e) => setCluster(e.target.value)} aria-label="cluster">
           {list.map((c) => (
             <option key={c.id} value={c.id}>{c.id}</option>
           ))}
         </select>
       </div>
 
+      <div className="page-body">
       {!synced ? (
         <div className="cluster-grid">
           {[0, 1, 2, 3, 4, 5].map((i) => (
@@ -167,6 +165,7 @@ export default function WorkloadsOverview() {
           ))}
         </div>
       )}
+      </div>
     </div>
   );
 }

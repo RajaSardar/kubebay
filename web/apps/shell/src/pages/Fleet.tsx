@@ -3,8 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 import { Badge, Card, Skeleton, StatusDot } from "@kubebay/ui";
 import { api, type ClusterInfo } from "../lib/api";
 import { useClusterSnapshot, type ClusterSnapshot } from "../lib/useClusterSnapshot";
+import { useActiveCluster } from "../App";
 
-const MAX_CARDS = 8;
+const MAX_CARDS = 12;
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
@@ -15,23 +16,46 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function FleetCard({ c }: { c: ClusterInfo }) {
+function FleetCard({ c, active, onSelect }: { c: ClusterInfo; active: boolean; onSelect: () => void }) {
   const snap: ClusterSnapshot = useClusterSnapshot(c.status === "connected" ? c.id : undefined);
   const nav = useNavigate();
   const reachable = c.status === "connected";
 
+  function handleClick() {
+    if (!reachable) return;
+    onSelect();
+    nav(`/workloads`);
+  }
+
   return (
     <Card
       interactive={reachable}
-      className="fleet-card"
+      className={`fleet-card${active ? " fleet-card--active" : ""}`}
     >
       <div
         style={{ cursor: reachable ? "pointer" : "default" }}
-        onClick={() => reachable && nav(`/workloads?cluster=${encodeURIComponent(c.id)}`)}
+        onClick={handleClick}
       >
         <div className="cluster-row">
-          <StatusDot status={c.status} pulse={!reachable} />
+          <StatusDot status={c.status} pulse={c.status === "connected"} />
           <strong title={c.context}>{c.id}</strong>
+          {active && (
+            <span
+              className="mono small"
+              style={{
+                marginLeft: "auto",
+                background: "var(--kb-accent)",
+                color: "#fff",
+                borderRadius: 4,
+                padding: "1px 6px",
+                fontSize: 10,
+                fontWeight: 600,
+                letterSpacing: "0.03em",
+              }}
+            >
+              active
+            </span>
+          )}
         </div>
         <div className="muted small mono server-line">{c.server.replace(/^https:\/\//, "")}</div>
 
@@ -48,7 +72,7 @@ function FleetCard({ c }: { c: ClusterInfo }) {
         ) : (
           <>
             <div className="fleet-stats">
-              <Stat label={`nodes ready`} value={`${snap.nodeReady}/${snap.nodeTotal}`} />
+              <Stat label="nodes ready" value={`${snap.nodeReady}/${snap.nodeTotal}`} />
               <Stat label="pods" value={String(snap.podCount)} />
               <Stat label="issues" value={String(snap.issues.length)} />
               <Stat label="warnings" value={String(snap.warnings)} />
@@ -76,29 +100,50 @@ function FleetCard({ c }: { c: ClusterInfo }) {
 }
 
 export default function Fleet() {
-  const clusters = useQuery({ queryKey: ["clusters"], queryFn: api.clusters });
+  const { active, setActive } = useActiveCluster();
+  const clusters = useQuery({ queryKey: ["clusters"], queryFn: api.clusters, refetchInterval: 8_000 });
   const list = (clusters.data ?? []).slice(0, MAX_CARDS);
+  const effectiveActive = active || list.find((c) => c.status === "connected")?.id || "";
 
   return (
     <div className="page">
       <div className="page-header">
-        <h2>Fleet</h2>
+        <h2>
+          Clusters
+          {!clusters.isLoading && (
+            <span className="muted" style={{ fontWeight: 400, fontSize: 13 }}>
+              · {clusters.data?.length ?? 0}
+            </span>
+          )}
+        </h2>
         {clusters.data && clusters.data.length > MAX_CARDS && (
           <Badge>showing first {MAX_CARDS}</Badge>
         )}
       </div>
 
-      {clusters.isLoading && <Skeleton w={400} h={120} />}
-      {!clusters.isLoading && list.length === 0 && (
-        <div className="empty-state">
-          <p>No clusters configured.</p>
-        </div>
-      )}
+      <div className="page-body">
+        {clusters.isLoading && (
+          <div className="cluster-grid">
+            {[0, 1, 2].map((i) => <Skeleton key={i} w="100%" h={140} r={8} />)}
+          </div>
+        )}
+        {!clusters.isLoading && list.length === 0 && (
+          <div className="empty-state">
+            <p>No clusters configured.</p>
+            <p className="muted small">Add a context to ~/.kube/config — it hot-reloads automatically.</p>
+          </div>
+        )}
 
-      <div className="cluster-grid">
-        {list.map((c) => (
-          <FleetCard key={c.id} c={c} />
-        ))}
+        <div className="cluster-grid">
+          {list.map((c) => (
+            <FleetCard
+              key={c.id}
+              c={c}
+              active={c.id === effectiveActive}
+              onSelect={() => setActive(c.id)}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import Editor from "@monaco-editor/react";
 import { Badge, Button, Skeleton, StatusDot } from "@kubebay/ui";
 import { api, helmApi, type HelmRelease } from "../lib/api";
+import { useCluster } from "../lib/useCluster";
 import { ChartsTab } from "../components/HelmCharts";
 
 type DotT = "connected" | "degraded" | "unreachable" | "pending";
@@ -280,9 +281,7 @@ function ReleaseDrawer({
 
 export default function Helm() {
   const [view, setView] = useState<"releases" | "charts">("releases");
-  const clusters = useQuery({ queryKey: ["clusters"], queryFn: api.clusters });
-  const list = clusters.data ?? [];
-  const effectiveCluster = list.find((c) => c.status === "connected")?.id || list[0]?.id || "";
+  const { cluster: effectiveCluster, setCluster, list } = useCluster();
 
   const releases = useQuery({
     queryKey: ["helm-releases", effectiveCluster],
@@ -334,7 +333,7 @@ export default function Helm() {
           )}
         </h2>
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-          <select className="toolbar-select" value={effectiveCluster} onChange={() => undefined} aria-label="cluster">
+          <select className="toolbar-select" value={effectiveCluster} onChange={(e) => setCluster(e.target.value)} aria-label="cluster">
             {list.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.id}

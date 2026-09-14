@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@kubebay/ui";
-import { api } from "../lib/api";
+import { useCluster } from "../lib/useCluster";
 import { useResourceStream } from "../lib/useResourceStream";
 
 interface EventRow {
@@ -41,13 +40,9 @@ function deriveEvent(obj: Record<string, unknown>): EventRow | null {
 }
 
 export default function Timeline() {
-  const clusters = useQuery({ queryKey: ["clusters"], queryFn: api.clusters });
-  const [clusterId, setClusterId] = useState("");
+  const { cluster: effectiveCluster, setCluster, list } = useCluster();
   const [filter, setFilter] = useState("");
   const [warningsOnly, setWarningsOnly] = useState(false);
-
-  const list = clusters.data ?? [];
-  const effectiveCluster = clusterId || list.find((c) => c.status === "connected")?.id || list[0]?.id || "";
 
   const { rows, synced, connected } = useResourceStream(effectiveCluster || undefined, "v1/events", { mode: "full" });
 
@@ -94,7 +89,7 @@ export default function Timeline() {
         <select
           className="toolbar-select"
           value={effectiveCluster}
-          onChange={(e) => setClusterId(e.target.value)}
+          onChange={(e) => setCluster(e.target.value)}
         >
           {list.map((c) => (
             <option key={c.id} value={c.id}>
@@ -116,37 +111,39 @@ export default function Timeline() {
         <Badge>{events.length}</Badge>
       </div>
 
-      {!synced ? (
-        <p className="muted">Connecting to event stream…</p>
-      ) : events.length === 0 ? (
-        <div className="empty-state">
-          <p>No events match.</p>
-          <p className="muted small">{filter || warningsOnly ? "Loosen the filters." : "A quiet cluster is a happy cluster."}</p>
-        </div>
-      ) : (
-        <div className="timeline-list">
-          {events.map((e) => {
-            const isWarn = e.type === "Warning";
-            return (
-              <div key={e.key} className={`tl-item${isWarn ? " tl-warn" : ""}`}>
-                <span className={`tl-dot ${isWarn ? "warn" : ""}`} />
-                <div className="tl-body">
-                  <div className="tl-top">
-                    <span className="mono strong">{e.reason}</span>
-                    {isWarn && <Badge tone="err">warning</Badge>}
-                    {e.count > 1 && <Badge>×{e.count}</Badge>}
-                    <span className="muted small mono">{e.obj}</span>
-                    <span className="muted small" style={{ marginLeft: "auto", flexShrink: 0 }}>
-                      {fmtRel(e.ts)}
-                    </span>
+      <div className="page-body">
+        {!synced ? (
+          <p className="muted">Connecting to event stream…</p>
+        ) : events.length === 0 ? (
+          <div className="empty-state">
+            <p>No events match.</p>
+            <p className="muted small">{filter || warningsOnly ? "Loosen the filters." : "A quiet cluster is a happy cluster."}</p>
+          </div>
+        ) : (
+          <div className="timeline-list">
+            {events.map((e) => {
+              const isWarn = e.type === "Warning";
+              return (
+                <div key={e.key} className={`tl-item${isWarn ? " tl-warn" : ""}`}>
+                  <span className={`tl-dot ${isWarn ? "warn" : ""}`} />
+                  <div className="tl-body">
+                    <div className="tl-top">
+                      <span className="mono strong">{e.reason}</span>
+                      {isWarn && <Badge tone="err">warning</Badge>}
+                      {e.count > 1 && <Badge>×{e.count}</Badge>}
+                      <span className="muted small mono">{e.obj}</span>
+                      <span className="muted small" style={{ marginLeft: "auto", flexShrink: 0 }}>
+                        {fmtRel(e.ts)}
+                      </span>
+                    </div>
+                    <div className="tl-msg small muted">{e.message}</div>
                   </div>
-                  <div className="tl-msg small muted">{e.message}</div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

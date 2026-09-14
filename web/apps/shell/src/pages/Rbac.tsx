@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { Badge, Button, Card } from "@kubebay/ui";
-import { api } from "../lib/api";
-import { rbacApi as api2 } from "../lib/api";
+import { api, rbacApi as api2 } from "../lib/api";
+import { useCluster } from "../lib/useCluster";
 
 interface Rule {
   verbs: string[];
@@ -65,9 +64,7 @@ function subjectKey(s: Subject): string {
 }
 
 export default function Rbac() {
-  const clusters = useQuery({ queryKey: ["clusters"], queryFn: api.clusters });
-  const list = clusters.data ?? [];
-  const effectiveCluster = list.find((c) => c.status === "connected")?.id || list[0]?.id || "";
+  const { cluster: effectiveCluster, setCluster, list } = useCluster();
 
   const snap = useQuery({
     queryKey: ["rbac", effectiveCluster],
@@ -170,7 +167,7 @@ export default function Rbac() {
           )}
         </h2>
         <div style={{ display: "flex", gap: 10 }}>
-          <select className="toolbar-select" value={effectiveCluster} onChange={() => undefined}>
+          <select className="toolbar-select" value={effectiveCluster} onChange={(e) => setCluster(e.target.value)}>
             {list.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.id}
@@ -180,6 +177,7 @@ export default function Rbac() {
         </div>
       </div>
 
+      <div className="page-body">
       <Card style={{ marginBottom: 16 }}>
         <div className="rbac-section-title">Who can …</div>
         <div className="pf-form">
@@ -248,6 +246,7 @@ export default function Rbac() {
           </div>
         )}
       </Card>
+      </div>
     </div>
   );
 }

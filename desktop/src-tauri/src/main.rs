@@ -36,11 +36,17 @@ fn wait_for_engine(addr: &str, attempts: u32) -> bool {
 }
 
 fn pick_free_port() -> u16 {
+    // Prefer a stable port so localStorage origin stays consistent across launches
+    // (WebviewUrl::External keys localStorage by http://host:port).
+    const PREFERRED: u16 = 9898;
+    if std::net::TcpListener::bind(("127.0.0.1", PREFERRED)).is_ok() {
+        return PREFERRED;
+    }
     std::net::TcpListener::bind("127.0.0.1:0")
         .ok()
         .and_then(|l| l.local_addr().ok())
         .map(|a| a.port())
-        .unwrap_or(9898)
+        .unwrap_or(PREFERRED + 1)
 }
 
 fn main() {

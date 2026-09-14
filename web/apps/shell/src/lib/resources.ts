@@ -56,6 +56,33 @@ export const DEFS: Record<string, ResourceDef> = {
   clusterroles: def("clusterroles", "ClusterRoles", "rbac.authorization.k8s.io/v1/clusterroles", { scoped: true }),
   rolebindings: def("rolebindings", "RoleBindings", "rbac.authorization.k8s.io/v1/rolebindings"),
   clusterrolebindings: def("clusterrolebindings", "ClusterRoleBindings", "rbac.authorization.k8s.io/v1/clusterrolebindings", { scoped: true }),
+  // Network
+  ingressclasses: def("ingressclasses", "IngressClasses", "networking.k8s.io/v1/ingressclasses", { scoped: true }),
+  // Configuration
+  priorityclasses: def("priorityclasses", "PriorityClasses", "scheduling.k8s.io/v1/priorityclasses", { scoped: true }),
+  // Storage
+  volumeattachments: def("volumeattachments", "VolumeAttachments", "storage.k8s.io/v1/volumeattachments", { scoped: true }),
+  csidrivers: def("csidrivers", "CSI Drivers", "storage.k8s.io/v1/csidrivers", { scoped: true }),
+  csinodes: def("csinodes", "CSI Nodes", "storage.k8s.io/v1/csinodes", { scoped: true }),
+  // Cluster
+  events: def("events", "Events", "v1/events", { mode: "full" }),
+  runtimeclasses: def("runtimeclasses", "RuntimeClasses", "node.k8s.io/v1/runtimeclasses", { scoped: true }),
+  leases: def("leases", "Leases", "coordination.k8s.io/v1/leases"),
+  // Admission
+  mutatingwebhookconfigurations: def("mutatingwebhookconfigurations", "Mutating Webhooks", "admissionregistration.k8s.io/v1/mutatingwebhookconfigurations", { scoped: true }),
+  validatingwebhookconfigurations: def("validatingwebhookconfigurations", "Validating Webhooks", "admissionregistration.k8s.io/v1/validatingwebhookconfigurations", { scoped: true }),
+  validatingadmissionpolicies: def("validatingadmissionpolicies", "Admission Policies", "admissionregistration.k8s.io/v1/validatingadmissionpolicies", { scoped: true }),
+  validatingadmissionpolicybindings: def("validatingadmissionpolicybindings", "Policy Bindings", "admissionregistration.k8s.io/v1/validatingadmissionpolicybindings", { scoped: true }),
+  // Workloads
+  controllerrevisions: def("controllerrevisions", "ControllerRevisions", "apps/v1/controllerrevisions"),
+  replicationcontrollers: def("replicationcontrollers", "ReplicationControllers", "v1/replicationcontrollers", { mode: "full" }),
+  // Storage
+  csistoragecapacities: def("csistoragecapacities", "CSI Capacities", "storage.k8s.io/v1/csistoragecapacities"),
+  // Cluster
+  certificatesigningrequests: def("certificatesigningrequests", "CertSigningRequests", "certificates.k8s.io/v1/certificatesigningrequests", { scoped: true }),
+  apiservices: def("apiservices", "API Services", "apiregistration.k8s.io/v1/apiservices", { scoped: true }),
+  flowschemas: def("flowschemas", "FlowSchemas", "flowcontrol.apiserver.k8s.io/v1/flowschemas", { scoped: true }),
+  prioritylevelconfigurations: def("prioritylevelconfigurations", "Priority Levels", "flowcontrol.apiserver.k8s.io/v1/prioritylevelconfigurations", { scoped: true }),
 };
 
 export function extSlug(gvr: string): string {

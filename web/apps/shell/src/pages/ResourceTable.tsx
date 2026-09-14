@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
 import { Badge, Skeleton, StatusDot } from "@kubebay/ui";
 import { api, metricsApi } from "../lib/api";
 import { useQuery as useRQQuery } from "@tanstack/react-query";
+import { useCluster } from "../lib/useCluster";
 import { useResourceStream } from "../lib/useResourceStream";
 import { DEFS, EXTRA_DEFS, ageOf, fmtAge, num, str, type ResourceDef } from "../lib/resources";
 import { fmtBytes, fmtCpu } from "./Workloads";
@@ -232,9 +232,7 @@ export default function ResourceTable() {
   const [sp] = useSearchParams();
   const def: ResourceDef | undefined = lookupDef(kind, sp);
 
-  const clusters = useQuery({ queryKey: ["clusters"], queryFn: api.clusters });
-  const list = clusters.data ?? [];
-  const effectiveCluster = list.find((c) => c.status === "connected")?.id || list[0]?.id || "";
+  const { cluster: effectiveCluster, setCluster, list } = useCluster();
 
   const [nsFilter, setNsFilter] = useState<string[]>([]);
   const [search, setSearch] = useState("");
@@ -342,7 +340,7 @@ export default function ResourceTable() {
       </div>
 
       <div className="toolbar">
-        <select className="toolbar-select" value={effectiveCluster} onChange={() => undefined} aria-label="cluster">
+        <select className="toolbar-select" value={effectiveCluster} onChange={(e) => setCluster(e.target.value)} aria-label="cluster">
           {list.map((c) => (
             <option key={c.id} value={c.id}>
               {c.id}
