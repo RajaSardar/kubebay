@@ -1,103 +1,119 @@
-# Kubebay
-
 <div align="center">
 
-[![CI](https://github.com/RajaSardar/kubebay/actions/workflows/ci.yml/badge.svg)](https://github.com/RajaSardar/kubebay/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-41c98e.svg)](LICENSE)
-[![Go](https://img.shields.io/badge/Go-1.22%2B-5b8def.svg)](https://go.dev)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-ef5f68.svg)](CONTRIBUTING.md)
+# Kubebay
 
 **A bay is where ships anchor safely. Kubebay is where your clusters come to rest.**
 
-A free, open-source, **local-first Kubernetes IDE** — cleaner than Lens, lighter than
-Freelens, friendlier than k9s.
+A free, open-source, **local-first Kubernetes IDE** — cleaner than Lens, lighter than Freelens, friendlier than k9s.
+
+[![CI](https://github.com/RajaSardar/kubebay/actions/workflows/ci.yml/badge.svg)](https://github.com/RajaSardar/kubebay/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-41c98e.svg)](LICENSE)
+[![Latest Release](https://img.shields.io/github/v/release/RajaSardar/kubebay?color=5b8def)](https://github.com/RajaSardar/kubebay/releases/latest)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-ef5f68.svg)](CONTRIBUTING.md)
 
 </div>
 
 ---
 
-| | |
-|---|---|
-| **Status** | 🚧 Phase 0 — foundation working; daily-driver features landing now |
-| **License** | MIT |
-| **Platforms** | macOS · Windows · Linux · Web (self-hosted) |
-| **Docs** | [Architecture](docs/ARCHITECTURE.md) · [Tech Stack](docs/TECH_STACK.md) · [Product Requirements](docs/PRODUCT_REQUIREMENTS.md) · [Roadmap](docs/ROADMAP.md) · [Security](SECURITY.md) |
+## Download
+
+**v0.1.3** — pick your platform:
+
+| Platform | Architecture | Download | Checksum |
+|---|---|---|---|
+| **macOS** | Apple Silicon (M1/M2/M3) | [kubebay-darwin-arm64.tar.gz](https://github.com/RajaSardar/kubebay/releases/download/v0.1.3/kubebay-darwin-arm64.tar.gz) | [sha256](https://github.com/RajaSardar/kubebay/releases/download/v0.1.3/kubebay-darwin-arm64.tar.gz.sha256) |
+| **macOS** | Intel (x86\_64) | [kubebay-darwin-amd64.tar.gz](https://github.com/RajaSardar/kubebay/releases/download/v0.1.3/kubebay-darwin-amd64.tar.gz) | [sha256](https://github.com/RajaSardar/kubebay/releases/download/v0.1.3/kubebay-darwin-amd64.tar.gz.sha256) |
+| **Linux** | x86\_64 | [kubebay-linux-amd64.tar.gz](https://github.com/RajaSardar/kubebay/releases/download/v0.1.3/kubebay-linux-amd64.tar.gz) | [sha256](https://github.com/RajaSardar/kubebay/releases/download/v0.1.3/kubebay-linux-amd64.tar.gz.sha256) |
+| **Linux** | ARM64 | [kubebay-linux-arm64.tar.gz](https://github.com/RajaSardar/kubebay/releases/download/v0.1.3/kubebay-linux-arm64.tar.gz) | [sha256](https://github.com/RajaSardar/kubebay/releases/download/v0.1.3/kubebay-linux-arm64.tar.gz.sha256) |
+| **Windows** | x86\_64 | [kubebay-windows-amd64.tar.gz](https://github.com/RajaSardar/kubebay/releases/download/v0.1.3/kubebay-windows-amd64.tar.gz) | [sha256](https://github.com/RajaSardar/kubebay/releases/download/v0.1.3/kubebay-windows-amd64.tar.gz.sha256) |
+
+> All previous releases: [github.com/RajaSardar/kubebay/releases](https://github.com/RajaSardar/kubebay/releases)
+
+### Homebrew (macOS / Linux)
+
+```bash
+brew install rajasardar/tap/kubebay
+```
+
+Or as a background service:
+
+```bash
+brew services start rajasardar/tap/kubebay
+# UI at http://127.0.0.1:9898 — token printed by: brew services info rajasardar/tap/kubebay
+```
+
+---
+
+## How to use
+
+**1. Run the engine**
+
+```bash
+# After extracting the archive:
+./kubebay
+```
+
+The engine prints a session URL on startup:
+
+```
+kubebay listening on http://127.0.0.1:9898/?token=<your-token>
+```
+
+**2. Open that URL in your browser** (or the desktop app opens it automatically).
+
+**3. Connect your clusters** — Kubebay reads `~/.kube/config` automatically and hot-reloads when it changes. No setup required.
+
+### What you get
+
+- **Fleet view** — live health across all clusters: node ready counts, pod counts, warnings
+- **All standard K8s resources** — Workloads, Config, Network, Storage, Access Control, Admission webhooks, Cluster internals — all live-streaming from the watch API
+- **CRD browser** — auto-discovers and lists every custom resource on the connected cluster
+- **RBAC explorer** — visual permission matrix with self-check
+- **Helm manager** — browse releases, inspect chart versions
+- **Port-forward manager** — create and track port-forwards without keeping a terminal open
+- **Event timeline** — chronological event stream with warning filter
+- **Topology view** — namespace-scoped pod/service/deployment graph
+- **Command palette** — `⌘K` to jump anywhere
+- **Theme system** — Dusk/Dawn + high-contrast; persists across restarts
+
+---
 
 ## Why Kubebay
 
 The Kubernetes UI landscape has a trust and quality vacuum:
 
-- **Lens** went closed-source + subscription + mandatory accounts; telemetry phones home.
-- **OpenLens** died unpatched; **Freelens** keeps it alive but Electron-heavy on an aging UX.
-- **Headlamp** is well-governed but visually plain for daily-driver use.
-- The official **Kubernetes Dashboard was archived** in Jan 2026.
+- **Lens** went closed-source + subscription + mandatory accounts
+- **OpenLens** died unpatched; **Freelens** keeps it alive but Electron-heavy
+- **Headlamp** is well-governed but visually plain for daily-driver use
+- The official **Kubernetes Dashboard was archived** in Jan 2026
 
 Kubebay's answer: **one Go engine, three surfaces, zero compromises on trust or performance.**
 
-### Principles (non-negotiable)
+### Principles
 
 1. **Local-first.** No accounts, no cloud control plane, no mandatory telemetry. Opt-in only, ever.
-2. **Instant by default.** Every view is a live watch stream. There are no Refresh buttons.
-3. **Lightweight by contract.** Hard performance budgets (≤150 MB idle RAM, ≤1.5 s cold start,
-   ≤40 MB installer) enforced in CI — see [PRD §6](docs/PRODUCT_REQUIREMENTS.md).
+2. **Instant by default.** Every view is a live watch stream. No Refresh buttons.
+3. **Lightweight by contract.** ≤150 MB idle RAM · ≤1.5 s cold start · ≤40 MB installer — enforced in CI.
 4. **One engine, many surfaces.** Desktop (Tauri), standalone web binary, in-cluster Helm chart.
 5. **RBAC-aware everywhere.** The UI reflects what you're actually allowed to do.
 6. **Keyboard-first.** Command palette drives everything; mouse optional.
 7. **Truly open source.** MIT, public roadmap, no bait-and-switch.
 
-## What's inside today
-
-- **Go engine**: multi-cluster kubeconfig manager (hot-reload), health monitoring,
-  metadata-only shared informers per `(cluster, resource)` with lazy lifecycle,
-  coalescing delta broadcaster, single multiplexed WebSocket protocol v1
-  (`sub` → snapshot → `sync` → live deltas), token-authed REST API, embedded SPA serving
-- **Web shell**: Dusk/Dawn theme system (+ high-contrast variants) with live switching,
-  icon navigation, cluster overview reading your real kubeconfig, skeleton/error/empty states
-
-## Install
-
-```bash
-brew install rajasardar/tap/kubebay
-kubebay          # serves the UI, opens your browser, prints a session token
-```
-
-Or run as a background service:
-
-```bash
-brew services start rajasardar/tap/kubebay
-# UI at http://127.0.0.1:9898 — token in `brew services info rajasardar/tap/kubebay`
-```
-
-Binaries for macOS (arm64/amd64) and Linux are on the
-[releases page](https://github.com/RajaSardar/kubebay/releases).
-
-## Quick start (from source)
-
-```bash
-git clone https://github.com/RajaSardar/kubebay && cd kubebay
-make run          # builds SPA + engine, serves at http://127.0.0.1:9898
-```
-
-`make run` prints a one-time session token — open the URL it logs:
-`http://127.0.0.1:9898/?token=…`
-
-Prerequisites: Go ≥ 1.22, Node 20+ (`corepack enable pnpm`). Your real `~/.kube/config`
-is read and hot-reloaded; nothing leaves your machine.
+---
 
 ## Roadmap
 
-Phase 1 lands daily-driver parity: log viewer, terminals, port-forward manager,
-YAML edit+diff, metrics, command palette, packaged desktop apps (Tauri).
-Then the differentiators nobody ships well: live topology, event timeline, RBAC explorer,
-Helm manager, fleet dashboard, built-in MCP server + guarded AI copilot.
+See [docs/ROADMAP.md](docs/ROADMAP.md) for the full plan.
 
-Full plan: [docs/ROADMAP.md](docs/ROADMAP.md).
+Coming next: multi-pod log streaming, YAML edit+diff, network policy visualization, app-label workload grouping, in-cluster Helm chart deployment.
 
-## Contributing
+---
 
-Issues and PRs are welcome — start with [CONTRIBUTING.md](CONTRIBUTING.md).
-Good first issues are labeled `good first issue`. If you care about developer-tool craft,
-you'll feel at home here.
+## Contributing / Building from source
+
+See **[CONTRIBUTING.md](CONTRIBUTING.md)** — it covers dev setup, repo layout, PR guidelines, and how to build from source.
+
+---
 
 ## License
 
