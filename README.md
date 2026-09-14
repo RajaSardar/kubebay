@@ -25,8 +25,7 @@ Native installers — double-click to install, no terminal needed:
 
 | Platform | File to download |
 |---|---|
-| **macOS** Apple Silicon (M1/M2/M3) | `Kubebay_VERSION_aarch64.dmg` |
-| **macOS** Intel (x86\_64) | `Kubebay_VERSION_x64.dmg` |
+| **macOS** (Apple Silicon + Intel, universal) | `Kubebay_VERSION_universal.dmg` |
 | **Windows** x86\_64 | `Kubebay_VERSION_x64-setup.exe` |
 | **Linux** x86\_64 | `kubebay_VERSION_amd64.AppImage` or `kubebay_VERSION_amd64.deb` |
 

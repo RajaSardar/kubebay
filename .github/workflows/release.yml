@@ -65,18 +65,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-14          # Apple Silicon
-            rust-target: aarch64-apple-darwin
-            go-os: darwin
-            go-arch: arm64
-            sidecar: kubebay-engine-aarch64-apple-darwin
-            bundles: dmg
-
-          - os: macos-13          # Intel Mac
-            rust-target: x86_64-apple-darwin
-            go-os: darwin
-            go-arch: amd64
-            sidecar: kubebay-engine-x86_64-apple-darwin
+          - os: macos-latest      # Universal — runs natively on Apple Silicon + Intel
+            rust-target: universal-apple-darwin
             bundles: dmg
 
           - os: windows-latest
@@ -117,11 +107,26 @@ jobs:
           mkdir -p engine/internal/httpapi/static
           cp -R web/apps/shell/dist engine/internal/httpapi/static/dist
 
-      # ── Build the Go engine sidecar for this platform ─────────────────────
+      # ── Build the Go engine sidecar(s) for this platform ─────────────────
       - uses: actions/setup-go@v5
         with:
           go-version-file: engine/go.mod
+      - name: Build engine sidecar (macOS universal)
+        if: matrix.rust-target == 'universal-apple-darwin'
+        shell: bash
+        env:
+          CGO_ENABLED: "0"
+          LDFLAGS: "-s -w -X main.version=${{ github.ref_name }}"
+        run: |
+          mkdir -p desktop/src-tauri/binaries
+          cd engine
+          GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags "$LDFLAGS" \
+            -o ../desktop/src-tauri/binaries/kubebay-engine-aarch64-apple-darwin ./cmd/kubebay
+          GOOS=darwin GOARCH=amd64 go build -trimpath -ldflags "$LDFLAGS" \
+            -o ../desktop/src-tauri/binaries/kubebay-engine-x86_64-apple-darwin ./cmd/kubebay
+
       - name: Build engine sidecar
+        if: matrix.rust-target != 'universal-apple-darwin'
         shell: bash
         env:
           GOOS: ${{ matrix.go-os }}
@@ -160,7 +165,7 @@ jobs:
       # ── Rust + cache ──────────────────────────────────────────────────────
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.rust-target }}
+          targets: ${{ matrix.rust-target == 'universal-apple-darwin' && 'aarch64-apple-darwin,x86_64-apple-darwin' || matrix.rust-target }}
       - uses: Swatinem/rust-cache@v2
         with:
           workdir: desktop/src-tauri
