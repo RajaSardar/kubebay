@@ -8,14 +8,15 @@ permissions:
   contents: write
 
 jobs:
-  binaries:
+  # ── CLI engine tarballs (headless, all platforms) ──────────────────────────
+  engine-binaries:
     strategy:
       matrix:
         include:
-          - { goos: darwin, goarch: arm64 }
-          - { goos: darwin, goarch: amd64 }
-          - { goos: linux, goarch: amd64 }
-          - { goos: linux, goarch: arm64 }
+          - { goos: darwin,  goarch: arm64 }
+          - { goos: darwin,  goarch: amd64 }
+          - { goos: linux,   goarch: amd64 }
+          - { goos: linux,   goarch: arm64 }
           - { goos: windows, goarch: amd64 }
     runs-on: ubuntu-latest
     steps:
@@ -55,22 +56,160 @@ jobs:
           shasum -a 256 "$DIR.tar.gz" > "$DIR.tar.gz.sha256"
       - uses: actions/upload-artifact@v4
         with:
-          name: kubebay-${{ matrix.goos }}-${{ matrix.goarch }}
+          name: engine-${{ matrix.goos }}-${{ matrix.goarch }}
           path: kubebay-*.tar.gz*
 
+  # ── Desktop app installers (native runners, Tauri) ────────────────────────
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14          # Apple Silicon
+            rust-target: aarch64-apple-darwin
+            go-os: darwin
+            go-arch: arm64
+            sidecar: kubebay-engine-aarch64-apple-darwin
+            bundles: dmg
+
+          - os: macos-13          # Intel Mac
+            rust-target: x86_64-apple-darwin
+            go-os: darwin
+            go-arch: amd64
+            sidecar: kubebay-engine-x86_64-apple-darwin
+            bundles: dmg
+
+          - os: windows-latest
+            rust-target: x86_64-pc-windows-msvc
+            go-os: windows
+            go-arch: amd64
+            sidecar: kubebay-engine-x86_64-pc-windows-msvc.exe
+            bundles: nsis
+
+          - os: ubuntu-22.04
+            rust-target: x86_64-unknown-linux-gnu
+            go-os: linux
+            go-arch: amd64
+            sidecar: kubebay-engine-x86_64-unknown-linux-gnu
+            bundles: deb,appimage
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # ── Web build ──────────────────────────────────────────────────────────
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - run: cd web && pnpm install --frozen-lockfile && pnpm build
+
+      # ── Embed SPA into engine source ───────────────────────────────────────
+      - name: Sync web assets into engine
+        shell: bash
+        run: |
+          rm -rf engine/internal/httpapi/static/dist
+          mkdir -p engine/internal/httpapi/static
+          cp -R web/apps/shell/dist engine/internal/httpapi/static/dist
+
+      # ── Build the Go engine sidecar for this platform ─────────────────────
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: engine/go.mod
+      - name: Build engine sidecar
+        shell: bash
+        env:
+          GOOS: ${{ matrix.go-os }}
+          GOARCH: ${{ matrix.go-arch }}
+          CGO_ENABLED: "0"
+        run: |
+          mkdir -p desktop/src-tauri/binaries
+          cd engine
+          go build -trimpath \
+            -ldflags "-s -w -X main.version=${{ github.ref_name }}" \
+            -o "../desktop/src-tauri/binaries/${{ matrix.sidecar }}" \
+            ./cmd/kubebay
+
+      # ── Stamp version into tauri.conf.json ────────────────────────────────
+      - name: Set app version
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            sed -i '' "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" desktop/src-tauri/tauri.conf.json
+          else
+            sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" desktop/src-tauri/tauri.conf.json
+          fi
+
+      # ── Linux system dependencies for WebKit / GTK ────────────────────────
+      - name: Install Linux build deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf
+
+      # ── Rust + cache ──────────────────────────────────────────────────────
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust-target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workdir: desktop/src-tauri
+
+      # ── Tauri build ───────────────────────────────────────────────────────
+      - name: Build Tauri desktop app
+        run: pnpm tauri build --target ${{ matrix.rust-target }} --bundles ${{ matrix.bundles }}
+        working-directory: desktop
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ""   # unsigned build — users right-click > Open on macOS
+
+      # ── Collect installer artifacts ───────────────────────────────────────
+      - name: Collect artifacts
+        shell: bash
+        run: |
+          mkdir -p dist
+          find desktop/src-tauri/target -type f \( \
+            -name "*.dmg" \
+            -o -name "*-setup.exe" \
+            -o -name "*.msi" \
+            -o -name "*.deb" \
+            -o -name "*.AppImage" \
+          \) | while read f; do
+            cp "$f" dist/
+            echo "collected: $f"
+          done
+          ls -lh dist/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.os }}
+          path: dist/*
+
+  # ── Single GitHub release combining everything ────────────────────────────
   github-release:
-    needs: binaries
+    needs: [engine-binaries, desktop]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
         with:
           merge-multiple: true
           path: dist
+      - name: List release artifacts
+        run: ls -lh dist/
       - uses: softprops/action-gh-release@v2
         with:
           files: dist/*
           generate_release_notes: true
 
+  # ── Homebrew tap update (CLI engine) ──────────────────────────────────────
   homebrew-tap:
     needs: github-release
     runs-on: ubuntu-latest

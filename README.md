@@ -17,17 +17,32 @@ A free, open-source, **local-first Kubernetes IDE** — cleaner than Lens, light
 
 ## Download
 
-**v0.1.3** — pick your platform:
+**[→ Latest release](https://github.com/RajaSardar/kubebay/releases/latest)**
 
-| Platform | Architecture | Download | Checksum |
-|---|---|---|---|
-| **macOS** | Apple Silicon (M1/M2/M3) | [kubebay-darwin-arm64.tar.gz](https://github.com/RajaSardar/kubebay/releases/download/v0.1.3/kubebay-darwin-arm64.tar.gz) | [sha256](https://github.com/RajaSardar/kubebay/releases/download/v0.1.3/kubebay-darwin-arm64.tar.gz.sha256) |
-| **macOS** | Intel (x86\_64) | [kubebay-darwin-amd64.tar.gz](https://github.com/RajaSardar/kubebay/releases/download/v0.1.3/kubebay-darwin-amd64.tar.gz) | [sha256](https://github.com/RajaSardar/kubebay/releases/download/v0.1.3/kubebay-darwin-amd64.tar.gz.sha256) |
-| **Linux** | x86\_64 | [kubebay-linux-amd64.tar.gz](https://github.com/RajaSardar/kubebay/releases/download/v0.1.3/kubebay-linux-amd64.tar.gz) | [sha256](https://github.com/RajaSardar/kubebay/releases/download/v0.1.3/kubebay-linux-amd64.tar.gz.sha256) |
-| **Linux** | ARM64 | [kubebay-linux-arm64.tar.gz](https://github.com/RajaSardar/kubebay/releases/download/v0.1.3/kubebay-linux-arm64.tar.gz) | [sha256](https://github.com/RajaSardar/kubebay/releases/download/v0.1.3/kubebay-linux-arm64.tar.gz.sha256) |
-| **Windows** | x86\_64 | [kubebay-windows-amd64.tar.gz](https://github.com/RajaSardar/kubebay/releases/download/v0.1.3/kubebay-windows-amd64.tar.gz) | [sha256](https://github.com/RajaSardar/kubebay/releases/download/v0.1.3/kubebay-windows-amd64.tar.gz.sha256) |
+### Desktop app (v0.1.4+)
 
-> All previous releases: [github.com/RajaSardar/kubebay/releases](https://github.com/RajaSardar/kubebay/releases)
+Native installers — double-click to install, no terminal needed:
+
+| Platform | File to download |
+|---|---|
+| **macOS** Apple Silicon (M1/M2/M3) | `Kubebay_VERSION_aarch64.dmg` |
+| **macOS** Intel (x86\_64) | `Kubebay_VERSION_x64.dmg` |
+| **Windows** x86\_64 | `Kubebay_VERSION_x64-setup.exe` |
+| **Linux** x86\_64 | `kubebay_VERSION_amd64.AppImage` or `kubebay_VERSION_amd64.deb` |
+
+> macOS note: unsigned build — right-click the `.dmg` and choose **Open** the first time to bypass Gatekeeper.
+
+### CLI engine (all platforms, v0.1.3+)
+
+Headless engine — serves the web UI, you bring the browser:
+
+| Platform | Architecture | Download |
+|---|---|---|
+| **macOS** | Apple Silicon | [kubebay-darwin-arm64.tar.gz](https://github.com/RajaSardar/kubebay/releases/download/v0.1.3/kubebay-darwin-arm64.tar.gz) |
+| **macOS** | Intel | [kubebay-darwin-amd64.tar.gz](https://github.com/RajaSardar/kubebay/releases/download/v0.1.3/kubebay-darwin-amd64.tar.gz) |
+| **Linux** | x86\_64 | [kubebay-linux-amd64.tar.gz](https://github.com/RajaSardar/kubebay/releases/download/v0.1.3/kubebay-linux-amd64.tar.gz) |
+| **Linux** | ARM64 | [kubebay-linux-arm64.tar.gz](https://github.com/RajaSardar/kubebay/releases/download/v0.1.3/kubebay-linux-arm64.tar.gz) |
+| **Windows** | x86\_64 | [kubebay-windows-amd64.tar.gz](https://github.com/RajaSardar/kubebay/releases/download/v0.1.3/kubebay-windows-amd64.tar.gz) |
 
 ### Homebrew (macOS / Linux)
 
