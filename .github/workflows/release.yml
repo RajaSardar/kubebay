@@ -97,7 +97,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # ── Web build ──────────────────────────────────────────────────────────
+      # ── Web + Desktop deps ────────────────────────────────────────────────
       - uses: pnpm/action-setup@v4
         with:
           version: 9
@@ -107,6 +107,7 @@ jobs:
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
       - run: cd web && pnpm install --frozen-lockfile && pnpm build
+      - run: cd desktop && pnpm install --frozen-lockfile
 
       # ── Embed SPA into engine source ───────────────────────────────────────
       - name: Sync web assets into engine
