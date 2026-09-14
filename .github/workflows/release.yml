@@ -124,6 +124,11 @@ jobs:
             -o ../desktop/src-tauri/binaries/kubebay-engine-aarch64-apple-darwin ./cmd/kubebay
           GOOS=darwin GOARCH=amd64 go build -trimpath -ldflags "$LDFLAGS" \
             -o ../desktop/src-tauri/binaries/kubebay-engine-x86_64-apple-darwin ./cmd/kubebay
+          # Tauri universal build expects a pre-lipo'd fat binary
+          lipo -create \
+            ../desktop/src-tauri/binaries/kubebay-engine-aarch64-apple-darwin \
+            ../desktop/src-tauri/binaries/kubebay-engine-x86_64-apple-darwin \
+            -output ../desktop/src-tauri/binaries/kubebay-engine-universal-apple-darwin
 
       - name: Build engine sidecar
         if: matrix.rust-target != 'universal-apple-darwin'
