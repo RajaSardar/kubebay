@@ -1,8 +1,7 @@
 :root {
-  /* Apple system font stack — SF Pro on Apple, then best system UI elsewhere */
+  /* Roboto — same font as Lens / Freelens, with system fallbacks */
   --kb-font:
-    -apple-system, "SF Pro Text", "SF Pro Display", BlinkMacSystemFont,
-    "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+    "Roboto", -apple-system, "Helvetica Neue", "Segoe UI", Arial, sans-serif;
   --kb-font-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
 
   --kb-radius-sm: 6px;

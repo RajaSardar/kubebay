@@ -253,7 +253,7 @@ export default function Settings() {
           label="Font family"
           value={fontFamily}
           options={[
-            { id: "system", label: "Inter (default)" },
+            { id: "system", label: "Roboto (default)" },
             { id: "jetbrains", label: "JetBrains Mono" },
             { id: "mono", label: "System Mono" },
           ]}

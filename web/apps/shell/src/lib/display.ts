@@ -12,7 +12,7 @@ const FONT_SIZE_VALUES: Record<FontSize, string> = {
 };
 
 const FONT_FAMILY_VALUES: Record<FontFamily, string> = {
-  system: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+  system: '"Roboto", -apple-system, "Helvetica Neue", "Segoe UI", Arial, sans-serif',
   mono: 'ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace',
   jetbrains: '"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace',
 };
