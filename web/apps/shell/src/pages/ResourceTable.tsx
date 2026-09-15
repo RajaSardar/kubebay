@@ -256,7 +256,7 @@ export default function ResourceTable() {
   const [sp] = useSearchParams();
   const def: ResourceDef | undefined = lookupDef(kind, sp);
 
-  const { cluster: effectiveCluster, setCluster, list } = useCluster();
+  const { cluster: effectiveCluster } = useCluster();
 
   const [nsFilter, setNsFilter] = useState<string[]>([]);
   const [search, setSearch] = useState("");
@@ -424,11 +424,6 @@ export default function ResourceTable() {
       </div>
 
       <div className="toolbar">
-        <select className="toolbar-select" value={effectiveCluster} onChange={(e) => setCluster(e.target.value)} aria-label="cluster">
-          {list.map((c) => (
-            <option key={c.id} value={c.id}>{c.id}</option>
-          ))}
-        </select>
         {!def.scoped && (
           <NamespaceFilter
             cluster={effectiveCluster || undefined}

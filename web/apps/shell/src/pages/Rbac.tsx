@@ -65,7 +65,7 @@ function subjectKey(s: Subject): string {
 }
 
 export default function Rbac() {
-  const { cluster: effectiveCluster, setCluster, list } = useCluster();
+  const { cluster: effectiveCluster } = useCluster();
 
   const snap = useQuery({
     queryKey: ["rbac", effectiveCluster],
@@ -167,15 +167,7 @@ export default function Rbac() {
             </span>
           )}
         </h2>
-        <div style={{ display: "flex", gap: 10 }}>
-          <select className="toolbar-select" value={effectiveCluster} onChange={(e) => setCluster(e.target.value)}>
-            {list.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.id}
-              </option>
-            ))}
-          </select>
-        </div>
+        <div />
       </div>
 
       <div className="page-body">

@@ -60,24 +60,26 @@ export default function Overview() {
         </Button>
       </div>
 
-      {clusters.isError && (
-        <div className="error-banner">
-          <IconAlert size={15} />
-          <span>Engine unreachable — start it with the token from its log output (?token=…).</span>
-        </div>
-      )}
+      <div className="page-body">
+        {clusters.isError && (
+          <div className="error-banner">
+            <IconAlert size={15} />
+            <span>Engine unreachable — start it with the token from its log output (?token=…).</span>
+          </div>
+        )}
 
-      <div className="cluster-grid">
-        {clusters.isLoading && [0, 1, 2].map((i) => <ClusterSkeleton key={i} />)}
-        {!clusters.isLoading && list.map((c) => <ClusterCard key={c.id} c={c} />)}
+        <div className="cluster-grid">
+          {clusters.isLoading && [0, 1, 2].map((i) => <ClusterSkeleton key={i} />)}
+          {!clusters.isLoading && list.map((c) => <ClusterCard key={c.id} c={c} />)}
+        </div>
+
+        {!clusters.isLoading && !clusters.isError && list.length === 0 && (
+          <div className="empty-state">
+            <p>No contexts found in your kubeconfig.</p>
+            <p className="muted small">Add one to ~/.kube/config — it hot-reloads automatically.</p>
+          </div>
+        )}
       </div>
-
-      {!clusters.isLoading && !clusters.isError && list.length === 0 && (
-        <div className="empty-state">
-          <p>No contexts found in your kubeconfig.</p>
-          <p className="muted small">Add one to ~/.kube/config — it hot-reloads automatically.</p>
-        </div>
-      )}
     </div>
   );
 }

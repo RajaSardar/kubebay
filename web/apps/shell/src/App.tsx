@@ -555,6 +555,11 @@ function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
   };
   const [open, setOpen] = useState(initialOpen);
   const { favorites, remove: removeFav } = useFavorites();
+  const { active } = useContext(ClusterCtx);
+  const clusters = useQuery({ queryKey: ["clusters"], queryFn: api.clusters, refetchInterval: 4_000 });
+  const clusterList = clusters.data ?? [];
+  const effectiveActive = active || clusterList.find((c) => c.status === "connected")?.id || clusterList[0]?.id || "";
+  const activeCluster = clusterList.find((c) => c.id === effectiveActive);
 
   return (
     <aside className="sidebar">
@@ -571,7 +576,15 @@ function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
           <path d="M7.5 22.5c2.6 2.3 5.4 3.4 8.5 3.4s5.9-1.1 8.5-3.4" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
           <path d="M16 9v11M10 13.5h12" stroke="#fff" strokeWidth="2" strokeLinecap="round" opacity=".85" />
         </svg>
-        <span>Kubebay</span>
+        <div className="brand-info">
+          <span className="brand-name">Kubebay</span>
+          {activeCluster && (
+            <span className="brand-cluster" title={activeCluster.id}>
+              <StatusDot status={activeCluster.status === "connected" ? "connected" : activeCluster.status === "unreachable" ? "unreachable" : "pending"} />
+              <span className="brand-cluster-name">{activeCluster.id}</span>
+            </span>
+          )}
+        </div>
       </div>
 
       <button className="palette-hint" onClick={onOpenPalette}>

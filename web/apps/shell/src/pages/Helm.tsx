@@ -281,7 +281,7 @@ function ReleaseDrawer({
 
 export default function Helm() {
   const [view, setView] = useState<"releases" | "charts">("releases");
-  const { cluster: effectiveCluster, setCluster, list } = useCluster();
+  const { cluster: effectiveCluster } = useCluster();
 
   const releases = useQuery({
     queryKey: ["helm-releases", effectiveCluster],
@@ -332,15 +332,7 @@ export default function Helm() {
             </span>
           )}
         </h2>
-        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-          <select className="toolbar-select" value={effectiveCluster} onChange={(e) => setCluster(e.target.value)} aria-label="cluster">
-            {list.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.id}
-              </option>
-            ))}
-          </select>
-        </div>
+        <div />
       </div>
 
       {releases.isError && (
