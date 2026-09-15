@@ -238,10 +238,13 @@ jobs:
     needs: [engine-binaries, desktop]
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           merge-multiple: true
           path: dist
+      - name: Add install script to release
+        run: cp scripts/install-mac.sh dist/install-mac.sh
       - name: List release artifacts
         run: ls -lh dist/
       - uses: softprops/action-gh-release@v2

@@ -29,14 +29,17 @@ Native installers — double-click to install, no terminal needed:
 | **Windows** x86\_64 | `Kubebay_VERSION_x64-setup.exe` |
 | **Linux** x86\_64 | `kubebay_VERSION_amd64.AppImage` or `kubebay_VERSION_amd64.deb` |
 
-> **macOS Gatekeeper notice** — Kubebay is not yet notarized by Apple.
-> On **macOS Sonoma / Sequoia** (14+) the right-click workaround no longer works.
-> After dragging Kubebay to `/Applications`, open **Terminal** and run:
+> **macOS — use the one-line installer to avoid Gatekeeper:**
+> ```bash
+> curl -fsSL https://github.com/RajaSardar/kubebay/releases/latest/download/install-mac.sh | bash
+> ```
+> This downloads, installs to `/Applications`, and removes the quarantine flag automatically — no Apple ID required, no security warning.
+>
+> If you installed manually from the `.dmg` and see "Kubebay Not Opened", run:
 > ```bash
 > xattr -dr com.apple.quarantine /Applications/Kubebay.app
 > ```
-> Then double-click to open normally.
-> Alternatively: **System Settings → Privacy & Security → scroll to bottom → Open Anyway**.
+> Or: **System Settings → Privacy & Security → Open Anyway**.
 
 ### CLI engine (all platforms, v0.1.3+)
 
