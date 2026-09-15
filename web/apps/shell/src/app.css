@@ -1504,6 +1504,138 @@ tr.row-clickable:active {
   opacity: 0.35;
 }
 
+/* ──── Home / cluster list ──── */
+.home-cluster-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 720px;
+}
+
+.home-cluster-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 11px 14px;
+  background: var(--kb-bg-surface);
+  border: 1px solid var(--kb-border-subtle);
+  border-radius: var(--kb-radius);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: var(--kb-fg-default);
+  box-shadow: var(--kb-shadow-rest);
+  transition:
+    background var(--kb-dur-fast) var(--kb-ease),
+    border-color var(--kb-dur-fast) var(--kb-ease),
+    box-shadow var(--kb-dur-fast) var(--kb-ease),
+    transform var(--kb-dur-fast) var(--kb-ease);
+  position: relative;
+}
+
+.home-cluster-row:not(.unreachable):hover {
+  background: var(--kb-bg-raised);
+  border-color: var(--kb-border-strong);
+  box-shadow: var(--kb-shadow-lift);
+  transform: translateY(-1px);
+}
+
+.home-cluster-row:not(.unreachable):active {
+  transform: scale(0.995);
+}
+
+.home-cluster-row.active {
+  border-color: var(--kb-accent);
+  box-shadow: 0 0 0 1px var(--kb-accent), var(--kb-shadow-rest);
+}
+
+.home-cluster-row.unreachable {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.home-cluster-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--kb-font-mono);
+  letter-spacing: -0.02em;
+}
+
+.home-cluster-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.home-cluster-name {
+  font-size: 13px;
+  font-weight: 500;
+  font-family: var(--kb-font-mono);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.home-cluster-server {
+  font-size: 11.5px;
+  color: var(--kb-fg-muted);
+  font-family: var(--kb-font-mono);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  direction: rtl;
+  text-align: left;
+}
+
+.home-cluster-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.home-cluster-version {
+  font-size: 11px;
+  font-family: var(--kb-font-mono);
+  color: var(--kb-fg-muted);
+  background: var(--kb-bg-inset);
+  border: 1px solid var(--kb-border-subtle);
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+
+.home-cluster-error {
+  font-size: 11.5px;
+  color: var(--kb-status-err);
+  max-width: 260px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.home-cluster-active-badge {
+  font-size: 10px;
+  font-weight: 600;
+  font-family: var(--kb-font-mono);
+  letter-spacing: 0.03em;
+  color: var(--kb-accent-fg);
+  background: var(--kb-accent);
+  border-radius: 4px;
+  padding: 2px 7px;
+  flex-shrink: 0;
+}
+
 /* ──── CRD Definitions page ──── */
 /* ──── CRD tree browser ──── */
 .crd-tree { display: flex; flex-direction: column; gap: 2px; }

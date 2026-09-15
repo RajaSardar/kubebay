@@ -17,7 +17,7 @@ function resolve(t: ThemeName): Exclude<ThemeName, "system"> {
   return systemPrefersDark() ? "dusk" : "dawn";
 }
 
-const stored = (localStorage.getItem("kb.theme") as ThemeName | null) ?? "dusk";
+const stored = (localStorage.getItem("kb.theme") as ThemeName | null) ?? "dawn";
 
 export const useTheme = create<ThemeState>((set) => ({
   theme: stored,

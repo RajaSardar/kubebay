@@ -8,7 +8,7 @@ import {
   IconForward,
   IconGrid,
   IconHelm,
-  IconLayers,
+  IconHome,
   IconNetwork,
   IconSearch,
   IconShield,
@@ -17,7 +17,7 @@ import {
   IconTopology,
 } from "@kubebay/ui/src/icons";
 import { api } from "./lib/api";
-import Fleet from "./pages/Fleet";
+import Home from "./pages/Home";
 import Settings from "./pages/Settings";
 import Workloads from "./pages/Workloads";
 import Ports from "./pages/Ports";
@@ -596,8 +596,8 @@ function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
       <nav className="nav">
         <div className="nav-section">Navigate</div>
         <NavLink to="/" end className={({ isActive }) => (isActive ? "nav-item active" : "nav-item")}>
-          <span className="nav-icon"><IconLayers /></span>
-          <span>Fleet</span>
+          <span className="nav-icon"><IconHome /></span>
+          <span>Home</span>
         </NavLink>
 
         {GROUPS.map((g) => (
@@ -709,7 +709,7 @@ function AppInner() {
 
         <main className="content">
           <Routes>
-            <Route path="/" element={<Fleet />} />
+            <Route path="/" element={<Home />} />
             <Route path="/workloads" element={<Workloads />} />
             <Route path="/workloads-overview" element={<WorkloadsOverview />} />
             <Route path="/r/:kind" element={<ResourceTable />} />
