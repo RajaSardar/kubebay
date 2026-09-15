@@ -1,10 +1,12 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Badge, Skeleton, StatusDot } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { useResourceStream } from "../lib/useResourceStream";
 import PodPanel, { type SelectedPod } from "./PodPanel";
 import { useActiveCluster } from "../App";
+import { useResizableColumns } from "../lib/useResizableColumns";
+import { useRowSelection } from "../lib/useRowSelection";
 
 function rec(v: unknown): Record<string, unknown> {
   return (v ?? {}) as Record<string, unknown>;
@@ -126,10 +128,40 @@ const STATUS_TONE: Record<PodRow["status"], { color: string; badge?: "ok" | "err
   warning: { color: "var(--kb-status-err)", badge: "err" },
 };
 
+// Checkbox that supports the indeterminate state (not a standard React prop)
+function SelectAllCheckbox({ checked, indeterminate, onChange }: {
+  checked: boolean;
+  indeterminate: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (ref.current) ref.current.indeterminate = indeterminate;
+  }, [indeterminate]);
+  return (
+    <input
+      ref={ref}
+      type="checkbox"
+      checked={checked}
+      onChange={(e) => onChange(e.target.checked)}
+      className="kb-checkbox"
+      aria-label="Select all"
+    />
+  );
+}
+
+// Column order: checkbox(0), Name(1), Namespace(2), Ready(3), Status(4), Restarts(5), CPU(6), Memory(7), Age(8)
+const HEADERS = ["Name", "Namespace", "Ready", "Status", "Restarts", "CPU", "Memory", "Age"] as const;
+const INITIAL_WIDTHS = [240, 120, 70, 150, 75, 130, 130, 75];
+
+type SortCol = typeof HEADERS[number] | null;
+
 export default function Workloads() {
   const clusters = useQuery({ queryKey: ["clusters"], queryFn: api.clusters });
   const { active: activeCluster, setActive: setActiveCluster } = useActiveCluster();
   const [filter, setFilter] = useState("");
+  const [sortCol, setSortCol] = useState<SortCol>(null);
+  const [sortAsc, setSortAsc] = useState(true);
 
   const list = clusters.data ?? [];
   const effectiveCluster = activeCluster || list.find((c) => c.status === "connected")?.id || list[0]?.id || "";
@@ -150,16 +182,49 @@ export default function Workloads() {
   }, [metrics.data]);
 
   const [selected, setSelected] = useState<SelectedPod | null>(null);
+  const { widths, getResizeHandleProps } = useResizableColumns(HEADERS.length, INITIAL_WIDTHS);
+  const { selectedKeys, toggleRow, selectAll, clearAll, isAllSelected, isIndeterminate } = useRowSelection();
 
-  const pods = useMemo(
-    () =>
-      rows
-        .map(derivePod)
-        .filter((p): p is PodRow => p !== null)
-        .filter((p) => !filter || p.name.includes(filter) || p.namespace.includes(filter))
-        .sort((a, b) => a.namespace.localeCompare(b.namespace) || a.name.localeCompare(b.name)),
-    [rows, filter],
-  );
+  function toggleSort(col: SortCol) {
+    if (sortCol === col) setSortAsc((a) => !a);
+    else { setSortCol(col); setSortAsc(true); }
+  }
+
+  const pods = useMemo(() => {
+    let out = rows
+      .map(derivePod)
+      .filter((p): p is PodRow => p !== null)
+      .filter((p) => !filter || p.name.includes(filter) || p.namespace.includes(filter));
+
+    if (sortCol) {
+      out.sort((a, b) => {
+        let av: string | number, bv: string | number;
+        switch (sortCol) {
+          case "Name":      av = a.name;      bv = b.name;      break;
+          case "Namespace": av = a.namespace; bv = b.namespace; break;
+          case "Ready":     av = a.ready;     bv = b.ready;     break;
+          case "Status":    av = a.statusLabel; bv = b.statusLabel; break;
+          case "Restarts":  av = a.restarts;  bv = b.restarts;  break;
+          case "CPU":       av = usage.get(a.key)?.cpuMillis ?? -1; bv = usage.get(b.key)?.cpuMillis ?? -1; break;
+          case "Memory":    av = usage.get(a.key)?.memBytes   ?? -1; bv = usage.get(b.key)?.memBytes   ?? -1; break;
+          case "Age":       av = a.ageMs;     bv = b.ageMs;     break;
+          default:          av = ""; bv = "";
+        }
+        if (typeof av === "number" && typeof bv === "number") return sortAsc ? av - bv : bv - av;
+        return sortAsc ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
+      });
+    } else {
+      out.sort((a, b) => a.namespace.localeCompare(b.namespace) || a.name.localeCompare(b.name));
+    }
+    return out;
+  }, [rows, filter, sortCol, sortAsc, usage]);
+
+  const allKeys = useMemo(() => pods.map((p) => p.key), [pods]);
+
+  function handleSelectAll(checked: boolean) {
+    if (checked) selectAll(allKeys);
+    else clearAll();
+  }
 
   return (
     <div className="page">
@@ -172,6 +237,9 @@ export default function Workloads() {
             </span>
           )}
         </h2>
+        {selectedKeys.size > 0 && (
+          <span className="muted small">{selectedKeys.size} selected</span>
+        )}
       </div>
 
       <div className="toolbar">
@@ -181,9 +249,7 @@ export default function Workloads() {
           onChange={(e) => setActiveCluster(e.target.value)}
         >
           {list.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.id}
-            </option>
+            <option key={c.id} value={c.id}>{c.id}</option>
           ))}
           {list.length === 0 && <option>no clusters</option>}
         </select>
@@ -203,15 +269,17 @@ export default function Workloads() {
         <div className="table-wrap">
           <table className="kb-table">
             <thead>
-              <tr>{["Name", "Namespace", "Ready", "Status", "Restarts", "Age"].map((h) => <th key={h}>{h}</th>)}</tr>
+              <tr>
+                <th style={{ width: 40 }} />
+                {HEADERS.map((h, i) => <th key={h} style={{ width: widths[i] }}>{h}</th>)}
+              </tr>
             </thead>
             <tbody>
               {[0, 1, 2, 3, 4, 5].map((i) => (
                 <tr key={i}>
-                  {[140, 80, 40, 70, 30, 50, 60, 30].map((w, j) => (
-                    <td key={j}>
-                      <Skeleton w={w} />
-                    </td>
+                  <td />
+                  {[140, 80, 40, 70, 30, 60, 60, 30].map((w, j) => (
+                    <td key={j}><Skeleton w={w} /></td>
                   ))}
                 </tr>
               ))}
@@ -230,36 +298,66 @@ export default function Workloads() {
       {synced && pods.length > 0 && (
         <div className="table-wrap">
           <table className="kb-table">
+            <colgroup>
+              <col style={{ width: 40 }} />
+              {HEADERS.map((h, i) => <col key={h} style={{ width: widths[i] }} />)}
+            </colgroup>
             <thead>
               <tr>
-                <th>Name</th>
-                <th>Namespace</th>
-                <th>Ready</th>
-                <th>Status</th>
-                <th>Restarts</th>
-                <th>CPU</th>
-                <th>Memory</th>
-                <th>Age</th>
+                {/* Select-all checkbox */}
+                <th style={{ width: 40, padding: "0 10px" }}>
+                  <SelectAllCheckbox
+                    checked={isAllSelected(allKeys)}
+                    indeterminate={isIndeterminate(allKeys)}
+                    onChange={handleSelectAll}
+                  />
+                </th>
+                {HEADERS.map((h, i) => (
+                  <th
+                    key={h}
+                    className="th-sortable"
+                    style={{ width: widths[i], position: "relative" }}
+                    onClick={() => toggleSort(h)}
+                  >
+                    {h}
+                    {sortCol === h && <span className="sort-indicator">{sortAsc ? " ↑" : " ↓"}</span>}
+                    <div className="col-resize-handle" {...getResizeHandleProps(i)} />
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
               {pods.map((p) => {
                 const tone = STATUS_TONE[p.status];
+                const isSelected = selectedKeys.has(p.key);
                 return (
-                  <tr key={p.key} className="row-clickable" onClick={() => {
-                    const rawObj = rows.find((r) => {
-                      const m = rec((r ?? {}) as Record<string, unknown>).metadata as Record<string, unknown> | undefined;
-                      return (m?.name as string) === p.name && (m?.namespace as string) === p.namespace;
-                    });
-                    setSelected({
-                      cluster: effectiveCluster,
-                      namespace: p.namespace,
-                      pod: p.name,
-                      containers: p.containers.length ? p.containers : [""],
-                      obj: rawObj,
-                    });
-                  }}>
-                    <td className="mono strong">{p.name}</td>
+                  <tr
+                    key={p.key}
+                    className={`row-clickable${isSelected ? " selected" : ""}`}
+                    onClick={() => {
+                      const rawObj = rows.find((r) => {
+                        const m = rec((r ?? {}) as Record<string, unknown>).metadata as Record<string, unknown> | undefined;
+                        return (m?.name as string) === p.name && (m?.namespace as string) === p.namespace;
+                      });
+                      setSelected({
+                        cluster: effectiveCluster,
+                        namespace: p.namespace,
+                        pod: p.name,
+                        containers: p.containers.length ? p.containers : [""],
+                        obj: rawObj,
+                      });
+                    }}
+                  >
+                    <td style={{ padding: "0 10px" }} onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleRow(p.key)}
+                        className="kb-checkbox"
+                        aria-label={`Select ${p.name}`}
+                      />
+                    </td>
+                    <td className="mono strong" title={p.name}>{p.name}</td>
                     <td className="mono"><span className="cell-link">{p.namespace}</span></td>
                     <td className="mono">{p.ready}</td>
                     <td>
@@ -272,7 +370,7 @@ export default function Workloads() {
                     <td>
                       {usage.get(p.key)?.cpuMillis != null ? (
                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <div className="line-progress" style={{ width: 50 }}>
+                          <div className="line-progress" style={{ width: 44 }}>
                             <div className="line-progress-fill" style={{ width: `${Math.min(100, (usage.get(p.key)!.cpuMillis / 1000) * 100)}%`, background: "var(--kb-accent)" }} />
                           </div>
                           <span className="mono muted small">{fmtCpu(usage.get(p.key)!.cpuMillis)}</span>
@@ -282,7 +380,7 @@ export default function Workloads() {
                     <td>
                       {usage.get(p.key)?.memBytes != null ? (
                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <div className="line-progress" style={{ width: 50 }}>
+                          <div className="line-progress" style={{ width: 44 }}>
                             <div className="line-progress-fill" style={{ width: `${Math.min(100, (usage.get(p.key)!.memBytes / (1024 * 1024 * 1024)) * 100)}%`, background: "var(--kb-status-warn)" }} />
                           </div>
                           <span className="mono muted small">{fmtBytes(usage.get(p.key)!.memBytes)}</span>

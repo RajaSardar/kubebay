@@ -54,7 +54,8 @@ export interface Handlers {
   onError?: (message: string) => void;
   onChanData?: (id: string, data: Uint8Array) => void;
   onChanClosed?: (id: string, message?: string) => void;
-  onStatus?: (connected: boolean) => void;
+  /** connected=true on open; false on close with retry attempt + next-retry ms */
+  onStatus?: (connected: boolean, retryAttempt?: number, nextRetryMs?: number) => void;
 }
 
 const RECONNECT_BASE_MS = 500;
@@ -84,7 +85,7 @@ class MultiplexedStream {
 
     ws.onopen = () => {
       this.retry = 0;
-      this.dispatch((h) => h.onStatus?.(true));
+      this.dispatch((h) => h.onStatus?.(true, 0, 0));
       for (const spec of this.subs.values()) this.sendSub(spec);
     };
 
@@ -141,9 +142,9 @@ class MultiplexedStream {
     };
 
     ws.onclose = () => {
-      this.dispatch((h) => h.onStatus?.(false));
       if (this.closedByUser) return;
       const delay = Math.min(RECONNECT_MAX_MS, RECONNECT_BASE_MS * 2 ** this.retry);
+      this.dispatch((h) => h.onStatus?.(false, this.retry, delay));
       this.retry += 1;
       setTimeout(() => this.connect(), delay);
     };

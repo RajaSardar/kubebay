@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { Badge, Skeleton, StatusDot } from "@kubebay/ui";
 import { api, metricsApi } from "../lib/api";
@@ -7,6 +7,8 @@ import { useCluster } from "../lib/useCluster";
 import { useResourceStream } from "../lib/useResourceStream";
 import { DEFS, EXTRA_DEFS, ageOf, fmtAge, num, str, type ResourceDef } from "../lib/resources";
 import { fmtBytes, fmtCpu } from "./Workloads";
+import { useResizableColumns } from "../lib/useResizableColumns";
+import { useRowSelection } from "../lib/useRowSelection";
 
 function lookupDef(kind: string, sp: URLSearchParams): ResourceDef | undefined {
   if (DEFS[kind]) return DEFS[kind];
@@ -227,6 +229,28 @@ function extraColumns(
   }
 }
 
+// Checkbox with indeterminate support
+function SelectAllCheckbox({ checked, indeterminate, onChange }: {
+  checked: boolean;
+  indeterminate: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (ref.current) ref.current.indeterminate = indeterminate;
+  }, [indeterminate]);
+  return (
+    <input
+      ref={ref}
+      type="checkbox"
+      checked={checked}
+      onChange={(e) => onChange(e.target.checked)}
+      className="kb-checkbox"
+      aria-label="Select all"
+    />
+  );
+}
+
 export default function ResourceTable() {
   const { kind = "" } = useParams();
   const [sp] = useSearchParams();
@@ -282,6 +306,19 @@ export default function ResourceTable() {
     return extraColumns(slug, { nodeUsage, podsPerNode })[col]?.(o) ?? { v: "" };
   }
 
+  const headers = useMemo(
+    () => ["Name", ...(def?.scoped ? [] : ["Namespace"]), ...cols, "Age"],
+    [def, cols],
+  );
+
+  // Column widths: Name=240, Namespace=120, extra cols=110, Age=75
+  const initialWidths = useMemo(
+    () => headers.map((h) => h === "Name" ? 240 : h === "Namespace" ? 120 : h === "Age" ? 75 : 110),
+    [headers],
+  );
+  const { widths, getResizeHandleProps } = useResizableColumns(headers.length, initialWidths);
+  const { selectedKeys, toggleRow, selectAll, clearAll, isAllSelected, isIndeterminate } = useRowSelection();
+
   const rows = useMemo(() => {
     let out = [...stream.rows];
     if (search) {
@@ -314,17 +351,28 @@ export default function ResourceTable() {
     return out;
   }, [stream.rows, search, sortCol, sortAsc, def]);
 
+  const allKeys = useMemo(
+    () => rows.map((o) => {
+      const meta = rec(o.metadata);
+      return `${str(meta.namespace)}/${str(meta.name)}`;
+    }),
+    [rows],
+  );
+
   if (!def) {
     return (
       <div className="page">
         <div className="empty-state">
-          <p>Unknown resource “{kind}”.</p>
+          <p>Unknown resource "{kind}".</p>
         </div>
       </div>
     );
   }
 
-  const headers = ["Name", ...(def.scoped ? [] : ["Namespace"]), ...cols, "Age"];
+  function toggleSort(h: string) {
+    if (sortCol === h) setSortAsc((a) => !a);
+    else { setSortCol(h); setSortAsc(true); }
+  }
 
   return (
     <div className="page">
@@ -336,15 +384,18 @@ export default function ResourceTable() {
             <span className="live-pill">● live</span>
           )}
         </h2>
-        <Badge>{rows.length}</Badge>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {selectedKeys.size > 0 && (
+            <span className="muted small">{selectedKeys.size} selected</span>
+          )}
+          <Badge>{rows.length}</Badge>
+        </div>
       </div>
 
       <div className="toolbar">
         <select className="toolbar-select" value={effectiveCluster} onChange={(e) => setCluster(e.target.value)} aria-label="cluster">
           {list.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.id}
-            </option>
+            <option key={c.id} value={c.id}>{c.id}</option>
           ))}
         </select>
         {!def.scoped && (
@@ -367,15 +418,17 @@ export default function ResourceTable() {
         <div className="table-wrap">
           <table className="kb-table">
             <thead>
-              <tr>{headers.map((h) => <th key={h}>{h}</th>)}</tr>
+              <tr>
+                <th style={{ width: 40 }} />
+                {headers.map((h, i) => <th key={h} style={{ width: widths[i] }}>{h}</th>)}
+              </tr>
             </thead>
             <tbody>
               {[0, 1, 2, 3, 4].map((i) => (
                 <tr key={i}>
+                  <td />
                   {headers.map((_, j) => (
-                    <td key={j}>
-                      <Skeleton w={[150, 90, 60, 70, 60, 50][j % 6]} />
-                    </td>
+                    <td key={j}><Skeleton w={[150, 90, 60, 70, 60, 50][j % 6]} /></td>
                   ))}
                 </tr>
               ))}
@@ -390,16 +443,30 @@ export default function ResourceTable() {
       ) : (
         <div className="table-wrap">
           <table className="kb-table">
+            <colgroup>
+              <col style={{ width: 40 }} />
+              {headers.map((h, i) => <col key={h} style={{ width: widths[i] }} />)}
+            </colgroup>
             <thead>
               <tr>
-                {headers.map((h) => (
-                  <th key={h} className={h ? "th-sortable" : ""} onClick={() => {
-                    if (!h) return;
-                    if (sortCol === h) setSortAsc(!sortAsc);
-                    else { setSortCol(h); setSortAsc(true); }
-                  }}>
+                {/* Select-all checkbox */}
+                <th style={{ width: 40, padding: "0 10px" }}>
+                  <SelectAllCheckbox
+                    checked={isAllSelected(allKeys)}
+                    indeterminate={isIndeterminate(allKeys)}
+                    onChange={(checked) => checked ? selectAll(allKeys) : clearAll()}
+                  />
+                </th>
+                {headers.map((h, i) => (
+                  <th
+                    key={h}
+                    className="th-sortable"
+                    style={{ width: widths[i], position: "relative" }}
+                    onClick={() => toggleSort(h)}
+                  >
                     {h}
                     {sortCol === h && <span className="sort-indicator">{sortAsc ? " ↑" : " ↓"}</span>}
+                    <div className="col-resize-handle" {...getResizeHandleProps(i)} />
                   </th>
                 ))}
               </tr>
@@ -408,11 +475,27 @@ export default function ResourceTable() {
               {rows.map((o) => {
                 const meta = rec(o.metadata);
                 const name = str(meta.name);
-                const key = `${str(meta.namespace)}/${name}`;
+                const ns = str(meta.namespace);
+                const key = `${ns}/${name}`;
+                const isSelected = selectedKeys.has(key);
                 return (
-                  <tr key={key} className="row-clickable" onClick={() => setSelected({ ns: str(meta.namespace), name })} onContextMenu={(e) => { e.preventDefault(); setCtx({ x: e.clientX, y: e.clientY, ns: str(meta.namespace), name }); }}>
-                    <td className="mono strong">{name}</td>
-                    {!def.scoped && <td className="mono"><span className="cell-link">{str(meta.namespace)}</span></td>}
+                  <tr
+                    key={key}
+                    className={`row-clickable${isSelected ? " selected" : ""}`}
+                    onClick={() => setSelected({ ns, name })}
+                    onContextMenu={(e) => { e.preventDefault(); setCtx({ x: e.clientX, y: e.clientY, ns, name }); }}
+                  >
+                    <td style={{ padding: "0 10px" }} onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleRow(key)}
+                        className="kb-checkbox"
+                        aria-label={`Select ${name}`}
+                      />
+                    </td>
+                    <td className="mono strong" title={name}>{name}</td>
+                    {!def.scoped && <td className="mono"><span className="cell-link">{ns}</span></td>}
                     {cols.map((col) => {
                       const cell = cellFor(def.slug, col, o);
                       return (

@@ -33,6 +33,7 @@ import { discoveryApi } from "./lib/api";
 import { KNOWN_GVRS, extSlug } from "./lib/resources";
 import { FavoritesSidebar, useFavorites } from "./components/Favorites";
 import { useClusterIcons, type ClusterIcon } from "./lib/useClusterIcons";
+import { useWsStatus } from "./lib/useWsStatus";
 
 // ──── Cluster Context ────────────────────────────────────────────────────────
 
@@ -302,6 +303,153 @@ function ClusterIconPicker({ clusterId, current, onSave, onReset, onClose }: Ico
   );
 }
 
+// ──── ClusterConnectingOverlay ────────────────────────────────────────────────
+
+interface OverlayProps {
+  clusterId: string;
+  clusterStatus: string;
+  clusterError?: string;
+  clusterVersion?: string;
+  wsConnected: boolean;
+  wsRetry: number;
+  wsNextRetryMs: number;
+  isReconnect: boolean; // true = WS dropped, false = cluster switch
+  avatar: { bg: string; label: string };
+}
+
+function ClusterConnectingOverlay({
+  clusterId,
+  clusterStatus,
+  clusterError,
+  clusterVersion,
+  wsConnected,
+  wsRetry,
+  wsNextRetryMs,
+  isReconnect,
+  avatar,
+}: OverlayProps) {
+  const [countdown, setCountdown] = useState(Math.ceil(wsNextRetryMs / 1000));
+
+  useEffect(() => {
+    if (wsConnected || wsNextRetryMs <= 0) return;
+    setCountdown(Math.ceil(wsNextRetryMs / 1000));
+    const interval = setInterval(() => {
+      setCountdown((n) => Math.max(0, n - 1));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [wsNextRetryMs, wsConnected]);
+
+  // Steps: 0=Auth/Credentials  1=API Server  2=Live Stream
+  // For WS reconnect the steps are: 0=Disconnected  1=Reconnecting  2=Restored
+  const steps = isReconnect
+    ? ["Disconnected", "Reconnecting", "Restored"]
+    : ["Credentials", "API Server", "Live Stream"];
+
+  // Current step index
+  let currentStep = 0;
+  if (isReconnect) {
+    if (wsConnected) currentStep = 2;
+    else if (wsRetry > 0) currentStep = 1;
+    else currentStep = 0;
+  } else {
+    if (clusterStatus === "connected" && wsConnected) currentStep = 2;
+    else if (clusterStatus === "connected") currentStep = 1;
+    else currentStep = 0;
+  }
+
+  // Status message shown under the steps
+  let statusMsg = "";
+  let isError = false;
+  if (isReconnect) {
+    if (wsConnected) {
+      statusMsg = "Stream restored — reloading data…";
+    } else if (wsRetry > 0) {
+      statusMsg = `Attempt ${wsRetry} · retrying in ${countdown}s`;
+    } else {
+      statusMsg = "Connection lost — reconnecting…";
+    }
+  } else {
+    if (clusterStatus === "connected" && wsConnected) {
+      statusMsg = clusterVersion ? `Connected · ${clusterVersion}` : "Connected";
+    } else if (clusterStatus === "connected") {
+      statusMsg = "API reachable · opening live stream…";
+    } else if (clusterError) {
+      statusMsg = clusterError;
+      isError = true;
+    } else {
+      statusMsg = "Checking cluster credentials…";
+    }
+  }
+
+  return (
+    <div className="conn-overlay">
+      <div className="conn-card">
+        {/* Avatar */}
+        <div className="conn-avatar" style={{ background: avatar.bg }}>
+          {avatar.label}
+        </div>
+        <div className="conn-cluster-name">{clusterId}</div>
+
+        {/* Stepper */}
+        <div className="conn-stepper">
+          {steps.map((label, i) => {
+            const done = i < currentStep;
+            const active = i === currentStep;
+            return (
+              <div key={label} className="conn-step-item">
+                <div className={`conn-step-dot${done ? " done" : active ? " active" : ""}`}>
+                  {done ? (
+                    <svg viewBox="0 0 10 10" width="10" height="10" fill="none">
+                      <polyline points="2,5 4.5,7.5 8,3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  ) : active ? (
+                    <span className="conn-pulse" />
+                  ) : null}
+                </div>
+                {i < steps.length - 1 && (
+                  <div className={`conn-step-line${done ? " done" : ""}`} />
+                )}
+                <div className={`conn-step-label${active ? " active" : done ? " done" : ""}`}>
+                  {label}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Status message */}
+        <div className={`conn-status-msg${isError ? " error" : ""}`}>
+          {isError && (
+            <svg viewBox="0 0 16 16" width="13" height="13" fill="none" style={{ flexShrink: 0, marginTop: 1 }}>
+              <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5" />
+              <path d="M8 5v4M8 11v.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          )}
+          {statusMsg}
+        </div>
+
+        {/* Retry hint for WS reconnect */}
+        {isReconnect && !wsConnected && wsRetry > 0 && (
+          <div className="conn-retry-bar">
+            <svg viewBox="0 0 16 16" width="12" height="12" fill="none" style={{ animation: "spin 1.4s linear infinite", flexShrink: 0 }}>
+              <path d="M8 2a6 6 0 0 1 5.66 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              <path d="M13.66 10 l-2 2 2 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <span>WebSocket reconnecting</span>
+          </div>
+        )}
+
+        {/* Error detail hint */}
+        {isError && (
+          <div className="conn-error-hint">
+            Check that the cluster API server is reachable and credentials are valid.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ClusterStrip() {
   const { active, setActive, switching } = useActiveCluster();
   const clusters = useQuery({ queryKey: ["clusters"], queryFn: api.clusters, refetchInterval: 4_000 });
@@ -479,26 +627,42 @@ function Sidebar({ up, onOpenPalette }: { up: boolean; onOpenPalette: () => void
 function AppInner() {
   const navigate = useNavigate();
   const health = useQuery({ queryKey: ["health"], queryFn: api.health, refetchInterval: 10_000 });
+  const clusters = useQuery({ queryKey: ["clusters"], queryFn: api.clusters, refetchInterval: 4_000 });
   const up = health.data?.ok === true;
+  const ws = useWsStatus();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [switching, setSwitching] = useState(false);
-  const switchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const safetyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [active, setActiveState] = useState<string>(
     () => new URLSearchParams(window.location.search).get("cluster") ?? "",
   );
 
+  const list = clusters.data ?? [];
+  const effectiveActive = active || list.find((c) => c.status === "connected")?.id || list[0]?.id || "";
+  const activeCluster = list.find((c) => c.id === effectiveActive);
+
   const setActive = (id: string) => {
-    if (id !== active && active !== "") {
+    if (id !== effectiveActive) {
       setSwitching(true);
-      if (switchTimer.current) clearTimeout(switchTimer.current);
-      switchTimer.current = setTimeout(() => setSwitching(false), 1800);
+      // Safety: never block the UI longer than 15s
+      if (safetyTimer.current) clearTimeout(safetyTimer.current);
+      safetyTimer.current = setTimeout(() => setSwitching(false), 15_000);
     }
     setActiveState(id);
     const sp = new URLSearchParams(window.location.search);
     sp.set("cluster", id);
     navigate({ search: sp.toString() }, { replace: true });
   };
+
+  // Dismiss the switching overlay once the cluster is reachable + stream is up
+  useEffect(() => {
+    if (!switching) return;
+    if (activeCluster?.status === "connected" && ws.connected) {
+      const t = setTimeout(() => setSwitching(false), 400);
+      return () => clearTimeout(t);
+    }
+  }, [switching, activeCluster?.status, ws.connected]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -511,6 +675,18 @@ function AppInner() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // Show overlay when: actively switching cluster, or WS dropped after first connect
+  const showSwitchOverlay = switching;
+  const showReconnectOverlay = ws.hasEverConnected && !ws.connected && !switching;
+  const showOverlay = showSwitchOverlay || showReconnectOverlay;
+
+  const overlayAvatar = activeCluster
+    ? ((() => {
+        const auto = autoAvatar(activeCluster.id);
+        return auto; // icon picker state lives in ClusterStrip; use auto for overlay
+      })())
+    : { bg: "var(--kb-accent)", label: "…" };
+
   return (
     <ClusterCtx.Provider value={{ active, setActive, switching }}>
       <div className="app">
@@ -519,7 +695,6 @@ function AppInner() {
         <Palette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
 
         <main className="content">
-          {switching && <div key={active} className="cluster-switch-bar" />}
           <Routes>
             <Route path="/" element={<Fleet />} />
             <Route path="/workloads" element={<Workloads />} />
@@ -533,6 +708,21 @@ function AppInner() {
             <Route path="/crds" element={<Crds />} />
             <Route path="/settings" element={<Settings />} />
           </Routes>
+
+          {showOverlay && (
+            <ClusterConnectingOverlay
+              key={showReconnectOverlay ? "reconnect" : effectiveActive}
+              clusterId={effectiveActive || "Connecting…"}
+              clusterStatus={activeCluster?.status ?? "unreachable"}
+              clusterError={activeCluster?.error}
+              clusterVersion={activeCluster?.version}
+              wsConnected={ws.connected}
+              wsRetry={ws.retryAttempt}
+              wsNextRetryMs={ws.nextRetryMs}
+              isReconnect={showReconnectOverlay}
+              avatar={overlayAvatar}
+            />
+          )}
         </main>
 
         <footer className="statusbar">
@@ -541,6 +731,14 @@ function AppInner() {
             <span>kubebay-engine</span>
             <span className="muted">{up ? "listening" : "reconnecting…"}</span>
           </span>
+          {!ws.connected && ws.hasEverConnected && (
+            <span className="statusbar-center muted" style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", display: "inline-flex", alignItems: "center", gap: 5 }}>
+              <svg viewBox="0 0 16 16" width="11" height="11" fill="none" style={{ animation: "spin 1.4s linear infinite" }}>
+                <path d="M8 2a6 6 0 0 1 5.66 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+              WS reconnecting · attempt {ws.retryAttempt}
+            </span>
+          )}
           <span className="statusbar-right muted">
             <kbd>⌘K</kbd> palette
           </span>

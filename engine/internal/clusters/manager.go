@@ -304,7 +304,19 @@ func (m *Manager) healthLoop() {
 			wg.Add(1)
 			go func(e *entry) {
 				defer wg.Done()
-				m.healthOnce(e)
+				// Hard cap per-cluster health check so a hung exec credential
+				// plugin (e.g. aws/gke token fetcher) can't block the loop.
+				done := make(chan struct{}, 1)
+				go func() {
+					m.healthOnce(e)
+					done <- struct{}{}
+				}()
+				select {
+				case <-done:
+				case <-time.After(12 * time.Second):
+					e.cluster.Status = StatusUnreachable
+					e.cluster.Error = "health check timed out (exec credential plugin may be slow or missing)"
+				}
 			}(e)
 		}
 		wg.Wait()

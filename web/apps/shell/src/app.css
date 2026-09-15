@@ -593,25 +593,8 @@ h2 {
   table-layout: fixed;
 }
 
-/* Name column: truncate long names */
-.kb-table th:first-child,
-.kb-table td:first-child {
-  width: 30%;
-  max-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Namespace column */
-.kb-table th:nth-child(2),
-.kb-table td:nth-child(2) {
-  width: 20%;
-  max-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+/* Column widths are set per-table via inline styles on <colgroup>.
+   All cells clip overflow so content is never visible outside the column. */
 
 .kb-table th {
   position: sticky;
@@ -628,12 +611,46 @@ h2 {
   border-bottom: 1px solid var(--kb-border-strong);
   white-space: nowrap;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  /* Must be relative so the resize handle positions against it */
+  position: sticky;
 }
 
 .kb-table td {
   padding: var(--kb-row-padding, 8px 14px);
   border-bottom: 1px solid var(--kb-border-subtle);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 0; /* forces ellipsis inside table-layout:fixed cells */
+}
+
+/* ── Column resize handle ── */
+.col-resize-handle {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  user-select: none;
+  z-index: 2;
+  /* Subtle visual divider */
+  border-right: 2px solid transparent;
+  transition: border-color 150ms;
+}
+
+.col-resize-handle:hover {
+  border-right-color: var(--kb-accent);
+}
+
+/* ── Row checkbox ── */
+.kb-checkbox {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--kb-accent);
+  cursor: pointer;
+  vertical-align: middle;
 }
 
 .kb-table tbody tr:last-child td {
@@ -2076,4 +2093,197 @@ tr.row-clickable:active {
 .icon-picker-btn.primary {
   background: var(--kb-accent);
   color: #fff;
+}
+
+/* ──── Cluster connecting overlay ──── */
+.conn-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--kb-bg-canvas) 82%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  animation: conn-overlay-in 180ms var(--kb-ease) both;
+}
+
+@keyframes conn-overlay-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.conn-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  text-align: center;
+  min-width: 320px;
+  max-width: 420px;
+  animation: conn-card-in 220ms var(--kb-ease-out) both;
+}
+
+@keyframes conn-card-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0)   scale(1);    }
+}
+
+.conn-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 800;
+  font-size: 18px;
+  font-family: var(--kb-font-mono, monospace);
+  letter-spacing: -0.02em;
+  margin-bottom: 14px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  position: relative;
+  /* subtle ring pulse while loading */
+  animation: conn-avatar-ring 2s ease-in-out infinite;
+}
+
+@keyframes conn-avatar-ring {
+  0%, 100% { box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25), 0 0 0 0px rgba(255,255,255,0.08); }
+  50%       { box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25), 0 0 0 6px rgba(255,255,255,0.05); }
+}
+
+.conn-cluster-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--kb-fg-default);
+  font-family: var(--kb-font-mono);
+  letter-spacing: -0.01em;
+  max-width: 380px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-bottom: 32px;
+}
+
+/* ── Stepper ── */
+.conn-stepper {
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+  margin-bottom: 28px;
+}
+
+.conn-step-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+
+.conn-step-dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid var(--kb-border-strong);
+  background: var(--kb-bg-canvas);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 300ms, background 300ms;
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+}
+
+.conn-step-dot.done {
+  background: var(--kb-accent);
+  border-color: var(--kb-accent);
+  color: var(--kb-accent-fg);
+}
+
+.conn-step-dot.active {
+  border-color: var(--kb-accent);
+  background: var(--kb-bg-canvas);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--kb-accent) 18%, transparent);
+}
+
+.conn-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--kb-accent);
+  animation: conn-dot-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes conn-dot-pulse {
+  0%, 100% { opacity: 1;   transform: scale(1);    }
+  50%       { opacity: 0.5; transform: scale(0.65); }
+}
+
+.conn-step-line {
+  width: 72px;
+  height: 2px;
+  background: var(--kb-border-strong);
+  margin-top: 9px;
+  transition: background 300ms;
+  position: relative;
+  z-index: 0;
+}
+
+.conn-step-line.done {
+  background: var(--kb-accent);
+}
+
+.conn-step-label {
+  font-size: 11px;
+  color: var(--kb-fg-subtle);
+  margin-top: 8px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: color 300ms;
+}
+
+.conn-step-label.active {
+  color: var(--kb-accent);
+  font-weight: 600;
+}
+
+.conn-step-label.done {
+  color: var(--kb-fg-muted);
+}
+
+/* ── Status message ── */
+.conn-status-msg {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  font-size: 13px;
+  color: var(--kb-fg-muted);
+  max-width: 380px;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.conn-status-msg.error {
+  color: var(--kb-status-err);
+}
+
+.conn-retry-bar {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 14px;
+  font-size: 12px;
+  color: var(--kb-fg-subtle);
+  font-family: var(--kb-font-mono);
+}
+
+.conn-error-hint {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--kb-fg-subtle);
+  max-width: 320px;
+  line-height: 1.5;
 }

@@ -49,6 +49,27 @@ fn pick_free_port() -> u16 {
         .unwrap_or(PREFERRED + 1)
 }
 
+/// On macOS/Linux, GUI apps launched from the Dock/Finder inherit a stripped
+/// PATH (/usr/bin:/bin:/usr/sbin:/sbin).  Kubernetes exec credential plugins
+/// (aws eks get-token, gke-gcloud-auth-plugin, etc.) live in Homebrew or the
+/// user's custom bin dirs and won't be found, making every EKS/GKE cluster
+/// show as unreachable.  Fix: ask the login shell for its full PATH.
+fn login_shell_path() -> Option<String> {
+    // Try zsh first (default macOS shell), then bash.
+    for shell in &["/bin/zsh", "/bin/bash"] {
+        if let Ok(out) = std::process::Command::new(shell)
+            .args(["-l", "-c", "echo $PATH"])
+            .output()
+        {
+            let p = String::from_utf8_lossy(&out.stdout).trim().to_string();
+            if !p.is_empty() {
+                return Some(p);
+            }
+        }
+    }
+    None
+}
+
 fn main() {
     ENGINE_CHILD.get_or_init(|| Mutex::new(None));
 
@@ -58,7 +79,12 @@ fn main() {
             let handle = app.handle().clone();
             let port = pick_free_port();
             let addr = format!("127.0.0.1:{port}");
-            let cmd = app.shell().sidecar("kubebay-engine")?.args(["--addr", &addr]);
+            let sidecar = app.shell().sidecar("kubebay-engine")?.args(["--addr", &addr]);
+            let cmd = if let Some(path) = login_shell_path() {
+                sidecar.env("PATH", path)
+            } else {
+                sidecar
+            };
 
             let (mut rx, child) = cmd.spawn()?;
             *ENGINE_CHILD
