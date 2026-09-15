@@ -201,7 +201,7 @@ jobs:
 
       # ── Tauri build ───────────────────────────────────────────────────────
       - name: Build Tauri desktop app
-        run: pnpm tauri build --target ${{ matrix.rust-target }} --bundles ${{ matrix.bundles }}
+        shell: bash
         working-directory: desktop
         env:
           TAURI_SIGNING_PRIVATE_KEY: ""
@@ -210,6 +210,12 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          # Unset notarization vars if empty — prevents Tauri from attempting notarization
+          [ -z "$APPLE_ID" ]       && unset APPLE_ID
+          [ -z "$APPLE_PASSWORD" ] && unset APPLE_PASSWORD
+          [ -z "$APPLE_TEAM_ID" ]  && unset APPLE_TEAM_ID
+          pnpm tauri build --target ${{ matrix.rust-target }} --bundles ${{ matrix.bundles }}
 
       # ── Collect installer artifacts ───────────────────────────────────────
       - name: Collect artifacts
