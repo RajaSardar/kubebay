@@ -547,7 +547,7 @@ function ClusterStrip() {
 
 // ──── Sidebar ────────────────────────────────────────────────────────────────
 
-function Sidebar({ up, onOpenPalette }: { up: boolean; onOpenPalette: () => void }) {
+function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
   const initialOpen = () => {
     const map: Record<string, boolean> = { Workloads: true };
     for (const g of GROUPS) if (!map[g.label]) map[g.label] = false;
@@ -691,7 +691,7 @@ function AppInner() {
     <ClusterCtx.Provider value={{ active, setActive, switching }}>
       <div className="app">
         <ClusterStrip />
-        <Sidebar up={up} onOpenPalette={() => setPaletteOpen(true)} />
+        <Sidebar onOpenPalette={() => setPaletteOpen(true)} />
         <Palette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
 
         <main className="content">

@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Editor from "@monaco-editor/react";
 import { Badge, Button, Skeleton, StatusDot } from "@kubebay/ui";
-import { api, helmApi, type HelmRelease } from "../lib/api";
+import { helmApi, type HelmRelease } from "../lib/api";
 import { useCluster } from "../lib/useCluster";
 import { ChartsTab } from "../components/HelmCharts";
 

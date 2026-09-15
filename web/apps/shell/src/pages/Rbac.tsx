@@ -1,6 +1,7 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Badge, Button, Card } from "@kubebay/ui";
-import { api, rbacApi as api2 } from "../lib/api";
+import { rbacApi as api2 } from "../lib/api";
 import { useCluster } from "../lib/useCluster";
 
 interface Rule {
