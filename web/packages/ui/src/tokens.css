@@ -1,18 +1,20 @@
 :root {
+  /* Apple system font stack — SF Pro on Apple, then best system UI elsewhere */
   --kb-font:
-    "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
-    Arial, sans-serif;
+    -apple-system, "SF Pro Text", "SF Pro Display", BlinkMacSystemFont,
+    "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
   --kb-font-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
 
   --kb-radius-sm: 6px;
-  --kb-radius: 10px;
+  --kb-radius:    10px;
   --kb-radius-lg: 14px;
 
+  /* Snappy Apple-style timing */
   --kb-dur-fast: 70ms;
-  --kb-dur: 120ms;
-  --kb-dur-slow: 190ms;
-  --kb-ease: cubic-bezier(0.22, 1, 0.36, 1);
-  --kb-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --kb-dur:      120ms;
+  --kb-dur-slow: 200ms;
+  --kb-ease:     cubic-bezier(0.22, 1, 0.36, 1);
+  --kb-ease-out: cubic-bezier(0.16, 1, 0.3,  1);
 
   --kb-space-1: 4px;
   --kb-space-2: 8px;
@@ -22,201 +24,231 @@
   --kb-space-6: 32px;
 }
 
+/* ── Dusk (default dark — macOS-inspired dark mode) ───────────────────────── */
 :root,
 :root[data-theme="dusk"] {
   color-scheme: dark;
 
-  --kb-bg-canvas: #0a0b10;
-  --kb-bg-surface: #101218;
-  --kb-bg-raised: #171a24;
-  --kb-bg-overlay: #1d2130;
-  --kb-bg-inset: #0c0e14;
-  --kb-bg-sidebar: #0d0e15;
+  /* Backgrounds — macOS dark grays */
+  --kb-bg-canvas:  #161617;
+  --kb-bg-surface: #1c1c1e;
+  --kb-bg-raised:  #242426;
+  --kb-bg-overlay: #2c2c2e;
+  --kb-bg-inset:   #0f0f10;
+  --kb-bg-hover:   rgba(255, 255, 255, 0.05);
+  --kb-bg-sidebar: rgba(22, 22, 23, 0.82);
 
-  --kb-fg-default: #e9ebf2;
-  --kb-fg-muted: #9aa2b6;
-  --kb-fg-subtle: #667089;
+  /* Frosted glass material (sidebar/toolbar) */
+  --kb-material:           rgba(28, 28, 30, 0.75);
+  --kb-material-blur:      blur(24px) saturate(180%);
 
-  --kb-accent: #22d3ee;
-  --kb-accent-hover: #45ddf3;
-  --kb-accent-subtle: rgba(34, 211, 238, 0.12);
-  --kb-accent-fg: #ffffff;
+  /* Foreground */
+  --kb-fg-default: rgba(255, 255, 255, 0.92);
+  --kb-fg-muted:   rgba(255, 255, 255, 0.52);
+  --kb-fg-subtle:  rgba(255, 255, 255, 0.28);
 
-  --kb-status-ok: #41c98e;
-  --kb-status-warn: #f0a840;
-  --kb-status-err: #ef5f68;
-  --kb-status-pending: #f0a840;
-  --kb-status-info: #22d3ee;
-  --kb-status-terminated: #636b7e;
+  /* Accent — Kubebay cyan (kept distinct from macOS blue) */
+  --kb-accent:        #32ade6;
+  --kb-accent-hover:  #5bbef0;
+  --kb-accent-subtle: rgba(50, 173, 230, 0.14);
+  --kb-accent-fg:     #ffffff;
 
-  --kb-status-ok-subtle: color-mix(in srgb, #41c98e 11%, transparent);
-  --kb-status-ok-fg: #41c98e;
-  --kb-status-warn-subtle: color-mix(in srgb, #f0a840 11%, transparent);
-  --kb-status-warn-fg: #f0a840;
-  --kb-status-err-subtle: color-mix(in srgb, #ef5f68 11%, transparent);
-  --kb-status-err-fg: #ef5f68;
-  --kb-status-pending-subtle: color-mix(in srgb, #f0a840 11%, transparent);
-  --kb-status-pending-fg: #f0a840;
+  /* macOS semantic status colors */
+  --kb-status-ok:         #30d158;
+  --kb-status-warn:       #ff9f0a;
+  --kb-status-err:        #ff453a;
+  --kb-status-pending:    #ff9f0a;
+  --kb-status-info:       #32ade6;
+  --kb-status-terminated: #636366;
 
-  --kb-border-subtle: #1d212e;
-  --kb-border-strong: #293041;
-  --kb-highlight-inset: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+  --kb-status-ok-subtle:      color-mix(in srgb, #30d158 12%, transparent);
+  --kb-status-ok-fg:          #30d158;
+  --kb-status-warn-subtle:    color-mix(in srgb, #ff9f0a 12%, transparent);
+  --kb-status-warn-fg:        #ff9f0a;
+  --kb-status-err-subtle:     color-mix(in srgb, #ff453a 12%, transparent);
+  --kb-status-err-fg:         #ff453a;
+  --kb-status-pending-subtle: color-mix(in srgb, #ff9f0a 12%, transparent);
+  --kb-status-pending-fg:     #ff9f0a;
 
-  --kb-shadow-rest: 0 1px 2px rgba(0, 0, 0, 0.35);
-  --kb-shadow-lift: 0 10px 30px -10px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.3);
+  /* Borders — macOS-style translucent separators */
+  --kb-border-subtle: rgba(255, 255, 255, 0.08);
+  --kb-border-strong: rgba(255, 255, 255, 0.14);
+  --kb-highlight-inset: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 
-  --kb-focus-ring: 0 0 0 2px rgba(34, 211, 238, 0.5);
-  --kb-selection: rgba(34, 211, 238, 0.25);
+  --kb-shadow-rest: 0 1px 3px rgba(0, 0, 0, 0.4), 0 0 0 0.5px rgba(0,0,0,0.2);
+  --kb-shadow-lift: 0 12px 40px -12px rgba(0, 0, 0, 0.65), 0 2px 8px rgba(0, 0, 0, 0.3);
+  --kb-shadow-menu: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 0 0.5px rgba(255,255,255,0.08);
 
-  --kb-glow-a: rgba(34, 211, 238, 0.06);
-  --kb-glow-b: rgba(65, 201, 142, 0.04);
-  --kb-theme-color: #0a0b10;
+  --kb-focus-ring: 0 0 0 3px rgba(50, 173, 230, 0.45);
+  --kb-selection:  rgba(50, 173, 230, 0.28);
+
+  --kb-glow-a: rgba(50, 173, 230, 0.04);
+  --kb-glow-b: rgba(48, 209, 88,  0.03);
+  --kb-theme-color: #161617;
 }
 
+/* ── Dawn (light — macOS light mode) ────────────────────────────────────────── */
 :root[data-theme="dawn"] {
   color-scheme: light;
 
-  --kb-bg-canvas: #eef1f5;
-  --kb-bg-surface: #f9fafb;
-  --kb-bg-raised: #ffffff;
+  --kb-bg-canvas:  #f2f2f7;
+  --kb-bg-surface: #ffffff;
+  --kb-bg-raised:  #ffffff;
   --kb-bg-overlay: #ffffff;
-  --kb-bg-inset: #e5e8ee;
-  --kb-bg-sidebar: #e4e7ed;
+  --kb-bg-inset:   #e5e5ea;
+  --kb-bg-hover:   rgba(60, 60, 67, 0.05);
+  --kb-bg-sidebar: rgba(242, 242, 247, 0.8);
 
-  --kb-fg-default: #141820;
-  --kb-fg-muted: #4a5264;
-  --kb-fg-subtle: #6b7385;
+  --kb-material:      rgba(248, 248, 250, 0.82);
+  --kb-material-blur: blur(24px) saturate(180%);
 
-  --kb-accent: #0891b2;
-  --kb-accent-hover: #0e7490;
-  --kb-accent-subtle: rgba(8, 145, 178, 0.10);
-  --kb-accent-fg: #ffffff;
+  --kb-fg-default: rgba(0, 0, 0, 0.88);
+  --kb-fg-muted:   rgba(60, 60, 67, 0.60);
+  --kb-fg-subtle:  rgba(60, 60, 67, 0.30);
 
-  --kb-status-ok: #178a52;
-  --kb-status-warn: #b07422;
-  --kb-status-err: #d33b47;
-  --kb-status-pending: #b07422;
-  --kb-status-info: #0891b2;
-  --kb-status-terminated: #6b7385;
+  --kb-accent:        #0077ed;
+  --kb-accent-hover:  #006bdc;
+  --kb-accent-subtle: rgba(0, 119, 237, 0.10);
+  --kb-accent-fg:     #ffffff;
 
-  --kb-status-ok-subtle: color-mix(in srgb, #178a52 10%, transparent);
-  --kb-status-ok-fg: #14774a;
-  --kb-status-warn-subtle: color-mix(in srgb, #b07422 10%, transparent);
-  --kb-status-warn-fg: #8f5e1a;
-  --kb-status-err-subtle: color-mix(in srgb, #d33b47 10%, transparent);
-  --kb-status-err-fg: #b82e3a;
-  --kb-status-pending-subtle: color-mix(in srgb, #b07422 10%, transparent);
-  --kb-status-pending-fg: #8f5e1a;
+  --kb-status-ok:         #1d7a3a;
+  --kb-status-warn:       #b85c00;
+  --kb-status-err:        #c41230;
+  --kb-status-pending:    #b85c00;
+  --kb-status-info:       #0077ed;
+  --kb-status-terminated: #8e8e93;
 
-  --kb-border-subtle: #d0d5de;
-  --kb-border-strong: #b8bfcc;
-  --kb-highlight-inset: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  --kb-status-ok-subtle:      color-mix(in srgb, #1d7a3a 10%, transparent);
+  --kb-status-ok-fg:          #1d7a3a;
+  --kb-status-warn-subtle:    color-mix(in srgb, #b85c00 10%, transparent);
+  --kb-status-warn-fg:        #b85c00;
+  --kb-status-err-subtle:     color-mix(in srgb, #c41230 10%, transparent);
+  --kb-status-err-fg:         #c41230;
+  --kb-status-pending-subtle: color-mix(in srgb, #b85c00 10%, transparent);
+  --kb-status-pending-fg:     #b85c00;
 
-  --kb-shadow-rest: 0 1px 3px rgba(20, 28, 46, 0.08);
-  --kb-shadow-lift: 0 10px 26px -10px rgba(20, 28, 46, 0.18), 0 2px 6px rgba(20, 28, 46, 0.08);
+  --kb-border-subtle: rgba(60, 60, 67, 0.12);
+  --kb-border-strong: rgba(60, 60, 67, 0.22);
+  --kb-highlight-inset: inset 0 1px 0 rgba(255, 255, 255, 0.8);
 
-  --kb-focus-ring: 0 0 0 2px rgba(8, 145, 178, 0.45);
-  --kb-selection: rgba(8, 145, 178, 0.2);
+  --kb-shadow-rest: 0 1px 3px rgba(0, 0, 0, 0.08), 0 0 0 0.5px rgba(0,0,0,0.06);
+  --kb-shadow-lift: 0 10px 30px -10px rgba(0, 0, 0, 0.18), 0 2px 6px rgba(0, 0, 0, 0.08);
+  --kb-shadow-menu: 0 8px 32px rgba(0, 0, 0, 0.15), 0 0 0 0.5px rgba(0,0,0,0.08);
+
+  --kb-focus-ring: 0 0 0 3px rgba(0, 119, 237, 0.4);
+  --kb-selection:  rgba(0, 119, 237, 0.18);
 
   --kb-glow-a: transparent;
   --kb-glow-b: transparent;
-  --kb-theme-color: #f7f8fb;
+  --kb-theme-color: #f2f2f7;
 }
 
+/* ── Dusk HC ──────────────────────────────────────────────────────────────── */
 :root[data-theme="dusk-hc"] {
   color-scheme: dark;
 
-  --kb-bg-canvas: #000000;
-  --kb-bg-surface: #0b0b0b;
-  --kb-bg-raised: #161616;
-  --kb-bg-overlay: #1f1f1f;
-  --kb-bg-inset: #000000;
+  --kb-bg-canvas:  #000000;
+  --kb-bg-surface: #0a0a0a;
+  --kb-bg-raised:  #141414;
+  --kb-bg-overlay: #1e1e1e;
+  --kb-bg-inset:   #000000;
+  --kb-bg-hover:   rgba(255, 255, 255, 0.07);
   --kb-bg-sidebar: #050505;
 
+  --kb-material:      rgba(10, 10, 10, 0.9);
+  --kb-material-blur: blur(12px);
+
   --kb-fg-default: #ffffff;
-  --kb-fg-muted: #d0d0d0;
-  --kb-fg-subtle: #a8a8a8;
+  --kb-fg-muted:   rgba(255, 255, 255, 0.7);
+  --kb-fg-subtle:  rgba(255, 255, 255, 0.4);
 
-  --kb-accent: #44e4f7;
-  --kb-accent-hover: #6eedf9;
-  --kb-accent-subtle: rgba(68, 228, 247, 0.18);
-  --kb-accent-fg: #000000;
+  --kb-accent:        #40c8e0;
+  --kb-accent-hover:  #65d4e8;
+  --kb-accent-subtle: rgba(64, 200, 224, 0.18);
+  --kb-accent-fg:     #000000;
 
-  --kb-status-ok: #00d974;
-  --kb-status-warn: #ffb340;
-  --kb-status-err: #ff606b;
-  --kb-status-pending: #ffb340;
-  --kb-status-info: #44e4f7;
+  --kb-status-ok:         #30d158;
+  --kb-status-warn:       #ffb340;
+  --kb-status-err:        #ff6961;
+  --kb-status-pending:    #ffb340;
+  --kb-status-info:       #40c8e0;
   --kb-status-terminated: #888888;
 
-  --kb-status-ok-subtle: color-mix(in srgb, #00d974 12%, transparent);
-  --kb-status-ok-fg: #00d974;
-  --kb-status-warn-subtle: color-mix(in srgb, #ffb340 12%, transparent);
-  --kb-status-warn-fg: #ffb340;
-  --kb-status-err-subtle: color-mix(in srgb, #ff606b 12%, transparent);
-  --kb-status-err-fg: #ff606b;
-  --kb-status-pending-subtle: color-mix(in srgb, #ffb340 12%, transparent);
-  --kb-status-pending-fg: #ffb340;
+  --kb-status-ok-subtle:      color-mix(in srgb, #30d158 14%, transparent);
+  --kb-status-ok-fg:          #30d158;
+  --kb-status-warn-subtle:    color-mix(in srgb, #ffb340 14%, transparent);
+  --kb-status-warn-fg:        #ffb340;
+  --kb-status-err-subtle:     color-mix(in srgb, #ff6961 14%, transparent);
+  --kb-status-err-fg:         #ff6961;
+  --kb-status-pending-subtle: color-mix(in srgb, #ffb340 14%, transparent);
+  --kb-status-pending-fg:     #ffb340;
 
-  --kb-border-subtle: #333333;
-  --kb-border-strong: #525252;
+  --kb-border-subtle: rgba(255, 255, 255, 0.14);
+  --kb-border-strong: rgba(255, 255, 255, 0.28);
   --kb-highlight-inset: none;
 
   --kb-shadow-rest: none;
-  --kb-shadow-lift: 0 0 0 1px #525252;
+  --kb-shadow-lift: 0 0 0 1px rgba(255,255,255,0.14);
+  --kb-shadow-menu: 0 0 0 1px rgba(255,255,255,0.2);
 
-  --kb-focus-ring: 0 0 0 2px #44e4f7;
-  --kb-selection: rgba(68, 228, 247, 0.4);
+  --kb-focus-ring: 0 0 0 2px #40c8e0;
+  --kb-selection:  rgba(64, 200, 224, 0.4);
 
   --kb-glow-a: transparent;
   --kb-glow-b: transparent;
   --kb-theme-color: #000000;
 }
 
+/* ── Dawn HC ──────────────────────────────────────────────────────────────── */
 :root[data-theme="dawn-hc"] {
   color-scheme: light;
 
-  --kb-bg-canvas: #ffffff;
+  --kb-bg-canvas:  #ffffff;
   --kb-bg-surface: #ffffff;
-  --kb-bg-raised: #ffffff;
+  --kb-bg-raised:  #ffffff;
   --kb-bg-overlay: #ffffff;
-  --kb-bg-inset: #f0f0f0;
-  --kb-bg-sidebar: #ebebeb;
+  --kb-bg-inset:   #efefef;
+  --kb-bg-hover:   rgba(0, 0, 0, 0.06);
+  --kb-bg-sidebar: #f0f0f0;
+
+  --kb-material:      rgba(255, 255, 255, 0.92);
+  --kb-material-blur: blur(12px);
 
   --kb-fg-default: #000000;
-  --kb-fg-muted: #2d2d2d;
-  --kb-fg-subtle: #4d4d4d;
+  --kb-fg-muted:   rgba(0, 0, 0, 0.55);
+  --kb-fg-subtle:  rgba(0, 0, 0, 0.35);
 
-  --kb-accent: #0e7490;
-  --kb-accent-hover: #0a5d73;
-  --kb-accent-subtle: rgba(14, 116, 144, 0.12);
-  --kb-accent-fg: #ffffff;
+  --kb-accent:        #006bd6;
+  --kb-accent-hover:  #0057b0;
+  --kb-accent-subtle: rgba(0, 107, 214, 0.12);
+  --kb-accent-fg:     #ffffff;
 
-  --kb-status-ok: #006638;
-  --kb-status-warn: #7a4d00;
-  --kb-status-err: #ad0015;
-  --kb-status-pending: #7a4d00;
-  --kb-status-info: #0e7490;
-  --kb-status-terminated: #6b6b6b;
+  --kb-status-ok:         #006638;
+  --kb-status-warn:       #7a4d00;
+  --kb-status-err:        #ad0015;
+  --kb-status-pending:    #7a4d00;
+  --kb-status-info:       #006bd6;
+  --kb-status-terminated: #5a5a5a;
 
-  --kb-status-ok-subtle: color-mix(in srgb, #006638 12%, transparent);
-  --kb-status-ok-fg: #005530;
-  --kb-status-warn-subtle: color-mix(in srgb, #7a4d00 12%, transparent);
-  --kb-status-warn-fg: #634000;
-  --kb-status-err-subtle: color-mix(in srgb, #ad0015 12%, transparent);
-  --kb-status-err-fg: #910011;
+  --kb-status-ok-subtle:      color-mix(in srgb, #006638 12%, transparent);
+  --kb-status-ok-fg:          #005530;
+  --kb-status-warn-subtle:    color-mix(in srgb, #7a4d00 12%, transparent);
+  --kb-status-warn-fg:        #634000;
+  --kb-status-err-subtle:     color-mix(in srgb, #ad0015 12%, transparent);
+  --kb-status-err-fg:         #910011;
   --kb-status-pending-subtle: color-mix(in srgb, #7a4d00 12%, transparent);
-  --kb-status-pending-fg: #634000;
+  --kb-status-pending-fg:     #634000;
 
-  --kb-border-subtle: #c9c9c9;
-  --kb-border-strong: #999999;
+  --kb-border-subtle: rgba(0, 0, 0, 0.14);
+  --kb-border-strong: rgba(0, 0, 0, 0.26);
   --kb-highlight-inset: none;
 
   --kb-shadow-rest: none;
-  --kb-shadow-lift: 0 0 0 1px #999999;
+  --kb-shadow-lift: 0 0 0 1px rgba(0,0,0,0.18);
+  --kb-shadow-menu: 0 0 0 1px rgba(0,0,0,0.2);
 
-  --kb-focus-ring: 0 0 0 2px #0e7490;
-  --kb-selection: rgba(14, 116, 144, 0.25);
+  --kb-focus-ring: 0 0 0 2px #006bd6;
+  --kb-selection:  rgba(0, 107, 214, 0.22);
 
   --kb-glow-a: transparent;
   --kb-glow-b: transparent;

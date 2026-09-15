@@ -58,8 +58,13 @@ export interface Handlers {
   onStatus?: (connected: boolean, retryAttempt?: number, nextRetryMs?: number) => void;
 }
 
-const RECONNECT_BASE_MS = 500;
-const RECONNECT_MAX_MS = 8000;
+const RECONNECT_BASE_MS = 1500;
+const RECONNECT_MAX_MS = 30_000;
+// How long a connection must stay open before we consider it "stable"
+// and reset the retry counter. Prevents ALB-killed flaps from resetting retry=0.
+const STABLE_MS = 5_000;
+// Send an app-level ping every 20s as belt-and-suspenders keepalive.
+const PING_INTERVAL_MS = 20_000;
 
 class MultiplexedStream {
   private ws: WebSocket | null = null;
@@ -68,6 +73,8 @@ class MultiplexedStream {
   private closedByUser = false;
   private listeners = new Set<Handlers>();
   private token: string;
+  private stableTimer: ReturnType<typeof setTimeout> | null = null;
+  private pingTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(token: string) {
     this.token = token;
@@ -84,9 +91,25 @@ class MultiplexedStream {
     this.ws = ws;
 
     ws.onopen = () => {
-      this.retry = 0;
-      this.dispatch((h) => h.onStatus?.(true, 0, 0));
+      // Notify UI we're connected (but keep current retry count until stable)
+      this.dispatch((h) => h.onStatus?.(true, this.retry, 0));
       for (const spec of this.subs.values()) this.sendSub(spec);
+
+      // Only reset retry count after connection is stable for STABLE_MS.
+      // This prevents flapping (ALB kills new connection immediately) from
+      // resetting the retry counter and showing "Attempt 0 · retrying in 1s".
+      this.stableTimer = setTimeout(() => {
+        this.retry = 0;
+        this.dispatch((h) => h.onStatus?.(true, 0, 0));
+      }, STABLE_MS);
+
+      // Belt-and-suspenders: send app-level pings to keep ALB alive.
+      // Server also sends WS protocol PINGs every 25s; browser auto-PONGs those.
+      this.pingTimer = setInterval(() => {
+        if (this.ws?.readyState === WebSocket.OPEN) {
+          this.ws.send(JSON.stringify({ type: "ping", id: "ka" }));
+        }
+      }, PING_INTERVAL_MS);
     };
 
     ws.onmessage = (ev) => {
@@ -143,7 +166,11 @@ class MultiplexedStream {
 
     ws.onclose = () => {
       if (this.closedByUser) return;
-      const delay = Math.min(RECONNECT_MAX_MS, RECONNECT_BASE_MS * 2 ** this.retry);
+      // Clear keepalive timers
+      if (this.stableTimer) { clearTimeout(this.stableTimer); this.stableTimer = null; }
+      if (this.pingTimer) { clearInterval(this.pingTimer); this.pingTimer = null; }
+      // Cap exponent so backoff doesn't overflow; max is RECONNECT_MAX_MS
+      const delay = Math.min(RECONNECT_MAX_MS, RECONNECT_BASE_MS * 2 ** Math.min(this.retry, 12));
       this.dispatch((h) => h.onStatus?.(false, this.retry, delay));
       this.retry += 1;
       setTimeout(() => this.connect(), delay);

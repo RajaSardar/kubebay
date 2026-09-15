@@ -188,6 +188,28 @@ func (h *Hub) Handle(w http.ResponseWriter, r *http.Request, src SubSource) {
 	}
 	defer cleanupAll()
 
+	// Keepalive: send a WebSocket protocol-level PING every 25s.
+	// AWS ALB (and most proxies) have a ~60s idle-connection timeout.
+	// The browser's native WebSocket responds with PONG automatically,
+	// keeping the connection alive without any JS-side changes.
+	go func() {
+		t := time.NewTicker(25 * time.Second)
+		defer t.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				pingCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+				err := c.Ping(pingCtx)
+				cancel()
+				if err != nil {
+					return // connection already gone
+				}
+			}
+		}
+	}()
+
 	for {
 		msgType, data, err := c.Read(ctx)
 		if err != nil {
