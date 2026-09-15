@@ -191,6 +191,27 @@ export const discoveryApi = {
   apis: (cluster: string) => get<APIResourceEntry[]>(`/api/apis?cluster=${encodeURIComponent(cluster)}`),
 };
 
+export interface PrinterColumn {
+  name: string;
+  jsonPath: string;
+  type: string;
+}
+
+export interface CRDEntry {
+  name: string;
+  group: string;
+  version: string;
+  resource: string;
+  kind: string;
+  namespaced: boolean;
+  gvr: string;
+  columns: PrinterColumn[];
+}
+
+export const crdApi = {
+  list: (cluster: string) => get<CRDEntry[]>(`/api/crds?cluster=${encodeURIComponent(cluster)}`),
+};
+
 export interface HelmRepo {
   name: string;
   url: string;

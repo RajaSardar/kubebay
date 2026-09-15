@@ -193,6 +193,7 @@ func Router(d Deps, token string) http.Handler {
 		r.Put("/api/yaml", d.Channels.HandleApplyYAML)
 		r.Get("/api/metrics/pods", d.Metrics.HandlePodMetrics)
 		r.Get("/api/apis", d.Metrics.HandleDiscovery)
+		r.Get("/api/crds", d.Metrics.HandleCRDs)
 		r.Get("/api/settings", d.Settings.HandleGet)
 		r.Post("/api/settings", d.Settings.HandleSave)
 		r.Get("/api/prom/query_range", d.Settings.HandlePromQueryRange)

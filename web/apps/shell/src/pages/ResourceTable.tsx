@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { Badge, Skeleton, StatusDot } from "@kubebay/ui";
-import { api, metricsApi } from "../lib/api";
+import { api, crdApi, metricsApi, type PrinterColumn } from "../lib/api";
 import { useQuery as useRQQuery } from "@tanstack/react-query";
 import { useCluster } from "../lib/useCluster";
 import { useResourceStream } from "../lib/useResourceStream";
@@ -297,6 +297,21 @@ export default function ResourceTable() {
     return m;
   }, [nodePods.rows]);
 
+  // Fetch CRD metadata (printer columns) for ext-- resources
+  const isCRD = kind.startsWith("ext--");
+  const crdListQ = useRQQuery({
+    queryKey: ["crds", effectiveCluster],
+    queryFn: () => crdApi.list(effectiveCluster),
+    enabled: !!effectiveCluster && isCRD,
+    staleTime: 60_000,
+    retry: 1,
+  });
+  const printerColumns = useMemo<PrinterColumn[]>(() => {
+    if (!isCRD || !crdListQ.data || !def) return [];
+    const match = crdListQ.data.find((c) => c.gvr === def.gvr);
+    return match?.columns ?? [];
+  }, [isCRD, crdListQ.data, def]);
+
   const cols = useMemo(
     () => Object.keys(def ? extraColumns(def.slug, { nodeUsage, podsPerNode }) : {}),
     [def, nodeUsage, podsPerNode],
@@ -306,9 +321,25 @@ export default function ResourceTable() {
     return extraColumns(slug, { nodeUsage, podsPerNode })[col]?.(o) ?? { v: "" };
   }
 
+  // For CRD printer columns: simple dot-notation JSONPath evaluator
+  function evalPrinterCol(col: PrinterColumn, o: Row): string {
+    const path = col.jsonPath.replace(/^\{/, "").replace(/\}$/, "").trim();
+    if (!path.startsWith(".")) return "";
+    const parts = path.slice(1).split(".");
+    let cur: unknown = o;
+    for (const part of parts) {
+      if (cur == null || typeof cur !== "object") return "";
+      cur = (cur as Record<string, unknown>)[part];
+    }
+    if (cur == null) return "";
+    if (typeof cur === "boolean") return cur ? "True" : "False";
+    if (typeof cur === "object") return JSON.stringify(cur);
+    return String(cur);
+  }
+
   const headers = useMemo(
-    () => ["Name", ...(def?.scoped ? [] : ["Namespace"]), ...cols, "Age"],
-    [def, cols],
+    () => ["Name", ...(def?.scoped ? [] : ["Namespace"]), ...cols, ...printerColumns.map((c) => c.name), "Age"],
+    [def, cols, printerColumns],
   );
 
   // Column widths: Name=240, Namespace=120, extra cols=110, Age=75
@@ -507,6 +538,11 @@ export default function ResourceTable() {
                         </td>
                       );
                     })}
+                    {printerColumns.map((col) => (
+                      <td key={col.name} className="mono muted">
+                        {evalPrinterCol(col, o) || <span className="muted">–</span>}
+                      </td>
+                    ))}
                     <td className="mono muted">{fmtAge(ageOf(o))}</td>
                   </tr>
                 );

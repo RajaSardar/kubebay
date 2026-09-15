@@ -1451,62 +1451,62 @@ tr.row-clickable:active {
 }
 
 /* ──── CRD Definitions page ──── */
-.crd-group { margin-bottom: 18px; }
+/* ──── CRD tree browser ──── */
+.crd-tree { display: flex; flex-direction: column; gap: 2px; }
 
-.crd-group-header {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  margin-bottom: 8px;
-  padding-bottom: 4px;
-  border-bottom: 1px solid var(--kb-border-subtle);
-}
+.crd-tree-group { border: 1px solid var(--kb-border-subtle); border-radius: 8px; overflow: hidden; }
 
-.crd-group-name {
-  font-weight: 600;
-  font-size: 13.5px;
-  color: var(--kb-fg-default);
-  font-family: var(--kb-font-mono);
-}
-
-.crd-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 8px;
-}
-
-.crd-card {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 10px 14px;
-  background: var(--kb-bg-inset);
-  border: 1px solid var(--kb-border-subtle);
-  border-radius: 8px;
-  text-decoration: none;
-  color: inherit;
-  transition: border-color var(--kb-dur-fast) var(--kb-ease), box-shadow var(--kb-dur-fast) var(--kb-ease);
-}
-
-.crd-card:hover {
-  border-color: var(--kb-accent);
-  box-shadow: 0 0 0 1px var(--kb-accent);
-}
-
-.crd-card-kind {
-  font-weight: 600;
-  font-size: 13px;
-  color: var(--kb-fg-default);
-}
-
-.crd-card-meta {
+.crd-tree-group-header {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  color: var(--kb-fg-muted);
-  word-break: break-all;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--kb-bg-inset);
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  color: var(--kb-fg-default);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--kb-font-mono);
 }
+.crd-tree-group-header:hover { background: var(--kb-bg-hover); }
+
+.crd-tree-chevron { font-size: 11px; color: var(--kb-fg-muted); width: 12px; flex-shrink: 0; }
+
+.crd-tree-group-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.crd-tree-count {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--kb-fg-muted);
+  background: var(--kb-bg-surface);
+  border: 1px solid var(--kb-border-subtle);
+  border-radius: 10px;
+  padding: 0 7px;
+  line-height: 18px;
+  flex-shrink: 0;
+}
+
+.crd-tree-rows { display: flex; flex-direction: column; }
+
+.crd-tree-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px 6px 28px;
+  text-decoration: none;
+  color: var(--kb-fg-default);
+  border-top: 1px solid var(--kb-border-subtle);
+  transition: background var(--kb-dur-fast);
+}
+.crd-tree-row:hover { background: var(--kb-bg-hover); }
+.crd-tree-row.active { background: var(--kb-accent-subtle); color: var(--kb-accent-fg); }
+
+.crd-tree-kind { font-weight: 500; min-width: 160px; }
+
+.crd-tree-meta { display: flex; align-items: center; gap: 6px; margin-left: auto; }
 
 .crd-badge {
   display: inline-block;
@@ -1517,15 +1517,34 @@ tr.row-clickable:active {
   font-weight: 500;
   flex-shrink: 0;
 }
+.crd-badge.ns { background: var(--kb-accent-subtle); color: var(--kb-accent-fg); }
+.crd-badge.cluster { background: var(--kb-status-warn-subtle); color: var(--kb-status-warn-fg); }
+.crd-badge.cols { background: var(--kb-bg-surface); color: var(--kb-fg-muted); border: 1px solid var(--kb-border-subtle); }
 
-.crd-badge.ns {
-  background: var(--kb-accent-subtle);
-  color: var(--kb-accent-fg);
+.crd-error {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--kb-status-err-subtle);
+  color: var(--kb-status-err-fg);
+  border: 1px solid var(--kb-status-err-border, var(--kb-border-subtle));
+  border-radius: 8px;
+  margin-bottom: 12px;
+  font-size: 13px;
 }
 
-.crd-badge.cluster {
-  background: var(--kb-status-warn-subtle);
-  color: var(--kb-status-warn-fg);
+.crd-loading-dots { display: inline-flex; gap: 4px; align-items: center; }
+.crd-loading-dots span {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--kb-accent);
+  animation: crd-dot-pulse 1.2s infinite ease-in-out;
+}
+.crd-loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+.crd-loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes crd-dot-pulse {
+  0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1); }
 }
 
 /* ──── Context menu ──── */
