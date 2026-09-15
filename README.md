@@ -29,7 +29,14 @@ Native installers — double-click to install, no terminal needed:
 | **Windows** x86\_64 | `Kubebay_VERSION_x64-setup.exe` |
 | **Linux** x86\_64 | `kubebay_VERSION_amd64.AppImage` or `kubebay_VERSION_amd64.deb` |
 
-> macOS note: unsigned build — right-click the `.dmg` and choose **Open** the first time to bypass Gatekeeper.
+> **macOS Gatekeeper notice** — Kubebay is not yet notarized by Apple.
+> On **macOS Sonoma / Sequoia** (14+) the right-click workaround no longer works.
+> After dragging Kubebay to `/Applications`, open **Terminal** and run:
+> ```bash
+> xattr -dr com.apple.quarantine /Applications/Kubebay.app
+> ```
+> Then double-click to open normally.
+> Alternatively: **System Settings → Privacy & Security → scroll to bottom → Open Anyway**.
 
 ### CLI engine (all platforms, v0.1.3+)
 

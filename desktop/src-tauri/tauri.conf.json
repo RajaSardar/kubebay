@@ -24,6 +24,12 @@
       "icons/128x128@2x.png"
     ],
     "externalBin": ["binaries/kubebay-engine"],
-    "resources": []
+    "resources": [],
+    "macOS": {
+      "minimumSystemVersion": "10.15",
+      "signingIdentity": null,
+      "providerShortName": null,
+      "entitlements": null
+    }
   }
 }
