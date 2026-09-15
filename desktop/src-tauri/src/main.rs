@@ -55,15 +55,25 @@ fn pick_free_port() -> u16 {
 /// user's custom bin dirs and won't be found, making every EKS/GKE cluster
 /// show as unreachable.  Fix: ask the login shell for its full PATH.
 fn login_shell_path() -> Option<String> {
-    // Try zsh first (default macOS shell), then bash.
+    login_shell_env_var("PATH")
+}
+
+/// Read an environment variable from the user's login shell.
+/// GUI apps on macOS don't inherit shell env vars (KUBECONFIG, PATH, etc.)
+/// because they are launched by launchd, not a shell session.
+fn login_shell_env_var(var: &str) -> Option<String> {
+    // Try zsh first (default macOS shell since Catalina), then bash.
+    // Use -l (login) so ~/.zprofile / ~/.bash_profile are sourced.
+    // printenv is more reliable than echo for vars that might be unset.
+    let script = format!("printenv {var} 2>/dev/null");
     for shell in &["/bin/zsh", "/bin/bash"] {
         if let Ok(out) = std::process::Command::new(shell)
-            .args(["-l", "-c", "echo $PATH"])
+            .args(["-l", "-c", &script])
             .output()
         {
-            let p = String::from_utf8_lossy(&out.stdout).trim().to_string();
-            if !p.is_empty() {
-                return Some(p);
+            let v = String::from_utf8_lossy(&out.stdout).trim().to_string();
+            if !v.is_empty() {
+                return Some(v);
             }
         }
     }
@@ -80,10 +90,18 @@ fn main() {
             let port = pick_free_port();
             let addr = format!("127.0.0.1:{port}");
             let sidecar = app.shell().sidecar("kubebay-engine")?.args(["--addr", &addr]);
+            // Inject PATH so exec credential plugins (aws, gke-gcloud-auth-plugin…) are found.
             let cmd = if let Some(path) = login_shell_path() {
                 sidecar.env("PATH", path)
             } else {
                 sidecar
+            };
+            // Inject KUBECONFIG so clusters defined via env var are discovered.
+            // Without this, apps launched from Finder/Dock only see ~/.kube/config.
+            let cmd = if let Some(kc) = login_shell_env_var("KUBECONFIG") {
+                cmd.env("KUBECONFIG", kc)
+            } else {
+                cmd
             };
 
             let (mut rx, child) = cmd.spawn()?;

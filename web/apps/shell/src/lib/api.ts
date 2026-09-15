@@ -244,6 +244,7 @@ export interface AppSettings {
   prometheusUrl?: string;
   extraKubeconfigs: string[];
   onlyListedKubeconfigs?: boolean;
+  activeKubeconfigs?: string[];
 }
 
 export const settingsApi = {

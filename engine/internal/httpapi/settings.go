@@ -109,6 +109,7 @@ func (s *SettingsManager) HandleGet(w http.ResponseWriter, r *http.Request) {
 		"prometheusUrl":         set.PrometheusURL,
 		"extraKubeconfigs":      set.ExtraKubeconfigs,
 		"onlyListedKubeconfigs": set.OnlyListed,
+		"activeKubeconfigs":     s.mgr.ActiveKubeconfigs(),
 	})
 }
 

@@ -6,11 +6,22 @@ import { useTheme, type ThemeName } from "../lib/theme";
 import { useDisplay, type FontSize, type FontFamily, type Density } from "../lib/display";
 
 const THEMES: { id: ThemeName; label: string; hint: string; swatch: [string, string, string] }[] = [
-  { id: "dusk", label: "Dusk", hint: "Dark · default", swatch: ["#0a0b10", "#171a24", "#5b8def"] },
-  { id: "dawn", label: "Dawn", hint: "Light", swatch: ["#f7f8fb", "#ffffff", "#3067d6"] },
-  { id: "system", label: "System", hint: "Follows OS", swatch: ["#101218", "#f7f8fb", "#5b8def"] },
-  { id: "dusk-hc", label: "Dusk HC", hint: "High contrast dark", swatch: ["#000000", "#161616", "#7cabff"] },
-  { id: "dawn-hc", label: "Dawn HC", hint: "High contrast light", swatch: ["#ffffff", "#f0f0f0", "#003fb3"] },
+  // ── Apple originals ──────────────────────────────────────────────────
+  { id: "dawn",        label: "Dawn",         hint: "Light · default",      swatch: ["#f2f2f7", "#ffffff", "#0077ed"] },
+  { id: "dusk",        label: "Dusk",         hint: "Dark · macOS",         swatch: ["#161617", "#1c1c1e", "#32ade6"] },
+  { id: "system",      label: "System",       hint: "Follows OS",           swatch: ["#161617", "#f2f2f7", "#32ade6"] },
+  { id: "dusk-hc",     label: "Dusk HC",      hint: "High contrast dark",   swatch: ["#000000", "#141414", "#40c8e0"] },
+  { id: "dawn-hc",     label: "Dawn HC",      hint: "High contrast light",  swatch: ["#ffffff", "#f0f0f0", "#006bd6"] },
+  // ── VSCode ───────────────────────────────────────────────────────────
+  { id: "vscode-dark",  label: "VS Dark+",    hint: "VSCode Dark+",         swatch: ["#1e1e1e", "#252526", "#0078d4"] },
+  { id: "vscode-light", label: "VS Light+",   hint: "VSCode Light+",        swatch: ["#f3f3f3", "#ffffff", "#0078d4"] },
+  // ── Community favourites ─────────────────────────────────────────────
+  { id: "one-dark",    label: "One Dark",     hint: "One Dark Pro",         swatch: ["#282c34", "#21252b", "#61afef"] },
+  { id: "dracula",     label: "Dracula",      hint: "Dracula Official",     swatch: ["#282a36", "#21222c", "#bd93f9"] },
+  { id: "nord",        label: "Nord",         hint: "Nord",                 swatch: ["#2e3440", "#3b4252", "#88c0d0"] },
+  { id: "github-dark", label: "GitHub Dark",  hint: "GitHub Dark",          swatch: ["#0d1117", "#161b22", "#58a6ff"] },
+  { id: "github-light",label: "GitHub Light", hint: "GitHub Light",         swatch: ["#f6f8fa", "#ffffff", "#0969da"] },
+  { id: "catppuccin",  label: "Catppuccin",   hint: "Catppuccin Mocha",     swatch: ["#1e1e2e", "#181825", "#cba6f7"] },
 ];
 
 function KubeconfigSources() {
@@ -20,6 +31,7 @@ function KubeconfigSources() {
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
   const extras = settings.data?.extraKubeconfigs ?? [];
+  const active = settings.data?.activeKubeconfigs ?? [];
   const isolated = settings.data?.onlyListedKubeconfigs ?? false;
 
   async function persist(next: string[], onlyListed?: boolean) {
@@ -42,6 +54,21 @@ function KubeconfigSources() {
   return (
     <Card style={{ marginTop: 18 }}>
       <div className="rbac-section-title">Kubeconfig sources</div>
+
+      {/* Active files being loaded */}
+      {active.length > 0 && (
+        <div style={{ marginBottom: 12 }}>
+          <p className="muted small" style={{ marginBottom: 6 }}>Active kubeconfig files (currently loaded):</p>
+          {active.map((p) => (
+            <div key={p} className="rbac-subject" style={{ marginBottom: 4 }}>
+              <span style={{ fontSize: 10, fontFamily: "var(--kb-font-mono)", background: "var(--kb-status-ok-subtle)", color: "var(--kb-status-ok-fg)", padding: "1px 6px", borderRadius: 4, marginRight: 8, flexShrink: 0 }}>active</span>
+              <span className="mono small" style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis" }}>{p}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Extra kubeconfig files */}
       {extras.map((p) => (
         <div key={p} className="rbac-subject" style={{ marginBottom: 6 }}>
           <span className="mono small" style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis" }}>{p}</span>
@@ -54,6 +81,7 @@ function KubeconfigSources() {
           </Button>
         </div>
       ))}
+
       <div className="rbac-subject" style={{ marginBottom: 6 }}>
         <label className="ctl" style={{ cursor: "pointer", flex: 1 }}>
           <input
@@ -64,7 +92,7 @@ function KubeconfigSources() {
           Use only the files listed above (ignore default ~/.kube/config and KUBECONFIG)
         </label>
       </div>
-      {!extras.length && <p className="muted small">Default kubeconfig is loaded automatically. Add extra files below — they merge into the cluster list.</p>}
+      {!extras.length && <p className="muted small">Default kubeconfig is loaded automatically. Add extra files below to merge additional clusters.</p>}
       <div className="pf-form">
         <input
           className="toolbar-input"
@@ -172,37 +200,40 @@ export default function Settings() {
   const { fontSize, fontFamily, density, setFontSize, setFontFamily, setDensity } = useDisplay();
   const settings = useQuery({ queryKey: ["settings"], queryFn: settingsApi.get });
 
+  // Split themes into groups for layout
+  const appleThemes = THEMES.filter((t) => ["dawn", "dusk", "system", "dusk-hc", "dawn-hc"].includes(t.id));
+  const communityThemes = THEMES.filter((t) => !appleThemes.includes(t));
+
   return (
     <div className="page" style={{ overflowY: "auto" }}>
       <div className="page-header">
-        <h2>Settings</h2>
+        <h1>Settings</h1>
       </div>
 
       <div className="settings-section-wrap">
         <div className="settings-section-title">Theme</div>
-        <div className="theme-grid">
-          {THEMES.map((t) => (
-            <button
-              key={t.id}
-              className={theme === t.id ? "theme-card active" : "theme-card"}
-              onClick={() => setTheme(t.id)}
-            >
-              <span
-                className="swatch"
-                style={{ background: `linear-gradient(135deg, ${t.swatch[0]} 45%, ${t.swatch[1]} 55%)` }}
-                ref={(el) => {
-                  if (!el) return;
-                  el.style.setProperty("--dot", t.swatch[2]);
-                }}
-              />
-              <span style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                <strong style={{ fontWeight: 600 }}>{t.label}</strong>
-                <span className="muted small">{t.hint}</span>
-              </span>
+
+        <p className="muted small" style={{ marginBottom: 10 }}>Apple</p>
+        <div className="theme-grid" style={{ marginBottom: 16 }}>
+          {appleThemes.map((t) => (
+            <button key={t.id} className={theme === t.id ? "theme-card active" : "theme-card"} onClick={() => setTheme(t.id)}>
+              <ThemeSwatch t={t} />
+              <ThemeLabel t={t} />
             </button>
           ))}
         </div>
-        <Button variant="ghost" style={{ marginTop: 10 }} onClick={() => setTheme("system")}>Reset to system</Button>
+
+        <p className="muted small" style={{ marginBottom: 10 }}>Community favourites</p>
+        <div className="theme-grid">
+          {communityThemes.map((t) => (
+            <button key={t.id} className={theme === t.id ? "theme-card active" : "theme-card"} onClick={() => setTheme(t.id)}>
+              <ThemeSwatch t={t} />
+              <ThemeLabel t={t} />
+            </button>
+          ))}
+        </div>
+
+        <Button variant="ghost" style={{ marginTop: 12 }} onClick={() => setTheme("system")}>Reset to system</Button>
       </div>
 
       <div className="settings-section-wrap">
@@ -243,5 +274,24 @@ export default function Settings() {
       <KubeconfigSources />
       {settings.isSuccess && <PrometheusSettings initial={settings.data.prometheusUrl} />}
     </div>
+  );
+}
+
+function ThemeSwatch({ t }: { t: typeof THEMES[0] }) {
+  return (
+    <span
+      className="swatch"
+      style={{ background: `linear-gradient(135deg, ${t.swatch[0]} 45%, ${t.swatch[1]} 55%)` }}
+      ref={(el) => { if (el) el.style.setProperty("--dot", t.swatch[2]); }}
+    />
+  );
+}
+
+function ThemeLabel({ t }: { t: typeof THEMES[0] }) {
+  return (
+    <span style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+      <strong style={{ fontWeight: 600 }}>{t.label}</strong>
+      <span className="muted small">{t.hint}</span>
+    </span>
   );
 }

@@ -108,6 +108,29 @@ func NewManager(log *slog.Logger, kubeconfigPath string) (*Manager, error) {
 	return m, nil
 }
 
+// ActiveKubeconfigs returns the resolved list of kubeconfig file paths that are
+// currently being loaded, in precedence order.  This is exposed via the
+// /api/settings GET endpoint so the UI can show the user exactly which files
+// are active (useful for debugging "why can't I see my clusters").
+func (m *Manager) ActiveKubeconfigs() []string {
+	m.mu.RLock()
+	kc := m.kubeconfig
+	isolated := m.isolated
+	extra := append([]string{}, m.extraPaths...)
+	m.mu.RUnlock()
+
+	if kc != "" {
+		return []string{kc}
+	}
+	if isolated {
+		return extra
+	}
+	r := clientcmd.NewDefaultClientConfigLoadingRules()
+	paths := append([]string{}, r.GetLoadingPrecedence()...)
+	paths = append(paths, extra...)
+	return paths
+}
+
 func (m *Manager) loadingRules() *clientcmd.ClientConfigLoadingRules {
 	if m.kubeconfig != "" {
 		return &clientcmd.ClientConfigLoadingRules{ExplicitPath: m.kubeconfig}

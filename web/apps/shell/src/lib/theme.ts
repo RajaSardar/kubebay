@@ -1,6 +1,11 @@
 import { create } from "zustand";
 
-export type ThemeName = "dusk" | "dawn" | "system" | "dusk-hc" | "dawn-hc";
+export type ThemeName =
+  | "dusk" | "dawn" | "system" | "dusk-hc" | "dawn-hc"
+  | "vscode-dark" | "vscode-light"
+  | "one-dark" | "dracula" | "nord"
+  | "github-dark" | "github-light"
+  | "catppuccin";
 
 interface ThemeState {
   theme: ThemeName;
@@ -17,6 +22,13 @@ function resolve(t: ThemeName): Exclude<ThemeName, "system"> {
   return systemPrefersDark() ? "dusk" : "dawn";
 }
 
+// v2 = dawn became default (was dusk in v1).  On first run after this bump,
+// reset to the new default so users see light mode by default.
+const THEME_DEFAULT_VERSION = "2";
+if (!localStorage.getItem("kb.theme.version")) {
+  localStorage.removeItem("kb.theme");
+  localStorage.setItem("kb.theme.version", THEME_DEFAULT_VERSION);
+}
 const stored = (localStorage.getItem("kb.theme") as ThemeName | null) ?? "dawn";
 
 export const useTheme = create<ThemeState>((set) => ({
