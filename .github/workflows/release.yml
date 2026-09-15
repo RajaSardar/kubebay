@@ -309,6 +309,7 @@ jobs:
             end
           end
           RUBY
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/RajaSardar/homebrew-tap.git"
           git config user.name "kubebay-release-bot"
           git config user.email "bot@kubebay.local"
           git add Formula/kubebay.rb
