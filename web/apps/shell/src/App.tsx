@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { NavLink, Route, Routes, useNavigate } from "react-router-dom";
 import { StatusDot } from "@kubebay/ui";
@@ -32,12 +32,18 @@ import { Palette } from "./components/Palette";
 import { discoveryApi } from "./lib/api";
 import { KNOWN_GVRS, extSlug } from "./lib/resources";
 import { FavoritesSidebar, useFavorites } from "./components/Favorites";
+import { useClusterIcons, type ClusterIcon } from "./lib/useClusterIcons";
 
 // ──── Cluster Context ────────────────────────────────────────────────────────
 
-const ClusterCtx = createContext<{ active: string; setActive: (id: string) => void }>({
+const ClusterCtx = createContext<{
+  active: string;
+  setActive: (id: string) => void;
+  switching: boolean;
+}>({
   active: "",
   setActive: () => {},
+  switching: false,
 });
 
 export const useActiveCluster = () => useContext(ClusterCtx);
@@ -205,7 +211,18 @@ function CustomResourcesGroup() {
 
 // ──── ClusterStrip ───────────────────────────────────────────────────────────
 
-function clusterAvatar(id: string): { bg: string; label: string } {
+const ICON_PRESETS = [
+  { bg: "#F90",     label: "AWS" },
+  { bg: "#4285F4",  label: "GCP" },
+  { bg: "#0078D4",  label: "AZ"  },
+  { bg: "#7C3AED",  label: "K"   },
+  { bg: "#326CE5",  label: "M"   },
+  { bg: "#41c98e",  label: "DEV" },
+  { bg: "#ef5f68",  label: "PRD" },
+  { bg: "#64748b",  label: "STG" },
+];
+
+function autoAvatar(id: string): { bg: string; label: string } {
   if (id.startsWith("arn:aws")) return { bg: "#F90", label: "AWS" };
   if (id.includes("gke") || id.includes("gcp")) return { bg: "#4285F4", label: "GCP" };
   if (id.includes("aks") || id.includes("azure")) return { bg: "#0078D4", label: "AZ" };
@@ -214,11 +231,84 @@ function clusterAvatar(id: string): { bg: string; label: string } {
   return { bg: "var(--kb-accent)", label: id.slice(0, 2).toUpperCase() };
 }
 
+interface IconPickerProps {
+  clusterId: string;
+  current: ClusterIcon;
+  onSave: (icon: ClusterIcon) => void;
+  onReset: () => void;
+  onClose: () => void;
+}
+
+function ClusterIconPicker({ clusterId, current, onSave, onReset, onClose }: IconPickerProps) {
+  const [bg, setBg] = useState(current.bg);
+  const [label, setLabel] = useState(current.label);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <>
+      <div className="icon-picker-backdrop" onClick={onClose} />
+      <div className="icon-picker">
+        <div className="icon-picker-title">Customize icon</div>
+        <div className="icon-picker-preview" style={{ background: bg }}>
+          {label || "?"}
+        </div>
+        <div className="icon-picker-section">Colors</div>
+        <div className="icon-picker-swatches">
+          {ICON_PRESETS.map((p) => (
+            <button
+              key={p.bg}
+              className={`icon-swatch${bg === p.bg ? " selected" : ""}`}
+              style={{ background: p.bg }}
+              onClick={() => { setBg(p.bg); setLabel(p.label); }}
+              title={p.label}
+            />
+          ))}
+          <label className="icon-swatch icon-swatch-custom" title="Custom color">
+            <input
+              type="color"
+              value={bg.startsWith("#") ? bg : "#41c98e"}
+              onChange={(e) => setBg(e.target.value)}
+              style={{ opacity: 0, position: "absolute", inset: 0, width: "100%", height: "100%", cursor: "pointer" }}
+            />
+            <span style={{ fontSize: 14 }}>🎨</span>
+          </label>
+        </div>
+        <div className="icon-picker-section">Label</div>
+        <input
+          className="icon-picker-input"
+          maxLength={3}
+          value={label}
+          onChange={(e) => setLabel(e.target.value.toUpperCase())}
+          placeholder={clusterId.slice(0, 3).toUpperCase()}
+          spellCheck={false}
+        />
+        <div className="icon-picker-actions">
+          <button className="icon-picker-btn ghost" onClick={() => { onReset(); onClose(); }}>
+            Reset
+          </button>
+          <button className="icon-picker-btn primary" onClick={() => { onSave({ bg, label }); onClose(); }}>
+            Apply
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
 function ClusterStrip() {
-  const { active, setActive } = useActiveCluster();
+  const { active, setActive, switching } = useActiveCluster();
   const clusters = useQuery({ queryKey: ["clusters"], queryFn: api.clusters, refetchInterval: 4_000 });
   const list = clusters.data ?? [];
   const effectiveActive = active || list.find((c) => c.status === "connected")?.id || "";
+  const { icons, setIcon, resetIcon } = useClusterIcons();
+  const [picker, setPicker] = useState<string | null>(null);
 
   return (
     <div className="cluster-strip">
@@ -236,14 +326,16 @@ function ClusterStrip() {
         <path d="M16 9v11M10 13.5h12" stroke="#fff" strokeWidth="2" strokeLinecap="round" opacity=".85" />
       </svg>
       {list.map((c) => {
-        const { bg, label } = clusterAvatar(c.id);
+        const auto = autoAvatar(c.id);
+        const { bg, label } = icons[c.id] ?? auto;
         const isActive = c.id === effectiveActive;
-        const isConnecting = c.id === active && c.status !== "connected";
+        const isSwitching = isActive && switching;
         return (
           <button
             key={c.id}
-            title={`${c.id}${isConnecting ? " (connecting…)" : c.status === "connected" ? " ✓" : " ✗"}`}
+            title={`${c.id} — right-click to customize icon`}
             onClick={() => setActive(c.id)}
+            onContextMenu={(e) => { e.preventDefault(); setPicker(c.id); }}
             style={{
               position: "relative",
               width: 40,
@@ -262,13 +354,14 @@ function ClusterStrip() {
               padding: 0,
               flexShrink: 0,
               transition: "opacity 150ms, border-color 150ms, box-shadow 150ms",
-              boxShadow: isActive ? `0 0 0 2px ${bg === "var(--kb-accent)" ? "var(--kb-accent)" : bg}44` : "none",
+              boxShadow: isActive ? `0 0 0 2px ${bg.startsWith("#") ? bg : "var(--kb-accent)"}44` : "none",
               fontFamily: "var(--kb-font-mono, monospace)",
               letterSpacing: "-0.02em",
+              overflow: "hidden",
             }}
           >
-            {isConnecting ? (
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="white" strokeWidth="2.5" style={{ animation: "spin 1s linear infinite" }}>
+            {isSwitching ? (
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="white" strokeWidth="2.5" style={{ animation: "spin 0.8s linear infinite" }}>
                 <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
               </svg>
             ) : label}
@@ -286,6 +379,20 @@ function ClusterStrip() {
           </button>
         );
       })}
+
+      {picker && (() => {
+        const auto = autoAvatar(picker);
+        const current = icons[picker] ?? auto;
+        return (
+          <ClusterIconPicker
+            clusterId={picker}
+            current={current}
+            onSave={(icon) => setIcon(picker, icon)}
+            onReset={() => resetIcon(picker)}
+            onClose={() => setPicker(null)}
+          />
+        );
+      })()}
     </div>
   );
 }
@@ -374,12 +481,19 @@ function AppInner() {
   const health = useQuery({ queryKey: ["health"], queryFn: api.health, refetchInterval: 10_000 });
   const up = health.data?.ok === true;
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [switching, setSwitching] = useState(false);
+  const switchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [active, setActiveState] = useState<string>(
     () => new URLSearchParams(window.location.search).get("cluster") ?? "",
   );
 
   const setActive = (id: string) => {
+    if (id !== active && active !== "") {
+      setSwitching(true);
+      if (switchTimer.current) clearTimeout(switchTimer.current);
+      switchTimer.current = setTimeout(() => setSwitching(false), 1800);
+    }
     setActiveState(id);
     const sp = new URLSearchParams(window.location.search);
     sp.set("cluster", id);
@@ -398,13 +512,14 @@ function AppInner() {
   }, []);
 
   return (
-    <ClusterCtx.Provider value={{ active, setActive }}>
+    <ClusterCtx.Provider value={{ active, setActive, switching }}>
       <div className="app">
         <ClusterStrip />
         <Sidebar up={up} onOpenPalette={() => setPaletteOpen(true)} />
         <Palette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
 
         <main className="content">
+          {switching && <div key={active} className="cluster-switch-bar" />}
           <Routes>
             <Route path="/" element={<Fleet />} />
             <Route path="/workloads" element={<Workloads />} />
