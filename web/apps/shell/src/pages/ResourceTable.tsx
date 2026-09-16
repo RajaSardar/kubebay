@@ -154,6 +154,15 @@ function extraColumns(
         Succeeded: (o) => ({ v: String(num(rec(o.status).succeeded)), dot: "ok" }),
         Failed: (o) => ({ v: String(num(rec(o.status).failed)), dot: num(rec(o.status).failed) ? "err" : undefined }),
       };
+    case "cronjobs":
+      return {
+        Schedule: (o) => ({ v: str(rec(o.spec).schedule) || "–" }),
+        "Last Schedule": (o) => {
+          const t = str(rec(o.status).lastScheduleTime);
+          if (!t) return { v: "–" };
+          return { v: fmtAge(Date.now() - Date.parse(t)) };
+        },
+      };
     case "persistentvolumeclaims":
       return {
         Status: (o) => {

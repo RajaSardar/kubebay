@@ -35,7 +35,7 @@ export const DEFS: Record<string, ResourceDef> = {
   statefulsets: def("statefulsets", "StatefulSets", "apps/v1/statefulsets", { mode: "full" }),
   daemonsets: def("daemonsets", "DaemonSets", "apps/v1/daemonsets", { mode: "full" }),
   jobs: def("jobs", "Jobs", "batch/v1/jobs", { mode: "full" }),
-  cronjobs: def("cronjobs", "CronJobs", "batch/v1/cronjobs", { mode: "metadata" }),
+  cronjobs: def("cronjobs", "CronJobs", "batch/v1/cronjobs", { mode: "full" }),
   configmaps: def("configmaps", "ConfigMaps", "v1/configmaps"),
   secrets: def("secrets", "Secrets", "v1/secrets"),
   services: def("services", "Services", "v1/services"),
