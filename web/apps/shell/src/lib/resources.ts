@@ -48,6 +48,7 @@ export const DEFS: Record<string, ResourceDef> = {
   endpoints: def("endpoints", "Endpoints", "v1/endpoints"),
   endpointslices: def("endpointslices", "EndpointSlices", "discovery.k8s.io/v1/endpointslices"),
   horizontalpodautoscalers: def("horizontalpodautoscalers", "HPAs", "autoscaling/v2/horizontalpodautoscalers", { mode: "full" }),
+  verticalpodautoscalers: def("verticalpodautoscalers", "VerticalPodAutoscalers", "autoscaling.k8s.io/v1/verticalpodautoscalers", { mode: "full" }),
   poddisruptionbudgets: def("poddisruptionbudgets", "PDBs", "policy/v1/poddisruptionbudgets"),
   resourcequotas: def("resourcequotas", "ResourceQuotas", "v1/resourcequotas"),
   limitranges: def("limitranges", "LimitRanges", "v1/limitranges"),
