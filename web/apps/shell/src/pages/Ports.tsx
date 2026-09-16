@@ -7,16 +7,13 @@ import { useCluster } from "../lib/useCluster";
 export default function Ports() {
   const qc = useQueryClient();
   const forwards = useQuery({ queryKey: ["pf"], queryFn: api.pfList, refetchInterval: 5000 });
-  const { cluster: contextCluster, setCluster: setContextCluster, list } = useCluster();
-  const [localCluster, setLocalCluster] = useState("");
+  const { cluster: effectiveCluster, setCluster, list } = useCluster();
   const [ns, setNs] = useState("default");
   const [pod, setPod] = useState("");
   const [podPort, setPodPort] = useState("");
   const [localPort, setLocalPort] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
-
-  const effectiveCluster = localCluster || contextCluster;
 
   async function create() {
     setErr("");
@@ -67,7 +64,7 @@ export default function Ports() {
           <select
             className="toolbar-select"
             value={effectiveCluster}
-            onChange={(e) => { setLocalCluster(e.target.value); setContextCluster(e.target.value); }}
+            onChange={(e) => setCluster(e.target.value)}
             aria-label="cluster"
           >
             {list.map((c) => (
