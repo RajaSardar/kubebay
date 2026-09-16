@@ -189,6 +189,13 @@ function extraColumns(
         Provisioner: (o) => ({ v: str(rec(o.spec).provisioner) }),
         Reclaim: (o) => ({ v: str(rec(o.spec).reclaimPolicy) || "Delete" }),
       };
+    case "namespaces":
+      return {
+        Status: (o) => {
+          const phase = str(rec(o.status).phase) || "Active";
+          return { v: phase, dot: phase === "Active" ? "ok" : "warn" };
+        },
+      };
     case "endpoints":
       return {
         "EndPoints": (o) => {

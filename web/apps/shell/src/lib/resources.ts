@@ -114,7 +114,7 @@ export function str(v: unknown): string {
 }
 
 export const EXTRA_DEFS: Record<string, ResourceDef> = {
-  namespaces: def("namespaces", "Namespaces", "v1/namespaces", { scoped: true }),
+  namespaces: def("namespaces", "Namespaces", "v1/namespaces", { scoped: true, mode: "full" }),
 };
 
 export const KNOWN_GVRS = new Set(
