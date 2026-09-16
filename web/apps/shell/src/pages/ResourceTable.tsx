@@ -188,6 +188,9 @@ function extraColumns(
       return {
         Provisioner: (o) => ({ v: str(rec(o.spec).provisioner) }),
         Reclaim: (o) => ({ v: str(rec(o.spec).reclaimPolicy) || "Delete" }),
+        Default: (o) => ({
+          v: (rec(o.metadata).annotations as Record<string, unknown> | undefined)?.["storageclass.kubernetes.io/is-default-class"] === "true" ? "Yes" : "–",
+        }),
       };
     case "namespaces":
       return {
