@@ -1,7 +1,9 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@kubebay/ui";
 import { useCluster } from "../lib/useCluster";
 import { useResourceStream } from "../lib/useResourceStream";
+import { useSelectedNamespaces } from "../lib/namespace-store";
+import { NamespaceFilter } from "../components/NamespaceFilter";
 
 // ── Type helpers ──────────────────────────────────────────────────────────────
 
@@ -217,19 +219,14 @@ const CELL_COLORS: Record<ConnStatus, { bg: string; text: string; symbol: string
 export default function NetworkPolicyPage() {
   const { cluster: effectiveCluster, setCluster, list } = useCluster();
 
-  // Namespace filter
-  const namespaces = useResourceStream(effectiveCluster || undefined, "v1/namespaces", { mode: "metadata" });
-  const nsOptions = useMemo(() => {
-    const names = (namespaces.rows as KObj[])
-      .map((r) => r.metadata?.name)
-      .filter((n): n is string => !!n)
-      .sort();
-    return ["(all)", ...names];
-  }, [namespaces.rows]);
+  // Namespace filter — shared, persisted, multi-select store. An empty
+  // selection means "(all)", matching NamespaceFilter's own convention.
+  const nsFilter = useSelectedNamespaces(effectiveCluster || undefined);
 
-  const [nsFilter, setNsFilter] = useState("(all)");
   const [activeTab, setActiveTab] = useState<"matrix" | "policies">("matrix");
   const [selectedCell, setSelectedCell] = useState<CellDetail | null>(null);
+
+  useEffect(() => setSelectedCell(null), [nsFilter]);
 
   // Stream pods (full, to get labels)
   const pods = useResourceStream(effectiveCluster || undefined, "v1/pods", { mode: "full" });
@@ -278,9 +275,9 @@ export default function NetworkPolicyPage() {
 
   const isolated = useMemo(() => isolatedNamespaces(policies), [policies]);
 
-  // Filter groups by namespace
+  // Filter groups by namespace — empty selection means "(all)"
   const filteredGroups = useMemo(
-    () => (nsFilter === "(all)" ? podGroups : podGroups.filter((g) => g.namespace === nsFilter)),
+    () => (nsFilter.length === 0 ? podGroups : podGroups.filter((g) => nsFilter.includes(g.namespace))),
     [podGroups, nsFilter],
   );
 
@@ -297,9 +294,9 @@ export default function NetworkPolicyPage() {
     return m;
   }, [filteredGroups, policies, isolated]);
 
-  // Policy list filter
+  // Policy list filter — empty selection means "(all)"
   const filteredPolicies = useMemo(
-    () => (nsFilter === "(all)" ? policies : policies.filter((p) => p.namespace === nsFilter)),
+    () => (nsFilter.length === 0 ? policies : policies.filter((p) => nsFilter.includes(p.namespace))),
     [policies, nsFilter],
   );
 
@@ -331,18 +328,7 @@ export default function NetworkPolicyPage() {
             </option>
           ))}
         </select>
-        <select
-          className="toolbar-select"
-          value={nsFilter}
-          onChange={(e) => { setNsFilter(e.target.value); setSelectedCell(null); }}
-          aria-label="namespace filter"
-        >
-          {nsOptions.map((n) => (
-            <option key={n} value={n}>
-              {n}
-            </option>
-          ))}
-        </select>
+        <NamespaceFilter cluster={effectiveCluster || undefined} />
 
         {/* Tab toggle */}
         <div style={{ marginLeft: "auto", display: "flex", gap: 4 }}>
