@@ -1,39 +1,39 @@
-import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { useState, useCallback } from "react";
+
+const KEY = "kb.cluster-icons";
 
 export interface ClusterIcon {
   bg: string;
   label: string;
 }
 
-interface ClusterIconState {
-  icons: Record<string, ClusterIcon>;
-  setIcon: (clusterId: string, icon: ClusterIcon) => void;
-  resetIcon: (clusterId: string) => void;
+function load(): Record<string, ClusterIcon> {
+  try {
+    return JSON.parse(localStorage.getItem(KEY) ?? "{}");
+  } catch {
+    return {};
+  }
 }
 
-export const useClusterIconStore = create<ClusterIconState>()((set) => ({
-  icons: {},
-  setIcon: (clusterId, icon) =>
-    set((state) => ({
-      icons: { ...state.icons, [clusterId]: icon },
-    })),
-  resetIcon: (clusterId) =>
-    set((state) => {
-      const next = { ...state.icons };
-      delete next[clusterId];
-      return { icons: next };
-    }),
-}));
-
-/**
- * Shared, reactive cluster-icon store. All consumers (ClusterStrip, Sidebar,
- * Home) read from the same zustand store, so an icon change made in one
- * shows up in the others immediately instead of only after a remount.
- */
 export function useClusterIcons() {
-  const icons = useClusterIconStore((s) => s.icons);
-  const setIcon = useClusterIconStore((s) => s.setIcon);
-  const resetIcon = useClusterIconStore((s) => s.resetIcon);
+  const [icons, setIcons] = useState<Record<string, ClusterIcon>>(load);
+
+  const setIcon = useCallback((clusterId: string, icon: ClusterIcon) => {
+    setIcons((prev) => {
+      const next = { ...prev, [clusterId]: icon };
+      localStorage.setItem(KEY, JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
+  const resetIcon = useCallback((clusterId: string) => {
+    setIcons((prev) => {
+      const next = { ...prev };
+      delete next[clusterId];
+      localStorage.setItem(KEY, JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
   return { icons, setIcon, resetIcon };
 }
