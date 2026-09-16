@@ -317,7 +317,7 @@ export default function Helm() {
         ))}
       </div>
 
-      {view === "charts" && clusterListReady && (
+      {view === "charts" && (
         <ChartsTab cluster={effectiveCluster} />
       )}
 
@@ -416,4 +416,3 @@ export default function Helm() {
   );
 }
 
-const clusterListReady = true;
