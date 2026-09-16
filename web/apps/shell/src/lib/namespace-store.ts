@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
 
 interface NamespaceState {
   /** Maps clusterName → selected namespace names. Empty array means "all namespaces". */
