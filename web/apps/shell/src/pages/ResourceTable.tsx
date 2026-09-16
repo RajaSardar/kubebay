@@ -60,6 +60,8 @@ interface Cell {
   v: string;
   dot?: "ok" | "warn" | "err" | "pending";
   cls?: string;
+  /** When set, the cell links to another resource's detail view instead of just displaying text. */
+  to?: { kind: string; ns: string; name: string };
 }
 
 const DOT: Record<NonNullable<Cell["dot"]>, string> = {
@@ -169,7 +171,11 @@ function extraColumns(
           const phase = str(rec(o.status).phase);
           return { v: phase, dot: phase === "Bound" ? "ok" : phase === "Lost" ? "err" : "warn" };
         },
-        Volume: (o) => ({ v: str(rec(o.spec).volumeName) || "–" }),
+        Volume: (o) => {
+          const vol = str(rec(o.spec).volumeName);
+          if (!vol) return { v: "–" };
+          return { v: vol, to: { kind: "persistentvolumes", ns: "", name: vol } };
+        },
         Capacity: (o) => {
           const req = rec(rec(o.spec).resources).requests;
           return { v: str(rec(req).storage) || "–" };
@@ -192,6 +198,13 @@ function extraColumns(
           };
         },
         Capacity: (o) => ({ v: str(rec(rec(o.spec).capacity).storage) || "–" }),
+        Claim: (o) => {
+          const claimRef = rec(rec(o.spec).claimRef);
+          const name = str(claimRef.name);
+          if (!name) return { v: "–" };
+          const ns = str(claimRef.namespace);
+          return { v: ns ? `${ns}/${name}` : name, to: { kind: "persistentvolumeclaims", ns, name } };
+        },
       };
     case "storageclasses":
       return {
@@ -612,7 +625,19 @@ export default function ResourceTable() {
                         <td key={col} className="mono muted">
                           <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
                             {cell.dot ? healthDot(cell.dot) : null}
-                            <span style={{ color: cell.cls }}>{cell.v}</span>
+                            {cell.to ? (
+                              <span
+                                className="cell-link"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(`/detail/${cell.to!.kind}/${cell.to!.ns || "_"}/${cell.to!.name}`);
+                                }}
+                              >
+                                {cell.v}
+                              </span>
+                            ) : (
+                              <span style={{ color: cell.cls }}>{cell.v}</span>
+                            )}
                           </span>
                         </td>
                       );
