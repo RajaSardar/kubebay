@@ -352,6 +352,7 @@ func Router(d Deps, token string) http.Handler {
 
 		r.Post("/api/helm/rollback", d.Helm.HandleRollback)
 		r.Post("/api/helm/uninstall", d.Helm.HandleUninstall)
+		r.Post("/api/helm/upgrade", d.Helm.HandleUpgrade)
 	})
 
 	return r
@@ -364,7 +365,9 @@ func requireToken(token string, auth *Authenticator) func(http.Handler) http.Han
 				next.ServeHTTP(w, r)
 				return
 			}
-			if token != "" && r.URL.Query().Get("token") != token {
+			headerToken := r.Header.Get("X-Kubebay-Token")
+			queryToken := r.URL.Query().Get("token")
+			if token != "" && headerToken != token && queryToken != token {
 				http.Error(w, "unauthorized", http.StatusUnauthorized)
 				return
 			}

@@ -48,6 +48,7 @@ import GenericDrawer from "../components/GenericDrawer";
 import { ContextMenu } from "../components/ContextMenu";
 import { StarButton } from "../components/Favorites";
 import { NamespaceFilter } from "../components/NamespaceFilter";
+import { useSelectedNamespaces } from "../lib/namespace-store";
 
 type Row = Record<string, unknown>;
 
@@ -273,7 +274,7 @@ export default function ResourceTable() {
   const { density } = useDisplay();
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const [nsFilter, setNsFilter] = useState<string[]>([]);
+  const nsFilter = useSelectedNamespaces(effectiveCluster || undefined);
   const [search, setSearch] = useState("");
   const [sortCol, setSortCol] = useState<string | null>(null);
   const [sortAsc, setSortAsc] = useState(true);
@@ -447,11 +448,7 @@ export default function ResourceTable() {
 
       <div className="toolbar">
         {!def.scoped && (
-          <NamespaceFilter
-            cluster={effectiveCluster || undefined}
-            selected={nsFilter}
-            onChange={setNsFilter}
-          />
+          <NamespaceFilter cluster={effectiveCluster || undefined} />
         )}
         <input
           className="toolbar-input"

@@ -336,7 +336,11 @@ export default function Helm() {
       </div>
 
       {releases.isError && (
-        <div className="error-banner">Failed to list releases — is the cluster reachable?</div>
+        <div className="error-banner">
+          Failed to list releases —{" "}
+          {releases.error instanceof Error ? releases.error.message : "is the cluster reachable?"}
+          <button className="btn-ghost small" style={{ marginLeft: 8 }} onClick={() => void releases.refetch()}>Retry</button>
+        </div>
       )}
 
       {!effectiveCluster ? (

@@ -40,6 +40,7 @@ import { KNOWN_GVRS, extSlug } from "./lib/resources";
 import { FavoritesSidebar, useFavorites } from "./components/Favorites";
 import { useClusterIcons, type ClusterIcon } from "./lib/useClusterIcons";
 import { useWsStatus } from "./lib/useWsStatus";
+import { clearStreamCacheForCluster } from "./lib/streamCache";
 
 // ──── Cluster Context ────────────────────────────────────────────────────────
 // `active` and `setActive` now live in Zustand (cluster-store.ts).
@@ -188,7 +189,7 @@ function CustomResourcesGroup() {
     queryKey: ["apis", cluster],
     queryFn: () => discoveryApi.apis(cluster),
     enabled: !!cluster,
-    staleTime: 60_000,
+    staleTime: 5 * 60_000, // API resource list changes only on CRD install/remove
     retry: false,
   });
   const [open, setOpen] = useState(false);
@@ -649,6 +650,7 @@ function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 
 function AppInner() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const health = useQuery({ queryKey: ["health"], queryFn: api.health, refetchInterval: 10_000 });
   const clusters = useQuery({ queryKey: ["clusters"], queryFn: api.clusters, refetchInterval: 4_000 });
   const up = health.data?.ok === true;
@@ -671,6 +673,11 @@ function AppInner() {
       // Safety: never block the UI longer than 15s
       if (safetyTimer.current) clearTimeout(safetyTimer.current);
       safetyTimer.current = setTimeout(() => setSwitching(false), 15_000);
+      // Background-revalidate all active queries for the new cluster so stale
+      // data gets refreshed without blocking the UI (cached data shows instantly).
+      queryClient.invalidateQueries({ queryKey: [id], refetchType: "active" });
+      // Clear stream cache for the old cluster so stale WS rows are not shown.
+      clearStreamCacheForCluster(effectiveActive);
     }
     setActiveState(id);
     useClusterStore.getState().setActive(id);

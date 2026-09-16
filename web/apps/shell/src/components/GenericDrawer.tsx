@@ -12,6 +12,7 @@ import type { ResourceDef } from "../lib/resources";
 // ── Tab types per resource kind ──────────────────────────────────────────────
 type NodeTab = "summary" | "shell" | "yaml";
 type SvcTab = "summary" | "yaml";
+type PodTab = "yaml" | "events" | "terminal";
 type GenTab = "yaml" | "events";
 
 // ── Split-pane drag handle ────────────────────────────────────────────────────
@@ -53,8 +54,10 @@ function SplitDivider({
 function PaneContent({
   isNode,
   isService,
+  isPod,
   nodeTab,
   svcTab,
+  podTab,
   genTab,
   cluster,
   def,
@@ -66,11 +69,15 @@ function PaneContent({
   shellErr,
   creating,
   onStartShell,
+  podContainer,
+  onSetPodContainer,
 }: {
   isNode: boolean;
   isService: boolean;
+  isPod: boolean;
   nodeTab: NodeTab;
   svcTab: SvcTab;
+  podTab: PodTab;
   genTab: GenTab;
   cluster: string;
   def: ResourceDef;
@@ -82,6 +89,8 @@ function PaneContent({
   shellErr: string;
   creating: boolean;
   onStartShell: () => void;
+  podContainer: string;
+  onSetPodContainer: (c: string) => void;
 }) {
   if (isService && svcTab === "summary") {
     if (objLoading) return <div className="muted small" style={{ padding: 14 }}>Loading…</div>;
@@ -115,14 +124,44 @@ function PaneContent({
       </div>
     );
   }
-  if ((isNode && nodeTab === "yaml") || (isService && svcTab === "yaml") || (!isNode && !isService && genTab === "yaml")) {
+  if (isPod && podTab === "terminal") {
+    const containers = parsePodContainers(obj);
+    const effectiveContainer = podContainer || containers[0] || "";
+    return (
+      <div className="term-wrap" style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+        {containers.length > 1 && (
+          <div style={{ padding: "4px 8px", borderBottom: "1px solid var(--kb-border-subtle)", flexShrink: 0 }}>
+            <select
+              className="toolbar-select"
+              value={effectiveContainer}
+              onChange={(e) => onSetPodContainer(e.target.value)}
+              style={{ fontSize: 11, height: 24 }}
+            >
+              {containers.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+        )}
+        <ExecTerm key={`${cluster}/${ns}/${name}/${effectiveContainer}`} cluster={cluster} namespace={ns} pod={name} container={effectiveContainer} />
+      </div>
+    );
+  }
+  if (isPod && podTab === "events") {
+    return (
+      <div style={{ padding: 14 }}>
+        <EventsDrawer cluster={cluster} namespace={ns} name={name} kind={def.label} />
+      </div>
+    );
+  }
+  if ((isNode && nodeTab === "yaml") || (isService && svcTab === "yaml") || (isPod && podTab === "yaml") || (!isNode && !isService && !isPod && genTab === "yaml")) {
     return (
       <div className="yaml-wrap">
         <YamlTab cluster={cluster} gvr={def.gvr} ns={ns} name={name} />
       </div>
     );
   }
-  if (!isNode && !isService && genTab === "events") {
+  if (!isNode && !isService && !isPod && genTab === "events") {
     return (
       <div style={{ padding: 14 }}>
         <EventsDrawer cluster={cluster} namespace={ns} name={name} kind={def.label} />
@@ -130,6 +169,13 @@ function PaneContent({
     );
   }
   return null;
+}
+
+function parsePodContainers(obj: Record<string, unknown> | null): string[] {
+  if (!obj) return [];
+  const spec = (obj.spec ?? {}) as Record<string, unknown>;
+  const containers = (spec.containers ?? []) as Array<Record<string, unknown>>;
+  return containers.map((c) => c.name as string).filter(Boolean);
 }
 
 // ── Mini tab bar for a pane ───────────────────────────────────────────────────
@@ -183,6 +229,7 @@ export default function GenericDrawer({
 
   const isNode = def.slug === "nodes";
   const isService = def.slug === "services";
+  const isPod = def.slug === "pods";
 
   // Per-kind split persistence key
   const splitKey = `kb.split.${def.slug}`;
@@ -190,6 +237,8 @@ export default function GenericDrawer({
   // ── Single-pane tab state ────────────────────────────────────────────────
   const [nodeTab, setNodeTab] = useState<NodeTab>("summary");
   const [svcTab, setSvcTab] = useState<SvcTab>("summary");
+  const [podTab, setPodTab] = useState<PodTab>("yaml");
+  const [podContainer, setPodContainer] = useState("");
   const [genTab, setGenTab] = useState<GenTab>("yaml");
 
   // ── Split-pane state ─────────────────────────────────────────────────────
@@ -202,19 +251,14 @@ export default function GenericDrawer({
   });
 
   // Per-pane tab state for split mode
-  const defaultLeftNodeTab: NodeTab = "summary";
-  const defaultRightNodeTab: NodeTab = "yaml";
-  const defaultLeftSvcTab: SvcTab = "summary";
-  const defaultRightSvcTab: SvcTab = "yaml";
-  const defaultLeftGenTab: GenTab = "events";
-  const defaultRightGenTab: GenTab = "yaml";
-
-  const [leftNodeTab, setLeftNodeTab] = useState<NodeTab>(defaultLeftNodeTab);
-  const [rightNodeTab, setRightNodeTab] = useState<NodeTab>(defaultRightNodeTab);
-  const [leftSvcTab, setLeftSvcTab] = useState<SvcTab>(defaultLeftSvcTab);
-  const [rightSvcTab, setRightSvcTab] = useState<SvcTab>(defaultRightSvcTab);
-  const [leftGenTab, setLeftGenTab] = useState<GenTab>(defaultLeftGenTab);
-  const [rightGenTab, setRightGenTab] = useState<GenTab>(defaultRightGenTab);
+  const [leftNodeTab, setLeftNodeTab] = useState<NodeTab>("summary");
+  const [rightNodeTab, setRightNodeTab] = useState<NodeTab>("yaml");
+  const [leftSvcTab, setLeftSvcTab] = useState<SvcTab>("summary");
+  const [rightSvcTab, setRightSvcTab] = useState<SvcTab>("yaml");
+  const [leftPodTab, setLeftPodTab] = useState<PodTab>("yaml");
+  const [rightPodTab, setRightPodTab] = useState<PodTab>("terminal");
+  const [leftGenTab, setLeftGenTab] = useState<GenTab>("events");
+  const [rightGenTab, setRightGenTab] = useState<GenTab>("yaml");
 
   // Pane width in percent (left pane)
   const [leftPct, setLeftPct] = useState(50);
@@ -309,7 +353,7 @@ export default function GenericDrawer({
   }, [splitKey]);
 
   useEffect(() => {
-    if (!isNode && !isService) return;
+    if (!isNode && !isService && !isPod) return;
     setObjLoading(true);
     api.getYamlText(cluster, def.gvr, ns, name).then((text) => {
       try {
@@ -318,7 +362,9 @@ export default function GenericDrawer({
         setObj(null);
       }
     }).catch(() => setObj(null)).finally(() => setObjLoading(false));
-  }, [cluster, def.gvr, ns, name, isNode, isService]);
+    // Reset container selection when pod changes
+    if (isPod) setPodContainer("");
+  }, [cluster, def.gvr, ns, name, isNode, isService, isPod]);
 
   async function doDelete() {
     if (input !== name) {
@@ -346,12 +392,14 @@ export default function GenericDrawer({
   // ── Tab label maps ───────────────────────────────────────────────────────
   const nodeTabLabels: Record<NodeTab, string> = { summary: "Summary", shell: "Terminal", yaml: "YAML" };
   const svcTabLabels: Record<SvcTab, string> = { summary: "Summary", yaml: "YAML" };
+  const podTabLabels: Record<PodTab, string> = { yaml: "YAML", events: "Events", terminal: "Terminal" };
   const genTabLabels: Record<GenTab, string> = { yaml: "YAML", events: "Events" };
 
   // ── Shared pane content props ────────────────────────────────────────────
   const sharedContentProps = {
     isNode,
     isService,
+    isPod,
     cluster,
     def,
     ns,
@@ -362,6 +410,8 @@ export default function GenericDrawer({
     shellErr,
     creating,
     onStartShell: () => void startShell(),
+    podContainer,
+    onSetPodContainer: setPodContainer,
   };
 
   return (
@@ -474,7 +524,16 @@ export default function GenericDrawer({
           ))}
         </div>
       )}
-      {!split && !isNode && !isService && (
+      {!split && isPod && (
+        <div className="tabs">
+          {(["yaml", "events", "terminal"] as const).map((t) => (
+            <button key={t} className={`tab${podTab === t ? " active" : ""}`} onClick={() => setPodTab(t)}>
+              {podTabLabels[t]}
+            </button>
+          ))}
+        </div>
+      )}
+      {!split && !isNode && !isService && !isPod && (
         <div className="tabs">
           {(["yaml", "events"] as const).map((t) => (
             <button key={t} className={`tab${genTab === t ? " active" : ""}`} onClick={() => setGenTab(t)}>
@@ -506,7 +565,15 @@ export default function GenericDrawer({
                 onChange={setLeftSvcTab}
               />
             )}
-            {!isNode && !isService && (
+            {isPod && (
+              <PaneTabs
+                tabs={["yaml", "events", "terminal"] as const}
+                active={leftPodTab}
+                labels={podTabLabels}
+                onChange={setLeftPodTab}
+              />
+            )}
+            {!isNode && !isService && !isPod && (
               <PaneTabs
                 tabs={["yaml", "events"] as const}
                 active={leftGenTab}
@@ -519,6 +586,7 @@ export default function GenericDrawer({
                 {...sharedContentProps}
                 nodeTab={leftNodeTab}
                 svcTab={leftSvcTab}
+                podTab={leftPodTab}
                 genTab={leftGenTab}
               />
             </div>
@@ -545,7 +613,15 @@ export default function GenericDrawer({
                 onChange={setRightSvcTab}
               />
             )}
-            {!isNode && !isService && (
+            {isPod && (
+              <PaneTabs
+                tabs={["yaml", "events", "terminal"] as const}
+                active={rightPodTab}
+                labels={podTabLabels}
+                onChange={setRightPodTab}
+              />
+            )}
+            {!isNode && !isService && !isPod && (
               <PaneTabs
                 tabs={["yaml", "events"] as const}
                 active={rightGenTab}
@@ -558,6 +634,7 @@ export default function GenericDrawer({
                 {...sharedContentProps}
                 nodeTab={rightNodeTab}
                 svcTab={rightSvcTab}
+                podTab={rightPodTab}
                 genTab={rightGenTab}
               />
             </div>
@@ -565,59 +642,13 @@ export default function GenericDrawer({
         </div>
       ) : (
         /* ── Single-pane content ── */
-        <>
-          {isService && svcTab === "summary" ? (
-            objLoading ? (
-              <div className="muted small" style={{ padding: 14 }}>Loading…</div>
-            ) : obj ? (
-              <ServiceSummary obj={obj} />
-            ) : (
-              <div className="muted small" style={{ padding: 14 }}>Could not load service data.</div>
-            )
-          ) : isNode && nodeTab === "summary" ? (
-            objLoading ? (
-              <div className="muted small" style={{ padding: 14 }}>Loading…</div>
-            ) : obj ? (
-              <NodeSummary obj={obj} />
-            ) : (
-              <div className="muted small" style={{ padding: 14 }}>Could not load node data.</div>
-            )
-          ) : isNode && nodeTab === "shell" ? (
-            shellPod ? (
-              <div className="term-wrap">
-                <ExecTerm cluster={cluster} namespace={shellPod.ns} pod={shellPod.pod} container="shell" shell="sh" />
-              </div>
-            ) : (
-              <div className="page" style={{ paddingTop: 24 }}>
-                {shellErr && <div className="error-banner">{shellErr}</div>}
-                <p className="muted small" style={{ marginTop: 0 }}>
-                  Starts a short-lived privileged helper pod (busybox + hostPID) pinned to{" "}
-                  <span className="mono">{name}</span>, giving you a root shell on the node.
-                  It is deleted automatically when this panel closes.
-                </p>
-                <Button disabled={creating} onClick={() => void startShell()}>
-                  {creating ? "Creating…" : "Start node shell"}
-                </Button>
-              </div>
-            )
-          ) : isNode && nodeTab === "yaml" ? (
-            <div className="yaml-wrap">
-              <YamlTab cluster={cluster} gvr={def.gvr} ns={ns} name={name} />
-            </div>
-          ) : isService && svcTab === "yaml" ? (
-            <div className="yaml-wrap">
-              <YamlTab cluster={cluster} gvr={def.gvr} ns={ns} name={name} />
-            </div>
-          ) : !isNode && !isService && genTab === "yaml" ? (
-            <div className="yaml-wrap">
-              <YamlTab cluster={cluster} gvr={def.gvr} ns={ns} name={name} />
-            </div>
-          ) : !isNode && !isService && genTab === "events" ? (
-            <div style={{ padding: 14 }}>
-              <EventsDrawer cluster={cluster} namespace={ns} name={name} kind={def.label} />
-            </div>
-          ) : null}
-        </>
+        <PaneContent
+          {...sharedContentProps}
+          nodeTab={nodeTab}
+          svcTab={svcTab}
+          podTab={podTab}
+          genTab={genTab}
+        />
       )}
     </aside>
   );

@@ -274,8 +274,18 @@ func (h *Hub) Handle(w http.ResponseWriter, r *http.Request, src SubSource) {
 			case ChanKindExec:
 				pr, pw := io.Pipe()
 				entry.stdin = pw
-				rz := make(chan TermSize, 8)
+				// Buffer 16: one slot for the initial size seed (written below)
+				// plus headroom for rapid resize events.  sizeQueue.Next() is
+				// a blocking read, so we must never let the channel fill up or
+				// the remotecommand goroutine will stall.
+				rz := make(chan TermSize, 16)
 				entry.resize = rz
+				// Seed initial terminal size so the k8s exec starts at the
+				// correct dimensions rather than the 80x24 default.
+				// frame.Cols/Rows are populated from the chan-open message.
+				if frame.Cols > 0 && frame.Rows > 0 {
+					rz <- TermSize{Cols: frame.Cols, Rows: frame.Rows}
+				}
 				go h.runExec(chCtx, frame, writer, pr, rz, func() { closeChan(frame.ID, entry) })
 			default:
 				go h.runLogs(chCtx, frame, writer, func() { closeChan(frame.ID, entry) })

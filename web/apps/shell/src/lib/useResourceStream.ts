@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import { attach, subscribe, unsubscribe, type Op } from "./ws";
+import { getStreamCache, setStreamCache } from "./streamCache";
 
 export interface StreamState {
   rows: Record<string, unknown>[];
@@ -13,6 +14,7 @@ export function useResourceStream(
   opts: { ns?: string[]; labelSelector?: string; mode?: "metadata" | "full"; enabled?: boolean } = {},
 ): StreamState {
   // The Map lives entirely outside React — never stored in useState.
+  // Pre-warm from module-level cache so returning to a tab is instant.
   const storeRef = useRef(new Map<string, Record<string, unknown>>());
 
   // Epoch counter: increments once per debounced flush (≤10/s).
@@ -53,8 +55,16 @@ export function useResourceStream(
       return;
     }
 
-    storeRef.current = new Map();
-    metaRef.current = { ...metaRef.current, synced: false };
+    // Pre-warm from module-level cache so re-navigating to a tab shows
+    // the last-known rows immediately, with no skeleton flash.
+    const cached = getStreamCache(specKey);
+    if (cached) {
+      storeRef.current = new Map(cached.entries);
+      metaRef.current = { synced: cached.synced, connected: false };
+    } else {
+      storeRef.current = new Map();
+      metaRef.current = { ...metaRef.current, synced: false };
+    }
     epochRef.current += 1;
     listenersRef.current.forEach((l) => l());
 
@@ -85,6 +95,8 @@ export function useResourceStream(
       onDelta: (_id: string, ops: Op[]) => applyOps(ops, false),
       onSync: () => {
         metaRef.current = { ...metaRef.current, synced: true };
+        // Snapshot synced state into module-level cache for instant re-render on revisit.
+        setStreamCache(specKey, Array.from(storeRef.current.entries()), true);
         scheduleFlushRef.current();
       },
       onError: (msg: string) => console.warn("[kubebay-stream]", msg),
@@ -102,6 +114,11 @@ export function useResourceStream(
     void subId;
 
     return () => {
+      // Save current state to module-level cache before teardown so the
+      // next mount of this specKey renders data immediately.
+      if (metaRef.current.synced) {
+        setStreamCache(specKey, Array.from(storeRef.current.entries()), true);
+      }
       unsubscribe(subId);
       streamDetach?.();
       // Cancel any pending flush so it doesn't fire after unmount.

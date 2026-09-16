@@ -15,7 +15,7 @@ export default function Crds() {
     queryKey: ["crds", cluster],
     queryFn: () => crdApi.list(cluster),
     enabled: !!cluster,
-    staleTime: 30_000,
+    staleTime: 5 * 60_000, // CRD list changes only on install/removal
     retry: 2,
   });
 

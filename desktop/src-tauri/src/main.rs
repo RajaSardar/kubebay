@@ -80,8 +80,25 @@ fn login_shell_env_var(var: &str) -> Option<String> {
     None
 }
 
+fn kill_engine() {
+    if let Some(cell) = ENGINE_CHILD.get() {
+        if let Ok(mut guard) = cell.lock() {
+            if let Some(child) = guard.take() {
+                let _ = child.kill();
+            }
+        }
+    }
+}
+
 fn main() {
     ENGINE_CHILD.get_or_init(|| Mutex::new(None));
+
+    // Kill the engine sidecar on Ctrl-C / SIGTERM so it never orphans.
+    ctrlc::set_handler(|| {
+        kill_engine();
+        std::process::exit(0);
+    })
+    .ok();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
@@ -163,16 +180,19 @@ fn main() {
         })
         .build(tauri::generate_context!())
         .expect("error building kubebay")
-        .run(|_app_handle, event| {
-            if let tauri::RunEvent::Exit = event {
-                if let Some(cell) = ENGINE_CHILD.get() {
-                    if let Ok(mut guard) = cell.lock() {
-                        if let Some(child) = guard.take() {
-                            let _ = child.kill();
-                            let _ = std::io::stdout().flush();
-                        }
-                    }
-                }
+        .run(|_app_handle, event| match event {
+            // Window closed (red ✕ button or ⌘W) — kill engine immediately.
+            tauri::RunEvent::WindowEvent {
+                event: tauri::WindowEvent::Destroyed,
+                ..
+            } => {
+                kill_engine();
             }
+            // App fully exiting — belt-and-suspenders kill + flush stdout.
+            tauri::RunEvent::Exit => {
+                kill_engine();
+                let _ = std::io::stdout().flush();
+            }
+            _ => {}
         });
 }
