@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Badge, Skeleton, StatusDot } from "@kubebay/ui";
+import { Badge, Button, Skeleton, StatusDot } from "@kubebay/ui";
 import { api, crdApi, metricsApi, type PrinterColumn } from "../lib/api";
 import { useQuery as useRQQuery } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -280,6 +280,9 @@ export default function ResourceTable() {
   const [sortAsc, setSortAsc] = useState(true);
   const [selected, setSelected] = useState<{ ns: string; name: string } | null>(null);
   const [ctx, setCtx] = useState<{ x: number; y: number; ns: string; name: string } | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<{ ns: string; name: string } | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteErr, setDeleteErr] = useState("");
 
   const stream = useResourceStream(effectiveCluster || undefined, def?.gvr ?? "v1/configmaps", {
     mode: def?.mode,
@@ -428,6 +431,20 @@ export default function ResourceTable() {
     else { setSortCol(h); setSortAsc(true); }
   }
 
+  async function confirmDelete() {
+    if (!pendingDelete) return;
+    setDeleteBusy(true);
+    setDeleteErr("");
+    try {
+      await api.deleteResource({ cluster: effectiveCluster, gvr: def?.gvr ?? "", ns: pendingDelete.ns, name: pendingDelete.name });
+      setPendingDelete(null);
+    } catch (e) {
+      setDeleteErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setDeleteBusy(false);
+    }
+  }
+
   return (
     <div className="page">
       <div className="page-header">
@@ -445,6 +462,24 @@ export default function ResourceTable() {
           <Badge>{rows.length}</Badge>
         </div>
       </div>
+
+      {pendingDelete && (
+        <div className="crd-error" style={{ justifyContent: "space-between" }}>
+          <span>
+            Delete <strong className="mono">{pendingDelete.name}</strong>
+            {pendingDelete.ns ? ` in ${pendingDelete.ns}` : ""}? This can&apos;t be undone.
+          </span>
+          <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+            <Button variant="ghost" disabled={deleteBusy} onClick={() => setPendingDelete(null)}>
+              Cancel
+            </Button>
+            <Button variant="danger" disabled={deleteBusy} onClick={() => void confirmDelete()}>
+              {deleteBusy ? "Deleting…" : "Delete"}
+            </Button>
+          </div>
+        </div>
+      )}
+      {deleteErr && <div className="crd-error">Delete failed: {deleteErr}</div>}
 
       <div className="toolbar">
         {!def.scoped && (
@@ -586,9 +621,8 @@ export default function ResourceTable() {
             { label: "Edit YAML", icon: "📝", onClick: () => setSelected({ ns: ctx.ns, name: ctx.name }) },
             { separator: true, label: "", onClick: () => {} },
             { label: "Delete", icon: "🗑", danger: true, onClick: () => {
-              if (confirm(`Delete ${ctx.name}?`)) {
-                api.deleteResource({ cluster: effectiveCluster, gvr: def?.gvr ?? "", ns: ctx.ns, name: ctx.name });
-              }
+              setDeleteErr("");
+              setPendingDelete({ ns: ctx.ns, name: ctx.name });
             }},
           ]}
         />
