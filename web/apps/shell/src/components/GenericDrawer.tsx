@@ -295,13 +295,21 @@ export default function GenericDrawer({
   const [creating, setCreating] = useState(false);
   const [shellPod, setShellPod] = useState<{ ns: string; pod: string } | null>(null);
   const [shellErr, setShellErr] = useState("");
+  // Mirrors shellPod for the cleanup effect below — a mount-time effect closure
+  // would otherwise always see the `null` shellPod had at first render, since
+  // it's only set later, asynchronously, once startShell() resolves. That stale
+  // closure meant the privileged node-shell pod was never actually deleted on
+  // drawer close, despite the UI promising it would be.
+  const shellPodRef = useRef<{ ns: string; pod: string } | null>(null);
 
   async function startShell() {
     setCreating(true);
     setShellErr("");
     try {
       const r = await nodeApi.shellStart({ cluster, node: name });
-      setShellPod({ ns: r.namespace, pod: r.pod });
+      const pod = { ns: r.namespace, pod: r.pod };
+      shellPodRef.current = pod;
+      setShellPod(pod);
     } catch (e) {
       setShellErr(String(e instanceof Error ? e.message : e));
     } finally {
@@ -311,14 +319,14 @@ export default function GenericDrawer({
 
   useEffect(() => {
     return () => {
-      if (shellPod) {
+      const pod = shellPodRef.current;
+      if (pod) {
         void api
-          .deleteResource({ cluster, gvr: "v1/pods", ns: shellPod.ns, name: shellPod.pod })
+          .deleteResource({ cluster, gvr: "v1/pods", ns: pod.ns, name: pod.pod })
           .catch(() => undefined);
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [cluster]);
 
   useEffect(() => {
     setConfirming(false);

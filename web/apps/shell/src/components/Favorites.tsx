@@ -17,7 +17,6 @@ function saveFavorites(favs: string[]) {
 
 const ROUTE_LABELS: Record<string, string> = {
   "/": "Overview",
-  "/fleet": "Fleet",
   "/workloads": "Pods",
   "/workloads-overview": "Workloads Overview",
   "/ports": "Port Forwards",

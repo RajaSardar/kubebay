@@ -17,7 +17,6 @@ export function usePaletteItems(): PaletteItem[] {
   return useMemo(
     () => [
       { label: "Overview", to: "/" },
-      { label: "Fleet", to: "/fleet" },
       { label: "Pods", to: "/workloads" },
       { label: "Deployments", to: "/r/deployments" },
       { label: "ReplicaSets", to: "/r/replicasets" },

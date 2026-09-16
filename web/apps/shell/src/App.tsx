@@ -647,6 +647,26 @@ function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
   );
 }
 
+// ──── NotFound ───────────────────────────────────────────────────────────────
+// Catches stale/dead links (e.g. a favorited route removed in a later version)
+// so an unmatched path shows a recoverable message instead of a silent blank
+// content pane — Routes with no matching Route and no wildcard renders nothing.
+
+function NotFound() {
+  const navigate = useNavigate();
+  return (
+    <div className="page">
+      <div className="empty-state">
+        <p>This page doesn't exist.</p>
+        <p className="muted small">The link may be out of date — try Home or search with ⌘K.</p>
+        <button className="ns-clear" style={{ marginTop: 12 }} onClick={() => navigate("/")}>
+          Go home
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ──── App ────────────────────────────────────────────────────────────────────
 
 function AppInner() {
@@ -744,6 +764,7 @@ function AppInner() {
               <Route path="/crds" element={<Crds />} />
               <Route path="/network-policy" element={<NetworkPolicy />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="*" element={<NotFound />} />
             </Routes>
           </ErrorBoundary>
 
