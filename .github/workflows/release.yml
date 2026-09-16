@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write   # required by anchore/sbom-action for OIDC attestation
 
 jobs:
   # ── CLI engine tarballs (headless, all platforms) ──────────────────────────
@@ -239,9 +240,31 @@ jobs:
           name: desktop-${{ matrix.os }}
           path: dist/*
 
+  # ── SBOM generation (whole repo + Go engine) ──────────────────────────────
+  sbom:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate repo-wide SBOM (CycloneDX JSON)
+        uses: anchore/sbom-action@v0
+        with:
+          path: .
+          format: cyclonedx-json
+          output-file: sbom.json
+          artifact-name: sbom.json
+
+      - name: Generate Go engine SBOM (CycloneDX JSON)
+        uses: anchore/sbom-action@v0
+        with:
+          path: ./engine
+          format: cyclonedx-json
+          output-file: sbom-go.json
+          artifact-name: sbom-go.json
+
   # ── Single GitHub release combining everything ────────────────────────────
   github-release:
-    needs: [engine-binaries, desktop]
+    needs: [engine-binaries, desktop, sbom]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

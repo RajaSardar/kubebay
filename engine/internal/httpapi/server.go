@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
+	"github.com/RajaSardar/kubebay/engine/internal/audit"
 	"github.com/RajaSardar/kubebay/engine/internal/clusters"
 	"github.com/RajaSardar/kubebay/engine/internal/informers"
 	"github.com/RajaSardar/kubebay/engine/internal/stream"
@@ -31,12 +33,13 @@ type Deps struct {
 	NodeShell *NodeShellManager
 	Settings  *SettingsManager
 	Auth      *Authenticator
+	Audit     *audit.Logger
 }
 
 func (d Deps) authEnabled() bool { return d.Auth != nil && d.Auth.Enabled() }
 
-func NewChannels(mgr *clusters.Manager) *Channels {
-	return &Channels{Clusters: mgr}
+func NewChannels(mgr *clusters.Manager, auditLog *audit.Logger) *Channels {
+	return &Channels{Clusters: mgr, Audit: auditLog}
 }
 
 func NewToken() (string, error) {
@@ -103,6 +106,14 @@ func Router(d Deps, token string) http.Handler {
 				http.Error(w, err.Error(), http.StatusBadGateway)
 				return
 			}
+			d.Audit.Record(audit.Entry{
+				Action:    "port-forward",
+				Cluster:   body.Cluster,
+				Namespace: body.Namespace,
+				Resource:  body.Pod,
+				Detail:    fmt.Sprintf("podPort=%d localPort=%d", body.PodPort, fw.LocalPort),
+				UserAgent: r.Header.Get("User-Agent"),
+			})
 			writeJSON(w, fw)
 		})
 		r.Delete("/api/pf/{id}", func(w http.ResponseWriter, r *http.Request) {
@@ -130,6 +141,14 @@ func Router(d Deps, token string) http.Handler {
 				http.Error(w, err.Error(), http.StatusBadGateway)
 				return
 			}
+			d.Audit.Record(audit.Entry{
+				Action:    "scale",
+				Cluster:   body.Cluster,
+				Namespace: body.NS,
+				Resource:  body.Name,
+				Detail:    fmt.Sprintf("gvr=%s replicas=%d", body.GVR, body.Replicas),
+				UserAgent: r.Header.Get("User-Agent"),
+			})
 			writeJSON(w, map[string]bool{"ok": true})
 		})
 		r.Post("/api/action/restart", func(w http.ResponseWriter, r *http.Request) {
@@ -147,6 +166,14 @@ func Router(d Deps, token string) http.Handler {
 				http.Error(w, err.Error(), http.StatusBadGateway)
 				return
 			}
+			d.Audit.Record(audit.Entry{
+				Action:    "restart",
+				Cluster:   body.Cluster,
+				Namespace: body.NS,
+				Resource:  body.Name,
+				Detail:    fmt.Sprintf("gvr=%s", body.GVR),
+				UserAgent: r.Header.Get("User-Agent"),
+			})
 			writeJSON(w, map[string]bool{"ok": true})
 		})
 		r.Post("/api/action/delete", func(w http.ResponseWriter, r *http.Request) {
@@ -166,6 +193,18 @@ func Router(d Deps, token string) http.Handler {
 				http.Error(w, err.Error(), http.StatusBadGateway)
 				return
 			}
+			detail := fmt.Sprintf("gvr=%s forceFinalizers=%t", body.GVR, body.ForceFinalizers)
+			if body.GraceSeconds != nil {
+				detail += fmt.Sprintf(" gracePeriod=%ds", *body.GraceSeconds)
+			}
+			d.Audit.Record(audit.Entry{
+				Action:    "delete",
+				Cluster:   body.Cluster,
+				Namespace: body.NS,
+				Resource:  body.Name,
+				Detail:    detail,
+				UserAgent: r.Header.Get("User-Agent"),
+			})
 			writeJSON(w, map[string]bool{"ok": true})
 		})
 		r.Post("/api/action/resize-pod", func(w http.ResponseWriter, r *http.Request) {
@@ -187,6 +226,18 @@ func Router(d Deps, token string) http.Handler {
 				return
 			}
 			writeJSON(w, map[string]bool{"ok": true})
+		})
+
+		r.Get("/api/audit", func(w http.ResponseWriter, r *http.Request) {
+			entries, err := d.Audit.Tail(500)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			if entries == nil {
+				entries = []audit.Entry{}
+			}
+			writeJSON(w, entries)
 		})
 
 		r.Get("/api/yaml", d.Channels.HandleGetYAML)
@@ -223,6 +274,13 @@ func Router(d Deps, token string) http.Handler {
 				http.Error(w, err.Error(), http.StatusBadGateway)
 				return
 			}
+			d.Audit.Record(audit.Entry{
+				Action:    "cordon",
+				Cluster:   body.Cluster,
+				Resource:  body.Node,
+				Detail:    fmt.Sprintf("cordon=%t", body.Cordon),
+				UserAgent: r.Header.Get("User-Agent"),
+			})
 			writeJSON(w, map[string]bool{"ok": true})
 		})
 		r.Post("/api/action/drain", func(w http.ResponseWriter, r *http.Request) {
@@ -243,6 +301,13 @@ func Router(d Deps, token string) http.Handler {
 				http.Error(w, err.Error(), http.StatusBadGateway)
 				return
 			}
+			d.Audit.Record(audit.Entry{
+				Action:    "drain",
+				Cluster:   body.Cluster,
+				Resource:  body.Node,
+				Detail:    fmt.Sprintf("ignoreDaemonsets=%t evicted=%d", body.IgnoreDaemonsets, len(sum.Evicted)),
+				UserAgent: r.Header.Get("User-Agent"),
+			})
 			writeJSON(w, sum)
 		})
 		r.Post("/api/action/trigger-cronjob", func(w http.ResponseWriter, r *http.Request) {
@@ -281,6 +346,9 @@ func Router(d Deps, token string) http.Handler {
 		})
 
 		r.Post("/api/node-shell", d.NodeShell.HandleStart)
+
+		r.Get("/api/argocd/apps", argoCDAppsHandler(d.Metrics))
+		r.Post("/api/argocd/sync", argoCDSyncHandler(d.Metrics))
 
 		r.Post("/api/helm/rollback", d.Helm.HandleRollback)
 		r.Post("/api/helm/uninstall", d.Helm.HandleUninstall)

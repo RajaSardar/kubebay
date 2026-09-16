@@ -1,8 +1,11 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import type { ClusterInfo } from "./lib/api";
 import { NavLink, Route, Routes, useNavigate } from "react-router-dom";
+import { useClusterStore } from "./lib/cluster-store";
 import { StatusDot } from "@kubebay/ui";
 import {
+  IconArgoCD,
   IconCube,
   IconDatabase,
   IconForward,
@@ -27,7 +30,10 @@ import Rbac from "./pages/Rbac";
 import Helm from "./pages/Helm";
 import WorkloadsOverview from "./pages/WorkloadsOverview";
 import ResourceTable from "./pages/ResourceTable";
+import ResourceDetail from "./pages/ResourceDetail";
 import Crds from "./pages/Crds";
+import NetworkPolicy from "./pages/NetworkPolicy";
+import ArgoCD from "./pages/ArgoCD";
 import { Palette } from "./components/Palette";
 import { discoveryApi } from "./lib/api";
 import { KNOWN_GVRS, extSlug } from "./lib/resources";
@@ -36,18 +42,19 @@ import { useClusterIcons, type ClusterIcon } from "./lib/useClusterIcons";
 import { useWsStatus } from "./lib/useWsStatus";
 
 // ──── Cluster Context ────────────────────────────────────────────────────────
+// `active` and `setActive` now live in Zustand (cluster-store.ts).
+// ClusterCtx only carries UI-only `switching` state.
 
-const ClusterCtx = createContext<{
-  active: string;
-  setActive: (id: string) => void;
-  switching: boolean;
-}>({
-  active: "",
-  setActive: () => {},
+const ClusterCtx = createContext<{ switching: boolean; setActive: (id: string) => void }>({
   switching: false,
+  setActive: () => {},
 });
 
-export const useActiveCluster = () => useContext(ClusterCtx);
+export function useActiveCluster() {
+  const { active, setActive } = useClusterStore();
+  const { switching } = useContext(ClusterCtx);
+  return { active, setActive, switching };
+}
 
 // ──── Nav types ──────────────────────────────────────────────────────────────
 
@@ -100,7 +107,7 @@ const GROUPS: NavGroupDef[] = [
       { to: "/r/endpointslices", label: "EndpointSlices" },
       { to: "/r/ingresses", label: "Ingresses" },
       { to: "/r/ingressclasses", label: "IngressClasses" },
-      { to: "/r/networkpolicies", label: "NetworkPolicies" },
+      { to: "/network-policy", label: "NetworkPolicies" },
     ],
   },
   {
@@ -158,6 +165,7 @@ const TOOLS = [
   { to: "/crds", label: "CRDs", icon: <IconGrid /> },
   { to: "/ports", label: "Ports", icon: <IconForward /> },
   { to: "/helm", label: "Helm", icon: <IconHelm /> },
+  { to: "/argocd", label: "ArgoCD", icon: <IconArgoCD /> },
   { to: "/rbac", label: "RBAC", icon: <IconShield /> },
   { to: "/timeline", label: "Timeline", icon: <IconTimeline /> },
   { to: "/topology", label: "Topology", icon: <IconTopology /> },
@@ -173,8 +181,9 @@ function NavSub({ leaf }: { leaf: NavLeaf }) {
 }
 
 function CustomResourcesGroup() {
-  const clusters = useQuery({ queryKey: ["clusters"], queryFn: api.clusters });
-  const cluster = (clusters.data ?? []).find((c) => c.status === "connected")?.id ?? "";
+  const queryClient = useQueryClient();
+  const clusterListCRG = queryClient.getQueryData<ClusterInfo[]>(["clusters"]) ?? [];
+  const cluster = clusterListCRG.find((c) => c.status === "connected")?.id ?? "";
   const disc = useQuery({
     queryKey: ["apis", cluster],
     queryFn: () => discoveryApi.apis(cluster),
@@ -451,9 +460,10 @@ function ClusterConnectingOverlay({
 }
 
 function ClusterStrip() {
-  const { active, setActive, switching } = useActiveCluster();
-  const clusters = useQuery({ queryKey: ["clusters"], queryFn: api.clusters, refetchInterval: 4_000 });
-  const list = clusters.data ?? [];
+  const { active } = useClusterStore();
+  const { switching, setActive } = useContext(ClusterCtx);
+  const queryClient = useQueryClient();
+  const list = queryClient.getQueryData<ClusterInfo[]>(["clusters"]) ?? [];
   const effectiveActive = active || list.find((c) => c.status === "connected")?.id || "";
   const { icons, setIcon, resetIcon } = useClusterIcons();
   const [picker, setPicker] = useState<string | null>(null);
@@ -555,9 +565,9 @@ function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
   };
   const [open, setOpen] = useState(initialOpen);
   const { favorites, remove: removeFav } = useFavorites();
-  const { active } = useContext(ClusterCtx);
-  const clusters = useQuery({ queryKey: ["clusters"], queryFn: api.clusters, refetchInterval: 4_000 });
-  const clusterList = clusters.data ?? [];
+  const { active } = useClusterStore();
+  const queryClient = useQueryClient();
+  const clusterList = queryClient.getQueryData<ClusterInfo[]>(["clusters"]) ?? [];
   const effectiveActive = active || clusterList.find((c) => c.status === "connected")?.id || clusterList[0]?.id || "";
   const activeCluster = clusterList.find((c) => c.id === effectiveActive);
 
@@ -663,6 +673,7 @@ function AppInner() {
       safetyTimer.current = setTimeout(() => setSwitching(false), 15_000);
     }
     setActiveState(id);
+    useClusterStore.getState().setActive(id);
     const sp = new URLSearchParams(window.location.search);
     sp.set("cluster", id);
     navigate({ search: sp.toString() }, { replace: true });
@@ -701,7 +712,7 @@ function AppInner() {
     : { bg: "var(--kb-accent)", label: "…" };
 
   return (
-    <ClusterCtx.Provider value={{ active, setActive, switching }}>
+    <ClusterCtx.Provider value={{ switching, setActive }}>
       <div className="app">
         <ClusterStrip />
         <Sidebar onOpenPalette={() => setPaletteOpen(true)} />
@@ -713,12 +724,15 @@ function AppInner() {
             <Route path="/workloads" element={<Workloads />} />
             <Route path="/workloads-overview" element={<WorkloadsOverview />} />
             <Route path="/r/:kind" element={<ResourceTable />} />
+            <Route path="/detail/:kind/:ns/:name" element={<ResourceDetail />} />
             <Route path="/ports" element={<Ports />} />
             <Route path="/timeline" element={<Timeline />} />
             <Route path="/topology" element={<Topology />} />
             <Route path="/rbac" element={<Rbac />} />
             <Route path="/helm" element={<Helm />} />
+            <Route path="/argocd" element={<ArgoCD />} />
             <Route path="/crds" element={<Crds />} />
+            <Route path="/network-policy" element={<NetworkPolicy />} />
             <Route path="/settings" element={<Settings />} />
           </Routes>
 

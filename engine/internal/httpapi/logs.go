@@ -8,12 +8,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 
+	"github.com/RajaSardar/kubebay/engine/internal/audit"
 	"github.com/RajaSardar/kubebay/engine/internal/clusters"
 	"github.com/RajaSardar/kubebay/engine/internal/stream"
 )
 
 type Channels struct {
 	Clusters *clusters.Manager
+	Audit    *audit.Logger
 }
 
 func (c *Channels) clientset(ctx context.Context, cluster string) (*kubernetes.Clientset, error) {

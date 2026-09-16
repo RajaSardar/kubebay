@@ -23,7 +23,9 @@ export interface ClusterInfo {
 }
 
 async function get<T>(path: string): Promise<T> {
-  const res = await fetch(`${path}?token=${encodeURIComponent(getToken())}`);
+  const res = await fetch(path, {
+    headers: { "X-Kubebay-Token": getToken() },
+  });
   if (res.status === 401 && !getToken()) {
     window.location.href = "/api/auth/login";
     throw new Error("login required");
@@ -33,9 +35,11 @@ async function get<T>(path: string): Promise<T> {
 }
 
 async function send<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const res = await fetch(`${path}?token=${encodeURIComponent(getToken())}`, {
+  const headers: Record<string, string> = { "X-Kubebay-Token": getToken() };
+  if (body) headers["Content-Type"] = "application/json";
+  const res = await fetch(path, {
     method,
-    headers: body ? { "Content-Type": "application/json" } : undefined,
+    headers,
     body: body ? JSON.stringify(body) : undefined,
   });
   if (!res.ok) {
@@ -94,11 +98,14 @@ export const api = {
   }) => send<{ ok: boolean }>("POST", "/api/action/resize-pod", b),
 
   getYamlText: async (cluster: string, gvr: string, ns: string, name: string): Promise<string> => {
-    const q = new URLSearchParams({ token: getToken(), cluster, gvr, ns, name });
+    const q = new URLSearchParams({ cluster, gvr, ns, name });
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 10_000);
     try {
-      const res = await fetch(`/api/yaml?${q}`, { signal: ctrl.signal });
+      const res = await fetch(`/api/yaml?${q}`, {
+        signal: ctrl.signal,
+        headers: { "X-Kubebay-Token": getToken() },
+      });
       if (!res.ok) throw new Error(await res.text());
       return res.text();
     } finally {
@@ -159,14 +166,14 @@ export const helmApi = {
   history: (cluster: string, ns: string, name: string) =>
     get<HelmRelease[]>(`/api/helm/history?cluster=${encodeURIComponent(cluster)}&ns=${encodeURIComponent(ns)}&name=${encodeURIComponent(name)}`),
   valuesText: async (cluster: string, ns: string, name: string): Promise<string> => {
-    const q = new URLSearchParams({ token: getToken(), cluster, ns, name });
-    const res = await fetch(`/api/helm/values?${q}`);
+    const q = new URLSearchParams({ cluster, ns, name });
+    const res = await fetch(`/api/helm/values?${q}`, { headers: { "X-Kubebay-Token": getToken() } });
     if (!res.ok) throw new Error(await res.text());
     return res.text();
   },
   manifestText: async (cluster: string, ns: string, name: string): Promise<string> => {
-    const q = new URLSearchParams({ token: getToken(), cluster, ns, name });
-    const res = await fetch(`/api/helm/manifest?${q}`);
+    const q = new URLSearchParams({ cluster, ns, name });
+    const res = await fetch(`/api/helm/manifest?${q}`, { headers: { "X-Kubebay-Token": getToken() } });
     if (!res.ok) throw new Error(await res.text());
     return res.text();
   },
@@ -232,9 +239,9 @@ export const helmMarketApi = {
   charts: (cluster: string, repo: string) =>
     get<HelmChartEntry[]>(`/api/helm/charts?cluster=${encodeURIComponent(cluster)}&repo=${encodeURIComponent(repo)}`),
   chartValuesText: async (cluster: string, ref: string, version?: string): Promise<string> => {
-    const q = new URLSearchParams({ token: getToken(), cluster, ref });
+    const q = new URLSearchParams({ cluster, ref });
     if (version) q.set("version", version);
-    const res = await fetch(`/api/helm/chart-values?${q}`);
+    const res = await fetch(`/api/helm/chart-values?${q}`, { headers: { "X-Kubebay-Token": getToken() } });
     if (!res.ok) throw new Error(await res.text());
     return res.text();
   },
@@ -252,16 +259,39 @@ export const settingsApi = {
   save: (b: AppSettings) => send<{ ok: boolean; saved: AppSettings }>("POST", "/api/settings", b),
 };
 
+export interface ArgoCDApp {
+  name: string;
+  namespace: string;
+  project: string;
+  repoURL: string;
+  targetRevision: string;
+  syncStatus: string;
+  healthStatus: string;
+  lastSyncTime: string;
+  message: string;
+}
+
+export interface ArgoCDAppsResponse {
+  installed: boolean;
+  apps: ArgoCDApp[];
+}
+
+export const argoCDApi = {
+  apps: (cluster: string) =>
+    get<ArgoCDAppsResponse>(`/api/argocd/apps?cluster=${encodeURIComponent(cluster)}`),
+  sync: (b: { cluster: string; namespace: string; name: string }) =>
+    send<{ ok: boolean }>("POST", "/api/argocd/sync", b),
+};
+
 export const promApi = {
   queryRange: async (params: { query: string; startMs: number; endMs: number; stepSec: number }): Promise<{ data: { result: { metric: Record<string, string>; values: [number, string][] }[] } }> => {
     const q = new URLSearchParams({
-      token: getToken(),
       query: params.query,
       start: String(Math.floor(params.startMs / 1000)),
       end: String(Math.floor(params.endMs / 1000)),
       step: String(params.stepSec),
     });
-    const res = await fetch(`/api/prom/query_range?${q}`);
+    const res = await fetch(`/api/prom/query_range?${q}`, { headers: { "X-Kubebay-Token": getToken() } });
     if (!res.ok) {
       const text = await res.text();
       let json: { error?: string; hint?: string } | undefined;

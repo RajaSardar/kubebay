@@ -172,6 +172,21 @@ export function IconLayers({ size, strokeWidth }: IconProps) {
   );
 }
 
+// ── ArgoCD — GitOps sync icon (two circular arrows forming a loop) ────────────
+export function IconArgoCD({ size, strokeWidth }: IconProps) {
+  return (
+    <svg {...base(size, strokeWidth)}>
+      <path d="M12 2a10 10 0 0 1 7.39 16.74" />
+      <path d="M12 2v4" />
+      <path d="m9 5 3-3 3 3" />
+      <path d="M12 22a10 10 0 0 1-7.39-16.74" />
+      <path d="M12 22v-4" />
+      <path d="m15 19-3 3-3-3" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
 // ── Home — house ──────────────────────────────────────────────────────────────
 export function IconHome({ size, strokeWidth }: IconProps) {
   return (

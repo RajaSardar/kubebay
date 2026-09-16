@@ -1,14 +1,26 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Badge, Skeleton, StatusDot } from "@kubebay/ui";
 import { api, crdApi, metricsApi, type PrinterColumn } from "../lib/api";
 import { useQuery as useRQQuery } from "@tanstack/react-query";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { useCluster } from "../lib/useCluster";
 import { useResourceStream } from "../lib/useResourceStream";
 import { DEFS, EXTRA_DEFS, ageOf, fmtAge, num, str, type ResourceDef } from "../lib/resources";
 import { fmtBytes, fmtCpu } from "./Workloads";
 import { useResizableColumns } from "../lib/useResizableColumns";
 import { useRowSelection } from "../lib/useRowSelection";
+import { useDisplay, type Density } from "../lib/display";
+
+// Row height (px) per density level — must stay in sync with ROW_PADDING_VALUES in display.ts
+// compact: 4+4px pad + ~20px line + 1px border = 29px
+// default: 8+8px pad + ~20px line + 1px border = 37px
+// relaxed: 12+12px pad + ~20px line + 1px border = 45px
+const ROW_HEIGHT: Record<Density, number> = {
+  compact: 29,
+  default: 37,
+  relaxed: 45,
+};
 
 function lookupDef(kind: string, sp: URLSearchParams): ResourceDef | undefined {
   if (DEFS[kind]) return DEFS[kind];
@@ -255,8 +267,11 @@ export default function ResourceTable() {
   const { kind = "" } = useParams();
   const [sp] = useSearchParams();
   const def: ResourceDef | undefined = lookupDef(kind, sp);
+  const navigate = useNavigate();
 
   const { cluster: effectiveCluster } = useCluster();
+  const { density } = useDisplay();
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const [nsFilter, setNsFilter] = useState<string[]>([]);
   const [search, setSearch] = useState("");
@@ -390,6 +405,13 @@ export default function ResourceTable() {
     [rows],
   );
 
+  const rowVirtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => ROW_HEIGHT[density],
+    overscan: 5,
+  });
+
   if (!def) {
     return (
       <div className="page">
@@ -467,7 +489,7 @@ export default function ResourceTable() {
           <p className="muted small">{search || nsFilter.length ? "Loosen the filters." : `Nothing in this ${def.scoped ? "cluster" : "namespace"} yet.`}</p>
         </div>
       ) : (
-        <div className="table-wrap">
+        <div className="table-wrap" ref={scrollRef}>
           <table className="kb-table">
             <colgroup>
               <col style={{ width: 40 }} />
@@ -497,8 +519,16 @@ export default function ResourceTable() {
                 ))}
               </tr>
             </thead>
-            <tbody>
-              {rows.map((o) => {
+            <tbody
+              style={{
+                paddingTop: rowVirtualizer.getVirtualItems()[0]?.start ?? 0,
+                paddingBottom:
+                  rowVirtualizer.getTotalSize() -
+                  (rowVirtualizer.getVirtualItems().at(-1)?.end ?? 0),
+              }}
+            >
+              {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                const o = rows[virtualRow.index]!;
                 const meta = rec(o.metadata);
                 const name = str(meta.name);
                 const ns = str(meta.namespace);
@@ -507,6 +537,8 @@ export default function ResourceTable() {
                 return (
                   <tr
                     key={key}
+                    data-index={virtualRow.index}
+                    ref={rowVirtualizer.measureElement}
                     className={`row-clickable${isSelected ? " selected" : ""}`}
                     onClick={() => setSelected({ ns, name })}
                     onContextMenu={(e) => { e.preventDefault(); setCtx({ x: e.clientX, y: e.clientY, ns, name }); }}
@@ -572,6 +604,10 @@ export default function ResourceTable() {
           ns={selected.ns}
           name={selected.name}
           onClose={() => setSelected(null)}
+          onPopOut={() => {
+            setSelected(null);
+            navigate(`/detail/${kind}/${selected.ns || "_"}/${selected.name}${sp.toString() ? "?" + sp.toString() : ""}`);
+          }}
         />
       )}
     </div>

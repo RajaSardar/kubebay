@@ -13,6 +13,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/remotecommand"
 
+	"github.com/RajaSardar/kubebay/engine/internal/audit"
 	"github.com/RajaSardar/kubebay/engine/internal/clusters"
 	"github.com/RajaSardar/kubebay/engine/internal/stream"
 )
@@ -119,6 +120,14 @@ func (c *Channels) OpenExec(ctx context.Context, spec stream.ChanSpec, write fun
 	if pre := preflightExec(ctx, cs, spec.Namespace, spec.Pod, spec.Container); pre != "" {
 		return fmt.Errorf("%s", pre)
 	}
+
+	c.Audit.Record(audit.Entry{
+		Action:    "exec",
+		Cluster:   spec.Cluster,
+		Namespace: spec.Namespace,
+		Resource:  spec.Pod,
+		Detail:    fmt.Sprintf("container=%s command=%s", spec.Container, strings.Join(spec.Command, " ")),
+	})
 
 	wsExec, errW := remotecommand.NewWebSocketExecutor(cfg, "GET", execURL.String())
 	if errW != nil {

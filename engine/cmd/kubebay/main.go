@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/RajaSardar/kubebay/engine/internal/audit"
 	"github.com/RajaSardar/kubebay/engine/internal/clusters"
 	"github.com/RajaSardar/kubebay/engine/internal/httpapi"
 	"github.com/RajaSardar/kubebay/engine/internal/informers"
@@ -56,8 +57,15 @@ func main() {
 		os.Exit(1)
 	}
 
+	auditLog, err := audit.New(log)
+	if err != nil {
+		log.Error("audit log init failed", "err", err)
+		os.Exit(1)
+	}
+	defer auditLog.Close()
+
 	registry := informers.NewPoolRegistry(mgr)
-	channels := httpapi.NewChannels(mgr)
+	channels := httpapi.NewChannels(mgr, auditLog)
 	hub := stream.NewHub(log, channels)
 	pfManager := httpapi.NewPFManager(mgr)
 	actions := &httpapi.Actions{Clusters: mgr}
@@ -92,6 +100,7 @@ func main() {
 		Helm:      helmMgr,
 		NodeShell: nodeShell,
 		Settings:  settingsMgr,
+		Audit:     auditLog,
 	}, token)
 
 	switch {
