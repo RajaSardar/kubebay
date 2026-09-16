@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Badge, Button, Card } from "@kubebay/ui";
 import { rbacApi as api2 } from "../lib/api";
 import { useCluster } from "../lib/useCluster";
+import { DEFS, EXTRA_DEFS } from "../lib/resources";
 
 interface Rule {
   verbs: string[];
@@ -35,17 +36,43 @@ interface RBACSnapshot {
 }
 
 const VERBS = ["get", "list", "watch", "create", "update", "patch", "delete", "*"];
+
+// A handful of kinds pinned at the top of the dropdown for quick access; the
+// full option set below always covers every kind in DEFS/EXTRA_DEFS so it
+// can't silently fall out of sync as resource kinds are added.
+const CURATED_KINDS = [
+  "pods",
+  "deployments",
+  "statefulsets",
+  "services",
+  "configmaps",
+  "secrets",
+  "jobs",
+  "nodes",
+  "namespaces",
+];
+
+// Pods aren't in the DEFS registry (they're handled by the dedicated
+// Workloads page rather than the generic resource table), so they're added
+// by hand; everything else is derived from DEFS/EXTRA_DEFS, whose `scoped`
+// flag means "cluster-scoped" — the inverse of the "namespaced" meaning
+// used here.
 const KIND_MAP: Record<string, { group: string; resource: string; scoped: boolean }> = {
   pods: { group: "", resource: "pods", scoped: true },
-  deployments: { group: "apps", resource: "deployments", scoped: true },
-  statefulsets: { group: "apps", resource: "statefulsets", scoped: true },
-  services: { group: "", resource: "services", scoped: true },
-  configmaps: { group: "", resource: "configmaps", scoped: true },
-  secrets: { group: "", resource: "secrets", scoped: true },
-  jobs: { group: "batch", resource: "jobs", scoped: true },
-  nodes: { group: "", resource: "nodes", scoped: false },
-  namespaces: { group: "", resource: "namespaces", scoped: false },
+  ...Object.fromEntries(
+    Object.entries({ ...DEFS, ...EXTRA_DEFS }).map(([slug, def]) => [
+      slug,
+      { group: def.group, resource: def.resource, scoped: !def.scoped },
+    ]),
+  ),
 };
+
+const KIND_OPTIONS = [
+  ...CURATED_KINDS.filter((k) => KIND_MAP[k]),
+  ...Object.keys(KIND_MAP)
+    .filter((k) => !CURATED_KINDS.includes(k))
+    .sort(),
+];
 
 function ruleAllows(rule: Rule, verb: string, group: string, resource: string): boolean {
   const vOk = rule.verbs.includes("*") || rule.verbs.includes(verb);
@@ -180,7 +207,7 @@ export default function Rbac() {
             ))}
           </select>
           <select className="toolbar-select" value={kindSel} onChange={(e) => setKindSel(e.target.value)} aria-label="resource">
-            {Object.keys(KIND_MAP).map((k) => (
+            {KIND_OPTIONS.map((k) => (
               <option key={k}>{k}</option>
             ))}
           </select>
