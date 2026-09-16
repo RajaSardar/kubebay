@@ -101,8 +101,10 @@ function ReleaseDrawer({
     setBusy(true);
     try {
       await helmApi.rollback({ cluster, ns: rel.namespace, name: rel.name, revision });
+      setValuesEdited(null);
       await qc.invalidateQueries({ queryKey: ["helm-history"] });
       await qc.invalidateQueries({ queryKey: ["helm-releases"] });
+      await qc.invalidateQueries({ queryKey: ["helm-values", cluster, rel.namespace, rel.name] });
     } catch (e) {
       setErr(String(e instanceof Error ? e.message : e));
     } finally {
