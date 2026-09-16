@@ -372,7 +372,8 @@ export default function ResourceTable() {
   const rows = useMemo(() => {
     let out = [...stream.rows];
     if (search) {
-      out = out.filter((r) => str(rec(r.metadata).name).includes(search));
+      const q = search.toLowerCase();
+      out = out.filter((r) => str(rec(r.metadata).name).toLowerCase().includes(q));
     }
     if (sortCol) {
       out.sort((a, b) => {
