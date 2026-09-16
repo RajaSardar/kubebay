@@ -143,9 +143,17 @@ export const actionApi = {
     send<{ ok: boolean }>("POST", "/api/action/suspend-cronjob", b),
 };
 
+export interface RBACSnapshot {
+  roles: { name: string; ns?: string; kind: string; rules: { verbs: string[]; apiGroups: string[]; resources: string[] }[] }[];
+  clusterRoles: { name: string; ns?: string; kind: string; rules: { verbs: string[]; apiGroups: string[]; resources: string[] }[] }[];
+  roleBindings: { name: string; ns?: string; kind: string; roleRef: string; subjects: { kind: string; name: string; ns?: string }[] }[];
+  clusterRoleBindings: { name: string; ns?: string; kind: string; roleRef: string; subjects: { kind: string; name: string; ns?: string }[] }[];
+}
+
 export const rbacApi = {
   self: (b: { cluster: string; verb: string; group: string; resource: string; ns: string }) =>
     send<{ allowed?: boolean; denied?: boolean; reason?: string }>("POST", "/api/rbac/self", b),
+  all: (cluster: string) => get<RBACSnapshot>(`/api/rbac/all?cluster=${encodeURIComponent(cluster)}`),
 };
 
 export interface HelmRelease {

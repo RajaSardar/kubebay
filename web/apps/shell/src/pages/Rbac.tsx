@@ -1,39 +1,14 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Badge, Button, Card } from "@kubebay/ui";
-import { rbacApi as api2 } from "../lib/api";
+import { rbacApi, type RBACSnapshot } from "../lib/api";
 import { useCluster } from "../lib/useCluster";
 import { DEFS, EXTRA_DEFS } from "../lib/resources";
 
-interface Rule {
-  verbs: string[];
-  apiGroups: string[];
-  resources: string[];
-}
-interface RoleSummary {
-  name: string;
-  ns?: string;
-  kind: string;
-  rules: Rule[];
-}
-interface Subject {
-  kind: string;
-  name: string;
-  ns?: string;
-}
-interface BindingSummary {
-  name: string;
-  ns?: string;
-  kind: string;
-  roleRef: string;
-  subjects: Subject[];
-}
-interface RBACSnapshot {
-  roles: RoleSummary[];
-  clusterRoles: RoleSummary[];
-  roleBindings: BindingSummary[];
-  clusterRoleBindings: BindingSummary[];
-}
+type Rule = RBACSnapshot["roles"][number]["rules"][number];
+type RoleSummary = RBACSnapshot["roles"][number];
+type Subject = RBACSnapshot["roleBindings"][number]["subjects"][number];
+type BindingSummary = RBACSnapshot["roleBindings"][number];
 
 const VERBS = ["get", "list", "watch", "create", "update", "patch", "delete", "*"];
 
@@ -96,10 +71,7 @@ export default function Rbac() {
 
   const snap = useQuery({
     queryKey: ["rbac", effectiveCluster],
-    queryFn: () =>
-      fetch(`/api/rbac/all?cluster=${encodeURIComponent(effectiveCluster)}&token=${encodeURIComponent(localStorage.getItem("kb.token") ?? "")}`).then(
-        (r) => r.json() as Promise<RBACSnapshot>,
-      ),
+    queryFn: () => rbacApi.all(effectiveCluster),
     enabled: !!effectiveCluster,
   });
 
@@ -168,7 +140,7 @@ export default function Rbac() {
     for (const [key, group, resource] of checks) {
       const verbPart = key.split(":")[1] ?? verb;
       try {
-        out[key] = await api2.self({
+        out[key] = await rbacApi.self({
           cluster: effectiveCluster,
           verb: verbPart,
           group,
