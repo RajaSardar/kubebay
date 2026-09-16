@@ -7,13 +7,14 @@ import { ExecTerm } from "./ExecTerm";
 import { ActionsBar } from "./ActionsBar";
 import { NodeSummary } from "./NodeSummary";
 import { ServiceSummary } from "./ServiceSummary";
+import { MetadataSummary } from "./MetadataSummary";
 import type { ResourceDef } from "../lib/resources";
 
 // ── Tab types per resource kind ──────────────────────────────────────────────
 type NodeTab = "summary" | "shell" | "yaml";
 type SvcTab = "summary" | "yaml";
 type PodTab = "yaml" | "events" | "terminal";
-type GenTab = "yaml" | "events";
+type GenTab = "summary" | "yaml" | "events";
 
 // ── Split-pane drag handle ────────────────────────────────────────────────────
 function SplitDivider({
@@ -154,6 +155,10 @@ function PaneContent({
       </div>
     );
   }
+  if (!isNode && !isService && !isPod && genTab === "summary") {
+    if (objLoading) return <div className="muted small" style={{ padding: 14 }}>Loading…</div>;
+    return <MetadataSummary obj={obj} />;
+  }
   if ((isNode && nodeTab === "yaml") || (isService && svcTab === "yaml") || (isPod && podTab === "yaml") || (!isNode && !isService && !isPod && genTab === "yaml")) {
     return (
       <div className="yaml-wrap">
@@ -239,7 +244,7 @@ export default function GenericDrawer({
   const [svcTab, setSvcTab] = useState<SvcTab>("summary");
   const [podTab, setPodTab] = useState<PodTab>("yaml");
   const [podContainer, setPodContainer] = useState("");
-  const [genTab, setGenTab] = useState<GenTab>("yaml");
+  const [genTab, setGenTab] = useState<GenTab>("summary");
 
   // ── Split-pane state ─────────────────────────────────────────────────────
   const [split, setSplit] = useState<boolean>(() => {
@@ -361,7 +366,8 @@ export default function GenericDrawer({
   }, [splitKey]);
 
   useEffect(() => {
-    if (!isNode && !isService && !isPod) return;
+    // Fetched for every kind: Node/Service/Pod use it for their bespoke summary, and generic
+    // kinds use it for the Summary tab (MetadataSummary) added alongside YAML + Events.
     setObjLoading(true);
     api.getYamlText(cluster, def.gvr, ns, name).then((text) => {
       try {
@@ -372,7 +378,7 @@ export default function GenericDrawer({
     }).catch(() => setObj(null)).finally(() => setObjLoading(false));
     // Reset container selection when pod changes
     if (isPod) setPodContainer("");
-  }, [cluster, def.gvr, ns, name, isNode, isService, isPod]);
+  }, [cluster, def.gvr, ns, name, isPod]);
 
   async function doDelete() {
     if (input !== name) {
@@ -401,7 +407,7 @@ export default function GenericDrawer({
   const nodeTabLabels: Record<NodeTab, string> = { summary: "Summary", shell: "Terminal", yaml: "YAML" };
   const svcTabLabels: Record<SvcTab, string> = { summary: "Summary", yaml: "YAML" };
   const podTabLabels: Record<PodTab, string> = { yaml: "YAML", events: "Events", terminal: "Terminal" };
-  const genTabLabels: Record<GenTab, string> = { yaml: "YAML", events: "Events" };
+  const genTabLabels: Record<GenTab, string> = { summary: "Summary", yaml: "YAML", events: "Events" };
 
   // ── Shared pane content props ────────────────────────────────────────────
   const sharedContentProps = {
@@ -543,7 +549,7 @@ export default function GenericDrawer({
       )}
       {!split && !isNode && !isService && !isPod && (
         <div className="tabs">
-          {(["yaml", "events"] as const).map((t) => (
+          {(["summary", "yaml", "events"] as const).map((t) => (
             <button key={t} className={`tab${genTab === t ? " active" : ""}`} onClick={() => setGenTab(t)}>
               {genTabLabels[t]}
             </button>
@@ -583,7 +589,7 @@ export default function GenericDrawer({
             )}
             {!isNode && !isService && !isPod && (
               <PaneTabs
-                tabs={["yaml", "events"] as const}
+                tabs={["summary", "yaml", "events"] as const}
                 active={leftGenTab}
                 labels={genTabLabels}
                 onChange={setLeftGenTab}
@@ -631,7 +637,7 @@ export default function GenericDrawer({
             )}
             {!isNode && !isService && !isPod && (
               <PaneTabs
-                tabs={["yaml", "events"] as const}
+                tabs={["summary", "yaml", "events"] as const}
                 active={rightGenTab}
                 labels={genTabLabels}
                 onChange={setRightGenTab}
