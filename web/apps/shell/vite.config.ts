@@ -10,4 +10,8 @@ export default defineConfig({
       "/ws": { target: "ws://127.0.0.1:9898", ws: true },
     },
   },
+  build: {
+    sourcemap: true,
+    minify: false,
+  },
 });
