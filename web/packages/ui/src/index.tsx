@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import "./styles.css";
 
 export interface ButtonProps {
@@ -64,4 +64,44 @@ export function Badge({ children, tone }: { children: ReactNode; tone?: "ok" | "
 
 export function Skeleton({ w = 120, h = 12, r }: { w?: number | string; h?: number; r?: number }) {
   return <span className="kb-skeleton" style={{ width: w, height: h, borderRadius: r }} />;
+}
+
+export interface ArmedButtonProps {
+  label: string;
+  confirmLabel?: string;
+  variant?: "danger" | "primary";
+  busy?: boolean;
+  onGo: () => void;
+  /** How long the armed (confirm) state stays up before auto-disarming. */
+  armMs?: number;
+}
+
+/**
+ * A "click to arm, click again to confirm" button: first click flips it into
+ * an armed/confirm state (shown as `confirmLabel`), a second click within
+ * `armMs` fires `onGo`, and it auto-disarms back to `label` if left alone.
+ */
+export function ArmedButton({
+  label,
+  confirmLabel,
+  variant = "danger",
+  busy,
+  onGo,
+  armMs = 3500,
+}: ArmedButtonProps) {
+  const [armed, setArmed] = useState(false);
+  useEffect(() => {
+    if (!armed) return;
+    const t = setTimeout(() => setArmed(false), armMs);
+    return () => clearTimeout(t);
+  }, [armed, armMs]);
+  return (
+    <Button
+      variant={armed ? variant : "ghost"}
+      disabled={busy}
+      onClick={() => (armed ? onGo() : setArmed(true))}
+    >
+      {armed ? confirmLabel ?? `Confirm ${label.toLowerCase()}?` : label}
+    </Button>
+  );
 }

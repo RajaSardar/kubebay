@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Editor from "@monaco-editor/react";
-import { Badge, Button, Skeleton, StatusDot } from "@kubebay/ui";
+import { ArmedButton, Badge, Button, Skeleton, StatusDot } from "@kubebay/ui";
 import { helmApi, type HelmRelease } from "../lib/api";
 import { useCluster } from "../lib/useCluster";
 import { ChartsTab } from "../components/HelmCharts";
@@ -34,24 +34,6 @@ function fmtUpdated(iso?: string): string {
   const h = Math.floor(m / 60);
   if (h < 48) return `${h}h ago`;
   return `${Math.floor(h / 24)}d ago`;
-}
-
-function TwoStep({ label, busy, onGo }: { label: string; busy?: boolean; onGo: () => void }) {
-  const [armed, setArmed] = useState(false);
-  useEffect(() => {
-    if (!armed) return;
-    const t = setTimeout(() => setArmed(false), 3000);
-    return () => clearTimeout(t);
-  }, [armed]);
-  return (
-    <Button
-      variant={armed ? "danger" : "ghost"}
-      disabled={busy}
-      onClick={() => (armed ? onGo() : setArmed(true))}
-    >
-      {armed ? "Confirm?" : label}
-    </Button>
-  );
 }
 
 function ReleaseDrawer({
@@ -208,7 +190,13 @@ function ReleaseDrawer({
                   <span className="mono muted small">{h.chartVersion && `chart ${h.chartVersion}`}</span>
                   <span className="muted small" style={{ marginLeft: "auto" }}>{fmtUpdated(h.updated)}</span>
                   {h.revision !== rel.revision && (
-                    <TwoStep label="Rollback" busy={busy} onGo={() => void rollback(h.revision)} />
+                    <ArmedButton
+                      label="Rollback"
+                      confirmLabel="Confirm?"
+                      busy={busy}
+                      armMs={3000}
+                      onGo={() => void rollback(h.revision)}
+                    />
                   )}
                 </div>
                 {h.description && <div className="muted small">{h.description}</div>}

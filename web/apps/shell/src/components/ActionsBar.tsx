@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Badge, Button } from "@kubebay/ui";
+import { useState } from "react";
+import { ArmedButton, Badge, Button } from "@kubebay/ui";
 import { actionApi, api } from "../lib/api";
 
 type Slug = "deployments" | "statefulsets" | "daemonsets" | "cronjobs" | "nodes";
@@ -28,36 +28,6 @@ function useFeedback() {
     }
   }
   return { msg, err, busy, run, setMsg };
-}
-
-function Armed({
-  label,
-  confirmLabel,
-  variant = "danger",
-  busy,
-  onGo,
-}: {
-  label: string;
-  confirmLabel?: string;
-  variant?: "danger" | "primary";
-  busy?: boolean;
-  onGo: () => void;
-}) {
-  const [armed, setArmed] = useState(false);
-  useEffect(() => {
-    if (!armed) return;
-    const t = setTimeout(() => setArmed(false), 3500);
-    return () => clearTimeout(t);
-  }, [armed]);
-  return (
-    <Button
-      variant={armed ? variant : "ghost"}
-      disabled={busy}
-      onClick={() => (armed ? onGo() : setArmed(true))}
-    >
-      {armed ? confirmLabel ?? `Confirm ${label.toLowerCase()}?` : label}
-    </Button>
-  );
 }
 
 export function ActionsBar({
@@ -135,7 +105,7 @@ export function ActionsBar({
         </Button>
       )}
       {slug === "cronjobs" && (
-        <Armed
+        <ArmedButton
           label="Suspend"
           confirmLabel="Confirm suspend?"
           variant="primary"
@@ -149,7 +119,7 @@ export function ActionsBar({
         />
       )}
       {slug === "cronjobs" && (
-        <Armed
+        <ArmedButton
           label="Resume"
           confirmLabel="Confirm resume?"
           variant="primary"
@@ -164,7 +134,7 @@ export function ActionsBar({
       )}
       {slug === "nodes" && (
         <>
-          <Armed
+          <ArmedButton
             label="Cordon"
             confirmLabel="Confirm cordon?"
             variant="primary"
@@ -188,7 +158,7 @@ export function ActionsBar({
           >
             Uncordon
           </Button>
-          <Armed
+          <ArmedButton
             label="Drain"
             confirmLabel="Drain all pods?"
             busy={busy}
