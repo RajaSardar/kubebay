@@ -159,7 +159,7 @@ export default function Home() {
         )}
 
         {!clusters.isLoading && list.length === 0 && (
-          <OnboardingCard onGoToSettings={() => nav("/settings")} />
+          <OnboardingCard onGoToSettings={() => nav("/settings#kubeconfig-sources")} />
         )}
 
         {list.length > 0 && (

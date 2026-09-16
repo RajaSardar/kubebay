@@ -1115,43 +1115,6 @@ tr.row-clickable:active {
   color: var(--kb-accent);
 }
 
-.fleet-card--active {
-  outline: 2px solid var(--kb-accent);
-  outline-offset: -2px;
-}
-
-.fleet-stats {
-  display: flex;
-  gap: 8px;
-  margin-top: 14px;
-  flex-wrap: wrap;
-}
-
-.fleet-stat {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  background: var(--kb-bg-inset);
-  border: 1px solid var(--kb-border-subtle);
-  border-radius: 8px;
-  padding: 7px 11px;
-  min-width: 74px;
-}
-
-.fleet-issues {
-  margin-top: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.fleet-issue {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 11.5px;
-}
-
 .palette-overlay {
   position: fixed;
   inset: 0;

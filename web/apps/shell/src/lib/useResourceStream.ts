@@ -81,19 +81,26 @@ export function useResourceStream(
     let streamDetach: (() => void) | null = null;
     let subId = "";
 
+    // The multiplexed WS connection broadcasts every frame to every attached
+    // listener, so each handler MUST filter by subscription id — otherwise a
+    // frame meant for one useResourceStream instance (e.g. NamespaceFilter's
+    // own "v1/namespaces" stream) gets applied to every other concurrently
+    // mounted instance (e.g. the main table's stream), corrupting its rows.
     const handlers = {
       onStatus: (connected: boolean) => {
         metaRef.current = { ...metaRef.current, connected };
         scheduleFlushRef.current();
       },
-      onBegin: () => {
+      onBegin: (id: string) => {
+        if (id !== subId) return;
         storeRef.current = new Map();
         metaRef.current = { ...metaRef.current, synced: false };
         scheduleFlushRef.current();
       },
-      onItems: (_id: string, ops: Op[]) => applyOps(ops, false),
-      onDelta: (_id: string, ops: Op[]) => applyOps(ops, false),
-      onSync: () => {
+      onItems: (id: string, ops: Op[]) => { if (id === subId) applyOps(ops, false); },
+      onDelta: (id: string, ops: Op[]) => { if (id === subId) applyOps(ops, false); },
+      onSync: (id: string) => {
+        if (id !== subId) return;
         metaRef.current = { ...metaRef.current, synced: true };
         // Snapshot synced state into module-level cache for instant re-render on revisit.
         setStreamCache(specKey, Array.from(storeRef.current.entries()), true);

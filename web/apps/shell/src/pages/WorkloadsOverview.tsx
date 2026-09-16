@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { Link } from "react-router-dom";
 import { Badge, Card, Skeleton } from "@kubebay/ui";
 import { useCluster } from "../lib/useCluster";
 import { useResourceStream } from "../lib/useResourceStream";
@@ -136,7 +137,7 @@ export default function WorkloadsOverview() {
         <div className="cluster-grid">
           {kinds.map((k) => (
             <Card key={k.label} interactive className="fleet-card">
-              <a href={`#${k.to}`} style={{ textDecoration: "none", color: "inherit" }}>
+              <Link to={k.to} style={{ textDecoration: "none", color: "inherit" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
                   <strong>{k.label}</strong>
                   <Badge>{k.total}</Badge>
@@ -160,7 +161,7 @@ export default function WorkloadsOverview() {
                   </div>
                 )}
                 {k.total === 0 && <div className="muted small" style={{ marginTop: 4 }}>None</div>}
-              </a>
+              </Link>
             </Card>
           ))}
         </div>

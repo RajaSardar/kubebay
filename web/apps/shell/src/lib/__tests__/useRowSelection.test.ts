@@ -71,4 +71,13 @@ describe("useRowSelection", () => {
     act(() => result.current.selectAll(keys));
     expect(result.current.isIndeterminate(keys)).toBe(false);
   });
+
+  it("deselect removes only the given keys", () => {
+    const { result } = renderHook(() => useRowSelection());
+    act(() => result.current.selectAll(["ns/pod-1", "ns/pod-2", "ns/pod-3"]));
+    act(() => result.current.deselect(["ns/pod-2"]));
+    expect(result.current.selectedKeys.has("ns/pod-1")).toBe(true);
+    expect(result.current.selectedKeys.has("ns/pod-2")).toBe(false);
+    expect(result.current.selectedKeys.has("ns/pod-3")).toBe(true);
+  });
 });

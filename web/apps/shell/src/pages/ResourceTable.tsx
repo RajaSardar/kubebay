@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Badge, Skeleton, StatusDot } from "@kubebay/ui";
+import { Badge, Button, Skeleton, StatusDot } from "@kubebay/ui";
 import { api, crdApi, metricsApi, type PrinterColumn } from "../lib/api";
 import { useQuery as useRQQuery } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -10,6 +10,7 @@ import { DEFS, EXTRA_DEFS, ageOf, fmtAge, num, str, type ResourceDef } from "../
 import { fmtBytes, fmtCpu } from "./Workloads";
 import { useResizableColumns } from "../lib/useResizableColumns";
 import { useRowSelection } from "../lib/useRowSelection";
+import { useBulkDelete } from "../lib/useBulkDelete";
 import { useDisplay, type Density } from "../lib/display";
 
 // Row height (px) per density level — must stay in sync with ROW_PADDING_VALUES in display.ts
@@ -60,6 +61,8 @@ interface Cell {
   v: string;
   dot?: "ok" | "warn" | "err" | "pending";
   cls?: string;
+  /** When set, the cell links to another resource's detail view instead of just displaying text. */
+  to?: { kind: string; ns: string; name: string };
 }
 
 const DOT: Record<NonNullable<Cell["dot"]>, string> = {
@@ -154,13 +157,26 @@ function extraColumns(
         Succeeded: (o) => ({ v: String(num(rec(o.status).succeeded)), dot: "ok" }),
         Failed: (o) => ({ v: String(num(rec(o.status).failed)), dot: num(rec(o.status).failed) ? "err" : undefined }),
       };
+    case "cronjobs":
+      return {
+        Schedule: (o) => ({ v: str(rec(o.spec).schedule) || "–" }),
+        "Last Schedule": (o) => {
+          const t = str(rec(o.status).lastScheduleTime);
+          if (!t) return { v: "–" };
+          return { v: fmtAge(Date.now() - Date.parse(t)) };
+        },
+      };
     case "persistentvolumeclaims":
       return {
         Status: (o) => {
           const phase = str(rec(o.status).phase);
           return { v: phase, dot: phase === "Bound" ? "ok" : phase === "Lost" ? "err" : "warn" };
         },
-        Volume: (o) => ({ v: str(rec(o.spec).volumeName) || "–" }),
+        Volume: (o) => {
+          const vol = str(rec(o.spec).volumeName);
+          if (!vol) return { v: "–" };
+          return { v: vol, to: { kind: "persistentvolumes", ns: "", name: vol } };
+        },
         Capacity: (o) => {
           const req = rec(rec(o.spec).resources).requests;
           return { v: str(rec(req).storage) || "–" };
@@ -183,11 +199,28 @@ function extraColumns(
           };
         },
         Capacity: (o) => ({ v: str(rec(rec(o.spec).capacity).storage) || "–" }),
+        Claim: (o) => {
+          const claimRef = rec(rec(o.spec).claimRef);
+          const name = str(claimRef.name);
+          if (!name) return { v: "–" };
+          const ns = str(claimRef.namespace);
+          return { v: ns ? `${ns}/${name}` : name, to: { kind: "persistentvolumeclaims", ns, name } };
+        },
       };
     case "storageclasses":
       return {
         Provisioner: (o) => ({ v: str(rec(o.spec).provisioner) }),
         Reclaim: (o) => ({ v: str(rec(o.spec).reclaimPolicy) || "Delete" }),
+        Default: (o) => ({
+          v: (rec(o.metadata).annotations as Record<string, unknown> | undefined)?.["storageclass.kubernetes.io/is-default-class"] === "true" ? "Yes" : "–",
+        }),
+      };
+    case "namespaces":
+      return {
+        Status: (o) => {
+          const phase = str(rec(o.status).phase) || "Active";
+          return { v: phase, dot: phase === "Active" ? "ok" : "warn" };
+        },
       };
     case "endpoints":
       return {
@@ -364,12 +397,16 @@ export default function ResourceTable() {
     [headers],
   );
   const { widths, getResizeHandleProps } = useResizableColumns(headers.length, initialWidths);
-  const { selectedKeys, toggleRow, selectAll, clearAll, isAllSelected, isIndeterminate } = useRowSelection();
+  const { selectedKeys, toggleRow, selectAll, clearAll, deselect, isAllSelected, isIndeterminate } = useRowSelection();
+  const bulkDelete = useBulkDelete((t) =>
+    api.deleteResource({ cluster: effectiveCluster, gvr: def?.gvr ?? "", ns: t.ns, name: t.name }),
+  );
 
   const rows = useMemo(() => {
     let out = [...stream.rows];
     if (search) {
-      out = out.filter((r) => str(rec(r.metadata).name).includes(search));
+      const q = search.toLowerCase();
+      out = out.filter((r) => str(rec(r.metadata).name).toLowerCase().includes(q));
     }
     if (sortCol) {
       out.sort((a, b) => {
@@ -428,6 +465,11 @@ export default function ResourceTable() {
     else { setSortCol(h); setSortAsc(true); }
   }
 
+  async function confirmDelete() {
+    const succeeded = await bulkDelete.confirm();
+    deselect(succeeded.map((t) => `${t.ns}/${t.name}`));
+  }
+
   return (
     <div className="page">
       <div className="page-header">
@@ -440,11 +482,52 @@ export default function ResourceTable() {
         </h2>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {selectedKeys.size > 0 && (
-            <span className="muted small">{selectedKeys.size} selected</span>
+            <>
+              <span className="muted small">{selectedKeys.size} selected</span>
+              <Button
+                variant="danger"
+                onClick={() => {
+                  bulkDelete.request(
+                    [...selectedKeys].map((key) => {
+                      const i = key.indexOf("/");
+                      return { ns: key.slice(0, i), name: key.slice(i + 1) };
+                    }),
+                  );
+                }}
+              >
+                Delete {selectedKeys.size} selected
+              </Button>
+            </>
           )}
           <Badge>{rows.length}</Badge>
         </div>
       </div>
+
+      {bulkDelete.pending && (
+        <div className="crd-error" style={{ justifyContent: "space-between" }}>
+          <span>
+            {bulkDelete.pending.length === 1 ? (
+              <>
+                Delete <strong className="mono">{bulkDelete.pending[0]!.name}</strong>
+                {bulkDelete.pending[0]!.ns ? ` in ${bulkDelete.pending[0]!.ns}` : ""}? This can&apos;t be undone.
+              </>
+            ) : (
+              <>
+                Delete {bulkDelete.pending.length} selected {def.label.toLowerCase()}? This can&apos;t be undone.
+              </>
+            )}
+          </span>
+          <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+            <Button variant="ghost" disabled={bulkDelete.busy} onClick={bulkDelete.cancel}>
+              Cancel
+            </Button>
+            <Button variant="danger" disabled={bulkDelete.busy} onClick={() => void confirmDelete()}>
+              {bulkDelete.busy ? "Deleting…" : "Delete"}
+            </Button>
+          </div>
+        </div>
+      )}
+      {bulkDelete.error && <div className="crd-error">{bulkDelete.error}</div>}
 
       <div className="toolbar">
         {!def.scoped && (
@@ -557,7 +640,19 @@ export default function ResourceTable() {
                         <td key={col} className="mono muted">
                           <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
                             {cell.dot ? healthDot(cell.dot) : null}
-                            <span style={{ color: cell.cls }}>{cell.v}</span>
+                            {cell.to ? (
+                              <span
+                                className="cell-link"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(`/detail/${cell.to!.kind}/${cell.to!.ns || "_"}/${cell.to!.name}`);
+                                }}
+                              >
+                                {cell.v}
+                              </span>
+                            ) : (
+                              <span style={{ color: cell.cls }}>{cell.v}</span>
+                            )}
                           </span>
                         </td>
                       );
@@ -586,9 +681,7 @@ export default function ResourceTable() {
             { label: "Edit YAML", icon: "📝", onClick: () => setSelected({ ns: ctx.ns, name: ctx.name }) },
             { separator: true, label: "", onClick: () => {} },
             { label: "Delete", icon: "🗑", danger: true, onClick: () => {
-              if (confirm(`Delete ${ctx.name}?`)) {
-                api.deleteResource({ cluster: effectiveCluster, gvr: def?.gvr ?? "", ns: ctx.ns, name: ctx.name });
-              }
+              bulkDelete.request([{ ns: ctx.ns, name: ctx.name }]);
             }},
           ]}
         />

@@ -13,7 +13,7 @@ export function EventsDrawer({
   name: string;
   kind: string;
 }) {
-  const events = useResourceStream(cluster, "v1/events", { mode: "metadata" });
+  const events = useResourceStream(cluster, "v1/events", { mode: "full" });
 
   const filtered = useMemo(() => {
     return events.rows

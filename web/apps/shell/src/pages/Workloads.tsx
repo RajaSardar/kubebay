@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Badge, Skeleton, StatusDot } from "@kubebay/ui";
+import { Badge, Button, Skeleton, StatusDot } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { useResourceStream } from "../lib/useResourceStream";
 import PodPanel, { type SelectedPod } from "./PodPanel";
 import { useActiveCluster } from "../App";
 import { useResizableColumns } from "../lib/useResizableColumns";
 import { useRowSelection } from "../lib/useRowSelection";
+import { useBulkDelete } from "../lib/useBulkDelete";
+import { NamespaceFilter } from "../components/NamespaceFilter";
+import { useSelectedNamespaces } from "../lib/namespace-store";
 
 function rec(v: unknown): Record<string, unknown> {
   return (v ?? {}) as Record<string, unknown>;
@@ -166,7 +169,11 @@ export default function Workloads() {
   const list = clusters.data ?? [];
   const effectiveCluster = activeCluster || list.find((c) => c.status === "connected")?.id || list[0]?.id || "";
 
-  const { rows, synced, connected } = useResourceStream(effectiveCluster || undefined, "v1/pods", { mode: "full" });
+  const nsFilter = useSelectedNamespaces(effectiveCluster || undefined);
+  const { rows, synced, connected } = useResourceStream(effectiveCluster || undefined, "v1/pods", {
+    mode: "full",
+    ns: nsFilter.length > 0 ? nsFilter : undefined,
+  });
 
   const metrics = useQuery({
     queryKey: ["podmetrics", effectiveCluster],
@@ -183,7 +190,15 @@ export default function Workloads() {
 
   const [selected, setSelected] = useState<SelectedPod | null>(null);
   const { widths, getResizeHandleProps } = useResizableColumns(HEADERS.length, INITIAL_WIDTHS);
-  const { selectedKeys, toggleRow, selectAll, clearAll, isAllSelected, isIndeterminate } = useRowSelection();
+  const { selectedKeys, toggleRow, selectAll, clearAll, deselect, isAllSelected, isIndeterminate } = useRowSelection();
+  const bulkDelete = useBulkDelete((t) =>
+    api.deleteResource({ cluster: effectiveCluster, gvr: "v1/pods", ns: t.ns, name: t.name }),
+  );
+
+  async function confirmDeletePods() {
+    const succeeded = await bulkDelete.confirm();
+    deselect(succeeded.map((t) => `${t.ns}/${t.name}`));
+  }
 
   function toggleSort(col: SortCol) {
     if (sortCol === col) setSortAsc((a) => !a);
@@ -238,9 +253,48 @@ export default function Workloads() {
           )}
         </h2>
         {selectedKeys.size > 0 && (
-          <span className="muted small">{selectedKeys.size} selected</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span className="muted small">{selectedKeys.size} selected</span>
+            <Button
+              variant="danger"
+              onClick={() => {
+                bulkDelete.request(
+                  [...selectedKeys].map((key) => {
+                    const i = key.indexOf("/");
+                    return { ns: key.slice(0, i), name: key.slice(i + 1) };
+                  }),
+                );
+              }}
+            >
+              Delete {selectedKeys.size} selected
+            </Button>
+          </div>
         )}
       </div>
+
+      {bulkDelete.pending && (
+        <div className="crd-error" style={{ justifyContent: "space-between" }}>
+          <span>
+            {bulkDelete.pending.length === 1 ? (
+              <>
+                Delete pod <strong className="mono">{bulkDelete.pending[0]!.name}</strong>
+                {bulkDelete.pending[0]!.ns ? ` in ${bulkDelete.pending[0]!.ns}` : ""}? This can&apos;t be undone.
+              </>
+            ) : (
+              <>Delete {bulkDelete.pending.length} selected pods? This can&apos;t be undone.</>
+            )}
+          </span>
+          <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+            <Button variant="ghost" disabled={bulkDelete.busy} onClick={bulkDelete.cancel}>
+              Cancel
+            </Button>
+            <Button variant="danger" disabled={bulkDelete.busy} onClick={() => void confirmDeletePods()}>
+              {bulkDelete.busy ? "Deleting…" : "Delete"}
+            </Button>
+          </div>
+        </div>
+      )}
+      {bulkDelete.error && <div className="crd-error">{bulkDelete.error}</div>}
 
       <div className="toolbar">
         <select
@@ -253,6 +307,7 @@ export default function Workloads() {
           ))}
           {list.length === 0 && <option>no clusters</option>}
         </select>
+        <NamespaceFilter cluster={effectiveCluster || undefined} />
         <input
           className="toolbar-input"
           placeholder="Filter by name or namespace…"
@@ -291,7 +346,7 @@ export default function Workloads() {
       {effectiveCluster && synced && pods.length === 0 && (
         <div className="empty-state">
           <p>No pods match.</p>
-          <p className="muted small">{filter ? "Try clearing the filter." : "This cluster looks quiet."}</p>
+          <p className="muted small">{filter || nsFilter.length ? "Try clearing the filters." : "This cluster looks quiet."}</p>
         </div>
       )}
 

@@ -35,19 +35,20 @@ export const DEFS: Record<string, ResourceDef> = {
   statefulsets: def("statefulsets", "StatefulSets", "apps/v1/statefulsets", { mode: "full" }),
   daemonsets: def("daemonsets", "DaemonSets", "apps/v1/daemonsets", { mode: "full" }),
   jobs: def("jobs", "Jobs", "batch/v1/jobs", { mode: "full" }),
-  cronjobs: def("cronjobs", "CronJobs", "batch/v1/cronjobs", { mode: "metadata" }),
+  cronjobs: def("cronjobs", "CronJobs", "batch/v1/cronjobs", { mode: "full" }),
   configmaps: def("configmaps", "ConfigMaps", "v1/configmaps"),
   secrets: def("secrets", "Secrets", "v1/secrets"),
   services: def("services", "Services", "v1/services"),
   ingresses: def("ingresses", "Ingresses", "networking.k8s.io/v1/ingresses"),
   persistentvolumeclaims: def("persistentvolumeclaims", "PVCs", "v1/persistentvolumeclaims", { mode: "full" }),
   persistentvolumes: def("persistentvolumes", "PVs", "v1/persistentvolumes", { scoped: true, mode: "full" }),
-  storageclasses: def("storageclasses", "StorageClasses", "storage.k8s.io/v1/storageclasses", { scoped: true }),
+  storageclasses: def("storageclasses", "StorageClasses", "storage.k8s.io/v1/storageclasses", { scoped: true, mode: "full" }),
   nodes: def("nodes", "Nodes", "v1/nodes", { scoped: true, mode: "full" }),
   networkpolicies: def("networkpolicies", "NetworkPolicies", "networking.k8s.io/v1/networkpolicies"),
   endpoints: def("endpoints", "Endpoints", "v1/endpoints"),
   endpointslices: def("endpointslices", "EndpointSlices", "discovery.k8s.io/v1/endpointslices"),
   horizontalpodautoscalers: def("horizontalpodautoscalers", "HPAs", "autoscaling/v2/horizontalpodautoscalers", { mode: "full" }),
+  verticalpodautoscalers: def("verticalpodautoscalers", "VerticalPodAutoscalers", "autoscaling.k8s.io/v1/verticalpodautoscalers", { mode: "full" }),
   poddisruptionbudgets: def("poddisruptionbudgets", "PDBs", "policy/v1/poddisruptionbudgets"),
   resourcequotas: def("resourcequotas", "ResourceQuotas", "v1/resourcequotas"),
   limitranges: def("limitranges", "LimitRanges", "v1/limitranges"),
@@ -114,7 +115,7 @@ export function str(v: unknown): string {
 }
 
 export const EXTRA_DEFS: Record<string, ResourceDef> = {
-  namespaces: def("namespaces", "Namespaces", "v1/namespaces", { scoped: true }),
+  namespaces: def("namespaces", "Namespaces", "v1/namespaces", { scoped: true, mode: "full" }),
 };
 
 export const KNOWN_GVRS = new Set(

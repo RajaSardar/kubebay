@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { StatusDot } from "@kubebay/ui";
 import { api, type ClusterInfo } from "../lib/api";
 import { useResourceStream } from "../lib/useResourceStream";
+import { DEFS, EXTRA_DEFS } from "../lib/resources";
 
 // ──── Nav items (static routes) ──────────────────────────────────────────────
 
@@ -13,37 +14,60 @@ export interface PaletteItem {
   to: string;
 }
 
+// Curated ordering for the resource kinds surfaced most often. Anything in
+// DEFS/EXTRA_DEFS that isn't listed here still shows up (alphabetically,
+// appended after the curated set) so newly-added resource kinds are never
+// silently missing from the palette.
+const CURATED_RESOURCE_ORDER = [
+  "deployments",
+  "replicasets",
+  "statefulsets",
+  "daemonsets",
+  "jobs",
+  "cronjobs",
+  "configmaps",
+  "secrets",
+  "services",
+  "ingresses",
+  "networkpolicies",
+  "horizontalpodautoscalers",
+  "poddisruptionbudgets",
+  "resourcequotas",
+  "limitranges",
+  "persistentvolumeclaims",
+  "persistentvolumes",
+  "storageclasses",
+  "nodes",
+  "namespaces",
+  "serviceaccounts",
+  "roles",
+  "clusterroles",
+  "rolebindings",
+  "clusterrolebindings",
+];
+
+function resourceNavItems(): PaletteItem[] {
+  const all = { ...DEFS, ...EXTRA_DEFS };
+  const entries = Object.entries(all);
+  const bySlug = new Map(entries);
+  const curated = CURATED_RESOURCE_ORDER.flatMap((slug) => {
+    const def = bySlug.get(slug);
+    return def ? [{ label: def.label, to: `/r/${slug}` }] : [];
+  });
+  const seen = new Set(CURATED_RESOURCE_ORDER);
+  const rest = entries
+    .filter(([slug]) => !seen.has(slug))
+    .sort(([, a], [, b]) => a.label.localeCompare(b.label))
+    .map(([slug, def]) => ({ label: def.label, to: `/r/${slug}` }));
+  return [...curated, ...rest];
+}
+
 export function usePaletteItems(): PaletteItem[] {
   return useMemo(
     () => [
       { label: "Overview", to: "/" },
-      { label: "Fleet", to: "/fleet" },
       { label: "Pods", to: "/workloads" },
-      { label: "Deployments", to: "/r/deployments" },
-      { label: "ReplicaSets", to: "/r/replicasets" },
-      { label: "StatefulSets", to: "/r/statefulsets" },
-      { label: "DaemonSets", to: "/r/daemonsets" },
-      { label: "Jobs", to: "/r/jobs" },
-      { label: "CronJobs", to: "/r/cronjobs" },
-      { label: "ConfigMaps", to: "/r/configmaps" },
-      { label: "Secrets", to: "/r/secrets" },
-      { label: "Services", to: "/r/services" },
-      { label: "Ingresses", to: "/r/ingresses" },
-      { label: "NetworkPolicies", to: "/r/networkpolicies" },
-      { label: "HPAs", to: "/r/horizontalpodautoscalers" },
-      { label: "PDBs", to: "/r/poddisruptionbudgets" },
-      { label: "ResourceQuotas", to: "/r/resourcequotas" },
-      { label: "LimitRanges", to: "/r/limitranges" },
-      { label: "PVCs", to: "/r/persistentvolumeclaims" },
-      { label: "PVs", to: "/r/persistentvolumes" },
-      { label: "StorageClasses", to: "/r/storageclasses" },
-      { label: "Nodes", to: "/r/nodes" },
-      { label: "Namespaces", to: "/r/namespaces" },
-      { label: "ServiceAccounts", to: "/r/serviceaccounts" },
-      { label: "Roles", to: "/r/roles" },
-      { label: "ClusterRoles", to: "/r/clusterroles" },
-      { label: "RoleBindings", to: "/r/rolebindings" },
-      { label: "ClusterRoleBindings", to: "/r/clusterrolebindings" },
+      ...resourceNavItems(),
       { label: "Ports — forward manager", to: "/ports" },
       { label: "Helm releases", to: "/helm" },
       { label: "RBAC explorer", to: "/rbac" },

@@ -29,6 +29,15 @@ export function useRowSelection() {
     setSelectedKeys(new Set<string>());
   }, []);
 
+  /** Remove specific keys from the selection (e.g. after those rows were deleted). */
+  const deselect = useCallback((keys: string[]) => {
+    setSelectedKeys((prev) => {
+      const next = new Set(prev);
+      for (const k of keys) next.delete(k);
+      return next;
+    });
+  }, []);
+
   /** True when keys is non-empty and every key is selected. */
   const isAllSelected = useCallback(
     (keys: string[]) =>
@@ -51,6 +60,7 @@ export function useRowSelection() {
     toggleRow,
     selectAll,
     clearAll,
+    deselect,
     isAllSelected,
     isIndeterminate,
   };

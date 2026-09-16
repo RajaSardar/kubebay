@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ClusterInfo } from "./lib/api";
-import { NavLink, Route, Routes, useNavigate } from "react-router-dom";
+import { NavLink, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { useClusterStore } from "./lib/cluster-store";
 import { StatusDot } from "@kubebay/ui";
 import {
@@ -41,6 +41,7 @@ import { FavoritesSidebar, useFavorites } from "./components/Favorites";
 import { useClusterIcons, type ClusterIcon } from "./lib/useClusterIcons";
 import { useWsStatus } from "./lib/useWsStatus";
 import { clearStreamCacheForCluster } from "./lib/streamCache";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 // ──── Cluster Context ────────────────────────────────────────────────────────
 // `active` and `setActive` now live in Zustand (cluster-store.ts).
@@ -646,10 +647,31 @@ function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
   );
 }
 
+// ──── NotFound ───────────────────────────────────────────────────────────────
+// Catches stale/dead links (e.g. a favorited route removed in a later version)
+// so an unmatched path shows a recoverable message instead of a silent blank
+// content pane — Routes with no matching Route and no wildcard renders nothing.
+
+function NotFound() {
+  const navigate = useNavigate();
+  return (
+    <div className="page">
+      <div className="empty-state">
+        <p>This page doesn't exist.</p>
+        <p className="muted small">The link may be out of date — try Home or search with ⌘K.</p>
+        <button className="ns-clear" style={{ marginTop: 12 }} onClick={() => navigate("/")}>
+          Go home
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ──── App ────────────────────────────────────────────────────────────────────
 
 function AppInner() {
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const health = useQuery({ queryKey: ["health"], queryFn: api.health, refetchInterval: 10_000 });
   const clusters = useQuery({ queryKey: ["clusters"], queryFn: api.clusters, refetchInterval: 4_000 });
@@ -726,22 +748,25 @@ function AppInner() {
         <Palette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
 
         <main className="content">
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/workloads" element={<Workloads />} />
-            <Route path="/workloads-overview" element={<WorkloadsOverview />} />
-            <Route path="/r/:kind" element={<ResourceTable />} />
-            <Route path="/detail/:kind/:ns/:name" element={<ResourceDetail />} />
-            <Route path="/ports" element={<Ports />} />
-            <Route path="/timeline" element={<Timeline />} />
-            <Route path="/topology" element={<Topology />} />
-            <Route path="/rbac" element={<Rbac />} />
-            <Route path="/helm" element={<Helm />} />
-            <Route path="/argocd" element={<ArgoCD />} />
-            <Route path="/crds" element={<Crds />} />
-            <Route path="/network-policy" element={<NetworkPolicy />} />
-            <Route path="/settings" element={<Settings />} />
-          </Routes>
+          <ErrorBoundary resetKey={location.pathname}>
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/workloads" element={<Workloads />} />
+              <Route path="/workloads-overview" element={<WorkloadsOverview />} />
+              <Route path="/r/:kind" element={<ResourceTable />} />
+              <Route path="/detail/:kind/:ns/:name" element={<ResourceDetail />} />
+              <Route path="/ports" element={<Ports />} />
+              <Route path="/timeline" element={<Timeline />} />
+              <Route path="/topology" element={<Topology />} />
+              <Route path="/rbac" element={<Rbac />} />
+              <Route path="/helm" element={<Helm />} />
+              <Route path="/argocd" element={<ArgoCD />} />
+              <Route path="/crds" element={<Crds />} />
+              <Route path="/network-policy" element={<NetworkPolicy />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </ErrorBoundary>
 
           {showOverlay && (
             <ClusterConnectingOverlay

@@ -1,4 +1,5 @@
 import { Badge, StatusDot } from "@kubebay/ui";
+import { ConditionsTable } from "./ConditionsTable";
 
 function rec(v: unknown): Record<string, unknown> {
   return (v ?? {}) as Record<string, unknown>;
@@ -103,22 +104,7 @@ export function NodeSummary({
       </Section>
 
       <Section title={`Conditions (${data.conditions.length})`}>
-        <div className="pod-conditions">
-          {data.conditions.map((c, i) => {
-            const type = str(c.type);
-            const st = str(c.status);
-            const isReady = type === "Ready";
-            const ok = isReady ? st === "True" : st === "False";
-            const reason = str(c.reason);
-            return (
-              <div key={i} className="pod-condition">
-                <StatusDot status={ok ? "connected" : st === "Unknown" ? "pending" : "unreachable"} />
-                <span className="small">{type}</span>
-                {reason && <span className="muted small">{reason}</span>}
-              </div>
-            );
-          })}
-        </div>
+        <ConditionsTable conditions={data.conditions} />
       </Section>
 
       {data.taints.length > 0 && (
