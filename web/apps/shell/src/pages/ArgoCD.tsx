@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Skeleton } from "@kubebay/ui";
+import { ArmedButton, Skeleton } from "@kubebay/ui";
 import { argoCDApi, type ArgoCDApp } from "../lib/api";
 import { useCluster } from "../lib/useCluster";
 
@@ -99,37 +99,12 @@ function SyncButton({ cluster, app }: { cluster: string; app: ArgoCDApp }) {
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-      <button
-        className="btn-ghost"
-        disabled={busy}
-        onClick={handleSync}
-        style={{
-          fontSize: 11,
-          padding: "3px 10px",
-          borderRadius: 6,
-          border: "1px solid var(--kb-border)",
-          background: busy ? "var(--kb-bg-hover)" : "transparent",
-          color: "var(--kb-text)",
-          cursor: busy ? "not-allowed" : "pointer",
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 5,
-          opacity: busy ? 0.6 : 1,
-        }}
-      >
-        {busy ? (
-          <svg viewBox="0 0 16 16" width="11" height="11" fill="none" style={{ animation: "spin 1.4s linear infinite" }}>
-            <path d="M8 2a6 6 0 0 1 5.66 8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-            <path d="M13.66 10 l-2 2 2 2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        ) : (
-          <svg viewBox="0 0 16 16" width="11" height="11" fill="none">
-            <path d="M14 8A6 6 0 1 1 8 2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-            <path d="M8 2l3-3v6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        )}
-        Hard Sync
-      </button>
+      <ArmedButton
+        label="Hard Sync"
+        confirmLabel="Confirm hard sync?"
+        busy={busy}
+        onGo={() => void handleSync()}
+      />
       {err && (
         <span style={{ color: "var(--kb-status-err)", fontSize: 11 }} title={err}>
           failed
