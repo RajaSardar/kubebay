@@ -24,15 +24,17 @@ export function Card({
   interactive,
   className,
   style,
+  id,
 }: {
   children: ReactNode;
   interactive?: boolean;
   className?: string;
   style?: CSSProperties;
+  id?: string;
 }) {
   const cls = `kb-card${interactive ? " kb-card-interactive" : ""}${className ? " " + className : ""}`;
   return (
-    <div className={cls} style={style}>
+    <div id={id} className={cls} style={style}>
       {children}
     </div>
   );

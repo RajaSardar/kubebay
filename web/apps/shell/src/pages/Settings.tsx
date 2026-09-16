@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button, Card } from "@kubebay/ui";
 import { settingsApi } from "../lib/api";
@@ -52,7 +53,7 @@ function KubeconfigSources() {
   }
 
   return (
-    <Card style={{ marginTop: 18 }}>
+    <Card id="kubeconfig-sources" style={{ marginTop: 18 }}>
       <div className="rbac-section-title">Kubeconfig sources</div>
 
       {/* Active files being loaded */}
@@ -199,6 +200,16 @@ export default function Settings() {
   const { theme, setTheme } = useTheme();
   const { fontSize, fontFamily, density, setFontSize, setFontFamily, setDensity } = useDisplay();
   const settings = useQuery({ queryKey: ["settings"], queryFn: settingsApi.get });
+  const location = useLocation();
+
+  // Deep-link support: /settings#kubeconfig-sources scrolls that card into view
+  // (e.g. from Home.tsx's onboarding paths).
+  useEffect(() => {
+    if (!location.hash) return;
+    const id = location.hash.slice(1);
+    const el = document.getElementById(id);
+    el?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [location.hash]);
 
   // Split themes into groups for layout
   const appleThemes = THEMES.filter((t) => ["dawn", "dusk", "system", "dusk-hc", "dawn-hc"].includes(t.id));
