@@ -42,7 +42,7 @@ export const DEFS: Record<string, ResourceDef> = {
   ingresses: def("ingresses", "Ingresses", "networking.k8s.io/v1/ingresses"),
   persistentvolumeclaims: def("persistentvolumeclaims", "PVCs", "v1/persistentvolumeclaims", { mode: "full" }),
   persistentvolumes: def("persistentvolumes", "PVs", "v1/persistentvolumes", { scoped: true, mode: "full" }),
-  storageclasses: def("storageclasses", "StorageClasses", "storage.k8s.io/v1/storageclasses", { scoped: true }),
+  storageclasses: def("storageclasses", "StorageClasses", "storage.k8s.io/v1/storageclasses", { scoped: true, mode: "full" }),
   nodes: def("nodes", "Nodes", "v1/nodes", { scoped: true, mode: "full" }),
   networkpolicies: def("networkpolicies", "NetworkPolicies", "networking.k8s.io/v1/networkpolicies"),
   endpoints: def("endpoints", "Endpoints", "v1/endpoints"),
