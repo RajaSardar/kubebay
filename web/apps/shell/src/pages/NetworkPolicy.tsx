@@ -105,9 +105,18 @@ interface PolicyInfo {
 }
 
 // Returns the set of namespace names that have at least one NetworkPolicy
+// restricting ingress. A policy only isolates ingress traffic if its
+// policyTypes includes "Ingress" — or has no explicit policyTypes at all,
+// which per k8s semantics defaults to affecting Ingress. An Egress-only
+// policy (policyTypes: ["Egress"]) does not isolate ingress and must not
+// count here.
 function isolatedNamespaces(policies: PolicyInfo[]): Set<string> {
   const ns = new Set<string>();
-  for (const p of policies) ns.add(p.namespace);
+  for (const p of policies) {
+    const types = strArr(p.spec.policyTypes);
+    const affectsIngress = types.length === 0 || types.includes("Ingress");
+    if (affectsIngress) ns.add(p.namespace);
+  }
   return ns;
 }
 
