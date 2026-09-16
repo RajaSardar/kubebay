@@ -21,6 +21,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
+	"github.com/RajaSardar/kubebay/engine/internal/audit"
 	"github.com/RajaSardar/kubebay/engine/internal/clusters"
 	"github.com/RajaSardar/kubebay/engine/internal/httpapi"
 	"github.com/RajaSardar/kubebay/engine/internal/informers"
@@ -42,7 +43,12 @@ func buildTestServer(t *testing.T) (*httptest.Server, *clusters.Manager) {
 		t.Fatalf("manager: %v", err)
 	}
 	registry := informers.NewPoolRegistry(mgr)
-	channels := httpapi.NewChannels(mgr)
+	auditLog, err := audit.New(log)
+	if err != nil {
+		t.Fatalf("audit: %v", err)
+	}
+	defer auditLog.Close()
+	channels := httpapi.NewChannels(mgr, auditLog)
 	hub := stream.NewHub(log, channels)
 	auth, err := httpapi.NewAuthenticator("", "", "", "")
 	if err != nil {
