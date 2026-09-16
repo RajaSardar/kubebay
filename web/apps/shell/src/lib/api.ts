@@ -1,16 +1,15 @@
 const TOKEN_KEY = "kb.token";
 
 export function getToken(): string {
-  let t = localStorage.getItem(TOKEN_KEY);
-  if (!t) {
-    const url = new URLSearchParams(window.location.search);
-    t = url.get("token");
-    if (t) {
-      localStorage.setItem(TOKEN_KEY, t);
-      window.history.replaceState({}, "", window.location.pathname);
-    }
+  // Always prefer the URL token — it's the fresh secret for this engine session.
+  // A stale localStorage token from a previous launch would cause 401 on every request.
+  const urlToken = new URLSearchParams(window.location.search).get("token");
+  if (urlToken) {
+    localStorage.setItem(TOKEN_KEY, urlToken);
+    window.history.replaceState({}, "", window.location.pathname);
+    return urlToken;
   }
-  return t ?? "";
+  return localStorage.getItem(TOKEN_KEY) ?? "";
 }
 
 export interface ClusterInfo {
