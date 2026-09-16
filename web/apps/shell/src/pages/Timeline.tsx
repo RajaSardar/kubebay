@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Badge } from "@kubebay/ui";
 import { useCluster } from "../lib/useCluster";
 import { useResourceStream } from "../lib/useResourceStream";
@@ -10,8 +11,23 @@ interface EventRow {
   reason: string;
   message: string;
   obj: string;
+  objKind: string;
+  objNs: string;
+  objName: string;
   count: number;
 }
+
+// Only kinds that resolve to a working generic detail route (see lib/resources.ts DEFS +
+// pages/ResourceDetail.tsx) get a link. Pod is intentionally excluded: pods are shown via
+// Workloads.tsx/PodPanel rather than the generic ResourceTable/GenericDrawer route, so there is
+// no /detail/pods/... page for an event's involved Pod to deep-link into.
+const EVENT_KIND_SLUGS: Record<string, string> = {
+  Deployment: "deployments",
+  Service: "services",
+  ConfigMap: "configmaps",
+  Secret: "secrets",
+  Node: "nodes",
+};
 
 function asRecord(v: unknown): Record<string, unknown> {
   return (v ?? {}) as Record<string, unknown>;
@@ -35,11 +51,15 @@ function deriveEvent(obj: Record<string, unknown>): EventRow | null {
     reason: (obj.reason as string) ?? "",
     message: (obj.message as string) ?? "",
     obj: [kind, ns ? `${ns}/${objName}` : objName].filter(Boolean).join(" "),
+    objKind: kind,
+    objNs: ns,
+    objName,
     count: (obj.count as number) ?? 1,
   };
 }
 
 export default function Timeline() {
+  const navigate = useNavigate();
   const { cluster: effectiveCluster, setCluster, list } = useCluster();
   const [filter, setFilter] = useState("");
   const [warningsOnly, setWarningsOnly] = useState(false);
@@ -131,7 +151,18 @@ export default function Timeline() {
                       <span className="mono strong">{e.reason}</span>
                       {isWarn && <Badge tone="err">warning</Badge>}
                       {e.count > 1 && <Badge>×{e.count}</Badge>}
-                      <span className="muted small mono">{e.obj}</span>
+                      {EVENT_KIND_SLUGS[e.objKind] && e.objName ? (
+                        <span
+                          className="muted small mono cell-link"
+                          onClick={() =>
+                            navigate(`/detail/${EVENT_KIND_SLUGS[e.objKind]}/${e.objNs || "_"}/${e.objName}`)
+                          }
+                        >
+                          {e.obj}
+                        </span>
+                      ) : (
+                        <span className="muted small mono">{e.obj}</span>
+                      )}
                       <span className="muted small" style={{ marginLeft: "auto", flexShrink: 0 }}>
                         {fmtRel(e.ts)}
                       </span>
