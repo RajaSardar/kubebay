@@ -10,6 +10,7 @@ import { DEFS, EXTRA_DEFS, ageOf, fmtAge, num, str, type ResourceDef } from "../
 import { fmtBytes, fmtCpu } from "./Workloads";
 import { useResizableColumns } from "../lib/useResizableColumns";
 import { useRowSelection } from "../lib/useRowSelection";
+import { useBulkDelete } from "../lib/useBulkDelete";
 import { useDisplay, type Density } from "../lib/display";
 
 // Row height (px) per density level — must stay in sync with ROW_PADDING_VALUES in display.ts
@@ -312,9 +313,6 @@ export default function ResourceTable() {
   const [sortAsc, setSortAsc] = useState(true);
   const [selected, setSelected] = useState<{ ns: string; name: string } | null>(null);
   const [ctx, setCtx] = useState<{ x: number; y: number; ns: string; name: string } | null>(null);
-  const [pendingDelete, setPendingDelete] = useState<{ ns: string; name: string } | null>(null);
-  const [deleteBusy, setDeleteBusy] = useState(false);
-  const [deleteErr, setDeleteErr] = useState("");
 
   const stream = useResourceStream(effectiveCluster || undefined, def?.gvr ?? "v1/configmaps", {
     mode: def?.mode,
@@ -399,7 +397,10 @@ export default function ResourceTable() {
     [headers],
   );
   const { widths, getResizeHandleProps } = useResizableColumns(headers.length, initialWidths);
-  const { selectedKeys, toggleRow, selectAll, clearAll, isAllSelected, isIndeterminate } = useRowSelection();
+  const { selectedKeys, toggleRow, selectAll, clearAll, deselect, isAllSelected, isIndeterminate } = useRowSelection();
+  const bulkDelete = useBulkDelete((t) =>
+    api.deleteResource({ cluster: effectiveCluster, gvr: def?.gvr ?? "", ns: t.ns, name: t.name }),
+  );
 
   const rows = useMemo(() => {
     let out = [...stream.rows];
@@ -465,17 +466,8 @@ export default function ResourceTable() {
   }
 
   async function confirmDelete() {
-    if (!pendingDelete) return;
-    setDeleteBusy(true);
-    setDeleteErr("");
-    try {
-      await api.deleteResource({ cluster: effectiveCluster, gvr: def?.gvr ?? "", ns: pendingDelete.ns, name: pendingDelete.name });
-      setPendingDelete(null);
-    } catch (e) {
-      setDeleteErr(e instanceof Error ? e.message : String(e));
-    } finally {
-      setDeleteBusy(false);
-    }
+    const succeeded = await bulkDelete.confirm();
+    deselect(succeeded.map((t) => `${t.ns}/${t.name}`));
   }
 
   return (
@@ -490,29 +482,52 @@ export default function ResourceTable() {
         </h2>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {selectedKeys.size > 0 && (
-            <span className="muted small">{selectedKeys.size} selected</span>
+            <>
+              <span className="muted small">{selectedKeys.size} selected</span>
+              <Button
+                variant="danger"
+                onClick={() => {
+                  bulkDelete.request(
+                    [...selectedKeys].map((key) => {
+                      const i = key.indexOf("/");
+                      return { ns: key.slice(0, i), name: key.slice(i + 1) };
+                    }),
+                  );
+                }}
+              >
+                Delete {selectedKeys.size} selected
+              </Button>
+            </>
           )}
           <Badge>{rows.length}</Badge>
         </div>
       </div>
 
-      {pendingDelete && (
+      {bulkDelete.pending && (
         <div className="crd-error" style={{ justifyContent: "space-between" }}>
           <span>
-            Delete <strong className="mono">{pendingDelete.name}</strong>
-            {pendingDelete.ns ? ` in ${pendingDelete.ns}` : ""}? This can&apos;t be undone.
+            {bulkDelete.pending.length === 1 ? (
+              <>
+                Delete <strong className="mono">{bulkDelete.pending[0]!.name}</strong>
+                {bulkDelete.pending[0]!.ns ? ` in ${bulkDelete.pending[0]!.ns}` : ""}? This can&apos;t be undone.
+              </>
+            ) : (
+              <>
+                Delete {bulkDelete.pending.length} selected {def.label.toLowerCase()}? This can&apos;t be undone.
+              </>
+            )}
           </span>
           <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-            <Button variant="ghost" disabled={deleteBusy} onClick={() => setPendingDelete(null)}>
+            <Button variant="ghost" disabled={bulkDelete.busy} onClick={bulkDelete.cancel}>
               Cancel
             </Button>
-            <Button variant="danger" disabled={deleteBusy} onClick={() => void confirmDelete()}>
-              {deleteBusy ? "Deleting…" : "Delete"}
+            <Button variant="danger" disabled={bulkDelete.busy} onClick={() => void confirmDelete()}>
+              {bulkDelete.busy ? "Deleting…" : "Delete"}
             </Button>
           </div>
         </div>
       )}
-      {deleteErr && <div className="crd-error">Delete failed: {deleteErr}</div>}
+      {bulkDelete.error && <div className="crd-error">{bulkDelete.error}</div>}
 
       <div className="toolbar">
         {!def.scoped && (
@@ -666,8 +681,7 @@ export default function ResourceTable() {
             { label: "Edit YAML", icon: "📝", onClick: () => setSelected({ ns: ctx.ns, name: ctx.name }) },
             { separator: true, label: "", onClick: () => {} },
             { label: "Delete", icon: "🗑", danger: true, onClick: () => {
-              setDeleteErr("");
-              setPendingDelete({ ns: ctx.ns, name: ctx.name });
+              bulkDelete.request([{ ns: ctx.ns, name: ctx.name }]);
             }},
           ]}
         />
