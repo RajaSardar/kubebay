@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
+import { DEFS, EXTRA_DEFS } from "../lib/resources";
 
 const FAV_KEY = "kb.favorites";
 
@@ -29,9 +30,12 @@ const ROUTE_LABELS: Record<string, string> = {
 
 function labelFor(path: string): string {
   if (ROUTE_LABELS[path]) return ROUTE_LABELS[path];
-  const m = path.match(/^\/r\/(.+)$/);
+  const m = path.match(/^\/r\/([^?]+)/);
   if (m && m[1]) {
-    return m[1]
+    const slug = m[1];
+    const def = DEFS[slug] ?? EXTRA_DEFS[slug];
+    if (def) return def.label;
+    return slug
       .replace(/^ext--/, "")
       .replace(/--/g, "/")
       .replace(/([a-z])([A-Z])/g, "$1 $2")
