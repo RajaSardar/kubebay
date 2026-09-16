@@ -7,6 +7,8 @@ import PodPanel, { type SelectedPod } from "./PodPanel";
 import { useActiveCluster } from "../App";
 import { useResizableColumns } from "../lib/useResizableColumns";
 import { useRowSelection } from "../lib/useRowSelection";
+import { NamespaceFilter } from "../components/NamespaceFilter";
+import { useSelectedNamespaces } from "../lib/namespace-store";
 
 function rec(v: unknown): Record<string, unknown> {
   return (v ?? {}) as Record<string, unknown>;
@@ -166,7 +168,11 @@ export default function Workloads() {
   const list = clusters.data ?? [];
   const effectiveCluster = activeCluster || list.find((c) => c.status === "connected")?.id || list[0]?.id || "";
 
-  const { rows, synced, connected } = useResourceStream(effectiveCluster || undefined, "v1/pods", { mode: "full" });
+  const nsFilter = useSelectedNamespaces(effectiveCluster || undefined);
+  const { rows, synced, connected } = useResourceStream(effectiveCluster || undefined, "v1/pods", {
+    mode: "full",
+    ns: nsFilter.length > 0 ? nsFilter : undefined,
+  });
 
   const metrics = useQuery({
     queryKey: ["podmetrics", effectiveCluster],
@@ -253,6 +259,7 @@ export default function Workloads() {
           ))}
           {list.length === 0 && <option>no clusters</option>}
         </select>
+        <NamespaceFilter cluster={effectiveCluster || undefined} />
         <input
           className="toolbar-input"
           placeholder="Filter by name or namespace…"
@@ -291,7 +298,7 @@ export default function Workloads() {
       {effectiveCluster && synced && pods.length === 0 && (
         <div className="empty-state">
           <p>No pods match.</p>
-          <p className="muted small">{filter ? "Try clearing the filter." : "This cluster looks quiet."}</p>
+          <p className="muted small">{filter || nsFilter.length ? "Try clearing the filters." : "This cluster looks quiet."}</p>
         </div>
       )}
 
