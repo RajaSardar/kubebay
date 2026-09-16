@@ -68,7 +68,7 @@ export function usePaletteItems(): PaletteItem[] {
       { label: "Overview", to: "/" },
       { label: "Pods", to: "/workloads" },
       ...resourceNavItems(),
-      { label: "Local shell — terminal on this machine", to: "/shell" },
+      { label: "Local shell — terminal on this machine", to: "/terminal" },
       { label: "Ports — forward manager", to: "/ports" },
       { label: "Helm releases", to: "/helm" },
       { label: "RBAC explorer", to: "/rbac" },
