@@ -12,26 +12,19 @@ interface ClusterIconState {
   resetIcon: (clusterId: string) => void;
 }
 
-export const useClusterIconStore = create<ClusterIconState>()(
-  persist(
-    (set) => ({
-      icons: {},
-      setIcon: (clusterId, icon) =>
-        set((state) => ({
-          icons: { ...state.icons, [clusterId]: icon },
-        })),
-      resetIcon: (clusterId) =>
-        set((state) => {
-          const next = { ...state.icons };
-          delete next[clusterId];
-          return { icons: next };
-        }),
+export const useClusterIconStore = create<ClusterIconState>()((set) => ({
+  icons: {},
+  setIcon: (clusterId, icon) =>
+    set((state) => ({
+      icons: { ...state.icons, [clusterId]: icon },
+    })),
+  resetIcon: (clusterId) =>
+    set((state) => {
+      const next = { ...state.icons };
+      delete next[clusterId];
+      return { icons: next };
     }),
-    {
-      name: "kb.cluster-icons",
-    },
-  ),
-);
+}));
 
 /**
  * Shared, reactive cluster-icon store. All consumers (ClusterStrip, Sidebar,
