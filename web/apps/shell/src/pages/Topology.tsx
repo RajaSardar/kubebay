@@ -12,6 +12,7 @@ import "@xyflow/react/dist/style.css";
 import { Badge } from "@kubebay/ui";
 import { useCluster } from "../lib/useCluster";
 import { useResourceStream } from "../lib/useResourceStream";
+import { useSingleNamespace } from "../lib/namespace-store";
 import { buildTopology, type Health, type KObj, type TopoNode } from "../lib/topology";
 import PodPanel from "./PodPanel";
 
@@ -116,8 +117,8 @@ export default function Topology() {
     return names.length ? names : ["default"];
   }, [namespaces.rows]);
 
-  const [ns, setNs] = useState("default");
-  const effectiveNs = nsOptions.includes(ns) ? ns : nsOptions[0] ?? "default";
+  const [rawNs, setRawNs] = useSingleNamespace(effectiveCluster || undefined, "default");
+  const effectiveNs = nsOptions.includes(rawNs) ? rawNs : nsOptions[0] ?? "default";
 
   const pods = useResourceStream(effectiveCluster || undefined, "v1/pods", { mode: "full", ns: [effectiveNs] });
   const rss = useResourceStream(effectiveCluster || undefined, "apps/v1/replicasets", { mode: "full", ns: [effectiveNs] });
@@ -175,7 +176,7 @@ export default function Topology() {
             </option>
           ))}
         </select>
-        <select className="toolbar-select" value={effectiveNs} onChange={(e) => setNs(e.target.value)} aria-label="namespace">
+        <select className="toolbar-select" value={effectiveNs} onChange={(e) => setRawNs(e.target.value)} aria-label="namespace">
           {nsOptions.map((n) => (
             <option key={n} value={n}>
               {n}

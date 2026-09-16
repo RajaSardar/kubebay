@@ -35,3 +35,20 @@ export function useSelectedNamespaces(cluster: string | undefined): string[] {
     (state) => (cluster ? (state.selections[cluster] ?? []) : []),
   );
 }
+
+/**
+ * Adapter for pages that need single-namespace semantics (e.g. a topology
+ * graph that only stays readable for one namespace at a time) while still
+ * sharing the same persisted, cross-page namespace selection. Reads the
+ * first selected namespace for the cluster, falling back to `fallback` when
+ * nothing is selected, and setting it writes back a single-element selection.
+ */
+export function useSingleNamespace(cluster: string | undefined, fallback: string): [string, (ns: string) => void] {
+  const selected = useSelectedNamespaces(cluster);
+  const { setNamespaces } = useNamespaceStore();
+  const current = selected[0] ?? fallback;
+  const setNs = (ns: string) => {
+    if (cluster) setNamespaces(cluster, [ns]);
+  };
+  return [current, setNs];
+}
