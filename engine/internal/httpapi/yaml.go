@@ -98,6 +98,13 @@ func (c *Channels) HandleGetYAML(w http.ResponseWriter, r *http.Request) {
 		_ = json.Unmarshal(b, &doc)
 	}
 	stripNoisyFields(doc)
+	// The drawer summaries and ResizePanel need a structured object, and shipping a
+	// YAML parser to the browser just to read back what we serialized here is waste.
+	if q.Get("format") == "json" {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(doc)
+		return
+	}
 	out, err := yaml.Marshal(doc)
 	if err != nil {
 		http.Error(w, "marshal: "+err.Error(), http.StatusInternalServerError)

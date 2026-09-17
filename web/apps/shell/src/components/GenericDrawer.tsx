@@ -368,13 +368,10 @@ export default function GenericDrawer({
     // Fetched for every kind: Node/Service/Pod use it for their bespoke summary, and generic
     // kinds use it for the Summary tab (MetadataSummary) added alongside YAML + Events.
     setObjLoading(true);
-    api.getYamlText(cluster, def.gvr, ns, name).then((text) => {
-      try {
-        setObj(JSON.parse(text));
-      } catch {
-        setObj(null);
-      }
-    }).catch(() => setObj(null)).finally(() => setObjLoading(false));
+    api.getObject(cluster, def.gvr, ns, name)
+      .then((o) => setObj(o))
+      .catch(() => setObj(null))
+      .finally(() => setObjLoading(false));
     // Reset container selection when pod changes
     if (isPod) setPodContainer("");
   }, [cluster, def.gvr, ns, name, isPod]);
