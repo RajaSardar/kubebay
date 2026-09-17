@@ -13,7 +13,7 @@ import (
 
 type Entry struct {
 	Time      time.Time `json:"time"`
-	Action    string    `json:"action"`    // "exec", "port-forward", "scale", "delete", "restart", "drain", "cordon"
+	Action    string    `json:"action"`    // "exec", "port-forward", "scale", "delete", "restart", "drain", "cordon", "apply"
 	Cluster   string    `json:"cluster"`
 	Namespace string    `json:"namespace,omitempty"`
 	Resource  string    `json:"resource,omitempty"` // pod/deployment name
