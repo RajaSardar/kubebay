@@ -41,6 +41,7 @@ func main() {
 	oidcClientID := flag.String("oidc-client-id", os.Getenv("KUBEBAY_OIDC_CLIENT_ID"), "OIDC client id")
 	oidcClientSecret := flag.String("oidc-client-secret", os.Getenv("KUBEBAY_OIDC_CLIENT_SECRET"), "OIDC client secret")
 	oidcRedirect := flag.String("oidc-redirect-url", os.Getenv("KUBEBAY_OIDC_REDIRECT"), "OAuth2 redirect URL")
+	localShell := flag.Bool("local-shell", false, "serve a shell on this machine (requires a binary built with -tags localshell, a loopback --addr, no --in-cluster and no OIDC)")
 	flag.Parse()
 
 	if *showVersion {
@@ -72,9 +73,17 @@ func main() {
 	}
 	defer auditLog.Close()
 
+	auth, authErr := httpapi.NewAuthenticator(*oidcIssuer, *oidcClientID, *oidcClientSecret, *oidcRedirect)
+	if authErr != nil {
+		log.Error("oidc init failed", "err", authErr)
+		os.Exit(1)
+	}
+
 	registry := informers.NewPoolRegistry(mgr)
 	channels := httpapi.NewChannels(mgr, auditLog)
-	hub := stream.NewHub(log, channels)
+	chanDeps, closeLocalShell := setupLocalShell(log, channels, *localShell, *inCluster, auth.Enabled(), *addr)
+	defer closeLocalShell()
+	hub := stream.NewHub(log, chanDeps)
 	pfManager := httpapi.NewPFManager(mgr)
 	actions := &httpapi.Actions{Clusters: mgr}
 	metrics := &httpapi.Metrics{Clusters: mgr}
@@ -85,12 +94,6 @@ func main() {
 	token, err := httpapi.NewToken()
 	if err != nil {
 		log.Error("token generation failed", "err", err)
-		os.Exit(1)
-	}
-
-	auth, authErr := httpapi.NewAuthenticator(*oidcIssuer, *oidcClientID, *oidcClientSecret, *oidcRedirect)
-	if authErr != nil {
-		log.Error("oidc init failed", "err", authErr)
 		os.Exit(1)
 	}
 
