@@ -4,6 +4,7 @@ package stream
 
 import (
 	"context"
+	"fmt"
 	"io"
 )
 
@@ -13,7 +14,10 @@ const localShellBuilt = true
 // PTY on the machine running the engine.  It is kept separate from ChannelDeps
 // so a build without the localshell tag holds no reference to it at all.
 type LocalShellDeps interface {
-	OpenLocalShell(ctx context.Context, spec ChanSpec, write func([]byte) error, stdin io.Reader, resize <-chan TermSize) error
+	// The exit code is returned separately from err: a shell that exits 1 ended
+	// normally, and the UI needs the number to report it.  It is meaningful only
+	// when err is nil.
+	OpenLocalShell(ctx context.Context, spec ChanSpec, write func([]byte) error, stdin io.Reader, resize <-chan TermSize) (int, error)
 }
 
 func (h *Hub) runLocalShell(ctx context.Context, frame *ClientFrame, writer *connWriter, stdin *io.PipeReader, resize chan TermSize, finished func()) {
@@ -26,11 +30,14 @@ func (h *Hub) runLocalShell(ctx context.Context, frame *ClientFrame, writer *con
 	write := func(b []byte) error {
 		return writer.sendData(&DataFrame{Type: TypeChanData, ID: frame.ID, Data: b})
 	}
-	msg := "done"
-	if deps, ok := h.chandeps.(LocalShellDeps); !ok {
-		msg = "local shell is not enabled"
-	} else if err := deps.OpenLocalShell(ctx, spec, write, stdin, resize); err != nil {
-		msg = err.Error()
+	msg := "local shell is not enabled"
+	if deps, ok := h.chandeps.(LocalShellDeps); ok {
+		code, err := deps.OpenLocalShell(ctx, spec, write, stdin, resize)
+		if err != nil {
+			msg = err.Error()
+		} else {
+			msg = fmt.Sprintf("exit code %d", code)
+		}
 	}
 	_ = writer.sendControl(ControlFrame{Type: TypeChanClosed, ID: frame.ID, Message: msg})
 }
