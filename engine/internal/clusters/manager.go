@@ -306,6 +306,9 @@ func (m *Manager) watchFiles() {
 }
 
 func (m *Manager) healthOnce(e *entry) {
+	if e.cfg == nil {
+		return // misconfigured: nothing to probe, keep the load-time reason
+	}
 	cfgCopy := *e.cfg
 	cfgCopy.Timeout = 5 * time.Second
 	client, err := kubernetes.NewForConfig(&cfgCopy)
