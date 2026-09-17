@@ -154,9 +154,10 @@ type Outcome struct {
 
 // Open runs a shell attached to a PTY and pumps it until the process exits or
 // ctx is cancelled.  It blocks, mirroring the k8s exec bridge.
-func (m *Manager) Open(ctx context.Context, opts Options, ios IO) (Outcome, error) {
+func (m *Manager) Open(ctx context.Context, opts Options, ios IO) (out Outcome, err error) {
 	start := time.Now()
-	out := Outcome{Context: opts.Context, Shell: opts.Shell, ExitCode: -1}
+	out = Outcome{Context: opts.Context, Shell: opts.Shell, ExitCode: -1}
+	// Named results: the audit record on close needs the duration on every path.
 	defer func() { out.Duration = time.Since(start) }()
 
 	if m == nil || m.root == "" {
