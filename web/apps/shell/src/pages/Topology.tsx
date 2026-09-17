@@ -28,10 +28,10 @@ function Shell({ kb }: { kb: TopoNode }) {
     >
       <StatusDotDot health={kb.health} />
       <div style={{ minWidth: 0 }}>
-        <div className="mono strong" style={{ fontSize: 11.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <div className="mono strong" style={{ fontSize: "var(--kb-text-xs)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {kb.name}
         </div>
-        <div className="muted" style={{ fontSize: 10.5 }}>{kb.detail}</div>
+        <div className="muted" style={{ fontSize: "var(--kb-text-2xs)" }}>{kb.detail}</div>
       </div>
     </div>
   );
@@ -72,10 +72,10 @@ function ServiceNodeView(props: NodeProps) {
       <div className="topo-card topo-svc">
         <span className="topo-kind">svc</span>
         <div style={{ minWidth: 0 }}>
-          <div className="mono strong" style={{ fontSize: 11.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <div className="mono strong" style={{ fontSize: "var(--kb-text-xs)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {kb.name}
           </div>
-          <div className="muted" style={{ fontSize: 10.5 }}>{kb.detail}</div>
+          <div className="muted" style={{ fontSize: "var(--kb-text-2xs)" }}>{kb.detail}</div>
         </div>
       </div>
     </>
@@ -90,7 +90,7 @@ function RsNodeView(props: NodeProps) {
       <Handle type="source" position={Position.Right} />
       <div className="topo-card topo-rs">
         <span className="topo-kind">rs</span>
-        <div className="mono muted" style={{ fontSize: 10.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <div className="mono muted" style={{ fontSize: "var(--kb-text-2xs)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {kb.name}
         </div>
       </div>
@@ -163,7 +163,7 @@ export default function Topology() {
       <div className="page-header">
         <h2>
           Topology
-          {ready && <span className="live-pill">● live</span>}
+          {ready && <span className="live-pill">live</span>}
         </h2>
         <Badge>{graph.nodes.length} objects</Badge>
       </div>
@@ -187,9 +187,11 @@ export default function Topology() {
       </div>
 
       {!effectiveCluster ? (
-        <p className="muted">Waiting for cluster…</p>
+        <div className="loading-state">
+          <p>Waiting for cluster…</p>
+        </div>
       ) : !ready ? (
-        <div className="topo-canvas empty-state">
+        <div className="topo-canvas loading-state">
           <p>Mapping the bay…</p>
           <p className="muted small">Syncing workloads, pods and services for “{effectiveNs}”.</p>
         </div>

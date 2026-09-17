@@ -13,7 +13,7 @@ function syncColor(status: string): string {
   switch (status as SyncState) {
     case "Synced":     return "var(--kb-status-ok)";
     case "OutOfSync":  return "#f59e0b";
-    default:           return "var(--kb-text-muted)";
+    default:           return "var(--kb-fg-muted)";
   }
 }
 
@@ -24,7 +24,7 @@ function healthColor(status: string): string {
     case "Progressing": return "#3b82f6";
     case "Suspended":   return "#f59e0b";
     case "Missing":     return "#f59e0b";
-    default:            return "var(--kb-text-muted)";
+    default:            return "var(--kb-fg-muted)";
   }
 }
 
@@ -36,8 +36,8 @@ function Badge({ label, color }: { label: string; color: string }) {
         alignItems: "center",
         gap: 5,
         padding: "2px 8px",
-        borderRadius: 99,
-        fontSize: 11,
+        borderRadius: "var(--kb-radius-pill)",
+        fontSize: "var(--kb-text-xs)",
         fontWeight: 600,
         background: `${color}22`,
         color,
@@ -106,7 +106,7 @@ function SyncButton({ cluster, app }: { cluster: string; app: ArgoCDApp }) {
         onGo={() => void handleSync()}
       />
       {err && (
-        <span style={{ color: "var(--kb-status-err)", fontSize: 11 }} title={err}>
+        <span style={{ color: "var(--kb-status-err)", fontSize: "var(--kb-text-xs)" }} title={err}>
           failed
         </span>
       )}
@@ -132,16 +132,18 @@ export default function ArgoCD() {
   return (
     <div className="page">
       <div className="page-header">
-        <h1>ArgoCD</h1>
-        {data && (
-          <span className="muted small">
-            {installed
-              ? `${apps.length} application${apps.length !== 1 ? "s" : ""}`
-              : "not installed"}
-          </span>
-        )}
+        <h1>
+          ArgoCD
+          {data && (
+            <span className="page-header-count">
+              {installed
+                ? `${apps.length} application${apps.length !== 1 ? "s" : ""}`
+                : "not installed"}
+            </span>
+          )}
+        </h1>
         {dataUpdatedAt > 0 && (
-          <span className="muted small" style={{ marginLeft: "auto" }}>
+          <span className="page-header-count">
             updated {fmtTime(new Date(dataUpdatedAt).toISOString())}
           </span>
         )}
@@ -155,14 +157,14 @@ export default function ArgoCD() {
         )}
 
         {isError && (
-          <div className="empty-state" style={{ paddingTop: 48 }}>
+          <div className="empty-state">
             <p style={{ color: "var(--kb-status-err)" }}>Failed to load ArgoCD applications</p>
             <p className="muted small">{error instanceof Error ? error.message : String(error)}</p>
           </div>
         )}
 
         {!isLoading && !isError && !installed && (
-          <div className="empty-state" style={{ paddingTop: 48 }}>
+          <div className="empty-state">
             <svg viewBox="0 0 48 48" width="40" height="40" fill="none" style={{ opacity: 0.3, marginBottom: 12 }}>
               <circle cx="24" cy="24" r="20" stroke="currentColor" strokeWidth="2" />
               <path d="M24 4v8M24 36v8M4 24h8M36 24h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
@@ -176,7 +178,7 @@ export default function ArgoCD() {
         )}
 
         {!isLoading && !isError && installed && apps.length === 0 && (
-          <div className="empty-state" style={{ paddingTop: 48 }}>
+          <div className="empty-state">
             <p>No ArgoCD Applications found.</p>
             <p className="muted small">Create an Application resource to manage GitOps deployments.</p>
           </div>
@@ -188,11 +190,11 @@ export default function ArgoCD() {
               style={{
                 width: "100%",
                 borderCollapse: "collapse",
-                fontSize: 12,
+                fontSize: "var(--kb-text-sm)",
               }}
             >
               <thead>
-                <tr style={{ borderBottom: "1px solid var(--kb-border)" }}>
+                <tr style={{ borderBottom: "1px solid var(--kb-border-subtle)" }}>
                   {["Name", "Project", "Repo", "Target", "Sync Status", "Health", "Last Sync", "Actions"].map((h) => (
                     <th
                       key={h}
@@ -200,8 +202,8 @@ export default function ArgoCD() {
                         textAlign: "left",
                         padding: "8px 10px",
                         fontWeight: 600,
-                        color: "var(--kb-text-muted)",
-                        fontSize: 11,
+                        color: "var(--kb-fg-muted)",
+                        fontSize: "var(--kb-text-xs)",
                         textTransform: "uppercase",
                         letterSpacing: "0.04em",
                         whiteSpace: "nowrap",
@@ -217,7 +219,7 @@ export default function ArgoCD() {
                   <tr
                     key={`${app.namespace}/${app.name}`}
                     style={{
-                      borderBottom: "1px solid var(--kb-border-subtle, var(--kb-border))",
+                      borderBottom: "1px solid var(--kb-border-subtle)",
                       transition: "background 120ms",
                     }}
                     onMouseEnter={(e) => {
@@ -230,12 +232,12 @@ export default function ArgoCD() {
                     <td style={{ padding: "9px 10px", fontWeight: 600 }}>
                       <div>{app.name}</div>
                       {app.namespace && (
-                        <div style={{ fontSize: 10, color: "var(--kb-text-muted)", marginTop: 1 }}>
+                        <div style={{ fontSize: "var(--kb-text-2xs)", color: "var(--kb-fg-muted)", marginTop: 1 }}>
                           {app.namespace}
                         </div>
                       )}
                     </td>
-                    <td style={{ padding: "9px 10px", color: "var(--kb-text-muted)" }}>
+                    <td style={{ padding: "9px 10px", color: "var(--kb-fg-muted)" }}>
                       {app.project || "–"}
                     </td>
                     <td
@@ -245,7 +247,7 @@ export default function ArgoCD() {
                         overflow: "hidden",
                         textOverflow: "ellipsis",
                         whiteSpace: "nowrap",
-                        color: "var(--kb-text-muted)",
+                        color: "var(--kb-fg-muted)",
                       }}
                       title={app.repoURL}
                     >
@@ -253,7 +255,7 @@ export default function ArgoCD() {
                         ? app.repoURL.replace(/^https?:\/\//, "").replace(/\.git$/, "")
                         : "–"}
                     </td>
-                    <td style={{ padding: "9px 10px", color: "var(--kb-text-muted)", fontFamily: "var(--kb-font-mono, monospace)", fontSize: 11 }}>
+                    <td style={{ padding: "9px 10px", color: "var(--kb-fg-muted)", fontFamily: "var(--kb-font-mono, monospace)", fontSize: "var(--kb-text-xs)" }}>
                       {app.targetRevision || "HEAD"}
                     </td>
                     <td style={{ padding: "9px 10px" }}>
@@ -262,7 +264,7 @@ export default function ArgoCD() {
                     <td style={{ padding: "9px 10px" }}>
                       <Badge label={app.healthStatus} color={healthColor(app.healthStatus)} />
                     </td>
-                    <td style={{ padding: "9px 10px", color: "var(--kb-text-muted)", whiteSpace: "nowrap" }}>
+                    <td style={{ padding: "9px 10px", color: "var(--kb-fg-muted)", whiteSpace: "nowrap" }}>
                       {fmtTime(app.lastSyncTime)}
                     </td>
                     <td style={{ padding: "9px 10px" }}>

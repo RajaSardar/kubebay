@@ -245,15 +245,13 @@ export default function Workloads() {
     <div className="page">
       <div className="page-header">
         <h2>
-          Workloads <span className="muted" style={{ fontWeight: 400, fontSize: 13 }}>· Pods</span>
+          Workloads <span className="page-header-count">· Pods</span>
           {synced && connected && (
-            <span className="live-pill">
-              <StatusDot status="connected" pulse /> live
-            </span>
+            <span className="live-pill">live</span>
           )}
         </h2>
         {selectedKeys.size > 0 && (
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div className="page-header-actions">
             <span className="muted small">{selectedKeys.size} selected</span>
             <Button
               variant="danger"
@@ -273,7 +271,7 @@ export default function Workloads() {
       </div>
 
       {bulkDelete.pending && (
-        <div className="crd-error" style={{ justifyContent: "space-between" }}>
+        <div className="inline-banner">
           <span>
             {bulkDelete.pending.length === 1 ? (
               <>
@@ -284,7 +282,7 @@ export default function Workloads() {
               <>Delete {bulkDelete.pending.length} selected pods? This can&apos;t be undone.</>
             )}
           </span>
-          <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+          <div className="inline-banner-actions">
             <Button variant="ghost" disabled={bulkDelete.busy} onClick={bulkDelete.cancel}>
               Cancel
             </Button>
@@ -294,7 +292,7 @@ export default function Workloads() {
           </div>
         </div>
       )}
-      {bulkDelete.error && <div className="crd-error">{bulkDelete.error}</div>}
+      {bulkDelete.error && <div className="inline-banner">{bulkDelete.error}</div>}
 
       <div className="toolbar">
         <select
@@ -318,7 +316,11 @@ export default function Workloads() {
         <Badge>{pods.length}</Badge>
       </div>
 
-      {!effectiveCluster && <p className="muted">Waiting for cluster…</p>}
+      {!effectiveCluster && (
+        <div className="loading-state">
+          <p>Waiting for cluster…</p>
+        </div>
+      )}
 
       {effectiveCluster && !synced && (
         <div className="table-wrap">
@@ -360,7 +362,7 @@ export default function Workloads() {
             <thead>
               <tr>
                 {/* Select-all checkbox */}
-                <th style={{ width: 40, padding: "0 10px" }}>
+                <th className="col-select" style={{ width: 40 }}>
                   <SelectAllCheckbox
                     checked={isAllSelected(allKeys)}
                     indeterminate={isIndeterminate(allKeys)}
@@ -403,7 +405,7 @@ export default function Workloads() {
                       });
                     }}
                   >
-                    <td style={{ padding: "0 10px" }} onClick={(e) => e.stopPropagation()}>
+                    <td className="col-select" onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
                         checked={isSelected}

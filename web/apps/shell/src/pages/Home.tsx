@@ -145,13 +145,15 @@ export default function Home() {
   return (
     <div className="page">
       <div className="page-header">
-        <h1>Clusters</h1>
-        {!clusters.isLoading && list.length > 0 && (
-          <span className="muted small">{list.length} configured</span>
-        )}
+        <h1>
+          Clusters
+          {!clusters.isLoading && list.length > 0 && (
+            <span className="page-header-count">{list.length} configured</span>
+          )}
+        </h1>
       </div>
 
-      <div className="page-body" style={{ padding: "16px" }}>
+      <div className="page-body">
         {clusters.isLoading && (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {[0, 1, 2].map((i) => <Skeleton key={i} w="100%" h={56} r={10} />)}

@@ -315,9 +315,9 @@ export default function NetworkPolicyPage() {
       <div className="page-header">
         <h2>
           Network Policy
-          {ready && <span className="live-pill">● live</span>}
+          {ready && <span className="live-pill">live</span>}
         </h2>
-        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+        <div className="page-header-actions">
           <Badge>{policies.length} policies</Badge>
           <Badge>{podGroups.length} pod groups</Badge>
         </div>
@@ -358,11 +358,11 @@ export default function NetworkPolicyPage() {
 
       {/* ── Body ── */}
       {!effectiveCluster ? (
-        <div className="empty-state">
+        <div className="loading-state">
           <p>Waiting for cluster…</p>
         </div>
       ) : !ready ? (
-        <div className="empty-state">
+        <div className="loading-state">
           <p>Loading network data…</p>
           <p className="muted small">Syncing pods and network policies.</p>
         </div>
@@ -394,7 +394,7 @@ interface MatrixViewProps {
 function MatrixView({ groups, matrix, selectedCell, onSelectCell }: MatrixViewProps) {
   if (groups.length === 0) {
     return (
-      <div className="empty-state" style={{ margin: 16 }}>
+      <div className="empty-state" style={{ margin: "var(--kb-gutter)" }}>
         <p>No pods found in this namespace.</p>
         <p className="muted small">Select a different namespace or check your cluster connection.</p>
       </div>
@@ -549,7 +549,7 @@ function CellDetailPanel({ cell, onClose }: { cell: CellDetail; onClose: () => v
 function PolicyListView({ policies }: { policies: PolicyInfo[] }) {
   if (policies.length === 0) {
     return (
-      <div className="empty-state" style={{ margin: 16 }}>
+      <div className="empty-state" style={{ margin: "var(--kb-gutter)" }}>
         <p>No NetworkPolicies found.</p>
         <p className="muted small">All traffic is unrestricted in this namespace.</p>
       </div>

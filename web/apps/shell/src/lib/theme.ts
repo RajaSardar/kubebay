@@ -40,6 +40,16 @@ export const useTheme = create<ThemeState>((set) => ({
   },
 }));
 
+const LIGHT_THEMES = new Set<ThemeName>(["dawn", "dawn-hc", "vscode-light", "github-light"]);
+
+/**
+ * Monaco ships its own themes, so an editor does not follow our CSS variables.
+ * Pick the matching built-in instead of hardcoding one.
+ */
+export function useMonacoTheme(): "vs" | "vs-dark" {
+  return LIGHT_THEMES.has(useTheme((s) => s.resolved)) ? "vs" : "vs-dark";
+}
+
 if (typeof window !== "undefined") {
   window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
     const { theme, setTheme } = useTheme.getState();

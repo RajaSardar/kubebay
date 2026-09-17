@@ -135,7 +135,7 @@ function PaneContent({
               className="toolbar-select"
               value={effectiveContainer}
               onChange={(e) => onSetPodContainer(e.target.value)}
-              style={{ fontSize: 11, height: 24 }}
+              style={{ fontSize: "var(--kb-text-xs)", height: 24 }}
             >
               {containers.map((c) => (
                 <option key={c} value={c}>{c}</option>
