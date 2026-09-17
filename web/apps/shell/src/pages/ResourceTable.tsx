@@ -12,6 +12,7 @@ import { useResizableColumns } from "../lib/useResizableColumns";
 import { useRowSelection } from "../lib/useRowSelection";
 import { useBulkDelete } from "../lib/useBulkDelete";
 import { useDisplay, type Density } from "../lib/display";
+import { evalPrinterPath } from "../lib/printerPath";
 
 // Row height (px) per density level — must stay in sync with ROW_PADDING_VALUES in display.ts
 // compact: 4+4px pad + ~20px line + 1px border = 29px
@@ -489,22 +490,6 @@ export default function ResourceTable() {
     return extraColumns(slug, { nodeUsage, podsPerNode })[col]?.(o) ?? { v: "" };
   }
 
-  // For CRD printer columns: simple dot-notation JSONPath evaluator
-  function evalPrinterCol(col: PrinterColumn, o: Row): string {
-    const path = col.jsonPath.replace(/^\{/, "").replace(/\}$/, "").trim();
-    if (!path.startsWith(".")) return "";
-    const parts = path.slice(1).split(".");
-    let cur: unknown = o;
-    for (const part of parts) {
-      if (cur == null || typeof cur !== "object") return "";
-      cur = (cur as Record<string, unknown>)[part];
-    }
-    if (cur == null) return "";
-    if (typeof cur === "boolean") return cur ? "True" : "False";
-    if (typeof cur === "object") return JSON.stringify(cur);
-    return String(cur);
-  }
-
   const headers = useMemo(
     () => ["Name", ...(def?.scoped ? [] : ["Namespace"]), ...cols, ...printerColumns.map((c) => c.name), "Age"],
     [def, cols, printerColumns],
@@ -806,7 +791,7 @@ export default function ResourceTable() {
                     })}
                     {printerColumns.map((col) => (
                       <td key={col.name} className="mono muted">
-                        {evalPrinterCol(col, o) || <span className="muted">–</span>}
+                        {evalPrinterPath(col.jsonPath, o) || <span className="muted">–</span>}
                       </td>
                     ))}
                     <td className="mono muted">{fmtAge(ageOf(o))}</td>
