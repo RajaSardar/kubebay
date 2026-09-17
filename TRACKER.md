@@ -37,8 +37,8 @@
 | # | Issue | Impact | Effort | Status | Agent | Notes |
 |---|-------|--------|--------|--------|-------|-------|
 | P3-1 | Orphan engine on force-quit fix | Medium stability | Low | 🟢 Done | tauri-security | ctrlc crate + WindowEvent::Destroyed + Windows decorations |
-| P3-2 | Move token from URL to one-time header handshake | Medium security | Low | 🟢 Done | - | X-Kubebay-Token header; WS keeps ?token= (browser limitation) |
-| P3-3 | Randomize engine port + Host header validation | Medium security | Low | 🟢 Done | - | hostGuard middleware blocks DNS rebinding |
+| P3-2 | Move token from URL to one-time header handshake | Medium security | Low | 🟢 Done | - | X-Kubebay-Token header; /ws uses a Sec-WebSocket-Protocol token; ?token= removed |
+| P3-3 | Randomize engine port + Host header validation | Medium security | Low | 🟢 Done | - | RequireLoopbackHost middleware (loopback listeners only) blocks DNS rebinding |
 | P3-4 | Tauri `asset://` + CSP policy | Medium security | Medium | 🟢 Done | - | CSP locks connect-src to 127.0.0.1, blocks frames/objects |
 
 ---

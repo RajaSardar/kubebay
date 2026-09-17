@@ -1,26 +1,39 @@
 use std::io::Write;
 use std::net::TcpStream;
+use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
-use tauri::{WebviewUrl, WebviewWindowBuilder};
+use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_shell::process::{CommandChild, CommandEvent};
 use tauri_plugin_shell::ShellExt;
 
 static ENGINE_CHILD: OnceLock<Mutex<Option<CommandChild>>> = OnceLock::new();
 
-fn parse_token(line: &str) -> Option<String> {
-    let idx = line.find("token=")?;
-    let rest = line[idx + "token=".len()..].trim();
-    let end = rest
-        .find(char::is_whitespace)
-        .unwrap_or(rest.len());
-    let token = rest[..end].trim_matches('"').to_string();
-    if token.is_empty() {
-        None
-    } else {
-        Some(token)
+/// Where the engine publishes this session's token.
+///
+/// It used to be scraped out of the engine's stdout, which meant the engine had
+/// to print it — and everything printed here is echoed to our own stderr, which
+/// for a launchd-started GUI app on macOS is the unified log, readable by any
+/// process running as the user.  The engine writes a 0600 file instead and we
+/// pass it the exact path, so neither side has to guess the other's idea of
+/// where the user's config directory is.
+fn token_file_path(app: &tauri::App) -> Result<PathBuf, tauri::Error> {
+    Ok(app.path().config_dir()?.join("kubebay").join("session-token"))
+}
+
+/// Polls for the engine to publish its token, ~250ms apart.
+fn read_session_token(path: &Path, attempts: u32) -> Option<String> {
+    for _ in 0..attempts {
+        if let Ok(contents) = std::fs::read_to_string(path) {
+            let token = contents.trim().to_string();
+            if !token.is_empty() {
+                return Some(token);
+            }
+        }
+        std::thread::sleep(Duration::from_millis(250));
     }
+    None
 }
 
 fn wait_for_engine(addr: &str, attempts: u32) -> bool {
@@ -144,11 +157,61 @@ fn parse_env_records(stdout: &str) -> Vec<(String, String)> {
         .collect()
 }
 
+/// Runs `kill -<sig> <pid>`; false if the signal could not be delivered.
+///
+/// There is no std API for signalling a process we did not spawn with
+/// std::process, and Tauri's CommandChild only offers kill() (SIGKILL). Rather
+/// than take a new dependency just for this, shell out — and if no `kill` can
+/// be found we simply fall back to SIGKILL, i.e. the old behaviour.
+#[cfg(unix)]
+fn signal_pid(pid: u32, sig: &str) -> bool {
+    for kill in ["/bin/kill", "/usr/bin/kill", "kill"] {
+        match std::process::Command::new(kill)
+            .args([format!("-{sig}"), pid.to_string()])
+            // "No such process" is the expected outcome of the `kill -0` probe.
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+        {
+            Ok(status) => return status.success(),
+            Err(_) => continue,
+        }
+    }
+    false
+}
+
+/// SIGTERM, wait, then SIGKILL.
+///
+/// SIGKILL cannot be trapped, so the engine never got to run its shutdown: it
+/// left its session-token file behind and dropped in-flight work on the floor.
+/// It has a SIGTERM handler — give it a moment to use it.
+#[cfg(unix)]
+fn stop_engine(child: CommandChild) {
+    let pid = child.pid();
+    if !signal_pid(pid, "TERM") {
+        let _ = child.kill();
+        return;
+    }
+    // `kill -0` fails once the pid is gone, which is our "it exited" signal.
+    for _ in 0..30 {
+        std::thread::sleep(Duration::from_millis(100));
+        if !signal_pid(pid, "0") {
+            return;
+        }
+    }
+    let _ = child.kill();
+}
+
+#[cfg(not(unix))]
+fn stop_engine(child: CommandChild) {
+    let _ = child.kill();
+}
+
 fn kill_engine() {
     if let Some(cell) = ENGINE_CHILD.get() {
         if let Ok(mut guard) = cell.lock() {
             if let Some(child) = guard.take() {
-                let _ = child.kill();
+                stop_engine(child);
             }
         }
     }
@@ -170,7 +233,16 @@ fn main() {
             let handle = app.handle().clone();
             let port = pick_free_port();
             let addr = format!("127.0.0.1:{port}");
-            let mut cmd = app.shell().sidecar("kubebay-engine")?.args(["--addr", &addr]);
+            let token_path = token_file_path(app)?;
+            // A leftover file from a crashed session would hand the webview a
+            // token this engine does not know.
+            let _ = std::fs::remove_file(&token_path);
+            let mut cmd = app.shell().sidecar("kubebay-engine")?.args([
+                "--addr".to_string(),
+                addr.clone(),
+                "--token-file".to_string(),
+                token_path.to_string_lossy().into_owned(),
+            ]);
             let forwarded = login_shell_env();
             for (name, value) in &forwarded {
                 cmd = cmd.env(name.as_str(), value.as_str());
@@ -198,39 +270,41 @@ fn main() {
                 .lock()
                 .expect("lock") = Some(child);
 
+            // Keep draining the engine's output for the life of the process: it
+            // is the only place its logs surface, and an unread pipe eventually
+            // blocks the engine's own writes.
             tauri::async_runtime::spawn(async move {
-                let mut token = String::new();
                 while let Some(event) = rx.recv().await {
                     match event {
-                        CommandEvent::Stdout(line) => {
-                            let text = String::from_utf8_lossy(&line).to_string();
-                            eprintln!("[engine] {}", text.trim_end());
-                            if token.is_empty() {
-                                if let Some(t) = parse_token(&text) {
-                                    token = t;
-                                }
-                            }
-                        }
-                        CommandEvent::Stderr(line) => {
+                        CommandEvent::Stdout(line) | CommandEvent::Stderr(line) => {
                             eprintln!("[engine] {}", String::from_utf8_lossy(&line).trim_end());
                         }
                         CommandEvent::Terminated(_) => break,
                         _ => {}
                     }
-                    if !token.is_empty() {
-                        break;
-                    }
                 }
+            });
 
-                if token.is_empty() || !wait_for_engine(&addr, 40) {
+            tauri::async_runtime::spawn(async move {
+                if !wait_for_engine(&addr, 40) {
                     eprintln!("[kubebay] engine failed to become ready");
                     return;
                 }
+                let Some(token) = read_session_token(&token_path, 40) else {
+                    eprintln!("[kubebay] engine published no session token");
+                    return;
+                };
                 std::thread::sleep(Duration::from_millis(300));
 
-                let url = format!("http://{addr}/?token={token}")
-                    .parse()
-                    .expect("valid url");
+                let url = format!("http://{addr}/").parse().expect("valid url");
+                // Runs before the page's own scripts on every load, so a reload
+                // gets the token back without asking the user and without the
+                // page having to keep it anywhere on disk.  serde_json does the
+                // escaping so the token cannot break out of the literal.
+                let init = format!(
+                    "window.__KUBEBAY_TOKEN__ = {};",
+                    serde_json::to_string(&token).expect("token is a string")
+                );
 
                 let h2 = handle.clone();
                 let _ = handle.run_on_main_thread(move || {
@@ -240,6 +314,7 @@ fn main() {
                         WebviewUrl::External(url),
                     )
                     .title("Kubebay")
+                    .initialization_script(init)
                     .inner_size(1320.0, 850.0)
                     .min_inner_size(980.0, 620.0)
                     .build();

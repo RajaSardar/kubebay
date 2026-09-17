@@ -145,9 +145,25 @@ func decodeChanEnvelope(payload []byte) (string, []byte, bool) {
 
 func validChanKind(k string) bool { return k == ChanKindLogs || k == ChanKindExec }
 
-func (h *Hub) Handle(w http.ResponseWriter, r *http.Request, src SubSource) {
+// Handle upgrades the request.  subprotocol, when non-empty, is the
+// token-bearing Sec-WebSocket-Protocol value the auth middleware accepted; it
+// must be offered back to Accept so the handshake echoes it, otherwise the
+// browser rejects a response that names no subprotocol it asked for.
+func (h *Hub) Handle(w http.ResponseWriter, r *http.Request, src SubSource, subprotocol string) {
+	var subprotocols []string
+	if subprotocol != "" {
+		subprotocols = []string{subprotocol}
+	}
 	c, err := websocket.Accept(w, r, &websocket.AcceptOptions{
-		OriginPatterns: []string{"localhost:*", "127.0.0.1:*", "tauri://localhost", "http://tauri.localhost"},
+		Subprotocols: subprotocols,
+		// Accept always allows an Origin equal to the request Host, which is how
+		// the desktop webview (loaded from http://127.0.0.1:<port>) and any
+		// ingress deployment connect — so this list only has to cover genuine
+		// cross-origin callers. "localhost:*" used to grant that to every dev
+		// server on the machine: Jupyter, Grafana, webpack, anything the user
+		// happened to have open could open a socket into their clusters. Only
+		// Kubebay's own Vite dev server and the Tauri asset origin remain.
+		OriginPatterns: []string{"localhost:5173", "127.0.0.1:5173", "tauri.localhost"},
 	})
 	if err != nil {
 		return

@@ -3277,3 +3277,47 @@ tr.row-clickable:active {
   padding-left: 7px;
   overflow-wrap: anywhere;
 }
+
+/* Shown only when Kubebay is opened in a plain browser against a token-protected
+   engine; the desktop app injects the token and never renders this. */
+.token-gate {
+  display: grid;
+  place-items: center;
+  height: var(--app-h, 100vh);
+  padding: var(--kb-space-5);
+}
+
+.token-gate-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kb-space-3);
+  width: min(420px, 100%);
+  padding: var(--kb-space-5);
+  border: 1px solid var(--kb-border-subtle);
+  border-radius: var(--kb-radius);
+  background: var(--kb-bg-surface);
+}
+
+.token-gate-card h1 {
+  margin: 0;
+  font-size: var(--kb-text-lg);
+}
+
+.token-gate-card p {
+  margin: 0;
+}
+
+.token-gate-card input {
+  font-family: var(--kb-font-mono);
+  font-size: var(--kb-text-sm);
+  padding: 8px 10px;
+  border: 1px solid var(--kb-border-strong);
+  border-radius: var(--kb-radius-sm);
+  background: var(--kb-bg-inset);
+  color: var(--kb-fg-default);
+}
+
+.token-gate-error {
+  color: var(--kb-status-err);
+  font-size: var(--kb-text-sm);
+}
