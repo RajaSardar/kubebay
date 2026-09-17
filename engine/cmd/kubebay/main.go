@@ -128,12 +128,6 @@ func main() {
 		}
 	}()
 
-	auth, authErr := httpapi.NewAuthenticator(*oidcIssuer, *oidcClientID, *oidcClientSecret, *oidcRedirect)
-	if authErr != nil {
-		log.Error("oidc init failed", "err", authErr)
-		os.Exit(1)
-	}
-
 	handler := httpapi.Router(httpapi.Deps{
 		Log:       log,
 		Auth:      auth,

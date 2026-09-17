@@ -22,4 +22,6 @@ static/dist/
 .superbrain/
 context.md
 memory.md
-kubebay
+# Anchored: a bare "kubebay" also matches the engine/cmd/kubebay/ package
+# directory, so every new source file added there is silently ignored.
+/kubebay
