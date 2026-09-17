@@ -106,7 +106,7 @@ export function useResourceStream(
         setStreamCache(specKey, Array.from(storeRef.current.entries()), true);
         scheduleFlushRef.current();
       },
-      onError: (msg: string) => console.warn("[kubebay-stream]", msg),
+      onError: (id: string, msg: string) => console.warn("[kubebay-stream]", id || "(no id)", msg),
     };
     streamDetach = attach(handlers);
     subId = `ui-${Math.random().toString(36).slice(2, 10)}`;

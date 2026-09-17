@@ -51,7 +51,8 @@ export interface Handlers {
   onDelta?: (id: string, ops: Op[]) => void;
   onSync?: (id: string) => void;
   onAck?: (id: string, message?: string) => void;
-  onError?: (message: string) => void;
+  /** id is the subscription/channel the error belongs to; "" if the server could not tell. */
+  onError?: (id: string, message: string) => void;
   onChanData?: (id: string, data: Uint8Array) => void;
   onChanClosed?: (id: string, message?: string) => void;
   /** connected=true on open; false on close with retry attempt + next-retry ms */
@@ -68,6 +69,8 @@ const RECONNECT_MAX_MS = 30_000;
 const STABLE_MS = 5_000;
 // Send an app-level ping every 20s as belt-and-suspenders keepalive.
 const PING_INTERVAL_MS = 20_000;
+// Cap on frames held while the socket is not open.
+const MAX_QUEUED_FRAMES = 256;
 
 class MultiplexedStream {
   private ws: WebSocket | null = null;
@@ -78,6 +81,11 @@ class MultiplexedStream {
   private token: string;
   private stableTimer: ReturnType<typeof setTimeout> | null = null;
   private pingTimer: ReturnType<typeof setInterval> | null = null;
+  // Frames asked for before the socket was OPEN. send() on a CONNECTING socket
+  // throws InvalidStateError, which is exactly what happens when a deep link
+  // lands straight on a pod terminal: the channel is opened in the same tick
+  // the socket is created. Queue instead and flush on open.
+  private queue: (string | Uint8Array)[] = [];
 
   constructor(token: string) {
     this.token = token;
@@ -102,6 +110,9 @@ class MultiplexedStream {
       // Notify UI we're connected (but keep current retry count until stable)
       this.dispatch((h) => h.onStatus?.(true, this.retry, 0));
       for (const spec of this.subs.values()) this.sendSub(spec);
+      const queued = this.queue;
+      this.queue = [];
+      for (const payload of queued) ws.send(payload);
 
       // Only reset retry count after connection is stable for STABLE_MS.
       // This prevents flapping (ALB kills new connection immediately) from
@@ -133,7 +144,7 @@ class MultiplexedStream {
             this.dispatch((h) => h.onSync?.(f.id ?? ""));
             break;
           case "error":
-            this.dispatch((h) => h.onError?.(f.message ?? "unknown error"));
+            this.dispatch((h) => h.onError?.(f.id ?? "", f.message ?? "unknown error"));
             break;
           case "ack":
             this.dispatch((h) => h.onAck?.(f.id ?? "", f.message));
@@ -185,6 +196,17 @@ class MultiplexedStream {
     };
   }
 
+  /** Sends now if the socket is open, otherwise queues until it is. */
+  private send(payload: string | Uint8Array) {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(payload);
+      return;
+    }
+    // Bounded so a long outage can't grow the queue without limit.
+    if (this.queue.length >= MAX_QUEUED_FRAMES) this.queue.shift();
+    this.queue.push(payload);
+  }
+
   private sendSub(spec: SubSpec) {
     this.ws?.send(
       JSON.stringify({
@@ -211,11 +233,13 @@ class MultiplexedStream {
 
   unsubscribe(id: string) {
     if (!this.subs.delete(id)) return;
-    this.ws?.send(JSON.stringify({ type: "unsub", id }));
+    // Not queued: a sub that was never sent has nothing to cancel, and the
+    // reconnect replay only walks this.subs, which no longer holds it.
+    if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify({ type: "unsub", id }));
   }
 
   openChannel(c: ChanSpec) {
-    this.ws?.send(
+    this.send(
       JSON.stringify({
         type: "chan-open",
         id: c.id,
@@ -235,11 +259,11 @@ class MultiplexedStream {
   }
 
   closeChannel(id: string) {
-    this.ws?.send(JSON.stringify({ type: "chan-close", id }));
+    this.send(JSON.stringify({ type: "chan-close", id }));
   }
 
   resizeChannel(id: string, cols: number, rows: number) {
-    this.ws?.send(JSON.stringify({ type: "chan-resize", id, cols, rows }));
+    this.send(JSON.stringify({ type: "chan-resize", id, cols, rows }));
   }
 
   chanSend(id: string, data: Uint8Array) {
@@ -247,7 +271,7 @@ class MultiplexedStream {
     new DataView(out.buffer).setUint32(0, id.length);
     out.set(new TextEncoder().encode(id), 4);
     out.set(data, 4 + id.length);
-    this.ws?.send(out);
+    this.send(out);
   }
 }
 

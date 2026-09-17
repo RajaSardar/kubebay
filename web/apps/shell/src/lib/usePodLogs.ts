@@ -69,7 +69,11 @@ export function usePodLogs(spec: PodLogsSpec | null) {
         setStatus("closed");
         setError(msg && msg !== "done" ? msg : "");
       },
-      onError: (msg) => setError(msg),
+      // "" means the server could not attribute the error to a channel, so it
+      // is shown; anything addressed to another channel is not ours to report.
+      onError: (id, msg) => {
+        if (id === "" || id === chanId) setError(msg);
+      },
     });
 
     chanId = `logs-${Math.random().toString(36).slice(2, 10)}`;
