@@ -60,7 +60,7 @@ function deriveIssue(o: KObj): PodIssue | null {
 }
 
 export function useClusterSnapshot(cluster: string | undefined): ClusterSnapshot {
-  const nodes = useResourceStream(cluster, "v1/nodes", { mode: "metadata" });
+  const nodes = useResourceStream(cluster, "v1/nodes", { mode: "full" });
   const pods = useResourceStream(cluster, "v1/pods", { mode: "full" });
   const events = useResourceStream(cluster, "v1/events", { mode: "full" });
 
