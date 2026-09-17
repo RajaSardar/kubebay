@@ -36,11 +36,13 @@ func main() {
 	kubeconfigDefault := os.Getenv("KUBEBAY_KUBECONFIG") // prod-safety: dedicated override
 	kubeconfig := flag.String("kubeconfig", kubeconfigDefault, "explicit kubeconfig path (KUBEBAY_KUBECONFIG > flag > KUBECONFIG > ~/.kube/config)")
 	webDist := flag.String("web-dist", "", "serve SPA from this directory")
+	tokenFile := flag.String("token-file", "", "write the session token here (default: <user config dir>/kubebay/session-token)")
 	inCluster := flag.Bool("in-cluster", false, "use in-cluster ServiceAccount config instead of kubeconfig")
 	oidcIssuer := flag.String("oidc-issuer-url", os.Getenv("KUBEBAY_OIDC_ISSUER"), "OIDC issuer URL (enables login)")
 	oidcClientID := flag.String("oidc-client-id", os.Getenv("KUBEBAY_OIDC_CLIENT_ID"), "OIDC client id")
 	oidcClientSecret := flag.String("oidc-client-secret", os.Getenv("KUBEBAY_OIDC_CLIENT_SECRET"), "OIDC client secret")
 	oidcRedirect := flag.String("oidc-redirect-url", os.Getenv("KUBEBAY_OIDC_REDIRECT"), "OAuth2 redirect URL")
+	localShell := flag.Bool("local-shell", false, "serve a shell on this machine (requires a binary built with -tags localshell, a loopback --addr, no --in-cluster and no OIDC)")
 	flag.Parse()
 
 	if *showVersion {
@@ -72,9 +74,17 @@ func main() {
 	}
 	defer auditLog.Close()
 
+	auth, authErr := httpapi.NewAuthenticator(*oidcIssuer, *oidcClientID, *oidcClientSecret, *oidcRedirect)
+	if authErr != nil {
+		log.Error("oidc init failed", "err", authErr)
+		os.Exit(1)
+	}
+
 	registry := informers.NewPoolRegistry(mgr)
 	channels := httpapi.NewChannels(mgr, auditLog)
-	hub := stream.NewHub(log, channels)
+	chanDeps, closeLocalShell := setupLocalShell(log, channels, *localShell, *inCluster, auth.Enabled(), *addr)
+	defer closeLocalShell()
+	hub := stream.NewHub(log, chanDeps)
 	pfManager := httpapi.NewPFManager(mgr)
 	actions := &httpapi.Actions{Clusters: mgr}
 	metrics := &httpapi.Metrics{Clusters: mgr}
@@ -82,17 +92,41 @@ func main() {
 	helmMgr := httpapi.NewHelm(mgr)
 	settingsMgr := httpapi.NewSettingsManager(mgr)
 	nodeShell := &httpapi.NodeShellManager{Clusters: mgr, Settings: settingsMgr}
-	token, err := httpapi.NewToken()
-	if err != nil {
-		log.Error("token generation failed", "err", err)
-		os.Exit(1)
+	// An operator-supplied token (in-cluster, where there is no desktop app to
+	// hand a file to) wins; otherwise we mint one per launch.
+	envToken := os.Getenv("KUBEBAY_TOKEN")
+	token := envToken
+	if token == "" {
+		token, err = httpapi.NewToken()
+		if err != nil {
+			log.Error("token generation failed", "err", err)
+			os.Exit(1)
+		}
 	}
 
-	auth, authErr := httpapi.NewAuthenticator(*oidcIssuer, *oidcClientID, *oidcClientSecret, *oidcRedirect)
-	if authErr != nil {
-		log.Error("oidc init failed", "err", authErr)
-		os.Exit(1)
+	// The token is a launch credential, not a log field: anything printed here
+	// is re-emitted by the desktop wrapper and, for a launchd-started GUI app on
+	// macOS, lands in the unified log where any process running as the user can
+	// read it.  Hand it over through a 0600 file instead, and log only its path.
+	tokenPath, tokenPathErr := sessionTokenPath(*tokenFile)
+	tokenFileWritten := false
+	if tokenPathErr == nil {
+		if err := writeSessionToken(tokenPath, token); err != nil {
+			log.Warn("could not write session token file", "path", tokenPath, "err", err)
+		} else {
+			tokenFileWritten = true
+		}
+	} else {
+		log.Warn("could not resolve session token path", "err", tokenPathErr)
 	}
+	if !tokenFileWritten && envToken == "" {
+		log.Warn("session token is unreadable by clients — set KUBEBAY_TOKEN to a known value")
+	}
+	defer func() {
+		if tokenFileWritten {
+			_ = os.Remove(tokenPath)
+		}
+	}()
 
 	handler := httpapi.Router(httpapi.Deps{
 		Log:       log,
@@ -129,6 +163,13 @@ func main() {
 		}
 	}
 
+	// Wraps the SPA as well as the API: a rebound page should not be able to
+	// read anything the engine serves, not just the JSON endpoints.
+	if httpapi.IsLoopbackListenAddr(*addr) {
+		handler = httpapi.RequireLoopbackHost(handler)
+		log.Info("loopback listener: rejecting requests with a non-loopback Host")
+	}
+
 	srv := &http.Server{
 		Addr:              *addr,
 		Handler:           handler,
@@ -137,10 +178,12 @@ func main() {
 
 	go func() {
 		url := fmt.Sprintf("http://%s", *addr)
-		log.Info("kubebay engine listening", "addr", url, "token", token, "version", version)
-		log.Info(fmt.Sprintf("open %s/?token=%s in your browser", url, token))
+		log.Info("kubebay engine listening", "addr", url, "version", version)
+		if tokenFileWritten {
+			log.Info("session token written", "path", tokenPath)
+		}
 		if !*noOpen && isTerminal() {
-			go tryOpenBrowser(url + "/?token=" + token)
+			go tryOpenBrowser(url + "/")
 		}
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Error("server error", "err", err)

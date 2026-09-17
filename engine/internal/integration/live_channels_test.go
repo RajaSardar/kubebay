@@ -75,8 +75,10 @@ func buildTestServer(t *testing.T) (*httptest.Server, *clusters.Manager) {
 
 func dialWS(t *testing.T, srv *httptest.Server) *websocket.Conn {
 	t.Helper()
-	wsURL := "ws" + strings.TrimPrefix(srv.URL, "http") + "/ws?token=testtoken"
-	c, _, err := websocket.Dial(context.Background(), wsURL, nil)
+	wsURL := "ws" + strings.TrimPrefix(srv.URL, "http") + "/ws"
+	c, _, err := websocket.Dial(context.Background(), wsURL, &websocket.DialOptions{
+		Subprotocols: []string{httpapi.WSTokenSubprotocolPrefix + "testtoken"},
+	})
 	if err != nil {
 		t.Fatalf("ws dial: %v", err)
 	}
@@ -187,7 +189,7 @@ func TestLiveChannelsHTTP(t *testing.T) {
 	mgrCfg := cfg.Host
 	_ = mgrCfg
 	// resolve cluster id from manager list via REST
-	listBody := httpGetJSON(t, srv.URL+"/api/clusters?token=testtoken")
+	listBody := httpGetJSON(t, srv.URL+"/api/clusters")
 	clusterID = firstClusterID(t, listBody)
 
 	testName := fmt.Sprintf("kb-exec-test-%d", time.Now().UnixNano())
@@ -289,7 +291,12 @@ func jsonUnmarshal(b []byte, v any) error {
 
 func httpGetJSON(t *testing.T, url string) []byte {
 	t.Helper()
-	res, err := http.Get(url)
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		t.Fatalf("request %s: %v", url, err)
+	}
+	req.Header.Set("X-Kubebay-Token", "testtoken")
+	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("get %s: %v", url, err)
 	}
