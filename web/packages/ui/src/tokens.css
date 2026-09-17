@@ -15,8 +15,9 @@
   --kb-text-xl:  18px;
   --kb-text-2xl: 28px;
 
+  --kb-radius-xs:   4px;
   --kb-radius-sm:   6px;
-  --kb-radius:      10px;
+  --kb-radius:      8px;
   --kb-radius-lg:   14px;
   --kb-radius-pill: 999px;
 

@@ -45,7 +45,7 @@ export function LineChart({
   const gridYs = [0, 0.5, 1].map((f) => min + f * (max - min));
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", background: "var(--kb-bg-inset)", borderRadius: 8 }}>
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", background: "var(--kb-bg-inset)", borderRadius: "var(--kb-radius)" }}>
       {gridYs.map((g, i) => (
         <g key={i}>
           <line x1={padL} x2={W - 8} y1={sy(g)} y2={sy(g)} stroke="var(--kb-border-subtle)" strokeWidth={1} />

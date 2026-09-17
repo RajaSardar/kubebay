@@ -147,7 +147,7 @@ export default function WorkloadsOverview() {
                   </span>
                 </div>
                 {k.total > 0 && (
-                  <div style={{ display: "flex", gap: 0, height: 6, borderRadius: 3, overflow: "hidden", background: "var(--kb-bg-inset)" }}>
+                  <div style={{ display: "flex", gap: 0, height: 6, borderRadius: "var(--kb-radius-xs)", overflow: "hidden", background: "var(--kb-bg-inset)" }}>
                     <div style={{
                       width: `${k.healthy > 0 ? (k.healthy / k.total) * 100 : 0}%`,
                       background: "var(--kb-status-ok)",

@@ -500,7 +500,7 @@ function ClusterStrip() {
               position: "relative",
               width: 40,
               height: 40,
-              borderRadius: 10,
+              borderRadius: "var(--kb-radius)",
               background: bg,
               color: "#fff",
               fontWeight: 700,

@@ -36,7 +36,7 @@ function Badge({ label, color }: { label: string; color: string }) {
         alignItems: "center",
         gap: 5,
         padding: "2px 8px",
-        borderRadius: 99,
+        borderRadius: "var(--kb-radius-pill)",
         fontSize: "var(--kb-text-xs)",
         fontWeight: 600,
         background: `${color}22`,
