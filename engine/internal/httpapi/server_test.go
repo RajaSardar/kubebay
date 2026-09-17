@@ -58,6 +58,53 @@ func TestRequireTokenHeader(t *testing.T) {
 	}
 }
 
+func TestIsLoopbackListenAddr(t *testing.T) {
+	cases := map[string]bool{
+		"127.0.0.1:9898": true,
+		"localhost:9898": true,
+		"[::1]:9898":     true,
+		"127.0.0.1":      true,
+		"0.0.0.0:8080":   false,
+		":8080":          false,
+		"10.0.0.7:8080":  false,
+	}
+	for addr, want := range cases {
+		if got := IsLoopbackListenAddr(addr); got != want {
+			t.Errorf("IsLoopbackListenAddr(%q) = %v, want %v", addr, got, want)
+		}
+	}
+}
+
+func TestRequireLoopbackHost(t *testing.T) {
+	srv := httptest.NewServer(RequireLoopbackHost(okHandler()))
+	defer srv.Close()
+
+	cases := map[string]int{
+		"127.0.0.1:9898": http.StatusOK,
+		"localhost:9898": http.StatusOK,
+		"LOCALHOST":      http.StatusOK,
+		"[::1]:9898":     http.StatusOK,
+		// What a DNS-rebinding attacker's browser must send.
+		"evil.example":      http.StatusForbidden,
+		"evil.example:9898": http.StatusForbidden,
+	}
+	for host, want := range cases {
+		req, err := http.NewRequest(http.MethodGet, srv.URL, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Host = host
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = resp.Body.Close()
+		if resp.StatusCode != want {
+			t.Errorf("Host %q: status = %d, want %d", host, resp.StatusCode, want)
+		}
+	}
+}
+
 // wsServer wires the real Hub behind the real auth middleware so the test
 // covers the whole handshake: the middleware must accept the token-bearing
 // subprotocol AND the Hub must echo it, or a browser refuses the connection.
@@ -72,12 +119,17 @@ func wsServer(t *testing.T) *httptest.Server {
 	return srv
 }
 
-func dialWS(t *testing.T, srv *httptest.Server, subprotocols []string) (*websocket.Conn, error) {
+func dialWS(t *testing.T, srv *httptest.Server, subprotocols []string, origin string) (*websocket.Conn, error) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+	header := http.Header{}
+	if origin != "" {
+		header.Set("Origin", origin)
+	}
 	c, resp, err := websocket.Dial(ctx, "ws"+strings.TrimPrefix(srv.URL, "http")+"/ws", &websocket.DialOptions{
 		Subprotocols: subprotocols,
+		HTTPHeader:   header,
 	})
 	if resp != nil && resp.Body != nil {
 		_ = resp.Body.Close()
@@ -89,7 +141,7 @@ func TestWebSocketTokenSubprotocol(t *testing.T) {
 	srv := wsServer(t)
 
 	want := WSTokenSubprotocolPrefix + testToken
-	c, err := dialWS(t, srv, []string{want})
+	c, err := dialWS(t, srv, []string{want}, "")
 	if err != nil {
 		t.Fatalf("dial with valid token subprotocol: %v", err)
 	}
@@ -108,10 +160,30 @@ func TestWebSocketRejectsBadSubprotocol(t *testing.T) {
 		{"kubebay.token"},
 		{testToken},
 	} {
-		c, err := dialWS(t, srv, sub)
+		c, err := dialWS(t, srv, sub, "")
 		if err == nil {
 			_ = c.Close(websocket.StatusNormalClosure, "")
 			t.Fatalf("dial with subprotocols %v succeeded, want rejection", sub)
+		}
+	}
+}
+
+func TestWebSocketOrigins(t *testing.T) {
+	srv := wsServer(t)
+	sub := []string{WSTokenSubprotocolPrefix + testToken}
+
+	// Kubebay's own Vite dev server is the only cross-origin caller allowed.
+	c, err := dialWS(t, srv, sub, "http://localhost:5173")
+	if err != nil {
+		t.Fatalf("dial from the dev server origin: %v", err)
+	}
+	_ = c.Close(websocket.StatusNormalClosure, "")
+
+	for _, origin := range []string{"http://evil.example", "http://localhost:8888", "http://127.0.0.1:8888"} {
+		c, err := dialWS(t, srv, sub, origin)
+		if err == nil {
+			_ = c.Close(websocket.StatusNormalClosure, "")
+			t.Errorf("dial from origin %q succeeded, want rejection", origin)
 		}
 	}
 }

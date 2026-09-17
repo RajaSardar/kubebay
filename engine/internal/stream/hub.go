@@ -155,8 +155,15 @@ func (h *Hub) Handle(w http.ResponseWriter, r *http.Request, src SubSource, subp
 		subprotocols = []string{subprotocol}
 	}
 	c, err := websocket.Accept(w, r, &websocket.AcceptOptions{
-		Subprotocols:   subprotocols,
-		OriginPatterns: []string{"localhost:*", "127.0.0.1:*", "tauri://localhost", "http://tauri.localhost"},
+		Subprotocols: subprotocols,
+		// Accept always allows an Origin equal to the request Host, which is how
+		// the desktop webview (loaded from http://127.0.0.1:<port>) and any
+		// ingress deployment connect — so this list only has to cover genuine
+		// cross-origin callers. "localhost:*" used to grant that to every dev
+		// server on the machine: Jupyter, Grafana, webpack, anything the user
+		// happened to have open could open a socket into their clusters. Only
+		// Kubebay's own Vite dev server and the Tauri asset origin remain.
+		OriginPatterns: []string{"localhost:5173", "127.0.0.1:5173", "tauri.localhost"},
 	})
 	if err != nil {
 		return

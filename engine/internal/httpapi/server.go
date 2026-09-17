@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -405,6 +406,49 @@ func wsTokenSubprotocol(r *http.Request, token string) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+// IsLoopbackListenAddr reports whether a listen address only serves loopback.
+// An empty host (":9898") means every interface, so it is not loopback-only.
+func IsLoopbackListenAddr(addr string) bool {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		host = addr
+	}
+	return host != "" && isLoopbackHost(host)
+}
+
+func isLoopbackHost(host string) bool {
+	host = strings.Trim(host, "[]")
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
+}
+
+// RequireLoopbackHost rejects requests whose Host header is not a loopback name.
+//
+// DNS rebinding defeats Origin checks: the attacker's page is served from
+// evil.example, whose A record then flips to 127.0.0.1, so the browser sends
+// both Origin and Host as evil.example. coder/websocket's origin check passes a
+// request whose Origin equals its Host (and passes one with no Origin at all),
+// so OriginPatterns never fires. The Host header is what rebinding cannot
+// forge: the browser must send the name it resolved. Only wrap the handler when
+// the engine is actually bound to loopback — a server deployment behind an
+// ingress has a real hostname and must keep working.
+func RequireLoopbackHost(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		host := r.Host
+		if h, _, err := net.SplitHostPort(host); err == nil {
+			host = h
+		}
+		if !isLoopbackHost(host) {
+			http.Error(w, "forbidden: non-loopback Host", http.StatusForbidden)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func requireToken(token string, auth *Authenticator) func(http.Handler) http.Handler {

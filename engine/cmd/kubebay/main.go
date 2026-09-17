@@ -160,6 +160,13 @@ func main() {
 		}
 	}
 
+	// Wraps the SPA as well as the API: a rebound page should not be able to
+	// read anything the engine serves, not just the JSON endpoints.
+	if httpapi.IsLoopbackListenAddr(*addr) {
+		handler = httpapi.RequireLoopbackHost(handler)
+		log.Info("loopback listener: rejecting requests with a non-loopback Host")
+	}
+
 	srv := &http.Server{
 		Addr:              *addr,
 		Handler:           handler,
