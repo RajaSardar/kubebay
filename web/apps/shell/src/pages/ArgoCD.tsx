@@ -157,14 +157,14 @@ export default function ArgoCD() {
         )}
 
         {isError && (
-          <div className="empty-state" style={{ paddingTop: 48 }}>
+          <div className="empty-state">
             <p style={{ color: "var(--kb-status-err)" }}>Failed to load ArgoCD applications</p>
             <p className="muted small">{error instanceof Error ? error.message : String(error)}</p>
           </div>
         )}
 
         {!isLoading && !isError && !installed && (
-          <div className="empty-state" style={{ paddingTop: 48 }}>
+          <div className="empty-state">
             <svg viewBox="0 0 48 48" width="40" height="40" fill="none" style={{ opacity: 0.3, marginBottom: 12 }}>
               <circle cx="24" cy="24" r="20" stroke="currentColor" strokeWidth="2" />
               <path d="M24 4v8M24 36v8M4 24h8M36 24h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
@@ -178,7 +178,7 @@ export default function ArgoCD() {
         )}
 
         {!isLoading && !isError && installed && apps.length === 0 && (
-          <div className="empty-state" style={{ paddingTop: 48 }}>
+          <div className="empty-state">
             <p>No ArgoCD Applications found.</p>
             <p className="muted small">Create an Application resource to manage GitOps deployments.</p>
           </div>

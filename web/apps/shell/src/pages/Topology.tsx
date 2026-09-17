@@ -187,9 +187,11 @@ export default function Topology() {
       </div>
 
       {!effectiveCluster ? (
-        <p className="muted">Waiting for cluster…</p>
+        <div className="loading-state">
+          <p>Waiting for cluster…</p>
+        </div>
       ) : !ready ? (
-        <div className="topo-canvas empty-state">
+        <div className="topo-canvas loading-state">
           <p>Mapping the bay…</p>
           <p className="muted small">Syncing workloads, pods and services for “{effectiveNs}”.</p>
         </div>

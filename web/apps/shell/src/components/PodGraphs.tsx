@@ -163,11 +163,11 @@ export function PodGraphs({
   const cpuSeries = useMemo(() => toSeries(cpu.data, 0, (v) => v * 1000), [cpu.data]);
   const memSeries = useMemo(() => toSeries(mem.data, 2, (v) => v), [mem.data]);
 
-  if (settings.isLoading) return <div className="muted small" style={{ padding: 14 }}>Loading...</div>;
+  if (settings.isLoading) return <div className="loading-state">Loading…</div>;
 
   if (!promUrl)
     return (
-      <div className="empty-state" style={{ margin: 14 }}>
+      <div className="empty-state" style={{ margin: "var(--kb-gutter)" }}>
         <p>History graphs need Prometheus.</p>
         <p className="muted small">Set the server URL in Settings &rarr; Prometheus.</p>
       </div>

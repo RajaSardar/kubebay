@@ -69,7 +69,7 @@ export function YamlTab({
     }
   }
 
-  if (loading) return <div className="muted small" style={{ padding: 14 }}>Loading YAML…</div>;
+  if (loading) return <div className="loading-state">Loading YAML…</div>;
 
   const editor = showDiff ? (
     <DiffEditor

@@ -316,7 +316,11 @@ export default function Workloads() {
         <Badge>{pods.length}</Badge>
       </div>
 
-      {!effectiveCluster && <p className="muted">Waiting for cluster…</p>}
+      {!effectiveCluster && (
+        <div className="loading-state">
+          <p>Waiting for cluster…</p>
+        </div>
+      )}
 
       {effectiveCluster && !synced && (
         <div className="table-wrap">

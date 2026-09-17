@@ -334,7 +334,9 @@ export default function Helm() {
       )}
 
       {!effectiveCluster ? (
-        <p className="muted">Waiting for cluster…</p>
+        <div className="loading-state">
+          <p>Waiting for cluster…</p>
+        </div>
       ) : releases.isLoading ? (
         <div className="table-wrap">
           <table className="kb-table">
