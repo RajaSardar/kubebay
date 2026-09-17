@@ -312,7 +312,9 @@ export const helmMarketApi = {
 };
 
 export interface AppSettings {
+  /** Fallback for clusters with no entry in prometheusUrls. */
   prometheusUrl?: string;
+  prometheusUrls?: Record<string, string>;
   extraKubeconfigs: string[];
   onlyListedKubeconfigs?: boolean;
   activeKubeconfigs?: string[];
@@ -350,8 +352,9 @@ export const argoCDApi = {
 };
 
 export const promApi = {
-  queryRange: async (params: { query: string; startMs: number; endMs: number; stepSec: number }): Promise<{ data: { result: { metric: Record<string, string>; values: [number, string][] }[] } }> => {
+  queryRange: async (params: { cluster: string; query: string; startMs: number; endMs: number; stepSec: number }): Promise<{ data: { result: { metric: Record<string, string>; values: [number, string][] }[] } }> => {
     const q = new URLSearchParams({
+      cluster: params.cluster,
       query: params.query,
       start: String(Math.floor(params.startMs / 1000)),
       end: String(Math.floor(params.endMs / 1000)),

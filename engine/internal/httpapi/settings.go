@@ -17,10 +17,24 @@ import (
 const settingsDir = ".kubebay"
 
 type AppSettings struct {
-	PrometheusURL    string   `json:"prometheusUrl,omitempty"`
-	ExtraKubeconfigs []string `json:"extraKubeconfigs,omitempty"`
-	OnlyListed       bool     `json:"onlyListedKubeconfigs,omitempty"`
-	NodeShellImage   string   `json:"nodeShellImage,omitempty"`
+	// PrometheusURL is the fallback used by any cluster without its own entry.
+	// It predates PrometheusURLs and is still honoured so upgrading does not
+	// silently drop an existing configuration.
+	PrometheusURL    string            `json:"prometheusUrl,omitempty"`
+	PrometheusURLs   map[string]string `json:"prometheusUrls,omitempty"`
+	ExtraKubeconfigs []string          `json:"extraKubeconfigs,omitempty"`
+	OnlyListed       bool              `json:"onlyListedKubeconfigs,omitempty"`
+	NodeShellImage   string            `json:"nodeShellImage,omitempty"`
+}
+
+// PrometheusURLFor resolves the endpoint to query for one cluster. A
+// port-forward to cluster A's Prometheus must never answer for cluster B, so
+// callers pass the cluster explicitly rather than reading a process-wide value.
+func (a *AppSettings) PrometheusURLFor(cluster string) string {
+	if u := a.PrometheusURLs[cluster]; u != "" {
+		return u
+	}
+	return a.PrometheusURL
 }
 
 type SettingsManager struct {
@@ -108,6 +122,7 @@ func (s *SettingsManager) HandleGet(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, map[string]any{
 		"prometheusUrl":         set.PrometheusURL,
+		"prometheusUrls":        set.PrometheusURLs,
 		"extraKubeconfigs":      set.ExtraKubeconfigs,
 		"onlyListedKubeconfigs": set.OnlyListed,
 		"activeKubeconfigs":     s.mgr.ActiveKubeconfigs(),
@@ -121,9 +136,10 @@ func (s *SettingsManager) HandleSave(w http.ResponseWriter, r *http.Request) {
 		PrometheusURL    string   `json:"prometheusUrl"`
 		ExtraKubeconfigs []string `json:"extraKubeconfigs"`
 		OnlyListed       bool     `json:"onlyListedKubeconfigs"`
-		// Pointer so an omitted field keeps the stored value: callers that
+		// Pointers so an omitted field keeps the stored value: callers that
 		// only save Prometheus settings must not wipe the node-shell image.
-		NodeShellImage *string `json:"nodeShellImage"`
+		NodeShellImage *string            `json:"nodeShellImage"`
+		PrometheusURLs *map[string]string `json:"prometheusUrls"`
 	}
 	if err := decodeBody(r, &incoming); err != nil {
 		http.Error(w, "bad body: "+err.Error(), http.StatusBadRequest)
@@ -151,15 +167,26 @@ func (s *SettingsManager) HandleSave(w http.ResponseWriter, r *http.Request) {
 	}
 
 	nodeShellImage := ""
+	var promURLs map[string]string
 	if current != nil {
 		nodeShellImage = current.NodeShellImage
+		promURLs = current.PrometheusURLs
 	}
 	if incoming.NodeShellImage != nil {
 		nodeShellImage = strings.TrimSpace(*incoming.NodeShellImage)
 	}
+	if incoming.PrometheusURLs != nil {
+		promURLs = map[string]string{}
+		for cluster, u := range *incoming.PrometheusURLs {
+			if u = normalizePromURL(u); u != "" {
+				promURLs[cluster] = u
+			}
+		}
+	}
 
 	next := &AppSettings{
-		PrometheusURL:    strings.TrimRight(strings.TrimSpace(incoming.PrometheusURL), "/"),
+		PrometheusURL:    normalizePromURL(incoming.PrometheusURL),
+		PrometheusURLs:   promURLs,
 		ExtraKubeconfigs: validated,
 		OnlyListed:       incoming.OnlyListed,
 		NodeShellImage:   nodeShellImage,
@@ -176,6 +203,10 @@ func (s *SettingsManager) HandleSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, map[string]any{"ok": true, "saved": next})
+}
+
+func normalizePromURL(u string) string {
+	return strings.TrimRight(strings.TrimSpace(u), "/")
 }
 
 func clientcmdParse(raw []byte) (interface{}, error) {
