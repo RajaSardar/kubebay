@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import Editor, { DiffEditor } from "@monaco-editor/react";
 import { Badge, Button } from "@kubebay/ui";
 import { api } from "../lib/api";
+import { useMonacoTheme } from "../lib/theme";
 
 export function YamlTab({
   cluster,
@@ -14,6 +15,7 @@ export function YamlTab({
   ns: string;
   name: string;
 }) {
+  const monacoTheme = useMonacoTheme();
   const [original, setOriginal] = useState("");
   const [modified, setModified] = useState("");
   const [loading, setLoading] = useState(true);
@@ -76,7 +78,7 @@ export function YamlTab({
       original={original}
       modified={modified}
       language="yaml"
-      theme="vs-dark"
+      theme={monacoTheme}
       options={{
         readOnly: true,
         renderSideBySide: true,
@@ -91,7 +93,7 @@ export function YamlTab({
       value={modified}
       onChange={(v) => setModified(v ?? "")}
       defaultLanguage="yaml"
-      theme="vs-dark"
+      theme={monacoTheme}
       options={{
         minimap: { enabled: false },
         fontSize: 12,
