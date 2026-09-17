@@ -590,6 +590,15 @@ h2 {
   color: var(--kb-fg-muted);
 }
 
+/* Same reason as .inline-banner: a rounded, bordered box dropped straight into
+   the unpadded .page ran flush to the window edge. Scoped to direct children so
+   the ones already inside a padded .page-body are not inset twice. */
+.page > .empty-state,
+.page > .loading-state {
+  margin-left: var(--kb-gutter);
+  margin-right: var(--kb-gutter);
+}
+
 .error-banner {
   display: flex;
   align-items: center;
