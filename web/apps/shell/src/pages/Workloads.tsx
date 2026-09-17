@@ -251,7 +251,7 @@ export default function Workloads() {
           )}
         </h2>
         {selectedKeys.size > 0 && (
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div className="page-header-actions">
             <span className="muted small">{selectedKeys.size} selected</span>
             <Button
               variant="danger"
@@ -271,7 +271,7 @@ export default function Workloads() {
       </div>
 
       {bulkDelete.pending && (
-        <div className="crd-error" style={{ justifyContent: "space-between" }}>
+        <div className="inline-banner">
           <span>
             {bulkDelete.pending.length === 1 ? (
               <>
@@ -282,7 +282,7 @@ export default function Workloads() {
               <>Delete {bulkDelete.pending.length} selected pods? This can&apos;t be undone.</>
             )}
           </span>
-          <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+          <div className="inline-banner-actions">
             <Button variant="ghost" disabled={bulkDelete.busy} onClick={bulkDelete.cancel}>
               Cancel
             </Button>
@@ -292,7 +292,7 @@ export default function Workloads() {
           </div>
         </div>
       )}
-      {bulkDelete.error && <div className="crd-error">{bulkDelete.error}</div>}
+      {bulkDelete.error && <div className="inline-banner">{bulkDelete.error}</div>}
 
       <div className="toolbar">
         <select

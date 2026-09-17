@@ -70,7 +70,7 @@ export default function Crds() {
       </div>
 
       {q.isError && (
-        <div className="crd-error">
+        <div className="inline-banner">
           <span>Failed to load CRDs: {String(q.error)}</span>
           <button className="btn-ghost small" onClick={() => q.refetch()}>Retry</button>
         </div>

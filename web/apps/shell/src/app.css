@@ -388,7 +388,8 @@ kbd {
 }
 
 /* Right-hand group: badges, selection counts, toolbar buttons. */
-.page-header-actions {
+.page-header-actions,
+.inline-banner-actions {
   display: flex;
   align-items: center;
   gap: var(--kb-space-2);
@@ -1836,16 +1837,21 @@ tr.row-clickable:active {
 .crd-badge.cluster { background: var(--kb-status-warn-subtle); color: var(--kb-status-warn-fg); }
 .crd-badge.cols { background: var(--kb-bg-surface); color: var(--kb-fg-muted); border: 1px solid var(--kb-border-subtle); }
 
-.crd-error {
+/* Errors and delete-confirm prompts that sit between the page header and the
+   content. Named .crd-error when only the CRDs page had one; three pages use
+   it now. It is a rounded, bordered box, so it needs the page gutter on both
+   sides — without it the corners were rounding against the window edge. */
+.inline-banner {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
+  justify-content: space-between;
+  gap: var(--kb-space-3);
+  padding: var(--kb-space-2) var(--kb-space-3);
   background: var(--kb-status-err-subtle);
   color: var(--kb-status-err-fg);
   border: 1px solid color-mix(in srgb, var(--kb-status-err) 35%, transparent);
   border-radius: var(--kb-radius);
-  margin-bottom: 12px;
+  margin: 0 var(--kb-gutter) var(--kb-space-3);
   font-size: var(--kb-text-md);
 }
 

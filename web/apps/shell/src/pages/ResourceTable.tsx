@@ -504,7 +504,7 @@ export default function ResourceTable() {
       </div>
 
       {bulkDelete.pending && (
-        <div className="crd-error" style={{ justifyContent: "space-between" }}>
+        <div className="inline-banner">
           <span>
             {bulkDelete.pending.length === 1 ? (
               <>
@@ -517,7 +517,7 @@ export default function ResourceTable() {
               </>
             )}
           </span>
-          <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+          <div className="inline-banner-actions">
             <Button variant="ghost" disabled={bulkDelete.busy} onClick={bulkDelete.cancel}>
               Cancel
             </Button>
@@ -527,7 +527,7 @@ export default function ResourceTable() {
           </div>
         </div>
       )}
-      {bulkDelete.error && <div className="crd-error">{bulkDelete.error}</div>}
+      {bulkDelete.error && <div className="inline-banner">{bulkDelete.error}</div>}
 
       <div className="toolbar">
         {!def.scoped && (
