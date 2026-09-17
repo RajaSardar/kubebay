@@ -60,6 +60,20 @@ func Router(d Deps, token string) http.Handler {
 		writeJSON(w, map[string]bool{"ok": true})
 	})
 
+	// Tells the UI how to authenticate without leaking anything: whether to send
+	// the user to the OIDC login or to ask for the launch token. Public because
+	// the UI has to ask it before it has any credential at all.
+	r.Get("/api/auth-mode", func(w http.ResponseWriter, _ *http.Request) {
+		mode := "open"
+		switch {
+		case d.authEnabled():
+			mode = "oidc"
+		case token != "":
+			mode = "token"
+		}
+		writeJSON(w, map[string]string{"mode": mode})
+	})
+
 	if d.authEnabled() {
 		r.Route("/api/auth", func(r chi.Router) {
 			r.Get("/login", d.Auth.HandleLogin)

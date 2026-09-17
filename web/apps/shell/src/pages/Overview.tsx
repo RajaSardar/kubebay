@@ -70,7 +70,7 @@ export default function Overview() {
         {clusters.isError && (
           <div className="error-banner">
             <IconAlert size={15} />
-            <span>Engine unreachable — start it with the token from its log output (?token=…).</span>
+            <span>Engine unreachable — start it, then reload.</span>
           </div>
         )}
 
