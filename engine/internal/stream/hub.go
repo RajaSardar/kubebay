@@ -143,7 +143,9 @@ func decodeChanEnvelope(payload []byte) (string, []byte, bool) {
 	return id, payload[4+n:], true
 }
 
-func validChanKind(k string) bool { return k == ChanKindLogs || k == ChanKindExec }
+func validChanKind(k string) bool {
+	return k == ChanKindLogs || k == ChanKindExec || (localShellBuilt && k == ChanKindLocalShell)
+}
 
 // Handle upgrades the request.  subprotocol, when non-empty, is the
 // token-bearing Sec-WebSocket-Protocol value the auth middleware accepted; it
@@ -287,9 +289,16 @@ func (h *Hub) Handle(w http.ResponseWriter, r *http.Request, src SubSource, subp
 			entry := &chanEntry{cancel: cancel}
 
 			switch frame.Kind {
-			case ChanKindExec:
+			case ChanKindExec, ChanKindLocalShell:
 				pr, pw := io.Pipe()
 				entry.stdin = pw
+				if frame.Kind == ChanKindLocalShell {
+					// A local PTY can stop reading indefinitely (stopped shell,
+					// ^S), and this Write runs on the connection's only read
+					// loop — blocking here would freeze every watch and every
+					// other terminal on the socket.
+					entry.stdin = newStdinQueue(pw, stdinQueueDepth)
+				}
 				// Buffer 16: one slot for the initial size seed (written below)
 				// plus headroom for rapid resize events.  sizeQueue.Next() is
 				// a blocking read, so we must never let the channel fill up or
@@ -302,7 +311,11 @@ func (h *Hub) Handle(w http.ResponseWriter, r *http.Request, src SubSource, subp
 				if frame.Cols > 0 && frame.Rows > 0 {
 					rz <- TermSize{Cols: frame.Cols, Rows: frame.Rows}
 				}
-				go h.runExec(chCtx, frame, writer, pr, rz, func() { closeChan(frame.ID, entry) })
+				if frame.Kind == ChanKindLocalShell {
+					go h.runLocalShell(chCtx, frame, writer, pr, rz, func() { closeChan(frame.ID, entry) })
+				} else {
+					go h.runExec(chCtx, frame, writer, pr, rz, func() { closeChan(frame.ID, entry) })
+				}
 			default:
 				go h.runLogs(chCtx, frame, writer, func() { closeChan(frame.ID, entry) })
 			}

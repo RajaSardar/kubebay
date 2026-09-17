@@ -32,6 +32,9 @@ const (
 
 	ChanKindLogs = "logs"
 	ChanKindExec = "exec"
+	// ChanKindLocalShell runs a PTY on the machine hosting the engine.  It is
+	// only ever accepted in binaries built with the "localshell" tag.
+	ChanKindLocalShell = "local-shell"
 )
 
 type ClientFrame struct {

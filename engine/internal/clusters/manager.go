@@ -439,6 +439,19 @@ func (m *Manager) List() []Cluster {
 	return out
 }
 
+// ContextName returns the kubeconfig context name behind a cluster id.  Unlike
+// RestConfig it also answers for StatusMisconfigured entries, whose cfg is nil:
+// a shell is exactly what you want when a context will not build a client.
+func (m *Manager) ContextName(id string) (string, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	e, ok := m.entries[id]
+	if !ok {
+		return "", fmt.Errorf("unknown cluster %q", id)
+	}
+	return e.cluster.Context, nil
+}
+
 func (m *Manager) RestConfig(id string) (*rest.Config, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
