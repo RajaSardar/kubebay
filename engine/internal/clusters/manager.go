@@ -29,6 +29,11 @@ type Status string
 const (
 	StatusConnected   Status = "connected"
 	StatusUnreachable Status = "unreachable"
+	// StatusMisconfigured marks a context that exists in the kubeconfig but
+	// whose client config could not be built (bad auth provider, missing file,
+	// ...).  It is listed so the user can see why, but it has no rest.Config
+	// and can never be selected or connected to.
+	StatusMisconfigured Status = "misconfigured"
 )
 
 type Cluster struct {
@@ -210,10 +215,9 @@ func (m *Manager) Load() error {
 	var order []string
 	for name := range raw.Contexts {
 		cc := clientcmd.NewNonInteractiveClientConfig(*raw, name, &clientcmd.ConfigOverrides{}, rules)
-		cfg, err := cc.ClientConfig()
-		if err != nil {
-			m.log.Warn("skipping unusable context", "context", name, "err", err)
-			continue
+		cfg, cfgErr := cc.ClientConfig()
+		if cfgErr != nil {
+			m.log.Warn("unusable context", "context", name, "err", cfgErr)
 		}
 		server := ""
 		if ctxCfg, ok := raw.Contexts[name]; ok && raw.Clusters != nil {
@@ -223,6 +227,12 @@ func (m *Manager) Load() error {
 		}
 		id := sanitizeID(name)
 		order = append(order, id)
+		status := StatusUnreachable
+		errStr := ""
+		if cfgErr != nil {
+			status = StatusMisconfigured
+			errStr = cfgErr.Error()
+		}
 		newEntries[id] = &entry{
 			cfg:            cfg,
 			kubeconfigPath: strings.Join(rules.Precedence, string(os.PathListSeparator)),
@@ -230,7 +240,8 @@ func (m *Manager) Load() error {
 				ID:      id,
 				Context: name,
 				Server:  server,
-				Status:  StatusUnreachable,
+				Status:  status,
+				Error:   errStr,
 			},
 		}
 	}
@@ -295,6 +306,9 @@ func (m *Manager) watchFiles() {
 }
 
 func (m *Manager) healthOnce(e *entry) {
+	if e.cfg == nil {
+		return // misconfigured: nothing to probe, keep the load-time reason
+	}
 	cfgCopy := *e.cfg
 	cfgCopy.Timeout = 5 * time.Second
 	client, err := kubernetes.NewForConfig(&cfgCopy)
@@ -319,6 +333,9 @@ func (m *Manager) healthLoop() {
 		m.mu.RLock()
 		list := make([]*entry, 0, len(m.entries))
 		for _, e := range m.entries {
+			if e.cfg == nil {
+				continue // misconfigured: nothing to probe, keep the load-time reason
+			}
 			list = append(list, e)
 		}
 		m.mu.RUnlock()
@@ -428,6 +445,9 @@ func (m *Manager) RestConfig(id string) (*rest.Config, error) {
 	e, ok := m.entries[id]
 	if !ok {
 		return nil, fmt.Errorf("unknown cluster %q", id)
+	}
+	if e.cfg == nil {
+		return nil, fmt.Errorf("cluster %q is misconfigured: %s", id, e.cluster.Error)
 	}
 	return e.cfg, nil
 }

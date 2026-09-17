@@ -16,7 +16,7 @@ export interface ClusterInfo {
   id: string;
   context: string;
   server: string;
-  status: "connected" | "unreachable" | "degraded";
+  status: "connected" | "unreachable" | "degraded" | "misconfigured";
   version?: string;
   error?: string;
 }
@@ -259,6 +259,8 @@ export interface AppSettings {
   extraKubeconfigs: string[];
   onlyListedKubeconfigs?: boolean;
   activeKubeconfigs?: string[];
+  nodeShellImage?: string;
+  nodeShellImageDefault?: string;
 }
 
 export const settingsApi = {

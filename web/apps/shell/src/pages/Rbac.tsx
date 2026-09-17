@@ -161,7 +161,7 @@ export default function Rbac() {
         <h2>
           RBAC explorer
           {data && (
-            <span className="muted" style={{ fontWeight: 400, fontSize: 13 }}>
+            <span className="page-header-count">
               · {(data.clusterRoleBindings?.length ?? 0) + (data.roleBindings?.length ?? 0)} bindings
             </span>
           )}

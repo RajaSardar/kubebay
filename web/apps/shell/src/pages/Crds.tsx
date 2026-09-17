@@ -63,12 +63,14 @@ export default function Crds() {
   return (
     <div className="page" style={{ overflowY: "auto" }}>
       <div className="page-header">
-        <h1 style={{ margin: 0 }}>Custom Resource Definitions</h1>
-        <span className="muted small">{q.isLoading ? "Loading…" : `${totalCount} CRDs`}</span>
+        <h1>
+          Custom Resource Definitions
+          <span className="page-header-count">{q.isLoading ? "Loading…" : `${totalCount} CRDs`}</span>
+        </h1>
       </div>
 
       {q.isError && (
-        <div className="crd-error">
+        <div className="inline-banner">
           <span>Failed to load CRDs: {String(q.error)}</span>
           <button className="btn-ghost small" onClick={() => q.refetch()}>Retry</button>
         </div>
@@ -122,7 +124,7 @@ export default function Crds() {
                     >
                       <span className="crd-tree-kind">{r.kind}</span>
                       <span className="crd-tree-meta">
-                        <span className="mono muted" style={{ fontSize: 11 }}>{r.version}</span>
+                        <span className="mono muted" style={{ fontSize: "var(--kb-text-xs)" }}>{r.version}</span>
                         <span className={`crd-badge ${r.namespaced ? "ns" : "cluster"}`}>
                           {r.namespaced ? "ns" : "cluster"}
                         </span>

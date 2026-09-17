@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Editor from "@monaco-editor/react";
 import { Badge, Button, Card, Skeleton } from "@kubebay/ui";
 import { api, helmApi, helmMarketApi, type HelmChartEntry } from "../lib/api";
+import { useMonacoTheme } from "../lib/theme";
 
 function InstallPanel({
   cluster,
@@ -18,6 +19,7 @@ function InstallPanel({
   onInstalled: (releaseName: string) => void;
 }) {
   const qc = useQueryClient();
+  const monacoTheme = useMonacoTheme();
   const [name, setName] = useState(chart.name.replace(/[^a-z0-9-]/g, "-"));
   const [ns, setNs] = useState("default");
   const [version, setVersion] = useState("");
@@ -118,7 +120,7 @@ function InstallPanel({
             value={valuesYaml}
             onChange={(v) => setValues(v ?? "")}
             defaultLanguage="yaml"
-            theme="vs-dark"
+            theme={monacoTheme}
             options={{
               minimap: { enabled: false },
               fontSize: 12,

@@ -49,35 +49,99 @@ fn pick_free_port() -> u16 {
         .unwrap_or(PREFERRED + 1)
 }
 
-/// On macOS/Linux, GUI apps launched from the Dock/Finder inherit a stripped
-/// PATH (/usr/bin:/bin:/usr/sbin:/sbin).  Kubernetes exec credential plugins
-/// (aws eks get-token, gke-gcloud-auth-plugin, etc.) live in Homebrew or the
-/// user's custom bin dirs and won't be found, making every EKS/GKE cluster
-/// show as unreachable.  Fix: ask the login shell for its full PATH.
-fn login_shell_path() -> Option<String> {
-    login_shell_env_var("PATH")
-}
+/// Environment the engine sidecar is allowed to inherit from the user's login
+/// shell.  This is an ALLOWLIST on purpose — never copy the whole environment.
+///
+/// GUI apps launched from the Dock/Finder are started by launchd, not a shell,
+/// so they inherit a stripped environment.  PATH matters because Kubernetes
+/// exec credential plugins (aws eks get-token, gke-gcloud-auth-plugin…) live in
+/// Homebrew or custom bin dirs.  The rest matter because those plugins read
+/// them to decide WHICH IDENTITY to authenticate as: without AWS_PROFILE, for
+/// example, `aws eks get-token` silently falls back to the `default` profile,
+/// so Kubebay would talk to production as a different — possibly far more
+/// privileged — identity than the user's own terminal does, with no visible
+/// sign of the substitution.  Proxy and CA vars are here for the same reason:
+/// dropping them changes which endpoint is trusted and reached.
+const FORWARDED_ENV: &[&str] = &[
+    "PATH",
+    "KUBECONFIG",
+    "AWS_PROFILE",
+    "AWS_REGION",
+    "AWS_DEFAULT_REGION",
+    "AWS_CONFIG_FILE",
+    "AWS_SHARED_CREDENTIALS_FILE",
+    "AWS_SDK_LOAD_CONFIG",
+    "AWS_ROLE_SESSION_NAME",
+    "CLOUDSDK_CONFIG",
+    "GOOGLE_APPLICATION_CREDENTIALS",
+    "AZURE_CONFIG_DIR",
+    "HTTPS_PROXY",
+    "HTTP_PROXY",
+    "NO_PROXY",
+    "https_proxy",
+    "http_proxy",
+    "no_proxy",
+    "SSL_CERT_FILE",
+    "SSL_CERT_DIR",
+    "REQUESTS_CA_BUNDLE",
+    "KRB5CCNAME",
+];
 
-/// Read an environment variable from the user's login shell.
-/// GUI apps on macOS don't inherit shell env vars (KUBECONFIG, PATH, etc.)
-/// because they are launched by launchd, not a shell session.
-fn login_shell_env_var(var: &str) -> Option<String> {
-    // Try zsh first (default macOS shell since Catalina), then bash.
-    // Use -l (login) so ~/.zprofile / ~/.bash_profile are sourced.
-    // printenv is more reliable than echo for vars that might be unset.
-    let script = format!("printenv {var} 2>/dev/null");
-    for shell in &["/bin/zsh", "/bin/bash"] {
-        if let Ok(out) = std::process::Command::new(shell)
-            .args(["-l", "-c", &script])
-            .output()
-        {
-            let v = String::from_utf8_lossy(&out.stdout).trim().to_string();
-            if !v.is_empty() {
-                return Some(v);
-            }
+/// Read the whole allowlist from the user's login shell in ONE invocation.
+///
+/// The shell prints `NAME=VALUE\0` records for the variables that are actually
+/// set, using only builtins, so this costs a single process for ~20 variables
+/// rather than one login shell each.  NUL separation keeps values containing
+/// newlines or spaces intact.
+#[cfg(unix)]
+fn login_shell_env() -> Vec<(String, String)> {
+    let mut script = String::from("for __kb_v in ");
+    script.push_str(&FORWARDED_ENV.join(" "));
+    script.push_str(
+        "; do eval \"if [ -n \\\"\\${$__kb_v+x}\\\" ]; then printf '%s=%s\\\\0' \\\"\\$__kb_v\\\" \\\"\\${$__kb_v}\\\"; fi\"; done",
+    );
+
+    // Prefer the user's configured shell, then the macOS/Linux defaults.
+    // -l (login) so ~/.zprofile / ~/.bash_profile are sourced.
+    let configured = std::env::var("SHELL").unwrap_or_default();
+    let mut shells: Vec<&str> = Vec::new();
+    if !configured.is_empty() {
+        shells.push(&configured);
+    }
+    for s in ["/bin/zsh", "/bin/bash", "/bin/sh"] {
+        if !shells.contains(&s) {
+            shells.push(s);
         }
     }
-    None
+
+    for shell in shells {
+        let Ok(out) = std::process::Command::new(shell)
+            .args(["-l", "-c", &script])
+            .output()
+        else {
+            continue;
+        };
+        let vars = parse_env_records(&String::from_utf8_lossy(&out.stdout));
+        if !vars.is_empty() {
+            return vars;
+        }
+    }
+    Vec::new()
+}
+
+/// Windows GUI apps inherit the user's environment already.
+#[cfg(not(unix))]
+fn login_shell_env() -> Vec<(String, String)> {
+    Vec::new()
+}
+
+fn parse_env_records(stdout: &str) -> Vec<(String, String)> {
+    stdout
+        .split('\0')
+        .filter_map(|rec| rec.split_once('='))
+        .filter(|(name, value)| FORWARDED_ENV.contains(name) && !value.is_empty())
+        .map(|(name, value)| (name.to_string(), value.to_string()))
+        .collect()
 }
 
 fn kill_engine() {
@@ -106,20 +170,26 @@ fn main() {
             let handle = app.handle().clone();
             let port = pick_free_port();
             let addr = format!("127.0.0.1:{port}");
-            let sidecar = app.shell().sidecar("kubebay-engine")?.args(["--addr", &addr]);
-            // Inject PATH so exec credential plugins (aws, gke-gcloud-auth-plugin…) are found.
-            let cmd = if let Some(path) = login_shell_path() {
-                sidecar.env("PATH", path)
-            } else {
-                sidecar
-            };
-            // Inject KUBECONFIG so clusters defined via env var are discovered.
-            // Without this, apps launched from Finder/Dock only see ~/.kube/config.
-            let cmd = if let Some(kc) = login_shell_env_var("KUBECONFIG") {
-                cmd.env("KUBECONFIG", kc)
-            } else {
-                cmd
-            };
+            let mut cmd = app.shell().sidecar("kubebay-engine")?.args(["--addr", &addr]);
+            let forwarded = login_shell_env();
+            for (name, value) in &forwarded {
+                cmd = cmd.env(name.as_str(), value.as_str());
+            }
+            // Names only — values can be credential paths.  Logged so a user
+            // debugging "why is Kubebay using a different identity than my
+            // terminal" can see what the engine actually received.
+            eprintln!(
+                "[kubebay] forwarded login-shell env: {}",
+                if forwarded.is_empty() {
+                    "(none)".to_string()
+                } else {
+                    forwarded
+                        .iter()
+                        .map(|(n, _)| n.as_str())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                }
+            );
 
             let (mut rx, child) = cmd.spawn()?;
             *ENGINE_CHILD

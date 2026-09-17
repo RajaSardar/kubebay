@@ -477,10 +477,10 @@ export default function ResourceTable() {
           {def.label}
           <StarButton path={`/r/${kind}`} />
           {stream.synced && (
-            <span className="live-pill">● live</span>
+            <span className="live-pill">live</span>
           )}
         </h2>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div className="page-header-actions">
           {selectedKeys.size > 0 && (
             <>
               <span className="muted small">{selectedKeys.size} selected</span>
@@ -504,7 +504,7 @@ export default function ResourceTable() {
       </div>
 
       {bulkDelete.pending && (
-        <div className="crd-error" style={{ justifyContent: "space-between" }}>
+        <div className="inline-banner">
           <span>
             {bulkDelete.pending.length === 1 ? (
               <>
@@ -517,7 +517,7 @@ export default function ResourceTable() {
               </>
             )}
           </span>
-          <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+          <div className="inline-banner-actions">
             <Button variant="ghost" disabled={bulkDelete.busy} onClick={bulkDelete.cancel}>
               Cancel
             </Button>
@@ -527,7 +527,7 @@ export default function ResourceTable() {
           </div>
         </div>
       )}
-      {bulkDelete.error && <div className="crd-error">{bulkDelete.error}</div>}
+      {bulkDelete.error && <div className="inline-banner">{bulkDelete.error}</div>}
 
       <div className="toolbar">
         {!def.scoped && (
@@ -578,7 +578,7 @@ export default function ResourceTable() {
             <thead>
               <tr>
                 {/* Select-all checkbox */}
-                <th style={{ width: 40, padding: "0 10px" }}>
+                <th className="col-select" style={{ width: 40 }}>
                   <SelectAllCheckbox
                     checked={isAllSelected(allKeys)}
                     indeterminate={isIndeterminate(allKeys)}
@@ -623,7 +623,7 @@ export default function ResourceTable() {
                     onClick={() => setSelected({ ns, name })}
                     onContextMenu={(e) => { e.preventDefault(); setCtx({ x: e.clientX, y: e.clientY, ns, name }); }}
                   >
-                    <td style={{ padding: "0 10px" }} onClick={(e) => e.stopPropagation()}>
+                    <td className="col-select" onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
                         checked={isSelected}

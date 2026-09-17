@@ -4,8 +4,9 @@ import { IconAlert, IconRefresh } from "@kubebay/ui/src/icons";
 import { api, type ClusterInfo } from "../lib/api";
 
 function ClusterCard({ c }: { c: ClusterInfo }) {
+  const broken = c.status === "misconfigured";
   return (
-    <Card interactive className="cluster-card">
+    <Card interactive={!broken} className={broken ? "cluster-card cluster-card-broken" : "cluster-card"}>
       <div className="cluster-row">
         <StatusDot status={c.status} pulse={c.status === "connected"} />
         <span className="cluster-name" title={c.context}>
@@ -19,6 +20,11 @@ function ClusterCard({ c }: { c: ClusterInfo }) {
         </Badge>
         {c.version && <Badge>{c.version.split("+")[0]?.replace(/^v/, "")}</Badge>}
       </div>
+      {broken && (
+        <div className="cluster-broken-reason" title={c.error}>
+          This context exists but can't be loaded: {c.error}
+        </div>
+      )}
     </Card>
   );
 }
@@ -49,7 +55,7 @@ export default function Overview() {
         <h2>
           Clusters{" "}
           {!clusters.isLoading && (
-            <span className="muted" style={{ fontWeight: 400, fontSize: 13 }}>
+            <span className="page-header-count">
               · {list.length}
             </span>
           )}

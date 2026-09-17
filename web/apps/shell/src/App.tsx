@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, lazy, Suspense, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ClusterInfo } from "./lib/api";
 import { NavLink, Route, Routes, useLocation, useNavigate } from "react-router-dom";
@@ -21,19 +21,26 @@ import {
 } from "@kubebay/ui/src/icons";
 import { api } from "./lib/api";
 import Home from "./pages/Home";
-import Settings from "./pages/Settings";
-import Workloads from "./pages/Workloads";
-import Ports from "./pages/Ports";
-import Timeline from "./pages/Timeline";
-import Topology from "./pages/Topology";
-import Rbac from "./pages/Rbac";
-import Helm from "./pages/Helm";
-import WorkloadsOverview from "./pages/WorkloadsOverview";
-import ResourceTable from "./pages/ResourceTable";
-import ResourceDetail from "./pages/ResourceDetail";
-import Crds from "./pages/Crds";
-import NetworkPolicy from "./pages/NetworkPolicy";
-import ArgoCD from "./pages/ArgoCD";
+
+// Home stays eager — it is the landing route, so lazying it would only add a
+// round-trip before first paint. Everything else is split out: Topology alone
+// pulls in @xyflow + d3 (~180 kB) and the pod shell pulls xterm (~330 kB),
+// neither of which most sessions ever open.
+const loadWorkloads = () => import("./pages/Workloads");
+const loadResourceTable = () => import("./pages/ResourceTable");
+const Settings = lazy(() => import("./pages/Settings"));
+const Workloads = lazy(loadWorkloads);
+const Ports = lazy(() => import("./pages/Ports"));
+const Timeline = lazy(() => import("./pages/Timeline"));
+const Topology = lazy(() => import("./pages/Topology"));
+const Rbac = lazy(() => import("./pages/Rbac"));
+const Helm = lazy(() => import("./pages/Helm"));
+const WorkloadsOverview = lazy(() => import("./pages/WorkloadsOverview"));
+const ResourceTable = lazy(loadResourceTable);
+const ResourceDetail = lazy(() => import("./pages/ResourceDetail"));
+const Crds = lazy(() => import("./pages/Crds"));
+const NetworkPolicy = lazy(() => import("./pages/NetworkPolicy"));
+const ArgoCD = lazy(() => import("./pages/ArgoCD"));
 import { Palette } from "./components/Palette";
 import { discoveryApi } from "./lib/api";
 import { KNOWN_GVRS, extSlug } from "./lib/resources";
@@ -289,7 +296,7 @@ function ClusterIconPicker({ clusterId, current, onSave, onReset, onClose }: Ico
               onChange={(e) => setBg(e.target.value)}
               style={{ opacity: 0, position: "absolute", inset: 0, width: "100%", height: "100%", cursor: "pointer" }}
             />
-            <span style={{ fontSize: 14 }}>🎨</span>
+            <span style={{ fontSize: "var(--kb-text-lg)" }}>🎨</span>
           </label>
         </div>
         <div className="icon-picker-section">Label</div>
@@ -488,26 +495,28 @@ function ClusterStrip() {
       {list.map((c) => {
         const auto = autoAvatar(c.id);
         const { bg, label } = icons[c.id] ?? auto;
-        const isActive = c.id === effectiveActive;
+        const broken = c.status === "misconfigured";
+        const isActive = !broken && c.id === effectiveActive;
         const isSwitching = isActive && switching;
         return (
           <button
             key={c.id}
-            title={`${c.id} — right-click to customize icon`}
-            onClick={() => setActive(c.id)}
+            disabled={broken}
+            title={broken ? `${c.id} — can't be loaded: ${c.error ?? "unknown error"}` : `${c.id} — right-click to customize icon`}
+            onClick={() => { if (!broken) setActive(c.id); }}
             onContextMenu={(e) => { e.preventDefault(); setPicker(c.id); }}
             style={{
               position: "relative",
               width: 40,
               height: 40,
-              borderRadius: 10,
+              borderRadius: "var(--kb-radius)",
               background: bg,
               color: "#fff",
               fontWeight: 700,
-              fontSize: 11,
+              fontSize: "var(--kb-text-xs)",
               border: isActive ? "2px solid rgba(255,255,255,0.9)" : "2px solid transparent",
-              opacity: isActive ? 1 : 0.5,
-              cursor: "pointer",
+              opacity: broken ? 0.28 : isActive ? 1 : 0.5,
+              cursor: broken ? "not-allowed" : "pointer",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -533,7 +542,7 @@ function ClusterStrip() {
               width: 9,
               height: 9,
               borderRadius: "50%",
-              background: c.status === "connected" ? "var(--kb-status-ok)" : "var(--kb-status-err)",
+              background: c.status === "connected" ? "var(--kb-status-ok)" : broken ? "var(--kb-fg-subtle)" : "var(--kb-status-err)",
               border: "2px solid var(--kb-bg-sidebar)",
             }} />
           </button>
@@ -570,7 +579,8 @@ function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
   const { active } = useClusterStore();
   const queryClient = useQueryClient();
   const clusterList = queryClient.getQueryData<ClusterInfo[]>(["clusters"]) ?? [];
-  const effectiveActive = active || clusterList.find((c) => c.status === "connected")?.id || clusterList[0]?.id || "";
+  const usableClusters = clusterList.filter((c) => c.status !== "misconfigured");
+  const effectiveActive = active || usableClusters.find((c) => c.status === "connected")?.id || usableClusters[0]?.id || "";
   const activeCluster = clusterList.find((c) => c.id === effectiveActive);
 
   return (
@@ -749,6 +759,9 @@ function AppInner() {
 
         <main className="content">
           <ErrorBoundary resetKey={location.pathname}>
+            {/* Empty page shell, not a spinner: chunks resolve in a few ms on
+                local disk and a spinner would flash more than it informs. */}
+            <Suspense fallback={<div className="page" />}>
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/workloads" element={<Workloads />} />
@@ -766,6 +779,7 @@ function AppInner() {
               <Route path="/settings" element={<Settings />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
+            </Suspense>
           </ErrorBoundary>
 
           {showOverlay && (
@@ -808,5 +822,21 @@ function AppInner() {
 }
 
 export default function App() {
+  // Warm the two routes users almost always reach from Home, once the main
+  // thread is idle, so splitting them out never costs a visible fallback.
+  useEffect(() => {
+    const warm = () => {
+      void loadResourceTable();
+      void loadWorkloads();
+    };
+    const ric = (window as unknown as { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback;
+    if (ric) {
+      ric(warm);
+      return;
+    }
+    const t = setTimeout(warm, 1500);
+    return () => clearTimeout(t);
+  }, []);
+
   return <AppInner />;
 }

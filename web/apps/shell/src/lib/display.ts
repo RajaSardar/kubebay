@@ -18,9 +18,9 @@ const FONT_FAMILY_VALUES: Record<FontFamily, string> = {
 };
 
 const ROW_PADDING_VALUES: Record<Density, string> = {
-  compact: "4px 14px",
-  default: "8px 14px",
-  relaxed: "12px 14px",
+  compact: "4px 16px",
+  default: "8px 16px",
+  relaxed: "12px 16px",
 };
 
 const TABLE_FONT_SIZE_VALUES: Record<Density, string> = {

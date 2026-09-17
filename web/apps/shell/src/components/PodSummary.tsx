@@ -156,7 +156,7 @@ export function PodSummary({
         <KV k="Restart Policy" v={data.restartPolicy} />
         <KV k="DNS Policy" v={data.dnsPolicy} />
         <KV k="Priority" v={String(data.priority)} />
-        <KV k="UID" v={<span className="mono subtle" style={{ fontSize: 10 }}>{data.uid}</span>} />
+        <KV k="UID" v={<span className="mono subtle" style={{ fontSize: "var(--kb-text-2xs)" }}>{data.uid}</span>} />
       </Section>
 
       <Section title={`Conditions (${data.conditions.length})`}>
