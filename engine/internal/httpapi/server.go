@@ -3,11 +3,13 @@ package httpapi
 import (
 	"context"
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -83,7 +85,7 @@ func Router(d Deps, token string) http.Handler {
 			writeJSON(w, d.Clusters.List())
 		})
 		r.Get("/ws", func(w http.ResponseWriter, req *http.Request) {
-			d.Hub.Handle(w, req, poolSource{d.Pools})
+			d.Hub.Handle(w, req, poolSource{d.Pools}, wsSubprotocolFromContext(req.Context()))
 		})
 
 		r.Get("/api/pf", func(w http.ResponseWriter, _ *http.Request) {
@@ -358,6 +360,39 @@ func Router(d Deps, token string) http.Handler {
 	return r
 }
 
+// WSTokenSubprotocolPrefix carries the session token on a WebSocket handshake.
+// Browsers cannot set request headers on a WebSocket, and Sec-WebSocket-Protocol
+// is the only client-controlled header they do send — unlike a query string it
+// stays out of history, referrers, proxy access logs and `ps` output.
+const WSTokenSubprotocolPrefix = "kubebay.token."
+
+type wsSubprotocolKey struct{}
+
+// wsSubprotocolFromContext returns the subprotocol requireToken accepted, which
+// the server must echo back verbatim or the browser fails the handshake.
+func wsSubprotocolFromContext(ctx context.Context) string {
+	v, _ := ctx.Value(wsSubprotocolKey{}).(string)
+	return v
+}
+
+func tokenMatches(got, want string) bool {
+	return subtle.ConstantTimeCompare([]byte(got), []byte(want)) == 1
+}
+
+// wsTokenSubprotocol finds an offered subprotocol that carries the right token.
+func wsTokenSubprotocol(r *http.Request, token string) (string, bool) {
+	for _, header := range r.Header.Values("Sec-WebSocket-Protocol") {
+		for _, offered := range strings.Split(header, ",") {
+			offered = strings.TrimSpace(offered)
+			rest, ok := strings.CutPrefix(offered, WSTokenSubprotocolPrefix)
+			if ok && tokenMatches(rest, token) {
+				return offered, true
+			}
+		}
+	}
+	return "", false
+}
+
 func requireToken(token string, auth *Authenticator) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -365,13 +400,23 @@ func requireToken(token string, auth *Authenticator) func(http.Handler) http.Han
 				next.ServeHTTP(w, r)
 				return
 			}
-			headerToken := r.Header.Get("X-Kubebay-Token")
-			queryToken := r.URL.Query().Get("token")
-			if token != "" && headerToken != token && queryToken != token {
-				http.Error(w, "unauthorized", http.StatusUnauthorized)
+			if token == "" {
+				next.ServeHTTP(w, r)
 				return
 			}
-			next.ServeHTTP(w, r)
+			if tokenMatches(r.Header.Get("X-Kubebay-Token"), token) {
+				next.ServeHTTP(w, r)
+				return
+			}
+			if sub, ok := wsTokenSubprotocol(r, token); ok {
+				next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), wsSubprotocolKey{}, sub)))
+				return
+			}
+			if tokenMatches(r.URL.Query().Get("token"), token) {
+				next.ServeHTTP(w, r)
+				return
+			}
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
 		})
 	}
 }

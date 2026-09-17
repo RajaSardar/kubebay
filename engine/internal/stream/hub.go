@@ -145,8 +145,17 @@ func decodeChanEnvelope(payload []byte) (string, []byte, bool) {
 
 func validChanKind(k string) bool { return k == ChanKindLogs || k == ChanKindExec }
 
-func (h *Hub) Handle(w http.ResponseWriter, r *http.Request, src SubSource) {
+// Handle upgrades the request.  subprotocol, when non-empty, is the
+// token-bearing Sec-WebSocket-Protocol value the auth middleware accepted; it
+// must be offered back to Accept so the handshake echoes it, otherwise the
+// browser rejects a response that names no subprotocol it asked for.
+func (h *Hub) Handle(w http.ResponseWriter, r *http.Request, src SubSource, subprotocol string) {
+	var subprotocols []string
+	if subprotocol != "" {
+		subprotocols = []string{subprotocol}
+	}
 	c, err := websocket.Accept(w, r, &websocket.AcceptOptions{
+		Subprotocols:   subprotocols,
 		OriginPatterns: []string{"localhost:*", "127.0.0.1:*", "tauri://localhost", "http://tauri.localhost"},
 	})
 	if err != nil {

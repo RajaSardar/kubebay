@@ -75,8 +75,10 @@ func buildTestServer(t *testing.T) (*httptest.Server, *clusters.Manager) {
 
 func dialWS(t *testing.T, srv *httptest.Server) *websocket.Conn {
 	t.Helper()
-	wsURL := "ws" + strings.TrimPrefix(srv.URL, "http") + "/ws?token=testtoken"
-	c, _, err := websocket.Dial(context.Background(), wsURL, nil)
+	wsURL := "ws" + strings.TrimPrefix(srv.URL, "http") + "/ws"
+	c, _, err := websocket.Dial(context.Background(), wsURL, &websocket.DialOptions{
+		Subprotocols: []string{httpapi.WSTokenSubprotocolPrefix + "testtoken"},
+	})
 	if err != nil {
 		t.Fatalf("ws dial: %v", err)
 	}

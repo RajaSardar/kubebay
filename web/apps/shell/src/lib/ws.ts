@@ -58,6 +58,9 @@ export interface Handlers {
   onStatus?: (connected: boolean, retryAttempt?: number, nextRetryMs?: number) => void;
 }
 
+// Must match WSTokenSubprotocolPrefix in engine/internal/httpapi/server.go.
+const WS_TOKEN_SUBPROTOCOL_PREFIX = "kubebay.token.";
+
 const RECONNECT_BASE_MS = 1500;
 const RECONNECT_MAX_MS = 30_000;
 // How long a connection must stay open before we consider it "stable"
@@ -87,7 +90,12 @@ class MultiplexedStream {
 
   private connect() {
     const proto = location.protocol === "https:" ? "wss" : "ws";
-    const ws = new WebSocket(`${proto}://${location.host}/ws?token=${encodeURIComponent(this.token)}`);
+    // The token rides in Sec-WebSocket-Protocol, the only client-settable
+    // header a browser WebSocket has. A query string would land in history,
+    // referrers and every proxy access log. With OIDC there is no token and the
+    // session cookie authenticates instead, so offer no subprotocol at all.
+    const subprotocols = this.token ? [`${WS_TOKEN_SUBPROTOCOL_PREFIX}${this.token}`] : [];
+    const ws = new WebSocket(`${proto}://${location.host}/ws`, subprotocols);
     this.ws = ws;
 
     ws.onopen = () => {
