@@ -3183,3 +3183,8 @@ tr.row-clickable:active {
   flex-wrap: wrap;
   gap: 5px;
 }
+
+.tab-loading {
+  flex: 1;
+  min-height: 120px;
+}

@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Badge, Button, StatusDot } from "@kubebay/ui";
 import { api, nodeApi } from "../lib/api";
-import { YamlTab } from "./YamlTab";
+import { ExecTerm, YamlTab } from "./heavy";
 import { EventsDrawer } from "./EventsDrawer";
-import { ExecTerm } from "./ExecTerm";
 import { ActionsBar } from "./ActionsBar";
 import { NodeSummary } from "./NodeSummary";
 import { ServiceSummary } from "./ServiceSummary";

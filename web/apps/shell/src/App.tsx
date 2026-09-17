@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, lazy, Suspense, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ClusterInfo } from "./lib/api";
 import { NavLink, Route, Routes, useLocation, useNavigate } from "react-router-dom";
@@ -21,19 +21,26 @@ import {
 } from "@kubebay/ui/src/icons";
 import { api } from "./lib/api";
 import Home from "./pages/Home";
-import Settings from "./pages/Settings";
-import Workloads from "./pages/Workloads";
-import Ports from "./pages/Ports";
-import Timeline from "./pages/Timeline";
-import Topology from "./pages/Topology";
-import Rbac from "./pages/Rbac";
-import Helm from "./pages/Helm";
-import WorkloadsOverview from "./pages/WorkloadsOverview";
-import ResourceTable from "./pages/ResourceTable";
-import ResourceDetail from "./pages/ResourceDetail";
-import Crds from "./pages/Crds";
-import NetworkPolicy from "./pages/NetworkPolicy";
-import ArgoCD from "./pages/ArgoCD";
+
+// Home stays eager — it is the landing route, so lazying it would only add a
+// round-trip before first paint. Everything else is split out: Topology alone
+// pulls in @xyflow + d3 (~180 kB) and the pod shell pulls xterm (~330 kB),
+// neither of which most sessions ever open.
+const loadWorkloads = () => import("./pages/Workloads");
+const loadResourceTable = () => import("./pages/ResourceTable");
+const Settings = lazy(() => import("./pages/Settings"));
+const Workloads = lazy(loadWorkloads);
+const Ports = lazy(() => import("./pages/Ports"));
+const Timeline = lazy(() => import("./pages/Timeline"));
+const Topology = lazy(() => import("./pages/Topology"));
+const Rbac = lazy(() => import("./pages/Rbac"));
+const Helm = lazy(() => import("./pages/Helm"));
+const WorkloadsOverview = lazy(() => import("./pages/WorkloadsOverview"));
+const ResourceTable = lazy(loadResourceTable);
+const ResourceDetail = lazy(() => import("./pages/ResourceDetail"));
+const Crds = lazy(() => import("./pages/Crds"));
+const NetworkPolicy = lazy(() => import("./pages/NetworkPolicy"));
+const ArgoCD = lazy(() => import("./pages/ArgoCD"));
 import { Palette } from "./components/Palette";
 import { discoveryApi } from "./lib/api";
 import { KNOWN_GVRS, extSlug } from "./lib/resources";
@@ -749,6 +756,9 @@ function AppInner() {
 
         <main className="content">
           <ErrorBoundary resetKey={location.pathname}>
+            {/* Empty page shell, not a spinner: chunks resolve in a few ms on
+                local disk and a spinner would flash more than it informs. */}
+            <Suspense fallback={<div className="page" />}>
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/workloads" element={<Workloads />} />
@@ -766,6 +776,7 @@ function AppInner() {
               <Route path="/settings" element={<Settings />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
+            </Suspense>
           </ErrorBoundary>
 
           {showOverlay && (
@@ -808,5 +819,21 @@ function AppInner() {
 }
 
 export default function App() {
+  // Warm the two routes users almost always reach from Home, once the main
+  // thread is idle, so splitting them out never costs a visible fallback.
+  useEffect(() => {
+    const warm = () => {
+      void loadResourceTable();
+      void loadWorkloads();
+    };
+    const ric = (window as unknown as { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback;
+    if (ric) {
+      ric(warm);
+      return;
+    }
+    const t = setTimeout(warm, 1500);
+    return () => clearTimeout(t);
+  }, []);
+
   return <AppInner />;
 }
