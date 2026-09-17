@@ -46,6 +46,9 @@ No cost data exists in Kubebay today. Phased approach:
 - OSS: static per-node cost estimate from a bundled cloud instance-type price table (AWS/GCP/Azure), so a namespace's node-hours can be priced without an external billing API.
 - Enterprise: multi-cluster cost rollup, historical trend export, and Karpenter-consolidation suitability scoring (ties directly into idea #3).
 
+### 8. kubectl-based backend (à la Freelens) — status: idea (debate in progress)
+Raja asked whether Kubebay should add a "kubectl-based backend like Freelens." Freelens actually has two separate kubectl-adjacent things, not one: (1) a `Kubectl` class that downloads/checksum-verifies a pinned kubectl binary purely so its embedded terminal has `kubectl` on PATH, and (2) a completely separate compiled `kube-auth-proxy` binary spawned per cluster to handle real API auth — needed because Freelens's main process is Node.js/Electron, which has no native equivalent to client-go's exec-credential/cloud-auth handling. Kubebay's engine is already a Go process built directly on client-go — the same library that proxy binary wraps — so the premise needs scrutiny before assuming Kubebay is missing something Freelens has. Four independent experts are debating this now (compatibility realist, architecture purist, terminal-UX advocate, security/maintenance skeptic); a decisive verdict will replace this paragraph.
+
 ### Further ideas worth a look (unscoped, one-liners)
 - **GitOps drift detector** — Kubebay already has an ArgoCD "Hard Sync" action; extend it to a standing drift view (live state vs. Git source) for Argo/Flux-managed resources.
 - **Policy-as-code browser** — OPA Gatekeeper / Kyverno constraint list with plain-English violation explanations on the resources that fail them.
