@@ -17,6 +17,14 @@ import (
 	"github.com/RajaSardar/kubebay/engine/internal/httpapi"
 	"github.com/RajaSardar/kubebay/engine/internal/informers"
 	"github.com/RajaSardar/kubebay/engine/internal/stream"
+
+	// Registers client-go's in-tree auth providers via their init()s.  Without
+	// this, a kubeconfig with `auth-provider: {name: oidc}` (Dex, Keycloak,
+	// legacy kubelogin, Rancher) fails with `no Auth Provider found for name
+	// "oidc"` where plain kubectl works.  The azure/gcp providers this also
+	// pulls in are removal stubs that return a "use kubelogin/gke-gcloud-auth-
+	// plugin instead" message — still far better than an opaque failure.
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
 )
 
 var version = "dev"
