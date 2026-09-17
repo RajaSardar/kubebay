@@ -578,7 +578,7 @@ export default function ResourceTable() {
             <thead>
               <tr>
                 {/* Select-all checkbox */}
-                <th style={{ width: 40, padding: "0 10px" }}>
+                <th className="col-select" style={{ width: 40 }}>
                   <SelectAllCheckbox
                     checked={isAllSelected(allKeys)}
                     indeterminate={isIndeterminate(allKeys)}
@@ -623,7 +623,7 @@ export default function ResourceTable() {
                     onClick={() => setSelected({ ns, name })}
                     onContextMenu={(e) => { e.preventDefault(); setCtx({ x: e.clientX, y: e.clientY, ns, name }); }}
                   >
-                    <td style={{ padding: "0 10px" }} onClick={(e) => e.stopPropagation()}>
+                    <td className="col-select" onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
                         checked={isSelected}

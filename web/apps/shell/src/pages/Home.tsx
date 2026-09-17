@@ -153,7 +153,7 @@ export default function Home() {
         </h1>
       </div>
 
-      <div className="page-body" style={{ padding: "16px" }}>
+      <div className="page-body">
         {clusters.isLoading && (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {[0, 1, 2].map((i) => <Skeleton key={i} w="100%" h={56} r={10} />)}

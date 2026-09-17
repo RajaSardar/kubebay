@@ -358,7 +358,7 @@ export default function Workloads() {
             <thead>
               <tr>
                 {/* Select-all checkbox */}
-                <th style={{ width: 40, padding: "0 10px" }}>
+                <th className="col-select" style={{ width: 40 }}>
                   <SelectAllCheckbox
                     checked={isAllSelected(allKeys)}
                     indeterminate={isIndeterminate(allKeys)}
@@ -401,7 +401,7 @@ export default function Workloads() {
                       });
                     }}
                   >
-                    <td style={{ padding: "0 10px" }} onClick={(e) => e.stopPropagation()}>
+                    <td className="col-select" onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
                         checked={isSelected}
