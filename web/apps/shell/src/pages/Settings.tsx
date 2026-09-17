@@ -62,7 +62,7 @@ function KubeconfigSources() {
           <p className="muted small" style={{ marginBottom: 6 }}>Active kubeconfig files (currently loaded):</p>
           {active.map((p) => (
             <div key={p} className="rbac-subject" style={{ marginBottom: 4 }}>
-              <span style={{ fontSize: 10, fontFamily: "var(--kb-font-mono)", background: "var(--kb-status-ok-subtle)", color: "var(--kb-status-ok-fg)", padding: "1px 6px", borderRadius: 4, marginRight: 8, flexShrink: 0 }}>active</span>
+              <span style={{ fontSize: "var(--kb-text-2xs)", fontFamily: "var(--kb-font-mono)", background: "var(--kb-status-ok-subtle)", color: "var(--kb-status-ok-fg)", padding: "1px 6px", borderRadius: 4, marginRight: 8, flexShrink: 0 }}>active</span>
               <span className="mono small" style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis" }}>{p}</span>
             </div>
           ))}

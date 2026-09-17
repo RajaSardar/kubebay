@@ -49,7 +49,7 @@ export function LineChart({
       {gridYs.map((g, i) => (
         <g key={i}>
           <line x1={padL} x2={W - 8} y1={sy(g)} y2={sy(g)} stroke="var(--kb-border-subtle)" strokeWidth={1} />
-          <text x={4} y={sy(g) + 3} fontSize={9.5} fill="var(--kb-fg-muted)" fontFamily="var(--kb-font-mono)">
+          <text x={4} y={sy(g) + 3} fontSize={10} fill="var(--kb-fg-muted)" fontFamily="var(--kb-font-mono)">
             {format(g)}
           </text>
         </g>
@@ -65,10 +65,10 @@ export function LineChart({
           />
         ) : null,
       )}
-      <text x={padL} y={H - 5} fontSize={9.5} fill="var(--kb-fg-subtle)" fontFamily="var(--kb-font-mono)">
+      <text x={padL} y={H - 5} fontSize={10} fill="var(--kb-fg-subtle)" fontFamily="var(--kb-font-mono)">
         {new Date(fromMs).toLocaleTimeString()}
       </text>
-      <text x={W - 90} y={H - 5} fontSize={9.5} fill="var(--kb-fg-subtle)" fontFamily="var(--kb-font-mono)">
+      <text x={W - 90} y={H - 5} fontSize={10} fill="var(--kb-fg-subtle)" fontFamily="var(--kb-font-mono)">
         {new Date(toMs).toLocaleTimeString()}
       </text>
       {series.map((s, i) => (

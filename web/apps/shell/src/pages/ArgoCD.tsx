@@ -37,7 +37,7 @@ function Badge({ label, color }: { label: string; color: string }) {
         gap: 5,
         padding: "2px 8px",
         borderRadius: 99,
-        fontSize: 11,
+        fontSize: "var(--kb-text-xs)",
         fontWeight: 600,
         background: `${color}22`,
         color,
@@ -106,7 +106,7 @@ function SyncButton({ cluster, app }: { cluster: string; app: ArgoCDApp }) {
         onGo={() => void handleSync()}
       />
       {err && (
-        <span style={{ color: "var(--kb-status-err)", fontSize: 11 }} title={err}>
+        <span style={{ color: "var(--kb-status-err)", fontSize: "var(--kb-text-xs)" }} title={err}>
           failed
         </span>
       )}
@@ -188,7 +188,7 @@ export default function ArgoCD() {
               style={{
                 width: "100%",
                 borderCollapse: "collapse",
-                fontSize: 12,
+                fontSize: "var(--kb-text-sm)",
               }}
             >
               <thead>
@@ -201,7 +201,7 @@ export default function ArgoCD() {
                         padding: "8px 10px",
                         fontWeight: 600,
                         color: "var(--kb-text-muted)",
-                        fontSize: 11,
+                        fontSize: "var(--kb-text-xs)",
                         textTransform: "uppercase",
                         letterSpacing: "0.04em",
                         whiteSpace: "nowrap",
@@ -230,7 +230,7 @@ export default function ArgoCD() {
                     <td style={{ padding: "9px 10px", fontWeight: 600 }}>
                       <div>{app.name}</div>
                       {app.namespace && (
-                        <div style={{ fontSize: 10, color: "var(--kb-text-muted)", marginTop: 1 }}>
+                        <div style={{ fontSize: "var(--kb-text-2xs)", color: "var(--kb-text-muted)", marginTop: 1 }}>
                           {app.namespace}
                         </div>
                       )}
@@ -253,7 +253,7 @@ export default function ArgoCD() {
                         ? app.repoURL.replace(/^https?:\/\//, "").replace(/\.git$/, "")
                         : "–"}
                     </td>
-                    <td style={{ padding: "9px 10px", color: "var(--kb-text-muted)", fontFamily: "var(--kb-font-mono, monospace)", fontSize: 11 }}>
+                    <td style={{ padding: "9px 10px", color: "var(--kb-text-muted)", fontFamily: "var(--kb-font-mono, monospace)", fontSize: "var(--kb-text-xs)" }}>
                       {app.targetRevision || "HEAD"}
                     </td>
                     <td style={{ padding: "9px 10px" }}>

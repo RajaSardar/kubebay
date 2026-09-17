@@ -289,7 +289,7 @@ function ClusterIconPicker({ clusterId, current, onSave, onReset, onClose }: Ico
               onChange={(e) => setBg(e.target.value)}
               style={{ opacity: 0, position: "absolute", inset: 0, width: "100%", height: "100%", cursor: "pointer" }}
             />
-            <span style={{ fontSize: 14 }}>🎨</span>
+            <span style={{ fontSize: "var(--kb-text-lg)" }}>🎨</span>
           </label>
         </div>
         <div className="icon-picker-section">Label</div>
@@ -504,7 +504,7 @@ function ClusterStrip() {
               background: bg,
               color: "#fff",
               fontWeight: 700,
-              fontSize: 11,
+              fontSize: "var(--kb-text-xs)",
               border: isActive ? "2px solid rgba(255,255,255,0.9)" : "2px solid transparent",
               opacity: isActive ? 1 : 0.5,
               cursor: "pointer",

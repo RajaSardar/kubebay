@@ -122,7 +122,7 @@ export default function Crds() {
                     >
                       <span className="crd-tree-kind">{r.kind}</span>
                       <span className="crd-tree-meta">
-                        <span className="mono muted" style={{ fontSize: 11 }}>{r.version}</span>
+                        <span className="mono muted" style={{ fontSize: "var(--kb-text-xs)" }}>{r.version}</span>
                         <span className={`crd-badge ${r.namespaced ? "ns" : "cluster"}`}>
                           {r.namespaced ? "ns" : "cluster"}
                         </span>

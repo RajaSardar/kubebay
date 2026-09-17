@@ -27,7 +27,7 @@ function CopyableCommand({ command }: { command: string }) {
       <pre
         className="mono"
         style={{
-          fontSize: 11,
+          fontSize: "var(--kb-text-xs)",
           whiteSpace: "pre-wrap",
           background: "var(--bg-inset, #1a1a2e)",
           padding: "8px 40px 8px 8px",
@@ -51,7 +51,7 @@ function CopyableCommand({ command }: { command: string }) {
           border: "1px solid var(--border, #444)",
           borderRadius: 3,
           padding: "2px 6px",
-          fontSize: 10,
+          fontSize: "var(--kb-text-2xs)",
           cursor: "pointer",
           color: "var(--fg-muted, #aaa)",
         }}
