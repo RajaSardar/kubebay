@@ -167,6 +167,61 @@ function PrometheusSettings({ initial }: { initial?: string }) {
   );
 }
 
+function NodeShellSettings({ initial, fallback }: { initial?: string; fallback: string }) {
+  const [image, setImage] = useState(initial ?? "");
+  const [saved, setSaved] = useState<string | null>(null);
+  const [err, setErr] = useState("");
+  const qc = useQueryClient();
+
+  useEffect(() => {
+    if (initial != null && saved == null) setImage(initial);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initial]);
+
+  async function save() {
+    setErr("");
+    try {
+      const cur = await settingsApi.get();
+      await settingsApi.save({
+        prometheusUrl: cur.prometheusUrl,
+        extraKubeconfigs: cur.extraKubeconfigs,
+        onlyListedKubeconfigs: cur.onlyListedKubeconfigs,
+        nodeShellImage: image.trim(),
+      });
+      setSaved(image.trim());
+      await qc.invalidateQueries({ queryKey: ["settings"] });
+    } catch (e) {
+      setErr(String(e instanceof Error ? e.message : e));
+    }
+  }
+
+  return (
+    <Card style={{ marginTop: 18 }}>
+      <div className="rbac-section-title">Node shell image</div>
+      <p className="small muted" style={{ marginTop: 0 }}>
+        Image used for the privileged node-shell pod. Set this to a mirror in your own
+        registry if the cluster cannot pull from registry.k8s.io.
+      </p>
+      <div className="pf-form">
+        <input
+          className="toolbar-input"
+          placeholder={fallback}
+          value={image}
+          onChange={(e) => setImage(e.target.value)}
+          spellCheck={false}
+          style={{ gridColumn: "span 4" }}
+        />
+        <Button onClick={() => void save()}>Save</Button>
+      </div>
+      {(saved != null || err) && (
+        <p className={`small ${err ? "error-text" : "muted"}`} style={{ marginBottom: 0 }}>
+          {err || (saved === "" ? `Cleared — using the default ${fallback}` : `Saved. Node shell will use ${saved}`)}
+        </p>
+      )}
+    </Card>
+  );
+}
+
 function OptionRow<T extends string>({
   label,
   value,
@@ -284,6 +339,12 @@ export default function Settings() {
 
       <KubeconfigSources />
       {settings.isSuccess && <PrometheusSettings initial={settings.data.prometheusUrl} />}
+      {settings.isSuccess && (
+        <NodeShellSettings
+          initial={settings.data.nodeShellImage}
+          fallback={settings.data.nodeShellImageDefault ?? ""}
+        />
+      )}
     </div>
   );
 }

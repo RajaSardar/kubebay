@@ -80,8 +80,8 @@ func main() {
 	metrics := &httpapi.Metrics{Clusters: mgr}
 	rbac := &httpapi.RBAC{Clusters: mgr}
 	helmMgr := httpapi.NewHelm(mgr)
-	nodeShell := &httpapi.NodeShellManager{Clusters: mgr}
 	settingsMgr := httpapi.NewSettingsManager(mgr)
+	nodeShell := &httpapi.NodeShellManager{Clusters: mgr, Settings: settingsMgr}
 	token, err := httpapi.NewToken()
 	if err != nil {
 		log.Error("token generation failed", "err", err)

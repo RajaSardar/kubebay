@@ -259,6 +259,8 @@ export interface AppSettings {
   extraKubeconfigs: string[];
   onlyListedKubeconfigs?: boolean;
   activeKubeconfigs?: string[];
+  nodeShellImage?: string;
+  nodeShellImageDefault?: string;
 }
 
 export const settingsApi = {

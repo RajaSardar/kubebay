@@ -20,6 +20,7 @@ type AppSettings struct {
 	PrometheusURL    string   `json:"prometheusUrl,omitempty"`
 	ExtraKubeconfigs []string `json:"extraKubeconfigs,omitempty"`
 	OnlyListed       bool     `json:"onlyListedKubeconfigs,omitempty"`
+	NodeShellImage   string   `json:"nodeShellImage,omitempty"`
 }
 
 type SettingsManager struct {
@@ -110,6 +111,8 @@ func (s *SettingsManager) HandleGet(w http.ResponseWriter, r *http.Request) {
 		"extraKubeconfigs":      set.ExtraKubeconfigs,
 		"onlyListedKubeconfigs": set.OnlyListed,
 		"activeKubeconfigs":     s.mgr.ActiveKubeconfigs(),
+		"nodeShellImage":        set.NodeShellImage,
+		"nodeShellImageDefault": DefaultNodeShellImage,
 	})
 }
 
@@ -118,6 +121,9 @@ func (s *SettingsManager) HandleSave(w http.ResponseWriter, r *http.Request) {
 		PrometheusURL    string   `json:"prometheusUrl"`
 		ExtraKubeconfigs []string `json:"extraKubeconfigs"`
 		OnlyListed       bool     `json:"onlyListedKubeconfigs"`
+		// Pointer so an omitted field keeps the stored value: callers that
+		// only save Prometheus settings must not wipe the node-shell image.
+		NodeShellImage *string `json:"nodeShellImage"`
 	}
 	if err := decodeBody(r, &incoming); err != nil {
 		http.Error(w, "bad body: "+err.Error(), http.StatusBadRequest)
@@ -144,10 +150,19 @@ func (s *SettingsManager) HandleSave(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	nodeShellImage := ""
+	if current != nil {
+		nodeShellImage = current.NodeShellImage
+	}
+	if incoming.NodeShellImage != nil {
+		nodeShellImage = strings.TrimSpace(*incoming.NodeShellImage)
+	}
+
 	next := &AppSettings{
 		PrometheusURL:    strings.TrimRight(strings.TrimSpace(incoming.PrometheusURL), "/"),
 		ExtraKubeconfigs: validated,
 		OnlyListed:       incoming.OnlyListed,
+		NodeShellImage:   nodeShellImage,
 	}
 	s.mu <- struct{}{}
 	defer func() { <-s.mu }()
@@ -160,7 +175,6 @@ func (s *SettingsManager) HandleSave(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("reload: %v", err), http.StatusBadGateway)
 		return
 	}
-	_ = current
 	writeJSON(w, map[string]any{"ok": true, "saved": next})
 }
 
