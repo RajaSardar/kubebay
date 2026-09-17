@@ -6,7 +6,7 @@ import { useQuery as useRQQuery } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useCluster } from "../lib/useCluster";
 import { useResourceStream, shouldShowSkeleton } from "../lib/useResourceStream";
-import { DEFS, EXTRA_DEFS, ageOf, fmtAge, num, str, type ResourceDef } from "../lib/resources";
+import { ageOf, fmtAge, lookupDef, num, str, type ResourceDef } from "../lib/resources";
 import { fmtBytes, fmtCpu } from "./Workloads";
 import { useResizableColumns } from "../lib/useResizableColumns";
 import { useRowSelection } from "../lib/useRowSelection";
@@ -24,28 +24,6 @@ const ROW_HEIGHT: Record<Density, number> = {
   relaxed: 45,
 };
 
-function lookupDef(kind: string, sp: URLSearchParams): ResourceDef | undefined {
-  if (DEFS[kind]) return DEFS[kind];
-  if (EXTRA_DEFS[kind]) return EXTRA_DEFS[kind];
-  if (kind.startsWith("ext--")) {
-    const parts = kind.slice(5).split("--");
-    if (parts.length < 3) return undefined;
-    const resource = parts[parts.length - 1] ?? "";
-    const version = parts[parts.length - 2] ?? "";
-    const group = parts.slice(0, -2).join(".");
-    const gvr = group ? `${group}/${version}/${resource}` : `${version}/${resource}`;
-    return {
-      slug: kind,
-      label: resource,
-      gvr,
-      group,
-      resource,
-      scoped: sp.get("scoped") === "0",
-      mode: "full",
-    };
-  }
-  return undefined;
-}
 import GenericDrawer from "../components/GenericDrawer";
 import { ContextMenu } from "../components/ContextMenu";
 import { StarButton } from "../components/Favorites";

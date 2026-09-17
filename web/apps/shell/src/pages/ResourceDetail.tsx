@@ -1,31 +1,7 @@
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useCluster } from "../lib/useCluster";
-import { DEFS, EXTRA_DEFS } from "../lib/resources";
-import type { ResourceDef } from "../lib/resources";
+import { lookupDef } from "../lib/resources";
 import GenericDrawer from "../components/GenericDrawer";
-
-function lookupDef(kind: string, sp: URLSearchParams): ResourceDef | undefined {
-  if (DEFS[kind]) return DEFS[kind];
-  if (EXTRA_DEFS[kind]) return EXTRA_DEFS[kind];
-  if (kind.startsWith("ext--")) {
-    const parts = kind.slice(5).split("--");
-    if (parts.length < 3) return undefined;
-    const resource = parts[parts.length - 1] ?? "";
-    const version = parts[parts.length - 2] ?? "";
-    const group = parts.slice(0, -2).join(".");
-    const gvr = group ? `${group}/${version}/${resource}` : `${version}/${resource}`;
-    return {
-      slug: kind,
-      label: resource,
-      gvr,
-      group,
-      resource,
-      scoped: sp.get("scoped") === "0",
-      mode: "full",
-    };
-  }
-  return undefined;
-}
 
 export default function ResourceDetail() {
   const { kind = "", ns = "_", name = "" } = useParams();

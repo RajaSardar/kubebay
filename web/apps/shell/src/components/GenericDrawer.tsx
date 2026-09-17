@@ -92,6 +92,10 @@ function PaneContent({
   podContainer: string;
   onSetPodContainer: (c: string) => void;
 }) {
+  // def.kind is the declared Kind; for a CRD route it is only guessed from the
+  // plural, so prefer the Kind the live object reports once it has loaded.
+  const eventKind = (typeof obj?.kind === "string" && obj.kind) || def.kind;
+
   if (isService && svcTab === "summary") {
     if (objLoading) return <div className="muted small" style={{ padding: 14 }}>Loading…</div>;
     if (obj) return <ServiceSummary obj={obj} />;
@@ -150,7 +154,7 @@ function PaneContent({
   if (isPod && podTab === "events") {
     return (
       <div style={{ padding: 14 }}>
-        <EventsDrawer cluster={cluster} namespace={ns} name={name} kind={def.label} />
+        <EventsDrawer cluster={cluster} namespace={ns} name={name} kind={eventKind} />
       </div>
     );
   }
@@ -168,7 +172,7 @@ function PaneContent({
   if (!isNode && !isService && !isPod && genTab === "events") {
     return (
       <div style={{ padding: 14 }}>
-        <EventsDrawer cluster={cluster} namespace={ns} name={name} kind={def.label} />
+        <EventsDrawer cluster={cluster} namespace={ns} name={name} kind={eventKind} />
       </div>
     );
   }
