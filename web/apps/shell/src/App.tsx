@@ -495,13 +495,15 @@ function ClusterStrip() {
       {list.map((c) => {
         const auto = autoAvatar(c.id);
         const { bg, label } = icons[c.id] ?? auto;
-        const isActive = c.id === effectiveActive;
+        const broken = c.status === "misconfigured";
+        const isActive = !broken && c.id === effectiveActive;
         const isSwitching = isActive && switching;
         return (
           <button
             key={c.id}
-            title={`${c.id} — right-click to customize icon`}
-            onClick={() => setActive(c.id)}
+            disabled={broken}
+            title={broken ? `${c.id} — can't be loaded: ${c.error ?? "unknown error"}` : `${c.id} — right-click to customize icon`}
+            onClick={() => { if (!broken) setActive(c.id); }}
             onContextMenu={(e) => { e.preventDefault(); setPicker(c.id); }}
             style={{
               position: "relative",
@@ -513,8 +515,8 @@ function ClusterStrip() {
               fontWeight: 700,
               fontSize: 11,
               border: isActive ? "2px solid rgba(255,255,255,0.9)" : "2px solid transparent",
-              opacity: isActive ? 1 : 0.5,
-              cursor: "pointer",
+              opacity: broken ? 0.28 : isActive ? 1 : 0.5,
+              cursor: broken ? "not-allowed" : "pointer",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -540,7 +542,7 @@ function ClusterStrip() {
               width: 9,
               height: 9,
               borderRadius: "50%",
-              background: c.status === "connected" ? "var(--kb-status-ok)" : "var(--kb-status-err)",
+              background: c.status === "connected" ? "var(--kb-status-ok)" : broken ? "var(--kb-fg-subtle)" : "var(--kb-status-err)",
               border: "2px solid var(--kb-bg-sidebar)",
             }} />
           </button>
@@ -577,7 +579,8 @@ function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
   const { active } = useClusterStore();
   const queryClient = useQueryClient();
   const clusterList = queryClient.getQueryData<ClusterInfo[]>(["clusters"]) ?? [];
-  const effectiveActive = active || clusterList.find((c) => c.status === "connected")?.id || clusterList[0]?.id || "";
+  const usableClusters = clusterList.filter((c) => c.status !== "misconfigured");
+  const effectiveActive = active || usableClusters.find((c) => c.status === "connected")?.id || usableClusters[0]?.id || "";
   const activeCluster = clusterList.find((c) => c.id === effectiveActive);
 
   return (

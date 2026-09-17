@@ -3188,3 +3188,17 @@ tr.row-clickable:active {
   flex: 1;
   min-height: 120px;
 }
+
+.cluster-card-broken {
+  opacity: 0.72;
+}
+
+.cluster-broken-reason {
+  margin-top: 8px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--kb-fg-subtle);
+  border-left: 2px solid var(--kb-status-err);
+  padding-left: 7px;
+  overflow-wrap: anywhere;
+}

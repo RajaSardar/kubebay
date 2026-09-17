@@ -16,7 +16,7 @@ export interface ClusterInfo {
   id: string;
   context: string;
   server: string;
-  status: "connected" | "unreachable" | "degraded";
+  status: "connected" | "unreachable" | "degraded" | "misconfigured";
   version?: string;
   error?: string;
 }
