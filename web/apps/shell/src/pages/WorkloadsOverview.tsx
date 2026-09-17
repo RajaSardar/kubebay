@@ -105,7 +105,7 @@ export default function WorkloadsOverview() {
       <div className="page-header">
         <h2>
           Workloads Overview
-          {synced && <span className="live-pill">● live</span>}
+          {synced && <span className="live-pill">live</span>}
         </h2>
         <Badge>{totals.total} objects</Badge>
       </div>

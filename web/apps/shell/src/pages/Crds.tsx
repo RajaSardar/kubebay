@@ -63,8 +63,10 @@ export default function Crds() {
   return (
     <div className="page" style={{ overflowY: "auto" }}>
       <div className="page-header">
-        <h1 style={{ margin: 0 }}>Custom Resource Definitions</h1>
-        <span className="muted small">{q.isLoading ? "Loading…" : `${totalCount} CRDs`}</span>
+        <h1>
+          Custom Resource Definitions
+          <span className="page-header-count">{q.isLoading ? "Loading…" : `${totalCount} CRDs`}</span>
+        </h1>
       </div>
 
       {q.isError && (

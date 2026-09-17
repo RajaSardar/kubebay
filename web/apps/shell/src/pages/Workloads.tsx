@@ -245,11 +245,9 @@ export default function Workloads() {
     <div className="page">
       <div className="page-header">
         <h2>
-          Workloads <span className="muted" style={{ fontWeight: 400, fontSize: 13 }}>· Pods</span>
+          Workloads <span className="page-header-count">· Pods</span>
           {synced && connected && (
-            <span className="live-pill">
-              <StatusDot status="connected" pulse /> live
-            </span>
+            <span className="live-pill">live</span>
           )}
         </h2>
         {selectedKeys.size > 0 && (

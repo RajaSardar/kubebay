@@ -354,13 +354,45 @@ kbd {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: var(--kb-space-3);
   flex-shrink: 0;
-  padding: 0 16px;
+  padding: 0 var(--kb-gutter);
   height: 40px;
   border-bottom: 1px solid var(--kb-border-subtle);
   background: color-mix(in srgb, var(--kb-bg-surface) 60%, transparent);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
+}
+
+/* Pages disagree on whether the title is an h1 or an h2; the title is the same
+   thing on every page, so it gets the same size either way. */
+.page-header h1,
+.page-header h2 {
+  display: flex;
+  align-items: center;
+  gap: var(--kb-space-2);
+  min-width: 0;
+  font-size: var(--kb-text-lg);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+/* The "· 12" / "12 configured" secondary count that sits next to or after the
+   title. */
+.page-header-count {
+  font-size: var(--kb-text-md);
+  font-weight: 400;
+  color: var(--kb-fg-muted);
+  white-space: nowrap;
+}
+
+/* Right-hand group: badges, selection counts, toolbar buttons. */
+.page-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--kb-space-2);
+  flex-shrink: 0;
 }
 
 h1 {
@@ -572,7 +604,6 @@ h2 {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-left: 10px;
   vertical-align: middle;
   font-size: var(--kb-text-xs);
   font-family: var(--kb-font-mono);
@@ -580,7 +611,17 @@ h2 {
   border: 1px solid color-mix(in srgb, var(--kb-status-ok) 35%, transparent);
   background: color-mix(in srgb, var(--kb-status-ok) 8%, transparent);
   padding: 3px 9px;
-  border-radius: 999px;
+  border-radius: var(--kb-radius-pill);
+}
+
+.live-pill::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: var(--kb-radius-pill);
+  background: currentColor;
+  flex-shrink: 0;
+  animation: kb-pulse 1.6s ease-in-out infinite;
 }
 
 .toolbar {

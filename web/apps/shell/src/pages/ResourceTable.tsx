@@ -477,10 +477,10 @@ export default function ResourceTable() {
           {def.label}
           <StarButton path={`/r/${kind}`} />
           {stream.synced && (
-            <span className="live-pill">● live</span>
+            <span className="live-pill">live</span>
           )}
         </h2>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div className="page-header-actions">
           {selectedKeys.size > 0 && (
             <>
               <span className="muted small">{selectedKeys.size} selected</span>

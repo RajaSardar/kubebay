@@ -132,16 +132,18 @@ export default function ArgoCD() {
   return (
     <div className="page">
       <div className="page-header">
-        <h1>ArgoCD</h1>
-        {data && (
-          <span className="muted small">
-            {installed
-              ? `${apps.length} application${apps.length !== 1 ? "s" : ""}`
-              : "not installed"}
-          </span>
-        )}
+        <h1>
+          ArgoCD
+          {data && (
+            <span className="page-header-count">
+              {installed
+                ? `${apps.length} application${apps.length !== 1 ? "s" : ""}`
+                : "not installed"}
+            </span>
+          )}
+        </h1>
         {dataUpdatedAt > 0 && (
-          <span className="muted small" style={{ marginLeft: "auto" }}>
+          <span className="page-header-count">
             updated {fmtTime(new Date(dataUpdatedAt).toISOString())}
           </span>
         )}

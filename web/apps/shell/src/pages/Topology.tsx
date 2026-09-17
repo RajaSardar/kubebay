@@ -163,7 +163,7 @@ export default function Topology() {
       <div className="page-header">
         <h2>
           Topology
-          {ready && <span className="live-pill">● live</span>}
+          {ready && <span className="live-pill">live</span>}
         </h2>
         <Badge>{graph.nodes.length} objects</Badge>
       </div>

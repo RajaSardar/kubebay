@@ -317,7 +317,7 @@ export default function Helm() {
         <h2>
           Helm releases{" "}
           {!releases.isLoading && (
-            <span className="muted" style={{ fontWeight: 400, fontSize: 13 }}>
+            <span className="page-header-count">
               · {rows.length}
             </span>
           )}

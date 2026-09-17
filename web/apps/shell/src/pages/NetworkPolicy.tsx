@@ -315,9 +315,9 @@ export default function NetworkPolicyPage() {
       <div className="page-header">
         <h2>
           Network Policy
-          {ready && <span className="live-pill">● live</span>}
+          {ready && <span className="live-pill">live</span>}
         </h2>
-        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+        <div className="page-header-actions">
           <Badge>{policies.length} policies</Badge>
           <Badge>{podGroups.length} pod groups</Badge>
         </div>

@@ -49,7 +49,7 @@ export default function Overview() {
         <h2>
           Clusters{" "}
           {!clusters.isLoading && (
-            <span className="muted" style={{ fontWeight: 400, fontSize: 13 }}>
+            <span className="page-header-count">
               · {list.length}
             </span>
           )}
