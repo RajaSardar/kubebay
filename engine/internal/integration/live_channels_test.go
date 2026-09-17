@@ -189,7 +189,7 @@ func TestLiveChannelsHTTP(t *testing.T) {
 	mgrCfg := cfg.Host
 	_ = mgrCfg
 	// resolve cluster id from manager list via REST
-	listBody := httpGetJSON(t, srv.URL+"/api/clusters?token=testtoken")
+	listBody := httpGetJSON(t, srv.URL+"/api/clusters")
 	clusterID = firstClusterID(t, listBody)
 
 	testName := fmt.Sprintf("kb-exec-test-%d", time.Now().UnixNano())
@@ -291,7 +291,12 @@ func jsonUnmarshal(b []byte, v any) error {
 
 func httpGetJSON(t *testing.T, url string) []byte {
 	t.Helper()
-	res, err := http.Get(url)
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		t.Fatalf("request %s: %v", url, err)
+	}
+	req.Header.Set("X-Kubebay-Token", "testtoken")
+	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("get %s: %v", url, err)
 	}

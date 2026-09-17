@@ -111,8 +111,8 @@ sudo dpkg -i kubebay_VERSION_amd64.deb
 ```bash
 # Extract the archive for your platform, then:
 ./kubebay
-# Engine prints: http://127.0.0.1:9898/?token=<token>
-# Open that URL in any browser.
+# Engine prints: http://127.0.0.1:9898 and the path of its session-token file.
+# Open that URL in any browser and paste the token from that file.
 ```
 
 **Homebrew as a background service:**

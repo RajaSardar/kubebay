@@ -118,9 +118,13 @@ Currently requires local Rust toolchain. Signed installers land in Phase 3.
 
 ## First run
 
-1. `kubebay` starts on `http://127.0.0.1:9898` and prints a session token
-2. Open the printed URL (`http://127.0.0.1:9898/?token=…`) in your browser
-3. The token is cached in localStorage — subsequent visits don't need it
+1. `kubebay` starts on `http://127.0.0.1:9898` and writes this session's token
+   to a 0600 file (`<user config dir>/kubebay/session-token`), logging the path
+   but never the token
+2. Open `http://127.0.0.1:9898` in your browser and paste the token when asked.
+   The desktop app reads the file itself, so it never asks
+3. The token is held in memory only, so a browser reload asks again; it changes
+   on every engine restart. Set `KUBEBAY_TOKEN` to pin it instead
 4. Your `~/.kube/config` is read and hot-reloaded; add extra kubeconfig files in Settings
 
 ## Flags
@@ -130,6 +134,7 @@ Currently requires local Rust toolchain. Signed installers land in Phase 3.
 | `--addr` | `127.0.0.1:9898` | Listen address |
 | `--kubeconfig` | *(KUBECONFIG / ~/.kube/config)* | Explicit kubeconfig path |
 | `--web-dist` | *(embedded)* | Serve SPA from a directory instead |
+| `--token-file` | *(user config dir)* | Where to write this session's token (0600) |
 | `--no-open` | `false` | Don't auto-open the browser |
 | `--in-cluster` | `false` | Use in-cluster ServiceAccount config |
 | `--oidc-issuer-url` | | Enable OIDC login |

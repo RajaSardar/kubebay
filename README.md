@@ -77,13 +77,16 @@ brew services start rajasardar/tap/kubebay
 ./kubebay
 ```
 
-The engine prints a session URL on startup:
+The engine prints its address and where it wrote this session's token:
 
 ```
-kubebay listening on http://127.0.0.1:9898/?token=<your-token>
+kubebay engine listening addr=http://127.0.0.1:9898
+session token written path=~/.config/kubebay/session-token
 ```
 
-**2. Open that URL in your browser** (or the desktop app opens it automatically).
+**2. Open `http://127.0.0.1:9898` in your browser** and paste that token when
+asked. The desktop app does this for you — it reads the file and never shows
+you a token at all.
 
 **3. Connect your clusters** — Kubebay reads `~/.kube/config` automatically and hot-reloads when it changes. No setup required.
 
