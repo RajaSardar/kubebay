@@ -426,10 +426,8 @@ func requireToken(token string, auth *Authenticator) func(http.Handler) http.Han
 				next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), wsSubprotocolKey{}, sub)))
 				return
 			}
-			if tokenMatches(r.URL.Query().Get("token"), token) {
-				next.ServeHTTP(w, r)
-				return
-			}
+			// No ?token= branch: a URL-borne credential leaks into history,
+			// referrers and access logs. Header or subprotocol only.
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 		})
 	}

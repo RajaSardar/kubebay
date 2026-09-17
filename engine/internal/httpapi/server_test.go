@@ -28,15 +28,18 @@ func TestRequireTokenHeader(t *testing.T) {
 	cases := []struct {
 		name   string
 		header string
+		url    string
 		want   int
 	}{
-		{"correct token", testToken, http.StatusOK},
-		{"wrong token", "nope", http.StatusUnauthorized},
-		{"no token", "", http.StatusUnauthorized},
+		{name: "correct token", header: testToken, want: http.StatusOK},
+		{name: "wrong token", header: "nope", want: http.StatusUnauthorized},
+		{name: "no token", want: http.StatusUnauthorized},
+		// A URL-borne credential leaks; the query branch is gone for good.
+		{name: "query token", url: "/?token=" + testToken, want: http.StatusUnauthorized},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			req, err := http.NewRequest(http.MethodGet, srv.URL, nil)
+			req, err := http.NewRequest(http.MethodGet, srv.URL+tc.url, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
