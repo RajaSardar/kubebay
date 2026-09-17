@@ -29,7 +29,7 @@ function CopyableCommand({ command }: { command: string }) {
         style={{
           fontSize: "var(--kb-text-xs)",
           whiteSpace: "pre-wrap",
-          background: "var(--bg-inset, #1a1a2e)",
+          background: "var(--kb-bg-inset)",
           padding: "8px 40px 8px 8px",
           borderRadius: 4,
           margin: 0,
@@ -48,12 +48,12 @@ function CopyableCommand({ command }: { command: string }) {
           top: 4,
           right: 4,
           background: "transparent",
-          border: "1px solid var(--border, #444)",
+          border: "1px solid var(--kb-border-subtle)",
           borderRadius: 3,
           padding: "2px 6px",
           fontSize: "var(--kb-text-2xs)",
           cursor: "pointer",
-          color: "var(--fg-muted, #aaa)",
+          color: "var(--kb-fg-muted)",
         }}
       >
         {copied ? "Copied!" : "Copy"}
@@ -211,7 +211,7 @@ export function PodGraphs({
                 style={{
                   background: "transparent",
                   border: "none",
-                  color: "var(--accent, #5b8def)",
+                  color: "var(--kb-accent)",
                   cursor: "pointer",
                   textDecoration: "underline",
                   padding: 0,

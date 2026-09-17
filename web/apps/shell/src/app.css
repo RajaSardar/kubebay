@@ -1783,7 +1783,7 @@ tr.row-clickable:active {
   padding: 10px 14px;
   background: var(--kb-status-err-subtle);
   color: var(--kb-status-err-fg);
-  border: 1px solid var(--kb-status-err-border, var(--kb-border-subtle));
+  border: 1px solid color-mix(in srgb, var(--kb-status-err) 35%, transparent);
   border-radius: 8px;
   margin-bottom: 12px;
   font-size: var(--kb-text-md);
@@ -2242,8 +2242,8 @@ tr.row-clickable:active {
   top: 60px;
   z-index: 201;
   width: 200px;
-  background: var(--kb-bg-card);
-  border: 1px solid var(--kb-border);
+  background: var(--kb-bg-surface);
+  border: 1px solid var(--kb-border-subtle);
   border-radius: 12px;
   padding: 14px;
   display: flex;
@@ -2255,7 +2255,7 @@ tr.row-clickable:active {
 .icon-picker-title {
   font-size: var(--kb-text-sm);
   font-weight: 600;
-  color: var(--kb-text);
+  color: var(--kb-fg-default);
   letter-spacing: 0.02em;
 }
 
@@ -2280,7 +2280,7 @@ tr.row-clickable:active {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.07em;
-  color: var(--kb-text-muted);
+  color: var(--kb-fg-muted);
 }
 
 .icon-picker-swatches {
@@ -2315,16 +2315,16 @@ tr.row-clickable:active {
   align-items: center;
   justify-content: center;
   background: var(--kb-bg-inset);
-  border-color: var(--kb-border);
+  border-color: var(--kb-border-subtle);
   overflow: hidden;
 }
 
 .icon-picker-input {
   width: 100%;
   background: var(--kb-bg-inset);
-  border: 1px solid var(--kb-border);
+  border: 1px solid var(--kb-border-subtle);
   border-radius: 6px;
-  color: var(--kb-text);
+  color: var(--kb-fg-default);
   font-family: var(--kb-font-mono, monospace);
   font-size: var(--kb-text-md);
   font-weight: 700;
@@ -2360,8 +2360,8 @@ tr.row-clickable:active {
 
 .icon-picker-btn.ghost {
   background: var(--kb-bg-inset);
-  color: var(--kb-text-muted);
-  border: 1px solid var(--kb-border);
+  color: var(--kb-fg-muted);
+  border: 1px solid var(--kb-border-subtle);
 }
 
 .icon-picker-btn.primary {

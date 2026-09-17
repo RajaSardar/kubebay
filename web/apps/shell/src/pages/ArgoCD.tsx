@@ -13,7 +13,7 @@ function syncColor(status: string): string {
   switch (status as SyncState) {
     case "Synced":     return "var(--kb-status-ok)";
     case "OutOfSync":  return "#f59e0b";
-    default:           return "var(--kb-text-muted)";
+    default:           return "var(--kb-fg-muted)";
   }
 }
 
@@ -24,7 +24,7 @@ function healthColor(status: string): string {
     case "Progressing": return "#3b82f6";
     case "Suspended":   return "#f59e0b";
     case "Missing":     return "#f59e0b";
-    default:            return "var(--kb-text-muted)";
+    default:            return "var(--kb-fg-muted)";
   }
 }
 
@@ -192,7 +192,7 @@ export default function ArgoCD() {
               }}
             >
               <thead>
-                <tr style={{ borderBottom: "1px solid var(--kb-border)" }}>
+                <tr style={{ borderBottom: "1px solid var(--kb-border-subtle)" }}>
                   {["Name", "Project", "Repo", "Target", "Sync Status", "Health", "Last Sync", "Actions"].map((h) => (
                     <th
                       key={h}
@@ -200,7 +200,7 @@ export default function ArgoCD() {
                         textAlign: "left",
                         padding: "8px 10px",
                         fontWeight: 600,
-                        color: "var(--kb-text-muted)",
+                        color: "var(--kb-fg-muted)",
                         fontSize: "var(--kb-text-xs)",
                         textTransform: "uppercase",
                         letterSpacing: "0.04em",
@@ -217,7 +217,7 @@ export default function ArgoCD() {
                   <tr
                     key={`${app.namespace}/${app.name}`}
                     style={{
-                      borderBottom: "1px solid var(--kb-border-subtle, var(--kb-border))",
+                      borderBottom: "1px solid var(--kb-border-subtle)",
                       transition: "background 120ms",
                     }}
                     onMouseEnter={(e) => {
@@ -230,12 +230,12 @@ export default function ArgoCD() {
                     <td style={{ padding: "9px 10px", fontWeight: 600 }}>
                       <div>{app.name}</div>
                       {app.namespace && (
-                        <div style={{ fontSize: "var(--kb-text-2xs)", color: "var(--kb-text-muted)", marginTop: 1 }}>
+                        <div style={{ fontSize: "var(--kb-text-2xs)", color: "var(--kb-fg-muted)", marginTop: 1 }}>
                           {app.namespace}
                         </div>
                       )}
                     </td>
-                    <td style={{ padding: "9px 10px", color: "var(--kb-text-muted)" }}>
+                    <td style={{ padding: "9px 10px", color: "var(--kb-fg-muted)" }}>
                       {app.project || "–"}
                     </td>
                     <td
@@ -245,7 +245,7 @@ export default function ArgoCD() {
                         overflow: "hidden",
                         textOverflow: "ellipsis",
                         whiteSpace: "nowrap",
-                        color: "var(--kb-text-muted)",
+                        color: "var(--kb-fg-muted)",
                       }}
                       title={app.repoURL}
                     >
@@ -253,7 +253,7 @@ export default function ArgoCD() {
                         ? app.repoURL.replace(/^https?:\/\//, "").replace(/\.git$/, "")
                         : "–"}
                     </td>
-                    <td style={{ padding: "9px 10px", color: "var(--kb-text-muted)", fontFamily: "var(--kb-font-mono, monospace)", fontSize: "var(--kb-text-xs)" }}>
+                    <td style={{ padding: "9px 10px", color: "var(--kb-fg-muted)", fontFamily: "var(--kb-font-mono, monospace)", fontSize: "var(--kb-text-xs)" }}>
                       {app.targetRevision || "HEAD"}
                     </td>
                     <td style={{ padding: "9px 10px" }}>
@@ -262,7 +262,7 @@ export default function ArgoCD() {
                     <td style={{ padding: "9px 10px" }}>
                       <Badge label={app.healthStatus} color={healthColor(app.healthStatus)} />
                     </td>
-                    <td style={{ padding: "9px 10px", color: "var(--kb-text-muted)", whiteSpace: "nowrap" }}>
+                    <td style={{ padding: "9px 10px", color: "var(--kb-fg-muted)", whiteSpace: "nowrap" }}>
                       {fmtTime(app.lastSyncTime)}
                     </td>
                     <td style={{ padding: "9px 10px" }}>
