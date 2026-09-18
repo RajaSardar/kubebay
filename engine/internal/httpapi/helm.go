@@ -66,10 +66,14 @@ type ReleaseSummary struct {
 }
 
 func summarize(r *release.Release) ReleaseSummary {
+	status := "unknown"
+	if r.Info != nil {
+		status = r.Info.Status.String()
+	}
 	out := ReleaseSummary{
 		Name:      r.Name,
 		Namespace: r.Namespace,
-		Status:    r.Info.Status.String(),
+		Status:    status,
 		Revision:  r.Version,
 	}
 	if r.Chart != nil && r.Chart.Metadata != nil {

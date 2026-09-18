@@ -163,7 +163,7 @@ export function ChartsTab({ cluster }: { cluster: string }) {
     const out = [...(charts.data ?? [])];
     if (search) {
       const q = search.toLowerCase();
-      return out.filter((c) => c.name.includes(q) || c.description.toLowerCase().includes(q));
+      return out.filter((c) => c.name.includes(q) || (c.description ?? "").toLowerCase().includes(q));
     }
     return out.sort((a, b) => a.name.localeCompare(b.name));
   }, [charts.data, search]);
