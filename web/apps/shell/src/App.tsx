@@ -48,6 +48,7 @@ import { FavoritesSidebar, useFavorites } from "./components/Favorites";
 import { useClusterIcons, type ClusterIcon } from "./lib/useClusterIcons";
 import { useWsStatus } from "./lib/useWsStatus";
 import { clearStreamCacheForCluster } from "./lib/streamCache";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 // ──── Cluster Context ────────────────────────────────────────────────────────
 // `active` and `setActive` now live in Zustand (cluster-store.ts).
