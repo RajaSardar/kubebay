@@ -7,7 +7,7 @@ import { extSlug } from "../lib/resources";
 import { useCluster } from "../lib/useCluster";
 
 function extPath(r: CRDEntry) {
-  return `/r/ext--${extSlug(r.gvr)}?scoped=${r.namespaced ? 0 : 1}`;
+  return `/r/ext--${extSlug(r.gvr)}?scoped=${r.namespaced ? 1 : 0}`;
 }
 
 export default function Crds() {
