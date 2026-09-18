@@ -67,7 +67,7 @@ func (m *Metrics) HandleCRDs(w http.ResponseWriter, r *http.Request) {
 
 		// Pick the storage version (fall back to first served version).
 		storageVersion := ""
-		var columns []PrinterColumn
+		columns := make([]PrinterColumn, 0)
 		for _, v := range crd.Spec.Versions {
 			if v.Storage {
 				storageVersion = v.Name
