@@ -1212,6 +1212,14 @@ tr.row-clickable:active {
   transform: rotate(90deg);
 }
 
+.nav-group-count {
+  margin-left: auto;
+  font-size: var(--kb-text-2xs);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--kb-fg-subtle);
+}
+
 .nav-group-items {
   display: none;
   flex-direction: column;
@@ -1237,6 +1245,18 @@ tr.row-clickable:active {
 
 .nav-item.sub.active .nav-icon {
   color: var(--kb-accent);
+}
+
+.nav-item.sub.nav-group-more {
+  width: 100%;
+  font: inherit;
+  font-size: var(--kb-text-sm);
+  font-weight: 500;
+  text-align: left;
+  color: var(--kb-accent);
+  background: transparent;
+  border: none;
+  cursor: pointer;
 }
 
 .palette-overlay {
