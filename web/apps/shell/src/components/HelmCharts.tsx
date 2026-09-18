@@ -221,9 +221,23 @@ export function ChartsTab({ cluster }: { cluster: string }) {
   }
 
   const isLoading = isAll ? loadingRepoCount > 0 : singleCharts.isLoading;
-  const isError = isAll
-    ? allChartQueries.some((q) => q.isError)
-    : singleCharts.isError;
+
+  // Collect per-repo errors so we can show specific messages.
+  const errorMessages: string[] = useMemo(() => {
+    if (isAll) {
+      return repoList.flatMap((r, i) => {
+        const q = allChartQueries[i];
+        if (!q?.isError) return [];
+        const msg = q.error instanceof Error ? q.error.message : String(q.error);
+        return [`${r.name}: ${msg}`];
+      });
+    }
+    if (singleCharts.isError) {
+      const msg = singleCharts.error instanceof Error ? singleCharts.error.message : String(singleCharts.error);
+      return [msg];
+    }
+    return [];
+  }, [isAll, repoList, allChartQueries, singleCharts.isError, singleCharts.error]);
 
   return (
     <>
@@ -270,8 +284,10 @@ export function ChartsTab({ cluster }: { cluster: string }) {
         </div>
       )}
 
-      {isError && (
-        <div className="error-banner">Failed to load index — press "Update indexes".</div>
+      {errorMessages.length > 0 && (
+        <div className="error-banner">
+          {errorMessages.map((m, i) => <div key={i}>{m}</div>)}
+        </div>
       )}
 
       <div className="cluster-grid">

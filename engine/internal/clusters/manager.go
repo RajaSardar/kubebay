@@ -51,14 +51,33 @@ type entry struct {
 	kubeconfigPath string
 }
 
-func (m *Manager) HelmEnv(id string) (contextName string, kubeconfigPaths string, err error) {
+func (m *Manager) HelmEnv(id string) (contextName string, kubeconfigPath string, err error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	e, ok := m.entries[id]
 	if !ok {
 		return "", "", fmt.Errorf("unknown cluster %q", id)
 	}
-	return e.cluster.Context, e.kubeconfigPath, nil
+	ctxName := e.cluster.Context
+	joined := e.kubeconfigPath
+	// e.kubeconfigPath is the colon-separated list of all kubeconfig files used
+	// during load. Helm's --kubeconfig flag only accepts a single file path, so
+	// we search for the specific file that actually owns this context.
+	if strings.Contains(joined, string(os.PathListSeparator)) {
+		for _, p := range strings.Split(joined, string(os.PathListSeparator)) {
+			if p == "" {
+				continue
+			}
+			raw, lerr := clientcmd.LoadFromFile(p)
+			if lerr != nil {
+				continue
+			}
+			if _, ok := raw.Contexts[ctxName]; ok {
+				return ctxName, p, nil
+			}
+		}
+	}
+	return ctxName, joined, nil
 }
 
 type Manager struct {
