@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { attach, subscribe, unsubscribe, type Op } from "./ws";
 import { getStreamCache, setStreamCache } from "./streamCache";
 
@@ -14,11 +14,7 @@ export function useResourceStream(
   opts: { ns?: string[]; labelSelector?: string; mode?: "metadata" | "full"; enabled?: boolean } = {},
 ): StreamState {
   // The Map lives entirely outside React — never stored in useState.
-  // Pre-warm from module-level cache so returning to a tab is instant.
   const storeRef = useRef(new Map<string, Record<string, unknown>>());
-
-  // Epoch counter: increments once per debounced flush (≤10/s).
-  const epochRef = useRef(0);
 
   // Stable/synced/connected scalars — stored in a single ref object so we
   // can update them without going through React state, then notify listeners
@@ -28,21 +24,20 @@ export function useResourceStream(
   // Pending flush timer handle.
   const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // External-store listener set — useSyncExternalStore will register here.
-  const listenersRef = useRef(new Set<() => void>());
+  // Simple state counter to trigger re-renders. Replaces useSyncExternalStore
+  // which caused infinite loops (React error #185) due to snapshot changes
+  // detected during the commit phase.
+  const [epoch, setEpoch] = useState(0);
 
   const specKey = `${cluster ?? ""}|${gvr}|${opts.ns?.join(",") ?? "*"}|${opts.labelSelector ?? ""}|${opts.mode ?? "metadata"}`;
 
   // Schedules a debounced flush (100 ms). All WS mutations call this.
-  // Using a ref-captured closure so the function identity is stable across
-  // renders and can be used inside the useEffect without re-registration.
   const scheduleFlushRef = useRef<() => void>(() => {});
   scheduleFlushRef.current = () => {
     if (flushTimerRef.current !== null) return; // already pending
     flushTimerRef.current = setTimeout(() => {
       flushTimerRef.current = null;
-      epochRef.current += 1;
-      listenersRef.current.forEach((l) => l());
+      setEpoch((e) => e + 1);
     }, 100);
   };
 
@@ -50,8 +45,7 @@ export function useResourceStream(
     if (!cluster || opts.enabled === false) {
       storeRef.current = new Map();
       metaRef.current = { synced: false, connected: false };
-      epochRef.current += 1;
-      listenersRef.current.forEach((l) => l());
+      setEpoch((e) => e + 1);
       return;
     }
 
@@ -65,8 +59,7 @@ export function useResourceStream(
       storeRef.current = new Map();
       metaRef.current = { ...metaRef.current, synced: false };
     }
-    epochRef.current += 1;
-    listenersRef.current.forEach((l) => l());
+    setEpoch((e) => e + 1);
 
     const applyOps = (ops: Op[], replaceAll: boolean) => {
       if (replaceAll) storeRef.current = new Map();
@@ -137,21 +130,9 @@ export function useResourceStream(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [specKey]);
 
-  // useSyncExternalStore drives React re-renders. The "snapshot" is the epoch
-  // integer: React re-renders only when it changes (i.e. on each flush).
-  const epoch = useSyncExternalStore(
-    (cb) => {
-      listenersRef.current.add(cb);
-      return () => listenersRef.current.delete(cb);
-    },
-    () => epochRef.current,
-  );
-
   // Derive the rows array from the Map only when the epoch changes.
   const rows = useMemo(
     () => Array.from(storeRef.current.values()),
-    // epoch is the only reactive dependency — storeRef.current is deliberately
-    // mutated in-place so including it would be wrong.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [epoch],
   );

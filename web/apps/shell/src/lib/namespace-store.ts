@@ -21,10 +21,14 @@ export const useNamespaceStore = create<NamespaceState>()((set) => ({
     }),
 }));
 
+// Stable empty array — reusing the same reference ensures Zustand's Object.is
+// check doesn't see a "new" value every render, which would cause infinite loops.
+const EMPTY: string[] = [];
+
 /** Returns the selected namespaces for a cluster. Empty array means "all namespaces". */
 export function useSelectedNamespaces(cluster: string | undefined): string[] {
   return useNamespaceStore(
-    (state) => (cluster ? (state.selections[cluster] ?? []) : []),
+    (state) => (cluster ? (state.selections[cluster] ?? EMPTY) : EMPTY),
   );
 }
 
