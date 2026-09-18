@@ -1,9 +1,11 @@
 import { useMemo, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
 import Editor from "@monaco-editor/react";
 import { Badge, Button, Card, Skeleton } from "@kubebay/ui";
-import { api, helmApi, helmMarketApi, type HelmChartEntry } from "../lib/api";
+import { helmApi, helmMarketApi, type HelmChartEntry } from "../lib/api";
 import { useMonacoTheme } from "../lib/theme";
+
+const ALL_REPOS = "__all__";
 
 function InstallPanel({
   cluster,
@@ -146,27 +148,62 @@ export function ChartsTab({ cluster }: { cluster: string }) {
   const [search, setSearch] = useState("");
   const [updating, setUpdating] = useState(false);
   const [updateMsg, setUpdateMsg] = useState("");
-  const [installing, setInstalling] = useState<HelmChartEntry | null>(null);
+  const [installing, setInstalling] = useState<{ chart: HelmChartEntry; repoName: string } | null>(null);
 
   const repoList = repos.data ?? [];
-  const effectiveRepo = repoSel || repoList[0]?.name || "";
+  const isAll = repoSel === ALL_REPOS;
+  const effectiveRepo = isAll ? "" : repoSel || repoList[0]?.name || "";
 
-  const charts = useQuery({
+  // Single-repo query — disabled when "All repos" is active.
+  const singleCharts = useQuery({
     queryKey: ["helm-charts", cluster, effectiveRepo],
     queryFn: () => helmMarketApi.charts(cluster, effectiveRepo),
-    enabled: !!effectiveRepo,
+    enabled: !isAll && !!effectiveRepo,
     staleTime: 60_000,
     retry: false,
   });
 
+  // Parallel per-repo queries — only fired when "All repos" is selected.
+  const allChartQueries = useQueries({
+    queries: isAll
+      ? repoList.map((r) => ({
+          queryKey: ["helm-charts", cluster, r.name] as const,
+          queryFn: () => helmMarketApi.charts(cluster, r.name),
+          staleTime: 60_000,
+          retry: false as const,
+        }))
+      : [],
+  });
+
+  // Flat list of {chart, repoName} tuples — populated progressively as each
+  // parallel query resolves, so cards appear as soon as each repo responds.
+  const allItems = useMemo(() => {
+    if (!isAll) return null;
+    return repoList.flatMap((r, i) => {
+      const q = allChartQueries[i];
+      return (q?.data ?? []).map((c) => ({ chart: c, repoName: r.name }));
+    });
+  }, [isAll, repoList, allChartQueries]);
+
+  // How many repos are still loading (for ajax-style skeleton count).
+  const loadingRepoCount = isAll
+    ? allChartQueries.filter((q) => q.isLoading).length
+    : 0;
+
   const filtered = useMemo(() => {
-    const out = [...(charts.data ?? [])];
-    if (search) {
-      const q = search.toLowerCase();
-      return out.filter((c) => c.name.includes(q) || (c.description ?? "").toLowerCase().includes(q));
+    const q = search.toLowerCase();
+    const match = (c: HelmChartEntry) =>
+      !search || c.name.toLowerCase().includes(q) || (c.description ?? "").toLowerCase().includes(q);
+
+    if (isAll && allItems) {
+      return allItems
+        .filter(({ chart }) => match(chart))
+        .sort((a, b) => a.chart.name.localeCompare(b.chart.name));
     }
-    return out.sort((a, b) => a.name.localeCompare(b.name));
-  }, [charts.data, search]);
+    const out = (singleCharts.data ?? []).filter(match);
+    if (!search) out.sort((a, b) => a.name.localeCompare(b.name));
+    return out.map((chart) => ({ chart, repoName: effectiveRepo }));
+  }, [isAll, allItems, singleCharts.data, search, effectiveRepo]);
 
   async function updateIndexes() {
     setUpdating(true);
@@ -183,15 +220,23 @@ export function ChartsTab({ cluster }: { cluster: string }) {
     }
   }
 
+  const isLoading = isAll ? loadingRepoCount > 0 : singleCharts.isLoading;
+  const isError = isAll
+    ? allChartQueries.some((q) => q.isError)
+    : singleCharts.isError;
+
   return (
     <>
       <div className="toolbar">
         <select
           className="toolbar-select"
-          value={effectiveRepo}
+          value={isAll ? ALL_REPOS : effectiveRepo}
           onChange={(e) => setRepoSel(e.target.value)}
           aria-label="repository"
         >
+          {repoList.length > 1 && (
+            <option value={ALL_REPOS}>All repos</option>
+          )}
           {repoList.map((r) => (
             <option key={r.name} value={r.name}>
               {r.name}
@@ -209,7 +254,7 @@ export function ChartsTab({ cluster }: { cluster: string }) {
         <Button variant="ghost" disabled={updating || !repoList.length} onClick={() => void updateIndexes()}>
           {updating ? "Updating…" : "Update indexes"}
         </Button>
-        <Badge>{filtered.length}</Badge>
+        <Badge>{filtered.length}{isAll && loadingRepoCount > 0 ? "+" : ""}</Badge>
       </div>
 
       {updateMsg && (
@@ -221,37 +266,41 @@ export function ChartsTab({ cluster }: { cluster: string }) {
       {!repoList.length && (
         <div className="empty-state">
           <p>No Helm repositories configured.</p>
-          <p className="muted small">Kubebay reads your local helm config — run “helm repo add …” once.</p>
+          <p className="muted small">Kubebay reads your local helm config — run "helm repo add …" once.</p>
         </div>
       )}
 
-      {charts.isError && (
-        <div className="error-banner">Failed to load index — press “Update indexes”.</div>
+      {isError && (
+        <div className="error-banner">Failed to load index — press "Update indexes".</div>
       )}
 
       <div className="cluster-grid">
-        {charts.isLoading &&
-          [0, 1, 2].map((i) => (
-            <Card key={i}>
+        {filtered.map(({ chart: c, repoName }) => (
+          <Card key={`${repoName}/${c.name}`} interactive className="fleet-card">
+            <div style={{ cursor: "pointer" }} onClick={() => setInstalling({ chart: c, repoName })}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <strong>{c.name}</strong>
+                <Badge>v{c.version}</Badge>
+                {c.versions > 1 && <span className="muted small mono">{c.versions} versions</span>}
+              </div>
+              <p className="muted small" style={{ margin: "6px 0 0", minHeight: 30 }}>
+                {c.description || "—"}
+              </p>
+              <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                {c.appVersion && <span className="muted small mono">app {c.appVersion}</span>}
+                {isAll && <span className="muted small mono" style={{ marginLeft: "auto" }}>{repoName}</span>}
+              </div>
+            </div>
+          </Card>
+        ))}
+
+        {/* Ajax-style: skeleton cards for each repo still loading */}
+        {isLoading &&
+          Array.from({ length: isAll ? loadingRepoCount * 3 : 3 }, (_, i) => (
+            <Card key={`skel-${i}`}>
               <Skeleton w={140} h={14} />
               <div style={{ marginTop: 8 }}>
                 <Skeleton w={220} h={10} />
-              </div>
-            </Card>
-          ))}
-        {!charts.isLoading &&
-          filtered.map((c) => (
-            <Card key={c.name} interactive className="fleet-card">
-              <div style={{ cursor: "pointer" }} onClick={() => setInstalling(c)}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <strong>{c.name}</strong>
-                  <Badge>v{c.version}</Badge>
-                  {c.versions > 1 && <span className="muted small mono">{c.versions} versions</span>}
-                </div>
-                <p className="muted small" style={{ margin: "6px 0 0", minHeight: 30 }}>
-                  {c.description || "—"}
-                </p>
-                {c.appVersion && <div className="muted small mono">app {c.appVersion}</div>}
               </div>
             </Card>
           ))}
@@ -260,8 +309,8 @@ export function ChartsTab({ cluster }: { cluster: string }) {
       {installing && (
         <InstallPanel
           cluster={cluster}
-          repoName={effectiveRepo}
-          chart={installing}
+          repoName={installing.repoName}
+          chart={installing.chart}
           onClose={() => setInstalling(null)}
           onInstalled={() => {
             setInstalling(null);
@@ -272,6 +321,3 @@ export function ChartsTab({ cluster }: { cluster: string }) {
   );
 }
 
-export function useHelmReleasesSafe() {
-  return api;
-}
