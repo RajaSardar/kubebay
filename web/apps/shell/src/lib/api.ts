@@ -60,7 +60,10 @@ async function get<T>(path: string): Promise<T> {
     window.location.href = "/api/auth/login";
     throw new Error("login required");
   }
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || `${res.status} ${res.statusText}`);
+  }
   return res.json() as Promise<T>;
 }
 
