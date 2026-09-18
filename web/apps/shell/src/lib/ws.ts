@@ -30,21 +30,42 @@ export interface SubSpec {
   mode?: "metadata" | "full";
 }
 
-export interface ChanSpec {
+interface ChanBase {
   id: string;
-  kind: "logs" | "exec" | "local-shell";
   cluster: string;
-  // namespace/pod are required for logs/exec but not for local-shell.
-  namespace?: string;
-  pod?: string;
-  container?: string;
-  tail?: number;
-  follow?: boolean;
-  previous?: boolean;
-  command?: string[];
   cols?: number;
   rows?: number;
 }
+
+interface PodChanBase extends ChanBase {
+  namespace: string;
+  pod: string;
+  container?: string;
+}
+
+export interface LogsChanSpec extends PodChanBase {
+  kind: "logs";
+  tail?: number;
+  follow?: boolean;
+  previous?: boolean;
+}
+
+export interface ExecChanSpec extends PodChanBase {
+  kind: "exec";
+  command?: string[];
+}
+
+/**
+ * A PTY on the machine hosting the engine. It binds to a kubeconfig context,
+ * never to a pod, and the engine resolves the shell itself — so this variant
+ * carries neither pod coordinates nor a command, and the union makes passing
+ * one a type error rather than a field the server quietly ignores.
+ */
+export interface LocalShellChanSpec extends ChanBase {
+  kind: "local-shell";
+}
+
+export type ChanSpec = LogsChanSpec | ExecChanSpec | LocalShellChanSpec;
 
 export interface Handlers {
   onBegin?: (id: string) => void;
@@ -240,23 +261,26 @@ class MultiplexedStream {
   }
 
   openChannel(c: ChanSpec) {
-    this.send(
-      JSON.stringify({
-        type: "chan-open",
-        id: c.id,
-        kind: c.kind,
-        cluster: c.cluster,
-        namespace: c.namespace,
-        pod: c.pod,
-        container: c.container,
-        tail: c.tail,
-        follow: c.follow,
-        previous: c.previous,
-        command: c.command,
-        cols: c.cols,
-        rows: c.rows,
-      }),
-    );
+    const frame: Record<string, unknown> = {
+      type: "chan-open",
+      id: c.id,
+      kind: c.kind,
+      cluster: c.cluster,
+      cols: c.cols,
+      rows: c.rows,
+    };
+    if (c.kind !== "local-shell") {
+      frame.namespace = c.namespace;
+      frame.pod = c.pod;
+      frame.container = c.container;
+    }
+    if (c.kind === "logs") {
+      frame.tail = c.tail;
+      frame.follow = c.follow;
+      frame.previous = c.previous;
+    }
+    if (c.kind === "exec") frame.command = c.command;
+    this.send(JSON.stringify(frame));
   }
 
   closeChannel(id: string) {

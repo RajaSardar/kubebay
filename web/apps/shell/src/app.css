@@ -1918,6 +1918,52 @@ tr.row-clickable:active {
   font-size: var(--kb-text-md);
 }
 
+/* The banner reads as an error by default. `.ok` and `.warn` restate the same
+   box in the two other status tokens so a "this is what is bound" or "this
+   changed under you" notice does not shout in red. */
+.inline-banner.ok {
+  background: var(--kb-status-ok-subtle);
+  color: var(--kb-status-ok-fg);
+  border-color: color-mix(in srgb, var(--kb-status-ok) 35%, transparent);
+}
+.inline-banner.warn {
+  background: var(--kb-status-warn-subtle);
+  color: var(--kb-status-warn-fg);
+  border-color: color-mix(in srgb, var(--kb-status-warn) 35%, transparent);
+}
+
+/* ──── Local shell ──── */
+/* Mounted once outside <Routes> and hidden between visits: a route would
+   unmount on every sidebar click and take the PTY and all scrollback with it.
+   `display: flex` beats the UA sheet's `[hidden] { display: none }`, so the
+   hidden case has to be spelled out. */
+.shell-pane {
+  position: absolute;
+  inset: 0;
+  background: var(--kb-bg-canvas);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.shell-pane[hidden] {
+  display: none;
+}
+
+.local-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+  padding-top: var(--kb-space-3);
+}
+.local-shell .inline-banner {
+  flex-shrink: 0;
+}
+.local-shell .term-host {
+  margin: 0 var(--kb-gutter) var(--kb-gutter);
+  min-height: 0;
+}
+
 .crd-loading-dots { display: inline-flex; gap: 4px; align-items: center; }
 .crd-loading-dots span {
   width: 5px; height: 5px; border-radius: 50%;
