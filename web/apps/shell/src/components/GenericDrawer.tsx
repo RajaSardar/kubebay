@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Badge, Button, StatusDot } from "@kubebay/ui";
 import { api, nodeApi } from "../lib/api";
-import { YamlTab } from "./YamlTab";
+import { ExecTerm, YamlTab } from "./heavy";
 import { EventsDrawer } from "./EventsDrawer";
-import { ExecTerm } from "./ExecTerm";
 import { ActionsBar } from "./ActionsBar";
 import { NodeSummary } from "./NodeSummary";
 import { ServiceSummary } from "./ServiceSummary";
@@ -136,7 +135,7 @@ function PaneContent({
               className="toolbar-select"
               value={effectiveContainer}
               onChange={(e) => onSetPodContainer(e.target.value)}
-              style={{ fontSize: 11, height: 24 }}
+              style={{ fontSize: "var(--kb-text-xs)", height: 24 }}
             >
               {containers.map((c) => (
                 <option key={c} value={c}>{c}</option>

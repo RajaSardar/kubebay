@@ -4,6 +4,7 @@ import Editor from "@monaco-editor/react";
 import { ArmedButton, Badge, Button, Skeleton, StatusDot } from "@kubebay/ui";
 import { helmApi, type HelmRelease } from "../lib/api";
 import { useCluster } from "../lib/useCluster";
+import { useMonacoTheme } from "../lib/theme";
 import { ChartsTab } from "../components/HelmCharts";
 
 type DotT = "connected" | "degraded" | "unreachable" | "pending";
@@ -46,6 +47,7 @@ function ReleaseDrawer({
   onClose: () => void;
 }) {
   const qc = useQueryClient();
+  const monacoTheme = useMonacoTheme();
   const [tab, setTab] = useState<"history" | "values" | "manifest">("history");
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleteInput, setDeleteInput] = useState("");
@@ -246,7 +248,7 @@ function ReleaseDrawer({
                 value={valuesYaml}
                 onChange={(v) => setValuesEdited(v ?? "")}
                 defaultLanguage="yaml"
-                theme="vs-dark"
+                theme={monacoTheme}
                 options={{
                   minimap: { enabled: false },
                   fontSize: 12,
@@ -317,7 +319,7 @@ export default function Helm() {
         <h2>
           Helm releases{" "}
           {!releases.isLoading && (
-            <span className="muted" style={{ fontWeight: 400, fontSize: 13 }}>
+            <span className="page-header-count">
               · {rows.length}
             </span>
           )}
@@ -334,7 +336,9 @@ export default function Helm() {
       )}
 
       {!effectiveCluster ? (
-        <p className="muted">Waiting for cluster…</p>
+        <div className="loading-state">
+          <p>Waiting for cluster…</p>
+        </div>
       ) : releases.isLoading ? (
         <div className="table-wrap">
           <table className="kb-table">

@@ -52,7 +52,7 @@ export default function Ports() {
         <h2>
           Port forwards{" "}
           {!forwards.isLoading && (
-            <span className="muted" style={{ fontWeight: 400, fontSize: 13 }}>
+            <span className="page-header-count">
               · {(forwards.data ?? []).length}
             </span>
           )}

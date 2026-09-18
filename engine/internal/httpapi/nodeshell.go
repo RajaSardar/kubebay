@@ -6,6 +6,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -16,8 +18,30 @@ import (
 	"github.com/RajaSardar/kubebay/engine/internal/clusters"
 )
 
+// DefaultNodeShellImage is used when nothing overrides it.  It must stay the
+// historical value so existing installs are unaffected.
+const DefaultNodeShellImage = "registry.k8s.io/e2e-test-images/busybox:1.29-2"
+
 type NodeShellManager struct {
 	Clusters *clusters.Manager
+	Settings *SettingsManager
+}
+
+// image resolves the node-shell container image: the user's saved setting
+// first, then KUBEBAY_NODE_SHELL_IMAGE for headless/in-cluster deployments
+// that have no settings.json, then the default.  Private-registry-only and
+// air-gapped clusters cannot pull from registry.k8s.io at all, which left
+// node-shell permanently broken there with no way out.
+func (n *NodeShellManager) image() string {
+	if n.Settings != nil {
+		if set, err := n.Settings.Load(); err == nil && set.NodeShellImage != "" {
+			return set.NodeShellImage
+		}
+	}
+	if env := strings.TrimSpace(os.Getenv("KUBEBAY_NODE_SHELL_IMAGE")); env != "" {
+		return env
+	}
+	return DefaultNodeShellImage
 }
 
 type NodeShellRequest struct {
@@ -67,7 +91,7 @@ func (n *NodeShellManager) HandleStart(w http.ResponseWriter, r *http.Request) {
 			Containers: []corev1.Container{
 				{
 					Name:            "shell",
-					Image:           "registry.k8s.io/e2e-test-images/busybox:1.29-2",
+					Image:           n.image(),
 					Command:         []string{"sh"},
 					Stdin:           true,
 					StdinOnce:       true,

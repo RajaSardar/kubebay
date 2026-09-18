@@ -11,6 +11,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/httpstream"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/portforward"
@@ -66,7 +67,20 @@ func (p *PFManager) Start(ctx context.Context, cluster, namespace, pod string, p
 		SubResource("portforward").
 		VersionedParams(&corev1.PodPortForwardOptions{Ports: []int32{podPort}}, scheme.ParameterCodec)
 
-	dialer := spdy.NewDialer(upgrader, &http.Client{Transport: rt}, "POST", req.URL())
+	// WebSocket-first with automatic SPDY fallback, matching exec.go: SPDY's
+	// HTTP/1.1 upgrade does not survive HTTP/2 reverse proxies (AWS ALB,
+	// corporate proxies), so a SPDY-only port-forward dies exactly where exec
+	// keeps working.  The tunneling dialer issues its own GET; the same URL
+	// serves both paths.  Predicate is kubectl's.
+	spdyDialer := spdy.NewDialer(upgrader, &http.Client{Transport: rt}, "POST", req.URL())
+	wsDialer, err := portforward.NewSPDYOverWebsocketDialer(req.URL(), cfg)
+	if err != nil {
+		return nil, fmt.Errorf("websocket dialer: %w", err)
+	}
+	dialer := portforward.NewFallbackDialer(wsDialer, spdyDialer, func(err error) bool {
+		return httpstream.IsUpgradeFailure(err) || httpstream.IsHTTPSProxyError(err)
+	})
+
 	stop := make(chan struct{})
 	ready := make(chan struct{})
 	var stderr bytes.Buffer

@@ -1,22 +1,53 @@
-const TOKEN_KEY = "kb.token";
+declare global {
+  interface Window {
+    /** Injected by the desktop wrapper before the page loads. */
+    __KUBEBAY_TOKEN__?: string;
+  }
+}
+
+// The token buys cluster read/write — and, once the local shell lands, code
+// execution as the user. So it lives in memory for the life of the page only:
+// not in localStorage (which kept it on disk forever, readable by anything that
+// can reach the origin) and not in the URL (history, referrers, server logs).
+// The desktop wrapper re-injects it on every load, so a reload costs nothing.
+let sessionToken = typeof window !== "undefined" ? (window.__KUBEBAY_TOKEN__ ?? "") : "";
+
+// Evict what older builds persisted, so upgrading actually removes it from disk.
+try {
+  localStorage.removeItem("kb.token");
+} catch {
+  /* storage disabled */
+}
 
 export function getToken(): string {
-  // Always prefer the URL token — it's the fresh secret for this engine session.
-  // A stale localStorage token from a previous launch would cause 401 on every request.
-  const urlToken = new URLSearchParams(window.location.search).get("token");
-  if (urlToken) {
-    localStorage.setItem(TOKEN_KEY, urlToken);
-    window.history.replaceState({}, "", window.location.pathname);
-    return urlToken;
-  }
-  return localStorage.getItem(TOKEN_KEY) ?? "";
+  return sessionToken;
+}
+
+export function setToken(token: string): void {
+  sessionToken = token;
+}
+
+export type AuthMode = "oidc" | "token" | "open";
+
+/** How this engine wants to be authenticated. Public: it names no secret. */
+export async function authMode(): Promise<AuthMode> {
+  const res = await fetch("/api/auth-mode");
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  const body = (await res.json()) as { mode?: AuthMode };
+  return body.mode ?? "token";
+}
+
+/** Verifies a pasted token against the engine before the app starts using it. */
+export async function checkToken(token: string): Promise<boolean> {
+  const res = await fetch("/api/clusters", { headers: { "X-Kubebay-Token": token } });
+  return res.ok;
 }
 
 export interface ClusterInfo {
   id: string;
   context: string;
   server: string;
-  status: "connected" | "unreachable" | "degraded";
+  status: "connected" | "unreachable" | "degraded" | "misconfigured";
   version?: string;
   error?: string;
 }
@@ -259,6 +290,8 @@ export interface AppSettings {
   extraKubeconfigs: string[];
   onlyListedKubeconfigs?: boolean;
   activeKubeconfigs?: string[];
+  nodeShellImage?: string;
+  nodeShellImageDefault?: string;
 }
 
 export const settingsApi = {

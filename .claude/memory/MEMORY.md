@@ -4,3 +4,4 @@
 - [No Claude co-author](feedback_commit_author.md) — never add Co-Authored-By Claude in commits, use user's git identity
 - [Tab re-render performance](feedback_tab_performance.md) — Module-level stream cache prevents loading flash on tab navigation
 - [Helm Kubebay integration](feedback_helm_fixes.md) — Show actual error messages, upgrade route registered
+- [Innovation & enterprise-feature backlog](innovation_backlog.md) — visualizations, KEDA/Karpenter/VPA wizards, MCP server, cost optimization, enterprise-tier candidates

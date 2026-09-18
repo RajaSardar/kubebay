@@ -8,6 +8,7 @@ import { BrowserRouter } from "react-router-dom";
 import "./lib/theme";
 import "./lib/display";
 import App from "./App";
+import { TokenGate } from "./components/TokenGate";
 import "./app.css";
 
 // WKWebView height fix: set --app-h to exact pixel height so layout never relies on
@@ -35,9 +36,13 @@ const qc = new QueryClient({
 });
 
 createRoot(document.getElementById("root")!).render(
-  <QueryClientProvider client={qc}>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
-  </QueryClientProvider>,
+  <StrictMode>
+    <QueryClientProvider client={qc}>
+      <TokenGate>
+        <BrowserRouter>
+          <App />
+        </BrowserRouter>
+      </TokenGate>
+    </QueryClientProvider>
+  </StrictMode>,
 );

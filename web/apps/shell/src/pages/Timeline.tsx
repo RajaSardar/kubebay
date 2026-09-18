@@ -97,9 +97,7 @@ export default function Timeline() {
         <h2>
           Timeline
           {synced && connected && (
-            <span className="live-pill">
-              ● live
-            </span>
+            <span className="live-pill">live</span>
           )}
         </h2>
         <Badge tone={warnCount > 0 ? "err" : "ok"}>{warnCount} warnings</Badge>

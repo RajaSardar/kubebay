@@ -4,9 +4,26 @@
     "Roboto", -apple-system, "Helvetica Neue", "Segoe UI", Arial, sans-serif;
   --kb-font-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
 
-  --kb-radius-sm: 6px;
-  --kb-radius:    10px;
-  --kb-radius-lg: 14px;
+  /* Type scale — every font-size in the app resolves to one of these seven
+     steps. Integer px only: half-pixel sizes render with fuzzy glyph metrics
+     and were the main source of "not quite aligned" text across pages. */
+  --kb-text-2xs: 10px;
+  --kb-text-xs:  11px;
+  --kb-text-sm:  12px;
+  --kb-text-md:  13px;
+  --kb-text-lg:  15px;
+  --kb-text-xl:  18px;
+  --kb-text-2xl: 28px;
+
+  --kb-radius-xs:   4px;
+  --kb-radius-sm:   6px;
+  --kb-radius:      8px;
+  --kb-radius-lg:   14px;
+  --kb-radius-pill: 999px;
+
+  /* Shared horizontal gutter for page headers, toolbars and table cells so
+     the title, the search field and the first column share one left edge. */
+  --kb-gutter: 16px;
 
   /* Snappy Apple-style timing */
   --kb-dur-fast: 70ms;

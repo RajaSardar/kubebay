@@ -3,11 +3,14 @@ package httpapi
 import (
 	"context"
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -58,6 +61,20 @@ func Router(d Deps, token string) http.Handler {
 		writeJSON(w, map[string]bool{"ok": true})
 	})
 
+	// Tells the UI how to authenticate without leaking anything: whether to send
+	// the user to the OIDC login or to ask for the launch token. Public because
+	// the UI has to ask it before it has any credential at all.
+	r.Get("/api/auth-mode", func(w http.ResponseWriter, _ *http.Request) {
+		mode := "open"
+		switch {
+		case d.authEnabled():
+			mode = "oidc"
+		case token != "":
+			mode = "token"
+		}
+		writeJSON(w, map[string]string{"mode": mode})
+	})
+
 	if d.authEnabled() {
 		r.Route("/api/auth", func(r chi.Router) {
 			r.Get("/login", d.Auth.HandleLogin)
@@ -83,7 +100,7 @@ func Router(d Deps, token string) http.Handler {
 			writeJSON(w, d.Clusters.List())
 		})
 		r.Get("/ws", func(w http.ResponseWriter, req *http.Request) {
-			d.Hub.Handle(w, req, poolSource{d.Pools})
+			d.Hub.Handle(w, req, poolSource{d.Pools}, wsSubprotocolFromContext(req.Context()))
 		})
 
 		r.Get("/api/pf", func(w http.ResponseWriter, _ *http.Request) {
@@ -358,6 +375,82 @@ func Router(d Deps, token string) http.Handler {
 	return r
 }
 
+// WSTokenSubprotocolPrefix carries the session token on a WebSocket handshake.
+// Browsers cannot set request headers on a WebSocket, and Sec-WebSocket-Protocol
+// is the only client-controlled header they do send — unlike a query string it
+// stays out of history, referrers, proxy access logs and `ps` output.
+const WSTokenSubprotocolPrefix = "kubebay.token."
+
+type wsSubprotocolKey struct{}
+
+// wsSubprotocolFromContext returns the subprotocol requireToken accepted, which
+// the server must echo back verbatim or the browser fails the handshake.
+func wsSubprotocolFromContext(ctx context.Context) string {
+	v, _ := ctx.Value(wsSubprotocolKey{}).(string)
+	return v
+}
+
+func tokenMatches(got, want string) bool {
+	return subtle.ConstantTimeCompare([]byte(got), []byte(want)) == 1
+}
+
+// wsTokenSubprotocol finds an offered subprotocol that carries the right token.
+func wsTokenSubprotocol(r *http.Request, token string) (string, bool) {
+	for _, header := range r.Header.Values("Sec-WebSocket-Protocol") {
+		for _, offered := range strings.Split(header, ",") {
+			offered = strings.TrimSpace(offered)
+			rest, ok := strings.CutPrefix(offered, WSTokenSubprotocolPrefix)
+			if ok && tokenMatches(rest, token) {
+				return offered, true
+			}
+		}
+	}
+	return "", false
+}
+
+// IsLoopbackListenAddr reports whether a listen address only serves loopback.
+// An empty host (":9898") means every interface, so it is not loopback-only.
+func IsLoopbackListenAddr(addr string) bool {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		host = addr
+	}
+	return host != "" && isLoopbackHost(host)
+}
+
+func isLoopbackHost(host string) bool {
+	host = strings.Trim(host, "[]")
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
+}
+
+// RequireLoopbackHost rejects requests whose Host header is not a loopback name.
+//
+// DNS rebinding defeats Origin checks: the attacker's page is served from
+// evil.example, whose A record then flips to 127.0.0.1, so the browser sends
+// both Origin and Host as evil.example. coder/websocket's origin check passes a
+// request whose Origin equals its Host (and passes one with no Origin at all),
+// so OriginPatterns never fires. The Host header is what rebinding cannot
+// forge: the browser must send the name it resolved. Only wrap the handler when
+// the engine is actually bound to loopback — a server deployment behind an
+// ingress has a real hostname and must keep working.
+func RequireLoopbackHost(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		host := r.Host
+		if h, _, err := net.SplitHostPort(host); err == nil {
+			host = h
+		}
+		if !isLoopbackHost(host) {
+			http.Error(w, "forbidden: non-loopback Host", http.StatusForbidden)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 func requireToken(token string, auth *Authenticator) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -365,13 +458,21 @@ func requireToken(token string, auth *Authenticator) func(http.Handler) http.Han
 				next.ServeHTTP(w, r)
 				return
 			}
-			headerToken := r.Header.Get("X-Kubebay-Token")
-			queryToken := r.URL.Query().Get("token")
-			if token != "" && headerToken != token && queryToken != token {
-				http.Error(w, "unauthorized", http.StatusUnauthorized)
+			if token == "" {
+				next.ServeHTTP(w, r)
 				return
 			}
-			next.ServeHTTP(w, r)
+			if tokenMatches(r.Header.Get("X-Kubebay-Token"), token) {
+				next.ServeHTTP(w, r)
+				return
+			}
+			if sub, ok := wsTokenSubprotocol(r, token); ok {
+				next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), wsSubprotocolKey{}, sub)))
+				return
+			}
+			// No ?token= branch: a URL-borne credential leaks into history,
+			// referrers and access logs. Header or subprotocol only.
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
 		})
 	}
 }

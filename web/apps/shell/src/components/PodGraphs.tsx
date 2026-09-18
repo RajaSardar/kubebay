@@ -27,11 +27,11 @@ function CopyableCommand({ command }: { command: string }) {
       <pre
         className="mono"
         style={{
-          fontSize: 11,
+          fontSize: "var(--kb-text-xs)",
           whiteSpace: "pre-wrap",
-          background: "var(--bg-inset, #1a1a2e)",
+          background: "var(--kb-bg-inset)",
           padding: "8px 40px 8px 8px",
-          borderRadius: 4,
+          borderRadius: "var(--kb-radius-xs)",
           margin: 0,
           cursor: "pointer",
           userSelect: "all",
@@ -48,12 +48,12 @@ function CopyableCommand({ command }: { command: string }) {
           top: 4,
           right: 4,
           background: "transparent",
-          border: "1px solid var(--border, #444)",
-          borderRadius: 3,
+          border: "1px solid var(--kb-border-subtle)",
+          borderRadius: "var(--kb-radius-xs)",
           padding: "2px 6px",
-          fontSize: 10,
+          fontSize: "var(--kb-text-2xs)",
           cursor: "pointer",
-          color: "var(--fg-muted, #aaa)",
+          color: "var(--kb-fg-muted)",
         }}
       >
         {copied ? "Copied!" : "Copy"}
@@ -163,11 +163,11 @@ export function PodGraphs({
   const cpuSeries = useMemo(() => toSeries(cpu.data, 0, (v) => v * 1000), [cpu.data]);
   const memSeries = useMemo(() => toSeries(mem.data, 2, (v) => v), [mem.data]);
 
-  if (settings.isLoading) return <div className="muted small" style={{ padding: 14 }}>Loading...</div>;
+  if (settings.isLoading) return <div className="loading-state">Loading…</div>;
 
   if (!promUrl)
     return (
-      <div className="empty-state" style={{ margin: 14 }}>
+      <div className="empty-state" style={{ margin: "var(--kb-gutter)" }}>
         <p>History graphs need Prometheus.</p>
         <p className="muted small">Set the server URL in Settings &rarr; Prometheus.</p>
       </div>
@@ -211,7 +211,7 @@ export function PodGraphs({
                 style={{
                   background: "transparent",
                   border: "none",
-                  color: "var(--accent, #5b8def)",
+                  color: "var(--kb-accent)",
                   cursor: "pointer",
                   textDecoration: "underline",
                   padding: 0,

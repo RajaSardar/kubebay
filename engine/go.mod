@@ -6,6 +6,7 @@ toolchain go1.22.1
 
 require (
 	github.com/coder/websocket v1.8.12
+	github.com/creack/pty v1.1.18
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/go-chi/chi/v5 v5.1.0
 	github.com/vmihailenco/msgpack/v5 v5.4.1
