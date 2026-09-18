@@ -225,10 +225,10 @@ function extraColumns(
     case "endpoints":
       return {
         "EndPoints": (o) => {
-          const subsets = (rec(o.subsets) ?? []) as unknown as Record<string, unknown>[];
+          const subsets = (Array.isArray(o.subsets) ? o.subsets : []) as Record<string, unknown>[];
           let count = 0;
           for (const ss of subsets) {
-            const addrs = (ss.addresses ?? []) as unknown[];
+            const addrs = (Array.isArray(ss.addresses) ? ss.addresses : []) as unknown[];
             count += addrs.length;
           }
           return { v: String(count), dot: count > 0 ? "ok" : "warn" };
