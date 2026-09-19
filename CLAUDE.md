@@ -61,23 +61,33 @@ Skipping the debate round and implementing directly from parallel-agent outputs 
 
 ---
 
-## Build and Ship on Every Commit
+## Build and Ship the Mac App on Every Commit
 
-**Before AND after every commit, run the build and tests. No exceptions.**
+**After every commit, build and ship the full macOS desktop app. No exceptions.**
 
-```
-# Frontend
+Full build + ship sequence:
+
+```bash
+# 1. Tests first (TDD gate)
 pnpm --filter @kubebay/shell exec vitest run
-pnpm --filter @kubebay/shell build
-
-# Backend (when engine code changes)
 cd engine && go test ./...
+
+# 2. Build web frontend + embed into engine binary
+make build
+
+# 3. Copy engine binary into Tauri sidecar slot
+cp engine/bin/kubebay desktop/src-tauri/binaries/kubebay-engine-aarch64-apple-darwin
+
+# 4. Build the macOS .app
+cd desktop && pnpm tauri build --no-bundle
+
+# 5. Ship — copy to /Applications so it's immediately runnable
+cp -R desktop/src-tauri/target/release/bundle/macos/Kubebay.app /Applications/Kubebay.app
 ```
 
-- Run tests **before** committing — confirm green.
-- Run build **before** committing — confirm no TypeScript/compilation errors.
-- Never commit with a red build or failing tests.
-- The build confirms the tests pass AND the compiler agrees. Both must be green.
+- Never commit without running this full sequence.
+- "Ship" means copying the fresh `.app` to `/Applications` — the user runs the updated build immediately.
+- If `--no-bundle` is too slow for small CSS/JS-only changes, at minimum run steps 1–2 + 4–5.
 
 ---
 
