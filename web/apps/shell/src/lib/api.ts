@@ -153,7 +153,7 @@ export const api = {
     yaml: string;
     dryRun: boolean;
     force: boolean;
-  }) => send<{ applied: boolean; dryRun: boolean }>("PUT", "/api/yaml", b),
+  }) => send<{ applied: boolean; dryRun: boolean; resultYaml?: string }>("PUT", "/api/yaml", b),
   createResource: (b: { cluster: string; yaml: string; dryRun: boolean }) =>
     send<{ applied: number; total: number; dryRun: boolean }>("POST", "/api/yaml/create", b),
   auditLog: () => get<{ time: string; action: string; cluster: string; namespace?: string; resource?: string; detail?: string; userAgent?: string }[]>("/api/audit"),

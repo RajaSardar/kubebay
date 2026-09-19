@@ -164,8 +164,18 @@ func (c *Channels) HandleApplyYAML(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("apply: %v", err), http.StatusBadGateway)
 		return
 	}
+	resp := map[string]interface{}{"applied": applied != nil, "dryRun": req.DryRun}
+	if req.DryRun && applied != nil {
+		if u, ok := applied.(interface{ UnstructuredContent() map[string]interface{} }); ok {
+			doc := u.UnstructuredContent()
+			stripNoisyFields(doc)
+			if yamlOut, err := yaml.Marshal(doc); err == nil {
+				resp["resultYaml"] = string(yamlOut)
+			}
+		}
+	}
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{"applied": applied != nil, "dryRun": req.DryRun})
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 type CreateResourceRequest struct {

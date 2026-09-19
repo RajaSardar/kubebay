@@ -20,12 +20,15 @@ export function YamlTab({
   const [modified, setModified] = useState("");
   const [loading, setLoading] = useState(true);
   const [showDiff, setShowDiff] = useState(false);
+  // Server-computed YAML from a successful dry-run (what the cluster would store)
+  const [serverPreview, setServerPreview] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     setMsg(null);
+    setServerPreview(null);
     try {
       const y = await api.getYamlText(cluster, gvr, ns, name);
       setOriginal(y);
@@ -43,6 +46,13 @@ export function YamlTab({
 
   const dirty = modified !== original;
 
+  // Clear server preview when user keeps editing
+  function onEdit(v: string) {
+    setModified(v);
+    setServerPreview(null);
+    setMsg(null);
+  }
+
   async function apply(dryRun: boolean) {
     setBusy(true);
     setMsg(null);
@@ -56,12 +66,14 @@ export function YamlTab({
         dryRun,
         force: false,
       });
-      setMsg(
-        r.dryRun
-          ? { ok: true, text: "Dry-run passed — server accepted the change." }
-          : { ok: true, text: "Applied via server-side apply." },
-      );
-      if (!r.dryRun) {
+      if (r.dryRun) {
+        setMsg({ ok: true, text: "Dry-run passed — server accepted the change." });
+        if (r.resultYaml) {
+          setServerPreview(r.resultYaml);
+          setShowDiff(true);
+        }
+      } else {
+        setMsg({ ok: true, text: "Applied via server-side apply." });
         await load();
       }
     } catch (e) {
@@ -73,10 +85,16 @@ export function YamlTab({
 
   if (loading) return <div className="loading-state">Loading YAML…</div>;
 
+  // In diff mode: if we have a server preview, show live vs server-computed.
+  // Otherwise show local edits vs original.
+  const diffOriginal = original;
+  const diffModified = serverPreview ?? modified;
+  const diffLabel = serverPreview ? "server preview (dry-run)" : "local edits";
+
   const editor = showDiff ? (
     <DiffEditor
-      original={original}
-      modified={modified}
+      original={diffOriginal}
+      modified={diffModified}
       language="yaml"
       theme={monacoTheme}
       options={{
@@ -91,7 +109,7 @@ export function YamlTab({
   ) : (
     <Editor
       value={modified}
-      onChange={(v) => setModified(v ?? "")}
+      onChange={(v) => onEdit(v ?? "")}
       defaultLanguage="yaml"
       theme={monacoTheme}
       options={{
@@ -111,7 +129,10 @@ export function YamlTab({
           <input type="checkbox" checked={showDiff} onChange={(e) => setShowDiff(e.target.checked)} />
           diff view
         </label>
-        {dirty && <Badge>modified</Badge>}
+        {showDiff && (
+          <span className="muted small">{diffLabel}</span>
+        )}
+        {dirty && !showDiff && <Badge>modified</Badge>}
         {msg && (
           <span className={`small ${msg.ok ? "" : "error-text"}`} style={{ color: msg.ok ? "var(--kb-status-ok)" : undefined }}>
             {msg.text}
