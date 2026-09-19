@@ -60,8 +60,8 @@
 
   /* Foreground */
   --kb-fg-default: rgba(255, 255, 255, 0.92);
-  --kb-fg-muted:   rgba(255, 255, 255, 0.52);
-  --kb-fg-subtle:  rgba(255, 255, 255, 0.28);
+  --kb-fg-muted:   rgba(255, 255, 255, 0.60);
+  --kb-fg-subtle:  rgba(255, 255, 255, 0.36);
 
   /* Accent — Kubebay cyan (kept distinct from macOS blue) */
   --kb-accent:        #32ade6;

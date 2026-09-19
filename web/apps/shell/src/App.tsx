@@ -222,7 +222,7 @@ function CustomResourcesGroup() {
       <button className="nav-group-title" onClick={() => setOpen((o) => !o)}>
         <span className="nav-icon"><IconCube /></span>
         <span>Custom Resources</span>
-        <span className="chev" style={{ marginLeft: "auto" }}>▸</span>
+        <svg className="chev" viewBox="0 0 10 10" width="10" height="10" fill="none" style={{ marginLeft: "auto", flexShrink: 0 }}><path d="M3 2l4 3-4 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
       </button>
       <div className="nav-group-items">
         {items.map((e) => (
@@ -557,7 +557,7 @@ function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
             >
               <span className="nav-icon">{g.icon}</span>
               <span>{g.label}</span>
-              <span className="chev" style={{ marginLeft: "auto" }}>▸</span>
+              <svg className="chev" viewBox="0 0 10 10" width="10" height="10" fill="none" style={{ marginLeft: "auto", flexShrink: 0 }}><path d="M3 2l4 3-4 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </button>
             <div className="nav-group-items">
               {g.leaves.map((l) => (

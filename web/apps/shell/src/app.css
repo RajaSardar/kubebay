@@ -923,9 +923,10 @@ tr.row-clickable:active {
 }
 
 .tab.active {
-  background: var(--kb-accent-subtle);
-  color: var(--kb-accent);
-  font-weight: 550;
+  background: transparent;
+  color: var(--kb-fg-default);
+  font-weight: 600;
+  box-shadow: inset 0 -2px 0 var(--kb-accent);
 }
 
 .drawer-select {
@@ -1162,9 +1163,13 @@ tr.row-clickable:active {
 
 .chev {
   margin-left: auto;
-  font-size: var(--kb-text-2xs);
-  opacity: 0.7;
-  transition: transform var(--kb-dur-fast) var(--kb-ease);
+  opacity: 0.45;
+  color: var(--kb-fg-subtle);
+  transition: transform var(--kb-dur-fast) var(--kb-ease), opacity var(--kb-dur-fast) var(--kb-ease);
+}
+
+.nav-group-title:hover .chev {
+  opacity: 0.75;
 }
 
 .nav-group.open .chev {
@@ -1175,7 +1180,7 @@ tr.row-clickable:active {
   display: none;
   flex-direction: column;
   gap: 1px;
-  padding-left: 15px;
+  padding-left: 22px;
 }
 
 .nav-group.open .nav-group-items {
@@ -1185,7 +1190,7 @@ tr.row-clickable:active {
 .nav-item.sub {
   font-weight: 450;
   font-size: var(--kb-text-sm);
-  padding: 6px 10px;
+  padding: 4px 10px;
 }
 
 .nav-item.sub.active {
