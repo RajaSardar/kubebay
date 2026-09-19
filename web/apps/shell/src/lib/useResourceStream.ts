@@ -31,14 +31,17 @@ export function useResourceStream(
 
   const specKey = `${cluster ?? ""}|${gvr}|${opts.ns?.join(",") ?? "*"}|${opts.labelSelector ?? ""}|${opts.mode ?? "metadata"}`;
 
-  // Schedules a debounced flush (100 ms). All WS mutations call this.
+  // Schedules a debounced flush (16 ms = one animation frame). All WS mutations
+  // call this. Collapses rapid-fire delta bursts into a single re-render while
+  // keeping live updates feeling instantaneous (vs the old 100 ms which was
+  // perceptibly laggy on fast-changing clusters).
   const scheduleFlushRef = useRef<() => void>(() => {});
   scheduleFlushRef.current = () => {
     if (flushTimerRef.current !== null) return; // already pending
     flushTimerRef.current = setTimeout(() => {
       flushTimerRef.current = null;
       setEpoch((e) => e + 1);
-    }, 100);
+    }, 16);
   };
 
   useEffect(() => {
