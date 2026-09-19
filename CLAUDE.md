@@ -61,6 +61,26 @@ Skipping the debate round and implementing directly from parallel-agent outputs 
 
 ---
 
+## Build and Ship on Every Commit
+
+**Before AND after every commit, run the build and tests. No exceptions.**
+
+```
+# Frontend
+pnpm --filter @kubebay/shell exec vitest run
+pnpm --filter @kubebay/shell build
+
+# Backend (when engine code changes)
+cd engine && go test ./...
+```
+
+- Run tests **before** committing — confirm green.
+- Run build **before** committing — confirm no TypeScript/compilation errors.
+- Never commit with a red build or failing tests.
+- The build confirms the tests pass AND the compiler agrees. Both must be green.
+
+---
+
 ## Commit Style
 
 - No `Co-Authored-By: Claude` lines — ever.
