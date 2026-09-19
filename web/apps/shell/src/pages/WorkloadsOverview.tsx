@@ -4,6 +4,7 @@ import { Badge, Card, Skeleton } from "@kubebay/ui";
 import { useCluster } from "../lib/useCluster";
 import { useResourceStream } from "../lib/useResourceStream";
 import type { KObj } from "../lib/topology";
+import { WorkloadTabBar } from "../components/WorkloadTabBar";
 
 function rec(v: unknown): Record<string, unknown> {
   return (v ?? {}) as Record<string, unknown>;
@@ -102,6 +103,7 @@ export default function WorkloadsOverview() {
 
   return (
     <div className="page">
+      <WorkloadTabBar />
       <div className="page-header">
         <h2>
           Workloads Overview

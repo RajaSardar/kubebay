@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams, useLocation } from "react-router-dom";
 import { Badge, Button, Skeleton, StatusDot } from "@kubebay/ui";
 import { api, crdApi, metricsApi, type PrinterColumn } from "../lib/api";
 import { useQuery as useRQQuery } from "@tanstack/react-query";
@@ -49,7 +49,8 @@ import GenericDrawer from "../components/GenericDrawer";
 import { ContextMenu } from "../components/ContextMenu";
 import { StarButton } from "../components/Favorites";
 import { NamespaceFilter } from "../components/NamespaceFilter";
-import { useSelectedNamespaces } from "../lib/namespace-store";
+import { useNamespaceStore, useSelectedNamespaces } from "../lib/namespace-store";
+import { WorkloadTabBar, isWorkloadRoute } from "../components/WorkloadTabBar";
 
 type Row = Record<string, unknown>;
 
@@ -272,6 +273,26 @@ export function extraColumns(
       };
     case "pods":
       return {
+        // Containers column: the cell value is unused — ContainerDots renders the dots
+        Containers: (o) => {
+          const cs = (rec(o.status).containerStatuses ?? []) as Record<string, unknown>[];
+          const total = cs.length || (rec(o.spec).containers as unknown[] | undefined)?.length || 0;
+          return { v: String(total) };
+        },
+        Status: (o) => {
+          const phase = str(rec(o.status).phase) || "Unknown";
+          let cls: string;
+          let dot: Cell["dot"];
+          switch (phase) {
+            case "Running":    cls = "status-ok";         dot = "ok";      break;
+            case "Succeeded":  cls = "status-terminated"; dot = "ok";      break;
+            case "Failed":     cls = "status-err";        dot = "err";     break;
+            case "Pending":    cls = "status-pending";    dot = "pending"; break;
+            case "Terminating": cls = "status-terminating"; dot = undefined; break;
+            default:           cls = "muted";             dot = undefined;
+          }
+          return { v: phase, cls, dot };
+        },
         Ready: (o) => {
           const cs = (rec(o.status).containerStatuses ?? []) as Record<string, unknown>[];
           const total = cs.length || (rec(o.spec).containers as unknown[] | undefined)?.length || 0;
@@ -289,7 +310,14 @@ export function extraColumns(
           const total = cs.reduce((sum, c) => sum + (typeof c.restartCount === "number" ? c.restartCount : 0), 0);
           return { v: String(total), dot: total > 5 ? "err" : total > 0 ? "warn" : undefined };
         },
+        "Controlled By": (o) => {
+          const owners = (rec(o.metadata).ownerReferences ?? []) as Record<string, unknown>[];
+          if (!owners.length) return { v: "–", cls: "muted" };
+          const owner = owners[0]!;
+          return { v: str(owner.kind) || "–", cls: "cell-secondary" };
+        },
         Node: (o) => ({ v: str(rec(o.spec).nodeName) || "–" }),
+        QoS: (o) => ({ v: str(rec(o.status).qosClass) || "–", cls: "cell-secondary" }),
         "Pod IP": (o) => ({ v: str(rec(o.status).podIP) || "–" }),
       };
     case "events":
@@ -311,6 +339,56 @@ export function extraColumns(
     default:
       return {};
   }
+}
+
+// ── Per-container status squares (FreeLens-style dots) ──────────────────────
+type ContainerState = "ok" | "waiting" | "err" | "terminated";
+
+function containerState(cs: Record<string, unknown>): ContainerState {
+  if (cs.ready === true) return "ok";
+  const st = cs.state as Record<string, unknown> | undefined;
+  if (!st) return "waiting";
+  if (st.terminated != null) {
+    const exitCode = (st.terminated as Record<string, unknown>).exitCode;
+    return typeof exitCode === "number" && exitCode !== 0 ? "err" : "terminated";
+  }
+  if (st.waiting != null) return "waiting";
+  return "waiting";
+}
+
+const CONTAINER_DOT_COLOR: Record<ContainerState, string> = {
+  ok: "var(--kb-status-ok)",
+  waiting: "var(--kb-status-pending)",
+  err: "var(--kb-status-err)",
+  terminated: "var(--kb-status-terminated)",
+};
+
+function ContainerDots({ o }: { o: Row }) {
+  const cs = (rec(o.status).containerStatuses ?? []) as Record<string, unknown>[];
+  const specContainers = (rec(o.spec).containers ?? []) as unknown[];
+  const total = cs.length || specContainers.length;
+  if (total === 0) return <span className="muted">–</span>;
+  return (
+    <span className="container-dots">
+      {cs.length > 0
+        ? cs.map((c, i) => (
+            <span
+              key={i}
+              className="container-dot"
+              title={`${str(c.name)}: ${containerState(c)}`}
+              style={{ background: CONTAINER_DOT_COLOR[containerState(c)] }}
+            />
+          ))
+        : Array.from({ length: total }, (_, i) => (
+            <span
+              key={i}
+              className="container-dot"
+              title="pending"
+              style={{ background: CONTAINER_DOT_COLOR["waiting"] }}
+            />
+          ))}
+    </span>
+  );
 }
 
 // Checkbox with indeterminate support
@@ -341,16 +419,19 @@ export default function ResourceTable() {
   const def: ResourceDef | undefined = lookupDef(kind, sp);
   const navigate = useNavigate();
 
+  const location = useLocation();
   const { cluster: effectiveCluster } = useCluster();
   const { density } = useDisplay();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const nsFilter = useSelectedNamespaces(effectiveCluster || undefined);
+  const { setNamespaces } = useNamespaceStore();
   const [search, setSearch] = useState("");
   const [sortCol, setSortCol] = useState<string | null>(null);
   const [sortAsc, setSortAsc] = useState(true);
   const [selected, setSelected] = useState<{ ns: string; name: string } | null>(null);
   const [ctx, setCtx] = useState<{ x: number; y: number; ns: string; name: string } | null>(null);
+  const [hoveredRowKey, setHoveredRowKey] = useState<string | null>(null);
 
   const stream = useResourceStream(effectiveCluster || undefined, def?.gvr ?? "v1/configmaps", {
     mode: def?.mode,
@@ -510,6 +591,7 @@ export default function ResourceTable() {
 
   return (
     <div className="page">
+      {isWorkloadRoute(location.pathname) && <WorkloadTabBar />}
       <div className="page-header">
         <h2>
           {def.label}
@@ -612,6 +694,7 @@ export default function ResourceTable() {
             <colgroup>
               <col style={{ width: 40 }} />
               {headers.map((h, i) => <col key={h} style={{ width: widths[i] }} />)}
+              <col style={{ width: 36 }} /> {/* ⋮ column */}
             </colgroup>
             <thead>
               <tr>
@@ -635,6 +718,7 @@ export default function ResourceTable() {
                     <div className="col-resize-handle" {...getResizeHandleProps(i)} />
                   </th>
                 ))}
+                <th className="col-row-menu" style={{ width: 36 }} /> {/* ⋮ header spacer */}
               </tr>
             </thead>
             <tbody
@@ -652,13 +736,17 @@ export default function ResourceTable() {
                 const ns = str(meta.namespace);
                 const key = `${ns}/${name}`;
                 const isSelected = selectedKeys.has(key);
+                const isTerminating = !!rec(o.metadata).deletionTimestamp;
                 return (
                   <tr
                     key={key}
                     data-index={virtualRow.index}
                     ref={rowVirtualizer.measureElement}
-                    className={`row-clickable${isSelected ? " selected" : ""}`}
+                    data-terminating={isTerminating || undefined}
+                    className={`row-clickable${isSelected ? " selected" : ""}${hoveredRowKey === key ? " hovered" : ""}`}
                     onClick={() => setSelected({ ns, name })}
+                    onMouseEnter={() => setHoveredRowKey(key)}
+                    onMouseLeave={() => setHoveredRowKey(null)}
                     onContextMenu={(e) => { e.preventDefault(); setCtx({ x: e.clientX, y: e.clientY, ns, name }); }}
                   >
                     <td className="col-select" onClick={(e) => e.stopPropagation()}>
@@ -670,9 +758,30 @@ export default function ResourceTable() {
                         aria-label={`Select ${name}`}
                       />
                     </td>
-                    <td className="mono strong" title={name}>{name}</td>
-                    {!def.scoped && <td className="mono"><span className="cell-link">{ns}</span></td>}
+                    <td className="mono td-name" title={name}>{name}</td>
+                    {!def.scoped && (
+                      <td className="mono">
+                        <span
+                          className="cell-link ns-pill"
+                          title={`Filter by namespace: ${ns}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (effectiveCluster) setNamespaces(effectiveCluster, [ns]);
+                          }}
+                        >
+                          {ns}
+                        </span>
+                      </td>
+                    )}
                     {cols.map((col) => {
+                      // Containers column for pods: render per-container dots
+                      if (col === "Containers" && def.slug === "pods") {
+                        return (
+                          <td key={col}>
+                            <ContainerDots o={o} />
+                          </td>
+                        );
+                      }
                       const cell = cellFor(def.slug, col, o);
                       return (
                         <td key={col} className="mono muted">
@@ -689,7 +798,7 @@ export default function ResourceTable() {
                                 {cell.v}
                               </span>
                             ) : (
-                              <span style={{ color: cell.cls }}>{cell.v}</span>
+                              <span className={cell.cls ?? ""}>{cell.v}</span>
                             )}
                           </span>
                         </td>
@@ -701,6 +810,19 @@ export default function ResourceTable() {
                       </td>
                     ))}
                     <td className="mono muted">{fmtAge(ageOf(o))}</td>
+                    {/* ⋮ kebab — visible only on row hover */}
+                    <td className="col-row-menu" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        className="row-menu-btn"
+                        aria-label="Row actions"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setCtx({ x: e.clientX, y: e.clientY, ns, name });
+                        }}
+                      >
+                        ⋮
+                      </button>
+                    </td>
                   </tr>
                 );
               })}
@@ -738,6 +860,16 @@ export default function ResourceTable() {
           }}
         />
       )}
+
+      {/* "+" FAB — create new resource */}
+      <button
+        className="resource-fab"
+        aria-label={`Create ${def.label}`}
+        title={`Create ${def.label}`}
+        onClick={() => {/* TODO: open create-resource sheet */}}
+      >
+        +
+      </button>
     </div>
   );
 }

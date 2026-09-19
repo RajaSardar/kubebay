@@ -10,6 +10,7 @@ import { useRowSelection } from "../lib/useRowSelection";
 import { useBulkDelete } from "../lib/useBulkDelete";
 import { NamespaceFilter } from "../components/NamespaceFilter";
 import { useSelectedNamespaces } from "../lib/namespace-store";
+import { WorkloadTabBar } from "../components/WorkloadTabBar";
 
 function rec(v: unknown): Record<string, unknown> {
   return (v ?? {}) as Record<string, unknown>;
@@ -249,6 +250,7 @@ export default function Workloads() {
 
   return (
     <div className="page">
+      <WorkloadTabBar />
       <div className="page-header">
         <h2>
           Workloads <span className="page-header-count">· Pods</span>
