@@ -10,6 +10,10 @@ body,
 #root {
   margin: 0;
   height: 100%;
+  /* Prevent macOS WebKit rubber-band / elastic overscroll bounce.
+     The root viewport must never scroll — only inner scrollable regions do. */
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 body {
