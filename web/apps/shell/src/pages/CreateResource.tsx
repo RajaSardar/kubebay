@@ -31,7 +31,8 @@ export default function CreateResource() {
     setResult(null);
     try {
       const res = await api.createResource({ cluster: active, yaml: effectiveYaml, dryRun });
-      setResult({ ok: true, msg: dryRun ? "Dry-run passed — no changes applied." : "Resource applied successfully." });
+      const count = res.total > 1 ? `${res.applied}/${res.total} documents` : "Resource";
+      setResult({ ok: true, msg: dryRun ? `Dry-run passed — ${count} validated.` : `${count} applied successfully.` });
       void res;
     } catch (e) {
       setResult({ ok: false, msg: String(e instanceof Error ? e.message : e) });

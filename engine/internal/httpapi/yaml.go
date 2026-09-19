@@ -195,6 +195,28 @@ func resolveGVR(dc discovery.DiscoveryInterface, apiVersion, kind string) (schem
 	return schema.GroupVersionResource{}, false, fmt.Errorf("kind %q not found in %s", kind, apiVersion)
 }
 
+// splitYAMLDocs splits a multi-document YAML string on `---` boundaries,
+// returning each non-empty document as a separate string.
+func splitYAMLDocs(raw string) []string {
+	var docs []string
+	for _, part := range strings.Split(raw, "\n---") {
+		trimmed := strings.TrimSpace(part)
+		// Strip leading `---` left by the first split
+		trimmed = strings.TrimPrefix(trimmed, "---")
+		trimmed = strings.TrimSpace(trimmed)
+		if trimmed != "" && trimmed != "---" {
+			docs = append(docs, trimmed)
+		}
+	}
+	if len(docs) == 0 {
+		// Fallback: treat the whole thing as one doc
+		if strings.TrimSpace(raw) != "" {
+			docs = append(docs, strings.TrimSpace(raw))
+		}
+	}
+	return docs
+}
+
 func (c *Channels) HandleCreateResource(w http.ResponseWriter, r *http.Request) {
 	var req CreateResourceRequest
 	if err := decodeBody(r, &req); err != nil {
@@ -203,24 +225,6 @@ func (c *Channels) HandleCreateResource(w http.ResponseWriter, r *http.Request) 
 	}
 	if req.Cluster == "" || req.YAML == "" {
 		http.Error(w, "cluster and yaml required", http.StatusBadRequest)
-		return
-	}
-	var doc map[string]interface{}
-	if err := yaml.Unmarshal([]byte(req.YAML), &doc); err != nil {
-		http.Error(w, "invalid YAML: "+err.Error(), http.StatusBadRequest)
-		return
-	}
-	apiVersion, _ := doc["apiVersion"].(string)
-	kind, _ := doc["kind"].(string)
-	if apiVersion == "" || kind == "" {
-		http.Error(w, "YAML must have apiVersion and kind", http.StatusBadRequest)
-		return
-	}
-	meta, _ := doc["metadata"].(map[string]interface{})
-	name, _ := meta["name"].(string)
-	ns, _ := meta["namespace"].(string)
-	if name == "" {
-		http.Error(w, "metadata.name is required", http.StatusBadRequest)
 		return
 	}
 
@@ -234,15 +238,9 @@ func (c *Channels) HandleCreateResource(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, "discovery client: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	gvr, namespaced, err := resolveGVR(dc, apiVersion, kind)
+	d, err := dynamic.NewForConfig(cfg)
 	if err != nil {
-		http.Error(w, "resolve GVR: "+err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	data, err := yaml.YAMLToJSON([]byte(req.YAML))
-	if err != nil {
-		http.Error(w, "convert: "+err.Error(), http.StatusBadRequest)
+		http.Error(w, "dynamic client: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -252,22 +250,49 @@ func (c *Channels) HandleCreateResource(w http.ResponseWriter, r *http.Request) 
 		patchOpts.DryRun = []string{metav1.DryRunAll}
 	}
 
-	d, err := dynamic.NewForConfig(cfg)
-	if err != nil {
-		http.Error(w, "dynamic client: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-	ri := d.Resource(gvr)
-	var applied interface{}
-	if namespaced && ns != "" {
-		applied, err = ri.Namespace(ns).Patch(r.Context(), name, types.ApplyPatchType, data, patchOpts)
-	} else {
-		applied, err = ri.Patch(r.Context(), name, types.ApplyPatchType, data, patchOpts)
-	}
-	if err != nil {
-		http.Error(w, fmt.Sprintf("apply: %v", err), http.StatusBadGateway)
-		return
+	docs := splitYAMLDocs(req.YAML)
+	applied := 0
+	for i, docYAML := range docs {
+		var doc map[string]interface{}
+		if err := yaml.Unmarshal([]byte(docYAML), &doc); err != nil {
+			http.Error(w, fmt.Sprintf("doc %d: invalid YAML: %v", i+1, err), http.StatusBadRequest)
+			return
+		}
+		apiVersion, _ := doc["apiVersion"].(string)
+		kind, _ := doc["kind"].(string)
+		if apiVersion == "" || kind == "" {
+			http.Error(w, fmt.Sprintf("doc %d: missing apiVersion or kind", i+1), http.StatusBadRequest)
+			return
+		}
+		meta, _ := doc["metadata"].(map[string]interface{})
+		name, _ := meta["name"].(string)
+		ns, _ := meta["namespace"].(string)
+		if name == "" {
+			http.Error(w, fmt.Sprintf("doc %d: metadata.name is required", i+1), http.StatusBadRequest)
+			return
+		}
+		gvr, namespaced, err := resolveGVR(dc, apiVersion, kind)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("doc %d: resolve GVR: %v", i+1, err), http.StatusBadRequest)
+			return
+		}
+		data, err := yaml.YAMLToJSON([]byte(docYAML))
+		if err != nil {
+			http.Error(w, fmt.Sprintf("doc %d: convert: %v", i+1, err), http.StatusBadRequest)
+			return
+		}
+		ri := d.Resource(gvr)
+		if namespaced && ns != "" {
+			_, err = ri.Namespace(ns).Patch(r.Context(), name, types.ApplyPatchType, data, patchOpts)
+		} else {
+			_, err = ri.Patch(r.Context(), name, types.ApplyPatchType, data, patchOpts)
+		}
+		if err != nil {
+			http.Error(w, fmt.Sprintf("doc %d (%s/%s): apply: %v", i+1, kind, name, err), http.StatusBadGateway)
+			return
+		}
+		applied++
 	}
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{"applied": applied != nil, "dryRun": req.DryRun})
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{"applied": applied, "total": len(docs), "dryRun": req.DryRun})
 }

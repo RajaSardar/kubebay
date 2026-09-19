@@ -270,6 +270,44 @@ function extraColumns(
         Type: (o) => ({ v: str(rec(o).type) || "Opaque" }),
         Data: (o) => ({ v: `${Object.keys(rec(o.data)).length} keys` }),
       };
+    case "pods":
+      return {
+        Ready: (o) => {
+          const cs = (rec(o.status).containerStatuses ?? []) as Record<string, unknown>[];
+          const total = cs.length || (rec(o.spec).containers as unknown[] | undefined)?.length || 0;
+          const ready = cs.filter((c) => c.ready === true).length;
+          const phase = str(rec(o.status).phase);
+          const dot: Cell["dot"] = phase === "Running" && ready === total && total > 0 ? "ok"
+            : phase === "Succeeded" ? "ok"
+            : phase === "Failed" ? "err"
+            : phase === "Pending" ? "pending"
+            : ready > 0 ? "warn" : "err";
+          return { v: `${ready}/${total}`, dot };
+        },
+        Restarts: (o) => {
+          const cs = (rec(o.status).containerStatuses ?? []) as Record<string, unknown>[];
+          const total = cs.reduce((sum, c) => sum + (typeof c.restartCount === "number" ? c.restartCount : 0), 0);
+          return { v: String(total), dot: total > 5 ? "err" : total > 0 ? "warn" : undefined };
+        },
+        Node: (o) => ({ v: str(rec(o.spec).nodeName) || "–" }),
+        "Pod IP": (o) => ({ v: str(rec(o.status).podIP) || "–" }),
+      };
+    case "events":
+      return {
+        Type: (o) => {
+          const t = str(rec(o).type);
+          return { v: t || "Normal", dot: t === "Warning" ? "warn" : "ok" };
+        },
+        Reason: (o) => ({ v: str(rec(o).reason) || "–" }),
+        Object: (o) => {
+          const obj = rec(rec(o).involvedObject);
+          const kind = str(obj.kind);
+          const name = str(obj.name);
+          return { v: kind && name ? `${kind}/${name}` : "–" };
+        },
+        Message: (o) => ({ v: str(rec(o).message).slice(0, 80) || "–", cls: "mono small" }),
+        Count: (o) => ({ v: String(typeof rec(o).count === "number" ? rec(o).count : 1) }),
+      };
     default:
       return {};
   }

@@ -45,6 +45,7 @@ const NetworkPolicy = lazy(() => import("./pages/NetworkPolicy"));
 const ArgoCD = lazy(() => import("./pages/ArgoCD"));
 const TerminalPage = lazy(() => import("./pages/TerminalPage"));
 const CreateResource = lazy(() => import("./pages/CreateResource"));
+const AuditLog = lazy(() => import("./pages/AuditLog"));
 import { Palette } from "./components/Palette";
 import { discoveryApi } from "./lib/api";
 import { KNOWN_GVRS, extSlug } from "./lib/resources";
@@ -183,6 +184,7 @@ const TOOLS = [
   { to: "/helm", label: "Helm", icon: <IconHelm /> },
   { to: "/argocd", label: "ArgoCD", icon: <IconArgoCD /> },
   { to: "/rbac", label: "RBAC", icon: <IconShield /> },
+  { to: "/audit", label: "Audit Log", icon: <IconTimeline /> },
   { to: "/timeline", label: "Timeline", icon: <IconTimeline /> },
   { to: "/topology", label: "Topology", icon: <IconTopology /> },
   { to: "/settings", label: "Settings", icon: <IconSliders /> },
@@ -788,6 +790,7 @@ function AppInner() {
               <Route path="/network-policy" element={<NetworkPolicy />} />
               <Route path="/terminal" element={<TerminalPage />} />
               <Route path="/create-resource" element={<CreateResource />} />
+              <Route path="/audit" element={<AuditLog />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="*" element={<NotFound />} />
             </Routes>

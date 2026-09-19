@@ -42,6 +42,8 @@ interface PodRow {
   restarts: number;
   ageMs: number;
   containers: string[];
+  node: string;
+  podIP: string;
 }
 
 function asRecord(v: unknown): Record<string, unknown> {
@@ -110,6 +112,8 @@ function derivePod(obj: Record<string, unknown>): PodRow | null {
     restarts,
     ageMs: Math.max(0, Date.now() - created),
     containers: containerNames,
+    node: (spec.nodeName as string) ?? "",
+    podIP: (status.podIP as string) ?? "",
   };
 }
 
@@ -153,9 +157,9 @@ function SelectAllCheckbox({ checked, indeterminate, onChange }: {
   );
 }
 
-// Column order: checkbox(0), Name(1), Namespace(2), Ready(3), Status(4), Restarts(5), CPU(6), Memory(7), Age(8)
-const HEADERS = ["Name", "Namespace", "Ready", "Status", "Restarts", "CPU", "Memory", "Age"] as const;
-const INITIAL_WIDTHS = [240, 120, 70, 150, 75, 130, 130, 75];
+// Column order: checkbox(0), Name(1), Namespace(2), Ready(3), Status(4), Restarts(5), Node(6), IP(7), CPU(8), Memory(9), Age(10)
+const HEADERS = ["Name", "Namespace", "Ready", "Status", "Restarts", "Node", "IP", "CPU", "Memory", "Age"] as const;
+const INITIAL_WIDTHS = [240, 120, 70, 150, 75, 160, 120, 110, 110, 75];
 
 type SortCol = typeof HEADERS[number] | null;
 
@@ -220,6 +224,8 @@ export default function Workloads() {
           case "Ready":     av = a.ready;     bv = b.ready;     break;
           case "Status":    av = a.statusLabel; bv = b.statusLabel; break;
           case "Restarts":  av = a.restarts;  bv = b.restarts;  break;
+          case "Node":      av = a.node;      bv = b.node;      break;
+          case "IP":        av = a.podIP;     bv = b.podIP;     break;
           case "CPU":       av = usage.get(a.key)?.cpuMillis ?? -1; bv = usage.get(b.key)?.cpuMillis ?? -1; break;
           case "Memory":    av = usage.get(a.key)?.memBytes   ?? -1; bv = usage.get(b.key)?.memBytes   ?? -1; break;
           case "Age":       av = a.ageMs;     bv = b.ageMs;     break;
@@ -335,7 +341,7 @@ export default function Workloads() {
               {[0, 1, 2, 3, 4, 5].map((i) => (
                 <tr key={i}>
                   <td />
-                  {[140, 80, 40, 70, 30, 60, 60, 30].map((w, j) => (
+                  {[140, 80, 40, 70, 30, 100, 80, 60, 60, 30].map((w, j) => (
                     <td key={j}><Skeleton w={w} /></td>
                   ))}
                 </tr>
@@ -424,6 +430,8 @@ export default function Workloads() {
                       </span>
                     </td>
                     <td className={`mono${p.restarts > 0 ? " restart-warn" : ""}`}>{p.restarts}</td>
+                    <td className="mono muted small" title={p.node}>{p.node || "–"}</td>
+                    <td className="mono muted small">{p.podIP || "–"}</td>
                     <td>
                       {usage.get(p.key)?.cpuMillis != null ? (
                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
