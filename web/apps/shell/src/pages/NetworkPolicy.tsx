@@ -248,7 +248,7 @@ export default function NetworkPolicyPage() {
     { mode: "full" },
   );
 
-  const ready = pods.synced && netpols.synced;
+  const ready = pods.connected && pods.synced && netpols.synced;
 
   // Build pod groups (unique namespace/appLabel combos)
   const podGroups = useMemo((): PodGroup[] => {

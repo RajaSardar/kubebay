@@ -340,7 +340,7 @@ export default function Workloads() {
         <PageLoader message="Waiting for cluster…" />
       )}
 
-      {effectiveCluster && !synced && (
+      {effectiveCluster && (!connected || !synced) && (
         <div className="table-wrap">
           <table className="kb-table">
             <thead>

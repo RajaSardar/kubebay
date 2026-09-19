@@ -131,7 +131,7 @@ export default function Timeline() {
       </div>
 
       <div className="page-body">
-        {!synced ? (
+        {!connected || !synced ? (
           <PageLoader message="Connecting to event stream…" />
         ) : events.length === 0 ? (
           <div className="empty-state">

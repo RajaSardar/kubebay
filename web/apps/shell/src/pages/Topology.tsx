@@ -129,6 +129,7 @@ export default function Topology() {
   const svcs = useResourceStream(effectiveCluster || undefined, "v1/services", { mode: "full", ns: [effectiveNs] });
 
   const ready =
+    pods.connected &&
     pods.synced && rss.synced && deps.synced && stss.synced && dss.synced && svcs.synced;
 
   const graph = useMemo(
