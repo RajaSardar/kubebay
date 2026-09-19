@@ -219,9 +219,11 @@ func splitYAMLDocs(raw string) []string {
 		}
 	}
 	if len(docs) == 0 {
-		// Fallback: treat the whole thing as one doc
-		if strings.TrimSpace(raw) != "" {
-			docs = append(docs, strings.TrimSpace(raw))
+		// Fallback: treat the whole thing as one doc, but only if it is not
+		// a bare separator line (a "---"-only input contains no documents).
+		trimmedRaw := strings.TrimSpace(raw)
+		if trimmedRaw != "" && trimmedRaw != "---" {
+			docs = append(docs, trimmedRaw)
 		}
 	}
 	return docs

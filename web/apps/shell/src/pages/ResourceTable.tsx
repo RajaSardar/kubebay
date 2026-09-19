@@ -53,11 +53,11 @@ import { useSelectedNamespaces } from "../lib/namespace-store";
 
 type Row = Record<string, unknown>;
 
-function rec(v: unknown): Record<string, unknown> {
+export function rec(v: unknown): Record<string, unknown> {
   return (v ?? {}) as Record<string, unknown>;
 }
 
-interface Cell {
+export interface Cell {
   v: string;
   dot?: "ok" | "warn" | "err" | "pending";
   cls?: string;
@@ -91,7 +91,7 @@ function workloadCells(o: Row): Record<string, Cell> {
   };
 }
 
-function extraColumns(
+export function extraColumns(
   slug: string,
   ctx?: { nodeUsage?: Map<string, { cpuMillis: number; memBytes: number }>; podsPerNode?: Map<string, number> },
 ): Record<string, (o: Row) => Cell> {
