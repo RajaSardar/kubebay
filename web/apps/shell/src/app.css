@@ -3325,3 +3325,311 @@ tr.row-clickable:active {
   color: var(--kb-status-err);
   font-size: var(--kb-text-sm);
 }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   Cluster Picker — full-screen landing
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+.cp-root {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+  padding: 48px 24px 80px;
+  background: var(--kb-bg-base);
+  overflow-y: auto;
+}
+
+/* Header */
+.cp-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 36px;
+}
+.cp-logo {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+}
+.cp-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--kb-fg-default);
+  letter-spacing: -0.02em;
+}
+.cp-subtitle {
+  margin: 2px 0 0;
+  font-size: var(--kb-text-sm);
+}
+
+/* Search */
+.cp-search-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 560px;
+  margin-bottom: 20px;
+}
+.cp-search-icon {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--kb-fg-subtle);
+  pointer-events: none;
+}
+.cp-search {
+  width: 100%;
+  padding: 9px 12px 9px 32px;
+  background: var(--kb-bg-inset);
+  border: 1px solid var(--kb-border);
+  border-radius: var(--kb-radius);
+  color: var(--kb-fg-default);
+  font-size: var(--kb-text-sm);
+  outline: none;
+  box-sizing: border-box;
+}
+.cp-search:focus {
+  border-color: var(--kb-accent);
+  box-shadow: 0 0 0 2px var(--kb-accent-dim);
+}
+
+/* Cluster list */
+.cp-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  max-width: 560px;
+}
+
+.cp-empty {
+  text-align: center;
+  padding: 40px 0;
+}
+
+/* Cluster card */
+.cp-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  background: var(--kb-bg-surface);
+  border: 1px solid var(--kb-border);
+  border-radius: var(--kb-radius);
+  cursor: pointer;
+  transition: border-color 120ms, background 120ms, box-shadow 120ms;
+  text-align: left;
+  position: relative;
+}
+.cp-card:hover {
+  background: var(--kb-bg-hover);
+  border-color: var(--kb-border-strong);
+}
+.cp-card:focus-visible {
+  outline: 2px solid var(--kb-accent);
+  outline-offset: 2px;
+}
+.cp-card.active {
+  border-color: var(--kb-accent);
+  box-shadow: 0 0 0 2px var(--kb-accent-dim);
+}
+.cp-card.broken {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Card icon */
+.cp-card-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--kb-radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 700;
+  font-size: var(--kb-text-xs);
+  font-family: var(--kb-font-mono, monospace);
+  letter-spacing: -0.02em;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: filter 120ms;
+}
+.cp-card-icon:hover {
+  filter: brightness(1.15);
+}
+
+/* Card info */
+.cp-card-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.cp-card-name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.cp-card-name {
+  font-weight: 600;
+  font-size: var(--kb-text-sm);
+  color: var(--kb-fg-default);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cp-pin-badge {
+  color: var(--kb-accent);
+  font-size: 12px;
+  line-height: 1;
+}
+.cp-card-context,
+.cp-card-server,
+.cp-card-version {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Inline rename input */
+.cp-rename-input {
+  flex: 1;
+  padding: 3px 7px;
+  background: var(--kb-bg-inset);
+  border: 1px solid var(--kb-accent);
+  border-radius: var(--kb-radius-sm);
+  color: var(--kb-fg-default);
+  font-size: var(--kb-text-sm);
+  font-weight: 600;
+  outline: none;
+}
+
+/* Right section */
+.cp-card-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* Status pill */
+.cp-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--pill-color, var(--kb-fg-subtle));
+  white-space: nowrap;
+}
+.cp-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* Action buttons */
+.cp-card-actions {
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 120ms;
+}
+.cp-card:hover .cp-card-actions,
+.cp-card:focus-within .cp-card-actions {
+  opacity: 1;
+}
+
+.cp-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--kb-radius-sm);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--kb-fg-subtle);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  transition: background 100ms, color 100ms;
+}
+.cp-action-btn:hover {
+  background: var(--kb-bg-hover);
+  color: var(--kb-fg-default);
+}
+.cp-action-btn.active {
+  color: var(--kb-accent);
+}
+.cp-action-btn.danger:hover {
+  background: var(--kb-status-err-dim, rgba(239,95,104,0.12));
+  color: var(--kb-status-err);
+}
+
+/* Hidden clusters section */
+.cp-hidden-section {
+  width: 100%;
+  max-width: 560px;
+  margin-top: 24px;
+}
+.cp-hidden-summary {
+  cursor: pointer;
+  padding: 4px 0;
+  user-select: none;
+  list-style: none;
+}
+.cp-hidden-summary::-webkit-details-marker { display: none; }
+.cp-hidden-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 10px 14px;
+  background: var(--kb-bg-inset);
+  border-radius: var(--kb-radius);
+}
+.cp-hidden-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.cp-show-btn {
+  padding: 3px 10px;
+  border-radius: var(--kb-radius-sm);
+  border: 1px solid var(--kb-border);
+  background: var(--kb-bg-surface);
+  color: var(--kb-fg-default);
+  cursor: pointer;
+  font-size: var(--kb-text-xs);
+  transition: background 100ms;
+}
+.cp-show-btn:hover {
+  background: var(--kb-bg-hover);
+}
+
+/* "Back to clusters" button in sidebar */
+.cp-back-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  margin: 8px 8px 0;
+  border-radius: var(--kb-radius-sm);
+  border: 1px solid var(--kb-border);
+  background: var(--kb-bg-inset);
+  color: var(--kb-fg-muted);
+  font-size: var(--kb-text-xs);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 100ms, color 100ms;
+}
+.cp-back-btn:hover {
+  background: var(--kb-bg-hover);
+  color: var(--kb-fg-default);
+}

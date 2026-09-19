@@ -23,6 +23,7 @@ import {
 } from "@kubebay/ui/src/icons";
 import { api } from "./lib/api";
 import Home from "./pages/Home";
+import ClusterPicker from "./pages/ClusterPicker";
 
 // Home stays eager — it is the landing route, so lazying it would only add a
 // round-trip before first paint. Everything else is split out: Topology alone
@@ -50,7 +51,8 @@ import { Palette } from "./components/Palette";
 import { discoveryApi } from "./lib/api";
 import { KNOWN_GVRS, extSlug } from "./lib/resources";
 import { FavoritesSidebar, useFavorites } from "./components/Favorites";
-import { useClusterIcons, type ClusterIcon } from "./lib/useClusterIcons";
+import { useClusterIcons } from "./lib/useClusterIcons";
+import { ClusterIconPicker, autoAvatar } from "./components/ClusterIconPicker";
 import { useWsStatus } from "./lib/useWsStatus";
 import { clearStreamCacheForCluster } from "./lib/streamCache";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -238,97 +240,6 @@ function CustomResourcesGroup() {
 }
 
 // ──── ClusterStrip ───────────────────────────────────────────────────────────
-
-const ICON_PRESETS = [
-  { bg: "#F90",     label: "AWS" },
-  { bg: "#4285F4",  label: "GCP" },
-  { bg: "#0078D4",  label: "AZ"  },
-  { bg: "#7C3AED",  label: "K"   },
-  { bg: "#326CE5",  label: "M"   },
-  { bg: "#41c98e",  label: "DEV" },
-  { bg: "#ef5f68",  label: "PRD" },
-  { bg: "#64748b",  label: "STG" },
-];
-
-function autoAvatar(id: string): { bg: string; label: string } {
-  if (id.startsWith("arn:aws")) return { bg: "#F90", label: "AWS" };
-  if (id.includes("gke") || id.includes("gcp")) return { bg: "#4285F4", label: "GCP" };
-  if (id.includes("aks") || id.includes("azure")) return { bg: "#0078D4", label: "AZ" };
-  if (id.startsWith("kind-")) return { bg: "#7C3AED", label: "K" };
-  if (id.startsWith("minikube")) return { bg: "#326CE5", label: "M" };
-  return { bg: "var(--kb-accent)", label: id.slice(0, 2).toUpperCase() };
-}
-
-interface IconPickerProps {
-  clusterId: string;
-  current: ClusterIcon;
-  onSave: (icon: ClusterIcon) => void;
-  onReset: () => void;
-  onClose: () => void;
-}
-
-function ClusterIconPicker({ clusterId, current, onSave, onReset, onClose }: IconPickerProps) {
-  const [bg, setBg] = useState(current.bg);
-  const [label, setLabel] = useState(current.label);
-
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
-  return (
-    <>
-      <div className="icon-picker-backdrop" onClick={onClose} />
-      <div className="icon-picker">
-        <div className="icon-picker-title">Customize icon</div>
-        <div className="icon-picker-preview" style={{ background: bg }}>
-          {label || "?"}
-        </div>
-        <div className="icon-picker-section">Colors</div>
-        <div className="icon-picker-swatches">
-          {ICON_PRESETS.map((p) => (
-            <button
-              key={p.bg}
-              className={`icon-swatch${bg === p.bg ? " selected" : ""}`}
-              style={{ background: p.bg }}
-              onClick={() => { setBg(p.bg); setLabel(p.label); }}
-              title={p.label}
-            />
-          ))}
-          <label className="icon-swatch icon-swatch-custom" title="Custom color">
-            <input
-              type="color"
-              value={bg.startsWith("#") ? bg : "#41c98e"}
-              onChange={(e) => setBg(e.target.value)}
-              style={{ opacity: 0, position: "absolute", inset: 0, width: "100%", height: "100%", cursor: "pointer" }}
-            />
-            <span style={{ fontSize: "var(--kb-text-lg)" }}>🎨</span>
-          </label>
-        </div>
-        <div className="icon-picker-section">Label</div>
-        <input
-          className="icon-picker-input"
-          maxLength={3}
-          value={label}
-          onChange={(e) => setLabel(e.target.value.toUpperCase())}
-          placeholder={clusterId.slice(0, 3).toUpperCase()}
-          spellCheck={false}
-        />
-        <div className="icon-picker-actions">
-          <button className="icon-picker-btn ghost" onClick={() => { onReset(); onClose(); }}>
-            Reset
-          </button>
-          <button className="icon-picker-btn primary" onClick={() => { onSave({ bg, label }); onClose(); }}>
-            Apply
-          </button>
-        </div>
-      </div>
-    </>
-  );
-}
 
 // ──── ClusterConnectingOverlay ────────────────────────────────────────────────
 
@@ -618,6 +529,13 @@ function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
         </div>
       </div>
 
+      <NavLink to="/clusters" className="cp-back-btn" title="Switch cluster">
+        <svg viewBox="0 0 16 16" width="12" height="12" fill="none">
+          <path d="M10 3L5 8l5 5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+        <span>Clusters</span>
+      </NavLink>
+
       <button className="palette-hint" onClick={onOpenPalette}>
         <IconSearch size={13} />
         <span>Search…</span>
@@ -837,6 +755,8 @@ function AppInner() {
 }
 
 export default function App() {
+  const navigate = useNavigate();
+
   // Warm the two routes users almost always reach from Home, once the main
   // thread is idle, so splitting them out never costs a visible fallback.
   useEffect(() => {
@@ -853,5 +773,20 @@ export default function App() {
     return () => clearTimeout(t);
   }, []);
 
-  return <AppInner />;
+  // On first open (no ?cluster= in URL), land on the cluster picker.
+  useEffect(() => {
+    const hasCluster = new URLSearchParams(window.location.search).has("cluster");
+    const isOnClusters = window.location.pathname === "/clusters";
+    if (!hasCluster && !isOnClusters) {
+      navigate("/clusters", { replace: true });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <Routes>
+      <Route path="/clusters" element={<ClusterPicker />} />
+      <Route path="/*" element={<AppInner />} />
+    </Routes>
+  );
 }

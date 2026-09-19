@@ -57,7 +57,7 @@ describe("setStreamCache / getStreamCache", () => {
     // There is no savedAt field in the new implementation.
     const entry = getStreamCache(key1);
     expect(entry).not.toBeNull();
-    expect((entry as Record<string, unknown>)["savedAt"]).toBeUndefined();
+    expect((entry as unknown as Record<string, unknown>)["savedAt"]).toBeUndefined();
   });
 });
 
