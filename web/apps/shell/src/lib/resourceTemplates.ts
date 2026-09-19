@@ -335,4 +335,140 @@ spec:
         averageUtilization: 50
 `,
   },
+  {
+    kind: "Pod",
+    apiVersion: "v1",
+    yaml: `apiVersion: v1
+kind: Pod
+metadata:
+  name: static-web
+  namespace: default
+  labels:
+    role: myrole
+spec:
+  containers:
+  - name: web
+    image: nginx
+    ports:
+    - name: web
+      containerPort: 80
+      protocol: TCP
+`,
+  },
+  {
+    kind: "ReplicaSet",
+    apiVersion: "apps/v1",
+    yaml: `apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: frontend
+  namespace: default
+  labels:
+    app: guestbook
+    tier: frontend
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      tier: frontend
+  template:
+    metadata:
+      labels:
+        tier: frontend
+    spec:
+      containers:
+      - name: app
+        image: nginx:latest
+`,
+  },
+  {
+    kind: "ReplicationController",
+    apiVersion: "v1",
+    yaml: `apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: nginx
+  namespace: default
+spec:
+  replicas: 3
+  selector:
+    app: nginx
+  template:
+    metadata:
+      name: nginx
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx
+        ports:
+        - containerPort: 80
+`,
+  },
+  {
+    kind: "PersistentVolume",
+    apiVersion: "v1",
+    yaml: `apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: my-pv
+spec:
+  capacity:
+    storage: 5Gi
+  volumeMode: Filesystem
+  accessModes:
+  - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: standard
+  hostPath:
+    path: /mnt/data
+`,
+  },
+  {
+    kind: "NetworkPolicy",
+    apiVersion: "networking.k8s.io/v1",
+    yaml: `apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-app-ingress
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      app: my-app
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          role: frontend
+    ports:
+    - protocol: TCP
+      port: 8080
+`,
+  },
+  {
+    kind: "PriorityClass",
+    apiVersion: "scheduling.k8s.io/v1",
+    yaml: `apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: high-priority
+value: 1000000
+globalDefault: false
+description: High priority workloads.
+`,
+  },
+  {
+    kind: "RuntimeClass",
+    apiVersion: "node.k8s.io/v1",
+    yaml: `apiVersion: node.k8s.io/v1
+kind: RuntimeClass
+metadata:
+  name: gvisor
+handler: runsc
+`,
+  },
 ];
