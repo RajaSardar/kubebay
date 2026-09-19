@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Navigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Badge, Button, Skeleton, StatusDot } from "@kubebay/ui";
 import { api } from "../lib/api";
@@ -172,7 +173,10 @@ export default function Workloads() {
   const [sortAsc, setSortAsc] = useState(true);
 
   const list = clusters.data ?? [];
-  const effectiveCluster = activeCluster || list.find((c) => c.status === "connected")?.id || list[0]?.id || "";
+  // Use only the explicitly selected cluster — never fall back to list[0].
+  // The fallback produced an unstable value that changed on every 4-second
+  // clusters refetch, causing useResourceStream to restart and wipe rows.
+  const effectiveCluster = activeCluster;
 
   const nsFilter = useSelectedNamespaces(effectiveCluster || undefined);
   const { rows, synced, connected } = useResourceStream(effectiveCluster || undefined, "v1/pods", {
@@ -199,6 +203,13 @@ export default function Workloads() {
   const bulkDelete = useBulkDelete((t) =>
     api.deleteResource({ cluster: effectiveCluster, gvr: "v1/pods", ns: t.ns, name: t.name }),
   );
+
+  // If no cluster is selected and we're done loading, send user to cluster picker.
+  // This handles direct navigation (e.g. deep link to /workloads) without going
+  // through ClusterPicker, which is the only place that sets the active cluster.
+  if (!effectiveCluster && !clusters.isLoading) {
+    return <Navigate to="/clusters" replace />;
+  }
 
   async function confirmDeletePods() {
     const succeeded = await bulkDelete.confirm();

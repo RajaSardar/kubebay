@@ -773,11 +773,14 @@ export default function App() {
     return () => clearTimeout(t);
   }, []);
 
-  // On first open (no ?cluster= in URL), land on the cluster picker.
+  // Always land on the cluster picker on app mount.
+  // macOS does not quit the app when the window is closed — reopening the
+  // window restores the previous webview URL (including ?cluster=...).
+  // Checking window.location.search for "cluster" would skip the redirect
+  // on re-open. Instead we always redirect, letting the user click through
+  // in under a second if they just want to continue with their last cluster.
   useEffect(() => {
-    const hasCluster = new URLSearchParams(window.location.search).has("cluster");
-    const isOnClusters = window.location.pathname === "/clusters";
-    if (!hasCluster && !isOnClusters) {
+    if (window.location.pathname !== "/clusters") {
       navigate("/clusters", { replace: true });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
