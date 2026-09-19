@@ -32,10 +32,11 @@ export interface SubSpec {
 
 export interface ChanSpec {
   id: string;
-  kind: "logs" | "exec";
+  kind: "logs" | "exec" | "local-shell";
   cluster: string;
-  namespace: string;
-  pod: string;
+  // namespace/pod are required for logs/exec but not for local-shell.
+  namespace?: string;
+  pod?: string;
   container?: string;
   tail?: number;
   follow?: boolean;

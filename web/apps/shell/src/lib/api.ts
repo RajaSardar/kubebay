@@ -154,6 +154,8 @@ export const api = {
     dryRun: boolean;
     force: boolean;
   }) => send<{ applied: boolean; dryRun: boolean }>("PUT", "/api/yaml", b),
+  createResource: (b: { cluster: string; yaml: string; dryRun: boolean }) =>
+    send<{ applied: boolean; dryRun: boolean }>("POST", "/api/yaml/create", b),
 };
 
 export const nodeApi = {

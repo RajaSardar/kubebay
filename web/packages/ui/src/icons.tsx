@@ -187,6 +187,26 @@ export function IconArgoCD({ size, strokeWidth }: IconProps) {
   );
 }
 
+// ── Terminal — prompt chevron + underscore cursor ─────────────────────────────
+export function IconTerminal({ size, strokeWidth }: IconProps) {
+  return (
+    <svg {...base(size, strokeWidth)}>
+      <polyline points="4 17 10 11 4 5" />
+      <line x1="12" y1="19" x2="20" y2="19" />
+    </svg>
+  );
+}
+
+// ── Plus — create new resource ────────────────────────────────────────────────
+export function IconPlus({ size, strokeWidth }: IconProps) {
+  return (
+    <svg {...base(size, strokeWidth)}>
+      <line x1="12" y1="5" x2="12" y2="19" />
+      <line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
+  );
+}
+
 // ── Home — house ──────────────────────────────────────────────────────────────
 export function IconHome({ size, strokeWidth }: IconProps) {
   return (

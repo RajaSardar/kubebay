@@ -242,6 +242,7 @@ fn main() {
                 addr.clone(),
                 "--token-file".to_string(),
                 token_path.to_string_lossy().into_owned(),
+                "--local-shell".to_string(),
             ]);
             let forwarded = login_shell_env();
             for (name, value) in &forwarded {

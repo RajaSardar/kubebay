@@ -259,6 +259,7 @@ func Router(d Deps, token string) http.Handler {
 
 		r.Get("/api/yaml", d.Channels.HandleGetYAML)
 		r.Put("/api/yaml", d.Channels.HandleApplyYAML)
+		r.Post("/api/yaml/create", d.Channels.HandleCreateResource)
 		r.Get("/api/metrics/pods", d.Metrics.HandlePodMetrics)
 		r.Get("/api/apis", d.Metrics.HandleDiscovery)
 		r.Get("/api/crds", d.Metrics.HandleCRDs)

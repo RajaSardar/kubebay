@@ -28,7 +28,7 @@ sync-ui: web
 	cp -R $(DIST_DIR) $(EMBED_DIR)
 
 engine: sync-ui
-	GOTOOLCHAIN=local go -C $(ENGINE_DIR) build -trimpath -ldflags "-s -w" -o bin/kubebay ./cmd/kubebay
+	GOTOOLCHAIN=local go -C $(ENGINE_DIR) build -trimpath -tags localshell -ldflags "-s -w" -o bin/kubebay ./cmd/kubebay
 
 build: engine
 

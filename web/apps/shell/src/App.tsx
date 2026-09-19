@@ -13,9 +13,11 @@ import {
   IconHelm,
   IconHome,
   IconNetwork,
+  IconPlus,
   IconSearch,
   IconShield,
   IconSliders,
+  IconTerminal,
   IconTimeline,
   IconTopology,
 } from "@kubebay/ui/src/icons";
@@ -41,6 +43,8 @@ const ResourceDetail = lazy(() => import("./pages/ResourceDetail"));
 const Crds = lazy(() => import("./pages/Crds"));
 const NetworkPolicy = lazy(() => import("./pages/NetworkPolicy"));
 const ArgoCD = lazy(() => import("./pages/ArgoCD"));
+const TerminalPage = lazy(() => import("./pages/TerminalPage"));
+const CreateResource = lazy(() => import("./pages/CreateResource"));
 import { Palette } from "./components/Palette";
 import { discoveryApi } from "./lib/api";
 import { KNOWN_GVRS, extSlug } from "./lib/resources";
@@ -49,6 +53,7 @@ import { useClusterIcons, type ClusterIcon } from "./lib/useClusterIcons";
 import { useWsStatus } from "./lib/useWsStatus";
 import { clearStreamCacheForCluster } from "./lib/streamCache";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { usePrewarm } from "./lib/usePrewarm";
 
 // ──── Cluster Context ────────────────────────────────────────────────────────
 // `active` and `setActive` now live in Zustand (cluster-store.ts).
@@ -171,6 +176,8 @@ const GROUPS: NavGroupDef[] = [
 ];
 
 const TOOLS = [
+  { to: "/terminal", label: "Terminal", icon: <IconTerminal /> },
+  { to: "/create-resource", label: "Create Resource", icon: <IconPlus /> },
   { to: "/crds", label: "CRDs", icon: <IconGrid /> },
   { to: "/ports", label: "Ports", icon: <IconForward /> },
   { to: "/helm", label: "Helm", icon: <IconHelm /> },
@@ -696,6 +703,10 @@ function AppInner() {
 
   const list = clusters.data ?? [];
   const effectiveActive = active || list.find((c) => c.status === "connected")?.id || list[0]?.id || "";
+
+  // Pre-warm backend informers for the most-visited GVRs so first renders are
+  // instant — same technique as FreeLens's persistent KubeObjectStore subscriptions.
+  usePrewarm(effectiveActive || undefined);
   const activeCluster = list.find((c) => c.id === effectiveActive);
 
   const setActive = (id: string) => {
@@ -775,6 +786,8 @@ function AppInner() {
               <Route path="/argocd" element={<ArgoCD />} />
               <Route path="/crds" element={<Crds />} />
               <Route path="/network-policy" element={<NetworkPolicy />} />
+              <Route path="/terminal" element={<TerminalPage />} />
+              <Route path="/create-resource" element={<CreateResource />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="*" element={<NotFound />} />
             </Routes>

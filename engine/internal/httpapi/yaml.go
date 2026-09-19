@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"sigs.k8s.io/yaml"
 
@@ -157,6 +159,110 @@ func (c *Channels) HandleApplyYAML(w http.ResponseWriter, r *http.Request) {
 		applied, err = ri.Namespace(req.Namespace).Patch(r.Context(), req.Name, types.ApplyPatchType, data, patchOpts)
 	} else {
 		applied, err = ri.Patch(r.Context(), req.Name, types.ApplyPatchType, data, patchOpts)
+	}
+	if err != nil {
+		http.Error(w, fmt.Sprintf("apply: %v", err), http.StatusBadGateway)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{"applied": applied != nil, "dryRun": req.DryRun})
+}
+
+type CreateResourceRequest struct {
+	Cluster string `json:"cluster"`
+	YAML    string `json:"yaml"`
+	DryRun  bool   `json:"dryRun"`
+}
+
+// resolveGVR uses server-side discovery to map apiVersion+kind → GVR + namespaced flag.
+func resolveGVR(dc discovery.DiscoveryInterface, apiVersion, kind string) (schema.GroupVersionResource, bool, error) {
+	resList, err := dc.ServerResourcesForGroupVersion(apiVersion)
+	if err != nil {
+		return schema.GroupVersionResource{}, false, fmt.Errorf("discovery for %s: %w", apiVersion, err)
+	}
+	var group, version string
+	if idx := strings.Index(apiVersion, "/"); idx >= 0 {
+		group = apiVersion[:idx]
+		version = apiVersion[idx+1:]
+	} else {
+		version = apiVersion
+	}
+	for _, r := range resList.APIResources {
+		if r.Kind == kind {
+			return schema.GroupVersionResource{Group: group, Version: version, Resource: r.Name}, r.Namespaced, nil
+		}
+	}
+	return schema.GroupVersionResource{}, false, fmt.Errorf("kind %q not found in %s", kind, apiVersion)
+}
+
+func (c *Channels) HandleCreateResource(w http.ResponseWriter, r *http.Request) {
+	var req CreateResourceRequest
+	if err := decodeBody(r, &req); err != nil {
+		http.Error(w, "bad body: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	if req.Cluster == "" || req.YAML == "" {
+		http.Error(w, "cluster and yaml required", http.StatusBadRequest)
+		return
+	}
+	var doc map[string]interface{}
+	if err := yaml.Unmarshal([]byte(req.YAML), &doc); err != nil {
+		http.Error(w, "invalid YAML: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	apiVersion, _ := doc["apiVersion"].(string)
+	kind, _ := doc["kind"].(string)
+	if apiVersion == "" || kind == "" {
+		http.Error(w, "YAML must have apiVersion and kind", http.StatusBadRequest)
+		return
+	}
+	meta, _ := doc["metadata"].(map[string]interface{})
+	name, _ := meta["name"].(string)
+	ns, _ := meta["namespace"].(string)
+	if name == "" {
+		http.Error(w, "metadata.name is required", http.StatusBadRequest)
+		return
+	}
+
+	cfg, err := c.Clusters.RestConfigWithIdentity(req.Cluster, IdentityFromContext(r.Context()))
+	if err != nil {
+		http.Error(w, "connect: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	dc, err := discovery.NewDiscoveryClientForConfig(cfg)
+	if err != nil {
+		http.Error(w, "discovery client: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	gvr, namespaced, err := resolveGVR(dc, apiVersion, kind)
+	if err != nil {
+		http.Error(w, "resolve GVR: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	data, err := yaml.YAMLToJSON([]byte(req.YAML))
+	if err != nil {
+		http.Error(w, "convert: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	force := true
+	patchOpts := metav1.PatchOptions{FieldManager: "kubebay", Force: &force}
+	if req.DryRun {
+		patchOpts.DryRun = []string{metav1.DryRunAll}
+	}
+
+	d, err := dynamic.NewForConfig(cfg)
+	if err != nil {
+		http.Error(w, "dynamic client: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	ri := d.Resource(gvr)
+	var applied interface{}
+	if namespaced && ns != "" {
+		applied, err = ri.Namespace(ns).Patch(r.Context(), name, types.ApplyPatchType, data, patchOpts)
+	} else {
+		applied, err = ri.Patch(r.Context(), name, types.ApplyPatchType, data, patchOpts)
 	}
 	if err != nil {
 		http.Error(w, fmt.Sprintf("apply: %v", err), http.StatusBadGateway)
