@@ -662,7 +662,7 @@ export default function ResourceTable() {
         />
       </div>
 
-      {!stream.synced ? (
+      {!stream.connected || !stream.synced ? (
         <div className="table-wrap">
           <table className="kb-table">
             <thead>

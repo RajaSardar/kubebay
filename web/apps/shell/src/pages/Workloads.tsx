@@ -363,14 +363,14 @@ export default function Workloads() {
         </div>
       )}
 
-      {effectiveCluster && synced && pods.length === 0 && (
+      {effectiveCluster && connected && synced && pods.length === 0 && (
         <div className="empty-state">
           <p>No pods match.</p>
           <p className="muted small">{filter || nsFilter.length ? "Try clearing the filters." : "This cluster looks quiet."}</p>
         </div>
       )}
 
-      {synced && pods.length > 0 && (
+      {connected && synced && pods.length > 0 && (
         <div className="table-wrap">
           <table className="kb-table">
             <colgroup>
