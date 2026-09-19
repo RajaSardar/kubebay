@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { NavLink } from "react-router-dom";
+import { PageLoader } from "../components/PageLoader";
 import { crdApi, type CRDEntry } from "../lib/api";
 import { extSlug } from "../lib/resources";
 import { useCluster } from "../lib/useCluster";
@@ -85,7 +86,7 @@ export default function Crds() {
           spellCheck={false}
           style={{ maxWidth: 280 }}
         />
-        {q.isLoading && <span className="crd-loading-dots"><span /><span /><span /></span>}
+        {q.isLoading && <PageLoader />}
         {!q.isLoading && search && (
           <span className="muted small">
             {filtered.reduce((s, [, r]) => s + r.length, 0)} of {totalCount} matching

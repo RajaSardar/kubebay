@@ -12,6 +12,7 @@ import { useBulkDelete } from "../lib/useBulkDelete";
 import { NamespaceFilter } from "../components/NamespaceFilter";
 import { useSelectedNamespaces } from "../lib/namespace-store";
 import { WorkloadTabBar } from "../components/WorkloadTabBar";
+import { PageLoader } from "../components/PageLoader";
 
 function rec(v: unknown): Record<string, unknown> {
   return (v ?? {}) as Record<string, unknown>;
@@ -336,9 +337,7 @@ export default function Workloads() {
       </div>
 
       {!effectiveCluster && (
-        <div className="loading-state">
-          <p>Waiting for cluster…</p>
-        </div>
+        <PageLoader message="Waiting for cluster…" />
       )}
 
       {effectiveCluster && !synced && (

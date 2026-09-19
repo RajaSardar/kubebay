@@ -10,6 +10,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { Badge } from "@kubebay/ui";
+import { PageLoader } from "../components/PageLoader";
 import { useCluster } from "../lib/useCluster";
 import { useResourceStream } from "../lib/useResourceStream";
 import { useSingleNamespace } from "../lib/namespace-store";
@@ -187,17 +188,12 @@ export default function Topology() {
       </div>
 
       {!effectiveCluster ? (
-        <div className="loading-state">
-          <p>Waiting for cluster…</p>
-        </div>
+        <PageLoader message="Waiting for cluster..." />
       ) : !ready ? (
-        <div className="topo-canvas loading-state">
-          <p>Mapping the bay…</p>
-          <p className="muted small">Syncing workloads, pods and services for “{effectiveNs}”.</p>
-        </div>
+        <PageLoader message={`Mapping the bay... syncing workloads for ${effectiveNs}`} />
       ) : graph.nodes.length === 0 ? (
         <div className="topo-canvas empty-state">
-          <p>Nothing running in “{effectiveNs}”.</p>
+          <p>Nothing running in "{effectiveNs}".</p>
           <p className="muted small">Pick another namespace above.</p>
         </div>
       ) : (

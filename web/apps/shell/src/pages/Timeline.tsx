@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@kubebay/ui";
+import { PageLoader } from "../components/PageLoader";
 import { useCluster } from "../lib/useCluster";
 import { useResourceStream } from "../lib/useResourceStream";
 
@@ -131,7 +132,7 @@ export default function Timeline() {
 
       <div className="page-body">
         {!synced ? (
-          <p className="muted">Connecting to event stream…</p>
+          <PageLoader message="Connecting to event stream…" />
         ) : events.length === 0 ? (
           <div className="empty-state">
             <p>No events match.</p>

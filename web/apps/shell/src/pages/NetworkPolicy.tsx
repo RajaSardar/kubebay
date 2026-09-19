@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@kubebay/ui";
+import { PageLoader } from "../components/PageLoader";
 import { useCluster } from "../lib/useCluster";
 import { useResourceStream } from "../lib/useResourceStream";
 import { useSelectedNamespaces } from "../lib/namespace-store";
@@ -358,14 +359,9 @@ export default function NetworkPolicyPage() {
 
       {/* ── Body ── */}
       {!effectiveCluster ? (
-        <div className="loading-state">
-          <p>Waiting for cluster…</p>
-        </div>
+        <PageLoader message="Waiting for cluster…" />
       ) : !ready ? (
-        <div className="loading-state">
-          <p>Loading network data…</p>
-          <p className="muted small">Syncing pods and network policies.</p>
-        </div>
+        <PageLoader message="Loading network policies…" />
       ) : activeTab === "matrix" ? (
         <MatrixView
           groups={filteredGroups}

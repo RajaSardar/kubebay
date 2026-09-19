@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Badge, Button, Card } from "@kubebay/ui";
+import { PageLoader } from "../components/PageLoader";
 import { rbacApi, type RBACSnapshot } from "../lib/api";
 import { useCluster } from "../lib/useCluster";
 import { DEFS, EXTRA_DEFS } from "../lib/resources";
@@ -153,6 +154,15 @@ export default function Rbac() {
     }
     setSelfResults(out);
     setSelfBusy(false);
+  }
+
+  if (snap.isLoading) {
+    return (
+      <div className="page">
+        <div className="page-header"><h2>RBAC explorer</h2></div>
+        <PageLoader message="Loading RBAC data…" />
+      </div>
+    );
   }
 
   return (
