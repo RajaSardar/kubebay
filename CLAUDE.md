@@ -1,5 +1,13 @@
 # Kubebay — Claude Code Rules
 
+## ALWAYS-ON SKILL: Claude AI-Driven SDLC
+
+**Every non-trivial task MUST follow the AI-native SDLC playbook at `.claude/skills/sdlc/SKILL.md`.**
+
+Invoke it at the start of any implementation, design, or debugging task. The checklist in that skill (spec → failing test → smallest slice → debate → evals → ship) is the minimum bar for every piece of work in this repo.
+
+---
+
 ## PRIMARY RULE: Test-Driven Development
 
 **Write the test first. Always. No exceptions.**
