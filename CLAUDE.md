@@ -37,6 +37,28 @@ Use Vitest + `@testing-library/react`. Test hooks with `renderHook`. Test compon
 
 No PR merges if `go test ./...` or `pnpm test` is red. Tests are not optional.
 
+### Zero-tolerance enforcement
+
+**TDD is not a suggestion.** If you find yourself writing implementation code before a failing test exists, stop immediately, write the test first, confirm it fails, then proceed. There is no exception for "simple" changes, "quick" fixes, or "obvious" code. Every. Single. Time.
+
+---
+
+## Multi-Agent Debate Rule
+
+**When multiple expert agents are launched for analysis, they MUST debate each other — not just run in parallel.**
+
+Parallel independent agents are NOT a debate. A debate requires:
+1. Each agent posts its findings/verdict.
+2. A synthesis round where agents explicitly cross-challenge each other's conclusions — identify contradictions, stress-test assumptions, and sharpen verdicts.
+3. A final consolidated verdict emerges from the cross-challenge, not from the first parallel run.
+
+If you launch agents for design review, architecture decisions, or feature analysis:
+- Run the agents
+- Feed each agent's output to a synthesis agent (or round) that must find at least one disagreement or refinement
+- Only implement from the final synthesised verdict
+
+Skipping the debate round and implementing directly from parallel-agent outputs is a process violation.
+
 ---
 
 ## Commit Style
