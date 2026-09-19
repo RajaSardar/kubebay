@@ -163,6 +163,9 @@ kbd {
   border-right: 1px solid var(--kb-border-subtle);
   padding: 0 8px 8px;
   overflow-y: auto;
+  /* contain: when sidebar scrolls to its boundary, stop here — do not
+     chain to the parent (which causes the WKWebView window bounce). */
+  overscroll-behavior-y: contain;
   scrollbar-width: none;
 }
 
@@ -254,6 +257,7 @@ kbd {
   flex-direction: column;
   gap: 1px;
   overflow-y: auto;
+  overscroll-behavior-y: contain;
 }
 
 .nav-section {
@@ -3334,10 +3338,15 @@ tr.row-clickable:active {
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-height: 100vh;
+  /* Use --app-h (set by the WKWebView height fix in main.tsx) so the picker
+     fills the exact viewport and creates its own scroll context rather than
+     relying on the root. contain stops the scroll boundary from reaching
+     WKWebView's native rubber-band layer. */
+  height: var(--app-h, 100vh);
   padding: 48px 24px 80px;
   background: var(--kb-bg-base);
   overflow-y: auto;
+  overscroll-behavior-y: contain;
 }
 
 /* Header */

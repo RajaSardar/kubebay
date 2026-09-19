@@ -20,6 +20,32 @@ function syncAppHeight() {
 syncAppHeight();
 window.addEventListener("resize", syncAppHeight);
 
+// Belt-and-suspenders bounce suppression for macOS WKWebView.
+// CSS overscroll-behavior stops DOM chaining; this wheel handler catches any
+// remaining native-level elastic scroll the CSS layer misses (e.g. two-finger
+// drag when no inner element is scrollable or has already hit its boundary).
+document.addEventListener(
+  "wheel",
+  (e) => {
+    // Walk up from the event target. If we find a scrollable element that still
+    // has room to scroll in the direction of the gesture, let it scroll normally.
+    let el = e.target as HTMLElement | null;
+    while (el && el !== document.documentElement) {
+      const style = window.getComputedStyle(el);
+      const oy = style.overflowY;
+      if (oy === "scroll" || oy === "auto") {
+        const canUp   = el.scrollTop > 0;
+        const canDown = el.scrollTop + el.clientHeight < el.scrollHeight;
+        if ((e.deltaY < 0 && canUp) || (e.deltaY > 0 && canDown)) return;
+      }
+      el = el.parentElement;
+    }
+    // No scrollable element consumed the event — block the native window bounce.
+    e.preventDefault();
+  },
+  { passive: false },
+);
+
 const qc = new QueryClient({
   defaultOptions: {
     queries: {
