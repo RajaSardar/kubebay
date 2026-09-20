@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { Badge, Card, Skeleton } from "@kubebay/ui";
 import { useCluster } from "../lib/useCluster";
-import { useResourceStream } from "../lib/useResourceStream";
+import { useResourceStream, shouldShowSkeleton } from "../lib/useResourceStream";
 import type { KObj } from "../lib/topology";
 import { WorkloadTabBar } from "../components/WorkloadTabBar";
 
@@ -82,7 +82,6 @@ function useKindCounts(cluster: string | undefined) {
     return {
       kinds: out,
       synced: pods.synced && deps.synced && stss.synced && dss.synced && jobs.synced && nodes.synced,
-      connected: pods.connected,
     };
   }, [pods, deps, stss, dss, jobs, nodes]);
 }
@@ -90,7 +89,7 @@ function useKindCounts(cluster: string | undefined) {
 export default function WorkloadsOverview() {
   const { cluster: effectiveCluster, setCluster, list } = useCluster();
 
-  const { kinds, synced, connected } = useKindCounts(effectiveCluster || undefined);
+  const { kinds, synced } = useKindCounts(effectiveCluster || undefined);
 
   const totals = useMemo(() => {
     let total = 0, healthy = 0, unhealthy = 0;
@@ -122,7 +121,7 @@ export default function WorkloadsOverview() {
       </div>
 
       <div className="page-body">
-      {!connected || !synced ? (
+      {shouldShowSkeleton(synced, totals.total) ? (
         <div className="cluster-grid">
           {[0, 1, 2, 3, 4, 5].map((i) => (
             <Card key={i}>

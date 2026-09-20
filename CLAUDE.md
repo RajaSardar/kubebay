@@ -97,6 +97,27 @@ cp -R desktop/src-tauri/target/release/bundle/macos/Kubebay.app /Applications/Ku
 - "Ship" means copying the fresh `.app` to `/Applications` — the user runs the updated build immediately.
 - If `--no-bundle` is too slow for small CSS/JS-only changes, at minimum run steps 1–2 + 4–5.
 
+### Mandatory Post-Ship Visual Testing
+
+**After every ship, take a screenshot of the running app and smoke-test it. No exceptions.**
+
+```bash
+# 1. Activate and screenshot the app
+osascript -e 'tell application "Kubebay" to activate'
+sleep 1
+screencapture -x /tmp/kubebay-post-ship.png
+open /tmp/kubebay-post-ship.png
+```
+
+Minimum checks on every ship:
+- App launches to the correct page (not stuck on cluster picker)
+- No stuck skeletons / loading spinners after 3 seconds
+- Content is visible — pods/nodes/data rendered, not blank
+- No JavaScript error banners or white screens
+- Navigation between tabs works without content vanishing
+
+If any check fails: **do not commit**. Fix the visual regression first, then re-ship and re-check.
+
 ---
 
 ## Commit Style

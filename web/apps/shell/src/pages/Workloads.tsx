@@ -3,7 +3,7 @@ import { Navigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Badge, Button, Skeleton, StatusDot } from "@kubebay/ui";
 import { api } from "../lib/api";
-import { useResourceStream } from "../lib/useResourceStream";
+import { useResourceStream, shouldShowSkeleton } from "../lib/useResourceStream";
 import PodPanel, { type SelectedPod } from "./PodPanel";
 import { useActiveCluster } from "../App";
 import { useResizableColumns } from "../lib/useResizableColumns";
@@ -340,7 +340,7 @@ export default function Workloads() {
         <PageLoader message="Waiting for cluster…" />
       )}
 
-      {effectiveCluster && (!connected || !synced) && (
+      {effectiveCluster && shouldShowSkeleton(synced, pods.length) && (
         <div className="table-wrap">
           <table className="kb-table">
             <thead>
@@ -363,14 +363,14 @@ export default function Workloads() {
         </div>
       )}
 
-      {effectiveCluster && connected && synced && pods.length === 0 && (
+      {effectiveCluster && !shouldShowSkeleton(synced, pods.length) && pods.length === 0 && (
         <div className="empty-state">
           <p>No pods match.</p>
           <p className="muted small">{filter || nsFilter.length ? "Try clearing the filters." : "This cluster looks quiet."}</p>
         </div>
       )}
 
-      {connected && synced && pods.length > 0 && (
+      {pods.length > 0 && (
         <div className="table-wrap">
           <table className="kb-table">
             <colgroup>

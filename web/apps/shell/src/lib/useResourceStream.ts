@@ -13,6 +13,15 @@ export interface StreamState {
 // Key invariant: transitioning disconnected→connected resets synced=false so
 // the stale cache value is never exposed during the 16 ms debounce window
 // before the server's "begin" frame arrives.
+// Pure helper — exported for unit tests.
+// Skeleton should ONLY show when there is genuinely no data yet.
+// Never show just because synced=false (re-syncing) when rows exist —
+// that causes stuck-skeleton on large remote clusters (EKS) where
+// re-sync takes 5-15 seconds.
+export function shouldShowSkeleton(synced: boolean, rowCount: number): boolean {
+  return !synced && rowCount === 0;
+}
+
 export function applyStatusTransition(
   current: { synced: boolean; connected: boolean },
   connected: boolean,
@@ -31,6 +40,11 @@ export function useResourceStream(
 ): StreamState {
   // The Map lives entirely outside React — never stored in useState.
   const storeRef = useRef(new Map<string, Record<string, unknown>>());
+
+  // During re-sync, new items land here until onSync fires — then we atomically
+  // swap storeRef ← resyncRef. This keeps the old cached rows visible during
+  // the re-sync window (no content vanish on EKS with 5-15s re-sync time).
+  const resyncRef = useRef<Map<string, Record<string, unknown>> | null>(null);
 
   // Stable/synced/connected scalars — stored in a single ref object so we
   // can update them without going through React state, then notify listeners
@@ -80,12 +94,10 @@ export function useResourceStream(
     }
     setEpoch((e) => e + 1);
 
-    const applyOps = (ops: Op[], replaceAll: boolean) => {
-      if (replaceAll) storeRef.current = new Map();
-      const m = storeRef.current;
+    const applyOps = (ops: Op[], target: Map<string, Record<string, unknown>>) => {
       for (const op of ops) {
-        if (op.op === "d") m.delete(op.key);
-        else if (op.obj) m.set(op.key, op.obj);
+        if (op.op === "d") target.delete(op.key);
+        else if (op.obj) target.set(op.key, op.obj);
       }
       scheduleFlushRef.current();
     };
@@ -105,14 +117,29 @@ export function useResourceStream(
       },
       onBegin: (id: string) => {
         if (id !== subId) return;
-        storeRef.current = new Map();
+        // Start a fresh buffer — keep storeRef intact so cached rows remain
+        // visible to the UI while re-syncing (prevents stuck-skeleton on EKS).
+        resyncRef.current = new Map();
         metaRef.current = { ...metaRef.current, synced: false };
         scheduleFlushRef.current();
       },
-      onItems: (id: string, ops: Op[]) => { if (id === subId) applyOps(ops, false); },
-      onDelta: (id: string, ops: Op[]) => { if (id === subId) applyOps(ops, false); },
+      onItems: (id: string, ops: Op[]) => {
+        if (id !== subId) return;
+        // If a resync is in progress, collect into the buffer; otherwise apply
+        // directly to storeRef (initial load or delta after first sync).
+        applyOps(ops, resyncRef.current ?? storeRef.current);
+      },
+      onDelta: (id: string, ops: Op[]) => {
+        if (id !== subId) return;
+        applyOps(ops, storeRef.current);
+      },
       onSync: (id: string) => {
         if (id !== subId) return;
+        // Atomic swap: replace cached store with the fully-synced resync buffer.
+        if (resyncRef.current !== null) {
+          storeRef.current = resyncRef.current;
+          resyncRef.current = null;
+        }
         metaRef.current = { ...metaRef.current, synced: true };
         // Snapshot synced state into module-level cache for instant re-render on revisit.
         setStreamCache(specKey, Array.from(storeRef.current.entries()), true);

@@ -248,7 +248,7 @@ export default function NetworkPolicyPage() {
     { mode: "full" },
   );
 
-  const ready = pods.connected && pods.synced && netpols.synced;
+  const ready = pods.synced && netpols.synced;
 
   // Build pod groups (unique namespace/appLabel combos)
   const podGroups = useMemo((): PodGroup[] => {
@@ -360,7 +360,7 @@ export default function NetworkPolicyPage() {
       {/* ── Body ── */}
       {!effectiveCluster ? (
         <PageLoader message="Waiting for cluster…" />
-      ) : !ready ? (
+      ) : !ready && podGroups.length === 0 ? (
         <PageLoader message="Loading network policies…" />
       ) : activeTab === "matrix" ? (
         <MatrixView

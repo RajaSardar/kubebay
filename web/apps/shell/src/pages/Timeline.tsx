@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Badge } from "@kubebay/ui";
 import { PageLoader } from "../components/PageLoader";
 import { useCluster } from "../lib/useCluster";
-import { useResourceStream } from "../lib/useResourceStream";
+import { useResourceStream, shouldShowSkeleton } from "../lib/useResourceStream";
 
 interface EventRow {
   key: string;
@@ -65,7 +65,7 @@ export default function Timeline() {
   const [filter, setFilter] = useState("");
   const [warningsOnly, setWarningsOnly] = useState(false);
 
-  const { rows, synced, connected } = useResourceStream(effectiveCluster || undefined, "v1/events", { mode: "full" });
+  const { rows, synced } = useResourceStream(effectiveCluster || undefined, "v1/events", { mode: "full" });
 
   const events = useMemo(() => {
     const out = rows
@@ -97,7 +97,7 @@ export default function Timeline() {
       <div className="page-header">
         <h2>
           Timeline
-          {synced && connected && (
+          {synced && (
             <span className="live-pill">live</span>
           )}
         </h2>
@@ -131,7 +131,7 @@ export default function Timeline() {
       </div>
 
       <div className="page-body">
-        {!connected || !synced ? (
+        {shouldShowSkeleton(synced, events.length) ? (
           <PageLoader message="Connecting to event stream…" />
         ) : events.length === 0 ? (
           <div className="empty-state">

@@ -5,7 +5,7 @@ import { api, crdApi, metricsApi, type PrinterColumn } from "../lib/api";
 import { useQuery as useRQQuery } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useCluster } from "../lib/useCluster";
-import { useResourceStream } from "../lib/useResourceStream";
+import { useResourceStream, shouldShowSkeleton } from "../lib/useResourceStream";
 import { DEFS, EXTRA_DEFS, ageOf, fmtAge, num, str, type ResourceDef } from "../lib/resources";
 import { fmtBytes, fmtCpu } from "./Workloads";
 import { useResizableColumns } from "../lib/useResizableColumns";
@@ -662,7 +662,7 @@ export default function ResourceTable() {
         />
       </div>
 
-      {!stream.connected || !stream.synced ? (
+      {shouldShowSkeleton(stream.synced, stream.rows.length) ? (
         <div className="table-wrap">
           <table className="kb-table">
             <thead>

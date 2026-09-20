@@ -129,7 +129,6 @@ export default function Topology() {
   const svcs = useResourceStream(effectiveCluster || undefined, "v1/services", { mode: "full", ns: [effectiveNs] });
 
   const ready =
-    pods.connected &&
     pods.synced && rss.synced && deps.synced && stss.synced && dss.synced && svcs.synced;
 
   const graph = useMemo(
@@ -190,7 +189,7 @@ export default function Topology() {
 
       {!effectiveCluster ? (
         <PageLoader message="Waiting for cluster..." />
-      ) : !ready ? (
+      ) : !ready && graph.nodes.length === 0 ? (
         <PageLoader message={`Mapping the bay... syncing workloads for ${effectiveNs}`} />
       ) : graph.nodes.length === 0 ? (
         <div className="topo-canvas empty-state">
