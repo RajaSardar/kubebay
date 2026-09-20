@@ -3,9 +3,12 @@ import { create } from "zustand";
 const ACTIVE_CLUSTER_KEY = "kubebay.activeCluster";
 
 interface ClusterState {
-  /** The currently-selected cluster id (empty string = none selected) */
+  /** The cluster actively connected to (persisted, drives navigation). */
   active: string;
+  /** The row highlighted in the catalog (ephemeral preview, no navigation). */
+  selected: string;
   setActive: (id: string) => void;
+  setSelected: (id: string) => void;
 }
 
 // URL param takes precedence (macOS window-restore preserves the full URL).
@@ -19,8 +22,10 @@ const storedCluster = (() => {
 
 export const useClusterStore = create<ClusterState>((set) => ({
   active: urlCluster || storedCluster,
+  selected: "",
   setActive: (active) => {
     try { localStorage.setItem(ACTIVE_CLUSTER_KEY, active); } catch { /* quota */ }
     set({ active });
   },
+  setSelected: (selected) => set({ selected }),
 }));

@@ -33,15 +33,18 @@ function StatusCell({ status }: { status: ClusterInfo["status"] }) {
 
 interface RowMenuProps {
   cluster: ClusterInfo;
-  onSelect: () => void;
+  pinned: boolean;
+  onConnect: () => void;
   onRename: () => void;
   onHide: () => void;
   onChangeIcon: () => void;
+  onTogglePin: () => void;
 }
 
-function RowMenu({ cluster, onSelect, onRename, onHide, onChangeIcon }: RowMenuProps) {
+function RowMenu({ cluster, pinned, onConnect, onRename, onHide, onChangeIcon, onTogglePin }: RowMenuProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const broken = cluster.status === "misconfigured";
 
   function close() { setOpen(false); }
 
@@ -58,9 +61,10 @@ function RowMenu({ cluster, onSelect, onRename, onHide, onChangeIcon }: RowMenuP
         <>
           <div className="catalog-menu-backdrop" onClick={close} />
           <div className="catalog-menu-popup" onClick={close}>
-            <button onClick={onSelect}>Connect</button>
+            <button disabled={broken} onClick={onConnect}>Connect</button>
             <button onClick={onRename}>Rename</button>
             <button onClick={onChangeIcon}>Change Icon</button>
+            <button onClick={onTogglePin}>{pinned ? "Unpin" : "Pin to top"}</button>
             <div className="catalog-menu-sep" />
             <button className="danger" onClick={onHide}>Remove from list</button>
           </div>
@@ -74,12 +78,13 @@ function RowMenu({ cluster, onSelect, onRename, onHide, onChangeIcon }: RowMenuP
 
 export default function ClusterPicker() {
   const navigate = useNavigate();
-  const { setActive } = useClusterStore();
+  const { setActive, setSelected } = useClusterStore();
+  const activeId = useClusterStore((s) => s.active);
+  const selectedId = useClusterStore((s) => s.selected);
   const { meta, setAlias, togglePin, hide, show } = useClusterMeta();
   const { icons, setIcon, resetIcon } = useClusterIcons();
   const clusters = useQuery({ queryKey: ["clusters"], queryFn: api.clusters, refetchInterval: 4_000 });
   const list = clusters.data ?? [];
-  const activeId = useClusterStore((s) => s.active);
 
   const [query, setQuery] = useState("");
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -91,8 +96,15 @@ export default function ClusterPicker() {
   const visible = filterClusters(list, meta, query);
   const sorted = sortClusters(visible, meta);
 
-  function selectCluster(id: string) {
+  /** Highlight a row for preview — does NOT navigate or connect. */
+  function highlightCluster(id: string) {
+    setSelected(id);
+  }
+
+  /** Connect to a cluster — sets active and navigates to the workloads view. */
+  function connectCluster(id: string) {
     setActive(id);
+    setSelected(id);
     useClusterMeta.getState().touchLastUsed(id);
     const sp = new URLSearchParams();
     sp.set("cluster", id);
@@ -131,10 +143,9 @@ export default function ClusterPicker() {
         </div>
 
         <nav className="catalog-sidebar-nav">
-          <a className="catalog-nav-item">Browse</a>
+          <div className="catalog-nav-section">BROWSE</div>
           <div className="catalog-nav-section">CATEGORIES</div>
-          <a className="catalog-nav-item">General</a>
-          <a className="catalog-nav-item active">Clusters</a>
+          <span className="catalog-nav-item active">Clusters</span>
         </nav>
       </aside>
 
@@ -189,14 +200,16 @@ export default function ClusterPicker() {
                 const displayName = m.alias || c.context || c.id;
                 const broken = c.status === "misconfigured";
                 const isActive = c.id === activeId;
+                const isSelected = c.id === selectedId;
                 const distro = detectDistro(c.id || c.context);
                 const isRenaming = renamingId === c.id;
 
                 return (
                   <tr
                     key={c.id}
-                    className={`catalog-row row-clickable${isActive ? " active" : ""}${broken ? " broken" : ""}`}
-                    onClick={() => !broken && selectCluster(c.id)}
+                    className={`catalog-row row-clickable${isActive ? " active" : ""}${isSelected && !isActive ? " selected" : ""}${broken ? " broken" : ""}`}
+                    onClick={() => !broken && highlightCluster(c.id)}
+                    onDoubleClick={() => !broken && connectCluster(c.id)}
                     title={broken ? c.error ?? "Misconfigured" : undefined}
                   >
                     {/* Name */}
@@ -228,6 +241,7 @@ export default function ClusterPicker() {
                         <span className="mono strong catalog-row-name" title={c.id}>
                           {displayName}
                           {m.pinned && <span className="catalog-pin-dot" title="Pinned">★</span>}
+                          {isActive && <span className="catalog-connected-badge">connected</span>}
                         </span>
                       )}
                     </td>
@@ -251,10 +265,12 @@ export default function ClusterPicker() {
                     <td onClick={(e) => e.stopPropagation()}>
                       <RowMenu
                         cluster={c}
-                        onSelect={() => !broken && selectCluster(c.id)}
+                        pinned={!!m.pinned}
+                        onConnect={() => !broken && connectCluster(c.id)}
                         onRename={() => startRename(c)}
                         onHide={() => hide(c.id)}
                         onChangeIcon={() => setIconPickerId(c.id)}
+                        onTogglePin={() => togglePin(c.id)}
                       />
                     </td>
                   </tr>
@@ -298,8 +314,14 @@ export default function ClusterPicker() {
         );
       })()}
 
-      {/* FAB — add cluster */}
-      <button className="catalog-fab" title="Add cluster" aria-label="Add cluster">
+      {/* FAB — add cluster (coming soon) */}
+      <button
+        className="catalog-fab"
+        title="Add cluster (coming soon)"
+        aria-label="Add cluster"
+        disabled
+        style={{ opacity: 0.4, cursor: "not-allowed" }}
+      >
         +
       </button>
     </div>

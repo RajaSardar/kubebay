@@ -4234,9 +4234,40 @@ tr.row-clickable:active {
   cursor: not-allowed;
 }
 
-/* Active row */
+/* Active row — currently connected cluster */
 .catalog-row.active td:first-child {
   border-left: 2px solid var(--kb-accent);
+}
+
+/* Selected row — highlighted for preview (not yet connected) */
+.catalog-row.selected td:first-child {
+  border-left: 2px solid var(--kb-border-subtle);
+  background: var(--kb-bg-hover, rgba(255,255,255,0.04));
+}
+
+/* "connected" badge next to cluster name */
+.catalog-connected-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  background: rgba(34, 211, 238, 0.12);
+  color: var(--kb-accent);
+  vertical-align: middle;
+  text-transform: none;
+}
+
+/* Nav section labels (non-clickable, decorative) */
+.catalog-sidebar-nav .catalog-nav-item {
+  cursor: default;
+}
+.catalog-sidebar-nav .catalog-nav-item.active {
+  cursor: default;
+  color: var(--kb-fg-base);
+  font-weight: 500;
 }
 
 /* Hidden clusters */
