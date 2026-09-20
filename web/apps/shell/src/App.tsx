@@ -1,7 +1,7 @@
 import { createContext, lazy, Suspense, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ClusterInfo } from "./lib/api";
-import { NavLink, Route, Routes, useNavigate } from "react-router-dom";
+import { NavLink, Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import { useClusterStore } from "./lib/cluster-store";
 import { shouldRedirectToPicker } from "./lib/clusterPickerLogic";
 import { StatusDot } from "@kubebay/ui";
@@ -545,9 +545,9 @@ function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 
       <nav className="nav">
         <div className="nav-section">Navigate</div>
-        <NavLink to="/" end className={({ isActive }) => (isActive ? "nav-item active" : "nav-item")}>
+        <NavLink to="/workloads-overview" className={({ isActive }) => (isActive ? "nav-item active" : "nav-item")}>
           <span className="nav-icon"><IconHome /></span>
-          <span>Home</span>
+          <span>Overview</span>
         </NavLink>
 
         {GROUPS.map((g) => (
@@ -694,7 +694,7 @@ function AppInner() {
                 local disk and a spinner would flash more than it informs. */}
             <Suspense fallback={<div className="page" />}>
             <Routes>
-              <Route path="/" element={<Home />} />
+              <Route path="/" element={<Navigate to="/workloads-overview" replace />} />
               <Route path="/workloads" element={<Workloads />} />
               <Route path="/workloads-overview" element={<WorkloadsOverview />} />
               <Route path="/r/:kind" element={<ResourceTable />} />
@@ -775,11 +775,9 @@ export default function App() {
   }, []);
 
   // On app mount: redirect to /clusters only when no cluster is active.
-  // macOS does not quit the app on window close — the webview URL (and
-  // cluster-store's localStorage) survive the re-open, so we can land the
-  // user directly on their last page without forcing a picker click-through.
-  // A full quit + relaunch falls back to the localStorage value set by
-  // cluster-store on the last setActive() call.
+  // The / → /workloads-overview redirect is handled declaratively in AppInner's routes.
+  // macOS does not quit the app on window close so the webview URL survives
+  // re-open; a full quit + relaunch falls back to localStorage.
   useEffect(() => {
     const active = useClusterStore.getState().active;
     if (shouldRedirectToPicker(window.location.pathname, active)) {

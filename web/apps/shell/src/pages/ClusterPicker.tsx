@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { StatusDot } from "@kubebay/ui";
 import { api } from "../lib/api";
 import type { ClusterInfo } from "../lib/api";
 import { useClusterMeta } from "../lib/cluster-meta-store";
@@ -8,167 +9,62 @@ import { useClusterIcons } from "../lib/useClusterIcons";
 import { useClusterStore } from "../lib/cluster-store";
 import { sortClusters, filterClusters } from "../lib/clusterSort";
 import { ClusterIconPicker, autoAvatar } from "../components/ClusterIconPicker";
+import { detectDistro } from "../lib/clusterDistro";
 
-// ── Status dot ───────────────────────────────────────────────────────────────
+// ── Status cell ───────────────────────────────────────────────────────────────
 
-function StatusPill({ status }: { status: ClusterInfo["status"] }) {
-  const cfg: Record<ClusterInfo["status"], { color: string; label: string }> = {
-    connected:     { color: "var(--kb-status-ok)",      label: "Connected"      },
-    unreachable:   { color: "var(--kb-status-err)",     label: "Unreachable"    },
-    degraded:      { color: "var(--kb-status-warn)",    label: "Degraded"       },
-    misconfigured: { color: "var(--kb-fg-subtle)",      label: "Misconfigured"  },
+function StatusCell({ status }: { status: ClusterInfo["status"] }) {
+  const map: Record<ClusterInfo["status"], { dot: "connected" | "unreachable" | "pending" | "degraded"; label: string }> = {
+    connected:     { dot: "connected",   label: "Connected"     },
+    unreachable:   { dot: "unreachable", label: "Disconnected"  },
+    degraded:      { dot: "degraded",    label: "Degraded"      },
+    misconfigured: { dot: "pending",     label: "Misconfigured" },
   };
-  const { color, label } = cfg[status] ?? cfg.unreachable;
+  const cfg = map[status] ?? map.unreachable;
   return (
-    <span className="cp-status-pill" style={{ "--pill-color": color } as React.CSSProperties}>
-      <span className="cp-status-dot" />
-      {label}
+    <span className="catalog-status-cell">
+      <StatusDot status={cfg.dot} />
+      <span className={cfg.dot === "unreachable" || cfg.dot === "pending" ? "muted" : ""}>{cfg.label}</span>
     </span>
   );
 }
 
-// ── Cluster card ─────────────────────────────────────────────────────────────
+// ── Row context menu ──────────────────────────────────────────────────────────
 
-interface CardProps {
+interface RowMenuProps {
   cluster: ClusterInfo;
-  isActive: boolean;
   onSelect: () => void;
+  onRename: () => void;
+  onHide: () => void;
+  onChangeIcon: () => void;
 }
 
-function ClusterCard({ cluster, isActive, onSelect }: CardProps) {
-  const { meta, setAlias, togglePin, hide } = useClusterMeta();
-  const { icons, setIcon, resetIcon } = useClusterIcons();
-  const m = meta[cluster.id] ?? {};
-  const auto = autoAvatar(cluster.id);
-  const icon = icons[cluster.id] ?? auto;
-  const displayName = m.alias || cluster.context || cluster.id;
-  const showContext = !!m.alias && m.alias !== cluster.context;
+function RowMenu({ cluster, onSelect, onRename, onHide, onChangeIcon }: RowMenuProps) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
 
-  const [renaming, setRenaming] = useState(false);
-  const [draftAlias, setDraftAlias] = useState("");
-  const [showIconPicker, setShowIconPicker] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  function startRename(e: React.MouseEvent) {
-    e.stopPropagation();
-    setDraftAlias(m.alias ?? "");
-    setRenaming(true);
-    setTimeout(() => inputRef.current?.focus(), 0);
-  }
-
-  function commitRename() {
-    setAlias(cluster.id, draftAlias);
-    setRenaming(false);
-  }
-
-  function onRenameKey(e: React.KeyboardEvent) {
-    if (e.key === "Enter") commitRename();
-    if (e.key === "Escape") setRenaming(false);
-  }
-
-  const broken = cluster.status === "misconfigured";
+  function close() { setOpen(false); }
 
   return (
-    <div
-      className={`cp-card${isActive ? " active" : ""}${broken ? " broken" : ""}`}
-      onClick={() => !broken && onSelect()}
-      role="button"
-      tabIndex={broken ? -1 : 0}
-      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (!broken) onSelect(); } }}
-    >
-      {/* Icon */}
-      <div
-        className="cp-card-icon"
-        style={{ background: icon.bg }}
-        onClick={(e) => { e.stopPropagation(); if (!broken) setShowIconPicker(true); }}
-        title="Click to change icon"
+    <div className="catalog-row-menu" ref={ref}>
+      <button
+        className="catalog-kebab-btn"
+        aria-label="Row actions"
+        onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
       >
-        {icon.label}
-      </div>
-
-      {/* Info */}
-      <div className="cp-card-info">
-        <div className="cp-card-name-row">
-          {renaming ? (
-            <input
-              ref={inputRef}
-              className="cp-rename-input"
-              value={draftAlias}
-              onChange={(e) => setDraftAlias(e.target.value)}
-              onBlur={commitRename}
-              onKeyDown={onRenameKey}
-              onClick={(e) => e.stopPropagation()}
-              placeholder={cluster.context || cluster.id}
-              maxLength={64}
-            />
-          ) : (
-            <span className="cp-card-name" title={cluster.id}>
-              {displayName}
-            </span>
-          )}
-          {m.pinned && <span className="cp-pin-badge" title="Pinned">★</span>}
-        </div>
-        {showContext && (
-          <div className="cp-card-context muted small">{cluster.context || cluster.id}</div>
-        )}
-        <div className="cp-card-server muted small" title={cluster.server}>
-          {cluster.server}
-        </div>
-        {cluster.version && (
-          <div className="cp-card-version muted small">{cluster.version}</div>
-        )}
-      </div>
-
-      {/* Right: status + actions */}
-      <div className="cp-card-right">
-        <StatusPill status={cluster.status} />
-        <div className="cp-card-actions" onClick={(e) => e.stopPropagation()}>
-          <button
-            className={`cp-action-btn${m.pinned ? " active" : ""}`}
-            title={m.pinned ? "Unpin" : "Pin"}
-            onClick={() => togglePin(cluster.id)}
-          >
-            {m.pinned ? "★" : "☆"}
-          </button>
-          <button
-            className="cp-action-btn"
-            title="Rename"
-            onClick={startRename}
-          >
-            <svg viewBox="0 0 16 16" width="13" height="13" fill="none">
-              <path d="M11 2l3 3-8 8H3v-3l8-8z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
-            </svg>
-          </button>
-          <button
-            className="cp-action-btn"
-            title="Change icon"
-            onClick={() => setShowIconPicker(true)}
-          >
-            <svg viewBox="0 0 16 16" width="13" height="13" fill="none">
-              <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.4"/>
-              <circle cx="8" cy="8" r="2.5" fill="currentColor" opacity=".5"/>
-            </svg>
-          </button>
-          <button
-            className="cp-action-btn danger"
-            title="Hide from list"
-            onClick={() => hide(cluster.id)}
-          >
-            <svg viewBox="0 0 16 16" width="13" height="13" fill="none">
-              <path d="M2 2l12 12M6.5 4.3A6 6 0 0 1 8 4c3 0 5.5 2.5 6 4-.3.8-.9 1.8-1.7 2.6M3.7 5.4C2.8 6.3 2.2 7.2 2 8c.5 1.5 3 4 6 4a6 6 0 0 0 2.5-.6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
-            </svg>
-          </button>
-        </div>
-      </div>
-
-      {showIconPicker && (
-        <ClusterIconPicker
-          clusterId={cluster.id}
-          current={icons[cluster.id] ?? auto}
-          onSave={(ic) => setIcon(cluster.id, ic)}
-          onReset={() => resetIcon(cluster.id)}
-          onClose={() => setShowIconPicker(false)}
-        />
+        ⋮
+      </button>
+      {open && (
+        <>
+          <div className="catalog-menu-backdrop" onClick={close} />
+          <div className="catalog-menu-popup" onClick={close}>
+            <button onClick={onSelect}>Connect</button>
+            <button onClick={onRename}>Rename</button>
+            <button onClick={onChangeIcon}>Change Icon</button>
+            <div className="catalog-menu-sep" />
+            <button className="danger" onClick={onHide}>Remove from list</button>
+          </div>
+        </>
       )}
     </div>
   );
@@ -179,13 +75,17 @@ function ClusterCard({ cluster, isActive, onSelect }: CardProps) {
 export default function ClusterPicker() {
   const navigate = useNavigate();
   const { setActive } = useClusterStore();
-  const { meta, show } = useClusterMeta();
+  const { meta, setAlias, togglePin, hide, show } = useClusterMeta();
+  const { icons, setIcon, resetIcon } = useClusterIcons();
   const clusters = useQuery({ queryKey: ["clusters"], queryFn: api.clusters, refetchInterval: 4_000 });
   const list = clusters.data ?? [];
   const activeId = useClusterStore((s) => s.active);
 
   const [query, setQuery] = useState("");
-  const showSearch = list.length >= 6;
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [draftAlias, setDraftAlias] = useState("");
+  const [iconPickerId, setIconPickerId] = useState<string | null>(null);
+  const renameInputRef = useRef<HTMLInputElement>(null);
 
   const hiddenClusters = list.filter((c) => meta[c.id]?.hidden);
   const visible = filterClusters(list, meta, query);
@@ -193,91 +93,215 @@ export default function ClusterPicker() {
 
   function selectCluster(id: string) {
     setActive(id);
+    useClusterMeta.getState().touchLastUsed(id);
     const sp = new URLSearchParams();
     sp.set("cluster", id);
-    // touch lastUsed
-    useClusterMeta.getState().touchLastUsed(id);
     navigate({ pathname: "/", search: sp.toString() });
   }
 
+  function startRename(cluster: ClusterInfo) {
+    setDraftAlias(meta[cluster.id]?.alias ?? "");
+    setRenamingId(cluster.id);
+    setTimeout(() => renameInputRef.current?.focus(), 0);
+  }
+
+  function commitRename() {
+    if (renamingId) setAlias(renamingId, draftAlias);
+    setRenamingId(null);
+  }
+
   return (
-    <div className="cp-root">
-      {/* Header */}
-      <header className="cp-header">
-        <svg className="cp-logo" viewBox="0 0 32 32" aria-hidden>
-          <defs>
-            <linearGradient id="cp-g" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stopColor="#22d3ee" />
-              <stop offset="100%" stopColor="#41c98e" />
-            </linearGradient>
-          </defs>
-          <rect width="32" height="32" rx="9" fill="url(#cp-g)" />
-          <circle cx="16" cy="14.5" r="5.4" fill="none" stroke="#fff" strokeWidth="2" />
-          <path d="M7.5 22.5c2.6 2.3 5.4 3.4 8.5 3.4s5.9-1.1 8.5-3.4" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
-          <path d="M16 9v11M10 13.5h12" stroke="#fff" strokeWidth="2" strokeLinecap="round" opacity=".85" />
-        </svg>
-        <div>
-          <h1 className="cp-title">Kubebay</h1>
-          <p className="cp-subtitle muted">Select a cluster to continue</p>
-        </div>
-      </header>
-
-      {/* Search */}
-      {showSearch && (
-        <div className="cp-search-wrap">
-          <svg viewBox="0 0 16 16" width="14" height="14" fill="none" className="cp-search-icon">
-            <circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" strokeWidth="1.4"/>
-            <path d="M10 10l3.5 3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+    <div className="catalog-root">
+      {/* ── Left sidebar ── */}
+      <aside className="catalog-sidebar">
+        <div className="catalog-sidebar-header">
+          <svg className="catalog-sidebar-logo" viewBox="0 0 32 32" aria-hidden>
+            <defs>
+              <linearGradient id="cat-g" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor="#22d3ee" />
+                <stop offset="100%" stopColor="#41c98e" />
+              </linearGradient>
+            </defs>
+            <rect width="32" height="32" rx="9" fill="url(#cat-g)" />
+            <circle cx="16" cy="14.5" r="5.4" fill="none" stroke="#fff" strokeWidth="2" />
+            <path d="M7.5 22.5c2.6 2.3 5.4 3.4 8.5 3.4s5.9-1.1 8.5-3.4" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
+            <path d="M16 9v11M10 13.5h12" stroke="#fff" strokeWidth="2" strokeLinecap="round" opacity=".85" />
           </svg>
-          <input
-            className="cp-search"
-            type="search"
-            placeholder="Search clusters…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            autoFocus
-          />
+          <span className="catalog-sidebar-title">Catalog</span>
         </div>
-      )}
 
-      {/* Cluster list */}
-      <div className="cp-list">
-        {clusters.isLoading && (
-          <div className="cp-empty muted">Loading clusters…</div>
-        )}
-        {clusters.isSuccess && sorted.length === 0 && (
-          <div className="cp-empty muted">
-            {query ? `No clusters match "${query}"` : "No clusters found in kubeconfig."}
+        <nav className="catalog-sidebar-nav">
+          <a className="catalog-nav-item">Browse</a>
+          <div className="catalog-nav-section">CATEGORIES</div>
+          <a className="catalog-nav-item">General</a>
+          <a className="catalog-nav-item active">Clusters</a>
+        </nav>
+      </aside>
+
+      {/* ── Main area ── */}
+      <div className="catalog-main">
+        {/* Header bar */}
+        <div className="catalog-main-header">
+          <h2 className="catalog-main-title">Clusters</h2>
+          <span className="catalog-item-count muted">{sorted.length} item{sorted.length !== 1 ? "s" : ""}</span>
+          <div className="catalog-search-wrap">
+            <svg viewBox="0 0 16 16" width="13" height="13" fill="none" className="catalog-search-icon">
+              <circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" strokeWidth="1.4" />
+              <path d="M10 10l3.5 3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+            </svg>
+            <input
+              className="catalog-search"
+              type="search"
+              placeholder="Search…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
           </div>
+        </div>
+
+        {/* Table */}
+        <div className="catalog-table-wrap">
+          <table className="catalog-table kb-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Context</th>
+                <th>Server</th>
+                <th>Version</th>
+                <th>Distro</th>
+                <th>Status</th>
+                <th style={{ width: 36 }} />
+              </tr>
+            </thead>
+            <tbody>
+              {clusters.isLoading && (
+                <tr><td colSpan={7} className="catalog-empty muted">Loading clusters…</td></tr>
+              )}
+              {clusters.isSuccess && sorted.length === 0 && (
+                <tr><td colSpan={7} className="catalog-empty muted">
+                  {query ? `No clusters match "${query}"` : "No clusters found in kubeconfig."}
+                </td></tr>
+              )}
+              {sorted.map((c) => {
+                const m = meta[c.id] ?? {};
+                const auto = autoAvatar(c.id);
+                const icon = icons[c.id] ?? auto;
+                const displayName = m.alias || c.context || c.id;
+                const broken = c.status === "misconfigured";
+                const isActive = c.id === activeId;
+                const distro = detectDistro(c.id || c.context);
+                const isRenaming = renamingId === c.id;
+
+                return (
+                  <tr
+                    key={c.id}
+                    className={`catalog-row row-clickable${isActive ? " active" : ""}${broken ? " broken" : ""}`}
+                    onClick={() => !broken && selectCluster(c.id)}
+                    title={broken ? c.error ?? "Misconfigured" : undefined}
+                  >
+                    {/* Name */}
+                    <td className="catalog-name-cell">
+                      <span
+                        className="catalog-row-icon"
+                        style={{ background: icon.bg }}
+                        title="Click to change icon"
+                        onClick={(e) => { e.stopPropagation(); if (!broken) setIconPickerId(c.id); }}
+                      >
+                        {icon.label}
+                      </span>
+                      {isRenaming ? (
+                        <input
+                          ref={renameInputRef}
+                          className="catalog-rename-input"
+                          value={draftAlias}
+                          placeholder={c.context || c.id}
+                          onChange={(e) => setDraftAlias(e.target.value)}
+                          onBlur={commitRename}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") commitRename();
+                            if (e.key === "Escape") setRenamingId(null);
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                          maxLength={64}
+                        />
+                      ) : (
+                        <span className="mono strong catalog-row-name" title={c.id}>
+                          {displayName}
+                          {m.pinned && <span className="catalog-pin-dot" title="Pinned">★</span>}
+                        </span>
+                      )}
+                    </td>
+
+                    {/* Context */}
+                    <td className="mono muted small" title={c.context}>{c.context || c.id}</td>
+
+                    {/* Server */}
+                    <td className="mono muted small catalog-server-cell" title={c.server}>{c.server}</td>
+
+                    {/* Version */}
+                    <td className="mono muted small">{c.version ?? "–"}</td>
+
+                    {/* Distro */}
+                    <td className="mono muted small">{distro || "–"}</td>
+
+                    {/* Status */}
+                    <td><StatusCell status={c.status} /></td>
+
+                    {/* ⋮ menu */}
+                    <td onClick={(e) => e.stopPropagation()}>
+                      <RowMenu
+                        cluster={c}
+                        onSelect={() => !broken && selectCluster(c.id)}
+                        onRename={() => startRename(c)}
+                        onHide={() => hide(c.id)}
+                        onChangeIcon={() => setIconPickerId(c.id)}
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Hidden clusters footer */}
+        {hiddenClusters.length > 0 && (
+          <details className="catalog-hidden-section">
+            <summary className="muted small">
+              {hiddenClusters.length} hidden cluster{hiddenClusters.length !== 1 ? "s" : ""}
+            </summary>
+            <div className="catalog-hidden-list">
+              {hiddenClusters.map((c) => (
+                <div key={c.id} className="catalog-hidden-row">
+                  <span className="muted small">{meta[c.id]?.alias || c.context || c.id}</span>
+                  <button className="cp-show-btn small" onClick={() => show(c.id)}>
+                    Show
+                  </button>
+                </div>
+              ))}
+            </div>
+          </details>
         )}
-        {sorted.map((c) => (
-          <ClusterCard
-            key={c.id}
-            cluster={c}
-            isActive={c.id === activeId}
-            onSelect={() => selectCluster(c.id)}
-          />
-        ))}
       </div>
 
-      {/* Hidden clusters section */}
-      {hiddenClusters.length > 0 && (
-        <details className="cp-hidden-section">
-          <summary className="cp-hidden-summary muted small">
-            {hiddenClusters.length} hidden cluster{hiddenClusters.length !== 1 ? "s" : ""}
-          </summary>
-          <div className="cp-hidden-list">
-            {hiddenClusters.map((c) => (
-              <div key={c.id} className="cp-hidden-row">
-                <span className="muted small">{meta[c.id]?.alias || c.context || c.id}</span>
-                <button className="cp-show-btn small" onClick={() => show(c.id)}>
-                  Show
-                </button>
-              </div>
-            ))}
-          </div>
-        </details>
-      )}
+      {/* Icon picker overlay */}
+      {iconPickerId && (() => {
+        const auto = autoAvatar(iconPickerId);
+        return (
+          <ClusterIconPicker
+            clusterId={iconPickerId}
+            current={icons[iconPickerId] ?? auto}
+            onSave={(ic) => setIcon(iconPickerId, ic)}
+            onReset={() => resetIcon(iconPickerId)}
+            onClose={() => setIconPickerId(null)}
+          />
+        );
+      })()}
+
+      {/* FAB — add cluster */}
+      <button className="catalog-fab" title="Add cluster" aria-label="Add cluster">
+        +
+      </button>
     </div>
   );
 }

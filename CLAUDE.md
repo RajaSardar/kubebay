@@ -86,8 +86,8 @@ make build
 # 3. Copy engine binary into Tauri sidecar slot
 cp engine/bin/kubebay desktop/src-tauri/binaries/kubebay-engine-aarch64-apple-darwin
 
-# 4. Build the macOS .app
-cd desktop && pnpm tauri build --no-bundle
+# 4. Build the macOS .app (MUST use full tauri build — --no-bundle does NOT update the .app bundle)
+cd desktop && pnpm tauri build
 
 # 5. Ship — copy to /Applications so it's immediately runnable
 cp -R desktop/src-tauri/target/release/bundle/macos/Kubebay.app /Applications/Kubebay.app
@@ -95,7 +95,7 @@ cp -R desktop/src-tauri/target/release/bundle/macos/Kubebay.app /Applications/Ku
 
 - Never commit without running this full sequence.
 - "Ship" means copying the fresh `.app` to `/Applications` — the user runs the updated build immediately.
-- If `--no-bundle` is too slow for small CSS/JS-only changes, at minimum run steps 1–2 + 4–5.
+- NEVER use `--no-bundle` — it only builds the Rust binary and does NOT update the .app bundle in target/release/bundle/macos/. Every ship using `--no-bundle` silently installs stale binaries.
 
 ### Mandatory Post-Ship Visual Testing
 
