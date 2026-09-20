@@ -9,6 +9,7 @@ import { useClusterIcons } from "../lib/useClusterIcons";
 import { useClusterStore } from "../lib/cluster-store";
 import { sortClusters, filterClusters } from "../lib/clusterSort";
 import { ClusterIconPicker, autoAvatar } from "../components/ClusterIconPicker";
+import { ClusterDetailDrawer } from "../components/ClusterDetailDrawer";
 import { detectDistro } from "../lib/clusterDistro";
 
 // ── Status cell ───────────────────────────────────────────────────────────────
@@ -34,14 +35,13 @@ function StatusCell({ status }: { status: ClusterInfo["status"] }) {
 interface RowMenuProps {
   cluster: ClusterInfo;
   pinned: boolean;
+  onOpenDetails: () => void;
   onConnect: () => void;
-  onRename: () => void;
   onHide: () => void;
-  onChangeIcon: () => void;
   onTogglePin: () => void;
 }
 
-function RowMenu({ cluster, pinned, onConnect, onRename, onHide, onChangeIcon, onTogglePin }: RowMenuProps) {
+function RowMenu({ cluster, pinned, onOpenDetails, onConnect, onHide, onTogglePin }: RowMenuProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const broken = cluster.status === "misconfigured";
@@ -61,9 +61,8 @@ function RowMenu({ cluster, pinned, onConnect, onRename, onHide, onChangeIcon, o
         <>
           <div className="catalog-menu-backdrop" onClick={close} />
           <div className="catalog-menu-popup" onClick={close}>
+            <button onClick={onOpenDetails}>View Details</button>
             <button disabled={broken} onClick={onConnect}>Connect</button>
-            <button onClick={onRename}>Rename</button>
-            <button onClick={onChangeIcon}>Change Icon</button>
             <button onClick={onTogglePin}>{pinned ? "Unpin" : "Pin to top"}</button>
             <div className="catalog-menu-sep" />
             <button className="danger" onClick={onHide}>Remove from list</button>
@@ -87,19 +86,13 @@ export default function ClusterPicker() {
   const list = clusters.data ?? [];
 
   const [query, setQuery] = useState("");
-  const [renamingId, setRenamingId] = useState<string | null>(null);
-  const [draftAlias, setDraftAlias] = useState("");
   const [iconPickerId, setIconPickerId] = useState<string | null>(null);
-  const renameInputRef = useRef<HTMLInputElement>(null);
 
   const hiddenClusters = list.filter((c) => meta[c.id]?.hidden);
   const visible = filterClusters(list, meta, query);
   const sorted = sortClusters(visible, meta);
 
-  /** Highlight a row for preview — does NOT navigate or connect. */
-  function highlightCluster(id: string) {
-    setSelected(id);
-  }
+  const drawerCluster = selectedId ? list.find((c) => c.id === selectedId) ?? null : null;
 
   /** Connect to a cluster — sets active and navigates to the workloads view. */
   function connectCluster(id: string) {
@@ -111,15 +104,12 @@ export default function ClusterPicker() {
     navigate({ pathname: "/", search: sp.toString() });
   }
 
-  function startRename(cluster: ClusterInfo) {
-    setDraftAlias(meta[cluster.id]?.alias ?? "");
-    setRenamingId(cluster.id);
-    setTimeout(() => renameInputRef.current?.focus(), 0);
+  function openDetails(id: string) {
+    setSelected(id);
   }
 
-  function commitRename() {
-    if (renamingId) setAlias(renamingId, draftAlias);
-    setRenamingId(null);
+  function closeDrawer() {
+    setSelected("");
   }
 
   return (
@@ -170,114 +160,119 @@ export default function ClusterPicker() {
           </div>
         </div>
 
-        {/* Table */}
-        <div className="catalog-table-wrap">
-          <table className="catalog-table kb-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Context</th>
-                <th>Server</th>
-                <th>Version</th>
-                <th>Distro</th>
-                <th>Status</th>
-                <th style={{ width: 36 }} />
-              </tr>
-            </thead>
-            <tbody>
-              {clusters.isLoading && (
-                <tr><td colSpan={7} className="catalog-empty muted">Loading clusters…</td></tr>
-              )}
-              {clusters.isSuccess && sorted.length === 0 && (
-                <tr><td colSpan={7} className="catalog-empty muted">
-                  {query ? `No clusters match "${query}"` : "No clusters found in kubeconfig."}
-                </td></tr>
-              )}
-              {sorted.map((c) => {
-                const m = meta[c.id] ?? {};
-                const auto = autoAvatar(c.id);
-                const icon = icons[c.id] ?? auto;
-                const displayName = m.alias || c.context || c.id;
-                const broken = c.status === "misconfigured";
-                const isActive = c.id === activeId;
-                const isSelected = c.id === selectedId;
-                const distro = detectDistro(c.id || c.context);
-                const isRenaming = renamingId === c.id;
+        {/* Content row: table + optional drawer */}
+        <div className="catalog-content-row">
+          {/* Table */}
+          <div className="catalog-table-wrap">
+            <table className="catalog-table kb-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Context</th>
+                  <th>Server</th>
+                  <th>Version</th>
+                  <th>Distro</th>
+                  <th>Status</th>
+                  <th style={{ width: 36 }} />
+                </tr>
+              </thead>
+              <tbody>
+                {clusters.isLoading && (
+                  <tr><td colSpan={7} className="catalog-empty muted">Loading clusters…</td></tr>
+                )}
+                {clusters.isSuccess && sorted.length === 0 && (
+                  <tr><td colSpan={7} className="catalog-empty muted">
+                    {query ? `No clusters match "${query}"` : "No clusters found in kubeconfig."}
+                  </td></tr>
+                )}
+                {sorted.map((c) => {
+                  const m = meta[c.id] ?? {};
+                  const auto = autoAvatar(c.id);
+                  const icon = icons[c.id] ?? auto;
+                  const displayName = m.alias || c.context || c.id;
+                  const broken = c.status === "misconfigured";
+                  const isActive = c.id === activeId;
+                  const isSelected = c.id === selectedId;
+                  const distro = detectDistro(c.id || c.context);
 
-                return (
-                  <tr
-                    key={c.id}
-                    className={`catalog-row row-clickable${isActive ? " active" : ""}${isSelected && !isActive ? " selected" : ""}${broken ? " broken" : ""}`}
-                    onClick={() => !broken && highlightCluster(c.id)}
-                    onDoubleClick={() => !broken && connectCluster(c.id)}
-                    title={broken ? c.error ?? "Misconfigured" : undefined}
-                  >
-                    {/* Name */}
-                    <td className="catalog-name-cell">
-                      <span
-                        className="catalog-row-icon"
-                        style={{ background: icon.bg }}
-                        title="Click to change icon"
-                        onClick={(e) => { e.stopPropagation(); if (!broken) setIconPickerId(c.id); }}
-                      >
-                        {icon.label}
-                      </span>
-                      {isRenaming ? (
-                        <input
-                          ref={renameInputRef}
-                          className="catalog-rename-input"
-                          value={draftAlias}
-                          placeholder={c.context || c.id}
-                          onChange={(e) => setDraftAlias(e.target.value)}
-                          onBlur={commitRename}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") commitRename();
-                            if (e.key === "Escape") setRenamingId(null);
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                          maxLength={64}
-                        />
-                      ) : (
+                  return (
+                    <tr
+                      key={c.id}
+                      className={`catalog-row row-clickable${isSelected ? " selected" : ""}${isActive ? " active" : ""}${broken ? " broken" : ""}`}
+                      onClick={() => openDetails(c.id)}
+                      onDoubleClick={() => !broken && connectCluster(c.id)}
+                      title={broken ? c.error ?? "Misconfigured" : undefined}
+                    >
+                      {/* Name */}
+                      <td className="catalog-name-cell">
+                        <span
+                          className="catalog-row-icon"
+                          style={{ background: icon.bg }}
+                          title="Click to change icon"
+                          onClick={(e) => { e.stopPropagation(); if (!broken) setIconPickerId(c.id); }}
+                        >
+                          {icon.label}
+                        </span>
                         <span className="mono strong catalog-row-name" title={c.id}>
                           {displayName}
                           {m.pinned && <span className="catalog-pin-dot" title="Pinned">★</span>}
                           {isActive && <span className="catalog-connected-badge">connected</span>}
                         </span>
-                      )}
-                    </td>
+                      </td>
 
-                    {/* Context */}
-                    <td className="mono muted small" title={c.context}>{c.context || c.id}</td>
+                      {/* Context */}
+                      <td className="mono muted small" title={c.context}>{c.context || c.id}</td>
 
-                    {/* Server */}
-                    <td className="mono muted small catalog-server-cell" title={c.server}>{c.server}</td>
+                      {/* Server */}
+                      <td className="mono muted small catalog-server-cell" title={c.server}>{c.server}</td>
 
-                    {/* Version */}
-                    <td className="mono muted small">{c.version ?? "–"}</td>
+                      {/* Version */}
+                      <td className="mono muted small">{c.version ?? "–"}</td>
 
-                    {/* Distro */}
-                    <td className="mono muted small">{distro || "–"}</td>
+                      {/* Distro */}
+                      <td className="mono muted small">{distro || "–"}</td>
 
-                    {/* Status */}
-                    <td><StatusCell status={c.status} /></td>
+                      {/* Status */}
+                      <td><StatusCell status={c.status} /></td>
 
-                    {/* ⋮ menu */}
-                    <td onClick={(e) => e.stopPropagation()}>
-                      <RowMenu
-                        cluster={c}
-                        pinned={!!m.pinned}
-                        onConnect={() => !broken && connectCluster(c.id)}
-                        onRename={() => startRename(c)}
-                        onHide={() => hide(c.id)}
-                        onChangeIcon={() => setIconPickerId(c.id)}
-                        onTogglePin={() => togglePin(c.id)}
-                      />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                      {/* ⋮ menu */}
+                      <td onClick={(e) => e.stopPropagation()}>
+                        <RowMenu
+                          cluster={c}
+                          pinned={!!m.pinned}
+                          onOpenDetails={() => openDetails(c.id)}
+                          onConnect={() => !broken && connectCluster(c.id)}
+                          onHide={() => hide(c.id)}
+                          onTogglePin={() => togglePin(c.id)}
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Detail drawer */}
+          {drawerCluster && (() => {
+            const m = meta[drawerCluster.id] ?? {};
+            const auto = autoAvatar(drawerCluster.id);
+            const icon = icons[drawerCluster.id] ?? auto;
+            return (
+              <ClusterDetailDrawer
+                cluster={drawerCluster}
+                meta={m}
+                icon={icon}
+                isActive={drawerCluster.id === activeId}
+                onConnect={() => connectCluster(drawerCluster.id)}
+                onClose={closeDrawer}
+                onRename={(alias) => setAlias(drawerCluster.id, alias)}
+                onChangeIcon={() => setIconPickerId(drawerCluster.id)}
+                onTogglePin={() => togglePin(drawerCluster.id)}
+                onRemove={() => { hide(drawerCluster.id); closeDrawer(); }}
+              />
+            );
+          })()}
         </div>
 
         {/* Hidden clusters footer */}
