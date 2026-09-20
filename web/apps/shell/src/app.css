@@ -4158,7 +4158,7 @@ tr.row-clickable:active {
 }
 
 .catalog-kebab-btn {
-  opacity: 0;
+  opacity: 0.45;
   width: 26px;
   height: 26px;
   border-radius: var(--kb-radius);
@@ -4243,14 +4243,15 @@ tr.row-clickable:active {
   cursor: not-allowed;
 }
 
-/* Active row — currently connected cluster */
+/* Active row — currently connected cluster.
+   Use inset box-shadow (not border-left) so the icon is never clipped. */
 .catalog-row.active td:first-child {
-  border-left: 2px solid var(--kb-accent);
+  box-shadow: inset 2px 0 0 var(--kb-accent);
 }
 
 /* Selected row — highlighted for preview (not yet connected) */
 .catalog-row.selected td:first-child {
-  border-left: 2px solid var(--kb-border-subtle);
+  box-shadow: inset 2px 0 0 var(--kb-border-subtle);
   background: var(--kb-bg-hover, rgba(255,255,255,0.04));
 }
 
