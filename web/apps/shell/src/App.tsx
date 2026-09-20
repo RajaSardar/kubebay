@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ClusterInfo } from "./lib/api";
 import { NavLink, Route, Routes, useNavigate } from "react-router-dom";
 import { useClusterStore } from "./lib/cluster-store";
+import { shouldRedirectToPicker } from "./lib/clusterPickerLogic";
 import { StatusDot } from "@kubebay/ui";
 import {
   IconArgoCD,
@@ -773,14 +774,15 @@ export default function App() {
     return () => clearTimeout(t);
   }, []);
 
-  // Always land on the cluster picker on app mount.
-  // macOS does not quit the app when the window is closed — reopening the
-  // window restores the previous webview URL (including ?cluster=...).
-  // Checking window.location.search for "cluster" would skip the redirect
-  // on re-open. Instead we always redirect, letting the user click through
-  // in under a second if they just want to continue with their last cluster.
+  // On app mount: redirect to /clusters only when no cluster is active.
+  // macOS does not quit the app on window close — the webview URL (and
+  // cluster-store's localStorage) survive the re-open, so we can land the
+  // user directly on their last page without forcing a picker click-through.
+  // A full quit + relaunch falls back to the localStorage value set by
+  // cluster-store on the last setActive() call.
   useEffect(() => {
-    if (window.location.pathname !== "/clusters") {
+    const active = useClusterStore.getState().active;
+    if (shouldRedirectToPicker(window.location.pathname, active)) {
       navigate("/clusters", { replace: true });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps

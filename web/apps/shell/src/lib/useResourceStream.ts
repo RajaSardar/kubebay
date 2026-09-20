@@ -8,6 +8,22 @@ export interface StreamState {
   connected: boolean;
 }
 
+// Pure helper — exported for unit tests.
+// Computes the next { synced, connected } state on a WS status event.
+// Key invariant: transitioning disconnected→connected resets synced=false so
+// the stale cache value is never exposed during the 16 ms debounce window
+// before the server's "begin" frame arrives.
+export function applyStatusTransition(
+  current: { synced: boolean; connected: boolean },
+  connected: boolean,
+): { synced: boolean; connected: boolean } {
+  if (connected && !current.connected) {
+    // Reconnect: invalidate any cached synced state immediately.
+    return { synced: false, connected: true };
+  }
+  return { ...current, connected };
+}
+
 export function useResourceStream(
   cluster: string | undefined,
   gvr: string,
@@ -84,7 +100,7 @@ export function useResourceStream(
     // mounted instance (e.g. the main table's stream), corrupting its rows.
     const handlers = {
       onStatus: (connected: boolean) => {
-        metaRef.current = { ...metaRef.current, connected };
+        metaRef.current = applyStatusTransition(metaRef.current, connected);
         scheduleFlushRef.current();
       },
       onBegin: (id: string) => {
