@@ -1,10 +1,19 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+
+const KEY = "kb.cluster-icons";
 
 export interface ClusterIcon {
   bg: string;
   label: string;
   imageUrl?: string;
+}
+
+function load(): Record<string, ClusterIcon> {
+  try {
+    return JSON.parse(localStorage.getItem(KEY) ?? "{}");
+  } catch {
+    return {};
+  }
 }
 
 interface ClusterIconState {
@@ -13,19 +22,19 @@ interface ClusterIconState {
   resetIcon: (clusterId: string) => void;
 }
 
-export const useClusterIcons = create<ClusterIconState>()(
-  persist(
-    (set) => ({
-      icons: {},
-      setIcon: (clusterId, icon) =>
-        set((s) => ({ icons: { ...s.icons, [clusterId]: icon } })),
-      resetIcon: (clusterId) =>
-        set((s) => {
-          const next = { ...s.icons };
-          delete next[clusterId];
-          return { icons: next };
-        }),
+export const useClusterIcons = create<ClusterIconState>((set) => ({
+  icons: load(),
+  setIcon: (clusterId, icon) =>
+    set((s) => {
+      const next = { ...s.icons, [clusterId]: icon };
+      try { localStorage.setItem(KEY, JSON.stringify(next)); } catch { /* quota */ }
+      return { icons: next };
     }),
-    { name: "kb.cluster-icons" },
-  ),
-);
+  resetIcon: (clusterId) =>
+    set((s) => {
+      const next = { ...s.icons };
+      delete next[clusterId];
+      try { localStorage.setItem(KEY, JSON.stringify(next)); } catch { /* quota */ }
+      return { icons: next };
+    }),
+}));
