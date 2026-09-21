@@ -268,11 +268,13 @@ export default function ClusterPicker() {
                         <NameDot status={c.status} />
                         <span
                           className="catalog-row-icon"
-                          style={{ background: icon.bg }}
+                          style={{ background: icon.imageUrl ? "transparent" : icon.bg }}
                           title="Click to change icon"
                           onClick={(e) => { e.stopPropagation(); if (!broken) setIconPickerId(c.id); }}
                         >
-                          {icon.label}
+                          {icon.imageUrl
+                            ? <img src={icon.imageUrl} alt="" className="catalog-row-icon-img" />
+                            : icon.label}
                         </span>
                         <span className="catalog-row-name" title={c.id}>
                           <span className="catalog-row-name-primary">{displayName}</span>

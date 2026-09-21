@@ -5,6 +5,7 @@ const KEY = "kb.cluster-icons";
 export interface ClusterIcon {
   bg: string;
   label: string;
+  imageUrl?: string;
 }
 
 function load(): Record<string, ClusterIcon> {
