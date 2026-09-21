@@ -1,0 +1,38 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Nav from '../components/Nav.astro';
+import Hero from '../components/Hero.astro';
+import Features from '../components/Features.astro';
+import WhyKubebay from '../components/WhyKubebay.astro';
+import Download from '../components/Download.astro';
+import Comparison from '../components/Comparison.astro';
+import Community from '../components/Community.astro';
+import Footer from '../components/Footer.astro';
+---
+<Layout
+  title="Kubebay — Open-Source Kubernetes IDE"
+  description="Free, local-first Kubernetes IDE. No accounts, no subscriptions. Live-streaming views of all your clusters. macOS, Windows, Linux."
+>
+  <Nav />
+  <main>
+    <section id="hero">
+      <Hero />
+    </section>
+    <section id="features">
+      <Features />
+    </section>
+    <section id="why">
+      <WhyKubebay />
+    </section>
+    <section id="download">
+      <Download />
+    </section>
+    <section id="compare">
+      <Comparison />
+    </section>
+    <section id="community">
+      <Community />
+    </section>
+  </main>
+  <Footer />
+</Layout>

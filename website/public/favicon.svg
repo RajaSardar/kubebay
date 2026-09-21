@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- Dark background pill -->
+  <rect width="32" height="32" rx="8" fill="#111111"/>
+  <!-- Stylized K glyph in teal -->
+  <!-- Vertical stem -->
+  <rect x="9" y="7" width="3" height="18" rx="1.5" fill="#22d3ee"/>
+  <!-- Upper diagonal arm -->
+  <path d="M12 16 L22 7.5" stroke="#22d3ee" stroke-width="3" stroke-linecap="round"/>
+  <!-- Lower diagonal arm -->
+  <path d="M12 16 L22 24.5" stroke="#22d3ee" stroke-width="3" stroke-linecap="round"/>
+  <!-- Accent dot — anchor nod -->
+  <circle cx="22" cy="25" r="1.5" fill="#41c98e"/>
+</svg>

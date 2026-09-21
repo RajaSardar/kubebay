@@ -1,0 +1,403 @@
+---
+type CellValue =
+  | { kind: "yes"; label?: string }
+  | { kind: "no"; label?: string }
+  | { kind: "partial"; label: string }
+  | { kind: "text"; label: string };
+
+interface Row {
+  feature: string;
+  kubebay: CellValue;
+  lens: CellValue;
+  freelens: CellValue;
+  k9s: CellValue;
+  headlamp: CellValue;
+}
+
+const rows: Row[] = [
+  {
+    feature: "License",
+    kubebay:  { kind: "text",    label: "MIT" },
+    lens:     { kind: "text",    label: "Proprietary" },
+    freelens: { kind: "text",    label: "MIT" },
+    k9s:      { kind: "text",    label: "MIT" },
+    headlamp: { kind: "text",    label: "Apache 2" },
+  },
+  {
+    feature: "Price",
+    kubebay:  { kind: "yes",     label: "Free forever" },
+    lens:     { kind: "no",      label: "Subscription ($30+/mo)" },
+    freelens: { kind: "yes",     label: "Free" },
+    k9s:      { kind: "yes",     label: "Free" },
+    headlamp: { kind: "yes",     label: "Free" },
+  },
+  {
+    feature: "Account required",
+    kubebay:  { kind: "yes",     label: "None" },
+    lens:     { kind: "no",      label: "Mandatory" },
+    freelens: { kind: "yes",     label: "None" },
+    k9s:      { kind: "yes",     label: "None" },
+    headlamp: { kind: "yes",     label: "None" },
+  },
+  {
+    feature: "Telemetry",
+    kubebay:  { kind: "partial", label: "Opt-in only" },
+    lens:     { kind: "no",      label: "Required" },
+    freelens: { kind: "partial", label: "Partial" },
+    k9s:      { kind: "yes",     label: "None" },
+    headlamp: { kind: "partial", label: "Opt-in" },
+  },
+  {
+    feature: "RAM usage",
+    kubebay:  { kind: "yes",     label: "≤150 MB" },
+    lens:     { kind: "no",      label: "400–800 MB" },
+    freelens: { kind: "no",      label: "400–800 MB" },
+    k9s:      { kind: "yes",     label: "≤30 MB" },
+    headlamp: { kind: "partial", label: "~200 MB" },
+  },
+  {
+    feature: "Cold start",
+    kubebay:  { kind: "yes",     label: "≤1.5 s" },
+    lens:     { kind: "no",      label: "8–15 s" },
+    freelens: { kind: "no",      label: "8–15 s" },
+    k9s:      { kind: "yes",     label: "<1 s" },
+    headlamp: { kind: "partial", label: "~3 s" },
+  },
+  {
+    feature: "Installer size",
+    kubebay:  { kind: "yes",     label: "40 MB" },
+    lens:     { kind: "no",      label: "500+ MB" },
+    freelens: { kind: "no",      label: "500+ MB" },
+    k9s:      { kind: "yes",     label: "10 MB" },
+    headlamp: { kind: "partial", label: "100 MB" },
+  },
+  {
+    feature: "Desktop app",
+    kubebay:  { kind: "yes",     label: "macOS / Win / Linux" },
+    lens:     { kind: "yes" },
+    freelens: { kind: "yes" },
+    k9s:      { kind: "yes" },
+    headlamp: { kind: "no" },
+  },
+  {
+    feature: "In-cluster deploy",
+    kubebay:  { kind: "yes",     label: "Helm chart" },
+    lens:     { kind: "no" },
+    freelens: { kind: "no" },
+    k9s:      { kind: "no" },
+    headlamp: { kind: "yes" },
+  },
+  {
+    feature: "Live streaming",
+    kubebay:  { kind: "yes" },
+    lens:     { kind: "yes" },
+    freelens: { kind: "yes" },
+    k9s:      { kind: "yes" },
+    headlamp: { kind: "yes" },
+  },
+  {
+    feature: "Helm manager",
+    kubebay:  { kind: "yes" },
+    lens:     { kind: "yes" },
+    freelens: { kind: "yes" },
+    k9s:      { kind: "no" },
+    headlamp: { kind: "no" },
+  },
+  {
+    feature: "RBAC explorer",
+    kubebay:  { kind: "yes" },
+    lens:     { kind: "partial", label: "Limited" },
+    freelens: { kind: "partial", label: "Limited" },
+    k9s:      { kind: "no" },
+    headlamp: { kind: "yes" },
+  },
+  {
+    feature: "Open roadmap",
+    kubebay:  { kind: "yes" },
+    lens:     { kind: "no" },
+    freelens: { kind: "partial", label: "Limited" },
+    k9s:      { kind: "yes" },
+    headlamp: { kind: "yes" },
+  },
+];
+
+function cellSymbol(v: CellValue): string {
+  if (v.kind === "yes") return "✓";
+  if (v.kind === "no")  return "✗";
+  if (v.kind === "partial") return "~";
+  return "";
+}
+
+function cellLabel(v: CellValue): string {
+  if (v.kind === "text") return v.label;
+  return v.label ?? "";
+}
+---
+
+<section class="comparison" id="comparison">
+  <div class="comparison__inner">
+    <div class="comparison__header">
+      <h2 class="comparison__title">How Kubebay compares</h2>
+      <p class="comparison__sub">The honest comparison.</p>
+    </div>
+
+    <div class="table-wrap">
+      <table class="compare-table" aria-label="Feature comparison of Kubernetes tools">
+        <thead>
+          <tr>
+            <th class="col-feature" scope="col">Feature</th>
+            <th class="col-kubebay" scope="col">
+              <span class="col-kubebay__label">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+                Kubebay
+              </span>
+            </th>
+            <th scope="col">Lens</th>
+            <th scope="col">Freelens</th>
+            <th scope="col">k9s</th>
+            <th scope="col">Headlamp</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr>
+              <td class="col-feature">{row.feature}</td>
+              <td class="col-kubebay">
+                <span class={`cell cell--${row.kubebay.kind}`}>
+                  <span class="cell__sym" aria-hidden="true">{cellSymbol(row.kubebay)}</span>
+                  {cellLabel(row.kubebay) && <span class="cell__text">{cellLabel(row.kubebay)}</span>}
+                </span>
+              </td>
+              <td>
+                <span class={`cell cell--${row.lens.kind}`}>
+                  <span class="cell__sym" aria-hidden="true">{cellSymbol(row.lens)}</span>
+                  {cellLabel(row.lens) && <span class="cell__text">{cellLabel(row.lens)}</span>}
+                </span>
+              </td>
+              <td>
+                <span class={`cell cell--${row.freelens.kind}`}>
+                  <span class="cell__sym" aria-hidden="true">{cellSymbol(row.freelens)}</span>
+                  {cellLabel(row.freelens) && <span class="cell__text">{cellLabel(row.freelens)}</span>}
+                </span>
+              </td>
+              <td>
+                <span class={`cell cell--${row.k9s.kind}`}>
+                  <span class="cell__sym" aria-hidden="true">{cellSymbol(row.k9s)}</span>
+                  {cellLabel(row.k9s) && <span class="cell__text">{cellLabel(row.k9s)}</span>}
+                </span>
+              </td>
+              <td>
+                <span class={`cell cell--${row.headlamp.kind}`}>
+                  <span class="cell__sym" aria-hidden="true">{cellSymbol(row.headlamp)}</span>
+                  {cellLabel(row.headlamp) && <span class="cell__text">{cellLabel(row.headlamp)}</span>}
+                </span>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<style>
+  .comparison {
+    background: #090909;
+    padding: 96px 24px;
+  }
+
+  .comparison__inner {
+    max-width: 1040px;
+    margin: 0 auto;
+  }
+
+  .comparison__header {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+
+  .comparison__title {
+    font-size: clamp(1.75rem, 4vw, 2.5rem);
+    font-weight: 700;
+    color: #fff;
+    margin: 0 0 12px;
+    letter-spacing: -0.02em;
+  }
+
+  .comparison__sub {
+    font-size: 1rem;
+    color: #8a8a8a;
+    margin: 0;
+  }
+
+  /* ── Scroll wrapper ── */
+  .table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  /* ── Table ── */
+  .compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 680px;
+    font-size: 0.875rem;
+  }
+
+  /* Header row */
+  .compare-table thead tr {
+    background: linear-gradient(90deg, rgba(34,211,238,0.08) 0%, rgba(34,211,238,0.03) 100%);
+    border-bottom: 1px solid rgba(34, 211, 238, 0.18);
+  }
+
+  .compare-table thead th {
+    padding: 14px 20px;
+    text-align: left;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: #8a8a8a;
+    white-space: nowrap;
+  }
+
+  /* Kubebay column header */
+  .compare-table thead th.col-kubebay {
+    color: #22d3ee;
+  }
+
+  .col-kubebay__label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* Body rows */
+  .compare-table tbody tr {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    transition: background 0.15s;
+  }
+
+  .compare-table tbody tr:last-child {
+    border-bottom: none;
+  }
+
+  .compare-table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .compare-table tbody td {
+    padding: 14px 20px;
+    color: #e5e5e5;
+    vertical-align: middle;
+  }
+
+  /* Feature (first) column — sticky on mobile */
+  .col-feature {
+    font-weight: 500;
+    color: #c0c0c0 !important;
+    white-space: nowrap;
+    position: sticky;
+    left: 0;
+    background: #111111;
+    z-index: 1;
+  }
+
+  .compare-table thead .col-feature {
+    background: #111111;
+  }
+
+  /* Kubebay (second) column highlight */
+  .col-kubebay {
+    background: rgba(34, 211, 238, 0.04) !important;
+    border-left: 2px solid rgba(34, 211, 238, 0.3);
+    border-right: 2px solid rgba(34, 211, 238, 0.1);
+  }
+
+  .compare-table thead th.col-kubebay {
+    border-left: 2px solid rgba(34, 211, 238, 0.4);
+  }
+
+  /* ── Cell values ── */
+  .cell {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .cell__sym {
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+
+  .cell__text {
+    font-size: 0.82rem;
+    color: inherit;
+    opacity: 0.85;
+  }
+
+  /* yes = green */
+  .cell--yes .cell__sym {
+    color: #4ade80;
+  }
+  .cell--yes .cell__text {
+    color: #a3e8bc;
+  }
+
+  /* no = muted red */
+  .cell--no .cell__sym {
+    color: #f87171;
+  }
+  .cell--no .cell__text {
+    color: #fca5a5;
+    opacity: 0.7;
+  }
+
+  /* partial = amber */
+  .cell--partial .cell__sym {
+    color: #fbbf24;
+  }
+  .cell--partial .cell__text {
+    color: #fde68a;
+    opacity: 0.8;
+  }
+
+  /* plain text */
+  .cell--text {
+    color: #c0c0c0;
+  }
+
+  /* Kubebay column — slightly brighter text */
+  .col-kubebay .cell--yes .cell__sym  { color: #22d3ee; }
+  .col-kubebay .cell--yes .cell__text { color: #a5f3fc; }
+
+  /* ── Responsive ── */
+  @media (max-width: 640px) {
+    .comparison {
+      padding: 64px 0;
+    }
+
+    .comparison__header {
+      padding: 0 24px;
+    }
+
+    .table-wrap {
+      border-radius: 0;
+      border-left: none;
+      border-right: none;
+    }
+
+    .compare-table {
+      font-size: 0.82rem;
+    }
+
+    .compare-table tbody td,
+    .compare-table thead th {
+      padding: 12px 14px;
+    }
+  }
+</style>

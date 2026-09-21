@@ -1,0 +1,119 @@
+---
+export interface Props {
+  title: string;
+  description: string;
+  og?: {
+    image?: string;
+    type?: string;
+  };
+  canonical?: string;
+}
+
+const {
+  title,
+  description,
+  og = {},
+  canonical,
+} = Astro.props;
+
+const siteUrl = 'https://kubebay.dev';
+const defaultOgImage = `${siteUrl}/og-image.png`;
+const ogImage = og.image ?? defaultOgImage;
+const ogType = og.type ?? 'website';
+const canonicalUrl = canonical ?? Astro.url.href;
+
+const softwareAppSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'Kubebay',
+  applicationCategory: 'DeveloperApplication',
+  operatingSystem: 'macOS, Windows, Linux',
+  offers: {
+    '@type': 'Offer',
+    price: '0',
+    priceCurrency: 'USD',
+  },
+  license: 'https://opensource.org/licenses/MIT',
+  url: siteUrl,
+  downloadUrl: 'https://github.com/RajaSardar/kubebay/releases/latest',
+  description: 'Free, open-source, local-first Kubernetes IDE',
+};
+
+const faqSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: [
+    {
+      '@type': 'Question',
+      name: 'Is Kubebay really free?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Yes. Kubebay is fully open-source under the MIT license. There are no paid tiers, no accounts required, and no usage limits. You download it, run it, and it works — forever.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'Does Kubebay send any data to the cloud?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'No. Kubebay is local-first. All cluster communication happens directly from your machine to your Kubernetes API server. No telemetry, no analytics, and no data ever leaves your workstation.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'Which operating systems does Kubebay support?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Kubebay runs on macOS (Apple Silicon and Intel), Windows, and Linux. Download the right build for your platform from the GitHub releases page.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'How does Kubebay compare to Lens or K9s?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Kubebay is designed to be permanently free and fully open-source, unlike Lens which moved to a commercial model. Compared to K9s, Kubebay offers a native desktop GUI with live-streaming resource views, an integrated pod terminal, and Helm management — without requiring a terminal or memorising keyboard shortcuts.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'Can I manage multiple clusters with Kubebay?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Yes. Kubebay supports multiple clusters simultaneously. You can add any cluster via kubeconfig, switch between them instantly in the catalog, and view live-streaming resource data from each one.',
+      },
+    },
+  ],
+};
+---
+
+<!-- Primary meta -->
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="description" content={description} />
+<meta name="generator" content={Astro.generator} />
+<link rel="canonical" href={canonicalUrl} />
+
+<!-- OpenGraph -->
+<meta property="og:type" content={ogType} />
+<meta property="og:url" content={canonicalUrl} />
+<meta property="og:site_name" content="Kubebay" />
+<meta property="og:title" content={title} />
+<meta property="og:description" content={description} />
+<meta property="og:image" content={ogImage} />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content="Kubebay — Open-Source Kubernetes IDE" />
+
+<!-- Twitter / X card -->
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content={title} />
+<meta name="twitter:description" content={description} />
+<meta name="twitter:image" content={ogImage} />
+<meta name="twitter:image:alt" content="Kubebay — Open-Source Kubernetes IDE" />
+
+<!-- Structured data: SoftwareApplication -->
+<script type="application/ld+json" set:html={JSON.stringify(softwareAppSchema)} />
+
+<!-- Structured data: FAQPage -->
+<script type="application/ld+json" set:html={JSON.stringify(faqSchema)} />

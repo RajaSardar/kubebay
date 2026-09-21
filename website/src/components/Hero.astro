@@ -1,0 +1,769 @@
+---
+const githubUrl = "https://github.com/kubebay/kubebay";
+const releasesUrl = "https://github.com/kubebay/kubebay/releases";
+const downloadUrl = "https://github.com/kubebay/kubebay/releases/latest";
+---
+
+<section class="hero" aria-label="Hero">
+  <!-- Background layers -->
+  <div class="hero__bg-glow" aria-hidden="true"></div>
+  <div class="hero__bg-grid" aria-hidden="true"></div>
+
+  <div class="hero__inner">
+
+    <!-- Badge -->
+    <div class="hero__badge-wrap fade-up" style="--delay: 0ms">
+      <a href={releasesUrl} class="hero__badge" target="_blank" rel="noopener">
+        <span class="hero__badge-new">NEW</span>
+        <span class="hero__badge-text">v0.2.0 Released</span>
+        <svg class="hero__badge-arrow" width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+          <path d="M3 7h8M7 3l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </a>
+    </div>
+
+    <!-- Headline -->
+    <h1 class="hero__headline fade-up" style="--delay: 80ms">
+      Open-Source<br>
+      <span class="hero__headline-gradient">Kubernetes IDE</span><br>
+      That Respects You
+    </h1>
+
+    <!-- Subline -->
+    <p class="hero__subline fade-up" style="--delay: 160ms">
+      Kubebay gives you a live, streaming view of all your clusters &mdash; no accounts,<br class="hero__subline-br">
+      no subscriptions, no Electron bloat. Just your clusters and a fast local engine.
+    </p>
+
+    <!-- CTAs -->
+    <div class="hero__ctas fade-up" style="--delay: 240ms">
+      <a href={downloadUrl} class="hero__btn hero__btn--primary" target="_blank" rel="noopener">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+          <path d="M9 2v10M5 8l4 4 4-4M3 14h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Download Free
+      </a>
+      <a href={githubUrl} class="hero__btn hero__btn--secondary" target="_blank" rel="noopener">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor" aria-hidden="true">
+          <path d="M9 1.5C4.86 1.5 1.5 4.86 1.5 9c0 3.315 2.15 6.128 5.133 7.118.375.07.513-.163.513-.363 0-.178-.007-.77-.01-1.397-2.088.453-2.528-.9-2.528-.9-.341-.868-.833-1.098-.833-1.098-.681-.466.051-.457.051-.457.753.053 1.149.774 1.149.774.67 1.148 1.757.816 2.185.624.067-.485.261-.816.475-1.004-1.667-.189-3.42-.834-3.42-3.71 0-.82.293-1.49.773-2.015-.078-.19-.335-.953.073-1.987 0 0 .63-.202 2.063.77A7.18 7.18 0 0 1 9 5.67c.638.003 1.28.086 1.878.253 1.431-.972 2.06-.77 2.06-.77.41 1.034.152 1.797.075 1.987.48.525.772 1.195.772 2.015 0 2.884-1.756 3.519-3.429 3.704.27.232.51.69.51 1.39 0 1.004-.009 1.813-.009 2.059 0 .202.135.437.516.362C15.352 15.124 17.5 12.313 17.5 9c0-4.14-3.36-7.5-7.5-7.5Z"/>
+        </svg>
+        Star on GitHub
+      </a>
+    </div>
+
+    <!-- Trust strip -->
+    <div class="hero__trust fade-up" style="--delay: 320ms" aria-label="Key facts">
+      <span class="hero__trust-item">
+        <svg class="hero__trust-icon" width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+          <path d="M2 7l3.5 3.5L12 3" stroke="#22d3ee" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        MIT Licensed
+      </span>
+      <span class="hero__trust-sep" aria-hidden="true">·</span>
+      <span class="hero__trust-item">
+        <svg class="hero__trust-icon" width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+          <path d="M2 7l3.5 3.5L12 3" stroke="#22d3ee" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        No accounts
+      </span>
+      <span class="hero__trust-sep" aria-hidden="true">·</span>
+      <span class="hero__trust-item">
+        <svg class="hero__trust-icon" width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+          <path d="M2 7l3.5 3.5L12 3" stroke="#22d3ee" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        40 MB installer
+      </span>
+      <span class="hero__trust-sep" aria-hidden="true">·</span>
+      <span class="hero__trust-item">
+        <svg class="hero__trust-icon" width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+          <path d="M2 7l3.5 3.5L12 3" stroke="#22d3ee" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Go-powered
+      </span>
+    </div>
+
+    <!-- App preview card -->
+    <div class="hero__preview fade-up" style="--delay: 420ms" aria-label="App preview: Cluster Catalog showing 8 clusters">
+      <!-- Window chrome -->
+      <div class="preview__titlebar">
+        <span class="preview__dot preview__dot--red"></span>
+        <span class="preview__dot preview__dot--yellow"></span>
+        <span class="preview__dot preview__dot--green"></span>
+        <span class="preview__title-text">Cluster Catalog &middot; 8 clusters</span>
+      </div>
+
+      <!-- Sidebar + main split -->
+      <div class="preview__body">
+        <aside class="preview__sidebar">
+          <div class="preview__sidebar-item preview__sidebar-item--active">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+              <rect x="1" y="1" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.2"/>
+              <rect x="8" y="1" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.2"/>
+              <rect x="1" y="8" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.2"/>
+              <rect x="8" y="8" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.2"/>
+            </svg>
+            Clusters
+          </div>
+          <div class="preview__sidebar-item">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+              <circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.2"/>
+              <path d="M7 4v3l2 1.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+            </svg>
+            History
+          </div>
+          <div class="preview__sidebar-item">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+              <path d="M7 1l1.5 4h4.5l-3.5 2.5 1.5 4L7 9l-4 2.5 1.5-4L1 5h4.5z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
+            </svg>
+            Favorites
+          </div>
+        </aside>
+
+        <main class="preview__main">
+          <!-- Search bar -->
+          <div class="preview__search">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
+              <circle cx="5.5" cy="5.5" r="4" stroke="currentColor" stroke-width="1.2"/>
+              <path d="M10 10l-2-2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+            </svg>
+            <span class="preview__search-placeholder">Search clusters...</span>
+          </div>
+
+          <!-- Table header -->
+          <div class="preview__table-header">
+            <span class="preview__col preview__col--name">NAME</span>
+            <span class="preview__col preview__col--provider">PROVIDER</span>
+            <span class="preview__col preview__col--status">STATUS</span>
+            <span class="preview__col preview__col--nodes">NODES</span>
+            <span class="preview__col preview__col--version">VERSION</span>
+          </div>
+
+          <!-- Table rows -->
+          <div class="preview__row preview__row--highlight">
+            <span class="preview__col preview__col--name">
+              <span class="preview__cluster-dot preview__cluster-dot--green"></span>
+              prod-us-east-1
+            </span>
+            <span class="preview__col preview__col--provider">
+              <span class="preview__tag preview__tag--aws">AWS EKS</span>
+            </span>
+            <span class="preview__col preview__col--status">
+              <span class="preview__status preview__status--healthy">Healthy</span>
+            </span>
+            <span class="preview__col preview__col--nodes">12</span>
+            <span class="preview__col preview__col--version">1.29</span>
+          </div>
+
+          <div class="preview__row">
+            <span class="preview__col preview__col--name">
+              <span class="preview__cluster-dot preview__cluster-dot--green"></span>
+              prod-eu-west-1
+            </span>
+            <span class="preview__col preview__col--provider">
+              <span class="preview__tag preview__tag--aws">AWS EKS</span>
+            </span>
+            <span class="preview__col preview__col--status">
+              <span class="preview__status preview__status--healthy">Healthy</span>
+            </span>
+            <span class="preview__col preview__col--nodes">8</span>
+            <span class="preview__col preview__col--version">1.29</span>
+          </div>
+
+          <div class="preview__row">
+            <span class="preview__col preview__col--name">
+              <span class="preview__cluster-dot preview__cluster-dot--yellow"></span>
+              staging-us
+            </span>
+            <span class="preview__col preview__col--provider">
+              <span class="preview__tag preview__tag--gke">GKE</span>
+            </span>
+            <span class="preview__col preview__col--status">
+              <span class="preview__status preview__status--degraded">Degraded</span>
+            </span>
+            <span class="preview__col preview__col--nodes">4</span>
+            <span class="preview__col preview__col--version">1.28</span>
+          </div>
+
+          <div class="preview__row">
+            <span class="preview__col preview__col--name">
+              <span class="preview__cluster-dot preview__cluster-dot--green"></span>
+              dev-local
+            </span>
+            <span class="preview__col preview__col--provider">
+              <span class="preview__tag preview__tag--kind">kind</span>
+            </span>
+            <span class="preview__col preview__col--status">
+              <span class="preview__status preview__status--healthy">Healthy</span>
+            </span>
+            <span class="preview__col preview__col--nodes">1</span>
+            <span class="preview__col preview__col--version">1.30</span>
+          </div>
+
+          <div class="preview__row">
+            <span class="preview__col preview__col--name">
+              <span class="preview__cluster-dot preview__cluster-dot--green"></span>
+              analytics-prod
+            </span>
+            <span class="preview__col preview__col--provider">
+              <span class="preview__tag preview__tag--aks">AKS</span>
+            </span>
+            <span class="preview__col preview__col--status">
+              <span class="preview__status preview__status--healthy">Healthy</span>
+            </span>
+            <span class="preview__col preview__col--nodes">6</span>
+            <span class="preview__col preview__col--version">1.29</span>
+          </div>
+
+          <!-- Fade-out overlay at bottom -->
+          <div class="preview__fade-out" aria-hidden="true"></div>
+        </main>
+      </div>
+
+      <!-- Status bar -->
+      <div class="preview__statusbar">
+        <span class="preview__sb-item">
+          <span class="preview__sb-dot"></span>
+          Engine running &mdash; 87 MB
+        </span>
+        <span class="preview__sb-item">5 / 8 clusters connected</span>
+        <span class="preview__sb-item preview__sb-right">v0.2.0</span>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<style>
+  /* ─── Keyframes ─────────────────────────────────────────────── */
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(24px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% { opacity: 0.55; }
+    50%       { opacity: 0.8;  }
+  }
+
+  /* ─── Animation helper ──────────────────────────────────────── */
+  .fade-up {
+    opacity: 0;
+    animation: fade-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    animation-delay: var(--delay, 0ms);
+  }
+
+  /* ─── Hero shell ────────────────────────────────────────────── */
+  .hero {
+    position: relative;
+    background-color: #090909;
+    overflow: hidden;
+    padding: clamp(80px, 10vw, 130px) 24px clamp(80px, 10vw, 120px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  /* Radial glow */
+  .hero__bg-glow {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+      ellipse 900px 600px at 50% 10%,
+      rgba(34, 211, 238, 0.12) 0%,
+      rgba(65, 201, 142, 0.07) 40%,
+      transparent 70%
+    );
+    animation: pulse-glow 6s ease-in-out infinite;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Dot/grid background */
+  .hero__bg-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+      radial-gradient(circle, rgba(255,255,255,0.06) 1px, transparent 1px);
+    background-size: 28px 28px;
+    mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 30%, transparent 100%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ─── Inner wrapper ─────────────────────────────────────────── */
+  .hero__inner {
+    position: relative;
+    z-index: 1;
+    max-width: 900px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+
+  /* ─── Badge ─────────────────────────────────────────────────── */
+  .hero__badge-wrap {
+    margin-bottom: 32px;
+  }
+
+  .hero__badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #e2e8f0;
+    text-decoration: none;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid transparent;
+    background-clip: padding-box;
+    position: relative;
+    transition: background 0.2s, color 0.2s;
+  }
+
+  /* Gradient border via pseudo-element */
+  .hero__badge::before {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border-radius: 999px;
+    padding: 1px;
+    background: linear-gradient(90deg, #22d3ee, #41c98e);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    -webkit-mask-composite: destination-out;
+    pointer-events: none;
+  }
+
+  .hero__badge:hover {
+    background: rgba(34, 211, 238, 0.1);
+    color: #fff;
+  }
+
+  .hero__badge-new {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #22d3ee, #41c98e);
+    color: #090909;
+    line-height: 1.4;
+  }
+
+  .hero__badge-text {
+    color: #94a3b8;
+  }
+
+  .hero__badge:hover .hero__badge-text {
+    color: #cbd5e1;
+  }
+
+  .hero__badge-arrow {
+    color: #22d3ee;
+    flex-shrink: 0;
+    transition: transform 0.2s;
+  }
+
+  .hero__badge:hover .hero__badge-arrow {
+    transform: translateX(3px);
+  }
+
+  /* ─── Headline ──────────────────────────────────────────────── */
+  .hero__headline {
+    font-size: clamp(40px, 6.5vw, 72px);
+    font-weight: 800;
+    line-height: 1.08;
+    letter-spacing: -0.03em;
+    color: #f1f5f9;
+    margin: 0 0 24px;
+    animation-delay: 80ms;
+  }
+
+  .hero__headline-gradient {
+    background: linear-gradient(90deg, #22d3ee 0%, #41c98e 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* ─── Subline ───────────────────────────────────────────────── */
+  .hero__subline {
+    font-size: clamp(16px, 2vw, 19px);
+    line-height: 1.7;
+    color: #64748b;
+    max-width: 600px;
+    margin: 0 0 40px;
+  }
+
+  .hero__subline-br {
+    display: none;
+  }
+
+  @media (min-width: 640px) {
+    .hero__subline-br {
+      display: block;
+    }
+  }
+
+  /* ─── CTAs ──────────────────────────────────────────────────── */
+  .hero__ctas {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-bottom: 36px;
+  }
+
+  .hero__btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 28px;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
+                box-shadow 0.18s,
+                background 0.18s,
+                opacity 0.18s;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .hero__btn:hover {
+    transform: translateY(-2px);
+  }
+
+  .hero__btn:active {
+    transform: translateY(0);
+  }
+
+  /* Primary — teal fill */
+  .hero__btn--primary {
+    background: linear-gradient(90deg, #22d3ee, #41c98e);
+    color: #050f0a;
+    box-shadow: 0 4px 24px rgba(34, 211, 238, 0.3);
+  }
+
+  .hero__btn--primary:hover {
+    box-shadow: 0 8px 32px rgba(34, 211, 238, 0.45);
+    opacity: 0.93;
+  }
+
+  /* Secondary — outlined */
+  .hero__btn--secondary {
+    background: rgba(255,255,255,0.04);
+    color: #cbd5e1;
+    border: 1px solid rgba(255,255,255,0.12);
+    box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+  }
+
+  .hero__btn--secondary:hover {
+    background: rgba(255,255,255,0.08);
+    border-color: rgba(255,255,255,0.22);
+    color: #f1f5f9;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  }
+
+  /* ─── Trust strip ───────────────────────────────────────────── */
+  .hero__trust {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-bottom: 64px;
+    font-size: 13px;
+    color: #475569;
+  }
+
+  .hero__trust-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+  }
+
+  .hero__trust-icon {
+    flex-shrink: 0;
+  }
+
+  .hero__trust-sep {
+    color: #1e293b;
+    font-size: 18px;
+    line-height: 1;
+  }
+
+  /* ─── App preview card ──────────────────────────────────────── */
+  .hero__preview {
+    width: 100%;
+    max-width: 820px;
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: #0f1117;
+    box-shadow:
+      0 0 0 1px rgba(34, 211, 238, 0.05),
+      0 24px 80px rgba(0,0,0,0.7),
+      0 4px 24px rgba(34, 211, 238, 0.06);
+  }
+
+  /* Title bar */
+  .preview__titlebar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    background: #161b22;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    user-select: none;
+  }
+
+  .preview__dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .preview__dot--red    { background: #ff5f57; }
+  .preview__dot--yellow { background: #febc2e; }
+  .preview__dot--green  { background: #28c840; }
+
+  .preview__title-text {
+    margin-left: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #475569;
+    letter-spacing: 0.02em;
+  }
+
+  /* Body split */
+  .preview__body {
+    display: flex;
+    height: 280px;
+  }
+
+  /* Sidebar */
+  .preview__sidebar {
+    width: 130px;
+    flex-shrink: 0;
+    background: #0d1117;
+    border-right: 1px solid rgba(255,255,255,0.05);
+    padding: 16px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .preview__sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #475569;
+    border-radius: 0;
+    cursor: default;
+    transition: background 0.15s, color 0.15s;
+    white-space: nowrap;
+  }
+
+  .preview__sidebar-item svg {
+    flex-shrink: 0;
+  }
+
+  .preview__sidebar-item--active {
+    color: #22d3ee;
+    background: rgba(34, 211, 238, 0.08);
+    border-right: 2px solid #22d3ee;
+  }
+
+  /* Main content */
+  .preview__main {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Search */
+  .preview__search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    color: #334155;
+    font-size: 12px;
+  }
+
+  .preview__search-placeholder {
+    color: #334155;
+    font-style: italic;
+    font-size: 12px;
+  }
+
+  /* Table header */
+  .preview__table-header {
+    display: flex;
+    align-items: center;
+    padding: 6px 16px;
+    background: rgba(255,255,255,0.02);
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+
+  .preview__col {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: #334155;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .preview__col--name     { flex: 2; }
+  .preview__col--provider { flex: 1.2; }
+  .preview__col--status   { flex: 1.2; }
+  .preview__col--nodes    { flex: 0.6; }
+  .preview__col--version  { flex: 0.6; }
+
+  /* Rows */
+  .preview__row {
+    display: flex;
+    align-items: center;
+    padding: 9px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    font-size: 12px;
+    font-weight: 400;
+    color: #94a3b8;
+    transition: background 0.12s;
+  }
+
+  .preview__row:hover {
+    background: rgba(255,255,255,0.025);
+  }
+
+  .preview__row--highlight {
+    background: rgba(34, 211, 238, 0.04);
+  }
+
+  /* Cluster dot */
+  .preview__cluster-dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .preview__cluster-dot--green  { background: #22c55e; box-shadow: 0 0 4px rgba(34,197,94,0.6); }
+  .preview__cluster-dot--yellow { background: #eab308; box-shadow: 0 0 4px rgba(234,179,8,0.6); }
+
+  /* Provider tags */
+  .preview__tag {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 4px;
+    letter-spacing: 0.04em;
+  }
+
+  .preview__tag--aws  { background: rgba(255,153,0,0.12);  color: #fb923c; }
+  .preview__tag--gke  { background: rgba(66,133,244,0.12); color: #60a5fa; }
+  .preview__tag--aks  { background: rgba(0,120,212,0.12);  color: #7dd3fc; }
+  .preview__tag--kind { background: rgba(139,92,246,0.12); color: #a78bfa; }
+
+  /* Status badges */
+  .preview__status {
+    font-size: 11px;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 999px;
+  }
+
+  .preview__status--healthy  { background: rgba(34,197,94,0.1);  color: #4ade80; }
+  .preview__status--degraded { background: rgba(234,179,8,0.1);  color: #facc15; }
+
+  /* Fade-out overlay */
+  .preview__fade-out {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 64px;
+    background: linear-gradient(to bottom, transparent, #0f1117);
+    pointer-events: none;
+  }
+
+  /* Status bar */
+  .preview__statusbar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 7px 16px;
+    background: #0d1117;
+    border-top: 1px solid rgba(255,255,255,0.05);
+    font-size: 11px;
+    color: #334155;
+  }
+
+  .preview__sb-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #22c55e;
+    box-shadow: 0 0 4px rgba(34,197,94,0.7);
+    flex-shrink: 0;
+  }
+
+  .preview__sb-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+  }
+
+  .preview__sb-right {
+    margin-left: auto;
+    color: #22d3ee;
+    font-weight: 600;
+  }
+
+  /* ─── Responsive ────────────────────────────────────────────── */
+  @media (max-width: 600px) {
+    .preview__sidebar {
+      display: none;
+    }
+
+    .preview__col--provider,
+    .preview__col--nodes,
+    .preview__col--version {
+      display: none;
+    }
+
+    .hero__trust {
+      gap: 8px 10px;
+    }
+  }
+</style>
