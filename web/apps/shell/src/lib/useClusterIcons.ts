@@ -1,6 +1,5 @@
-import { useState, useCallback } from "react";
-
-const KEY = "kb.cluster-icons";
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
 export interface ClusterIcon {
   bg: string;
@@ -8,33 +7,25 @@ export interface ClusterIcon {
   imageUrl?: string;
 }
 
-function load(): Record<string, ClusterIcon> {
-  try {
-    return JSON.parse(localStorage.getItem(KEY) ?? "{}");
-  } catch {
-    return {};
-  }
+interface ClusterIconState {
+  icons: Record<string, ClusterIcon>;
+  setIcon: (clusterId: string, icon: ClusterIcon) => void;
+  resetIcon: (clusterId: string) => void;
 }
 
-export function useClusterIcons() {
-  const [icons, setIcons] = useState<Record<string, ClusterIcon>>(load);
-
-  const setIcon = useCallback((clusterId: string, icon: ClusterIcon) => {
-    setIcons((prev) => {
-      const next = { ...prev, [clusterId]: icon };
-      localStorage.setItem(KEY, JSON.stringify(next));
-      return next;
-    });
-  }, []);
-
-  const resetIcon = useCallback((clusterId: string) => {
-    setIcons((prev) => {
-      const next = { ...prev };
-      delete next[clusterId];
-      localStorage.setItem(KEY, JSON.stringify(next));
-      return next;
-    });
-  }, []);
-
-  return { icons, setIcon, resetIcon };
-}
+export const useClusterIcons = create<ClusterIconState>()(
+  persist(
+    (set) => ({
+      icons: {},
+      setIcon: (clusterId, icon) =>
+        set((s) => ({ icons: { ...s.icons, [clusterId]: icon } })),
+      resetIcon: (clusterId) =>
+        set((s) => {
+          const next = { ...s.icons };
+          delete next[clusterId];
+          return { icons: next };
+        }),
+    }),
+    { name: "kb.cluster-icons" },
+  ),
+);
