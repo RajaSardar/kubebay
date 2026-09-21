@@ -1,7 +1,6 @@
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { StatusDot } from "@kubebay/ui";
 import { api } from "../lib/api";
 import type { ClusterInfo } from "../lib/api";
 import { useClusterMeta } from "../lib/cluster-meta-store";
@@ -10,24 +9,52 @@ import { useClusterStore } from "../lib/cluster-store";
 import { sortClusters, filterClusters } from "../lib/clusterSort";
 import { ClusterIconPicker, autoAvatar } from "../components/ClusterIconPicker";
 import { ClusterDetailDrawer } from "../components/ClusterDetailDrawer";
-import { detectDistro } from "../lib/clusterDistro";
+import { providerBadge, clusterDisplayName } from "../lib/clusterDistro";
+import { useResizableColumns } from "../lib/useResizableColumns";
 
-// ── Status cell ───────────────────────────────────────────────────────────────
+const APP_VERSION = "v0.2.0";
 
-function StatusCell({ status }: { status: ClusterInfo["status"] }) {
-  const map: Record<ClusterInfo["status"], { dot: "connected" | "unreachable" | "pending" | "degraded"; label: string }> = {
-    connected:     { dot: "connected",   label: "Connected"     },
-    unreachable:   { dot: "unreachable", label: "Disconnected"  },
-    degraded:      { dot: "degraded",    label: "Degraded"      },
-    misconfigured: { dot: "pending",     label: "Misconfigured" },
+// Column definitions — index matches useResizableColumns
+const COLS = [
+  { key: "name",     label: "Name",     init: 210 },
+  { key: "context",  label: "Context",  init: 175 },
+  { key: "server",   label: "Server",   init: 210 },
+  { key: "provider", label: "Provider", init: 120 },
+  { key: "status",   label: "Status",   init: 120 },
+  { key: "version",  label: "Version",  init: 90  },
+] as const;
+
+// ── Provider badge ────────────────────────────────────────────────────────────
+
+function ProviderBadge({ id }: { id: string }) {
+  const { label, cls } = providerBadge(id);
+  if (label === "–") return <span className="catalog-cell-muted">–</span>;
+  return <span className={`catalog-provider-badge ${cls}`}>{label}</span>;
+}
+
+// ── Status badge ──────────────────────────────────────────────────────────────
+
+function StatusBadge({ status }: { status: ClusterInfo["status"] }) {
+  const cfg: Record<ClusterInfo["status"], { label: string; cls: string }> = {
+    connected:     { label: "Healthy",       cls: "badge-healthy" },
+    degraded:      { label: "Degraded",      cls: "badge-degraded" },
+    unreachable:   { label: "Disconnected",  cls: "badge-disconnected" },
+    misconfigured: { label: "Error",         cls: "badge-error" },
   };
-  const cfg = map[status] ?? map.unreachable;
-  return (
-    <span className="catalog-status-cell">
-      <StatusDot status={cfg.dot} />
-      <span className={cfg.dot === "unreachable" || cfg.dot === "pending" ? "muted" : ""}>{cfg.label}</span>
-    </span>
-  );
+  const { label, cls } = cfg[status] ?? cfg.unreachable;
+  return <span className={`catalog-status-badge ${cls}`}>{label}</span>;
+}
+
+// ── Name dot ──────────────────────────────────────────────────────────────────
+
+function NameDot({ status }: { status: ClusterInfo["status"] }) {
+  const cls: Record<ClusterInfo["status"], string> = {
+    connected:     "dot-green",
+    degraded:      "dot-yellow",
+    unreachable:   "dot-dim",
+    misconfigured: "dot-red",
+  };
+  return <span className={`catalog-name-dot ${cls[status] ?? "dot-dim"}`} />;
 }
 
 // ── Row context menu ──────────────────────────────────────────────────────────
@@ -43,13 +70,12 @@ interface RowMenuProps {
 
 function RowMenu({ cluster, pinned, onOpenDetails, onConnect, onHide, onTogglePin }: RowMenuProps) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
   const broken = cluster.status === "misconfigured";
 
   function close() { setOpen(false); }
 
   return (
-    <div className="catalog-row-menu" ref={ref}>
+    <div className="catalog-row-menu">
       <button
         className="catalog-kebab-btn"
         aria-label="Row actions"
@@ -73,6 +99,12 @@ function RowMenu({ cluster, pinned, onOpenDetails, onConnect, onHide, onTogglePi
   );
 }
 
+// ── Resize handle ──────────────────────────────────────────────────────────────
+
+function ResizeHandle(props: React.HTMLAttributes<HTMLDivElement>) {
+  return <div className="catalog-col-resize" {...props} />;
+}
+
 // ── Main ClusterPicker ────────────────────────────────────────────────────────
 
 export default function ClusterPicker() {
@@ -88,13 +120,17 @@ export default function ClusterPicker() {
   const [query, setQuery] = useState("");
   const [iconPickerId, setIconPickerId] = useState<string | null>(null);
 
+  const { widths, getResizeHandleProps } = useResizableColumns(
+    COLS.length,
+    COLS.map((c) => c.init)
+  );
+
   const hiddenClusters = list.filter((c) => meta[c.id]?.hidden);
   const visible = filterClusters(list, meta, query);
   const sorted = sortClusters(visible, meta);
-
+  const connectedCount = list.filter((c) => c.status === "connected").length;
   const drawerCluster = selectedId ? list.find((c) => c.id === selectedId) ?? null : null;
 
-  /** Connect to a cluster — sets active and navigates to the workloads view. */
   function connectCluster(id: string) {
     setActive(id);
     setSelected(id);
@@ -104,16 +140,12 @@ export default function ClusterPicker() {
     navigate({ pathname: "/", search: sp.toString() });
   }
 
-  function openDetails(id: string) {
-    setSelected(id);
-  }
-
-  function closeDrawer() {
-    setSelected("");
-  }
+  function openDetails(id: string) { setSelected(id); }
+  function closeDrawer() { setSelected(""); }
 
   return (
     <div className="catalog-root">
+
       {/* ── Left sidebar ── */}
       <aside className="catalog-sidebar">
         <div className="catalog-sidebar-header">
@@ -129,59 +161,88 @@ export default function ClusterPicker() {
             <path d="M7.5 22.5c2.6 2.3 5.4 3.4 8.5 3.4s5.9-1.1 8.5-3.4" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
             <path d="M16 9v11M10 13.5h12" stroke="#fff" strokeWidth="2" strokeLinecap="round" opacity=".85" />
           </svg>
-          <span className="catalog-sidebar-title">Catalog</span>
+          <span className="catalog-sidebar-title">Kubebay</span>
         </div>
 
         <nav className="catalog-sidebar-nav">
-          <div className="catalog-nav-section">BROWSE</div>
-          <div className="catalog-nav-section">CATEGORIES</div>
-          <span className="catalog-nav-item active">Clusters</span>
+          <div className="catalog-nav-item active">
+            <svg className="catalog-nav-icon" viewBox="0 0 16 16" fill="none" aria-hidden>
+              <rect x="1" y="1" width="6" height="6" rx="1.5" fill="currentColor" opacity=".9" />
+              <rect x="9" y="1" width="6" height="6" rx="1.5" fill="currentColor" opacity=".9" />
+              <rect x="1" y="9" width="6" height="6" rx="1.5" fill="currentColor" opacity=".9" />
+              <rect x="9" y="9" width="6" height="6" rx="1.5" fill="currentColor" opacity=".9" />
+            </svg>
+            Clusters
+          </div>
+          <div className="catalog-nav-item">
+            <svg className="catalog-nav-icon" viewBox="0 0 16 16" fill="none" aria-hidden>
+              <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.4" />
+              <path d="M8 5v3.5l2.2 1.3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            History
+          </div>
+          <div className="catalog-nav-item">
+            <svg className="catalog-nav-icon" viewBox="0 0 16 16" fill="none" aria-hidden>
+              <path d="M8 2.5l1.5 3.1 3.5.5-2.5 2.4.6 3.5L8 10.5l-3.1 1.5.6-3.5L3 6.1l3.5-.5z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+            </svg>
+            Favorites
+          </div>
         </nav>
       </aside>
 
       {/* ── Main area ── */}
       <div className="catalog-main">
-        {/* Header bar */}
-        <div className="catalog-main-header">
-          <h2 className="catalog-main-title">Clusters</h2>
-          <span className="catalog-item-count muted">{sorted.length} item{sorted.length !== 1 ? "s" : ""}</span>
-          <div className="catalog-search-wrap">
-            <svg viewBox="0 0 16 16" width="13" height="13" fill="none" className="catalog-search-icon">
-              <circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" strokeWidth="1.4" />
-              <path d="M10 10l3.5 3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-            </svg>
-            <input
-              className="catalog-search"
-              type="search"
-              placeholder="Search…"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
-          </div>
+
+        {/* Title bar */}
+        <div className="catalog-titlebar">
+          <span className="catalog-titlebar-text">
+            Cluster Catalog
+            <span className="catalog-titlebar-count">· {list.length} cluster{list.length !== 1 ? "s" : ""}</span>
+          </span>
+        </div>
+
+        {/* Search bar */}
+        <div className="catalog-search-bar">
+          <svg viewBox="0 0 16 16" width="14" height="14" fill="none" className="catalog-search-icon" aria-hidden>
+            <circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" strokeWidth="1.5" />
+            <path d="M10 10l3.5 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+          <input
+            className="catalog-search"
+            type="search"
+            placeholder="Search clusters..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
         </div>
 
         {/* Content row: table + optional drawer */}
         <div className="catalog-content-row">
-          {/* Table */}
           <div className="catalog-table-wrap">
-            <table className="catalog-table kb-table">
+            <table className="catalog-table kb-table" style={{ tableLayout: "fixed", width: "100%" }}>
+              <colgroup>
+                {COLS.map((col, i) => (
+                  <col key={col.key} style={{ width: widths[i] }} />
+                ))}
+                <col style={{ width: 36 }} />
+              </colgroup>
               <thead>
                 <tr>
-                  <th>Name</th>
-                  <th>Context</th>
-                  <th>Server</th>
-                  <th>Version</th>
-                  <th>Distro</th>
-                  <th>Status</th>
+                  {COLS.map((col, i) => (
+                    <th key={col.key} style={{ position: "relative" }}>
+                      {col.label}
+                      <ResizeHandle {...getResizeHandleProps(i)} />
+                    </th>
+                  ))}
                   <th style={{ width: 36 }} />
                 </tr>
               </thead>
               <tbody>
                 {clusters.isLoading && (
-                  <tr><td colSpan={7} className="catalog-empty muted">Loading clusters…</td></tr>
+                  <tr><td colSpan={COLS.length + 1} className="catalog-empty muted">Loading clusters…</td></tr>
                 )}
                 {clusters.isSuccess && sorted.length === 0 && (
-                  <tr><td colSpan={7} className="catalog-empty muted">
+                  <tr><td colSpan={COLS.length + 1} className="catalog-empty muted">
                     {query ? `No clusters match "${query}"` : "No clusters found in kubeconfig."}
                   </td></tr>
                 )}
@@ -189,11 +250,10 @@ export default function ClusterPicker() {
                   const m = meta[c.id] ?? {};
                   const auto = autoAvatar(c.id);
                   const icon = icons[c.id] ?? auto;
-                  const displayName = m.alias || c.context || c.id;
+                  const displayName = clusterDisplayName(c.id, c.context, m.alias);
                   const broken = c.status === "misconfigured";
                   const isActive = c.id === activeId;
                   const isSelected = c.id === selectedId;
-                  const distro = detectDistro(c.id || c.context);
 
                   return (
                     <tr
@@ -205,6 +265,7 @@ export default function ClusterPicker() {
                     >
                       {/* Name */}
                       <td className="catalog-name-cell">
+                        <NameDot status={c.status} />
                         <span
                           className="catalog-row-icon"
                           style={{ background: icon.bg }}
@@ -213,27 +274,31 @@ export default function ClusterPicker() {
                         >
                           {icon.label}
                         </span>
-                        <span className="mono strong catalog-row-name" title={c.id}>
-                          {displayName}
+                        <span className="catalog-row-name" title={c.id}>
+                          <span className="catalog-row-name-primary">{displayName}</span>
                           {m.pinned && <span className="catalog-pin-dot" title="Pinned">★</span>}
                           {isActive && <span className="catalog-connected-badge">connected</span>}
                         </span>
                       </td>
 
                       {/* Context */}
-                      <td className="mono muted small" title={c.context}>{c.context || c.id}</td>
+                      <td className="catalog-cell-overflow" title={c.context}>
+                        <span className="mono small muted catalog-cell-text">{c.context || c.id}</span>
+                      </td>
 
                       {/* Server */}
-                      <td className="mono muted small catalog-server-cell" title={c.server}>{c.server}</td>
+                      <td className="catalog-cell-overflow" title={c.server}>
+                        <span className="mono small muted catalog-cell-text">{c.server || "–"}</span>
+                      </td>
 
-                      {/* Version */}
-                      <td className="mono muted small">{c.version ?? "–"}</td>
-
-                      {/* Distro */}
-                      <td className="mono muted small">{distro || "–"}</td>
+                      {/* Provider — use context (original format) not id (sanitized) */}
+                      <td><ProviderBadge id={c.context || c.id} /></td>
 
                       {/* Status */}
-                      <td><StatusCell status={c.status} /></td>
+                      <td><StatusBadge status={c.status} /></td>
+
+                      {/* Version */}
+                      <td className="mono small muted">{c.version ?? "–"}</td>
 
                       {/* ⋮ menu */}
                       <td onClick={(e) => e.stopPropagation()}>
@@ -275,7 +340,7 @@ export default function ClusterPicker() {
           })()}
         </div>
 
-        {/* Hidden clusters footer */}
+        {/* Hidden clusters */}
         {hiddenClusters.length > 0 && (
           <details className="catalog-hidden-section">
             <summary className="muted small">
@@ -285,14 +350,25 @@ export default function ClusterPicker() {
               {hiddenClusters.map((c) => (
                 <div key={c.id} className="catalog-hidden-row">
                   <span className="muted small">{meta[c.id]?.alias || c.context || c.id}</span>
-                  <button className="cp-show-btn small" onClick={() => show(c.id)}>
-                    Show
-                  </button>
+                  <button className="cp-show-btn small" onClick={() => show(c.id)}>Show</button>
                 </div>
               ))}
             </div>
           </details>
         )}
+
+        {/* Bottom status bar */}
+        <div className="catalog-statusbar">
+          <span className="catalog-statusbar-engine">
+            <span className="catalog-engine-dot" />
+            Engine running
+          </span>
+          <span className="catalog-statusbar-sep">—</span>
+          <span className="catalog-statusbar-clusters">
+            {connectedCount} / {list.length} cluster{list.length !== 1 ? "s" : ""} connected
+          </span>
+          <span className="catalog-statusbar-version">{APP_VERSION}</span>
+        </div>
       </div>
 
       {/* Icon picker overlay */}
@@ -308,17 +384,6 @@ export default function ClusterPicker() {
           />
         );
       })()}
-
-      {/* FAB — add cluster (coming soon) */}
-      <button
-        className="catalog-fab"
-        title="Add cluster (coming soon)"
-        aria-label="Add cluster"
-        disabled
-        style={{ opacity: 0.4, cursor: "not-allowed" }}
-      >
-        +
-      </button>
     </div>
   );
 }
