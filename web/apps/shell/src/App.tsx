@@ -253,7 +253,7 @@ interface OverlayProps {
   wsRetry: number;
   wsNextRetryMs: number;
   isReconnect: boolean; // true = WS dropped, false = cluster switch
-  avatar: { bg: string; label: string };
+  avatar: { bg: string; label: string; imageUrl?: string };
 }
 
 function ClusterConnectingOverlay({
@@ -324,8 +324,10 @@ function ClusterConnectingOverlay({
     <div className="conn-overlay">
       <div className="conn-card">
         {/* Avatar */}
-        <div className="conn-avatar" style={{ background: avatar.bg }}>
-          {avatar.label}
+        <div className="conn-avatar" style={{ background: avatar.imageUrl ? "transparent" : avatar.bg }}>
+          {avatar.imageUrl
+            ? <img src={avatar.imageUrl} alt={avatar.label} style={{ width: "100%", height: "100%", objectFit: "contain", borderRadius: "inherit" }} />
+            : avatar.label}
         </div>
         <div className="conn-cluster-name">{clusterId}</div>
 
@@ -415,7 +417,7 @@ function ClusterStrip() {
       </svg>
       {list.map((c) => {
         const auto = autoAvatar(c.id);
-        const { bg, label } = icons[c.id] ?? auto;
+        const { bg, label, imageUrl } = icons[c.id] ?? auto;
         const broken = c.status === "misconfigured";
         const isActive = !broken && c.id === effectiveActive;
         const isSwitching = isActive && switching;
@@ -431,7 +433,7 @@ function ClusterStrip() {
               width: 40,
               height: 40,
               borderRadius: "var(--kb-radius)",
-              background: bg,
+              background: imageUrl ? "transparent" : bg,
               color: "#fff",
               fontWeight: 700,
               fontSize: "var(--kb-text-xs)",
@@ -454,6 +456,8 @@ function ClusterStrip() {
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="white" strokeWidth="2.5" style={{ animation: "spin 0.8s linear infinite" }}>
                 <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
               </svg>
+            ) : imageUrl ? (
+              <img src={imageUrl} alt={label} style={{ width: "100%", height: "100%", objectFit: "contain", borderRadius: "var(--kb-radius)" }} />
             ) : label}
             {/* Status dot */}
             <span style={{
@@ -614,6 +618,7 @@ function AppInner() {
   const clusters = useQuery({ queryKey: ["clusters"], queryFn: api.clusters, refetchInterval: 4_000 });
   const up = health.data?.ok === true;
   const ws = useWsStatus();
+  const { icons: clusterIcons } = useClusterIcons();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [switching, setSwitching] = useState(false);
   const safetyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -675,10 +680,7 @@ function AppInner() {
   const showOverlay = showSwitchOverlay || showReconnectOverlay;
 
   const overlayAvatar = activeCluster
-    ? ((() => {
-        const auto = autoAvatar(activeCluster.id);
-        return auto; // icon picker state lives in ClusterStrip; use auto for overlay
-      })())
+    ? (clusterIcons[activeCluster.id] ?? autoAvatar(activeCluster.id))
     : { bg: "var(--kb-accent)", label: "…" };
 
   return (

@@ -4,15 +4,7 @@ import { Skeleton, StatusDot } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { useActiveCluster } from "../App";
 import { useClusterIcons } from "../lib/useClusterIcons";
-
-function autoAvatar(id: string): { bg: string; label: string } {
-  if (id.startsWith("arn:aws")) return { bg: "#F90", label: "AWS" };
-  if (id.includes("gke") || id.includes("gcp")) return { bg: "#4285F4", label: "GCP" };
-  if (id.includes("aks") || id.includes("azure")) return { bg: "#0078D4", label: "AZ" };
-  if (id.startsWith("kind-")) return { bg: "#7C3AED", label: "K" };
-  if (id.startsWith("minikube")) return { bg: "#326CE5", label: "M" };
-  return { bg: "var(--kb-accent)", label: id.slice(0, 2).toUpperCase() };
-}
+import { autoAvatar } from "../components/ClusterIconPicker";
 
 // ──── Zero-state onboarding ───────────────────────────────────────────────────
 
@@ -168,7 +160,7 @@ export default function Home() {
           <div className="home-cluster-list">
             {list.map((c) => {
               const auto = autoAvatar(c.id);
-              const { bg, label } = icons[c.id] ?? auto;
+              const { bg, label, imageUrl } = icons[c.id] ?? auto;
               const isActive = c.id === effectiveActive;
               const reachable = c.status === "connected";
 
@@ -182,9 +174,11 @@ export default function Home() {
                   {/* Avatar */}
                   <div
                     className="home-cluster-avatar"
-                    style={{ background: bg, opacity: reachable ? 1 : 0.45 }}
+                    style={{ background: imageUrl ? "transparent" : bg, opacity: reachable ? 1 : 0.45 }}
                   >
-                    {label}
+                    {imageUrl
+                      ? <img src={imageUrl} alt={label} style={{ width: "100%", height: "100%", objectFit: "contain", borderRadius: "inherit" }} />
+                      : label}
                   </div>
 
                   {/* Main info */}
