@@ -10,7 +10,7 @@ interface Props {
 }
 
 const { title, description, og, canonical } = Astro.props;
-const canonicalURL = canonical ?? new URL(Astro.url.pathname, Astro.site ?? 'https://kubebay.dev').href;
+const canonicalURL = canonical ?? new URL(Astro.url.pathname, Astro.site ?? 'https://kubebay.sardar.dev').href;
 ---
 
 <!doctype html>

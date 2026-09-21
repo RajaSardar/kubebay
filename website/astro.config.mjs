@@ -2,8 +2,8 @@ import { defineConfig } from 'astro/config';
 
 // https://astro.build/config
 export default defineConfig({
-  site: 'https://rajasardar.github.io',
-  base: '/kubebay',
+  site: 'https://kubebay.sardar.dev',
+  base: '/',
   output: 'static',
   integrations: [],
   build: {

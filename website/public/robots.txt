@@ -2,7 +2,7 @@ User-agent: *
 Allow: /
 
 # Sitemap
-Sitemap: https://kubebay.dev/sitemap.xml
+Sitemap: https://kubebay.sardar.dev/sitemap.xml
 
 # Block AI training crawlers (optional — remove if you want LLM indexing)
 User-agent: GPTBot
