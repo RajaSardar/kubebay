@@ -55,7 +55,7 @@ import { FavoritesSidebar, useFavorites } from "./components/Favorites";
 import { useClusterIcons } from "./lib/useClusterIcons";
 import { ClusterIconPicker, autoAvatar } from "./components/ClusterIconPicker";
 import { useWsStatus } from "./lib/useWsStatus";
-import { clearStreamCacheForCluster } from "./lib/streamCache";
+import { connectCluster, isClusterConnected } from "./lib/clusterConnections";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { usePrewarm } from "./lib/usePrewarm";
 
@@ -397,6 +397,8 @@ function ClusterStrip() {
   const clusters = useQuery({ queryKey: ["clusters"], queryFn: api.clusters, refetchInterval: 4_000 });
   const list = clusters.data ?? [];
   const effectiveActive = active || list.find((c) => c.status === "connected")?.id || "";
+  // Re-render when clusters list changes so connected state stays fresh.
+  const connectedClusters = list.map((c) => c.id).filter(isClusterConnected);
   const { icons, setIcon, resetIcon } = useClusterIcons();
   const [picker, setPicker] = useState<string | null>(null);
 
@@ -420,9 +422,10 @@ function ClusterStrip() {
         const { bg, label, imageUrl } = icons[c.id] ?? auto;
         const broken = c.status === "misconfigured";
         const isActive = !broken && c.id === effectiveActive;
+        const isStreaming = !broken && !isActive && connectedClusters.includes(c.id);
         const isSwitching = isActive && switching;
         return (
-          <div key={c.id} className={`cluster-strip-item${isActive ? " active" : ""}`}>
+          <div key={c.id} className={`cluster-strip-item${isActive ? " active" : isStreaming ? " streaming" : ""}`}>
             <button
               disabled={broken}
               title={broken ? `${c.id} — can't be loaded: ${c.error ?? "unknown error"}` : `${c.id} — right-click to customize icon`}
@@ -439,7 +442,7 @@ function ClusterStrip() {
                 fontSize: "var(--kb-text-xs)",
                 // White border: inset to layout, never clipped by overflow
                 border: isActive ? "2.5px solid rgba(255,255,255,0.9)" : "2.5px solid transparent",
-                opacity: broken ? 0.22 : isActive ? 1 : 0.32,
+                opacity: broken ? 0.22 : isActive ? 1 : isStreaming ? 0.65 : 0.32,
                 cursor: broken ? "not-allowed" : "pointer",
                 display: "flex",
                 alignItems: "center",
@@ -637,16 +640,21 @@ function AppInner() {
   const activeCluster = list.find((c) => c.id === effectiveActive);
 
   const setActive = (id: string) => {
+    // Open background stream for the new cluster if not already connected.
+    // We intentionally do NOT disconnect the previous cluster — multi-cluster
+    // streaming keeps all connected clusters' streams alive simultaneously.
+    connectCluster(id);
+
     if (id !== effectiveActive) {
-      setSwitching(true);
-      // Safety: never block the UI longer than 15s
-      if (safetyTimer.current) clearTimeout(safetyTimer.current);
-      safetyTimer.current = setTimeout(() => setSwitching(false), 15_000);
-      // Background-revalidate all active queries for the new cluster so stale
-      // data gets refreshed without blocking the UI (cached data shows instantly).
+      // Only show the switching overlay if we haven't streamed this cluster yet.
+      // If it's already connected (background subs warm), skip the overlay entirely.
+      if (!isClusterConnected(id)) {
+        setSwitching(true);
+        if (safetyTimer.current) clearTimeout(safetyTimer.current);
+        safetyTimer.current = setTimeout(() => setSwitching(false), 15_000);
+      }
       queryClient.invalidateQueries({ queryKey: [id], refetchType: "active" });
-      // Clear stream cache for the old cluster so stale WS rows are not shown.
-      clearStreamCacheForCluster(effectiveActive);
+      // Do NOT clear stream cache — background subs keep it warm for all clusters.
     }
     setActiveState(id);
     useClusterStore.getState().setActive(id);

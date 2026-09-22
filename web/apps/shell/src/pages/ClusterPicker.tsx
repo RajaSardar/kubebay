@@ -7,6 +7,7 @@ import { useClusterMeta } from "../lib/cluster-meta-store";
 import { useClusterIcons } from "../lib/useClusterIcons";
 import { useClusterStore } from "../lib/cluster-store";
 import { sortClusters, filterClusters } from "../lib/clusterSort";
+import { connectCluster as bgConnect } from "../lib/clusterConnections";
 import { ClusterIconPicker, autoAvatar } from "../components/ClusterIconPicker";
 import { ClusterDetailDrawer } from "../components/ClusterDetailDrawer";
 import { providerBadge, clusterDisplayName } from "../lib/clusterDistro";
@@ -132,6 +133,7 @@ export default function ClusterPicker() {
   const drawerCluster = selectedId ? list.find((c) => c.id === selectedId) ?? null : null;
 
   function connectCluster(id: string) {
+    bgConnect(id); // start background stream immediately
     setActive(id);
     setSelected(id);
     useClusterMeta.getState().touchLastUsed(id);
