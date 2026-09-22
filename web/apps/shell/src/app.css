@@ -108,6 +108,22 @@ kbd {
   overflow-y: auto;
 }
 
+.cluster-strip-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 100%;
+  padding: 0 8px;
+  border-left: 3px solid transparent;
+  transition: border-color 150ms ease;
+}
+
+.cluster-strip-item.active {
+  border-left-color: rgba(255, 255, 255, 0.85);
+}
+
 .cluster-strip-logo {
   width: 56px;
   height: 38px;

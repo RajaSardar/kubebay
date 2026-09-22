@@ -394,8 +394,8 @@ function ClusterConnectingOverlay({
 function ClusterStrip() {
   const { active } = useClusterStore();
   const { switching, setActive } = useContext(ClusterCtx);
-  const queryClient = useQueryClient();
-  const list = queryClient.getQueryData<ClusterInfo[]>(["clusters"]) ?? [];
+  const clusters = useQuery({ queryKey: ["clusters"], queryFn: api.clusters, refetchInterval: 4_000 });
+  const list = clusters.data ?? [];
   const effectiveActive = active || list.find((c) => c.status === "connected")?.id || "";
   const { icons, setIcon, resetIcon } = useClusterIcons();
   const [picker, setPicker] = useState<string | null>(null);
@@ -422,55 +422,56 @@ function ClusterStrip() {
         const isActive = !broken && c.id === effectiveActive;
         const isSwitching = isActive && switching;
         return (
-          <button
-            key={c.id}
-            disabled={broken}
-            title={broken ? `${c.id} — can't be loaded: ${c.error ?? "unknown error"}` : `${c.id} — right-click to customize icon`}
-            onClick={() => { if (!broken) setActive(c.id); }}
-            onContextMenu={(e) => { e.preventDefault(); setPicker(c.id); }}
-            style={{
-              position: "relative",
-              width: 40,
-              height: 40,
-              borderRadius: "var(--kb-radius)",
-              background: imageUrl ? "transparent" : bg,
-              color: "#fff",
-              fontWeight: 700,
-              fontSize: "var(--kb-text-xs)",
-              border: isActive ? "2px solid rgba(255,255,255,0.9)" : "2px solid transparent",
-              opacity: broken ? 0.28 : isActive ? 1 : 0.5,
-              cursor: broken ? "not-allowed" : "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: 0,
-              flexShrink: 0,
-              transition: "opacity 150ms, border-color 150ms, box-shadow 150ms",
-              boxShadow: isActive ? `0 0 0 2px ${bg.startsWith("#") ? bg : "var(--kb-accent)"}44` : "none",
-              fontFamily: "var(--kb-font-mono, monospace)",
-              letterSpacing: "-0.02em",
-              overflow: "hidden",
-            }}
-          >
-            {isSwitching ? (
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="white" strokeWidth="2.5" style={{ animation: "spin 0.8s linear infinite" }}>
-                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
-              </svg>
-            ) : imageUrl ? (
-              <img src={imageUrl} alt={label} style={{ width: "100%", height: "100%", objectFit: "contain", borderRadius: "var(--kb-radius)" }} />
-            ) : label}
-            {/* Status dot */}
-            <span style={{
-              position: "absolute",
-              bottom: -2,
-              right: -2,
-              width: 9,
-              height: 9,
-              borderRadius: "50%",
-              background: c.status === "connected" ? "var(--kb-status-ok)" : broken ? "var(--kb-fg-subtle)" : "var(--kb-status-err)",
-              border: "2px solid var(--kb-bg-sidebar)",
-            }} />
-          </button>
+          <div key={c.id} className={`cluster-strip-item${isActive ? " active" : ""}`}>
+            <button
+              disabled={broken}
+              title={broken ? `${c.id} — can't be loaded: ${c.error ?? "unknown error"}` : `${c.id} — right-click to customize icon`}
+              onClick={() => { if (!broken) setActive(c.id); }}
+              onContextMenu={(e) => { e.preventDefault(); setPicker(c.id); }}
+              style={{
+                position: "relative",
+                width: 40,
+                height: 40,
+                borderRadius: "var(--kb-radius)",
+                background: imageUrl ? "transparent" : bg,
+                color: "#fff",
+                fontWeight: 700,
+                fontSize: "var(--kb-text-xs)",
+                // White border: inset to layout, never clipped by overflow
+                border: isActive ? "2.5px solid rgba(255,255,255,0.9)" : "2.5px solid transparent",
+                opacity: broken ? 0.22 : isActive ? 1 : 0.32,
+                cursor: broken ? "not-allowed" : "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: 0,
+                flexShrink: 0,
+                transition: "opacity 200ms, border-color 200ms",
+                fontFamily: "var(--kb-font-mono, monospace)",
+                letterSpacing: "-0.02em",
+                overflow: "hidden",
+              }}
+            >
+              {isSwitching ? (
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="white" strokeWidth="2.5" style={{ animation: "spin 0.8s linear infinite" }}>
+                  <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+                </svg>
+              ) : imageUrl ? (
+                <img src={imageUrl} alt={label} style={{ width: "100%", height: "100%", objectFit: "contain", borderRadius: "var(--kb-radius)" }} />
+              ) : label}
+              {/* Status dot */}
+              <span style={{
+                position: "absolute",
+                bottom: -2,
+                right: -2,
+                width: 9,
+                height: 9,
+                borderRadius: "50%",
+                background: c.status === "connected" ? "var(--kb-status-ok)" : broken ? "var(--kb-fg-subtle)" : "var(--kb-status-err)",
+                border: "2px solid var(--kb-bg-sidebar)",
+              }} />
+            </button>
+          </div>
         );
       })}
 
