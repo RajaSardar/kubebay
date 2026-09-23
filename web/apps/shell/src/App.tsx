@@ -640,6 +640,8 @@ function AppInner() {
   const activeCluster = list.find((c) => c.id === effectiveActive);
 
   const setActive = (id: string) => {
+    // Snapshot before connecting so we can tell if this is the first visit.
+    const alreadyStreaming = isClusterConnected(id);
     // Open background stream for the new cluster if not already connected.
     // We intentionally do NOT disconnect the previous cluster — multi-cluster
     // streaming keeps all connected clusters' streams alive simultaneously.
@@ -648,7 +650,7 @@ function AppInner() {
     if (id !== effectiveActive) {
       // Only show the switching overlay if we haven't streamed this cluster yet.
       // If it's already connected (background subs warm), skip the overlay entirely.
-      if (!isClusterConnected(id)) {
+      if (!alreadyStreaming) {
         setSwitching(true);
         if (safetyTimer.current) clearTimeout(safetyTimer.current);
         safetyTimer.current = setTimeout(() => setSwitching(false), 15_000);
