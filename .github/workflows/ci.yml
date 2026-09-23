@@ -17,6 +17,11 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: engine/go.mod
+      # internal/httpapi embeds this directory (`//go:embed all:static`) to
+      # serve the built frontend from the binary; go:embed fails to compile
+      # against an empty/missing directory, and this job never runs the
+      # frontend build that would normally populate it.
+      - run: mkdir -p internal/httpapi/static/dist && touch internal/httpapi/static/dist/.gitkeep
       - run: go build ./...
       - run: go vet ./...
       - run: go test ./...

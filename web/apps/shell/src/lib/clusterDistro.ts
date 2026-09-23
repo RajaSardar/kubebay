@@ -46,9 +46,9 @@ export function clusterDisplayName(id: string, context: string, alias?: string):
   if (alias) return alias;
   // EKS ARN in context: arn:aws:eks:region:account:cluster/NAME
   const eksMatch = context.match(/cluster\/([^/]+)$/);
-  if (eksMatch) return eksMatch[1];
+  if (eksMatch?.[1]) return eksMatch[1];
   // GKE context: gke_project_region_NAME
   const gkeMatch = context.match(/^gke_[^_]+_[^_]+_(.+)$/);
-  if (gkeMatch) return gkeMatch[1];
+  if (gkeMatch?.[1]) return gkeMatch[1];
   return context || id;
 }

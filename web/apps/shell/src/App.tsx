@@ -23,7 +23,6 @@ import {
   IconTopology,
 } from "@kubebay/ui/src/icons";
 import { api } from "./lib/api";
-import Home from "./pages/Home";
 import ClusterPicker from "./pages/ClusterPicker";
 
 // Home stays eager — it is the landing route, so lazying it would only add a
