@@ -44,7 +44,7 @@ describe("ClusterIconPicker – image tab", () => {
     const input = screen.getByPlaceholderText(/https:\/\//i);
     fireEvent.change(input, { target: { value: "" } });
     fireEvent.click(screen.getByRole("button", { name: /apply/i }));
-    const saved = onSave.mock.calls[0][0] as ClusterIcon;
+    const saved = onSave.mock.calls[0]?.[0] as ClusterIcon;
     expect(saved.imageUrl).toBeFalsy();
   });
 
