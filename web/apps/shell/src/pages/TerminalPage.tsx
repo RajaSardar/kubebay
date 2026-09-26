@@ -1,8 +1,11 @@
+import { useQuery } from "@tanstack/react-query";
 import { LocalShellTerm } from "../components/LocalShellTerm";
 import { useActiveCluster } from "../App";
+import { api } from "../lib/api";
 
 export default function TerminalPage() {
   const { active } = useActiveCluster();
+  const clusters = useQuery({ queryKey: ["clusters"], queryFn: api.clusters });
 
   if (!active) {
     return (
@@ -17,7 +20,7 @@ export default function TerminalPage() {
 
   return (
     <div className="page" style={{ padding: 0, height: "100%", display: "flex", flexDirection: "column" }}>
-      <LocalShellTerm cluster={active} />
+      <LocalShellTerm selectedCluster={active} clusters={clusters.data ?? []} />
     </div>
   );
 }

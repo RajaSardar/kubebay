@@ -88,6 +88,47 @@ describe("openChannel before the socket is open", () => {
   });
 });
 
+describe("chan-open frames per kind", () => {
+  it("omits pod coordinates for a local shell", async () => {
+    const { mod, socket } = await freshWs();
+    socket().accept();
+    mod.openChannel({ id: "lsh-1", kind: "local-shell", cluster: "kind", cols: 100, rows: 30 });
+
+    const frame = JSON.parse(socket().sent[0] as string);
+    expect(frame).toEqual({
+      type: "chan-open",
+      id: "lsh-1",
+      kind: "local-shell",
+      cluster: "kind",
+      cols: 100,
+      rows: 30,
+    });
+    // The engine resolves the shell itself and ignores a client command; the
+    // frame must not imply otherwise by carrying one.
+    expect(frame).not.toHaveProperty("command");
+  });
+
+  it("carries the command only for exec and the tail only for logs", async () => {
+    const { mod, socket } = await freshWs();
+    socket().accept();
+    mod.openChannel({
+      id: "exec-1",
+      kind: "exec",
+      cluster: "kind",
+      namespace: "default",
+      pod: "nginx",
+      command: ["sh"],
+    });
+    mod.openChannel({ ...chan, tail: 100, follow: true });
+
+    const [execFrame, logsFrame] = socket().sent.map((p) => JSON.parse(p as string));
+    expect(execFrame.command).toEqual(["sh"]);
+    expect(execFrame).not.toHaveProperty("tail");
+    expect(logsFrame).toMatchObject({ pod: "nginx", tail: 100, follow: true });
+    expect(logsFrame).not.toHaveProperty("command");
+  });
+});
+
 describe("error frames", () => {
   it("carry the id of the channel that caused them", async () => {
     const { mod, socket } = await freshWs();

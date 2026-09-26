@@ -311,6 +311,19 @@ export const helmMarketApi = {
   },
 };
 
+/**
+ * Local-shell capability, straight from the engine. `available` is the only
+ * field that decides whether a shell can be opened; `enabled` without
+ * `available` is the case worth explaining, and `reason` says why.
+ * Absent entirely on an engine older than this field.
+ */
+export interface LocalShellCapability {
+  available: boolean;
+  enabled: boolean;
+  reason?: string;
+  kubectl?: { found: boolean; version?: string };
+}
+
 export interface AppSettings {
   /** Fallback for clusters with no entry in prometheusUrls. */
   prometheusUrl?: string;
@@ -320,6 +333,7 @@ export interface AppSettings {
   activeKubeconfigs?: string[];
   nodeShellImage?: string;
   nodeShellImageDefault?: string;
+  localShell?: LocalShellCapability;
 }
 
 export const settingsApi = {

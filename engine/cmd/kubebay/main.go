@@ -82,7 +82,7 @@ func main() {
 
 	registry := informers.NewPoolRegistry(mgr)
 	channels := httpapi.NewChannels(mgr, auditLog)
-	chanDeps, closeLocalShell := setupLocalShell(log, channels, *localShell, *inCluster, auth.Enabled(), *addr)
+	chanDeps, localShellStatus, closeLocalShell := setupLocalShell(log, channels, *localShell, *inCluster, auth.Enabled(), *addr)
 	defer closeLocalShell()
 	hub := stream.NewHub(log, chanDeps)
 	pfManager := httpapi.NewPFManager(mgr)
@@ -91,6 +91,7 @@ func main() {
 	rbac := &httpapi.RBAC{Clusters: mgr}
 	helmMgr := httpapi.NewHelm(mgr)
 	settingsMgr := httpapi.NewSettingsManager(mgr)
+	settingsMgr.LocalShell = localShellStatus
 	nodeShell := &httpapi.NodeShellManager{Clusters: mgr, Settings: settingsMgr}
 	// An operator-supplied token (in-cluster, where there is no desktop app to
 	// hand a file to) wins; otherwise we mint one per launch.

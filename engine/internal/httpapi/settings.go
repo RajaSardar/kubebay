@@ -37,9 +37,30 @@ func (a *AppSettings) PrometheusURLFor(cluster string) string {
 	return a.PrometheusURL
 }
 
+// KubectlStatus reports whether the machine hosting the engine has kubectl.
+// Kubebay never installs it; the UI only prints where to get it.
+type KubectlStatus struct {
+	Found   bool   `json:"found"`
+	Version string `json:"version,omitempty"`
+}
+
+// LocalShellStatus lets the UI decide what to render without opening a channel.
+// Available means a shell would actually start here: the binary carries the
+// localshell build tag AND this deployment passed localshell.Allowed.  Enabled
+// only means the operator asked for it, so "enabled but not available" is the
+// case that needs Reason shown.
+type LocalShellStatus struct {
+	Available bool           `json:"available"`
+	Enabled   bool           `json:"enabled"`
+	Reason    string         `json:"reason,omitempty"`
+	Kubectl   *KubectlStatus `json:"kubectl,omitempty"`
+}
+
 type SettingsManager struct {
 	mgr *clusters.Manager
 	mu  chan struct{}
+	// Fixed at startup by main; never written again, so it needs no locking.
+	LocalShell LocalShellStatus
 }
 
 func NewSettingsManager(mgr *clusters.Manager) *SettingsManager {
@@ -128,6 +149,7 @@ func (s *SettingsManager) HandleGet(w http.ResponseWriter, r *http.Request) {
 		"activeKubeconfigs":     s.mgr.ActiveKubeconfigs(),
 		"nodeShellImage":        set.NodeShellImage,
 		"nodeShellImageDefault": DefaultNodeShellImage,
+		"localShell":            s.LocalShell,
 	})
 }
 

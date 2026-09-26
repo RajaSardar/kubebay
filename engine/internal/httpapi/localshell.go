@@ -42,21 +42,21 @@ func (c *LocalShellChannels) OpenLocalShell(
 	write func([]byte) error,
 	stdin io.Reader,
 	resize <-chan stream.TermSize,
-) error {
+) (int, error) {
 	// Not RestConfig: a misconfigured context has no rest.Config, and debugging
 	// exactly that is one of the reasons to want a shell.
 	var ctxName string
 	if spec.Cluster != "" {
 		name, err := c.Clusters.ContextName(spec.Cluster)
 		if err != nil {
-			return err
+			return 0, err
 		}
 		ctxName = name
 	}
 
 	shell, err := localshell.ResolveShell()
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	c.Audit.Record(audit.Entry{
@@ -101,5 +101,5 @@ func (c *LocalShellChannels) OpenLocalShell(
 	}
 	c.Audit.Record(audit.Entry{Action: "local-shell", Cluster: spec.Cluster, Detail: detail})
 
-	return runErr
+	return out.ExitCode, runErr
 }
