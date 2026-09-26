@@ -24,7 +24,7 @@ function useKindCounts(cluster: string | undefined) {
   const stss = useResourceStream(cluster, "apps/v1/statefulsets", { mode: "full" });
   const dss = useResourceStream(cluster, "apps/v1/daemonsets", { mode: "full" });
   const jobs = useResourceStream(cluster, "batch/v1/jobs", { mode: "full" });
-  const nodes = useResourceStream(cluster, "v1/nodes", { mode: "metadata" });
+  const nodes = useResourceStream(cluster, "v1/nodes", { mode: "full" });
 
   return useMemo(() => {
     const out: KindSummary[] = [];

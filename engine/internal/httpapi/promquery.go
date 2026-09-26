@@ -15,18 +15,24 @@ func (s *SettingsManager) HandlePromQueryRange(w http.ResponseWriter, r *http.Re
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if set.PrometheusURL == "" {
-		http.Error(w, "prometheus not configured — set it in Settings", http.StatusPreconditionFailed)
+	q := r.URL.Query()
+	cluster := q.Get("cluster")
+	if cluster == "" {
+		http.Error(w, "cluster required", http.StatusBadRequest)
 		return
 	}
-	q := r.URL.Query()
+	base := set.PrometheusURLFor(cluster)
+	if base == "" {
+		http.Error(w, fmt.Sprintf("prometheus not configured for %s — set it in Settings", cluster), http.StatusPreconditionFailed)
+		return
+	}
 	for _, k := range []string{"query", "start", "end", "step"} {
 		if q.Get(k) == "" {
 			http.Error(w, fmt.Sprintf("missing %s", k), http.StatusBadRequest)
 			return
 		}
 	}
-	up, err := url.Parse(set.PrometheusURL + "/api/v1/query_range")
+	up, err := url.Parse(base + "/api/v1/query_range")
 	if err != nil {
 		http.Error(w, "bad prometheus url", http.StatusInternalServerError)
 		return

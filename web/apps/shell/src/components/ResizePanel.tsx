@@ -29,7 +29,7 @@ export function ResizePanel({
 
   const live = useQuery({
     queryKey: ["resize-current", cluster, namespace, pod],
-    queryFn: () => api.getYamlText(cluster, "v1/pods", namespace, pod),
+    queryFn: () => api.getObject(cluster, "v1/pods", namespace, pod),
     staleTime: 15_000,
     retry: 1,
     retryDelay: 2000,
@@ -38,15 +38,11 @@ export function ResizePanel({
   });
 
   function current(section: string, res: string): string {
-    try {
-      const doc = JSON.parse(live.data ?? "{}") as {
-        spec?: { containers?: { name: string; resources?: Record<string, Record<string, string>> }[] };
-      };
-      const c = doc.spec?.containers?.find((x) => x.name === container);
-      return c?.resources?.[section]?.[res] ?? "";
-    } catch {
-      return "";
-    }
+    const doc = live.data as
+      | { spec?: { containers?: { name: string; resources?: Record<string, Record<string, string>> }[] } }
+      | undefined;
+    const c = doc?.spec?.containers?.find((x) => x.name === container);
+    return c?.resources?.[section]?.[res] ?? "";
   }
 
   async function apply() {

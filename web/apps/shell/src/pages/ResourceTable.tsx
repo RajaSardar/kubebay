@@ -6,12 +6,13 @@ import { useQuery as useRQQuery } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useCluster } from "../lib/useCluster";
 import { useResourceStream, shouldShowSkeleton } from "../lib/useResourceStream";
-import { DEFS, EXTRA_DEFS, ageOf, fmtAge, num, str, type ResourceDef } from "../lib/resources";
+import { ageOf, fmtAge, lookupDef, num, str, type ResourceDef } from "../lib/resources";
 import { fmtBytes, fmtCpu } from "./Workloads";
 import { useResizableColumns } from "../lib/useResizableColumns";
 import { useRowSelection } from "../lib/useRowSelection";
 import { useBulkDelete } from "../lib/useBulkDelete";
 import { useDisplay, type Density } from "../lib/display";
+import { evalPrinterPath } from "../lib/printerPath";
 
 // Row height (px) per density level — must stay in sync with ROW_PADDING_VALUES in display.ts
 // compact: 4+4px pad + ~20px line + 1px border = 29px
@@ -23,28 +24,6 @@ const ROW_HEIGHT: Record<Density, number> = {
   relaxed: 45,
 };
 
-function lookupDef(kind: string, sp: URLSearchParams): ResourceDef | undefined {
-  if (DEFS[kind]) return DEFS[kind];
-  if (EXTRA_DEFS[kind]) return EXTRA_DEFS[kind];
-  if (kind.startsWith("ext--")) {
-    const parts = kind.slice(5).split("--");
-    if (parts.length < 3) return undefined;
-    const resource = parts[parts.length - 1] ?? "";
-    const version = parts[parts.length - 2] ?? "";
-    const group = parts.slice(0, -2).join(".");
-    const gvr = group ? `${group}/${version}/${resource}` : `${version}/${resource}`;
-    return {
-      slug: kind,
-      label: resource,
-      gvr,
-      group,
-      resource,
-      scoped: sp.get("scoped") === "0",
-      mode: "full",
-    };
-  }
-  return undefined;
-}
 import GenericDrawer from "../components/GenericDrawer";
 import { ContextMenu } from "../components/ContextMenu";
 import { StarButton } from "../components/Favorites";
@@ -489,22 +468,6 @@ export default function ResourceTable() {
     return extraColumns(slug, { nodeUsage, podsPerNode })[col]?.(o) ?? { v: "" };
   }
 
-  // For CRD printer columns: simple dot-notation JSONPath evaluator
-  function evalPrinterCol(col: PrinterColumn, o: Row): string {
-    const path = col.jsonPath.replace(/^\{/, "").replace(/\}$/, "").trim();
-    if (!path.startsWith(".")) return "";
-    const parts = path.slice(1).split(".");
-    let cur: unknown = o;
-    for (const part of parts) {
-      if (cur == null || typeof cur !== "object") return "";
-      cur = (cur as Record<string, unknown>)[part];
-    }
-    if (cur == null) return "";
-    if (typeof cur === "boolean") return cur ? "True" : "False";
-    if (typeof cur === "object") return JSON.stringify(cur);
-    return String(cur);
-  }
-
   const headers = useMemo(
     () => ["Name", ...(def?.scoped ? [] : ["Namespace"]), ...cols, ...printerColumns.map((c) => c.name), "Age"],
     [def, cols, printerColumns],
@@ -806,7 +769,7 @@ export default function ResourceTable() {
                     })}
                     {printerColumns.map((col) => (
                       <td key={col.name} className="mono muted">
-                        {evalPrinterCol(col, o) || <span className="muted">–</span>}
+                        {evalPrinterPath(col.jsonPath, o) || <span className="muted">–</span>}
                       </td>
                     ))}
                     <td className="mono muted">{fmtAge(ageOf(o))}</td>

@@ -17,6 +17,11 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: engine/go.mod
+      # internal/httpapi embeds this directory (`//go:embed all:static`) to
+      # serve the built frontend from the binary; go:embed fails to compile
+      # against an empty/missing directory, and this job never runs the
+      # frontend build that would normally populate it.
+      - run: mkdir -p internal/httpapi/static/dist && touch internal/httpapi/static/dist/.gitkeep
       - run: go build ./...
       - run: go vet ./...
       - run: go test ./...
@@ -62,5 +67,10 @@ jobs:
       - uses: helm/kind-action@v1.10.0
         with:
           cluster_name: kubebay-ci
+      # internal/integration imports internal/httpapi, which embeds this
+      # directory (`//go:embed all:static`); go:embed fails to compile
+      # against an empty/missing directory, and this job never runs the
+      # frontend build that would normally populate it.
+      - run: mkdir -p internal/httpapi/static/dist && touch internal/httpapi/static/dist/.gitkeep
       - name: Live delta-stream round-trip test
         run: KUBEBAY_INTEGRATION_TEST=1 go test ./internal/integration/ -v -timeout 300s

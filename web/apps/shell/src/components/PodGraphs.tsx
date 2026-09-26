@@ -76,7 +76,7 @@ export function PodGraphs({
     queryFn: () => import("../lib/api").then((m) => m.settingsApi.get()),
     staleTime: 30_000,
   });
-  const promUrl = settings.data?.prometheusUrl ?? "";
+  const promUrl = settings.data?.prometheusUrls?.[cluster] ?? settings.data?.prometheusUrl ?? "";
   const [rangeIdx, setRangeIdx] = useState(1);
   const range = RANGES[rangeIdx]!;
 
@@ -91,14 +91,14 @@ export function PodGraphs({
 
   const cpu = useQuery({
     queryKey: ["prom-cpu", cluster, cpuQ, rangeIdx],
-    queryFn: () => promApi.queryRange({ query: cpuQ, startMs: from, endMs: to, stepSec: range.step }),
+    queryFn: () => promApi.queryRange({ cluster, query: cpuQ, startMs: from, endMs: to, stepSec: range.step }),
     enabled,
     refetchInterval: 60_000,
     retry: false,
   });
   const mem = useQuery({
     queryKey: ["prom-mem", cluster, memQ, rangeIdx],
-    queryFn: () => promApi.queryRange({ query: memQ, startMs: from, endMs: to, stepSec: range.step }),
+    queryFn: () => promApi.queryRange({ cluster, query: memQ, startMs: from, endMs: to, stepSec: range.step }),
     enabled,
     refetchInterval: 60_000,
     retry: false,

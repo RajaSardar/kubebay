@@ -131,19 +131,16 @@ export const api = {
   }) => send<{ ok: boolean }>("POST", "/api/action/resize-pod", b),
 
   getYamlText: async (cluster: string, gvr: string, ns: string, name: string): Promise<string> => {
-    const q = new URLSearchParams({ cluster, gvr, ns, name });
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 10_000);
-    try {
-      const res = await fetch(`/api/yaml?${q}`, {
-        signal: ctrl.signal,
-        headers: { "X-Kubebay-Token": getToken() },
-      });
-      if (!res.ok) throw new Error(await res.text());
-      return res.text();
-    } finally {
-      clearTimeout(timer);
-    }
+    return fetchObject(cluster, gvr, ns, name, "yaml");
+  },
+  /** Same object as getYamlText, but served as JSON so callers get a parsed object. */
+  getObject: async (
+    cluster: string,
+    gvr: string,
+    ns: string,
+    name: string,
+  ): Promise<Record<string, unknown>> => {
+    return JSON.parse(await fetchObject(cluster, gvr, ns, name, "json")) as Record<string, unknown>;
   },
   applyYaml: (b: {
     cluster: string;
@@ -158,6 +155,29 @@ export const api = {
     send<{ applied: number; total: number; dryRun: boolean }>("POST", "/api/yaml/create", b),
   auditLog: () => get<{ time: string; action: string; cluster: string; namespace?: string; resource?: string; detail?: string; userAgent?: string }[]>("/api/audit"),
 };
+
+async function fetchObject(
+  cluster: string,
+  gvr: string,
+  ns: string,
+  name: string,
+  format: "yaml" | "json",
+): Promise<string> {
+  const q = new URLSearchParams({ cluster, gvr, ns, name });
+  if (format === "json") q.set("format", "json");
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 10_000);
+  try {
+    const res = await fetch(`/api/yaml?${q}`, {
+      signal: ctrl.signal,
+      headers: { "X-Kubebay-Token": getToken() },
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.text();
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 export const nodeApi = {
   shellStart: (b: { cluster: string; node: string }) =>
@@ -292,7 +312,9 @@ export const helmMarketApi = {
 };
 
 export interface AppSettings {
+  /** Fallback for clusters with no entry in prometheusUrls. */
   prometheusUrl?: string;
+  prometheusUrls?: Record<string, string>;
   extraKubeconfigs: string[];
   onlyListedKubeconfigs?: boolean;
   activeKubeconfigs?: string[];
@@ -330,8 +352,9 @@ export const argoCDApi = {
 };
 
 export const promApi = {
-  queryRange: async (params: { query: string; startMs: number; endMs: number; stepSec: number }): Promise<{ data: { result: { metric: Record<string, string>; values: [number, string][] }[] } }> => {
+  queryRange: async (params: { cluster: string; query: string; startMs: number; endMs: number; stepSec: number }): Promise<{ data: { result: { metric: Record<string, string>; values: [number, string][] }[] } }> => {
     const q = new URLSearchParams({
+      cluster: params.cluster,
       query: params.query,
       start: String(Math.floor(params.startMs / 1000)),
       end: String(Math.floor(params.endMs / 1000)),

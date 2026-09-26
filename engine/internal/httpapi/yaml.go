@@ -15,6 +15,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"sigs.k8s.io/yaml"
 
+	"github.com/RajaSardar/kubebay/engine/internal/audit"
 	"github.com/RajaSardar/kubebay/engine/internal/informers"
 )
 
@@ -98,6 +99,13 @@ func (c *Channels) HandleGetYAML(w http.ResponseWriter, r *http.Request) {
 		_ = json.Unmarshal(b, &doc)
 	}
 	stripNoisyFields(doc)
+	// The drawer summaries and ResizePanel need a structured object, and shipping a
+	// YAML parser to the browser just to read back what we serialized here is waste.
+	if q.Get("format") == "json" {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(doc)
+		return
+	}
 	out, err := yaml.Marshal(doc)
 	if err != nil {
 		http.Error(w, "marshal: "+err.Error(), http.StatusInternalServerError)
@@ -164,6 +172,15 @@ func (c *Channels) HandleApplyYAML(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("apply: %v", err), http.StatusBadGateway)
 		return
 	}
+	kind, _ := doc["kind"].(string)
+	c.Audit.Record(audit.Entry{
+		Action:    "apply",
+		Cluster:   req.Cluster,
+		Namespace: req.Namespace,
+		Resource:  req.Name,
+		Detail:    fmt.Sprintf("gvr=%s kind=%s dryRun=%t force=%t", req.GVR, kind, req.DryRun, req.Force),
+		UserAgent: r.Header.Get("User-Agent"),
+	})
 	resp := map[string]interface{}{"applied": applied != nil, "dryRun": req.DryRun}
 	if req.DryRun && applied != nil {
 		if u, ok := applied.(interface{ UnstructuredContent() map[string]interface{} }); ok {

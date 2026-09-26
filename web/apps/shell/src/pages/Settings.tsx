@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button, Card } from "@kubebay/ui";
 import { settingsApi } from "../lib/api";
+import { useCluster } from "../lib/useCluster";
 import { useTheme, type ThemeName } from "../lib/theme";
 import { useDisplay, type FontSize, type FontFamily, type Density } from "../lib/display";
 
@@ -41,6 +42,7 @@ function KubeconfigSources() {
     try {
       await settingsApi.save({
         prometheusUrl: settings.data?.prometheusUrl ?? "",
+        prometheusUrls: settings.data?.prometheusUrls,
         extraKubeconfigs: next,
         onlyListedKubeconfigs: onlyListed ?? isolated,
       });
@@ -121,46 +123,101 @@ function KubeconfigSources() {
   );
 }
 
-function PrometheusSettings({ initial }: { initial?: string }) {
-  const [url, setUrl] = useState(initial ?? "");
+const PROM_DEFAULT = "";
+
+function PrometheusSettings({
+  initial,
+  initialPerCluster,
+}: {
+  initial?: string;
+  initialPerCluster?: Record<string, string>;
+}) {
+  const { list } = useCluster();
+  // "" is the fallback entry; every other value is a cluster id.
+  const [target, setTarget] = useState(PROM_DEFAULT);
+  const [url, setUrl] = useState("");
   const [saved, setSaved] = useState<string | null>(null);
   const [err, setErr] = useState("");
   const qc = useQueryClient();
 
+  const perCluster = initialPerCluster ?? {};
+  const stored = target === PROM_DEFAULT ? (initial ?? "") : (perCluster[target] ?? "");
+
   useEffect(() => {
-    if (initial != null && saved == null) setUrl(initial);
+    setUrl(stored);
+    setSaved(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initial]);
+  }, [target, stored]);
 
   async function save() {
     setErr("");
     try {
       const cur = await settingsApi.get();
-      await settingsApi.save({ prometheusUrl: url.trim(), extraKubeconfigs: cur.extraKubeconfigs });
-      setSaved(url.trim());
+      const next = { ...(cur.prometheusUrls ?? {}) };
+      const trimmed = url.trim();
+      if (target !== PROM_DEFAULT) {
+        if (trimmed) next[target] = trimmed;
+        else delete next[target];
+      }
+      await settingsApi.save({
+        prometheusUrl: target === PROM_DEFAULT ? trimmed : (cur.prometheusUrl ?? ""),
+        prometheusUrls: next,
+        extraKubeconfigs: cur.extraKubeconfigs,
+        onlyListedKubeconfigs: cur.onlyListedKubeconfigs,
+      });
+      setSaved(trimmed);
       await qc.invalidateQueries({ queryKey: ["settings"] });
     } catch (e) {
       setErr(String(e instanceof Error ? e.message : e));
     }
   }
 
+  const overrides = Object.entries(perCluster).filter(([, v]) => v);
+
   return (
     <Card style={{ marginTop: 18 }}>
       <div className="rbac-section-title">Prometheus (history graphs)</div>
+      <p className="small muted" style={{ marginTop: 0 }}>
+        Set per cluster. A port-forward usually points at one cluster's Prometheus, so a
+        single shared URL would graph whichever cluster the tunnel happens to reach.
+      </p>
       <div className="pf-form">
+        <select
+          className="toolbar-select"
+          value={target}
+          onChange={(e) => setTarget(e.target.value)}
+          aria-label="Prometheus target"
+        >
+          <option value={PROM_DEFAULT}>Default (clusters with no URL below)</option>
+          {list.map((c) => (
+            <option key={c.id} value={c.id}>{c.id}</option>
+          ))}
+        </select>
         <input
           className="toolbar-input"
-          placeholder="http://prometheus.monitoring:9090"
+          placeholder="http://localhost:9090"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           spellCheck={false}
-          style={{ gridColumn: "span 4" }}
+          style={{ gridColumn: "span 3" }}
         />
         <Button onClick={() => void save()}>Save</Button>
       </div>
+      {overrides.length > 0 && (
+        <ul className="small muted" style={{ margin: "8px 0 0", paddingLeft: 18 }}>
+          {overrides.map(([c, u]) => (
+            <li key={c}><span className="mono">{c}</span> → <span className="mono">{u}</span></li>
+          ))}
+        </ul>
+      )}
       {(saved != null || err) && (
         <p className={`small ${err ? "error-text" : "muted"}`} style={{ marginBottom: 0 }}>
-          {err || (saved === "" ? "Cleared — graphs hidden." : `Saved. Pod drawer Graphs tab now queries ${saved}`)}
+          {err ||
+            (saved === ""
+              ? target === PROM_DEFAULT
+                ? "Default cleared."
+                : "Override cleared — this cluster falls back to the default."
+              : `Saved. ${target === PROM_DEFAULT ? "Clusters with no override" : target} now queries ${saved}`)}
         </p>
       )}
     </Card>
@@ -184,6 +241,7 @@ function NodeShellSettings({ initial, fallback }: { initial?: string; fallback: 
       const cur = await settingsApi.get();
       await settingsApi.save({
         prometheusUrl: cur.prometheusUrl,
+        prometheusUrls: cur.prometheusUrls,
         extraKubeconfigs: cur.extraKubeconfigs,
         onlyListedKubeconfigs: cur.onlyListedKubeconfigs,
         nodeShellImage: image.trim(),
@@ -338,7 +396,12 @@ export default function Settings() {
       </div>
 
       <KubeconfigSources />
-      {settings.isSuccess && <PrometheusSettings initial={settings.data.prometheusUrl} />}
+      {settings.isSuccess && (
+        <PrometheusSettings
+          initial={settings.data.prometheusUrl}
+          initialPerCluster={settings.data.prometheusUrls}
+        />
+      )}
       {settings.isSuccess && (
         <NodeShellSettings
           initial={settings.data.nodeShellImage}
