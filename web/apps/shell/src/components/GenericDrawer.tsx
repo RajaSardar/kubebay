@@ -517,7 +517,7 @@ export default function GenericDrawer({
 
       {/* ── Actions bar ── */}
       {["deployments", "statefulsets", "daemonsets", "cronjobs", "nodes"].includes(def.slug) && (
-        <ActionsBar slug={def.slug as "deployments"} cluster={cluster} ns={ns} name={name} />
+        <ActionsBar slug={def.slug as "deployments"} cluster={cluster} ns={ns} name={name} gitopsOwner={ownerOf(obj)} />
       )}
 
       {/* ── Single-pane tab bar (only when not split) ── */}

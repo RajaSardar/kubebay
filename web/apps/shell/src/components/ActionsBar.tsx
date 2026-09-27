@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ArmedButton, Badge, Button } from "@kubebay/ui";
 import { actionApi, api } from "../lib/api";
+import { ownerWarning, type GitOpsOwner } from "../lib/gitops";
 
 type Slug = "deployments" | "statefulsets" | "daemonsets" | "cronjobs" | "nodes";
 
@@ -35,11 +36,13 @@ export function ActionsBar({
   cluster,
   ns,
   name,
+  gitopsOwner,
 }: {
   slug: Slug;
   cluster: string;
   ns: string;
   name: string;
+  gitopsOwner?: GitOpsOwner | null;
 }) {
   const { msg, err, busy, run } = useFeedback();
   const [replicas, setReplicas] = useState("");
@@ -48,7 +51,13 @@ export function ActionsBar({
   const showRestart = slug === "deployments" || slug === "statefulsets" || slug === "daemonsets";
 
   return (
-    <div className="log-controls actionsbar">
+    <div className="log-controls actionsbar" style={{ flexDirection: "column", alignItems: "stretch" }}>
+      {gitopsOwner && (
+        <div className="inline-banner" role="alert">
+          {ownerWarning(gitopsOwner)}
+        </div>
+      )}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
       {showScale && (
         <>
           <label className="ctl">
@@ -177,6 +186,7 @@ export function ActionsBar({
         </span>
       )}
       {!msg && !err && !busy && <Badge>actions</Badge>}
+      </div>
     </div>
   );
 }
