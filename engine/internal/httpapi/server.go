@@ -230,11 +230,12 @@ func Router(d Deps, token string) http.Handler {
 		})
 		r.Post("/api/action/resize-pod", func(w http.ResponseWriter, r *http.Request) {
 			var body struct {
-				Cluster   string                 `json:"cluster"`
-				NS        string                 `json:"ns"`
-				Name      string                 `json:"name"`
-				Container string                 `json:"container"`
-				Resources map[string]interface{} `json:"resources"`
+				Cluster     string                 `json:"cluster"`
+				NS          string                 `json:"ns"`
+				Name        string                 `json:"name"`
+				Container   string                 `json:"container"`
+				Resources   map[string]interface{} `json:"resources"`
+				GitOpsOwner string                 `json:"gitopsOwner,omitempty"`
 			}
 			if err := decodeBody(r, &body); err != nil || body.Cluster == "" || body.Name == "" || body.Container == "" {
 				http.Error(w, "cluster, ns, name, container required", http.StatusBadRequest)
@@ -246,6 +247,14 @@ func Router(d Deps, token string) http.Handler {
 				http.Error(w, err.Error(), http.StatusBadGateway)
 				return
 			}
+			d.Audit.Record(audit.Entry{
+				Action:    "resize-pod",
+				Cluster:   body.Cluster,
+				Namespace: body.NS,
+				Resource:  body.Name,
+				Detail:    appendOwnerDetail(resizePodAuditDetail(body.Container, body.Resources), body.GitOpsOwner),
+				UserAgent: r.Header.Get("User-Agent"),
+			})
 			writeJSON(w, map[string]bool{"ok": true})
 		})
 

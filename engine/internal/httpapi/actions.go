@@ -127,6 +127,13 @@ func (a *Actions) Delete(ctx context.Context, cluster, gvr, ns, name string, gra
 	return ri.Delete(ctx, name, opts)
 }
 
+// resizePodAuditDetail names the container and the resources requested, so
+// an in-place resize shows up in the audit log with the same specificity as
+// any other mutating action.
+func resizePodAuditDetail(container string, resources map[string]interface{}) string {
+	return fmt.Sprintf("container=%s resources=%v", container, resources)
+}
+
 func (a *Actions) ResizePod(ctx context.Context, cluster, ns, podName, container string, res map[string]interface{}) error {
 	if container == "" {
 		return fmt.Errorf("container required")
