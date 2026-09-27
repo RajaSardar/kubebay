@@ -3,17 +3,20 @@ import Editor, { DiffEditor } from "@monaco-editor/react";
 import { Badge, Button } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { useMonacoTheme } from "../lib/theme";
+import { ownerWarning, type GitOpsOwner } from "../lib/gitops";
 
 export function YamlTab({
   cluster,
   gvr,
   ns,
   name,
+  gitopsOwner,
 }: {
   cluster: string;
   gvr: string;
   ns: string;
   name: string;
+  gitopsOwner?: GitOpsOwner | null;
 }) {
   const monacoTheme = useMonacoTheme();
   const [original, setOriginal] = useState("");
@@ -150,6 +153,11 @@ export function YamlTab({
           </Button>
         </div>
       </div>
+      {gitopsOwner && (
+        <div className="inline-banner" role="alert">
+          {ownerWarning(gitopsOwner)}
+        </div>
+      )}
       <div className="yaml-editor">{editor}</div>
     </div>
   );
