@@ -8,6 +8,7 @@ import { NodeSummary } from "./NodeSummary";
 import { ServiceSummary } from "./ServiceSummary";
 import { MetadataSummary } from "./MetadataSummary";
 import type { ResourceDef } from "../lib/resources";
+import { ownerOf } from "../lib/gitops";
 
 // ── Tab types per resource kind ──────────────────────────────────────────────
 type NodeTab = "summary" | "shell" | "yaml";
@@ -165,7 +166,7 @@ function PaneContent({
   if ((isNode && nodeTab === "yaml") || (isService && svcTab === "yaml") || (isPod && podTab === "yaml") || (!isNode && !isService && !isPod && genTab === "yaml")) {
     return (
       <div className="yaml-wrap">
-        <YamlTab cluster={cluster} gvr={def.gvr} ns={ns} name={name} />
+        <YamlTab cluster={cluster} gvr={def.gvr} ns={ns} name={name} gitopsOwner={ownerOf(obj)} />
       </div>
     );
   }
@@ -499,7 +500,7 @@ export default function GenericDrawer({
 
       {/* ── Actions bar ── */}
       {["deployments", "statefulsets", "daemonsets", "cronjobs", "nodes"].includes(def.slug) && (
-        <ActionsBar slug={def.slug as "deployments"} cluster={cluster} ns={ns} name={name} />
+        <ActionsBar slug={def.slug as "deployments"} cluster={cluster} ns={ns} name={name} gitopsOwner={ownerOf(obj)} />
       )}
 
       {/* ── Single-pane tab bar (only when not split) ── */}

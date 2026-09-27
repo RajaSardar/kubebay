@@ -3,17 +3,21 @@ import Editor, { DiffEditor } from "@monaco-editor/react";
 import { Badge, Button } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { useMonacoTheme } from "../lib/theme";
+import { ownerWarning, type GitOpsOwner } from "../lib/gitops";
+import { PolicyRejectionError, type PolicyRejectionDetail } from "../lib/policyRejection";
 
 export function YamlTab({
   cluster,
   gvr,
   ns,
   name,
+  gitopsOwner,
 }: {
   cluster: string;
   gvr: string;
   ns: string;
   name: string;
+  gitopsOwner?: GitOpsOwner | null;
 }) {
   const monacoTheme = useMonacoTheme();
   const [original, setOriginal] = useState("");
@@ -24,10 +28,12 @@ export function YamlTab({
   const [serverPreview, setServerPreview] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [policyRejection, setPolicyRejection] = useState<PolicyRejectionDetail | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     setMsg(null);
+    setPolicyRejection(null);
     setServerPreview(null);
     try {
       const y = await api.getYamlText(cluster, gvr, ns, name);
@@ -51,11 +57,22 @@ export function YamlTab({
     setModified(v);
     setServerPreview(null);
     setMsg(null);
+    setPolicyRejection(null);
+  }
+
+  // Discards the in-progress edit and reloads the last-fetched version —
+  // purely local, unlike Reload which re-fetches from the server.
+  function revert() {
+    setModified(original);
+    setServerPreview(null);
+    setMsg(null);
+    setPolicyRejection(null);
   }
 
   async function apply(dryRun: boolean) {
     setBusy(true);
     setMsg(null);
+    setPolicyRejection(null);
     try {
       const r = await api.applyYaml({
         cluster,
@@ -77,7 +94,11 @@ export function YamlTab({
         await load();
       }
     } catch (e) {
-      setMsg({ ok: false, text: String(e instanceof Error ? e.message : e) });
+      if (e instanceof PolicyRejectionError) {
+        setPolicyRejection(e.rejection);
+      } else {
+        setMsg({ ok: false, text: String(e instanceof Error ? e.message : e) });
+      }
     } finally {
       setBusy(false);
     }
@@ -142,6 +163,9 @@ export function YamlTab({
           <Button variant="ghost" onClick={() => void load()}>
             Reload
           </Button>
+          <Button variant="ghost" disabled={!dirty} onClick={revert}>
+            Revert
+          </Button>
           <Button variant="ghost" disabled={busy || !dirty} onClick={() => void apply(true)}>
             Dry-run
           </Button>
@@ -150,6 +174,34 @@ export function YamlTab({
           </Button>
         </div>
       </div>
+      {gitopsOwner && (
+        <div className="inline-banner" role="alert">
+          {ownerWarning(gitopsOwner)}
+        </div>
+      )}
+      {policyRejection && (
+        <div className="error-banner" role="alert">
+          <div>
+            <strong>
+              {policyRejection.engine ? `${policyRejection.engine} policy rejected this change` : "Policy rejected this change"}
+            </strong>
+            {policyRejection.webhook && (
+              <span className="muted small mono" style={{ marginLeft: 8 }}>{policyRejection.webhook}</span>
+            )}
+          </div>
+          <div className="small">{policyRejection.message}</div>
+          {policyRejection.causes && policyRejection.causes.length > 0 && (
+            <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
+              {policyRejection.causes.map((c, i) => (
+                <li key={i} className="small">
+                  {c.field && <span className="mono muted">{c.field}: </span>}
+                  {c.message}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
       <div className="yaml-editor">{editor}</div>
     </div>
   );

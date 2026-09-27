@@ -169,16 +169,29 @@ func (c *Channels) HandleApplyYAML(w http.ResponseWriter, r *http.Request) {
 		applied, err = ri.Patch(r.Context(), req.Name, types.ApplyPatchType, data, patchOpts)
 	}
 	if err != nil {
+		if rejection := parsePolicyRejection(err); rejection != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"error":           "policy-rejected",
+				"policyRejection": rejection,
+			})
+			return
+		}
 		http.Error(w, fmt.Sprintf("apply: %v", err), http.StatusBadGateway)
 		return
 	}
 	kind, _ := doc["kind"].(string)
+	detail := fmt.Sprintf("gvr=%s kind=%s dryRun=%t force=%t", req.GVR, kind, req.DryRun, req.Force)
+	if owner := gitopsOwnerFromDoc(doc); owner != "" {
+		detail += " owner=" + owner
+	}
 	c.Audit.Record(audit.Entry{
 		Action:    "apply",
 		Cluster:   req.Cluster,
 		Namespace: req.Namespace,
 		Resource:  req.Name,
-		Detail:    fmt.Sprintf("gvr=%s kind=%s dryRun=%t force=%t", req.GVR, kind, req.DryRun, req.Force),
+		Detail:    detail,
 		UserAgent: r.Header.Get("User-Agent"),
 	})
 	resp := map[string]interface{}{"applied": applied != nil, "dryRun": req.DryRun}

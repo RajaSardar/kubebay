@@ -13,6 +13,7 @@ import { useRowSelection } from "../lib/useRowSelection";
 import { useBulkDelete } from "../lib/useBulkDelete";
 import { useDisplay, type Density } from "../lib/display";
 import { evalPrinterPath } from "../lib/printerPath";
+import { ownerOf, ownerLabel, ownerAmongTargets, ownerWarning } from "../lib/gitops";
 
 // Row height (px) per density level — must stay in sync with ROW_PADDING_VALUES in display.ts
 // compact: 4+4px pad + ~20px line + 1px border = 29px
@@ -202,6 +203,25 @@ export function extraColumns(
           return { v: phase, dot: phase === "Active" ? "ok" : "warn" };
         },
       };
+    case "policyreports":
+    case "clusterpolicyreports":
+      return {
+        Summary: (o) => {
+          const s = o.summary as Record<string, unknown> | undefined;
+          if (!s) return { v: "–" };
+          const pass = num(s.pass);
+          const fail = num(s.fail);
+          const warn = num(s.warn);
+          const error = num(s.error);
+          const parts: string[] = [];
+          if (pass) parts.push(`${pass} pass`);
+          if (fail) parts.push(`${fail} fail`);
+          if (warn) parts.push(`${warn} warn`);
+          if (error) parts.push(`${error} error`);
+          const dot: Cell["dot"] = fail || error ? "err" : warn ? "warn" : "ok";
+          return { v: parts.length > 0 ? parts.join(", ") : "0 results", dot };
+        },
+      };
     case "endpoints":
       return {
         "EndPoints": (o) => {
@@ -311,6 +331,12 @@ export function extraColumns(
     default:
       return {};
   }
+}
+
+// Universal (not per-slug) column: any resource kind can be GitOps-managed.
+export function ownerCell(o: Row): Cell {
+  const owner = ownerOf(o);
+  return owner ? { v: ownerLabel(owner), cls: "muted" } : { v: "–", cls: "muted" };
 }
 
 // ── Per-container status squares (FreeLens-style dots) ──────────────────────
@@ -462,7 +488,7 @@ export default function ResourceTable() {
   }
 
   const headers = useMemo(
-    () => ["Name", ...(def?.scoped ? [] : ["Namespace"]), ...cols, ...printerColumns.map((c) => c.name), "Age"],
+    () => ["Name", ...(def?.scoped ? [] : ["Namespace"]), ...cols, ...printerColumns.map((c) => c.name), "Owner", "Age"],
     [def, cols, printerColumns],
   );
 
@@ -473,9 +499,16 @@ export default function ResourceTable() {
   );
   const { widths, getResizeHandleProps } = useResizableColumns(headers.length, initialWidths);
   const { selectedKeys, toggleRow, selectAll, clearAll, deselect, isAllSelected, isIndeterminate } = useRowSelection();
-  const bulkDelete = useBulkDelete((t) =>
-    api.deleteResource({ cluster: effectiveCluster, gvr: def?.gvr ?? "", ns: t.ns, name: t.name }),
-  );
+  const bulkDelete = useBulkDelete((t) => {
+    const owner = ownerAmongTargets([t], rows);
+    return api.deleteResource({
+      cluster: effectiveCluster,
+      gvr: def?.gvr ?? "",
+      ns: t.ns,
+      name: t.name,
+      gitopsOwner: owner ? ownerLabel(owner) : undefined,
+    });
+  });
 
   const rows = useMemo(() => {
     let out = [...stream.rows];
@@ -592,6 +625,10 @@ export default function ResourceTable() {
                 Delete {bulkDelete.pending.length} selected {def.label.toLowerCase()}? This can&apos;t be undone.
               </>
             )}
+            {(() => {
+              const owner = ownerAmongTargets(bulkDelete.pending, rows);
+              return owner && <div className="small">{ownerWarning(owner)}</div>;
+            })()}
           </span>
           <div className="inline-banner-actions">
             <Button variant="ghost" disabled={bulkDelete.busy} onClick={bulkDelete.cancel}>
@@ -765,6 +802,7 @@ export default function ResourceTable() {
                         {evalPrinterPath(col.jsonPath, o) || <span className="muted">–</span>}
                       </td>
                     ))}
+                    <td className="mono muted">{ownerCell(o).v}</td>
                     <td className="mono muted">{fmtAge(ageOf(o))}</td>
                     {/* ⋮ kebab — visible only on row hover */}
                     <td className="col-row-menu" onClick={(e) => e.stopPropagation()}>

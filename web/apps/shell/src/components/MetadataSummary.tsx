@@ -1,6 +1,7 @@
 import { Badge } from "@kubebay/ui";
 import { ConditionsTable, type Condition } from "./ConditionsTable";
 import { ageOf, fmtAge } from "../lib/resources";
+import { ownerOf, ownerLabel } from "../lib/gitops";
 
 function rec(v: unknown): Record<string, unknown> {
   return (v ?? {}) as Record<string, unknown>;
@@ -53,11 +54,13 @@ export function MetadataSummary({ obj }: { obj: Record<string, unknown> | null }
   const annotations = rec(meta.annotations) as Record<string, unknown>;
   const ownerRefs = arr(meta.ownerReferences);
   const conditions = arr(status.conditions) as unknown as Condition[];
+  const gitopsOwner = ownerOf(obj);
 
   return (
     <div className="pod-summary" style={{ padding: 14, overflowY: "auto", flex: 1 }}>
       <Section title="Info">
         <KV k="Created" v={meta.creationTimestamp ? `${fmtAge(ageOf(obj))} ago` : "–"} />
+        {gitopsOwner && <KV k="Managed by" v={<Badge>{ownerLabel(gitopsOwner)}</Badge>} />}
       </Section>
 
       <Section title={`Labels (${Object.keys(labels).length})`}>
