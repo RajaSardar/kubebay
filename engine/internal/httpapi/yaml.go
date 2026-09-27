@@ -169,6 +169,15 @@ func (c *Channels) HandleApplyYAML(w http.ResponseWriter, r *http.Request) {
 		applied, err = ri.Patch(r.Context(), req.Name, types.ApplyPatchType, data, patchOpts)
 	}
 	if err != nil {
+		if rejection := parsePolicyRejection(err); rejection != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"error":           "policy-rejected",
+				"policyRejection": rejection,
+			})
+			return
+		}
 		http.Error(w, fmt.Sprintf("apply: %v", err), http.StatusBadGateway)
 		return
 	}
