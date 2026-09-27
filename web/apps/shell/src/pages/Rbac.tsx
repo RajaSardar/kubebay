@@ -2,7 +2,9 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Badge, Button, Card } from "@kubebay/ui";
 import { PageLoader } from "../components/PageLoader";
+import { RbacFindingsCard } from "../components/RbacFindingsCard";
 import { rbacApi, type RBACSnapshot } from "../lib/api";
+import type { FindingQuery } from "../lib/rbacFindings";
 import { useCluster } from "../lib/useCluster";
 import { DEFS, EXTRA_DEFS } from "../lib/resources";
 
@@ -84,13 +86,12 @@ export default function Rbac() {
 
   const data = snap.data;
 
-  function runWhoCan() {
+  function runWhoCan(override?: FindingQuery) {
     if (!data) return;
-    const meta = KIND_MAP[kindSel] ?? {
-      group: "",
-      resource: kindSel,
-      scoped: true,
-    };
+    const meta = override
+      ? { group: override.group, resource: override.resource, scoped: true }
+      : (KIND_MAP[kindSel] ?? { group: "", resource: kindSel, scoped: true });
+    const effectiveVerb = override?.verb ?? verb;
     const grants = new Map<string, string[]>();
     const considerBinding = (b: BindingSummary, roleNS: string | undefined) => {
       const [refKind, refName] = b.roleRef.split(":");
@@ -104,7 +105,7 @@ export default function Rbac() {
       if (!meta.scoped && roleNS !== "cluster") return;
       if (!applies) return;
       for (const rule of role.rules) {
-        if (!ruleAllows(rule, verb === "*" ? "*" : verb, meta.group, meta.resource)) continue;
+        if (!ruleAllows(rule, effectiveVerb === "*" ? "*" : effectiveVerb, meta.group, meta.resource)) continue;
         for (const s of b.subjects) {
           const k = subjectKey(s);
           grants.set(k, [...(grants.get(k) ?? []), `${b.kind} ${b.ns ? b.ns + "/" : ""}${b.name}`]);
@@ -116,6 +117,18 @@ export default function Rbac() {
     for (const b of data.roleBindings) considerBinding(b, b.ns);
     setResults(grants);
     setSearched(true);
+  }
+
+  // A finding's resource is the real Kubernetes resource name, which for a
+  // subresource like "pods/exec" isn't one of the dropdown's selectable
+  // kinds — the query itself still runs correctly via the override, only
+  // the dropdown's own display falls back to the closest real kind.
+  function applyFindingQuery(q: FindingQuery) {
+    const displayKind = q.resource === "pods/exec" ? "pods" : KIND_OPTIONS.includes(q.resource) ? q.resource : kindSel;
+    setVerb(q.verb);
+    setKindSel(displayKind);
+    setNsQuery("");
+    runWhoCan(q);
   }
 
   interface CheckResult {
@@ -201,7 +214,7 @@ export default function Rbac() {
             spellCheck={false}
             disabled={!KIND_MAP[kindSel]?.scoped}
           />
-          <Button onClick={runWhoCan} disabled={!data}>
+          <Button onClick={() => runWhoCan()} disabled={!data}>
             Query
           </Button>
         </div>
@@ -227,6 +240,8 @@ export default function Rbac() {
           </div>
         )}
       </Card>
+
+      <RbacFindingsCard findings={data?.findings ?? []} onQuery={applyFindingQuery} />
 
       <Card>
         <div className="rbac-section-title">My access</div>
