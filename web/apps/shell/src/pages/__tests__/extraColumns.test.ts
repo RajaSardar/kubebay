@@ -283,3 +283,25 @@ describe("extraColumns('clusterpolicyreports')", () => {
     expect(cell.dot).toBe("err");
   });
 });
+
+describe("extraColumns('nodes') – Karpenter columns", () => {
+  const { NodePool, "Capacity type": CapacityType } = extraColumns("nodes");
+
+  it("reads the NodePool from the karpenter.sh/nodepool label", () => {
+    const cell = NodePool!({ metadata: { labels: { "karpenter.sh/nodepool": "default" } } });
+    expect(cell.v).toBe("default");
+  });
+
+  it("shows a dash for a node Karpenter doesn't manage", () => {
+    expect(NodePool!({ metadata: { labels: {} } }).v).toBe("–");
+  });
+
+  it("reads capacity type (spot/on-demand) from the karpenter.sh/capacity-type label", () => {
+    const cell = CapacityType!({ metadata: { labels: { "karpenter.sh/capacity-type": "spot" } } });
+    expect(cell.v).toBe("spot");
+  });
+
+  it("shows a dash for capacity type on a non-Karpenter node", () => {
+    expect(CapacityType!({ metadata: { labels: {} } }).v).toBe("–");
+  });
+});
