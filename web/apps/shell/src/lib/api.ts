@@ -391,6 +391,15 @@ export const settingsApi = {
   save: (b: AppSettings) => send<{ ok: boolean; saved: AppSettings }>("POST", "/api/settings", b),
 };
 
+export interface ArgoCDResource {
+  group: string;
+  kind: string;
+  namespace: string;
+  name: string;
+  status: string;
+  health: string;
+}
+
 export interface ArgoCDApp {
   name: string;
   namespace: string;
@@ -401,6 +410,7 @@ export interface ArgoCDApp {
   healthStatus: string;
   lastSyncTime: string;
   message: string;
+  resources: ArgoCDResource[];
 }
 
 export interface ArgoCDAppsResponse {

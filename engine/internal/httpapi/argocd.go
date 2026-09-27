@@ -15,15 +15,64 @@ import (
 
 // argoCDApp is the response shape for a single ArgoCD Application.
 type argoCDApp struct {
-	Name           string `json:"name"`
-	Namespace      string `json:"namespace"`
-	Project        string `json:"project"`
-	RepoURL        string `json:"repoURL"`
-	TargetRevision string `json:"targetRevision"`
-	SyncStatus     string `json:"syncStatus"`
-	HealthStatus   string `json:"healthStatus"`
-	LastSyncTime   string `json:"lastSyncTime"`
-	Message        string `json:"message"`
+	Name           string           `json:"name"`
+	Namespace      string           `json:"namespace"`
+	Project        string           `json:"project"`
+	RepoURL        string           `json:"repoURL"`
+	TargetRevision string           `json:"targetRevision"`
+	SyncStatus     string           `json:"syncStatus"`
+	HealthStatus   string           `json:"healthStatus"`
+	LastSyncTime   string           `json:"lastSyncTime"`
+	Message        string           `json:"message"`
+	Resources      []argoCDResource `json:"resources"`
+}
+
+// argoCDResource is one entry of an Application's status.resources[] — the
+// per-object sync/health breakdown that gives us a drift list for free,
+// straight off the k8s API (no argocd-server REST call, no token — see the
+// innovation backlog's explicit "do not build against Argo's REST API").
+type argoCDResource struct {
+	Group     string `json:"group"`
+	Kind      string `json:"kind"`
+	Namespace string `json:"namespace"`
+	Name      string `json:"name"`
+	Status    string `json:"status"`
+	Health    string `json:"health"`
+}
+
+func (r argoCDResource) isDrifted() bool {
+	return r.Status == "OutOfSync"
+}
+
+// parseArgoCDResources extracts status.resources[] from a raw Application
+// object. Malformed or missing entries are skipped rather than causing a
+// panic — this runs over live cluster data the engine doesn't control.
+func parseArgoCDResources(obj map[string]interface{}) []argoCDResource {
+	status, ok := obj["status"].(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	raw, ok := status["resources"].([]interface{})
+	if !ok {
+		return nil
+	}
+	out := make([]argoCDResource, 0, len(raw))
+	for _, item := range raw {
+		m, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		res := argoCDResource{
+			Group:     argoCDStr(m, "group"),
+			Kind:      argoCDStr(m, "kind"),
+			Namespace: argoCDStr(m, "namespace"),
+			Name:      argoCDStr(m, "name"),
+			Status:    argoCDStr(m, "status"),
+			Health:    argoCDStr(m, "health", "status"),
+		}
+		out = append(out, res)
+	}
+	return out
 }
 
 // argoCDAppsResponse wraps the list with an installed indicator.
@@ -108,6 +157,7 @@ func argoCDAppsHandler(m *Metrics) http.HandlerFunc {
 					app.LastSyncTime, _ = status["reconciledAt"].(string)
 				}
 			}
+			app.Resources = parseArgoCDResources(obj)
 
 			apps = append(apps, app)
 		}

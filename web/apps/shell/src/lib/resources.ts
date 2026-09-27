@@ -171,3 +171,15 @@ export const EXTRA_DEFS: Record<string, ResourceDef> = {
 export const KNOWN_GVRS = new Set(
   [...Object.values(DEFS), ...Object.values(EXTRA_DEFS)].map((d) => d.gvr),
 );
+
+const SLUG_BY_KIND: Record<string, string> = Object.fromEntries(
+  [...Object.values(DEFS), ...Object.values(EXTRA_DEFS)].map((d) => [d.kind, d.slug]),
+);
+
+/** Reverse lookup for cross-navigation from a raw Kubernetes Kind (as seen
+ * on, e.g., an ArgoCD Application's status.resources[]) to this app's own
+ * route slug. Returns undefined for a Kind with no registered def (a bare
+ * CRD kind Kubebay doesn't have a nav route for) rather than guessing. */
+export function slugForKind(kind: string): string | undefined {
+  return SLUG_BY_KIND[kind];
+}

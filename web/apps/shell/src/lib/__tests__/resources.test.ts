@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { DEFS, EXTRA_DEFS, lookupDef } from "../resources";
+import { DEFS, EXTRA_DEFS, lookupDef, slugForKind } from "../resources";
 
 describe("ResourceDef.kind", () => {
   it("is the singular Kubernetes Kind, not the plural display label", () => {
@@ -46,5 +46,16 @@ describe("lookupDef", () => {
   it("treats scoped=0 as cluster-scoped", () => {
     expect(lookupDef("ext--karpenter.sh--v1--nodepools", new URLSearchParams("scoped=0"))?.scoped).toBe(true);
     expect(lookupDef("ext--karpenter.sh--v1--nodepools", sp)?.scoped).toBe(false);
+  });
+});
+
+describe("slugForKind", () => {
+  it("finds the registered slug for a built-in Kind", () => {
+    expect(slugForKind("Deployment")).toBe("deployments");
+    expect(slugForKind("Namespace")).toBe("namespaces");
+  });
+
+  it("returns undefined for a Kind with no registered def (e.g. a bare CRD kind)", () => {
+    expect(slugForKind("SomeCustomResource")).toBeUndefined();
   });
 });
