@@ -28,6 +28,10 @@ export default function Karpenter() {
   const nodes = useResourceStream(effectiveCluster || undefined, "v1/nodes", { mode: "full", enabled: !!detection.nodePoolGvr });
   const pods = useResourceStream(effectiveCluster || undefined, "v1/pods", { mode: "full", enabled: !!detection.nodePoolGvr });
   const events = useResourceStream(effectiveCluster || undefined, "v1/events", { mode: "full", enabled: !!detection.nodePoolGvr });
+  const pdbs = useResourceStream(effectiveCluster || undefined, "policy/v1/poddisruptionbudgets", {
+    mode: "full",
+    enabled: !!detection.nodePoolGvr,
+  });
 
   const nodePoolRows = useMemo(
     () => buildNodePoolRows(nodePools.rows, nodes.rows, pods.rows),
@@ -82,7 +86,14 @@ export default function Karpenter() {
         <div />
       </div>
       <div className="page-body">
-        <NodePoolSummary rows={nodePoolRows} />
+        <NodePoolSummary
+          rows={nodePoolRows}
+          cluster={effectiveCluster}
+          gvr={detection.nodePoolGvr ?? ""}
+          nodes={nodes.rows}
+          pods={pods.rows}
+          pdbs={pdbs.rows}
+        />
         <div style={{ marginTop: 16 }}>
           <UnschedulablePods rows={unschedulable} />
         </div>
