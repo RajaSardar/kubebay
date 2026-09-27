@@ -203,6 +203,25 @@ export function extraColumns(
           return { v: phase, dot: phase === "Active" ? "ok" : "warn" };
         },
       };
+    case "policyreports":
+    case "clusterpolicyreports":
+      return {
+        Summary: (o) => {
+          const s = o.summary as Record<string, unknown> | undefined;
+          if (!s) return { v: "–" };
+          const pass = num(s.pass);
+          const fail = num(s.fail);
+          const warn = num(s.warn);
+          const error = num(s.error);
+          const parts: string[] = [];
+          if (pass) parts.push(`${pass} pass`);
+          if (fail) parts.push(`${fail} fail`);
+          if (warn) parts.push(`${warn} warn`);
+          if (error) parts.push(`${error} error`);
+          const dot: Cell["dot"] = fail || error ? "err" : warn ? "warn" : "ok";
+          return { v: parts.length > 0 ? parts.join(", ") : "0 results", dot };
+        },
+      };
     case "endpoints":
       return {
         "EndPoints": (o) => {

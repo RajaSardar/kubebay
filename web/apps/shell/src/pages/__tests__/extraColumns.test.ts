@@ -248,3 +248,38 @@ describe("ownerCell", () => {
     expect(cell.v).toBe("–");
   });
 });
+
+// ── policyreports / clusterpolicyreports (Kyverno/Gatekeeper findings) ────────
+
+describe("extraColumns('policyreports') – Summary", () => {
+  const { Summary } = extraColumns("policyreports");
+
+  it("shows an err dot when there are failures", () => {
+    const cell = Summary!({ summary: { pass: 3, fail: 2, warn: 0, error: 0, skip: 0 } });
+    expect(cell.v).toBe("3 pass, 2 fail");
+    expect(cell.dot).toBe("err");
+  });
+
+  it("shows a warn dot when there are warnings but no failures or errors", () => {
+    const cell = Summary!({ summary: { pass: 5, fail: 0, warn: 1, error: 0, skip: 0 } });
+    expect(cell.v).toBe("5 pass, 1 warn");
+    expect(cell.dot).toBe("warn");
+  });
+
+  it("shows an ok dot when everything passes", () => {
+    const cell = Summary!({ summary: { pass: 4, fail: 0, warn: 0, error: 0, skip: 0 } });
+    expect(cell.v).toBe("4 pass");
+    expect(cell.dot).toBe("ok");
+  });
+
+  it("shows a dash when there is no summary at all", () => {
+    expect(Summary!({}).v).toBe("–");
+  });
+});
+
+describe("extraColumns('clusterpolicyreports')", () => {
+  it("has the same Summary column as policyreports", () => {
+    const cell = extraColumns("clusterpolicyreports").Summary!({ summary: { pass: 0, fail: 1, warn: 0, error: 0, skip: 0 } });
+    expect(cell.dot).toBe("err");
+  });
+});

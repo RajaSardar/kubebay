@@ -161,6 +161,11 @@ export function str(v: unknown): string {
 
 export const EXTRA_DEFS: Record<string, ResourceDef> = {
   namespaces: def("namespaces", "Namespaces", "Namespace", "v1/namespaces", { scoped: true, mode: "full" }),
+  // Kyverno (and other policy engines implementing the wgpolicyk8s.io API)
+  // write one of these per namespace/cluster — a free findings table once
+  // registered, no engine changes needed.
+  policyreports: def("policyreports", "Policy Reports", "PolicyReport", "wgpolicyk8s.io/v1alpha2/policyreports", { mode: "full" }),
+  clusterpolicyreports: def("clusterpolicyreports", "Cluster Policy Reports", "ClusterPolicyReport", "wgpolicyk8s.io/v1alpha2/clusterpolicyreports", { scoped: true, mode: "full" }),
 };
 
 export const KNOWN_GVRS = new Set(
