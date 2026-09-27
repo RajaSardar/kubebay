@@ -1,0 +1,209 @@
+import { useMemo, useState } from "react";
+import { DiffEditor } from "@monaco-editor/react";
+import { Badge, Button } from "@kubebay/ui";
+import { api } from "../lib/api";
+import { useMonacoTheme } from "../lib/theme";
+import { buildScaledObjectYaml, validateKedaWizardInput, type KedaTrigger, type KedaWizardInput } from "../lib/kedaWizard";
+
+/**
+ * Backlog #2 P3: cron + CPU/memory wizard. Generates a ScaledObject from a
+ * short form, previews it with the same DiffEditor YamlTab uses (against an
+ * empty "original" since this always creates a new object), then dry-runs
+ * and applies via the existing /api/yaml/create path (the same one
+ * pages/CreateResource.tsx uses for any brand-new resource).
+ */
+export function KedaWizard({
+  cluster,
+  ns,
+  targetKind,
+  targetName,
+  hpas,
+  onApplied,
+}: {
+  cluster: string;
+  ns: string;
+  targetKind: "Deployment" | "StatefulSet";
+  targetName: string;
+  hpas: Record<string, unknown>[];
+  onApplied?: () => void;
+}) {
+  const monacoTheme = useMonacoTheme();
+  const [scaledObjectName, setScaledObjectName] = useState(`${targetName}-scale`);
+  const [minReplicaCount, setMinReplicaCount] = useState(1);
+  const [maxReplicaCount, setMaxReplicaCount] = useState(10);
+  const [triggerType, setTriggerType] = useState<KedaTrigger["type"]>("cpu");
+  const [averageUtilization, setAverageUtilization] = useState(70);
+  const [cronStart, setCronStart] = useState("");
+  const [cronEnd, setCronEnd] = useState("");
+  const [cronTimezone, setCronTimezone] = useState("UTC");
+  const [cronDesiredReplicas, setCronDesiredReplicas] = useState(1);
+  const [zeroConfirm, setZeroConfirm] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const trigger: KedaTrigger = useMemo(() => {
+    if (triggerType === "cron") {
+      return { type: "cron", start: cronStart, end: cronEnd, timezone: cronTimezone, desiredReplicas: cronDesiredReplicas };
+    }
+    return { type: triggerType, averageUtilization };
+  }, [triggerType, cronStart, cronEnd, cronTimezone, cronDesiredReplicas, averageUtilization]);
+
+  const input: KedaWizardInput = useMemo(
+    () => ({ namespace: ns, targetKind, targetName, scaledObjectName, minReplicaCount, maxReplicaCount, trigger }),
+    [ns, targetKind, targetName, scaledObjectName, minReplicaCount, maxReplicaCount, trigger],
+  );
+
+  const errors = useMemo(() => validateKedaWizardInput(input, hpas), [input, hpas]);
+  const yaml = useMemo(() => buildScaledObjectYaml(input), [input]);
+  const needsZeroConfirm = minReplicaCount === 0 && zeroConfirm.trim() !== targetName;
+  const blocked = errors.length > 0;
+
+  async function apply(dryRun: boolean) {
+    setBusy(true);
+    setMsg(null);
+    try {
+      const r = await api.createResource({ cluster, yaml, dryRun });
+      setMsg({ ok: true, text: dryRun ? "Dry-run passed — server accepted the change." : `Applied — ScaledObject "${scaledObjectName}" created (paused).` });
+      if (!dryRun) onApplied?.();
+      void r;
+    } catch (e) {
+      setMsg({ ok: false, text: String(e instanceof Error ? e.message : e) });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: 14 }}>
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
+        <label className="ctl" style={{ flexDirection: "column", alignItems: "flex-start" }}>
+          ScaledObject name
+          <input className="toolbar-input" value={scaledObjectName} onChange={(e) => setScaledObjectName(e.target.value)} spellCheck={false} />
+        </label>
+        <label className="ctl" style={{ flexDirection: "column", alignItems: "flex-start" }}>
+          Min replicas
+          <input
+            className="toolbar-input"
+            style={{ maxWidth: 80 }}
+            type="number"
+            min={0}
+            value={minReplicaCount}
+            onChange={(e) => setMinReplicaCount(Number(e.target.value))}
+          />
+        </label>
+        <label className="ctl" style={{ flexDirection: "column", alignItems: "flex-start" }}>
+          Max replicas
+          <input
+            className="toolbar-input"
+            style={{ maxWidth: 80 }}
+            type="number"
+            min={0}
+            value={maxReplicaCount}
+            onChange={(e) => setMaxReplicaCount(Number(e.target.value))}
+          />
+        </label>
+        <label className="ctl" style={{ flexDirection: "column", alignItems: "flex-start" }}>
+          Trigger
+          <select className="toolbar-select" value={triggerType} onChange={(e) => setTriggerType(e.target.value as KedaTrigger["type"])}>
+            <option value="cpu">CPU utilization</option>
+            <option value="memory">Memory utilization</option>
+            <option value="cron">Cron schedule</option>
+          </select>
+        </label>
+      </div>
+
+      {triggerType !== "cron" ? (
+        <label className="ctl" style={{ flexDirection: "column", alignItems: "flex-start" }}>
+          Target utilization (%)
+          <input
+            className="toolbar-input"
+            style={{ maxWidth: 100 }}
+            type="number"
+            min={1}
+            value={averageUtilization}
+            onChange={(e) => setAverageUtilization(Number(e.target.value))}
+          />
+        </label>
+      ) : (
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
+          <label className="ctl" style={{ flexDirection: "column", alignItems: "flex-start" }}>
+            Start (cron)
+            <input className="toolbar-input" placeholder="0 9 * * 1-5" value={cronStart} onChange={(e) => setCronStart(e.target.value)} spellCheck={false} />
+          </label>
+          <label className="ctl" style={{ flexDirection: "column", alignItems: "flex-start" }}>
+            End (cron)
+            <input className="toolbar-input" placeholder="0 18 * * 1-5" value={cronEnd} onChange={(e) => setCronEnd(e.target.value)} spellCheck={false} />
+          </label>
+          <label className="ctl" style={{ flexDirection: "column", alignItems: "flex-start" }}>
+            Timezone
+            <input className="toolbar-input" value={cronTimezone} onChange={(e) => setCronTimezone(e.target.value)} spellCheck={false} />
+          </label>
+          <label className="ctl" style={{ flexDirection: "column", alignItems: "flex-start" }}>
+            Desired replicas
+            <input
+              className="toolbar-input"
+              style={{ maxWidth: 80 }}
+              type="number"
+              min={0}
+              value={cronDesiredReplicas}
+              onChange={(e) => setCronDesiredReplicas(Number(e.target.value))}
+            />
+          </label>
+        </div>
+      )}
+
+      {errors.length > 0 && (
+        <div className="error-banner" role="alert">
+          <ul style={{ margin: 0, paddingLeft: 18 }}>
+            {errors.map((e, i) => (
+              <li key={i} className="small">{e}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {minReplicaCount === 0 && (
+        <div className="inline-banner" role="alert">
+          <div className="small">
+            ⚠ scale-to-zero (minReplicaCount: 0) — the workload can go idle between triggers. Type{" "}
+            <span className="mono strong">{targetName}</span> to confirm before applying.
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
+            <Badge tone="err">type name to confirm</Badge>
+            <input
+              className="toolbar-input"
+              style={{ maxWidth: 180 }}
+              placeholder={targetName}
+              value={zeroConfirm}
+              onChange={(e) => setZeroConfirm(e.target.value)}
+              spellCheck={false}
+            />
+          </div>
+        </div>
+      )}
+
+      <div style={{ height: 220 }}>
+        <DiffEditor
+          original=""
+          modified={yaml}
+          language="yaml"
+          theme={monacoTheme}
+          options={{ readOnly: true, renderSideBySide: false, minimap: { enabled: false }, fontSize: 12, automaticLayout: true }}
+        />
+      </div>
+
+      {msg && (
+        <div className={msg.ok ? "info-banner" : "error-banner"}>{msg.text}</div>
+      )}
+
+      <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
+        <Button variant="ghost" disabled={busy || blocked} onClick={() => void apply(true)}>
+          Dry-run
+        </Button>
+        <Button disabled={busy || blocked || needsZeroConfirm} onClick={() => void apply(false)}>
+          Apply
+        </Button>
+      </div>
+    </div>
+  );
+}

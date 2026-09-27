@@ -1,9 +1,10 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Badge, Card } from "@kubebay/ui";
+import { Badge, Button, Card } from "@kubebay/ui";
 import { crdApi } from "../lib/api";
 import { useResourceStream } from "../lib/useResourceStream";
 import { explainScaledObject, hpaConflictsWithScaledObject } from "../lib/keda";
+import { KedaWizard } from "./heavy";
 
 function rec(v: unknown): Record<string, unknown> {
   return (v ?? {}) as Record<string, unknown>;
@@ -156,5 +157,38 @@ export function AutoscalingTab({
   const myHpas = useMemo(() => hpas.rows.filter((o) => targets(o, "scaleTargetRef", ns, name, kind)), [hpas.rows, ns, name, kind]);
   const myVpas = useMemo(() => vpas.rows.filter((o) => targets(o, "targetRef", ns, name, kind)), [vpas.rows, ns, name, kind]);
 
-  return <AutoscalingSummary scaledObjects={myScaledObjects} hpas={myHpas} vpas={myVpas} />;
+  const [showWizard, setShowWizard] = useState(false);
+  const wizardTargetKind = kind === "StatefulSet" ? "StatefulSet" : "Deployment";
+
+  return (
+    <div>
+      <AutoscalingSummary scaledObjects={myScaledObjects} hpas={myHpas} vpas={myVpas} />
+      {scaledObjectGvr && (
+        <div style={{ padding: "0 14px 14px" }}>
+          {!showWizard ? (
+            <Button variant="ghost" onClick={() => setShowWizard(true)}>
+              + Add ScaledObject
+            </Button>
+          ) : (
+            <Card>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px 0" }}>
+                <span className="mono strong small">New ScaledObject</span>
+                <Button variant="ghost" onClick={() => setShowWizard(false)}>
+                  Cancel
+                </Button>
+              </div>
+              <KedaWizard
+                cluster={cluster}
+                ns={ns}
+                targetKind={wizardTargetKind}
+                targetName={name}
+                hpas={myHpas}
+                onApplied={() => setShowWizard(false)}
+              />
+            </Card>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
