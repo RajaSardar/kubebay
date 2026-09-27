@@ -279,6 +279,7 @@ func Router(d Deps, token string) http.Handler {
 		r.Get("/api/settings", d.Settings.HandleGet)
 		r.Post("/api/settings", d.Settings.HandleSave)
 		r.Get("/api/prom/query_range", d.Settings.HandlePromQueryRange)
+		r.Get("/api/prom/query", d.Settings.HandlePromQuery)
 		r.Get("/api/metrics/nodes", d.Metrics.HandleNodeMetrics)
 		r.Get("/api/rbac/all", d.RBAC.HandleAll)
 		r.Post("/api/rbac/self", d.RBAC.HandleSelfCheck)
