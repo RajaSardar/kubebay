@@ -1665,6 +1665,29 @@ tr.row-clickable:active {
 }
 
 /* ──── Timeline ──── */
+.heat-strip {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--kb-border-subtle);
+}
+
+.heat-strip-bars {
+  display: flex;
+  gap: 2px;
+  height: 22px;
+}
+
+.heat-strip-bar {
+  flex: 1;
+  border-radius: 2px;
+  background: var(--kb-status-err);
+}
+
+.heat-strip-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+}
+
 .timeline-list {
   display: flex;
   flex-direction: column;
