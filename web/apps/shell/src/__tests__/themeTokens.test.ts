@@ -70,3 +70,22 @@ describe("theme tokens", () => {
     }
   });
 });
+
+describe("@kubebay/ui owns the styles of its components", () => {
+  const selectors = [
+    ".status-ok", ".status-terminating", ".tabs", ".tab.active", ".nav-item", ".nav-item.sub", ".nav-section",
+    ".toolbar-input", ".toolbar-select", "kbd", ".page-header", ".page-header-actions", ".ctx-menu", ".ctx-item",
+    ".kb-table", ".kb-table th", ".palette-box", ".palette-item.active", ".ns-pill", ".cell-link",
+  ];
+  const defines = (css: string, sel: string) =>
+    stripComments(css)
+      .split("}")
+      .some((chunk) => {
+        const head = chunk.split("{")[0] ?? "";
+        return chunk.includes("{") && head.split(",").some((s) => s.trim() === sel);
+      });
+
+  it.each(selectors)("%s is defined in styles.css, not app.css", (sel) => {
+    expect({ sel, ui: defines(stylesCss, sel), app: defines(appCss, sel) }).toEqual({ sel, ui: true, app: false });
+  });
+});
