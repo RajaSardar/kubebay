@@ -17,6 +17,7 @@ import (
 	"github.com/RajaSardar/kubebay/engine/internal/httpapi"
 	"github.com/RajaSardar/kubebay/engine/internal/informers"
 	"github.com/RajaSardar/kubebay/engine/internal/stream"
+	"github.com/RajaSardar/kubebay/engine/internal/waste"
 
 	// Registers client-go's in-tree auth providers via their init()s.  Without
 	// this, a kubeconfig with `auth-provider: {name: oidc}` (Dex, Keycloak,
@@ -89,6 +90,10 @@ func main() {
 	actions := &httpapi.Actions{Clusters: mgr}
 	metrics := &httpapi.Metrics{Clusters: mgr}
 	rbac := &httpapi.RBAC{Clusters: mgr}
+	wasteCtx, cancelWaste := context.WithCancel(context.Background())
+	defer cancelWaste()
+	wasteSampler := waste.NewSampler(mgr, log)
+	wasteSampler.Start(wasteCtx)
 	helmMgr := httpapi.NewHelm(mgr)
 	settingsMgr := httpapi.NewSettingsManager(mgr)
 	settingsMgr.LocalShell = localShellStatus
@@ -144,6 +149,7 @@ func main() {
 		NodeShell: nodeShell,
 		Settings:  settingsMgr,
 		Audit:     auditLog,
+		Waste:     wasteSampler,
 	}, token)
 
 	switch {
@@ -196,6 +202,7 @@ func main() {
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 	<-stop
 	log.Info("shutting down")
+	cancelWaste()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	_ = srv.Shutdown(ctx)

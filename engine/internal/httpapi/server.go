@@ -37,6 +37,7 @@ type Deps struct {
 	Settings  *SettingsManager
 	Auth      *Authenticator
 	Audit     *audit.Logger
+	Waste     wasteSnapshotter
 }
 
 func (d Deps) authEnabled() bool { return d.Auth != nil && d.Auth.Enabled() }
@@ -372,6 +373,8 @@ func Router(d Deps, token string) http.Handler {
 
 		r.Get("/api/argocd/apps", argoCDAppsHandler(d.Metrics))
 		r.Post("/api/argocd/sync", argoCDSyncHandler(d.Metrics))
+
+		r.Get("/api/waste/workloads", wasteWorkloadsHandler(d.Waste))
 
 		r.Post("/api/helm/rollback", d.Helm.HandleRollback)
 		r.Post("/api/helm/uninstall", d.Helm.HandleUninstall)
