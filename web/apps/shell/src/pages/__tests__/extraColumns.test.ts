@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extraColumns } from "../ResourceTable";
+import { extraColumns, ownerCell } from "../ResourceTable";
 
 // ── pod columns ──────────────────────────────────────────────────────────────
 
@@ -227,5 +227,24 @@ describe("extraColumns('events') – Count", () => {
 describe("extraColumns for unknown slug", () => {
   it("returns an empty object for unrecognised slugs", () => {
     expect(extraColumns("unknownresource")).toEqual({});
+  });
+});
+
+// ── universal Owner column (GitOps ownership) ─────────────────────────────────
+
+describe("ownerCell", () => {
+  it("shows the Argo CD app name for an Argo-owned resource", () => {
+    const cell = ownerCell({ metadata: { annotations: { "argocd.argoproj.io/instance": "my-app" } } });
+    expect(cell.v).toBe("Argo CD: my-app");
+  });
+
+  it("shows the Flux Kustomization name for a Flux-owned resource", () => {
+    const cell = ownerCell({ metadata: { annotations: { "kustomize.toolkit.fluxcd.io/name": "my-kustomization" } } });
+    expect(cell.v).toBe("Flux: my-kustomization");
+  });
+
+  it("shows a dash for a resource with no GitOps owner", () => {
+    const cell = ownerCell({ metadata: { annotations: {} } });
+    expect(cell.v).toBe("–");
   });
 });

@@ -13,6 +13,7 @@ import { useRowSelection } from "../lib/useRowSelection";
 import { useBulkDelete } from "../lib/useBulkDelete";
 import { useDisplay, type Density } from "../lib/display";
 import { evalPrinterPath } from "../lib/printerPath";
+import { ownerOf, ownerLabel } from "../lib/gitops";
 
 // Row height (px) per density level — must stay in sync with ROW_PADDING_VALUES in display.ts
 // compact: 4+4px pad + ~20px line + 1px border = 29px
@@ -320,6 +321,12 @@ export function extraColumns(
   }
 }
 
+// Universal (not per-slug) column: any resource kind can be GitOps-managed.
+export function ownerCell(o: Row): Cell {
+  const owner = ownerOf(o);
+  return owner ? { v: ownerLabel(owner), cls: "muted" } : { v: "–", cls: "muted" };
+}
+
 // ── Per-container status squares (FreeLens-style dots) ──────────────────────
 type ContainerState = "ok" | "waiting" | "err" | "terminated";
 
@@ -469,7 +476,7 @@ export default function ResourceTable() {
   }
 
   const headers = useMemo(
-    () => ["Name", ...(def?.scoped ? [] : ["Namespace"]), ...cols, ...printerColumns.map((c) => c.name), "Age"],
+    () => ["Name", ...(def?.scoped ? [] : ["Namespace"]), ...cols, ...printerColumns.map((c) => c.name), "Owner", "Age"],
     [def, cols, printerColumns],
   );
 
@@ -772,6 +779,7 @@ export default function ResourceTable() {
                         {evalPrinterPath(col.jsonPath, o) || <span className="muted">–</span>}
                       </td>
                     ))}
+                    <td className="mono muted">{ownerCell(o).v}</td>
                     <td className="mono muted">{fmtAge(ageOf(o))}</td>
                     {/* ⋮ kebab — visible only on row hover */}
                     <td className="col-row-menu" onClick={(e) => e.stopPropagation()}>
