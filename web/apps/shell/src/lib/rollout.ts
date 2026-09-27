@@ -24,6 +24,7 @@ export interface RolloutProgress {
   desiredReplicas: number;
   progressingReason?: string;
   progressingStatus?: string;
+  progressingMessage?: string;
   /** True when the Progressing condition's reason is ProgressDeadlineExceeded. */
   stuck: boolean;
 }
@@ -70,6 +71,7 @@ export function buildRolloutProgress(
     desiredReplicas: num(rec(deployment.spec).replicas),
     progressingReason,
     progressingStatus: progressing ? str(progressing.status) : undefined,
+    progressingMessage: progressing ? str(progressing.message) : undefined,
     stuck: progressingReason === "ProgressDeadlineExceeded",
   };
 }

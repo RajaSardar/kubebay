@@ -63,12 +63,13 @@ describe("buildRolloutProgress", () => {
     expect(result.stuck).toBe(false);
   });
 
-  it("flags a stuck rollout on ProgressDeadlineExceeded", () => {
+  it("flags a stuck rollout on ProgressDeadlineExceeded and carries the condition message", () => {
     const dep = deployment({
       status: { conditions: [{ type: "Progressing", status: "False", reason: "ProgressDeadlineExceeded", message: "timed out" }] },
     });
     const result = buildRolloutProgress(dep, []);
     expect(result.stuck).toBe(true);
+    expect(result.progressingMessage).toBe("timed out");
   });
 
   it("reads desiredReplicas from spec.replicas, defaulting to 0", () => {

@@ -7,6 +7,7 @@ import { ActionsBar } from "./ActionsBar";
 import { NodeSummary } from "./NodeSummary";
 import { ServiceSummary } from "./ServiceSummary";
 import { MetadataSummary } from "./MetadataSummary";
+import { RolloutProgress } from "./RolloutProgress";
 import type { ResourceDef } from "../lib/resources";
 import { ownerOf } from "../lib/gitops";
 
@@ -14,7 +15,7 @@ import { ownerOf } from "../lib/gitops";
 type NodeTab = "summary" | "shell" | "yaml";
 type SvcTab = "summary" | "yaml";
 type PodTab = "yaml" | "events" | "terminal";
-type GenTab = "summary" | "yaml" | "events";
+type GenTab = "summary" | "rollout" | "yaml" | "events";
 
 // ── Split-pane drag handle ────────────────────────────────────────────────────
 function SplitDivider({
@@ -162,6 +163,10 @@ function PaneContent({
   if (!isNode && !isService && !isPod && genTab === "summary") {
     if (objLoading) return <div className="muted small" style={{ padding: 14 }}>Loading…</div>;
     return <MetadataSummary obj={obj} />;
+  }
+  if (!isNode && !isService && !isPod && genTab === "rollout") {
+    if (objLoading) return <div className="muted small" style={{ padding: 14 }}>Loading…</div>;
+    return <RolloutProgress cluster={cluster} namespace={ns} obj={obj} />;
   }
   if ((isNode && nodeTab === "yaml") || (isService && svcTab === "yaml") || (isPod && podTab === "yaml") || (!isNode && !isService && !isPod && genTab === "yaml")) {
     return (
@@ -408,7 +413,10 @@ export default function GenericDrawer({
   const nodeTabLabels: Record<NodeTab, string> = { summary: "Summary", shell: "Terminal", yaml: "YAML" };
   const svcTabLabels: Record<SvcTab, string> = { summary: "Summary", yaml: "YAML" };
   const podTabLabels: Record<PodTab, string> = { yaml: "YAML", events: "Events", terminal: "Terminal" };
-  const genTabLabels: Record<GenTab, string> = { summary: "Summary", yaml: "YAML", events: "Events" };
+  const genTabLabels: Record<GenTab, string> = { summary: "Summary", rollout: "Rollout", yaml: "YAML", events: "Events" };
+  // Rollout progress only makes sense for Deployments (old-RS-vs-new-RS
+  // replica counts) — every other generic kind keeps the plain three tabs.
+  const genTabs: GenTab[] = def.slug === "deployments" ? ["summary", "rollout", "yaml", "events"] : ["summary", "yaml", "events"];
 
   // ── Shared pane content props ────────────────────────────────────────────
   const sharedContentProps = {
@@ -550,7 +558,7 @@ export default function GenericDrawer({
       )}
       {!split && !isNode && !isService && !isPod && (
         <div className="tabs">
-          {(["summary", "yaml", "events"] as const).map((t) => (
+          {genTabs.map((t) => (
             <button key={t} className={`tab${genTab === t ? " active" : ""}`} onClick={() => setGenTab(t)}>
               {genTabLabels[t]}
             </button>
@@ -590,7 +598,7 @@ export default function GenericDrawer({
             )}
             {!isNode && !isService && !isPod && (
               <PaneTabs
-                tabs={["summary", "yaml", "events"] as const}
+                tabs={genTabs}
                 active={leftGenTab}
                 labels={genTabLabels}
                 onChange={setLeftGenTab}
@@ -638,7 +646,7 @@ export default function GenericDrawer({
             )}
             {!isNode && !isService && !isPod && (
               <PaneTabs
-                tabs={["summary", "yaml", "events"] as const}
+                tabs={genTabs}
                 active={rightGenTab}
                 labels={genTabLabels}
                 onChange={setRightGenTab}
