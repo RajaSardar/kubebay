@@ -60,6 +60,15 @@ export function YamlTab({
     setPolicyRejection(null);
   }
 
+  // Discards the in-progress edit and reloads the last-fetched version —
+  // purely local, unlike Reload which re-fetches from the server.
+  function revert() {
+    setModified(original);
+    setServerPreview(null);
+    setMsg(null);
+    setPolicyRejection(null);
+  }
+
   async function apply(dryRun: boolean) {
     setBusy(true);
     setMsg(null);
@@ -153,6 +162,9 @@ export function YamlTab({
         <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
           <Button variant="ghost" onClick={() => void load()}>
             Reload
+          </Button>
+          <Button variant="ghost" disabled={!dirty} onClick={revert}>
+            Revert
           </Button>
           <Button variant="ghost" disabled={busy || !dirty} onClick={() => void apply(true)}>
             Dry-run

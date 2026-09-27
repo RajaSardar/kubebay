@@ -48,6 +48,30 @@ describe("YamlTab — GitOps ownership warning", () => {
   });
 });
 
+describe("YamlTab — revert unsaved edits", () => {
+  it("disables Revert when there are no unsaved edits", async () => {
+    render(<YamlTab {...props} />);
+    await screen.findByTestId("editor");
+    expect(screen.getByRole("button", { name: /revert/i })).toBeDisabled();
+  });
+
+  it("discards the in-progress edit locally, with no extra network call", async () => {
+    render(<YamlTab {...props} />);
+    const editor = await screen.findByTestId("editor");
+    const callsBefore = vi.mocked(api.getYamlText).mock.calls.length;
+
+    fireEvent.click(editor);
+    expect(screen.getByText("modified")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /revert/i })).not.toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: /revert/i }));
+    expect(screen.queryByText("modified")).toBeNull();
+    expect(screen.getByRole("button", { name: /revert/i })).toBeDisabled();
+    // Reverting is a local reset, not a reload.
+    expect(vi.mocked(api.getYamlText).mock.calls.length).toBe(callsBefore);
+  });
+});
+
 describe("YamlTab — structured policy rejection", () => {
   it("renders a pre-flight card with the engine, webhook, and message on a policy rejection", async () => {
     vi.mocked(api.applyYaml).mockRejectedValueOnce(
