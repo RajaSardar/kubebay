@@ -1,10 +1,15 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { useQuery as useRQQuery } from "@tanstack/react-query";
 import { Badge, Card, Skeleton } from "@kubebay/ui";
 import { useCluster } from "../lib/useCluster";
 import { useResourceStream, shouldShowSkeleton } from "../lib/useResourceStream";
 import type { KObj } from "../lib/topology";
 import { WorkloadTabBar } from "../components/WorkloadTabBar";
+import { PressureGrid } from "../components/PressureGrid";
+import { aggregatePressure } from "../lib/pressure";
+import { useLeadingThrottle } from "../lib/useLeadingThrottle";
+import { api } from "../lib/api";
 
 function rec(v: unknown): Record<string, unknown> {
   return (v ?? {}) as Record<string, unknown>;
@@ -18,13 +23,15 @@ interface KindSummary {
   unhealthy: number;
 }
 
-function useKindCounts(cluster: string | undefined) {
-  const pods = useResourceStream(cluster, "v1/pods", { mode: "full" });
+function useKindCounts(
+  cluster: string | undefined,
+  pods: ReturnType<typeof useResourceStream>,
+  nodes: ReturnType<typeof useResourceStream>,
+) {
   const deps = useResourceStream(cluster, "apps/v1/deployments", { mode: "full" });
   const stss = useResourceStream(cluster, "apps/v1/statefulsets", { mode: "full" });
   const dss = useResourceStream(cluster, "apps/v1/daemonsets", { mode: "full" });
   const jobs = useResourceStream(cluster, "batch/v1/jobs", { mode: "full" });
-  const nodes = useResourceStream(cluster, "v1/nodes", { mode: "full" });
 
   return useMemo(() => {
     const out: KindSummary[] = [];
@@ -86,10 +93,19 @@ function useKindCounts(cluster: string | undefined) {
   }, [pods, deps, stss, dss, jobs, nodes]);
 }
 
+type OverviewTab = "overview" | "pressure";
+
 export default function WorkloadsOverview() {
   const { cluster: effectiveCluster, setCluster, list } = useCluster();
+  const [tab, setTab] = useState<OverviewTab>("overview");
 
-  const { kinds, synced } = useKindCounts(effectiveCluster || undefined);
+  // Lifted here (rather than inside useKindCounts) so the Pressure tab can
+  // reuse the same subscriptions instead of opening a second one for the
+  // same GVR+mode.
+  const pods = useResourceStream(effectiveCluster || undefined, "v1/pods", { mode: "full" });
+  const nodes = useResourceStream(effectiveCluster || undefined, "v1/nodes", { mode: "full" });
+
+  const { kinds, synced } = useKindCounts(effectiveCluster || undefined, pods, nodes);
 
   const totals = useMemo(() => {
     let total = 0, healthy = 0, unhealthy = 0;
@@ -100,6 +116,25 @@ export default function WorkloadsOverview() {
     }
     return { total, healthy, unhealthy };
   }, [kinds]);
+
+  const podMetricsQ = useRQQuery({
+    queryKey: ["podmetrics", effectiveCluster],
+    queryFn: () => api.podMetrics(effectiveCluster),
+    enabled: !!effectiveCluster && tab === "pressure",
+    refetchInterval: 15_000,
+    retry: false,
+  });
+
+  // The aggregation is O(pods), so it's throttled to a leading-edge update
+  // at most once every 2s rather than recomputing on every stream flush.
+  const pressureInputs = useLeadingThrottle(
+    useMemo(() => ({ pods: pods.rows, nodes: nodes.rows, usage: podMetricsQ.data ?? [] }), [pods.rows, nodes.rows, podMetricsQ.data]),
+    2000,
+  );
+  const pressureGrid = useMemo(
+    () => aggregatePressure(pressureInputs.pods, pressureInputs.nodes, pressureInputs.usage),
+    [pressureInputs],
+  );
 
   return (
     <div className="page">
@@ -118,10 +153,16 @@ export default function WorkloadsOverview() {
             <option key={c.id} value={c.id}>{c.id}</option>
           ))}
         </select>
+        <div className="drawer-pane-tabs" style={{ marginLeft: "auto" }}>
+          <button className={`tab${tab === "overview" ? " active" : ""}`} onClick={() => setTab("overview")}>Overview</button>
+          <button className={`tab${tab === "pressure" ? " active" : ""}`} onClick={() => setTab("pressure")}>Pressure</button>
+        </div>
       </div>
 
       <div className="page-body">
-      {shouldShowSkeleton(synced, totals.total) ? (
+      {tab === "pressure" ? (
+        <PressureGrid grid={pressureGrid} />
+      ) : shouldShowSkeleton(synced, totals.total) ? (
         <div className="cluster-grid">
           {[0, 1, 2, 3, 4, 5].map((i) => (
             <Card key={i}>
