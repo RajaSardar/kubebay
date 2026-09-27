@@ -114,7 +114,7 @@
 
 .kb-btn-danger {
   background: var(--kb-status-err);
-  color: #fff;
+  color: var(--kb-on-danger);
 }
 
 .kb-btn-danger:hover:not([disabled]) {

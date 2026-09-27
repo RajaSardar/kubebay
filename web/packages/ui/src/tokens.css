@@ -61,18 +61,19 @@
   /* Foreground */
   --kb-fg-default: rgba(255, 255, 255, 0.92);
   --kb-fg-muted:   rgba(255, 255, 255, 0.60);
-  --kb-fg-subtle:  rgba(255, 255, 255, 0.36);
+  --kb-fg-subtle:  rgba(255, 255, 255, 0.47);
 
   /* Accent — Kubebay cyan (kept distinct from macOS blue) */
   --kb-accent:        #32ade6;
   --kb-accent-hover:  #5bbef0;
   --kb-accent-subtle: rgba(50, 173, 230, 0.14);
-  --kb-accent-fg:     #ffffff;
+  --kb-accent-fg:     #0f0f10;
+  --kb-on-danger: #0f0f10;
 
   /* macOS semantic status colors */
   --kb-status-ok:         #30d158;
   --kb-status-warn:       #ff9f0a;
-  --kb-status-err:        #ff453a;
+  --kb-status-err:        #ff4c42;
   --kb-status-pending:    #ff9f0a;
   --kb-status-info:       #32ade6;
   --kb-status-terminated: #636366;
@@ -81,8 +82,8 @@
   --kb-status-ok-fg:          #30d158;
   --kb-status-warn-subtle:    color-mix(in srgb, #ff9f0a 12%, transparent);
   --kb-status-warn-fg:        #ff9f0a;
-  --kb-status-err-subtle:     color-mix(in srgb, #ff453a 12%, transparent);
-  --kb-status-err-fg:         #ff453a;
+  --kb-status-err-subtle:     color-mix(in srgb, #ff4c42 12%, transparent);
+  --kb-status-err-fg:         #ff4c42;
   --kb-status-pending-subtle: color-mix(in srgb, #ff9f0a 12%, transparent);
   --kb-status-pending-fg:     #ff9f0a;
 
@@ -95,7 +96,7 @@
   --kb-shadow-lift: 0 12px 40px -12px rgba(0, 0, 0, 0.65), 0 2px 8px rgba(0, 0, 0, 0.3);
   --kb-shadow-menu: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 0 0.5px rgba(255,255,255,0.08);
 
-  --kb-focus-ring: 0 0 0 3px rgba(50, 173, 230, 0.45);
+  --kb-focus-ring: 0 0 0 2px #32ade6;
   --kb-selection:  rgba(50, 173, 230, 0.28);
 
   --kb-glow-a: rgba(50, 173, 230, 0.04);
@@ -119,29 +120,30 @@
   --kb-material-blur: blur(24px) saturate(180%);
 
   --kb-fg-default: rgba(0, 0, 0, 0.88);
-  --kb-fg-muted:   rgba(60, 60, 67, 0.60);
-  --kb-fg-subtle:  rgba(60, 60, 67, 0.30);
+  --kb-fg-muted:   rgba(60, 60, 67, 0.85);
+  --kb-fg-subtle:  rgba(60, 60, 67, 0.75);
 
-  --kb-accent:        #0077ed;
-  --kb-accent-hover:  #006bdc;
-  --kb-accent-subtle: rgba(0, 119, 237, 0.10);
+  --kb-accent:        #0065c9;
+  --kb-accent-hover:  #0058b0;
+  --kb-accent-subtle: rgba(0, 101, 201, 0.1);
   --kb-accent-fg:     #ffffff;
+  --kb-on-danger: #ffffff;
 
   --kb-status-ok:         #1d7a3a;
-  --kb-status-warn:       #b85c00;
+  --kb-status-warn:       #ab5600;
   --kb-status-err:        #c41230;
-  --kb-status-pending:    #b85c00;
-  --kb-status-info:       #0077ed;
+  --kb-status-pending:    #ab5600;
+  --kb-status-info:       #0065c9;
   --kb-status-terminated: #8e8e93;
 
   --kb-status-ok-subtle:      color-mix(in srgb, #1d7a3a 10%, transparent);
   --kb-status-ok-fg:          #1d7a3a;
-  --kb-status-warn-subtle:    color-mix(in srgb, #b85c00 10%, transparent);
-  --kb-status-warn-fg:        #b85c00;
+  --kb-status-warn-subtle:    color-mix(in srgb, #ab5600 10%, transparent);
+  --kb-status-warn-fg:        #ab5600;
   --kb-status-err-subtle:     color-mix(in srgb, #c41230 10%, transparent);
   --kb-status-err-fg:         #c41230;
-  --kb-status-pending-subtle: color-mix(in srgb, #b85c00 10%, transparent);
-  --kb-status-pending-fg:     #b85c00;
+  --kb-status-pending-subtle: color-mix(in srgb, #ab5600 10%, transparent);
+  --kb-status-pending-fg:     #ab5600;
 
   --kb-border-subtle: rgba(60, 60, 67, 0.12);
   --kb-border-strong: rgba(60, 60, 67, 0.22);
@@ -151,7 +153,7 @@
   --kb-shadow-lift: 0 10px 30px -10px rgba(0, 0, 0, 0.18), 0 2px 6px rgba(0, 0, 0, 0.08);
   --kb-shadow-menu: 0 8px 32px rgba(0, 0, 0, 0.15), 0 0 0 0.5px rgba(0,0,0,0.08);
 
-  --kb-focus-ring: 0 0 0 3px rgba(0, 119, 237, 0.4);
+  --kb-focus-ring: 0 0 0 2px #0065c9;
   --kb-selection:  rgba(0, 119, 237, 0.18);
 
   --kb-glow-a: transparent;
@@ -176,12 +178,13 @@
 
   --kb-fg-default: #ffffff;
   --kb-fg-muted:   rgba(255, 255, 255, 0.7);
-  --kb-fg-subtle:  rgba(255, 255, 255, 0.4);
+  --kb-fg-subtle:  rgba(255, 255, 255, 0.46);
 
   --kb-accent:        #40c8e0;
   --kb-accent-hover:  #65d4e8;
   --kb-accent-subtle: rgba(64, 200, 224, 0.18);
   --kb-accent-fg:     #000000;
+  --kb-on-danger: #000000;
 
   --kb-status-ok:         #30d158;
   --kb-status-warn:       #ffb340;
@@ -200,7 +203,7 @@
   --kb-status-pending-fg:     #ffb340;
 
   --kb-border-subtle: rgba(255, 255, 255, 0.14);
-  --kb-border-strong: rgba(255, 255, 255, 0.28);
+  --kb-border-strong: rgba(255, 255, 255, 0.34);
   --kb-highlight-inset: none;
 
   --kb-shadow-rest: none;
@@ -231,19 +234,20 @@
   --kb-material-blur: blur(12px);
 
   --kb-fg-default: #000000;
-  --kb-fg-muted:   rgba(0, 0, 0, 0.55);
-  --kb-fg-subtle:  rgba(0, 0, 0, 0.35);
+  --kb-fg-muted:   rgba(0, 0, 0, 0.67);
+  --kb-fg-subtle:  rgba(0, 0, 0, 0.55);
 
-  --kb-accent:        #006bd6;
-  --kb-accent-hover:  #0057b0;
-  --kb-accent-subtle: rgba(0, 107, 214, 0.12);
+  --kb-accent:        #004e9b;
+  --kb-accent-hover:  #003f7c;
+  --kb-accent-subtle: rgba(0, 78, 155, 0.12);
   --kb-accent-fg:     #ffffff;
+  --kb-on-danger: #ffffff;
 
   --kb-status-ok:         #006638;
   --kb-status-warn:       #7a4d00;
   --kb-status-err:        #ad0015;
   --kb-status-pending:    #7a4d00;
-  --kb-status-info:       #006bd6;
+  --kb-status-info:       #004e9b;
   --kb-status-terminated: #5a5a5a;
 
   --kb-status-ok-subtle:      color-mix(in srgb, #006638 12%, transparent);
@@ -256,14 +260,14 @@
   --kb-status-pending-fg:     #634000;
 
   --kb-border-subtle: rgba(0, 0, 0, 0.14);
-  --kb-border-strong: rgba(0, 0, 0, 0.26);
+  --kb-border-strong: rgba(0, 0, 0, 0.42);
   --kb-highlight-inset: none;
 
   --kb-shadow-rest: none;
   --kb-shadow-lift: 0 0 0 1px rgba(0,0,0,0.18);
   --kb-shadow-menu: 0 0 0 1px rgba(0,0,0,0.2);
 
-  --kb-focus-ring: 0 0 0 2px #006bd6;
+  --kb-focus-ring: 0 0 0 2px #004e9b;
   --kb-selection:  rgba(0, 107, 214, 0.22);
 
   --kb-glow-a: transparent;
@@ -294,6 +298,7 @@
   --kb-accent-hover:  #1a8fe3;
   --kb-accent-subtle: rgba(0, 120, 212, 0.16);
   --kb-accent-fg:     #ffffff;
+  --kb-on-danger: #000000;
 
   --kb-status-ok:         #4ec9b0;
   --kb-status-warn:       #ce9178;
@@ -350,6 +355,7 @@
   --kb-accent-hover:  #005a9e;
   --kb-accent-subtle: rgba(0, 120, 212, 0.10);
   --kb-accent-fg:     #ffffff;
+  --kb-on-danger: #ffffff;
 
   --kb-status-ok:         #008000;
   --kb-status-warn:       #795e00;
@@ -406,6 +412,7 @@
   --kb-accent-hover:  #82bfff;
   --kb-accent-subtle: rgba(97, 175, 239, 0.15);
   --kb-accent-fg:     #1b1f27;
+  --kb-on-danger: #000000;
 
   --kb-status-ok:         #98c379;
   --kb-status-warn:       #e5c07b;
@@ -462,6 +469,7 @@
   --kb-accent-hover:  #caa7ff;
   --kb-accent-subtle: rgba(189, 147, 249, 0.15);
   --kb-accent-fg:     #21222c;
+  --kb-on-danger: #000000;
 
   --kb-status-ok:         #50fa7b;
   --kb-status-warn:       #ffb86c;
@@ -518,6 +526,7 @@
   --kb-accent-hover:  #9ecfdf;
   --kb-accent-subtle: rgba(136, 192, 208, 0.15);
   --kb-accent-fg:     #2e3440;
+  --kb-on-danger: #000000;
 
   --kb-status-ok:         #a3be8c;
   --kb-status-warn:       #ebcb8b;
@@ -574,6 +583,7 @@
   --kb-accent-hover:  #79b8ff;
   --kb-accent-subtle: rgba(88, 166, 255, 0.15);
   --kb-accent-fg:     #0d1117;
+  --kb-on-danger: #000000;
 
   --kb-status-ok:         #3fb950;
   --kb-status-warn:       #d29922;
@@ -630,6 +640,7 @@
   --kb-accent-hover:  #0550ae;
   --kb-accent-subtle: rgba(9, 105, 218, 0.10);
   --kb-accent-fg:     #ffffff;
+  --kb-on-danger: #ffffff;
 
   --kb-status-ok:         #1a7f37;
   --kb-status-warn:       #9a6700;
@@ -686,6 +697,7 @@
   --kb-accent-hover:  #d9bcff;
   --kb-accent-subtle: rgba(203, 166, 247, 0.15);
   --kb-accent-fg:     #1e1e2e;
+  --kb-on-danger: #000000;
 
   --kb-status-ok:         #a6e3a1;
   --kb-status-warn:       #fab387;

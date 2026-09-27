@@ -2797,7 +2797,7 @@ tr.row-clickable:active {
 
 .icon-picker-btn.primary {
   background: var(--kb-accent);
-  color: #fff;
+  color: var(--kb-accent-fg);
 }
 
 /* Tabs */
@@ -4799,7 +4799,7 @@ tr.row-clickable:active {
   cursor: pointer;
   border: none;
   background: var(--kb-accent);
-  color: #fff;
+  color: var(--kb-accent-fg);
   transition: filter 120ms;
   font-family: inherit;
 }
@@ -4886,7 +4886,7 @@ tr.row-clickable:active {
 .kb-btn-danger {
   background: var(--kb-status-err, #f87171);
   border: none;
-  color: #fff;
+  color: var(--kb-on-danger);
   border-radius: 6px;
   padding: 5px 12px;
   font-size: 12px;

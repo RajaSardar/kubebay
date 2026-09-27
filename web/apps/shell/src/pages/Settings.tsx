@@ -9,11 +9,11 @@ import { useDisplay, type FontSize, type FontFamily, type Density } from "../lib
 
 const THEMES: { id: ThemeName; label: string; hint: string; swatch: [string, string, string] }[] = [
   // ── Apple originals ──────────────────────────────────────────────────
-  { id: "dawn",        label: "Dawn",         hint: "Light · default",      swatch: ["#f2f2f7", "#ffffff", "#0077ed"] },
+  { id: "dawn",        label: "Dawn",         hint: "Light · default",      swatch: ["#f2f2f7", "#ffffff", "#0065c9"] },
   { id: "dusk",        label: "Dusk",         hint: "Dark · macOS",         swatch: ["#161617", "#1c1c1e", "#32ade6"] },
   { id: "system",      label: "System",       hint: "Follows OS",           swatch: ["#161617", "#f2f2f7", "#32ade6"] },
   { id: "dusk-hc",     label: "Dusk HC",      hint: "High contrast dark",   swatch: ["#000000", "#141414", "#40c8e0"] },
-  { id: "dawn-hc",     label: "Dawn HC",      hint: "High contrast light",  swatch: ["#ffffff", "#f0f0f0", "#006bd6"] },
+  { id: "dawn-hc",     label: "Dawn HC",      hint: "High contrast light",  swatch: ["#ffffff", "#f0f0f0", "#004e9b"] },
   // ── VSCode ───────────────────────────────────────────────────────────
   { id: "vscode-dark",  label: "VS Dark+",    hint: "VSCode Dark+",         swatch: ["#1e1e1e", "#252526", "#0078d4"] },
   { id: "vscode-light", label: "VS Light+",   hint: "VSCode Light+",        swatch: ["#f3f3f3", "#ffffff", "#0078d4"] },
