@@ -21,6 +21,7 @@ const (
 type reqTotals struct {
 	CPUMillis int64
 	MemBytes  int64
+	PodCount  int
 }
 
 type podUsage struct {
@@ -160,6 +161,7 @@ func (s *Sampler) sampleCluster(ctx context.Context, clusterID string, cs kubern
 		rt := tickRequested[key]
 		rt.CPUMillis += reqCPU
 		rt.MemBytes += reqMem
+		rt.PodCount++
 		tickRequested[key] = rt
 
 		if u, found := metricsByPod[pod.Namespace+"/"+pod.Name]; found {
@@ -221,6 +223,7 @@ func (s *Sampler) Snapshot(clusterID string) []WorkloadWaste {
 			Ns:                 key.Ns,
 			Kind:               key.Kind,
 			Name:               key.Name,
+			PodCount:           rt.PodCount,
 			RequestedCPUMillis: rt.CPUMillis,
 			RequestedMemBytes:  rt.MemBytes,
 			P95CPUMillis:       cpu95,

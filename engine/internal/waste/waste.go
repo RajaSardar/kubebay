@@ -178,6 +178,7 @@ type WorkloadWaste struct {
 	Ns                 string `json:"ns"`
 	Kind               string `json:"kind"`
 	Name               string `json:"name"`
+	PodCount           int    `json:"podCount"`
 	RequestedCPUMillis int64  `json:"requestedCpuMillis"`
 	RequestedMemBytes  int64  `json:"requestedMemBytes"`
 	P95CPUMillis       int64  `json:"p95CpuMillis"`

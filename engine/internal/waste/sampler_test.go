@@ -117,6 +117,9 @@ func TestSampleCluster_AggregatesToWorkloadLevel(t *testing.T) {
 	if r.Kind != "Deployment" || r.Name != "app" || r.Ns != "default" {
 		t.Errorf("row identity = %+v, want Deployment/default/app", r)
 	}
+	if r.PodCount != 2 {
+		t.Errorf("PodCount = %d, want 2", r.PodCount)
+	}
 	// requested: 100m+100m = 200m; usage: 50m+30m = 80m
 	if r.RequestedCPUMillis != 200 {
 		t.Errorf("RequestedCPUMillis = %d, want 200", r.RequestedCPUMillis)
