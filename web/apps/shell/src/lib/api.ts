@@ -1,3 +1,5 @@
+import { PolicyRejectionError, type PolicyRejectionDetail } from "./policyRejection";
+
 declare global {
   interface Window {
     /** Injected by the desktop wrapper before the page loads. */
@@ -143,19 +145,43 @@ export const api = {
   ): Promise<Record<string, unknown>> => {
     return JSON.parse(await fetchObject(cluster, gvr, ns, name, "json")) as Record<string, unknown>;
   },
-  applyYaml: (b: {
-    cluster: string;
-    gvr: string;
-    ns: string;
-    name: string;
-    yaml: string;
-    dryRun: boolean;
-    force: boolean;
-  }) => send<{ applied: boolean; dryRun: boolean; resultYaml?: string }>("PUT", "/api/yaml", b),
+  applyYaml: applyYamlRequest,
   createResource: (b: { cluster: string; yaml: string; dryRun: boolean }) =>
     send<{ applied: number; total: number; dryRun: boolean }>("POST", "/api/yaml/create", b),
   auditLog: () => get<{ time: string; action: string; cluster: string; namespace?: string; resource?: string; detail?: string; userAgent?: string }[]>("/api/audit"),
 };
+
+async function applyYamlRequest(b: {
+  cluster: string;
+  gvr: string;
+  ns: string;
+  name: string;
+  yaml: string;
+  dryRun: boolean;
+  force: boolean;
+}): Promise<{ applied: boolean; dryRun: boolean; resultYaml?: string }> {
+  const res = await fetch("/api/yaml", {
+    method: "PUT",
+    headers: { "X-Kubebay-Token": getToken(), "Content-Type": "application/json" },
+    body: JSON.stringify(b),
+  });
+  if (res.ok) return res.json();
+  const text = await res.text();
+  // A policy rejection comes back as structured JSON (see parsePolicyRejection
+  // in the engine); everything else is the existing plain-text error.
+  if (res.headers.get("Content-Type")?.includes("application/json")) {
+    try {
+      const body = JSON.parse(text) as { error?: string; policyRejection?: PolicyRejectionDetail };
+      if (body.error === "policy-rejected" && body.policyRejection) {
+        throw new PolicyRejectionError(body.policyRejection);
+      }
+    } catch (e) {
+      if (e instanceof PolicyRejectionError) throw e;
+      // Malformed JSON body — fall through to the plain-text error below.
+    }
+  }
+  throw new Error(text);
+}
 
 async function fetchObject(
   cluster: string,
