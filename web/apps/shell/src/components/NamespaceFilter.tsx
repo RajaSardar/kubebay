@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useResourceStream } from "../lib/useResourceStream";
 import { useNamespaceStore, useSelectedNamespaces } from "../lib/namespace-store";
+import { TextField } from "@kubebay/ui";
 
 export function NamespaceFilter({ cluster }: { cluster: string | undefined }) {
   const [open, setOpen] = useState(false);
@@ -88,8 +89,7 @@ export function NamespaceFilter({ cluster }: { cluster: string | undefined }) {
 
       {open && (
         <div className="ns-dropdown" role="listbox" aria-multiselectable="true">
-          <input
-            className="toolbar-input"
+          <TextField
             style={{
               width: "100%",
               borderRadius: 0,

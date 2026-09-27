@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArmedButton, Skeleton } from "@kubebay/ui";
+import { ArmedButton, PageHeader, Skeleton } from "@kubebay/ui";
 import { argoCDApi, type ArgoCDApp } from "../lib/api";
 import { useCluster } from "../lib/useCluster";
 
@@ -131,23 +131,15 @@ export default function ArgoCD() {
 
   return (
     <div className="page">
-      <div className="page-header">
-        <h1>
-          ArgoCD
-          {data && (
-            <span className="page-header-count">
-              {installed
-                ? `${apps.length} application${apps.length !== 1 ? "s" : ""}`
-                : "not installed"}
-            </span>
-          )}
-        </h1>
-        {dataUpdatedAt > 0 && (
-          <span className="page-header-count">
-            updated {fmtTime(new Date(dataUpdatedAt).toISOString())}
-          </span>
-        )}
-      </div>
+      <PageHeader
+        title="ArgoCD"
+        count={data && (installed ? `${apps.length} application${apps.length !== 1 ? "s" : ""}` : "not installed")}
+        actions={
+          dataUpdatedAt > 0 && (
+            <span className="page-header-count">updated {fmtTime(new Date(dataUpdatedAt).toISOString())}</span>
+          )
+        }
+      />
 
       <div className="page-body" style={{ padding: "0 16px 16px" }}>
         {isLoading && (

@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Badge, Button, Card, Skeleton, StatusDot } from "@kubebay/ui";
+import { Badge, Button, Card, PageHeader, Skeleton, StatusDot } from "@kubebay/ui";
 import { IconAlert, IconRefresh } from "@kubebay/ui/src/icons";
 import { api, type ClusterInfo } from "../lib/api";
 
@@ -51,20 +51,17 @@ export default function Overview() {
 
   return (
     <div className="page">
-      <div className="page-header">
-        <h2>
-          Clusters{" "}
-          {!clusters.isLoading && (
-            <span className="page-header-count">
-              · {list.length}
-            </span>
-          )}
-        </h2>
-        <Button variant="ghost" onClick={() => qc.invalidateQueries({ queryKey: ["clusters"] })}>
-          <IconRefresh size={13} />
-          Refresh
-        </Button>
-      </div>
+      <PageHeader
+        level={2}
+        title="Clusters"
+        count={!clusters.isLoading && `· ${list.length}`}
+        actions={
+          <Button variant="ghost" onClick={() => qc.invalidateQueries({ queryKey: ["clusters"] })}>
+            <IconRefresh size={13} />
+            Refresh
+          </Button>
+        }
+      />
 
       <div className="page-body">
         {clusters.isError && (

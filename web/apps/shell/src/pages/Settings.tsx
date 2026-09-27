@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Button, Card } from "@kubebay/ui";
+import { Button, Card, PageHeader, Select, TextField } from "@kubebay/ui";
 import { settingsApi } from "../lib/api";
 import { useCluster } from "../lib/useCluster";
 import { useTheme, type ThemeName } from "../lib/theme";
@@ -15,12 +15,12 @@ const THEMES: { id: ThemeName; label: string; hint: string; swatch: [string, str
   { id: "dusk-hc",     label: "Dusk HC",      hint: "High contrast dark",   swatch: ["#000000", "#141414", "#40c8e0"] },
   { id: "dawn-hc",     label: "Dawn HC",      hint: "High contrast light",  swatch: ["#ffffff", "#f0f0f0", "#004e9b"] },
   // ── VSCode ───────────────────────────────────────────────────────────
-  { id: "vscode-dark",  label: "VS Dark+",    hint: "VSCode Dark+",         swatch: ["#1e1e1e", "#252526", "#0078d4"] },
-  { id: "vscode-light", label: "VS Light+",   hint: "VSCode Light+",        swatch: ["#f3f3f3", "#ffffff", "#0078d4"] },
+  { id: "vscode-dark",  label: "VS Dark+",    hint: "VSCode Dark+",         swatch: ["#1e1e1e", "#252526", "#31a6ff"] },
+  { id: "vscode-light", label: "VS Light+",   hint: "VSCode Light+",        swatch: ["#f3f3f3", "#ffffff", "#006cc0"] },
   // ── Community favourites ─────────────────────────────────────────────
   { id: "one-dark",    label: "One Dark",     hint: "One Dark Pro",         swatch: ["#282c34", "#21252b", "#61afef"] },
   { id: "dracula",     label: "Dracula",      hint: "Dracula Official",     swatch: ["#282a36", "#21222c", "#bd93f9"] },
-  { id: "nord",        label: "Nord",         hint: "Nord",                 swatch: ["#2e3440", "#3b4252", "#88c0d0"] },
+  { id: "nord",        label: "Nord",         hint: "Nord",                 swatch: ["#2e3440", "#3b4252", "#aad2dd"] },
   { id: "github-dark", label: "GitHub Dark",  hint: "GitHub Dark",          swatch: ["#0d1117", "#161b22", "#58a6ff"] },
   { id: "github-light",label: "GitHub Light", hint: "GitHub Light",         swatch: ["#f6f8fa", "#ffffff", "#0969da"] },
   { id: "catppuccin",  label: "Catppuccin",   hint: "Catppuccin Mocha",     swatch: ["#1e1e2e", "#181825", "#cba6f7"] },
@@ -97,8 +97,7 @@ function KubeconfigSources() {
       </div>
       {!extras.length && <p className="muted small">Default kubeconfig is loaded automatically. Add extra files below to merge additional clusters.</p>}
       <div className="pf-form">
-        <input
-          className="toolbar-input"
+        <TextField
           placeholder="/path/to/another/kubeconfig"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
@@ -182,8 +181,7 @@ function PrometheusSettings({
         single shared URL would graph whichever cluster the tunnel happens to reach.
       </p>
       <div className="pf-form">
-        <select
-          className="toolbar-select"
+        <Select
           value={target}
           onChange={(e) => setTarget(e.target.value)}
           aria-label="Prometheus target"
@@ -192,9 +190,8 @@ function PrometheusSettings({
           {list.map((c) => (
             <option key={c.id} value={c.id}>{c.id}</option>
           ))}
-        </select>
-        <input
-          className="toolbar-input"
+        </Select>
+        <TextField
           placeholder="http://localhost:9090"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
@@ -261,8 +258,7 @@ function NodeShellSettings({ initial, fallback }: { initial?: string; fallback: 
         registry if the cluster cannot pull from registry.k8s.io.
       </p>
       <div className="pf-form">
-        <input
-          className="toolbar-input"
+        <TextField
           placeholder={fallback}
           value={image}
           onChange={(e) => setImage(e.target.value)}
@@ -330,9 +326,7 @@ export default function Settings() {
 
   return (
     <div className="page" style={{ overflowY: "auto" }}>
-      <div className="page-header">
-        <h1>Settings</h1>
-      </div>
+      <PageHeader title="Settings" />
 
       <div className="settings-section-wrap">
         <div className="settings-section-title">Theme</div>

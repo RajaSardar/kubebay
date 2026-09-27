@@ -54,6 +54,10 @@ const NATIVE = [
   { id: "dusk", text: 4.5 },
   { id: "dawn-hc", text: 7 },
   { id: "dusk-hc", text: 7 },
+  // Editor themes keep their palette's hues but must still read: same AA floor as Dawn and Dusk.
+  ...["vscode-dark", "vscode-light", "one-dark", "dracula", "nord", "github-dark", "github-light", "catppuccin"].map(
+    (id) => ({ id, text: 4.5 }),
+  ),
 ];
 
 describe.each(NATIVE)("$id theme contrast", ({ id, text }) => {

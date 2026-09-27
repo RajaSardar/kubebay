@@ -567,30 +567,6 @@ h2 {
   }
 }
 
-.live-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  vertical-align: middle;
-  font-size: var(--kb-text-xs);
-  font-family: var(--kb-font-mono);
-  color: var(--kb-status-ok);
-  border: 1px solid color-mix(in srgb, var(--kb-status-ok) 35%, transparent);
-  background: color-mix(in srgb, var(--kb-status-ok) 8%, transparent);
-  padding: 3px 9px;
-  border-radius: var(--kb-radius-pill);
-}
-
-.live-pill::before {
-  content: "";
-  width: 6px;
-  height: 6px;
-  border-radius: var(--kb-radius-pill);
-  background: currentColor;
-  flex-shrink: 0;
-  animation: kb-pulse 1.6s ease-in-out infinite;
-}
-
 .mono {
   font-family: var(--kb-font-mono);
   font-size: var(--kb-text-sm);

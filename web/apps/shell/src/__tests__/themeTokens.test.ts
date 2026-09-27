@@ -75,7 +75,7 @@ describe("@kubebay/ui owns the styles of its components", () => {
   const selectors = [
     ".status-ok", ".status-terminating", ".tabs", ".tab.active", ".nav-item", ".nav-item.sub", ".nav-section",
     ".toolbar-input", ".toolbar-select", "kbd", ".page-header", ".page-header-actions", ".ctx-menu", ".ctx-item",
-    ".kb-table", ".kb-table th", ".palette-box", ".palette-item.active", ".ns-pill", ".cell-link",
+    ".kb-table", ".kb-table th", ".palette-box", ".palette-item.active", ".ns-pill", ".cell-link", ".live-pill",
   ];
   const defines = (css: string, sel: string) =>
     stripComments(css)
@@ -88,4 +88,22 @@ describe("@kubebay/ui owns the styles of its components", () => {
   it.each(selectors)("%s is defined in styles.css, not app.css", (sel) => {
     expect({ sel, ui: defines(stylesCss, sel), app: defines(appCss, sel) }).toEqual({ sel, ui: true, app: false });
   });
+});
+
+describe("Settings theme swatches", () => {
+  const settings = read("web/apps/shell/src/pages/Settings.tsx");
+  const blocks = themeBlocks(tokensCss);
+  const value = (id: string, name: string) =>
+    new RegExp(`--${name}\\s*:\\s*([^;]+);`).exec(blocks[id]!)?.[1]?.trim().toLowerCase();
+  const swatches = [...settings.matchAll(/id: "([\w-]+)",.*?swatch: \["(#\w+)", "(#\w+)", "(#\w+)"\]/g)]
+    .filter((m) => m[1] !== "system");
+
+  it.each(swatches.map((m) => [m[1]!, m[2]!, m[3]!, m[4]!]))(
+    "%s swatch shows its canvas, surface and accent",
+    (id, canvas, surface, accent) => {
+      expect(canvas.toLowerCase()).toBe(value(id, "kb-bg-canvas"));
+      expect(["kb-bg-surface", "kb-bg-raised", "kb-bg-sidebar"].map((t) => value(id, t))).toContain(surface.toLowerCase());
+      expect(accent.toLowerCase()).toBe(value(id, "kb-accent"));
+    },
+  );
 });

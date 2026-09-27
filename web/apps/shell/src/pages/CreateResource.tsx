@@ -1,6 +1,6 @@
 import { useState } from "react";
 import Editor from "@monaco-editor/react";
-import { Button } from "@kubebay/ui";
+import { Button, Select } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { useMonacoTheme } from "../lib/theme";
 import { RESOURCE_TEMPLATES } from "../lib/resourceTemplates";
@@ -45,8 +45,7 @@ export default function CreateResource() {
     <div className="page" style={{ display: "flex", flexDirection: "column", gap: 0, height: "100%" }}>
       <div className="toolbar">
         <span className="mono strong" style={{ fontSize: 13 }}>Create Resource</span>
-        <select
-          className="toolbar-select"
+        <Select
           value={selectedKind}
           onChange={(e) => onKindChange(e.target.value)}
           aria-label="resource kind"
@@ -56,7 +55,7 @@ export default function CreateResource() {
               {t.kind}
             </option>
           ))}
-        </select>
+        </Select>
         <span className="muted small">{template.apiVersion}</span>
         <div style={{ marginLeft: "auto" }} />
         <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--kb-text-muted)" }}>
