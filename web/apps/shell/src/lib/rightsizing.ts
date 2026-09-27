@@ -116,10 +116,11 @@ export interface RightSizingRow {
   hpaCpuConflict: boolean;
   gitopsOwner: GitOpsOwner | null;
   /** Which recommender produced this row — surfaced so the UI never implies
-   * more authority than the source actually has (a tuned VPA vs. Kubebay's
-   * own raw 3h p95). */
-  source: "vpa" | "metrics-server";
-  /** Only set for source: "metrics-server" — e.g. "observed over 3h, 180 samples". */
+   * more authority than the source actually has (a tuned VPA, Kubebay's own
+   * raw 3h p95, or Kubebay's Prometheus-backed 7d p95 — most authoritative
+   * of the two engine-only sources, but still not a tuned VPA). */
+  source: "vpa" | "metrics-server" | "prometheus";
+  /** Only set for non-"vpa" sources — e.g. "observed over 3h, 180 samples" or "7d probed (Prometheus, updated 14:03 UTC)". */
   window?: string;
 }
 
@@ -290,7 +291,7 @@ export function computeEngineRightSizingRows(waste: WorkloadWaste[], hpas: Recor
       material: cpuMaterial || memMaterial,
       hpaCpuConflict,
       gitopsOwner: null,
-      source: "metrics-server",
+      source: w.source === "prometheus" ? "prometheus" : "metrics-server",
       window: w.window,
     });
   }

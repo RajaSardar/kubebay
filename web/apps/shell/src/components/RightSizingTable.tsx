@@ -62,7 +62,13 @@ export function RightSizingTable({
                   <div className="muted small">
                     {r.workloadKind} · {r.ns}
                   </div>
-                  {r.source === "vpa" ? <Badge>VPA</Badge> : <Badge>Kubebay (metrics-server)</Badge>}
+                  {r.source === "vpa" ? (
+                    <Badge>VPA</Badge>
+                  ) : r.source === "prometheus" ? (
+                    <Badge>Kubebay (Prometheus, 7d)</Badge>
+                  ) : (
+                    <Badge>Kubebay (metrics-server)</Badge>
+                  )}
                   {r.window && <div className="muted small">{r.window}</div>}
                   {r.gitopsOwner && <Badge>{ownerLabel(r.gitopsOwner)}</Badge>}
                   {r.hpaCpuConflict && <Badge tone="err">HPA scales this on CPU</Badge>}

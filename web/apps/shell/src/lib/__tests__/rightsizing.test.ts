@@ -250,6 +250,20 @@ describe("computeEngineRightSizingRows", () => {
     expect(r.window).toBe("observed over 3h, 180 samples");
   });
 
+  it("propagates a prometheus-sourced WorkloadWaste as source: prometheus", () => {
+    const rows = computeEngineRightSizingRows(
+      [workloadWaste({ source: "prometheus", window: "7d probed (Prometheus, updated 14:03 UTC)" })],
+      [],
+    );
+    expect(rows[0]!.source).toBe("prometheus");
+    expect(rows[0]!.window).toBe("7d probed (Prometheus, updated 14:03 UTC)");
+  });
+
+  it("treats an unrecognized source string as metrics-server rather than crashing", () => {
+    const rows = computeEngineRightSizingRows([workloadWaste({ source: "something-else" })], []);
+    expect(rows[0]!.source).toBe("metrics-server");
+  });
+
   it("applies the same materiality gate as VPA rows", () => {
     const closeToTarget = workloadWaste({ requestedCpuMillis: 310, p95CpuMillis: 300, requestedMemBytes: 500, p95MemBytes: 490 });
     expect(computeEngineRightSizingRows([closeToTarget], [])).toHaveLength(0);

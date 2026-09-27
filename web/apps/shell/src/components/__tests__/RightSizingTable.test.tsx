@@ -94,6 +94,17 @@ describe("RightSizingTable", () => {
     expect(screen.getByText(/observed over 3h, 180 samples/i)).toBeTruthy();
   });
 
+  it("badges a prometheus-sourced row distinctly from a metrics-server one", () => {
+    render(
+      <RightSizingTable
+        rows={[row({ source: "prometheus", window: "7d probed (Prometheus, updated 14:03 UTC)" })]}
+        selected={{}}
+        onToggle={vi.fn()}
+      />,
+    );
+    expect(screen.getAllByText(/prometheus/i).length).toBeGreaterThan(0);
+  });
+
   it("shows an engine-sourced row as view-only, with no apply checkboxes (actuation is v3 scope)", () => {
     render(<RightSizingTable rows={[row({ source: "metrics-server" })]} selected={{}} onToggle={vi.fn()} />);
     expect(screen.getByText(/view only/i)).toBeTruthy();
