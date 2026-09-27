@@ -3760,7 +3760,7 @@ tr.row-clickable:active {
      WKWebView's native rubber-band layer. */
   height: var(--app-h, 100vh);
   padding: 48px 24px 80px;
-  background: var(--kb-bg-base);
+  background: var(--kb-bg-canvas);
   overflow-y: auto;
   overscroll-behavior-y: contain;
 }
@@ -3808,7 +3808,7 @@ tr.row-clickable:active {
   width: 100%;
   padding: 9px 12px 9px 32px;
   background: var(--kb-bg-inset);
-  border: 1px solid var(--kb-border);
+  border: 1px solid var(--kb-border-subtle);
   border-radius: var(--kb-radius);
   color: var(--kb-fg-default);
   font-size: var(--kb-text-sm);
@@ -3817,7 +3817,7 @@ tr.row-clickable:active {
 }
 .cp-search:focus {
   border-color: var(--kb-accent);
-  box-shadow: 0 0 0 2px var(--kb-accent-dim);
+  box-shadow: 0 0 0 2px var(--kb-accent-subtle);
 }
 
 /* Cluster list */
@@ -3841,7 +3841,7 @@ tr.row-clickable:active {
   gap: 14px;
   padding: 14px 16px;
   background: var(--kb-bg-surface);
-  border: 1px solid var(--kb-border);
+  border: 1px solid var(--kb-border-subtle);
   border-radius: var(--kb-radius);
   cursor: pointer;
   transition: border-color 120ms, background 120ms, box-shadow 120ms;
@@ -3858,7 +3858,7 @@ tr.row-clickable:active {
 }
 .cp-card.active {
   border-color: var(--kb-accent);
-  box-shadow: 0 0 0 2px var(--kb-accent-dim);
+  box-shadow: 0 0 0 2px var(--kb-accent-subtle);
 }
 .cp-card.broken {
   opacity: 0.45;
@@ -3993,7 +3993,7 @@ tr.row-clickable:active {
   color: var(--kb-accent);
 }
 .cp-action-btn.danger:hover {
-  background: var(--kb-status-err-dim, rgba(239,95,104,0.12));
+  background: var(--kb-status-err-subtle);
   color: var(--kb-status-err);
 }
 
@@ -4027,7 +4027,7 @@ tr.row-clickable:active {
 .cp-show-btn {
   padding: 3px 10px;
   border-radius: var(--kb-radius-sm);
-  border: 1px solid var(--kb-border);
+  border: 1px solid var(--kb-border-subtle);
   background: var(--kb-bg-surface);
   color: var(--kb-fg-default);
   cursor: pointer;
@@ -4046,7 +4046,7 @@ tr.row-clickable:active {
   padding: 6px 12px;
   margin: 8px 8px 0;
   border-radius: var(--kb-radius-sm);
-  border: 1px solid var(--kb-border);
+  border: 1px solid var(--kb-border-subtle);
   background: var(--kb-bg-inset);
   color: var(--kb-fg-muted);
   font-size: var(--kb-text-xs);
@@ -4067,7 +4067,7 @@ tr.row-clickable:active {
   display: flex;
   flex-direction: row;
   height: var(--app-h, 100vh);
-  background: var(--kb-bg-base);
+  background: var(--kb-bg-canvas);
   overflow: hidden;
   position: relative;
 }
@@ -4132,7 +4132,7 @@ tr.row-clickable:active {
 }
 
 .catalog-nav-item.active {
-  background: rgba(34, 211, 238, 0.1);
+  background: var(--kb-accent-subtle);
   color: var(--kb-accent);
   font-weight: 500;
   box-shadow: inset 2px 0 0 var(--kb-accent);
@@ -4163,7 +4163,7 @@ tr.row-clickable:active {
 }
 
 .catalog-titlebar-text {
-  font-size: var(--kb-text-base);
+  font-size: var(--kb-text-md);
   font-weight: 600;
   color: var(--kb-fg-default);
 }
@@ -4236,7 +4236,7 @@ tr.row-clickable:active {
 .catalog-table thead th {
   position: sticky;
   top: 0;
-  background: var(--kb-bg-base);
+  background: var(--kb-bg-canvas);
   z-index: 1;
   font-size: 11px;
   font-weight: 600;
@@ -4497,7 +4497,7 @@ tr.row-clickable:active {
 }
 
 .catalog-menu-popup button.danger:hover {
-  background: var(--kb-status-err-dim, rgba(239,95,104,0.12));
+  background: var(--kb-status-err-subtle);
 }
 
 .catalog-menu-sep {
@@ -4581,8 +4581,8 @@ tr.row-clickable:active {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #4ade80;
-  box-shadow: 0 0 5px rgba(74,222,128,.5);
+  background: var(--kb-status-ok);
+  box-shadow: 0 0 5px color-mix(in srgb, var(--kb-status-ok) 50%, transparent);
   flex-shrink: 0;
 }
 
@@ -4610,7 +4610,7 @@ tr.row-clickable:active {
   display: flex;
   flex-direction: column;
   border-left: 1px solid var(--kb-border-subtle);
-  background: var(--kb-bg-surface, var(--kb-bg-base));
+  background: var(--kb-bg-surface);
   overflow-y: auto;
   overscroll-behavior-y: contain;
 }
@@ -4648,7 +4648,7 @@ tr.row-clickable:active {
 }
 .cluster-drawer-close:hover {
   background: var(--kb-bg-hover, rgba(255,255,255,0.06));
-  color: var(--kb-fg-base);
+  color: var(--kb-fg-default);
 }
 
 .cluster-drawer-body {
@@ -4713,7 +4713,7 @@ tr.row-clickable:active {
   transition: background 120ms;
   font-size: 15px;
   font-weight: 600;
-  color: var(--kb-fg-base);
+  color: var(--kb-fg-default);
   font-family: inherit;
   max-width: 100%;
 }
@@ -4744,7 +4744,7 @@ tr.row-clickable:active {
   border: 1px solid var(--kb-accent);
   border-radius: 6px;
   padding: 4px 8px;
-  color: var(--kb-fg-base);
+  color: var(--kb-fg-default);
   width: 100%;
   outline: none;
 }
@@ -4825,7 +4825,7 @@ tr.row-clickable:active {
 }
 .cluster-drawer-pin-btn:hover {
   background: var(--kb-bg-hover, rgba(255,255,255,0.05));
-  color: var(--kb-fg-base);
+  color: var(--kb-fg-default);
   border-color: var(--kb-fg-muted);
 }
 
@@ -4880,7 +4880,7 @@ tr.row-clickable:active {
 }
 .kb-btn-ghost:hover {
   background: var(--kb-bg-hover, rgba(255,255,255,0.06));
-  color: var(--kb-fg-base);
+  color: var(--kb-fg-default);
 }
 
 .kb-btn-danger {
