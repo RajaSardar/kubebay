@@ -41,6 +41,45 @@ export function ownerOf(obj: Record<string, unknown> | null | undefined): GitOps
   return null;
 }
 
+/**
+ * For a bulk selection (e.g. bulk delete): returns the first GitOps owner
+ * found among a list of objects, or null if none are owned. Good enough to
+ * decide whether to show a warning at all — the banner names one app, not
+ * an exhaustive per-row breakdown.
+ */
+export function firstOwned(objs: (Record<string, unknown> | null | undefined)[]): GitOpsOwner | null {
+  for (const obj of objs) {
+    const owner = ownerOf(obj);
+    if (owner) return owner;
+  }
+  return null;
+}
+
+export interface DeleteTargetLike {
+  ns: string;
+  name: string;
+}
+
+/**
+ * Resolves the GitOps owner (if any) for a bulk-delete confirmation: matches
+ * each pending {ns,name} target against the already-streamed rows shown in
+ * the table, then defers to firstOwned. A target with no matching row (e.g.
+ * it was already deleted elsewhere) is simply skipped, not treated as owned.
+ */
+export function ownerAmongTargets(
+  targets: DeleteTargetLike[],
+  rows: (Record<string, unknown> | null | undefined)[],
+): GitOpsOwner | null {
+  return firstOwned(
+    targets.map((t) =>
+      rows.find((r) => {
+        const meta = rec(r?.metadata);
+        return str(meta.name) === t.name && str(meta.namespace) === t.ns;
+      }),
+    ),
+  );
+}
+
 export function ownerLabel(owner: GitOpsOwner): string {
   return owner.controller === "argocd" ? `Argo CD: ${owner.name}` : `Flux: ${owner.name}`;
 }

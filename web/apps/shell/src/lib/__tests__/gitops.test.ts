@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { ownerOf, ownerLabel, ownerWarning } from "../gitops";
+import { ownerOf, ownerLabel, ownerWarning, firstOwned, ownerAmongTargets } from "../gitops";
 
 function withAnnotations(annotations: Record<string, string>): Record<string, unknown> {
   return { metadata: { annotations } };
@@ -66,6 +66,51 @@ describe("ownerLabel", () => {
 
   it("formats a Flux owner", () => {
     expect(ownerLabel({ controller: "flux", name: "my-kustomization" })).toBe("Flux: my-kustomization");
+  });
+});
+
+describe("firstOwned", () => {
+  it("returns null for an empty list", () => {
+    expect(firstOwned([])).toBeNull();
+  });
+
+  it("returns null when nothing in the list is GitOps-owned", () => {
+    expect(firstOwned([withAnnotations({}), { metadata: {} }])).toBeNull();
+  });
+
+  it("returns the first owner found, for a bulk selection spanning owned and unowned resources", () => {
+    const owned = withAnnotations({ "argocd.argoproj.io/instance": "my-app" });
+    const owner = firstOwned([withAnnotations({}), owned]);
+    expect(owner).toEqual({ controller: "argocd", name: "my-app" });
+  });
+});
+
+describe("ownerAmongTargets", () => {
+  const rows = [
+    { metadata: { name: "unowned", namespace: "default", annotations: {} } },
+    {
+      metadata: {
+        name: "owned",
+        namespace: "default",
+        annotations: { "argocd.argoproj.io/instance": "my-app" },
+      },
+    },
+  ];
+
+  it("returns null when none of the targets match a GitOps-owned row", () => {
+    expect(ownerAmongTargets([{ ns: "default", name: "unowned" }], rows)).toBeNull();
+  });
+
+  it("returns the owner when a target matches a GitOps-owned row", () => {
+    const owner = ownerAmongTargets(
+      [{ ns: "default", name: "unowned" }, { ns: "default", name: "owned" }],
+      rows,
+    );
+    expect(owner).toEqual({ controller: "argocd", name: "my-app" });
+  });
+
+  it("returns null when a target matches nothing in rows (e.g. already deleted)", () => {
+    expect(ownerAmongTargets([{ ns: "default", name: "gone" }], rows)).toBeNull();
   });
 });
 

@@ -13,7 +13,7 @@ import { useRowSelection } from "../lib/useRowSelection";
 import { useBulkDelete } from "../lib/useBulkDelete";
 import { useDisplay, type Density } from "../lib/display";
 import { evalPrinterPath } from "../lib/printerPath";
-import { ownerOf, ownerLabel } from "../lib/gitops";
+import { ownerOf, ownerLabel, ownerAmongTargets, ownerWarning } from "../lib/gitops";
 
 // Row height (px) per density level — must stay in sync with ROW_PADDING_VALUES in display.ts
 // compact: 4+4px pad + ~20px line + 1px border = 29px
@@ -606,6 +606,10 @@ export default function ResourceTable() {
                 Delete {bulkDelete.pending.length} selected {def.label.toLowerCase()}? This can&apos;t be undone.
               </>
             )}
+            {(() => {
+              const owner = ownerAmongTargets(bulkDelete.pending, rows);
+              return owner && <div className="small">{ownerWarning(owner)}</div>;
+            })()}
           </span>
           <div className="inline-banner-actions">
             <Button variant="ghost" disabled={bulkDelete.busy} onClick={bulkDelete.cancel}>

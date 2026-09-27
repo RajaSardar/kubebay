@@ -13,6 +13,7 @@ import { NamespaceFilter } from "../components/NamespaceFilter";
 import { useSelectedNamespaces } from "../lib/namespace-store";
 import { WorkloadTabBar } from "../components/WorkloadTabBar";
 import { PageLoader } from "../components/PageLoader";
+import { ownerAmongTargets, ownerWarning } from "../lib/gitops";
 
 function rec(v: unknown): Record<string, unknown> {
   return (v ?? {}) as Record<string, unknown>;
@@ -301,6 +302,10 @@ export default function Workloads() {
             ) : (
               <>Delete {bulkDelete.pending.length} selected pods? This can&apos;t be undone.</>
             )}
+            {(() => {
+              const owner = ownerAmongTargets(bulkDelete.pending, rows);
+              return owner && <div className="small">{ownerWarning(owner)}</div>;
+            })()}
           </span>
           <div className="inline-banner-actions">
             <Button variant="ghost" disabled={bulkDelete.busy} onClick={bulkDelete.cancel}>
