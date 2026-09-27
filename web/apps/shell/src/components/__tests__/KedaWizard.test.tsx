@@ -65,6 +65,25 @@ describe("KedaWizard", () => {
     expect(call.yaml).toContain("namespace: team-a");
   });
 
+  it("switches to a prometheus trigger, suggests discovered Service candidates, and validates its fields", () => {
+    render(
+      <KedaWizard
+        {...props}
+        services={[
+          { metadata: { name: "prometheus-server", namespace: "monitoring", labels: {} }, spec: { ports: [{ port: 9090 }] } },
+        ]}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText(/trigger/i), { target: { value: "prometheus" } });
+
+    expect(screen.getByText(/never the same as kubebay's local prometheus proxy/i)).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^apply$/i })).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText(/server address/i), { target: { value: "http://prometheus-server.monitoring.svc:9090" } });
+    fireEvent.change(screen.getByLabelText(/promql query/i), { target: { value: "up" } });
+    expect(screen.getByRole("button", { name: /^apply$/i })).not.toBeDisabled();
+  });
+
   it("switches to a cron trigger and requires start/end before submitting", () => {
     render(<KedaWizard {...props} />);
     fireEvent.change(screen.getByLabelText(/trigger/i), { target: { value: "cron" } });

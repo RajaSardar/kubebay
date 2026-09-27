@@ -32,6 +32,16 @@ describe("buildScaledObjectYaml", () => {
     expect(yaml).toContain('value: "70"');
   });
 
+  it("generates a prometheus trigger with server address, query, and threshold", () => {
+    const yaml = buildScaledObjectYaml(
+      baseInput({ trigger: { type: "prometheus", serverAddress: "http://prometheus.monitoring.svc:9090", query: "sum(rate(http_requests_total[2m]))", threshold: 100 } }),
+    );
+    expect(yaml).toContain("type: prometheus");
+    expect(yaml).toContain('serverAddress: "http://prometheus.monitoring.svc:9090"');
+    expect(yaml).toContain('query: "sum(rate(http_requests_total[2m]))"');
+    expect(yaml).toContain('threshold: "100"');
+  });
+
   it("generates a memory trigger", () => {
     const yaml = buildScaledObjectYaml(baseInput({ trigger: { type: "memory", averageUtilization: 80 } }));
     expect(yaml).toContain("type: memory");
@@ -88,5 +98,23 @@ describe("validateKedaWizardInput", () => {
   it("requires a positive utilization for cpu/memory triggers", () => {
     const errors = validateKedaWizardInput(baseInput({ trigger: { type: "cpu", averageUtilization: 0 } }), []);
     expect(errors.some((e) => /utilization/i.test(e))).toBe(true);
+  });
+
+  it("requires a server address, query, and positive threshold for a prometheus trigger", () => {
+    const errors = validateKedaWizardInput(
+      baseInput({ trigger: { type: "prometheus", serverAddress: "", query: "", threshold: 0 } }),
+      [],
+    );
+    expect(errors.some((e) => /server address/i.test(e))).toBe(true);
+    expect(errors.some((e) => /query/i.test(e))).toBe(true);
+    expect(errors.some((e) => /threshold/i.test(e))).toBe(true);
+  });
+
+  it("passes for a complete prometheus trigger", () => {
+    const errors = validateKedaWizardInput(
+      baseInput({ trigger: { type: "prometheus", serverAddress: "http://prometheus.monitoring.svc:9090", query: "up", threshold: 1 } }),
+      [],
+    );
+    expect(errors).toEqual([]);
   });
 });

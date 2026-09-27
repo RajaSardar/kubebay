@@ -13,7 +13,15 @@ export interface UtilizationTrigger {
   averageUtilization: number;
 }
 
-export type KedaTrigger = CronTrigger | UtilizationTrigger;
+export interface PrometheusTrigger {
+  type: "prometheus";
+  /** In-cluster address KEDA itself resolves — never Kubebay's local Prometheus proxy URL. */
+  serverAddress: string;
+  query: string;
+  threshold: number;
+}
+
+export type KedaTrigger = CronTrigger | UtilizationTrigger | PrometheusTrigger;
 
 export interface KedaWizardInput {
   namespace: string;
@@ -38,19 +46,30 @@ function yamlString(s: string): string {
  * first apply reconciles and reports desired metrics without acting, and
  * unpausing is a deliberate, separate action.
  */
-export function buildScaledObjectYaml(input: KedaWizardInput): string {
-  const triggerYaml =
-    input.trigger.type === "cron"
-      ? `  - type: cron
+function triggerYamlFor(trigger: KedaTrigger): string {
+  if (trigger.type === "cron") {
+    return `  - type: cron
     metadata:
-      timezone: ${yamlString(input.trigger.timezone || "UTC")}
-      start: ${yamlString(input.trigger.start)}
-      end: ${yamlString(input.trigger.end)}
-      desiredReplicas: ${yamlString(String(input.trigger.desiredReplicas))}`
-      : `  - type: ${input.trigger.type}
+      timezone: ${yamlString(trigger.timezone || "UTC")}
+      start: ${yamlString(trigger.start)}
+      end: ${yamlString(trigger.end)}
+      desiredReplicas: ${yamlString(String(trigger.desiredReplicas))}`;
+  }
+  if (trigger.type === "prometheus") {
+    return `  - type: prometheus
+    metadata:
+      serverAddress: ${yamlString(trigger.serverAddress)}
+      query: ${yamlString(trigger.query)}
+      threshold: ${yamlString(String(trigger.threshold))}`;
+  }
+  return `  - type: ${trigger.type}
     metadata:
       type: Utilization
-      value: ${yamlString(String(input.trigger.averageUtilization))}`;
+      value: ${yamlString(String(trigger.averageUtilization))}`;
+}
+
+export function buildScaledObjectYaml(input: KedaWizardInput): string {
+  const triggerYaml = triggerYamlFor(input.trigger);
 
   return `apiVersion: keda.sh/v1alpha1
 kind: ScaledObject
@@ -94,6 +113,10 @@ export function validateKedaWizardInput(input: KedaWizardInput, existingHpas: Re
     if (!input.trigger.start.trim() || !input.trigger.end.trim()) {
       errors.push("Cron trigger needs both a start and end schedule.");
     }
+  } else if (input.trigger.type === "prometheus") {
+    if (!input.trigger.serverAddress.trim()) errors.push("Prometheus server address is required.");
+    if (!input.trigger.query.trim()) errors.push("Prometheus query is required.");
+    if (input.trigger.threshold <= 0) errors.push("Threshold must be greater than 0.");
   } else if (input.trigger.averageUtilization <= 0) {
     errors.push("Target utilization must be greater than 0.");
   }

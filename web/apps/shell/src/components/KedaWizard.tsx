@@ -4,6 +4,7 @@ import { Badge, Button } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { useMonacoTheme } from "../lib/theme";
 import { buildScaledObjectYaml, validateKedaWizardInput, type KedaTrigger, type KedaWizardInput } from "../lib/kedaWizard";
+import { findCandidatePrometheusServices } from "../lib/prometheusServiceDiscovery";
 
 /**
  * Backlog #2 P3: cron + CPU/memory wizard. Generates a ScaledObject from a
@@ -18,6 +19,7 @@ export function KedaWizard({
   targetKind,
   targetName,
   hpas,
+  services = [],
   onApplied,
 }: {
   cluster: string;
@@ -25,6 +27,8 @@ export function KedaWizard({
   targetKind: "Deployment" | "StatefulSet";
   targetName: string;
   hpas: Record<string, unknown>[];
+  /** Already-open Services stream, used only to suggest in-cluster Prometheus candidates. */
+  services?: Record<string, unknown>[];
   onApplied?: () => void;
 }) {
   const monacoTheme = useMonacoTheme();
@@ -37,16 +41,24 @@ export function KedaWizard({
   const [cronEnd, setCronEnd] = useState("");
   const [cronTimezone, setCronTimezone] = useState("UTC");
   const [cronDesiredReplicas, setCronDesiredReplicas] = useState(1);
+  const [promServerAddress, setPromServerAddress] = useState("");
+  const [promQuery, setPromQuery] = useState("");
+  const [promThreshold, setPromThreshold] = useState(100);
   const [zeroConfirm, setZeroConfirm] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const promCandidates = useMemo(() => findCandidatePrometheusServices(services), [services]);
 
   const trigger: KedaTrigger = useMemo(() => {
     if (triggerType === "cron") {
       return { type: "cron", start: cronStart, end: cronEnd, timezone: cronTimezone, desiredReplicas: cronDesiredReplicas };
     }
+    if (triggerType === "prometheus") {
+      return { type: "prometheus", serverAddress: promServerAddress, query: promQuery, threshold: promThreshold };
+    }
     return { type: triggerType, averageUtilization };
-  }, [triggerType, cronStart, cronEnd, cronTimezone, cronDesiredReplicas, averageUtilization]);
+  }, [triggerType, cronStart, cronEnd, cronTimezone, cronDesiredReplicas, averageUtilization, promServerAddress, promQuery, promThreshold]);
 
   const input: KedaWizardInput = useMemo(
     () => ({ namespace: ns, targetKind, targetName, scaledObjectName, minReplicaCount, maxReplicaCount, trigger }),
@@ -63,7 +75,11 @@ export function KedaWizard({
     setMsg(null);
     try {
       const r = await api.createResource({ cluster, yaml, dryRun });
-      setMsg({ ok: true, text: dryRun ? "Dry-run passed — server accepted the change." : `Applied — ScaledObject "${scaledObjectName}" created (paused).` });
+      const dryRunText =
+        trigger.type === "prometheus"
+          ? "Dry-run passed — server accepted the manifest shape. This does not confirm the query is valid or that serverAddress is reachable from inside the cluster."
+          : "Dry-run passed — server accepted the change.";
+      setMsg({ ok: true, text: dryRun ? dryRunText : `Applied — ScaledObject "${scaledObjectName}" created (paused).` });
       if (!dryRun) onApplied?.();
       void r;
     } catch (e) {
@@ -108,23 +124,12 @@ export function KedaWizard({
             <option value="cpu">CPU utilization</option>
             <option value="memory">Memory utilization</option>
             <option value="cron">Cron schedule</option>
+            <option value="prometheus">Prometheus query</option>
           </select>
         </label>
       </div>
 
-      {triggerType !== "cron" ? (
-        <label className="ctl" style={{ flexDirection: "column", alignItems: "flex-start" }}>
-          Target utilization (%)
-          <input
-            className="toolbar-input"
-            style={{ maxWidth: 100 }}
-            type="number"
-            min={1}
-            value={averageUtilization}
-            onChange={(e) => setAverageUtilization(Number(e.target.value))}
-          />
-        </label>
-      ) : (
+      {triggerType === "cron" && (
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
           <label className="ctl" style={{ flexDirection: "column", alignItems: "flex-start" }}>
             Start (cron)
@@ -147,6 +152,74 @@ export function KedaWizard({
               min={0}
               value={cronDesiredReplicas}
               onChange={(e) => setCronDesiredReplicas(Number(e.target.value))}
+            />
+          </label>
+        </div>
+      )}
+
+      {(triggerType === "cpu" || triggerType === "memory") && (
+        <label className="ctl" style={{ flexDirection: "column", alignItems: "flex-start" }}>
+          Target utilization (%)
+          <input
+            className="toolbar-input"
+            style={{ maxWidth: 100 }}
+            type="number"
+            min={1}
+            value={averageUtilization}
+            onChange={(e) => setAverageUtilization(Number(e.target.value))}
+          />
+        </label>
+      )}
+
+      {triggerType === "prometheus" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div className="muted small">
+            KEDA resolves this address in-cluster — it is never the same as Kubebay's local Prometheus proxy (usually a laptop
+            port-forward), so nothing here is prefilled from Settings.
+          </div>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
+            <label className="ctl" style={{ flexDirection: "column", alignItems: "flex-start" }}>
+              Server address (in-cluster)
+              <input
+                className="toolbar-input"
+                style={{ minWidth: 260 }}
+                placeholder="http://prometheus-server.monitoring.svc:9090"
+                value={promServerAddress}
+                onChange={(e) => setPromServerAddress(e.target.value)}
+                spellCheck={false}
+                list="keda-wizard-prom-candidates"
+              />
+              {promCandidates.length > 0 && (
+                <datalist id="keda-wizard-prom-candidates">
+                  {promCandidates.map((c) => (
+                    <option key={`${c.namespace}/${c.name}`} value={c.address}>
+                      {c.namespace}/{c.name}
+                    </option>
+                  ))}
+                </datalist>
+              )}
+            </label>
+            <label className="ctl" style={{ flexDirection: "column", alignItems: "flex-start" }}>
+              Threshold
+              <input
+                className="toolbar-input"
+                style={{ maxWidth: 100 }}
+                type="number"
+                min={0}
+                value={promThreshold}
+                onChange={(e) => setPromThreshold(Number(e.target.value))}
+              />
+            </label>
+          </div>
+          <label className="ctl" style={{ flexDirection: "column", alignItems: "flex-start" }}>
+            PromQL query
+            <input
+              className="toolbar-input"
+              style={{ minWidth: 320 }}
+              placeholder="sum(rate(http_requests_total[2m]))"
+              value={promQuery}
+              onChange={(e) => setPromQuery(e.target.value)}
+              spellCheck={false}
             />
           </label>
         </div>

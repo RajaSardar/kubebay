@@ -159,6 +159,10 @@ export function AutoscalingTab({
 
   const [showWizard, setShowWizard] = useState(false);
   const wizardTargetKind = kind === "StatefulSet" ? "StatefulSet" : "Deployment";
+  // Only streamed once the wizard is actually open — a cluster-wide Services
+  // watch isn't worth paying for on every workload drawer, just to suggest
+  // Prometheus trigger candidates.
+  const services = useResourceStream(cluster, "v1/services", { mode: "full", enabled: showWizard });
 
   return (
     <div>
@@ -183,6 +187,7 @@ export function AutoscalingTab({
                 targetKind={wizardTargetKind}
                 targetName={name}
                 hpas={myHpas}
+                services={services.rows}
                 onApplied={() => setShowWizard(false)}
               />
             </Card>
