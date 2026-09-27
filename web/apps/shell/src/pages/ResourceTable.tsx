@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams, useLocation } from "react-router-dom";
-import { Badge, Button, Skeleton, StatusDot } from "@kubebay/ui";
+import { Badge, Button, Skeleton, StatusDot, phaseTone } from "@kubebay/ui";
 import { api, crdApi, metricsApi, type PrinterColumn } from "../lib/api";
 import { useQuery as useRQQuery } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -260,17 +260,10 @@ export function extraColumns(
         },
         Status: (o) => {
           const phase = str(rec(o.status).phase) || "Unknown";
-          let cls: string;
-          let dot: Cell["dot"];
-          switch (phase) {
-            case "Running":    cls = "status-ok";         dot = "ok";      break;
-            case "Succeeded":  cls = "status-terminated"; dot = "ok";      break;
-            case "Failed":     cls = "status-err";        dot = "err";     break;
-            case "Pending":    cls = "status-pending";    dot = "pending"; break;
-            case "Terminating": cls = "status-terminating"; dot = undefined; break;
-            default:           cls = "muted";             dot = undefined;
-          }
-          return { v: phase, cls, dot };
+          const tone = phaseTone(phase);
+          const dot: Cell["dot"] =
+            tone === "ok" || tone === "terminated" ? "ok" : tone === "err" ? "err" : tone === "pending" ? "pending" : undefined;
+          return { v: phase, cls: tone ? `status-${tone}` : "muted", dot };
         },
         Ready: (o) => {
           const cs = (rec(o.status).containerStatuses ?? []) as Record<string, unknown>[];

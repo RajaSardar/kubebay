@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Badge, Button, StatusDot } from "@kubebay/ui";
+import { Badge, Button, StatusDot, Tabs } from "@kubebay/ui";
 import { api, nodeApi } from "../lib/api";
 import { ExecTerm, YamlTab } from "./heavy";
 import { EventsDrawer } from "./EventsDrawer";
@@ -187,30 +187,13 @@ function parsePodContainers(obj: Record<string, unknown> | null): string[] {
 }
 
 // ── Mini tab bar for a pane ───────────────────────────────────────────────────
-function PaneTabs<T extends string>({
-  tabs,
-  active,
-  labels,
-  onChange,
-}: {
+function PaneTabs<T extends string>(props: {
   tabs: readonly T[];
   active: T;
   labels: Record<T, string>;
   onChange: (t: T) => void;
 }) {
-  return (
-    <div className="drawer-pane-tabs">
-      {tabs.map((t) => (
-        <button
-          key={t}
-          className={`tab${active === t ? " active" : ""}`}
-          onClick={() => onChange(t)}
-        >
-          {labels[t]}
-        </button>
-      ))}
-    </div>
-  );
+  return <Tabs {...props} className="drawer-pane-tabs" />;
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -521,40 +504,16 @@ export default function GenericDrawer({
 
       {/* ── Single-pane tab bar (only when not split) ── */}
       {!split && isNode && (
-        <div className="tabs">
-          {(["summary", "shell", "yaml"] as const).map((t) => (
-            <button key={t} className={`tab${nodeTab === t ? " active" : ""}`} onClick={() => setNodeTab(t)}>
-              {nodeTabLabels[t]}
-            </button>
-          ))}
-        </div>
+        <Tabs tabs={["summary", "shell", "yaml"] as const} active={nodeTab} labels={nodeTabLabels} onChange={setNodeTab} />
       )}
       {!split && isService && (
-        <div className="tabs">
-          {(["summary", "yaml"] as const).map((t) => (
-            <button key={t} className={`tab${svcTab === t ? " active" : ""}`} onClick={() => setSvcTab(t)}>
-              {svcTabLabels[t]}
-            </button>
-          ))}
-        </div>
+        <Tabs tabs={["summary", "yaml"] as const} active={svcTab} labels={svcTabLabels} onChange={setSvcTab} />
       )}
       {!split && isPod && (
-        <div className="tabs">
-          {(["yaml", "events", "terminal"] as const).map((t) => (
-            <button key={t} className={`tab${podTab === t ? " active" : ""}`} onClick={() => setPodTab(t)}>
-              {podTabLabels[t]}
-            </button>
-          ))}
-        </div>
+        <Tabs tabs={["yaml", "events", "terminal"] as const} active={podTab} labels={podTabLabels} onChange={setPodTab} />
       )}
       {!split && !isNode && !isService && !isPod && (
-        <div className="tabs">
-          {(["summary", "yaml", "events"] as const).map((t) => (
-            <button key={t} className={`tab${genTab === t ? " active" : ""}`} onClick={() => setGenTab(t)}>
-              {genTabLabels[t]}
-            </button>
-          ))}
-        </div>
+        <Tabs tabs={["summary", "yaml", "events"] as const} active={genTab} labels={genTabLabels} onChange={setGenTab} />
       )}
 
       {/* ── Content area ── */}
