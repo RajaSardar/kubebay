@@ -97,6 +97,17 @@ func main() {
 	helmMgr := httpapi.NewHelm(mgr)
 	settingsMgr := httpapi.NewSettingsManager(mgr)
 	settingsMgr.LocalShell = localShellStatus
+	// Tier A (Prometheus) is a no-op until a cluster actually has one
+	// configured — this just wires up how to ask, per-cluster, same as
+	// promquery.go's own handlers.
+	wasteSampler.SetPrometheusResolver(func(cluster string) string {
+		set, err := settingsMgr.Load()
+		if err != nil {
+			return ""
+		}
+		return set.PrometheusURLFor(cluster)
+	})
+	wasteSampler.StartTierA(wasteCtx)
 	nodeShell := &httpapi.NodeShellManager{Clusters: mgr, Settings: settingsMgr}
 	// An operator-supplied token (in-cluster, where there is no desktop app to
 	// hand a file to) wins; otherwise we mint one per launch.
