@@ -159,6 +159,7 @@ async function applyYamlRequest(b: {
   yaml: string;
   dryRun: boolean;
   force: boolean;
+  action?: string;
 }): Promise<{ applied: boolean; dryRun: boolean; resultYaml?: string }> {
   const res = await fetch("/api/yaml", {
     method: "PUT",
