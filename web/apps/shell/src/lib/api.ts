@@ -227,11 +227,33 @@ export const actionApi = {
     send<{ ok: boolean }>("POST", "/api/action/suspend-cronjob", b),
 };
 
+export interface RBACRule {
+  verbs: string[];
+  apiGroups: string[];
+  resources: string[];
+  resourceNames?: string[];
+  nonResourceURLs?: string[];
+}
+
+export interface RBACFinding {
+  severity: "high" | "medium";
+  title: string;
+  subject: string;
+  roleRef: string;
+  why: string;
+  rule?: string;
+  suggestion?: string;
+  verb?: string;
+  group?: string;
+  resource?: string;
+}
+
 export interface RBACSnapshot {
-  roles: { name: string; ns?: string; kind: string; rules: { verbs: string[]; apiGroups: string[]; resources: string[] }[] }[];
-  clusterRoles: { name: string; ns?: string; kind: string; rules: { verbs: string[]; apiGroups: string[]; resources: string[] }[] }[];
+  roles: { name: string; ns?: string; kind: string; rules: RBACRule[] }[];
+  clusterRoles: { name: string; ns?: string; kind: string; rules: RBACRule[] }[];
   roleBindings: { name: string; ns?: string; kind: string; roleRef: string; subjects: { kind: string; name: string; ns?: string }[] }[];
   clusterRoleBindings: { name: string; ns?: string; kind: string; roleRef: string; subjects: { kind: string; name: string; ns?: string }[] }[];
+  findings: RBACFinding[];
 }
 
 export const rbacApi = {
