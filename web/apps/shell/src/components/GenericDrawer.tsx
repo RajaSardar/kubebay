@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Badge, Button, StatusDot, Tabs } from "@kubebay/ui";
+import { Badge, Button, Select, StatusDot, Tabs, TextField } from "@kubebay/ui";
 import { api, nodeApi } from "../lib/api";
 import { ExecTerm, YamlTab } from "./heavy";
 import { EventsDrawer } from "./EventsDrawer";
@@ -136,8 +136,7 @@ function PaneContent({
       <div className="term-wrap" style={{ display: "flex", flexDirection: "column", height: "100%" }}>
         {containers.length > 1 && (
           <div style={{ padding: "4px 8px", borderBottom: "1px solid var(--kb-border-subtle)", flexShrink: 0 }}>
-            <select
-              className="toolbar-select"
+            <Select
               value={effectiveContainer}
               onChange={(e) => onSetPodContainer(e.target.value)}
               style={{ fontSize: "var(--kb-text-xs)", height: 24 }}
@@ -145,7 +144,7 @@ function PaneContent({
               {containers.map((c) => (
                 <option key={c} value={c}>{c}</option>
               ))}
-            </select>
+            </Select>
           </div>
         )}
         <ExecTerm key={`${cluster}/${ns}/${name}/${effectiveContainer}`} cluster={cluster} namespace={ns} pod={name} container={effectiveContainer} />
@@ -465,8 +464,7 @@ export default function GenericDrawer({
                 force
               </label>
               <Badge tone="err">type name to confirm</Badge>
-              <input
-                className="toolbar-input"
+              <TextField
                 style={{ maxWidth: 180 }}
                 placeholder={name}
                 value={input}

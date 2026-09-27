@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Editor from "@monaco-editor/react";
-import { ArmedButton, Badge, Button, Skeleton, StatusDot } from "@kubebay/ui";
+import { ArmedButton, Badge, Button, PageHeader, Skeleton, StatusDot, TextField } from "@kubebay/ui";
 import { helmApi, type HelmRelease } from "../lib/api";
 import { useCluster } from "../lib/useCluster";
 import { useMonacoTheme } from "../lib/theme";
@@ -150,8 +150,7 @@ function ReleaseDrawer({
           ) : (
             <>
               <Badge tone="err">type "{rel.name}"</Badge>
-              <input
-                className="toolbar-input"
+              <TextField
                 style={{ maxWidth: 170 }}
                 value={deleteInput}
                 onChange={(e) => setDeleteInput(e.target.value)}
@@ -214,16 +213,14 @@ function ReleaseDrawer({
       {tab === "values" && (
         <>
           <div className="log-controls">
-            <input
-              className="toolbar-input"
+            <TextField
               placeholder="chart ref — repo/name or .tgz URL"
               value={chartRef}
               onChange={(e) => setChartRef(e.target.value)}
               spellCheck={false}
               style={{ flex: 2 }}
             />
-            <input
-              className="toolbar-input"
+            <TextField
               placeholder="version (latest)"
               value={chartVersion}
               onChange={(e) => setChartVersion(e.target.value)}
@@ -315,17 +312,7 @@ export default function Helm() {
 
       {view === "releases" && (
       <>
-      <div className="page-header">
-        <h2>
-          Helm releases{" "}
-          {!releases.isLoading && (
-            <span className="page-header-count">
-              · {rows.length}
-            </span>
-          )}
-        </h2>
-        <div />
-      </div>
+      <PageHeader level={2} title="Helm releases" count={!releases.isLoading && `· ${rows.length}`} />
 
       {releases.isError && (
         <div className="error-banner">

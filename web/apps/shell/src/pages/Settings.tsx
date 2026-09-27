@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Button, Card } from "@kubebay/ui";
+import { Button, Card, PageHeader, Select, TextField } from "@kubebay/ui";
 import { settingsApi } from "../lib/api";
 import { useCluster } from "../lib/useCluster";
 import { useTheme, type ThemeName } from "../lib/theme";
@@ -97,8 +97,7 @@ function KubeconfigSources() {
       </div>
       {!extras.length && <p className="muted small">Default kubeconfig is loaded automatically. Add extra files below to merge additional clusters.</p>}
       <div className="pf-form">
-        <input
-          className="toolbar-input"
+        <TextField
           placeholder="/path/to/another/kubeconfig"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
@@ -182,8 +181,7 @@ function PrometheusSettings({
         single shared URL would graph whichever cluster the tunnel happens to reach.
       </p>
       <div className="pf-form">
-        <select
-          className="toolbar-select"
+        <Select
           value={target}
           onChange={(e) => setTarget(e.target.value)}
           aria-label="Prometheus target"
@@ -192,9 +190,8 @@ function PrometheusSettings({
           {list.map((c) => (
             <option key={c.id} value={c.id}>{c.id}</option>
           ))}
-        </select>
-        <input
-          className="toolbar-input"
+        </Select>
+        <TextField
           placeholder="http://localhost:9090"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
@@ -261,8 +258,7 @@ function NodeShellSettings({ initial, fallback }: { initial?: string; fallback: 
         registry if the cluster cannot pull from registry.k8s.io.
       </p>
       <div className="pf-form">
-        <input
-          className="toolbar-input"
+        <TextField
           placeholder={fallback}
           value={image}
           onChange={(e) => setImage(e.target.value)}
@@ -330,9 +326,7 @@ export default function Settings() {
 
   return (
     <div className="page" style={{ overflowY: "auto" }}>
-      <div className="page-header">
-        <h1>Settings</h1>
-      </div>
+      <PageHeader title="Settings" />
 
       <div className="settings-section-wrap">
         <div className="settings-section-title">Theme</div>

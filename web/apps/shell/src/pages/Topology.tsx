@@ -9,7 +9,7 @@ import {
   type NodeProps,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { Badge } from "@kubebay/ui";
+import { Badge, PageHeader, Select } from "@kubebay/ui";
 import { PageLoader } from "../components/PageLoader";
 import { useCluster } from "../lib/useCluster";
 import { useResourceStream } from "../lib/useResourceStream";
@@ -161,29 +161,23 @@ export default function Topology() {
 
   return (
     <div className="page page-full">
-      <div className="page-header">
-        <h2>
-          Topology
-          {ready && <span className="live-pill">live</span>}
-        </h2>
-        <Badge>{graph.nodes.length} objects</Badge>
-      </div>
+      <PageHeader level={2} title="Topology" live={ready} actions={<Badge>{graph.nodes.length} objects</Badge>} />
 
       <div className="toolbar">
-        <select className="toolbar-select" value={effectiveCluster} onChange={(e) => setCluster(e.target.value)} aria-label="cluster">
+        <Select value={effectiveCluster} onChange={(e) => setCluster(e.target.value)} aria-label="cluster">
           {list.map((c) => (
             <option key={c.id} value={c.id}>
               {c.id}
             </option>
           ))}
-        </select>
-        <select className="toolbar-select" value={effectiveNs} onChange={(e) => setRawNs(e.target.value)} aria-label="namespace">
+        </Select>
+        <Select value={effectiveNs} onChange={(e) => setRawNs(e.target.value)} aria-label="namespace">
           {nsOptions.map((n) => (
             <option key={n} value={n}>
               {n}
             </option>
           ))}
-        </select>
+        </Select>
         {selectedPod && <Badge tone="ok">{selectedPod}</Badge>}
       </div>
 

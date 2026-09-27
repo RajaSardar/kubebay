@@ -4,7 +4,7 @@ import type { ClusterInfo } from "./lib/api";
 import { NavLink, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { useClusterStore } from "./lib/cluster-store";
 import { shouldRedirectToPicker } from "./lib/clusterPickerLogic";
-import { StatusDot } from "@kubebay/ui";
+import { Kbd, StatusDot, navItemClass } from "@kubebay/ui";
 import {
   IconArgoCD,
   IconCube,
@@ -196,7 +196,7 @@ const TOOLS = [
 
 function NavSub({ leaf }: { leaf: NavLeaf }) {
   return (
-    <NavLink to={leaf.to} className={({ isActive }) => (isActive ? "nav-item sub active" : "nav-item sub")}>
+    <NavLink to={leaf.to} className={({ isActive }) => navItemClass({ active: isActive, sub: true })}>
       {leaf.label}
     </NavLink>
   );
@@ -248,14 +248,14 @@ export function CustomResourcesGroup() {
             <NavLink
               key={e.gvr}
               to={`/r/ext--${extSlug(e.gvr)}?scoped=${e.namespaced ? 1 : 0}`}
-              className={({ isActive }) => (isActive ? "nav-item sub active" : "nav-item sub")}
+              className={({ isActive }) => navItemClass({ active: isActive, sub: true })}
               title={e.gvr}
             >
               {e.kind}
             </NavLink>
           ))}
           {hidden > 0 && (
-            <button className="nav-item sub nav-group-more" onClick={() => setShowAll(true)}>
+            <button className={navItemClass({ sub: true, extra: "nav-group-more" })} onClick={() => setShowAll(true)}>
               Show all {items.length}
             </button>
           )}
@@ -573,12 +573,12 @@ function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
       <button className="palette-hint" onClick={onOpenPalette}>
         <IconSearch size={13} />
         <span>Search…</span>
-        <kbd>⌘K</kbd>
+        <Kbd>⌘K</Kbd>
       </button>
 
       <nav className="nav">
         <div className="nav-section">Navigate</div>
-        <NavLink to="/workloads-overview" className={({ isActive }) => (isActive ? "nav-item active" : "nav-item")}>
+        <NavLink to="/workloads-overview" className={({ isActive }) => navItemClass({ active: isActive })}>
           <span className="nav-icon"><IconHome /></span>
           <span>Overview</span>
         </NavLink>
@@ -607,7 +607,7 @@ function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 
         <div className="nav-section">Tools</div>
         {TOOLS.map((t) => (
-          <NavLink key={t.to} to={t.to} className={({ isActive }) => (isActive ? "nav-item active" : "nav-item")}>
+          <NavLink key={t.to} to={t.to} className={({ isActive }) => navItemClass({ active: isActive })}>
             <span className="nav-icon">{t.icon}</span>
             <span>{t.label}</span>
           </NavLink>
@@ -786,7 +786,7 @@ function AppInner() {
             </span>
           )}
           <span className="statusbar-right muted">
-            <kbd>⌘K</kbd> palette
+            <Kbd>⌘K</Kbd> palette
           </span>
         </footer>
       </div>

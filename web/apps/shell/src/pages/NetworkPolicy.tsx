@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Badge } from "@kubebay/ui";
+import { Badge, PageHeader, Select } from "@kubebay/ui";
 import { PageLoader } from "../components/PageLoader";
 import { useCluster } from "../lib/useCluster";
 import { useResourceStream } from "../lib/useResourceStream";
@@ -313,21 +313,21 @@ export default function NetworkPolicyPage() {
   return (
     <div className="page">
       {/* ── Header ── */}
-      <div className="page-header">
-        <h2>
-          Network Policy
-          {ready && <span className="live-pill">live</span>}
-        </h2>
-        <div className="page-header-actions">
-          <Badge>{policies.length} policies</Badge>
-          <Badge>{podGroups.length} pod groups</Badge>
-        </div>
-      </div>
+      <PageHeader
+        level={2}
+        title="Network Policy"
+        live={ready}
+        actions={
+          <>
+            <Badge>{policies.length} policies</Badge>
+            <Badge>{podGroups.length} pod groups</Badge>
+          </>
+        }
+      />
 
       {/* ── Toolbar ── */}
       <div className="toolbar">
-        <select
-          className="toolbar-select"
+        <Select
           value={effectiveCluster}
           onChange={(e) => setCluster(e.target.value)}
           aria-label="cluster"
@@ -337,7 +337,7 @@ export default function NetworkPolicyPage() {
               {c.id}
             </option>
           ))}
-        </select>
+        </Select>
         <NamespaceFilter cluster={effectiveCluster || undefined} />
 
         {/* Tab toggle */}

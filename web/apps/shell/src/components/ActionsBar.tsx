@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArmedButton, Badge, Button } from "@kubebay/ui";
+import { ArmedButton, Badge, Button, TextField } from "@kubebay/ui";
 import { actionApi, api } from "../lib/api";
 import { ownerLabel, ownerWarning, type GitOpsOwner } from "../lib/gitops";
 
@@ -63,8 +63,7 @@ export function ActionsBar({
         <>
           <label className="ctl">
             replicas
-            <input
-              className="toolbar-input"
+            <TextField
               style={{ maxWidth: 70 }}
               placeholder="n"
               value={replicas}

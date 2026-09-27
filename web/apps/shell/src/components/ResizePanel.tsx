@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Badge, Button } from "@kubebay/ui";
+import { Badge, Button, TextField } from "@kubebay/ui";
 import { api } from "../lib/api";
 
 const FIELDS = [
@@ -78,8 +78,7 @@ export function ResizePanel({
         {FIELDS.map((f) => (
           <label key={f.key} className="ctl" style={{ flexDirection: "column", alignItems: "flex-start", gap: 3 }}>
             <span className="muted small">{f.label} <span className="subtle">({current(f.section, f.res) || "unset"})</span></span>
-            <input
-              className="toolbar-input"
+            <TextField
               style={{ width: "100%" }}
               placeholder={f.ph}
               value={vals[f.key] ?? ""}
