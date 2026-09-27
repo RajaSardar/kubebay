@@ -131,6 +131,7 @@ export const api = {
     name: string;
     container: string;
     resources: { requests?: Record<string, string>; limits?: Record<string, string> };
+    gitopsOwner?: string;
   }) => send<{ ok: boolean }>("POST", "/api/action/resize-pod", b),
 
   getYamlText: async (cluster: string, gvr: string, ns: string, name: string): Promise<string> => {

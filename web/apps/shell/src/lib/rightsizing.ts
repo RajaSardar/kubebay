@@ -56,6 +56,16 @@ export function formatCpuMillis(millis: number): string {
   return (millis / 1000).toFixed(2);
 }
 
+/** Formats millicores as a K8s CPU quantity string usable in a manifest/patch ("250m"). */
+export function cpuQuantityString(millis: number): string {
+  return `${Math.round(millis)}m`;
+}
+
+/** Formats bytes as a K8s memory quantity string usable in a manifest/patch ("128Mi"). */
+export function memQuantityString(bytes: number): string {
+  return `${Math.round(bytes / (1024 * 1024))}Mi`;
+}
+
 /** Formats bytes back into the largest binary unit that stays >= 1. */
 export function formatMemBytes(bytes: number): string {
   const units: [string, number][] = [...MEM_SUFFIXES.filter(([s]) => s.endsWith("i"))].reverse();
@@ -298,6 +308,56 @@ export function mergeRightSizingRows(vpaRows: RightSizingRow[], engineRows: Righ
   const vpaCovered = new Set(vpaRows.map((r) => `${r.ns}/${r.workloadKind}/${r.workloadName}`));
   const keptEngineRows = engineRows.filter((r) => !vpaCovered.has(`${r.ns}/${r.workloadKind}/${r.workloadName}`));
   return [...vpaRows, ...keptEngineRows].sort((a, b) => wasteScore(b) - wasteScore(a));
+}
+
+export interface WorkloadRightSizingSummary {
+  rows: RightSizingRow[];
+  wastedCpuMillis: number;
+  wastedMemBytes: number;
+}
+
+/**
+ * Narrows a ranked list down to one exact workload — the data behind the
+ * per-workload banner (backlog #4 v3): "discovery requires you to already
+ * be on the right page" is the gap this closes, by surfacing the same
+ * opportunity right on the resource's own drawer. Returns null rather than
+ * a zeroed summary when nothing matches, so the caller can render nothing
+ * instead of an empty banner.
+ */
+export function summarizeForWorkload(
+  rows: RightSizingRow[],
+  target: { ns: string; kind: string; name: string },
+): WorkloadRightSizingSummary | null {
+  const matching = rows.filter((r) => r.ns === target.ns && r.workloadKind === target.kind && r.workloadName === target.name);
+  if (matching.length === 0) return null;
+  return {
+    rows: matching,
+    wastedCpuMillis: matching.reduce((s, r) => s + r.wastedCpuMillis, 0),
+    wastedMemBytes: matching.reduce((s, r) => s + r.wastedMemBytes, 0),
+  };
+}
+
+/**
+ * Finds a specific container's suggested request values from a ranked list —
+ * the bridge from discovery to ResizePanel's manual apply flow (backlog #4
+ * v3). A VPA row only applies to its own named container; an engine row is
+ * workload-level (the sampler aggregates whole-workload usage), so it
+ * matches any container in that workload rather than a specific one — a
+ * real imprecision for a multi-container pod, which is why the caller
+ * labels an engine-sourced suggestion as workload-level rather than
+ * container-exact.
+ */
+export function suggestedRequestsFor(
+  rows: RightSizingRow[],
+  target: { ns: string; kind: string; name: string; container: string },
+): { cpu: string; memory: string } | null {
+  const row = rows.find((r) => {
+    if (r.ns !== target.ns || r.workloadKind !== target.kind || r.workloadName !== target.name) return false;
+    if (r.source === "vpa") return r.container === target.container;
+    return true;
+  });
+  if (!row) return null;
+  return { cpu: cpuQuantityString(row.targetCpuMillis), memory: memQuantityString(row.targetMemBytes) };
 }
 
 function wasteScore(r: RightSizingRow): number {

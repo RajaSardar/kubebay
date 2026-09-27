@@ -10,6 +10,7 @@ import { MetadataSummary } from "./MetadataSummary";
 import { RolloutProgress } from "./RolloutProgress";
 import { AutoscalingTab } from "./AutoscalingTab";
 import { PolicyFindingsTab } from "./PolicyFindingsTab";
+import { RightSizingBanner } from "./RightSizingBanner";
 import type { ResourceDef } from "../lib/resources";
 import { ownerOf } from "../lib/gitops";
 
@@ -22,6 +23,9 @@ type GenTab = "summary" | "rollout" | "autoscaling" | "policy" | "yaml" | "event
 // KEDA ScaledObjects, HPAs, and VPAs can all target these kinds — every
 // other generic kind (ConfigMap, Secret, …) has nothing to autoscale.
 const AUTOSCALABLE_SLUGS = new Set(["deployments", "statefulsets"]);
+// The right-sizing recommender (VPA + Kubebay's own) only covers these three
+// kinds — see lib/rightsizing.ts's SUPPORTED_KINDS.
+const RIGHTSIZABLE_SLUGS = new Set(["deployments", "statefulsets", "daemonsets"]);
 
 // ── Split-pane drag handle ────────────────────────────────────────────────────
 function SplitDivider({
@@ -168,7 +172,16 @@ function PaneContent({
   }
   if (!isNode && !isService && !isPod && genTab === "summary") {
     if (objLoading) return <div className="muted small" style={{ padding: 14 }}>Loading…</div>;
-    return <MetadataSummary obj={obj} />;
+    return (
+      <div>
+        {RIGHTSIZABLE_SLUGS.has(def.slug) && (
+          <div style={{ padding: "14px 14px 0" }}>
+            <RightSizingBanner cluster={cluster} ns={ns} name={name} kind={def.kind} />
+          </div>
+        )}
+        <MetadataSummary obj={obj} />
+      </div>
+    );
   }
   if (!isNode && !isService && !isPod && genTab === "rollout") {
     if (objLoading) return <div className="muted small" style={{ padding: 14 }}>Loading…</div>;

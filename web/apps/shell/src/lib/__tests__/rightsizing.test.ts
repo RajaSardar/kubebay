@@ -7,6 +7,8 @@ import {
   computeRightSizingRows,
   computeEngineRightSizingRows,
   mergeRightSizingRows,
+  summarizeForWorkload,
+  suggestedRequestsFor,
   buildResizePatchYaml,
   gvrForWorkloadKind,
 } from "../rightsizing";
@@ -303,5 +305,53 @@ describe("mergeRightSizingRows", () => {
     const big = computeEngineRightSizingRows([workloadWaste({ name: "big", requestedCpuMillis: 5000, p95CpuMillis: 100 })], []);
     const merged = mergeRightSizingRows([], [...small, ...big]);
     expect(merged.map((r) => r.workloadName)).toEqual(["big", "small"]);
+  });
+});
+
+describe("summarizeForWorkload", () => {
+  it("returns null when no row matches this workload", () => {
+    const rows = computeEngineRightSizingRows([workloadWaste({ name: "other" })], []);
+    expect(summarizeForWorkload(rows, { ns: "default", kind: "Deployment", name: "engine-app" })).toBeNull();
+  });
+
+  it("sums waste across all matching rows for the workload's own banner", () => {
+    const rows = computeEngineRightSizingRows([workloadWaste()], []);
+    const summary = summarizeForWorkload(rows, { ns: "default", kind: "Deployment", name: "engine-app" });
+    expect(summary).not.toBeNull();
+    expect(summary!.wastedCpuMillis).toBe(1200);
+    expect(summary!.rows).toHaveLength(1);
+  });
+
+  it("does not match a row for the same name but a different kind", () => {
+    const rows = computeEngineRightSizingRows([workloadWaste()], []);
+    expect(summarizeForWorkload(rows, { ns: "default", kind: "StatefulSet", name: "engine-app" })).toBeNull();
+  });
+});
+
+describe("suggestedRequestsFor", () => {
+  it("matches a VPA row by exact container name and returns quantity strings", () => {
+    const rows = computeRightSizingRows({
+      vpas: [vpa()],
+      workloads: [deployment()],
+      hpas: [],
+    });
+    const s = suggestedRequestsFor(rows, { ns: "default", kind: "Deployment", name: "app", container: "app" });
+    expect(s).toEqual({ cpu: "100m", memory: "128Mi" });
+  });
+
+  it("does not match a VPA row for a different container name", () => {
+    const rows = computeRightSizingRows({ vpas: [vpa()], workloads: [deployment()], hpas: [] });
+    expect(suggestedRequestsFor(rows, { ns: "default", kind: "Deployment", name: "app", container: "sidecar" })).toBeNull();
+  });
+
+  it("matches an engine (workload-level) row regardless of the container name", () => {
+    const rows = computeEngineRightSizingRows([workloadWaste({ ns: "default", kind: "Deployment", name: "engine-app" })], []);
+    const s = suggestedRequestsFor(rows, { ns: "default", kind: "Deployment", name: "engine-app", container: "any-container" });
+    expect(s).toEqual({ cpu: "300m", memory: "512Mi" });
+  });
+
+  it("returns null when nothing matches", () => {
+    const rows = computeEngineRightSizingRows([workloadWaste()], []);
+    expect(suggestedRequestsFor(rows, { ns: "default", kind: "Deployment", name: "nope", container: "app" })).toBeNull();
   });
 });

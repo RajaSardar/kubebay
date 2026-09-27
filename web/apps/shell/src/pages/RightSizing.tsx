@@ -15,6 +15,8 @@ import {
   mergeRightSizingRows,
   formatCpuMillis,
   formatMemBytes,
+  cpuQuantityString,
+  memQuantityString,
   gvrForWorkloadKind,
   buildResizePatchYaml,
   type RightSizingRow,
@@ -65,20 +67,13 @@ function buildPlans(rows: RightSizingRow[], selection: Selection): WorkloadPlan[
     };
     plan.patches.push({
       name: r.container,
-      cpu: sel.cpu ? cpuQuantity(r.targetCpuMillis) : undefined,
-      memory: sel.memory ? memQuantity(r.targetMemBytes) : undefined,
+      cpu: sel.cpu ? cpuQuantityString(r.targetCpuMillis) : undefined,
+      memory: sel.memory ? memQuantityString(r.targetMemBytes) : undefined,
     });
     plan.rows.push(r);
     byWorkload.set(wk, plan);
   }
   return [...byWorkload.values()];
-}
-
-function cpuQuantity(millis: number): string {
-  return `${Math.round(millis)}m`;
-}
-function memQuantity(bytes: number): string {
-  return `${Math.round(bytes / (1024 * 1024))}Mi`;
 }
 
 export default function RightSizing() {
