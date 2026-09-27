@@ -110,9 +110,9 @@ export const api = {
     send<PortForwardInfo>("POST", "/api/pf", b),
   pfStop: (id: string) => send<{ stopped: boolean }>("DELETE", `/api/pf/${encodeURIComponent(id)}`),
 
-  scale: (b: { cluster: string; gvr: string; ns: string; name: string; replicas: number }) =>
+  scale: (b: { cluster: string; gvr: string; ns: string; name: string; replicas: number; gitopsOwner?: string }) =>
     send<{ ok: boolean }>("POST", "/api/action/scale", b),
-  restart: (b: { cluster: string; gvr: string; ns: string; name: string }) =>
+  restart: (b: { cluster: string; gvr: string; ns: string; name: string; gitopsOwner?: string }) =>
     send<{ ok: boolean }>("POST", "/api/action/restart", b),
   deleteResource: (b: {
     cluster: string;
@@ -121,6 +121,7 @@ export const api = {
     name: string;
     graceSeconds?: number;
     forceFinalizers?: boolean;
+    gitopsOwner?: string;
   }) => send<{ ok: boolean }>("POST", "/api/action/delete", b),
   resizePod: (b: {
     cluster: string;
@@ -190,9 +191,9 @@ export const metricsApi = {
 };
 
 export const actionApi = {
-  cordon: (b: { cluster: string; node: string; cordon: boolean }) =>
+  cordon: (b: { cluster: string; node: string; cordon: boolean; gitopsOwner?: string }) =>
     send<{ ok: boolean }>("POST", "/api/action/cordon", b),
-  drain: (b: { cluster: string; node: string; ignoreDaemonsets?: boolean }) =>
+  drain: (b: { cluster: string; node: string; ignoreDaemonsets?: boolean; gitopsOwner?: string }) =>
     send<{ evicted: string[]; skipped: string[]; errors?: Record<string, string> }>("POST", "/api/action/drain", b),
   triggerCronJob: (b: { cluster: string; ns: string; name: string }) =>
     send<{ job: string }>("POST", "/api/action/trigger-cronjob", b),

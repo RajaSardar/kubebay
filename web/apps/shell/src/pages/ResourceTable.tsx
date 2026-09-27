@@ -487,9 +487,16 @@ export default function ResourceTable() {
   );
   const { widths, getResizeHandleProps } = useResizableColumns(headers.length, initialWidths);
   const { selectedKeys, toggleRow, selectAll, clearAll, deselect, isAllSelected, isIndeterminate } = useRowSelection();
-  const bulkDelete = useBulkDelete((t) =>
-    api.deleteResource({ cluster: effectiveCluster, gvr: def?.gvr ?? "", ns: t.ns, name: t.name }),
-  );
+  const bulkDelete = useBulkDelete((t) => {
+    const owner = ownerAmongTargets([t], rows);
+    return api.deleteResource({
+      cluster: effectiveCluster,
+      gvr: def?.gvr ?? "",
+      ns: t.ns,
+      name: t.name,
+      gitopsOwner: owner ? ownerLabel(owner) : undefined,
+    });
+  });
 
   const rows = useMemo(() => {
     let out = [...stream.rows];

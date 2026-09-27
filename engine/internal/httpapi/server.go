@@ -144,11 +144,12 @@ func Router(d Deps, token string) http.Handler {
 
 		r.Post("/api/action/scale", func(w http.ResponseWriter, r *http.Request) {
 			var body struct {
-				Cluster  string `json:"cluster"`
-				GVR      string `json:"gvr"`
-				NS       string `json:"ns"`
-				Name     string `json:"name"`
-				Replicas int64  `json:"replicas"`
+				Cluster     string `json:"cluster"`
+				GVR         string `json:"gvr"`
+				NS          string `json:"ns"`
+				Name        string `json:"name"`
+				Replicas    int64  `json:"replicas"`
+				GitOpsOwner string `json:"gitopsOwner,omitempty"`
 			}
 			if err := decodeBody(r, &body); err != nil || body.Cluster == "" || body.GVR == "" || body.Name == "" {
 				http.Error(w, "cluster, gvr, name required", http.StatusBadRequest)
@@ -163,17 +164,18 @@ func Router(d Deps, token string) http.Handler {
 				Cluster:   body.Cluster,
 				Namespace: body.NS,
 				Resource:  body.Name,
-				Detail:    fmt.Sprintf("gvr=%s replicas=%d", body.GVR, body.Replicas),
+				Detail:    appendOwnerDetail(fmt.Sprintf("gvr=%s replicas=%d", body.GVR, body.Replicas), body.GitOpsOwner),
 				UserAgent: r.Header.Get("User-Agent"),
 			})
 			writeJSON(w, map[string]bool{"ok": true})
 		})
 		r.Post("/api/action/restart", func(w http.ResponseWriter, r *http.Request) {
 			var body struct {
-				Cluster string `json:"cluster"`
-				GVR     string `json:"gvr"`
-				NS      string `json:"ns"`
-				Name    string `json:"name"`
+				Cluster     string `json:"cluster"`
+				GVR         string `json:"gvr"`
+				NS          string `json:"ns"`
+				Name        string `json:"name"`
+				GitOpsOwner string `json:"gitopsOwner,omitempty"`
 			}
 			if err := decodeBody(r, &body); err != nil || body.Cluster == "" || body.GVR == "" || body.Name == "" {
 				http.Error(w, "cluster, gvr, name required", http.StatusBadRequest)
@@ -188,7 +190,7 @@ func Router(d Deps, token string) http.Handler {
 				Cluster:   body.Cluster,
 				Namespace: body.NS,
 				Resource:  body.Name,
-				Detail:    fmt.Sprintf("gvr=%s", body.GVR),
+				Detail:    appendOwnerDetail(fmt.Sprintf("gvr=%s", body.GVR), body.GitOpsOwner),
 				UserAgent: r.Header.Get("User-Agent"),
 			})
 			writeJSON(w, map[string]bool{"ok": true})
@@ -201,6 +203,7 @@ func Router(d Deps, token string) http.Handler {
 				Name            string `json:"name"`
 				GraceSeconds    *int64 `json:"graceSeconds,omitempty"`
 				ForceFinalizers bool   `json:"forceFinalizers,omitempty"`
+				GitOpsOwner     string `json:"gitopsOwner,omitempty"`
 			}
 			if err := decodeBody(r, &body); err != nil || body.Cluster == "" || body.GVR == "" || body.Name == "" {
 				http.Error(w, "cluster, gvr, name required", http.StatusBadRequest)
@@ -219,7 +222,7 @@ func Router(d Deps, token string) http.Handler {
 				Cluster:   body.Cluster,
 				Namespace: body.NS,
 				Resource:  body.Name,
-				Detail:    detail,
+				Detail:    appendOwnerDetail(detail, body.GitOpsOwner),
 				UserAgent: r.Header.Get("User-Agent"),
 			})
 			writeJSON(w, map[string]bool{"ok": true})
@@ -280,9 +283,10 @@ func Router(d Deps, token string) http.Handler {
 		r.Get("/api/helm/manifest", d.Helm.HandleManifest)
 		r.Post("/api/action/cordon", func(w http.ResponseWriter, r *http.Request) {
 			var body struct {
-				Cluster string `json:"cluster"`
-				Node    string `json:"node"`
-				Cordon  bool   `json:"cordon"`
+				Cluster     string `json:"cluster"`
+				Node        string `json:"node"`
+				Cordon      bool   `json:"cordon"`
+				GitOpsOwner string `json:"gitopsOwner,omitempty"`
 			}
 			if err := decodeBody(r, &body); err != nil || body.Cluster == "" || body.Node == "" {
 				http.Error(w, "cluster, node required", http.StatusBadRequest)
@@ -296,7 +300,7 @@ func Router(d Deps, token string) http.Handler {
 				Action:    "cordon",
 				Cluster:   body.Cluster,
 				Resource:  body.Node,
-				Detail:    fmt.Sprintf("cordon=%t", body.Cordon),
+				Detail:    appendOwnerDetail(fmt.Sprintf("cordon=%t", body.Cordon), body.GitOpsOwner),
 				UserAgent: r.Header.Get("User-Agent"),
 			})
 			writeJSON(w, map[string]bool{"ok": true})
@@ -306,6 +310,7 @@ func Router(d Deps, token string) http.Handler {
 				Cluster          string `json:"cluster"`
 				Node             string `json:"node"`
 				IgnoreDaemonsets bool   `json:"ignoreDaemonsets"`
+				GitOpsOwner      string `json:"gitopsOwner,omitempty"`
 			}
 			if err := decodeBody(r, &body); err != nil || body.Cluster == "" || body.Node == "" {
 				http.Error(w, "cluster, node required", http.StatusBadRequest)
@@ -323,7 +328,7 @@ func Router(d Deps, token string) http.Handler {
 				Action:    "drain",
 				Cluster:   body.Cluster,
 				Resource:  body.Node,
-				Detail:    fmt.Sprintf("ignoreDaemonsets=%t evicted=%d", body.IgnoreDaemonsets, len(sum.Evicted)),
+				Detail:    appendOwnerDetail(fmt.Sprintf("ignoreDaemonsets=%t evicted=%d", body.IgnoreDaemonsets, len(sum.Evicted)), body.GitOpsOwner),
 				UserAgent: r.Header.Get("User-Agent"),
 			})
 			writeJSON(w, sum)

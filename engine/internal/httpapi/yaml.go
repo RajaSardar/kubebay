@@ -173,12 +173,16 @@ func (c *Channels) HandleApplyYAML(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	kind, _ := doc["kind"].(string)
+	detail := fmt.Sprintf("gvr=%s kind=%s dryRun=%t force=%t", req.GVR, kind, req.DryRun, req.Force)
+	if owner := gitopsOwnerFromDoc(doc); owner != "" {
+		detail += " owner=" + owner
+	}
 	c.Audit.Record(audit.Entry{
 		Action:    "apply",
 		Cluster:   req.Cluster,
 		Namespace: req.Namespace,
 		Resource:  req.Name,
-		Detail:    fmt.Sprintf("gvr=%s kind=%s dryRun=%t force=%t", req.GVR, kind, req.DryRun, req.Force),
+		Detail:    detail,
 		UserAgent: r.Header.Get("User-Agent"),
 	})
 	resp := map[string]interface{}{"applied": applied != nil, "dryRun": req.DryRun}

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ArmedButton, Badge, Button } from "@kubebay/ui";
 import { actionApi, api } from "../lib/api";
-import { ownerWarning, type GitOpsOwner } from "../lib/gitops";
+import { ownerLabel, ownerWarning, type GitOpsOwner } from "../lib/gitops";
 
 type Slug = "deployments" | "statefulsets" | "daemonsets" | "cronjobs" | "nodes";
 
@@ -46,6 +46,7 @@ export function ActionsBar({
 }) {
   const { msg, err, busy, run } = useFeedback();
   const [replicas, setReplicas] = useState("");
+  const ownerDetail = gitopsOwner ? ownerLabel(gitopsOwner) : undefined;
 
   const showScale = slug === "deployments" || slug === "statefulsets";
   const showRestart = slug === "deployments" || slug === "statefulsets" || slug === "daemonsets";
@@ -76,7 +77,7 @@ export function ActionsBar({
             disabled={busy || !replicas}
             onClick={() =>
               void run(async () => {
-                await api.scale({ cluster, gvr: GVR[slug]!, ns, name, replicas: Number(replicas) });
+                await api.scale({ cluster, gvr: GVR[slug]!, ns, name, replicas: Number(replicas), gitopsOwner: ownerDetail });
                 return `Scaled to ${replicas}.`;
               })
             }
@@ -91,7 +92,7 @@ export function ActionsBar({
           disabled={busy}
           onClick={() =>
             void run(async () => {
-              await api.restart({ cluster, gvr: GVR[slug]!, ns, name });
+              await api.restart({ cluster, gvr: GVR[slug]!, ns, name, gitopsOwner: ownerDetail });
               return "Rollout restart triggered.";
             })
           }
@@ -150,7 +151,7 @@ export function ActionsBar({
             busy={busy}
             onGo={() =>
               void run(async () => {
-                await actionApi.cordon({ cluster, node: name, cordon: true });
+                await actionApi.cordon({ cluster, node: name, cordon: true, gitopsOwner: ownerDetail });
                 return "Node cordoned — no new pods scheduled.";
               })
             }
@@ -173,7 +174,7 @@ export function ActionsBar({
             busy={busy}
             onGo={() =>
               void run(async () => {
-                const r = await actionApi.drain({ cluster, node: name });
+                const r = await actionApi.drain({ cluster, node: name, gitopsOwner: ownerDetail });
                 return `Drained: ${r.evicted.length} evicted, ${r.skipped.length} skipped.`;
               })
             }
