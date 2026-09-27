@@ -185,3 +185,14 @@ func TestSplitYAMLDocs_TrailingNewline(t *testing.T) {
 		t.Fatalf("want 2 docs, got %d: %q", len(docs), docs)
 	}
 }
+
+// ── auditActionFor ───────────────────────────────────────────────────────────
+
+func TestAuditActionFor(t *testing.T) {
+	if got := auditActionFor(ApplyYAMLRequest{}); got != "apply" {
+		t.Errorf("default action = %q, want apply", got)
+	}
+	if got := auditActionFor(ApplyYAMLRequest{Action: "rightsize"}); got != "rightsize" {
+		t.Errorf("override action = %q, want rightsize", got)
+	}
+}
