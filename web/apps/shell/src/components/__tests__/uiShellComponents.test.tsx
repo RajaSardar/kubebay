@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { createRef } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import {
   ContextMenu,
@@ -10,6 +11,7 @@ import {
   StatusPill,
   Tabs,
   TextField,
+  navItemClass,
   phaseTone,
 } from "@kubebay/ui";
 
@@ -126,5 +128,35 @@ describe("ContextMenu", () => {
     fireEvent.keyDown(document, { key: "Escape" });
     fireEvent.mouseDown(document.body);
     expect(onClose).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("adoption helpers", () => {
+  it("PageHeader keeps the page's heading level and shows a live pill", () => {
+    const { container } = render(<PageHeader level={2} title="Topology" live />);
+    expect(container.querySelector("h2")).toHaveTextContent("Topology");
+    expect(screen.getByText("live")).toHaveClass("live-pill");
+    expect(container.querySelector(".page-header-actions")).toBeNull();
+  });
+
+  it("TextField and Select forward refs to the native element", () => {
+    const inputRef = createRef<HTMLInputElement>();
+    const selectRef = createRef<HTMLSelectElement>();
+    render(
+      <>
+        <TextField ref={inputRef} className="extra" />
+        <Select ref={selectRef} className="drawer-select" />
+      </>,
+    );
+    expect(inputRef.current).toBeInstanceOf(HTMLInputElement);
+    expect(inputRef.current).toHaveClass("toolbar-input", "extra");
+    expect(selectRef.current).toHaveClass("toolbar-select", "drawer-select");
+  });
+
+  it("navItemClass builds the same classes NavItem uses, for router links", () => {
+    expect(navItemClass({})).toBe("nav-item");
+    expect(navItemClass({ active: true })).toBe("nav-item active");
+    expect(navItemClass({ sub: true, active: true })).toBe("nav-item sub active");
+    expect(navItemClass({ sub: true, extra: "nav-group-more" })).toBe("nav-item sub nav-group-more");
   });
 });

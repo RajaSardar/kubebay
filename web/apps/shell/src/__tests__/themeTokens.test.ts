@@ -75,7 +75,7 @@ describe("@kubebay/ui owns the styles of its components", () => {
   const selectors = [
     ".status-ok", ".status-terminating", ".tabs", ".tab.active", ".nav-item", ".nav-item.sub", ".nav-section",
     ".toolbar-input", ".toolbar-select", "kbd", ".page-header", ".page-header-actions", ".ctx-menu", ".ctx-item",
-    ".kb-table", ".kb-table th", ".palette-box", ".palette-item.active", ".ns-pill", ".cell-link",
+    ".kb-table", ".kb-table th", ".palette-box", ".palette-item.active", ".ns-pill", ".cell-link", ".live-pill",
   ];
   const defines = (css: string, sel: string) =>
     stripComments(css)

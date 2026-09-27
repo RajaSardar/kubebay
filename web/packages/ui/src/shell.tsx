@@ -1,4 +1,5 @@
 import {
+  forwardRef,
   useEffect,
   useRef,
   type InputHTMLAttributes,
@@ -73,11 +74,15 @@ export interface NavItemProps {
   onClick?: () => void;
 }
 
-/** A sidebar row. Router links can reuse the classes: `nav-item`, `sub`, `active`. */
+/** Class list for a sidebar row; router links (NavLink) use it so they match NavItem. */
+export function navItemClass({ active, sub, extra }: { active?: boolean; sub?: boolean; extra?: string }) {
+  return `nav-item${sub ? " sub" : ""}${active ? " active" : ""}${extra ? " " + extra : ""}`;
+}
+
+/** A sidebar row. */
 export function NavItem({ label, href, icon, active, sub, onClick }: NavItemProps) {
-  const cls = `nav-item${sub ? " sub" : ""}${active ? " active" : ""}`;
   return (
-    <a className={cls} href={href} onClick={onClick} aria-current={active ? "page" : undefined}>
+    <a className={navItemClass({ active, sub })} href={href} onClick={onClick} aria-current={active ? "page" : undefined}>
       {icon && <span className="nav-icon">{icon}</span>}
       <span>{label}</span>
     </a>
@@ -86,13 +91,17 @@ export function NavItem({ label, href, icon, active, sub, onClick }: NavItemProp
 
 // ── Inputs ────────────────────────────────────────────────────────────────────
 
-export function TextField({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
-  return <input className={`toolbar-input${className ? " " + className : ""}`} {...props} />;
-}
+export const TextField = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(
+  function TextField({ className, ...props }, ref) {
+    return <input ref={ref} className={`toolbar-input${className ? " " + className : ""}`} {...props} />;
+  },
+);
 
-export function Select({ className, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select className={`toolbar-select${className ? " " + className : ""}`} {...props} />;
-}
+export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSelectElement>>(
+  function Select({ className, ...props }, ref) {
+    return <select ref={ref} className={`toolbar-select${className ? " " + className : ""}`} {...props} />;
+  },
+);
 
 export function Kbd({ children }: { children: ReactNode }) {
   return <kbd>{children}</kbd>;
@@ -100,14 +109,28 @@ export function Kbd({ children }: { children: ReactNode }) {
 
 // ── Page header ───────────────────────────────────────────────────────────────
 
-export function PageHeader({ title, count, actions }: { title: ReactNode; count?: ReactNode; actions?: ReactNode }) {
+export interface PageHeaderProps {
+  title: ReactNode;
+  /** Secondary count after the title, e.g. "· 128" or "12 configured". */
+  count?: ReactNode;
+  /** Shows the pulsing "live" pill once the page's stream has synced. */
+  live?: boolean;
+  /** Right-hand group: badges, selection counts, buttons. */
+  actions?: ReactNode;
+  /** Heading element; both levels look the same. Default 1. */
+  level?: 1 | 2;
+}
+
+export function PageHeader({ title, count, live, actions, level = 1 }: PageHeaderProps) {
+  const Heading = level === 2 ? "h2" : "h1";
   return (
     <div className="page-header">
-      <h1>
+      <Heading>
         {title}
-        {count != null && <span className="page-header-count">{count}</span>}
-      </h1>
-      {actions && <div className="page-header-actions">{actions}</div>}
+        {count != null && count !== false && <span className="page-header-count">{count}</span>}
+        {live && <span className="live-pill">live</span>}
+      </Heading>
+      {actions != null && actions !== false && <div className="page-header-actions">{actions}</div>}
     </div>
   );
 }
