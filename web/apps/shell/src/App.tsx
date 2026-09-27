@@ -1,7 +1,7 @@
 import { createContext, lazy, Suspense, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ClusterInfo } from "./lib/api";
-import { NavLink, Navigate, Route, Routes, useNavigate } from "react-router-dom";
+import { NavLink, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { useClusterStore } from "./lib/cluster-store";
 import { shouldRedirectToPicker } from "./lib/clusterPickerLogic";
 import { StatusDot } from "@kubebay/ui";
@@ -640,6 +640,7 @@ function NotFound() {
 
 function AppInner() {
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const health = useQuery({ queryKey: ["health"], queryFn: api.health, refetchInterval: 10_000 });
   const clusters = useQuery({ queryKey: ["clusters"], queryFn: api.clusters, refetchInterval: 4_000 });
