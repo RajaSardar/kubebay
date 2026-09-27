@@ -62,6 +62,8 @@ export function RightSizingTable({
                   <div className="muted small">
                     {r.workloadKind} · {r.ns}
                   </div>
+                  {r.source === "vpa" ? <Badge>VPA</Badge> : <Badge>Kubebay (metrics-server)</Badge>}
+                  {r.window && <div className="muted small">{r.window}</div>}
                   {r.gitopsOwner && <Badge>{ownerLabel(r.gitopsOwner)}</Badge>}
                   {r.hpaCpuConflict && <Badge tone="err">HPA scales this on CPU</Badge>}
                 </td>
@@ -77,23 +79,29 @@ export function RightSizingTable({
                   {formatCpuMillis(r.wastedCpuMillis)} / {formatMemBytes(r.wastedMemBytes)}
                 </td>
                 <td>
-                  {r.cpuMaterial && (
-                    <label className="ctl" style={{ cursor: r.hpaCpuConflict ? "not-allowed" : "pointer" }}>
-                      <input
-                        type="checkbox"
-                        aria-label="cpu"
-                        checked={sel.cpu}
-                        disabled={r.hpaCpuConflict}
-                        onChange={() => onToggle(key, "cpu")}
-                      />
-                      cpu
-                    </label>
-                  )}
-                  {r.memMaterial && (
-                    <label className="ctl" style={{ cursor: "pointer" }}>
-                      <input type="checkbox" aria-label="memory" checked={sel.memory} onChange={() => onToggle(key, "memory")} />
-                      memory
-                    </label>
+                  {r.source !== "vpa" ? (
+                    <span className="muted small">view only</span>
+                  ) : (
+                    <>
+                      {r.cpuMaterial && (
+                        <label className="ctl" style={{ cursor: r.hpaCpuConflict ? "not-allowed" : "pointer" }}>
+                          <input
+                            type="checkbox"
+                            aria-label="cpu"
+                            checked={sel.cpu}
+                            disabled={r.hpaCpuConflict}
+                            onChange={() => onToggle(key, "cpu")}
+                          />
+                          cpu
+                        </label>
+                      )}
+                      {r.memMaterial && (
+                        <label className="ctl" style={{ cursor: "pointer" }}>
+                          <input type="checkbox" aria-label="memory" checked={sel.memory} onChange={() => onToggle(key, "memory")} />
+                          memory
+                        </label>
+                      )}
+                    </>
                   )}
                 </td>
               </tr>

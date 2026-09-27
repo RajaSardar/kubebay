@@ -1,4 +1,5 @@
 import { ownerOf, type GitOpsOwner } from "./gitops";
+import type { WorkloadWaste } from "./api";
 
 function rec(v: unknown): Record<string, unknown> {
   return (v ?? {}) as Record<string, unknown>;
@@ -78,7 +79,7 @@ const CPU_ABS_THRESHOLD_MILLIS = 50;
 const MEM_ABS_THRESHOLD_BYTES = 64 * 1024 * 1024;
 const RELATIVE_THRESHOLD = 0.2;
 
-function isMaterial(current: number, target: number, absThreshold: number): boolean {
+export function isMaterial(current: number, target: number, absThreshold: number): boolean {
   const delta = Math.abs(current - target);
   if (delta < absThreshold) return false;
   if (current === 0) return delta >= absThreshold;
@@ -104,6 +105,12 @@ export interface RightSizingRow {
   material: boolean;
   hpaCpuConflict: boolean;
   gitopsOwner: GitOpsOwner | null;
+  /** Which recommender produced this row — surfaced so the UI never implies
+   * more authority than the source actually has (a tuned VPA vs. Kubebay's
+   * own raw 3h p95). */
+  source: "vpa" | "metrics-server";
+  /** Only set for source: "metrics-server" — e.g. "observed over 3h, 180 samples". */
+  window?: string;
 }
 
 interface ContainerRecommendation {
@@ -139,7 +146,7 @@ function workloadContainers(workload: Record<string, unknown>): { name: string; 
 
 // An HPA "targets CPU" if it carries a v2 Resource metric for cpu (the only
 // shape the autoscaling/v2 GVR this feature streams can have).
-function hpaTargetsCpu(hpa: Record<string, unknown>): boolean {
+export function hpaTargetsCpu(hpa: Record<string, unknown>): boolean {
   const metrics = rec(hpa.spec).metrics;
   if (!Array.isArray(metrics)) return false;
   return metrics.some((m) => {
@@ -148,7 +155,7 @@ function hpaTargetsCpu(hpa: Record<string, unknown>): boolean {
   });
 }
 
-function sameTarget(refA: { kind: string; name: string }, ns: string, hpa: Record<string, unknown>, hpaNs: string): boolean {
+export function sameTarget(refA: { kind: string; name: string }, ns: string, hpa: Record<string, unknown>, hpaNs: string): boolean {
   if (ns !== hpaNs) return false;
   const ref = rec(hpa.spec).scaleTargetRef;
   const r = rec(ref);
@@ -224,11 +231,73 @@ export function computeRightSizingRows(input: {
         material: cpuMaterial || memMaterial,
         hpaCpuConflict,
         gitopsOwner: ownerOf(workload),
+        source: "vpa",
       });
     }
   }
 
   return rows.sort((a, b) => wasteScore(b) - wasteScore(a));
+}
+
+/**
+ * Workload-level rows from Kubebay's own metrics-server-based recommender
+ * (backlog #4 v2) — the "most clusters have no VPA" case. Coarser than a
+ * VPA row (no per-container breakdown, since the engine aggregates usage to
+ * the whole workload), so `container` is a synthetic label rather than a
+ * real container name. Same materiality gate and HPA-conflict detection as
+ * the VPA path, for a consistent bar across both sources.
+ */
+export function computeEngineRightSizingRows(waste: WorkloadWaste[], hpas: Record<string, unknown>[]): RightSizingRow[] {
+  const rows: RightSizingRow[] = [];
+
+  for (const w of waste) {
+    if (!SUPPORTED_KINDS.has(w.kind)) continue;
+
+    const cpuMaterial = isMaterial(w.requestedCpuMillis, w.p95CpuMillis, CPU_ABS_THRESHOLD_MILLIS);
+    const memMaterial = isMaterial(w.requestedMemBytes, w.p95MemBytes, MEM_ABS_THRESHOLD_BYTES);
+    if (!cpuMaterial && !memMaterial) continue;
+
+    const hpaCpuConflict = hpas.some(
+      (h) => hpaTargetsCpu(h) && sameTarget({ kind: w.kind, name: w.name }, w.ns, h, str(rec(h.metadata).namespace)),
+    );
+
+    rows.push({
+      ns: w.ns,
+      workloadKind: w.kind,
+      workloadName: w.name,
+      container: "(all containers)",
+      replicas: w.podCount || 1,
+      vpaName: "",
+      vpaUpdateMode: "",
+      currentCpuMillis: w.requestedCpuMillis,
+      currentMemBytes: w.requestedMemBytes,
+      targetCpuMillis: w.p95CpuMillis,
+      targetMemBytes: w.p95MemBytes,
+      wastedCpuMillis: Math.max(w.requestedCpuMillis - w.p95CpuMillis, 0),
+      wastedMemBytes: Math.max(w.requestedMemBytes - w.p95MemBytes, 0),
+      cpuMaterial,
+      memMaterial,
+      material: cpuMaterial || memMaterial,
+      hpaCpuConflict,
+      gitopsOwner: null,
+      source: "metrics-server",
+      window: w.window,
+    });
+  }
+
+  return rows.sort((a, b) => wasteScore(b) - wasteScore(a));
+}
+
+/**
+ * Combines VPA-sourced and engine-sourced rows into one ranked list. A VPA
+ * recommendation wins over the engine's own for the same workload — it's a
+ * purpose-built controller, ours is a raw 3h p95 — so an engine row is
+ * dropped whenever any VPA row already covers that workload.
+ */
+export function mergeRightSizingRows(vpaRows: RightSizingRow[], engineRows: RightSizingRow[]): RightSizingRow[] {
+  const vpaCovered = new Set(vpaRows.map((r) => `${r.ns}/${r.workloadKind}/${r.workloadName}`));
+  const keptEngineRows = engineRows.filter((r) => !vpaCovered.has(`${r.ns}/${r.workloadKind}/${r.workloadName}`));
+  return [...vpaRows, ...keptEngineRows].sort((a, b) => wasteScore(b) - wasteScore(a));
 }
 
 function wasteScore(r: RightSizingRow): number {

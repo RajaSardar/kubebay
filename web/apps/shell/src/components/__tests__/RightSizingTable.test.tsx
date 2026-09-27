@@ -23,6 +23,7 @@ function row(overrides: Partial<RightSizingRow> = {}): RightSizingRow {
     material: true,
     hpaCpuConflict: false,
     gitopsOwner: null,
+    source: "vpa",
     ...overrides,
   };
 }
@@ -74,5 +75,28 @@ describe("RightSizingTable", () => {
   it("does not render a checkbox for a dimension that isn't material", () => {
     render(<RightSizingTable rows={[row({ memMaterial: false })]} selected={{}} onToggle={vi.fn()} />);
     expect(screen.queryByRole("checkbox", { name: /^memory/i })).toBeNull();
+  });
+
+  it("badges a VPA-sourced row as VPA", () => {
+    render(<RightSizingTable rows={[row({ source: "vpa" })]} selected={{}} onToggle={vi.fn()} />);
+    expect(screen.getByText("VPA")).toBeTruthy();
+  });
+
+  it("badges an engine-sourced row distinctly, with its observation window", () => {
+    render(
+      <RightSizingTable
+        rows={[row({ source: "metrics-server", window: "observed over 3h, 180 samples" })]}
+        selected={{}}
+        onToggle={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(/kubebay/i)).toBeTruthy();
+    expect(screen.getByText(/observed over 3h, 180 samples/i)).toBeTruthy();
+  });
+
+  it("shows an engine-sourced row as view-only, with no apply checkboxes (actuation is v3 scope)", () => {
+    render(<RightSizingTable rows={[row({ source: "metrics-server" })]} selected={{}} onToggle={vi.fn()} />);
+    expect(screen.getByText(/view only/i)).toBeTruthy();
+    expect(screen.queryByRole("checkbox")).toBeNull();
   });
 });

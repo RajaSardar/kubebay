@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { DiffEditor } from "@monaco-editor/react";
 import { ArmedButton, Badge, Button, Card } from "@kubebay/ui";
 import { PageLoader } from "../components/PageLoader";
@@ -6,10 +7,12 @@ import { RightSizingTable, rowKey, type Selection } from "../components/RightSiz
 import { useResourceStream, shouldShowSkeleton } from "../lib/useResourceStream";
 import { useCluster } from "../lib/useCluster";
 import { useMonacoTheme } from "../lib/theme";
-import { api } from "../lib/api";
+import { api, wasteApi } from "../lib/api";
 import { ownerLabel } from "../lib/gitops";
 import {
   computeRightSizingRows,
+  computeEngineRightSizingRows,
+  mergeRightSizingRows,
   formatCpuMillis,
   formatMemBytes,
   gvrForWorkloadKind,
@@ -45,6 +48,10 @@ function planWorkloadKey(p: Pick<WorkloadPlan, "ns" | "kind" | "name">): string 
 function buildPlans(rows: RightSizingRow[], selection: Selection): WorkloadPlan[] {
   const byWorkload = new Map<string, WorkloadPlan>();
   for (const r of rows) {
+    // Engine-sourced rows are view-only in v2 — no real per-container split
+    // to build a patch from (the sampler aggregates to the whole workload).
+    // Actuating on them is v3 scope.
+    if (r.source !== "vpa") continue;
     const sel = selection[rowKey(r)];
     if (!sel || (!sel.cpu && !sel.memory)) continue;
     const wk = rowWorkloadKey(r);
@@ -89,10 +96,19 @@ export default function RightSizing() {
     [deployments.rows, statefulsets.rows, daemonsets.rows],
   );
 
-  const rows = useMemo(
-    () => computeRightSizingRows({ vpas: vpas.rows, workloads, hpas: hpas.rows }),
-    [vpas.rows, workloads, hpas.rows],
-  );
+  const wasteQ = useQuery({
+    queryKey: ["waste-workloads", effectiveCluster],
+    queryFn: () => wasteApi.workloads(effectiveCluster),
+    enabled: !!effectiveCluster,
+    refetchInterval: 30_000,
+    retry: false,
+  });
+
+  const rows = useMemo(() => {
+    const vpaRows = computeRightSizingRows({ vpas: vpas.rows, workloads, hpas: hpas.rows });
+    const engineRows = computeEngineRightSizingRows(wasteQ.data ?? [], hpas.rows);
+    return mergeRightSizingRows(vpaRows, engineRows);
+  }, [vpas.rows, workloads, hpas.rows, wasteQ.data]);
 
   const [selection, setSelection] = useState<Selection>({});
 
@@ -223,8 +239,9 @@ export default function RightSizing() {
           <div className="empty-state" style={{ marginBottom: 16 }}>
             <p>No VerticalPodAutoscalers found on this cluster.</p>
             <p className="muted small">
-              Right-sizing v1 reads existing VPA recommendations only — install the VPA recommender (with{" "}
-              <code className="mono">updateMode: "Off"</code> to keep it observe-only) to see opportunities here.
+              Kubebay's own metrics-server-based recommendations (below, badged "Kubebay") still work without one —
+              install the VPA recommender too (with <code className="mono">updateMode: "Off"</code> to keep it
+              observe-only) for a purpose-built alternative on the same workloads.
             </p>
           </div>
         )}

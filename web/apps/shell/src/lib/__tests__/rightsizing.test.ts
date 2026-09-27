@@ -5,9 +5,12 @@ import {
   formatCpuMillis,
   formatMemBytes,
   computeRightSizingRows,
+  computeEngineRightSizingRows,
+  mergeRightSizingRows,
   buildResizePatchYaml,
   gvrForWorkloadKind,
 } from "../rightsizing";
+import type { WorkloadWaste } from "../api";
 
 function vpa(overrides: Record<string, unknown> = {}) {
   return {
@@ -210,5 +213,95 @@ describe("buildResizePatchYaml", () => {
     expect(yaml).toContain("name: sidecar");
     expect(yaml).toContain('cpu: "200m"');
     expect(yaml).toContain('memory: "64Mi"');
+  });
+});
+
+function workloadWaste(overrides: Partial<WorkloadWaste> = {}): WorkloadWaste {
+  return {
+    cluster: "kind-dev",
+    ns: "default",
+    kind: "Deployment",
+    name: "engine-app",
+    podCount: 3,
+    requestedCpuMillis: 1500,
+    requestedMemBytes: 1536 * 1024 * 1024,
+    p95CpuMillis: 300,
+    p95MemBytes: 512 * 1024 * 1024,
+    source: "metrics-server",
+    window: "observed over 3h, 180 samples",
+    ...overrides,
+  };
+}
+
+describe("computeEngineRightSizingRows", () => {
+  it("builds a workload-level row from a WorkloadWaste entry", () => {
+    const rows = computeEngineRightSizingRows([workloadWaste()], []);
+    expect(rows).toHaveLength(1);
+    const r = rows[0]!;
+    expect(r.workloadKind).toBe("Deployment");
+    expect(r.workloadName).toBe("engine-app");
+    expect(r.replicas).toBe(3);
+    expect(r.currentCpuMillis).toBe(1500);
+    expect(r.targetCpuMillis).toBe(300);
+    expect(r.wastedCpuMillis).toBe(1200);
+    expect(r.source).toBe("metrics-server");
+    expect(r.window).toBe("observed over 3h, 180 samples");
+  });
+
+  it("applies the same materiality gate as VPA rows", () => {
+    const closeToTarget = workloadWaste({ requestedCpuMillis: 310, p95CpuMillis: 300, requestedMemBytes: 500, p95MemBytes: 490 });
+    expect(computeEngineRightSizingRows([closeToTarget], [])).toHaveLength(0);
+  });
+
+  it("flags an HPA-on-CPU conflict for the same workload", () => {
+    const hpa = {
+      metadata: { name: "app-hpa", namespace: "default" },
+      spec: { scaleTargetRef: { apiVersion: "apps/v1", kind: "Deployment", name: "engine-app" }, metrics: [{ type: "Resource", resource: { name: "cpu" } }] },
+    };
+    const rows = computeEngineRightSizingRows([workloadWaste()], [hpa]);
+    expect(rows[0]!.hpaCpuConflict).toBe(true);
+  });
+
+  it("uses podCount as the replica count, defaulting to 1 if zero", () => {
+    const rows = computeEngineRightSizingRows([workloadWaste({ podCount: 0 })], []);
+    expect(rows[0]!.replicas).toBe(1);
+  });
+});
+
+describe("mergeRightSizingRows", () => {
+  it("keeps a VPA row and drops an engine row for the same workload", () => {
+    const vpaRows = computeRightSizingRows({
+      vpas: [
+        {
+          metadata: { name: "app-vpa", namespace: "default" },
+          spec: { targetRef: { apiVersion: "apps/v1", kind: "Deployment", name: "engine-app" }, updatePolicy: { updateMode: "Off" } },
+          status: { recommendation: { containerRecommendations: [{ containerName: "app", target: { cpu: "300m", memory: "512Mi" } }] } },
+        },
+      ],
+      workloads: [
+        {
+          metadata: { name: "engine-app", namespace: "default" },
+          spec: { replicas: 3, template: { spec: { containers: [{ name: "app", resources: { requests: { cpu: "500m", memory: "512Mi" } } }] } } },
+        },
+      ],
+      hpas: [],
+    });
+    const engineRows = computeEngineRightSizingRows([workloadWaste()], []);
+    const merged = mergeRightSizingRows(vpaRows, engineRows);
+    expect(merged).toHaveLength(1);
+    expect(merged[0]!.source).toBe("vpa");
+  });
+
+  it("keeps an engine row when no VPA row exists for that workload", () => {
+    const merged = mergeRightSizingRows([], computeEngineRightSizingRows([workloadWaste()], []));
+    expect(merged).toHaveLength(1);
+    expect(merged[0]!.source).toBe("metrics-server");
+  });
+
+  it("sorts the combined list by waste score descending", () => {
+    const small = computeEngineRightSizingRows([workloadWaste({ name: "small", requestedCpuMillis: 400, p95CpuMillis: 300 })], []);
+    const big = computeEngineRightSizingRows([workloadWaste({ name: "big", requestedCpuMillis: 5000, p95CpuMillis: 100 })], []);
+    const merged = mergeRightSizingRows([], [...small, ...big]);
+    expect(merged.map((r) => r.workloadName)).toEqual(["big", "small"]);
   });
 });

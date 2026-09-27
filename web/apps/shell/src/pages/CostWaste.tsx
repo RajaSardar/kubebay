@@ -1,9 +1,13 @@
 import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { WasteBreakdown } from "../components/WasteBreakdown";
+import { WorkloadUsageTable } from "../components/WorkloadUsageTable";
 import { PageLoader } from "../components/PageLoader";
 import { useResourceStream, shouldShowSkeleton } from "../lib/useResourceStream";
 import { useCluster } from "../lib/useCluster";
+import { wasteApi } from "../lib/api";
 import { computeClusterWaste } from "../lib/waste";
+import { computeEngineRightSizingRows } from "../lib/rightsizing";
 
 export default function CostWaste() {
   const { cluster: effectiveCluster } = useCluster();
@@ -12,8 +16,18 @@ export default function CostWaste() {
   // `.spec.containers[].resources` are both stripped in metadata mode.
   const nodes = useResourceStream(effectiveCluster || undefined, "v1/nodes", { mode: "full" });
   const pods = useResourceStream(effectiveCluster || undefined, "v1/pods", { mode: "full" });
+  const hpas = useResourceStream(effectiveCluster || undefined, "autoscaling/v2/horizontalpodautoscalers", { mode: "full" });
+
+  const wasteQ = useQuery({
+    queryKey: ["waste-workloads", effectiveCluster],
+    queryFn: () => wasteApi.workloads(effectiveCluster),
+    enabled: !!effectiveCluster,
+    refetchInterval: 30_000,
+    retry: false,
+  });
 
   const waste = useMemo(() => computeClusterWaste(nodes.rows, pods.rows), [nodes.rows, pods.rows]);
+  const usageRows = useMemo(() => computeEngineRightSizingRows(wasteQ.data ?? [], hpas.rows), [wasteQ.data, hpas.rows]);
 
   if (!effectiveCluster) {
     return (
@@ -45,11 +59,12 @@ export default function CostWaste() {
       <div className="page-body">
         <div className="muted small" style={{ marginBottom: 12 }}>
           Tier 0: allocatable minus requests, computed directly from the live cluster — no metrics required, so this
-          is exact and never stale. It can't see actual usage, only what's requested; a usage-aware tier is a
-          follow-on (see Right-sizing for per-workload recommendations once a VPA is installed). No dollar figures —
-          Kubebay doesn't guess at your pricing.
+          is exact and never stale. No dollar figures — Kubebay doesn't guess at your pricing.
         </div>
         <WasteBreakdown waste={waste} />
+        <div style={{ marginTop: 16 }}>
+          <WorkloadUsageTable rows={usageRows} />
+        </div>
       </div>
     </div>
   );

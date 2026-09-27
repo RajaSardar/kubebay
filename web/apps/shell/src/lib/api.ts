@@ -425,6 +425,25 @@ export const argoCDApi = {
     send<{ ok: boolean }>("POST", "/api/argocd/sync", b),
 };
 
+export interface WorkloadWaste {
+  cluster: string;
+  ns: string;
+  kind: string;
+  name: string;
+  podCount: number;
+  requestedCpuMillis: number;
+  requestedMemBytes: number;
+  p95CpuMillis: number;
+  p95MemBytes: number;
+  source: string;
+  window: string;
+}
+
+export const wasteApi = {
+  workloads: (cluster: string) =>
+    get<WorkloadWaste[]>(`/api/waste/workloads?cluster=${encodeURIComponent(cluster)}`),
+};
+
 export const promApi = {
   queryRange: async (params: { cluster: string; query: string; startMs: number; endMs: number; stepSec: number }): Promise<{ data: { result: { metric: Record<string, string>; values: [number, string][] }[] } }> => {
     const q = new URLSearchParams({
