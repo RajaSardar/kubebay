@@ -9,6 +9,7 @@ import { ServiceSummary } from "./ServiceSummary";
 import { MetadataSummary } from "./MetadataSummary";
 import { RolloutProgress } from "./RolloutProgress";
 import { AutoscalingTab } from "./AutoscalingTab";
+import { PolicyFindingsTab } from "./PolicyFindingsTab";
 import type { ResourceDef } from "../lib/resources";
 import { ownerOf } from "../lib/gitops";
 
@@ -16,7 +17,7 @@ import { ownerOf } from "../lib/gitops";
 type NodeTab = "summary" | "shell" | "yaml";
 type SvcTab = "summary" | "yaml";
 type PodTab = "yaml" | "events" | "terminal";
-type GenTab = "summary" | "rollout" | "autoscaling" | "yaml" | "events";
+type GenTab = "summary" | "rollout" | "autoscaling" | "policy" | "yaml" | "events";
 
 // KEDA ScaledObjects, HPAs, and VPAs can all target these kinds — every
 // other generic kind (ConfigMap, Secret, …) has nothing to autoscale.
@@ -175,6 +176,9 @@ function PaneContent({
   }
   if (!isNode && !isService && !isPod && genTab === "autoscaling") {
     return <AutoscalingTab cluster={cluster} ns={ns} name={name} kind={def.kind} />;
+  }
+  if (!isNode && !isService && !isPod && genTab === "policy") {
+    return <PolicyFindingsTab cluster={cluster} ns={ns} name={name} kind={def.kind} />;
   }
   if ((isNode && nodeTab === "yaml") || (isService && svcTab === "yaml") || (isPod && podTab === "yaml") || (!isNode && !isService && !isPod && genTab === "yaml")) {
     return (
@@ -421,14 +425,17 @@ export default function GenericDrawer({
   const nodeTabLabels: Record<NodeTab, string> = { summary: "Summary", shell: "Terminal", yaml: "YAML" };
   const svcTabLabels: Record<SvcTab, string> = { summary: "Summary", yaml: "YAML" };
   const podTabLabels: Record<PodTab, string> = { yaml: "YAML", events: "Events", terminal: "Terminal" };
-  const genTabLabels: Record<GenTab, string> = { summary: "Summary", rollout: "Rollout", autoscaling: "Autoscaling", yaml: "YAML", events: "Events" };
+  const genTabLabels: Record<GenTab, string> = { summary: "Summary", rollout: "Rollout", autoscaling: "Autoscaling", policy: "Policy", yaml: "YAML", events: "Events" };
   // Rollout progress only makes sense for Deployments (old-RS-vs-new-RS
   // replica counts); Autoscaling only for kinds an HPA/VPA/ScaledObject can
-  // target. Every other generic kind keeps the plain three tabs.
+  // target. Policy findings apply to any resource except a PolicyReport
+  // itself (findings about findings would be circular). Every other
+  // generic kind keeps the plain three tabs.
   const genTabs: GenTab[] = [
     "summary",
     ...(def.slug === "deployments" ? (["rollout"] as const) : []),
     ...(AUTOSCALABLE_SLUGS.has(def.slug) ? (["autoscaling"] as const) : []),
+    ...(def.slug !== "policyreports" && def.slug !== "clusterpolicyreports" ? (["policy"] as const) : []),
     "yaml",
     "events",
   ];
