@@ -255,7 +255,7 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
           <PodGraphs cluster={pod.cluster} namespace={pod.namespace} pod={pod.pod} />
         </div>
       ) : tab === "summary" ? (
-        <PodSummary obj={pod.obj ?? {}} />
+        <PodSummary obj={pod.obj ?? {}} cluster={pod.cluster} />
       ) : tab === "size" ? (
         <ResizePanel
           cluster={pod.cluster}
