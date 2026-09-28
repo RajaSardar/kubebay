@@ -55,7 +55,7 @@ describe("resolveResourceFieldRef", () => {
   });
 
   it("returns null when the referenced resource is not set", () => {
-    expect(resolveResourceFieldRef({ name: "app", resources: {} }, { resource: "requests.cpu" })).toBeNull();
+    expect(resolveResourceFieldRef({ resources: {} }, { resource: "requests.cpu" })).toBeNull();
   });
 
   it("returns null for an unrecognized resource name", () => {
