@@ -112,6 +112,102 @@
   background: color-mix(in srgb, var(--kb-status-err) 10%, transparent);
 }
 
+.kb-badge-warn {
+  color: var(--kb-status-warn-fg);
+  border-color: color-mix(in srgb, var(--kb-status-warn-fg) 30%, transparent);
+  background: var(--kb-status-warn-subtle);
+}
+
+.kb-badge-info {
+  color: var(--kb-accent);
+  border-color: color-mix(in srgb, var(--kb-accent) 30%, transparent);
+  background: var(--kb-accent-subtle);
+}
+
+/* ── Icon button: close, back, row menu, pop-out, star ── */
+.kb-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 var(--kb-space-1);
+  font: inherit;
+  font-size: var(--kb-text-md);
+  line-height: 1;
+  color: var(--kb-fg-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--kb-radius-sm);
+  cursor: pointer;
+  transition:
+    background var(--kb-dur-fast) var(--kb-ease),
+    color var(--kb-dur-fast) var(--kb-ease);
+}
+
+.kb-icon-btn:hover:not([disabled]) {
+  background: var(--kb-bg-raised);
+  color: var(--kb-fg-default);
+}
+
+.kb-icon-btn.active {
+  color: var(--kb-accent);
+  background: var(--kb-accent-subtle);
+}
+
+.kb-icon-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--kb-focus-ring);
+}
+
+.kb-icon-btn[disabled] {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* ── Segmented control: one choice from a short list ── */
+.kb-segmented {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--kb-bg-inset);
+  border: 1px solid var(--kb-border-control);
+  border-radius: var(--kb-radius-sm);
+}
+
+.kb-segment {
+  font: inherit;
+  font-size: var(--kb-text-sm);
+  font-weight: 500;
+  padding: 3px 10px;
+  color: var(--kb-fg-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--kb-radius-xs);
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background var(--kb-dur-fast) var(--kb-ease),
+    color var(--kb-dur-fast) var(--kb-ease);
+}
+
+.kb-segment:hover {
+  color: var(--kb-fg-default);
+}
+
+.kb-segment.active {
+  color: var(--kb-accent);
+  background: var(--kb-accent-subtle);
+  border-color: color-mix(in srgb, var(--kb-accent) 35%, transparent);
+  font-weight: 600;
+}
+
+.kb-segment:focus-visible {
+  outline: none;
+  box-shadow: var(--kb-focus-ring);
+}
+
 .kb-btn-danger {
   background: var(--kb-status-err);
   color: var(--kb-on-danger);
@@ -973,33 +1069,16 @@ kbd {
   background: color-mix(in srgb, var(--kb-bg-surface) 90%, var(--kb-bg-inset));
 }
 
+/* The row kebab (an IconButton) stays hidden until its row is hovered. */
 .row-menu-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  background: transparent;
-  border: none;
-  border-radius: var(--kb-radius-sm);
-  color: var(--kb-fg-muted);
-  font-size: 16px;
-  line-height: 1;
-  cursor: pointer;
-  /* Hidden by default — revealed on tr hover via the rule below */
   opacity: 0;
   transition: opacity var(--kb-dur-fast) var(--kb-ease), background var(--kb-dur-fast) var(--kb-ease);
 }
 
 .kb-table tbody tr:hover .row-menu-btn,
-.kb-table tbody tr.hovered .row-menu-btn {
+.kb-table tbody tr.hovered .row-menu-btn,
+.row-menu-btn:focus-visible {
   opacity: 1;
-}
-
-.row-menu-btn:hover {
-  background: var(--kb-bg-overlay);
-  color: var(--kb-fg-default);
 }
 
 /* ──── Column header: slightly softer treatment (match FreeLens weight) ──── */

@@ -68,9 +68,11 @@ export function StatusDot({ status, pulse }: { status: string; pulse?: boolean }
   );
 }
 
-export function Badge({ children, tone }: { children: ReactNode; tone?: "ok" | "err" }) {
-  const cls = tone === "ok" ? "kb-badge kb-badge-ok" : tone === "err" ? "kb-badge kb-badge-err" : "kb-badge";
-  return <span className={cls}>{children}</span>;
+export type BadgeTone = "ok" | "warn" | "err" | "info";
+
+/** Mono chip for identifiers and short facts. `tone` tints it; no tone is neutral. */
+export function Badge({ children, tone, title }: { children: ReactNode; tone?: BadgeTone; title?: string }) {
+  return <span className={tone ? `kb-badge kb-badge-${tone}` : "kb-badge"} title={title}>{children}</span>;
 }
 
 export function Skeleton({ w = 120, h = 12, r }: { w?: number | string; h?: number; r?: number }) {

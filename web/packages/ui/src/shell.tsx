@@ -2,10 +2,89 @@ import {
   forwardRef,
   useEffect,
   useRef,
+  type ButtonHTMLAttributes,
+  type CSSProperties,
   type InputHTMLAttributes,
+  type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
   type SelectHTMLAttributes,
 } from "react";
+
+// ── Icon button ───────────────────────────────────────────────────────────────
+
+export interface IconButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "aria-label"> {
+  /** Accessible name; also the tooltip unless `title` is given. */
+  label: string;
+  /** Pressed state for toggles (split view, favourite). */
+  active?: boolean;
+  children: ReactNode;
+}
+
+/** A square, icon-only button: close, back, row menu, pop-out, star. */
+export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(function IconButton(
+  { label, active, title, className, type = "button", children, ...props },
+  ref,
+) {
+  return (
+    <button
+      ref={ref}
+      type={type}
+      aria-label={label}
+      title={title ?? label}
+      aria-pressed={active === undefined ? undefined : active}
+      className={`kb-icon-btn${active ? " active" : ""}${className ? " " + className : ""}`}
+      {...props}
+    >
+      {children}
+    </button>
+  );
+});
+
+// ── Segmented control ─────────────────────────────────────────────────────────
+
+export interface SegmentedControlProps<T extends string> {
+  /** Accessible name of the group. */
+  label: string;
+  options: readonly { value: T; label: ReactNode }[];
+  value: T;
+  onChange: (value: T) => void;
+  className?: string;
+}
+
+/** A row of mutually exclusive choices (a view switch, a size or density picker). */
+export function SegmentedControl<T extends string>({ label, options, value, onChange, className }: SegmentedControlProps<T>) {
+  const move = (e: ReactKeyboardEvent, step: number) => {
+    e.preventDefault();
+    const i = options.findIndex((o) => o.value === value);
+    const n = (i + step + options.length) % options.length;
+    const next = options[n];
+    if (!next) return;
+    onChange(next.value);
+    // Focus follows the selection, as in a native radio group.
+    (e.currentTarget.querySelectorAll<HTMLElement>('[role="radio"]')[n])?.focus();
+  };
+  const onKeyDown = (e: ReactKeyboardEvent) => {
+    if (e.key === "ArrowRight" || e.key === "ArrowDown") move(e, 1);
+    if (e.key === "ArrowLeft" || e.key === "ArrowUp") move(e, -1);
+  };
+  return (
+    <div role="radiogroup" aria-label={label} className={`kb-segmented${className ? " " + className : ""}`} onKeyDown={onKeyDown}>
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          role="radio"
+          aria-checked={o.value === value}
+          tabIndex={o.value === value ? 0 : -1}
+          className={`kb-segment${o.value === value ? " active" : ""}`}
+          onClick={() => onChange(o.value)}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 // ── Status pill ───────────────────────────────────────────────────────────────
 
@@ -38,22 +117,38 @@ export interface TabsProps<T extends string> {
   onChange: (tab: T) => void;
   /** Container class; defaults to "tabs". Drawer panes use "drawer-pane-tabs". */
   className?: string;
+  style?: CSSProperties;
+  /** Controls at the end of the tab row, outside the tab list. */
+  trailing?: ReactNode;
 }
 
-export function Tabs<T extends string>({ tabs, active, labels, onChange, className = "tabs" }: TabsProps<T>) {
+export function Tabs<T extends string>({ tabs, active, labels, onChange, className = "tabs", style, trailing }: TabsProps<T>) {
+  const buttons = tabs.map((t) => (
+    <button
+      key={t}
+      type="button"
+      role="tab"
+      aria-selected={active === t}
+      className={`tab${active === t ? " active" : ""}`}
+      onClick={() => onChange(t)}
+    >
+      {labels?.[t] ?? t}
+    </button>
+  ));
+  if (trailing == null) {
+    return (
+      <div className={className} role="tablist" style={style}>
+        {buttons}
+      </div>
+    );
+  }
+  // Controls that sit in the tab row (a container picker) stay outside the tablist.
   return (
-    <div className={className} role="tablist">
-      {tabs.map((t) => (
-        <button
-          key={t}
-          role="tab"
-          aria-selected={active === t}
-          className={`tab${active === t ? " active" : ""}`}
-          onClick={() => onChange(t)}
-        >
-          {labels?.[t] ?? t}
-        </button>
-      ))}
+    <div className={className} style={style}>
+      <div role="tablist" style={{ display: "contents" }}>
+        {buttons}
+      </div>
+      {trailing}
     </div>
   );
 }
