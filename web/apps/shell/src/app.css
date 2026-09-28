@@ -832,7 +832,7 @@ h2 {
   border: 1px solid var(--kb-border-strong);
   border-radius: var(--kb-radius);
   box-shadow: var(--kb-shadow-lift);
-  z-index: 60;
+  z-index: var(--kb-z-dropdown);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -1207,7 +1207,7 @@ h2 {
     background var(--kb-dur-fast) var(--kb-ease),
     transform var(--kb-dur-fast) var(--kb-ease),
     box-shadow var(--kb-dur-fast) var(--kb-ease);
-  z-index: 10;
+  z-index: var(--kb-z-sticky);
 }
 
 .resource-fab:hover {
@@ -1420,7 +1420,7 @@ h2 {
 .conn-overlay {
   position: absolute;
   inset: 0;
-  z-index: 80;
+  z-index: var(--kb-z-overlay);
   display: flex;
   align-items: center;
   justify-content: center;

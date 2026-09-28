@@ -38,6 +38,17 @@
   --kb-space-4: 16px;
   --kb-space-5: 24px;
   --kb-space-6: 32px;
+
+  /* Layers, lowest first. Stacking inside one component (a sticky table
+     header over its rows) uses 0–3 locally; anything that floats over the
+     page takes one of these. */
+  --kb-z-sticky:   10;  /* floating page controls */
+  --kb-z-drawer:   50;  /* side panels over the page */
+  --kb-z-dropdown: 60;  /* pickers anchored to a trigger */
+  --kb-z-overlay:  80;  /* full-window progress (connecting to a cluster) */
+  --kb-z-palette:  100; /* command palette */
+  --kb-z-modal:    200; /* dialogs and their backdrop */
+  --kb-z-popover:  300; /* context menus, above everything */
 }
 
 /* ── Dusk (default dark — macOS-inspired dark mode) ───────────────────────── */
