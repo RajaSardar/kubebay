@@ -1392,3 +1392,34 @@ tr.row-clickable:active {
   from { opacity: 0; }
   to   { opacity: 1; }
 }
+
+/* ── Layout: Row and Stack ── */
+.kb-row {
+  display: flex;
+}
+
+.kb-stack {
+  display: flex;
+  flex-direction: column;
+}
+
+.kb-gap-0 { gap: 0; }
+.kb-gap-1 { gap: var(--kb-space-1); }
+.kb-gap-2 { gap: var(--kb-space-2); }
+.kb-gap-3 { gap: var(--kb-space-3); }
+.kb-gap-4 { gap: var(--kb-space-4); }
+.kb-gap-5 { gap: var(--kb-space-5); }
+.kb-gap-6 { gap: var(--kb-space-6); }
+
+.kb-align-start { align-items: flex-start; }
+.kb-align-center { align-items: center; }
+.kb-align-end { align-items: flex-end; }
+.kb-align-baseline { align-items: baseline; }
+.kb-align-stretch { align-items: stretch; }
+
+.kb-justify-start { justify-content: flex-start; }
+.kb-justify-center { justify-content: center; }
+.kb-justify-end { justify-content: flex-end; }
+.kb-justify-between { justify-content: space-between; }
+
+.kb-wrap { flex-wrap: wrap; }
