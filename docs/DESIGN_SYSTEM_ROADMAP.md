@@ -12,7 +12,7 @@ first. Tick an item when its PR merges.
 - [ ] **"System" follows the OS contrast setting.** `prefers-contrast: more`
       picks Dusk HC or Dawn HC instead of Dusk or Dawn.
 - [ ] **Control borders reach 3:1 (WCAG 1.4.11).** New `--kb-border-control`
-      token in all 12 themes, used by inputs, selects and ghost buttons.
+      token in all 12 themes, used by every text input and select.
       Before: 1.44–1.79:1 in the ten non-HC themes.
 - [ ] **Pending is not Warning.** `--kb-status-pending` equals
       `--kb-status-warn` in 11 of 12 themes; pending takes the info hue.

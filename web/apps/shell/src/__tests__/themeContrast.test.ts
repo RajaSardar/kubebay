@@ -106,12 +106,30 @@ describe.each(NATIVE)("$id theme contrast", ({ id, text }) => {
     }
   });
 
+  it("form control borders reach 3:1 on every ground (WCAG 1.4.11)", () => {
+    for (const g of grounds) {
+      const r = contrast(over(c("kb-border-control"), c(g)), c(g));
+      if (r < 3) failures.push(`kb-border-control on ${g}: ${r.toFixed(2)} < 3`);
+    }
+    expect(failures).toEqual([]);
+  });
+
   if (text === 7) {
     it("high-contrast control borders reach 3:1", () => {
       check("kb-border-strong", c("kb-bg-surface"), "kb-bg-surface", 3);
       expect(failures).toEqual([]);
     });
   }
+});
+
+it("inputs and selects draw their border with the control token", () => {
+  const rule = /\.toolbar-select,\s*\.toolbar-input\s*\{([^}]*)\}/.exec(stylesCss)![1]!;
+  expect(rule).toMatch(/border:\s*1px solid var\(--kb-border-control\)/);
+  const appCss = readFileSync(resolve(root, "web/apps/shell/src/app.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  const weak = [...appCss.matchAll(/([^{}]*(?:input|select|textarea)[^{}]*)\{([^}]*)\}/g)]
+    .filter((m) => !/:(hover|focus)/.test(m[1]!) && /(?:^|;|\s)border:\s*1px solid var\(--kb-border-(subtle|strong)\)/.test(m[2]!))
+    .map((m) => m[1]!.trim());
+  expect(weak).toEqual([]);
 });
 
 it("danger buttons take their label colour from a token", () => {

@@ -90,6 +90,7 @@
   /* Borders — macOS-style translucent separators */
   --kb-border-subtle: rgba(255, 255, 255, 0.08);
   --kb-border-strong: rgba(255, 255, 255, 0.14);
+  --kb-border-control: rgba(255, 255, 255, 0.34);
   --kb-highlight-inset: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 
   --kb-shadow-rest: 0 1px 3px rgba(0, 0, 0, 0.4), 0 0 0 0.5px rgba(0,0,0,0.2);
@@ -147,6 +148,7 @@
 
   --kb-border-subtle: rgba(60, 60, 67, 0.12);
   --kb-border-strong: rgba(60, 60, 67, 0.22);
+  --kb-border-control: rgba(60, 60, 67, 0.59);
   --kb-highlight-inset: inset 0 1px 0 rgba(255, 255, 255, 0.8);
 
   --kb-shadow-rest: 0 1px 3px rgba(0, 0, 0, 0.08), 0 0 0 0.5px rgba(0,0,0,0.06);
@@ -204,6 +206,7 @@
 
   --kb-border-subtle: rgba(255, 255, 255, 0.14);
   --kb-border-strong: rgba(255, 255, 255, 0.34);
+  --kb-border-control: rgba(255, 255, 255, 0.36);
   --kb-highlight-inset: none;
 
   --kb-shadow-rest: none;
@@ -261,6 +264,7 @@
 
   --kb-border-subtle: rgba(0, 0, 0, 0.14);
   --kb-border-strong: rgba(0, 0, 0, 0.42);
+  --kb-border-control: rgba(0, 0, 0, 0.43);
   --kb-highlight-inset: none;
 
   --kb-shadow-rest: none;
@@ -318,6 +322,7 @@
 
   --kb-border-subtle: rgba(255, 255, 255, 0.10);
   --kb-border-strong: rgba(255, 255, 255, 0.18);
+  --kb-border-control: rgba(255, 255, 255, 0.35);
   --kb-highlight-inset: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 
   --kb-shadow-rest: 0 1px 3px rgba(0, 0, 0, 0.5);
@@ -375,6 +380,7 @@
 
   --kb-border-subtle: rgba(0, 0, 0, 0.12);
   --kb-border-strong: rgba(0, 0, 0, 0.22);
+  --kb-border-control: rgba(0, 0, 0, 0.43);
   --kb-highlight-inset: none;
 
   --kb-shadow-rest: 0 1px 3px rgba(0, 0, 0, 0.08);
@@ -432,6 +438,7 @@
 
   --kb-border-subtle: rgba(255, 255, 255, 0.08);
   --kb-border-strong: rgba(255, 255, 255, 0.14);
+  --kb-border-control: rgba(255, 255, 255, 0.36);
   --kb-highlight-inset: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 
   --kb-shadow-rest: 0 1px 4px rgba(0, 0, 0, 0.5);
@@ -489,6 +496,7 @@
 
   --kb-border-subtle: rgba(255, 255, 255, 0.09);
   --kb-border-strong: rgba(255, 255, 255, 0.16);
+  --kb-border-control: rgba(255, 255, 255, 0.36);
   --kb-highlight-inset: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 
   --kb-shadow-rest: 0 1px 4px rgba(0, 0, 0, 0.5);
@@ -546,6 +554,7 @@
 
   --kb-border-subtle: rgba(255, 255, 255, 0.08);
   --kb-border-strong: rgba(255, 255, 255, 0.14);
+  --kb-border-control: rgba(255, 255, 255, 0.44);
   --kb-highlight-inset: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 
   --kb-shadow-rest: 0 1px 4px rgba(0, 0, 0, 0.4);
@@ -603,6 +612,7 @@
 
   --kb-border-subtle: rgba(240, 246, 252, 0.10);
   --kb-border-strong: rgba(240, 246, 252, 0.18);
+  --kb-border-control: rgba(240, 246, 252, 0.37);
   --kb-highlight-inset: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 
   --kb-shadow-rest: 0 1px 4px rgba(0, 0, 0, 0.6);
@@ -660,6 +670,7 @@
 
   --kb-border-subtle: rgba(31, 35, 40, 0.12);
   --kb-border-strong: rgba(31, 35, 40, 0.20);
+  --kb-border-control: rgba(31, 35, 40, 0.50);
   --kb-highlight-inset: none;
 
   --kb-shadow-rest: 0 1px 3px rgba(31, 35, 40, 0.10);
@@ -717,6 +728,7 @@
 
   --kb-border-subtle: rgba(205, 214, 244, 0.08);
   --kb-border-strong: rgba(205, 214, 244, 0.15);
+  --kb-border-control: rgba(205, 214, 244, 0.41);
   --kb-highlight-inset: inset 0 1px 0 rgba(205, 214, 244, 0.04);
 
   --kb-shadow-rest: 0 1px 4px rgba(0, 0, 0, 0.5);
