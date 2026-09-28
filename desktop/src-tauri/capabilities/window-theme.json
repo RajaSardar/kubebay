@@ -1,0 +1,10 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "window-theme",
+  "description": "Lets the engine-served page keep the native window's colour and appearance in step with its theme, and nothing else.",
+  "windows": ["main"],
+  "remote": {
+    "urls": ["http://127.0.0.1:*"]
+  },
+  "permissions": ["allow-set-window-theme"]
+}
