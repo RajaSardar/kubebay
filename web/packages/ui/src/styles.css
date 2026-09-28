@@ -1370,6 +1370,25 @@ tr.row-clickable:active {
   overflow: hidden;
 }
 
+.drawer-name {
+  font-family: var(--kb-font-mono);
+  font-size: var(--kb-text-sm);
+  font-weight: 600;
+  color: var(--kb-fg-default);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.drawer-subtitle {
+  font-size: var(--kb-text-sm);
+  color: var(--kb-fg-muted);
+}
+
+.drawer-subtitle-mono {
+  font-family: var(--kb-font-mono);
+}
+
 .drawer-head-actions {
   display: flex;
   align-items: center;

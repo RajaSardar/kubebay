@@ -1,4 +1,7 @@
+/// <reference types="node" />
 import { describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { useState } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { Button, Drawer, Modal } from "@kubebay/ui";
@@ -15,7 +18,8 @@ describe("Drawer", () => {
     expect(panel).toHaveClass("drawer");
     expect(panel).toHaveAttribute("aria-modal", "false");
     expect(panel.querySelector(".drawer-head")).toContainElement(screen.getByTestId("dot"));
-    expect(screen.getByText("default")).toHaveClass("muted", "small", "mono");
+    expect(screen.getByText("api-7f9c")).toHaveClass("drawer-name");
+    expect(screen.getByText("default")).toHaveClass("drawer-subtitle", "drawer-subtitle-mono");
     expect(screen.getByRole("button", { name: "Close" }).parentElement).toHaveClass("drawer-head-actions");
     expect(screen.getByText("Body")).toBeInTheDocument();
   });
@@ -61,7 +65,18 @@ describe("Drawer", () => {
 
   it("can set the subtitle in the proportional face", () => {
     render(<Drawer title="nginx" subtitle="A web server" subtitleMono={false} onClose={() => {}} />);
-    expect(screen.getByText("A web server")).not.toHaveClass("mono");
+    expect(screen.getByText("A web server")).toHaveClass("drawer-subtitle");
+    expect(screen.getByText("A web server")).not.toHaveClass("drawer-subtitle-mono");
+  });
+
+  it("is styled entirely by @kubebay/ui, not by classes the app happens to define", () => {
+    const css = readFileSync(resolve(__dirname, "../../../../../packages/ui/src/styles.css"), "utf8");
+    const styled = new Set([...css.matchAll(/\.([a-zA-Z][\w-]*)/g)].map((m) => m[1]!));
+    const { container } = render(
+      <Drawer title="api" subtitle="default" leading={<i />} actions={<i />} onClose={() => {}} />,
+    );
+    const used = new Set([...container.querySelectorAll("[class]")].flatMap((el) => [...el.classList]));
+    expect([...used].filter((c) => !styled.has(c))).toEqual([]);
   });
 });
 
