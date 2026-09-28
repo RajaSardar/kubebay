@@ -106,6 +106,22 @@ describe.each(NATIVE)("$id theme contrast", ({ id, text }) => {
     }
   });
 
+  it("pending reads as its own status, not as a warning or an error", () => {
+    const hue = ([r, g, b]: RGBA) => {
+      const [R, G, B] = [r / 255, g / 255, b / 255];
+      const max = Math.max(R, G, B), d = max - Math.min(R, G, B);
+      if (d === 0) return 0;
+      const h = max === R ? ((G - B) / d) % 6 : max === G ? (B - R) / d + 2 : (R - G) / d + 4;
+      return (h * 60 + 360) % 360;
+    };
+    const apart = (a: number, b: number) => Math.min(Math.abs(a - b), 360 - Math.abs(a - b));
+    for (const other of ["warn", "err"]) {
+      const d = apart(hue(c("kb-status-pending")), hue(c(`kb-status-${other}`)));
+      if (d < 60) failures.push(`pending is ${d.toFixed(0)}° from ${other}`);
+    }
+    expect(failures).toEqual([]);
+  });
+
   it("form control borders reach 3:1 on every ground (WCAG 1.4.11)", () => {
     for (const g of grounds) {
       const r = contrast(over(c("kb-border-control"), c(g)), c(g));
