@@ -1,3 +1,4 @@
+import { InlineBanner } from "@kubebay/ui";
 import type { PolicyRejectionDetail } from "../lib/policyRejection";
 
 /**
@@ -6,9 +7,9 @@ import type { PolicyRejectionDetail } from "../lib/policyRejection";
  * same card instead of a plain error string, now that PolicyRejectionError
  * is thrown by every api.* call via the shared send() helper, not just apply.
  */
-export function PolicyRejectionCard({ rejection }: { rejection: PolicyRejectionDetail }) {
+export function PolicyRejectionCard({ rejection, flush = true }: { rejection: PolicyRejectionDetail; flush?: boolean }) {
   return (
-    <div className="error-banner" role="alert">
+    <InlineBanner flush={flush} role="alert">
       <div>
         <strong>
           {rejection.engine ? `${rejection.engine} policy rejected this change` : "Policy rejected this change"}
@@ -26,6 +27,6 @@ export function PolicyRejectionCard({ rejection }: { rejection: PolicyRejectionD
           ))}
         </ul>
       )}
-    </div>
+    </InlineBanner>
   );
 }

@@ -1,4 +1,4 @@
-import { Badge, Card } from "@kubebay/ui";
+import { Badge, Card, DataTable } from "@kubebay/ui";
 import { formatCpuMillis, formatMemBytes } from "../lib/rightsizing";
 import type { ClusterWaste } from "../lib/waste";
 
@@ -21,7 +21,7 @@ export function WasteBreakdown({ waste }: { waste: ClusterWaste }) {
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
         <Card style={{ flex: "1 1 220px" }}>
           <div className="muted small">Idle capacity (cluster-wide)</div>
-          <div className="mono strong" style={{ fontSize: "var(--kb-text-lg, 20px)", marginTop: 6 }}>
+          <div className="mono strong" style={{ fontSize: "var(--kb-text-lg)", marginTop: 6 }}>
             {formatCpuMillis(waste.totalIdleCpuMillis)} cores / {formatMemBytes(waste.totalIdleMemBytes)}
           </div>
           <div className="muted small" style={{ marginTop: 4 }}>
@@ -30,7 +30,7 @@ export function WasteBreakdown({ waste }: { waste: ClusterWaste }) {
         </Card>
         <Card style={{ flex: "1 1 220px" }}>
           <div className="muted small">System overhead (DaemonSets)</div>
-          <div className="mono strong" style={{ fontSize: "var(--kb-text-lg, 20px)", marginTop: 6 }}>
+          <div className="mono strong" style={{ fontSize: "var(--kb-text-lg)", marginTop: 6 }}>
             {formatCpuMillis(waste.totalSystemOverheadCpuMillis)} cores / {formatMemBytes(waste.totalSystemOverheadMemBytes)}
           </div>
         </Card>
@@ -46,74 +46,65 @@ export function WasteBreakdown({ waste }: { waste: ClusterWaste }) {
             Unrequested containers aren't counted in any namespace's total below — the scheduler can pack them
             anywhere, which is its own risk.
           </div>
-          <div className="table-wrap">
-            <table className="kb-table">
-              <thead>
-                <tr><th>Namespace</th><th>Pod</th><th>Container</th><th>Node</th></tr>
-              </thead>
-              <tbody>
-                {waste.unrequestedContainers.map((c, i) => (
-                  <tr key={i}>
-                    <td className="mono small">{c.ns}</td>
-                    <td className="mono small">{c.pod}</td>
-                    <td className="mono small strong">{c.container}</td>
-                    <td className="mono small">{c.node}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            rows={waste.unrequestedContainers}
+            rowKey={(c) => `${c.ns}/${c.pod}/${c.container}`}
+            columns={[
+              { key: "ns", header: "Namespace", className: "mono small", render: (c) => c.ns },
+              { key: "pod", header: "Pod", className: "mono small", render: (c) => c.pod },
+              { key: "container", header: "Container", className: "mono small strong", render: (c) => c.container },
+              { key: "node", header: "Node", className: "mono small", render: (c) => c.node },
+            ]}
+          />
         </Card>
       )}
 
       <Card>
         <div className="rbac-section-title">Requested by namespace</div>
-        <div className="table-wrap">
-          <table className="kb-table">
-            <thead>
-              <tr><th>Namespace</th><th>CPU requested</th><th>Memory requested</th></tr>
-            </thead>
-            <tbody>
-              {byNamespace.map((n) => (
-                <tr key={n.ns}>
-                  <td className="mono small">{n.ns}</td>
-                  <td className="mono small">{formatCpuMillis(n.cpuMillis)}</td>
-                  <td className="mono small">{formatMemBytes(n.memBytes)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          rows={byNamespace}
+          rowKey={(n) => n.ns}
+          columns={[
+            { key: "ns", header: "Namespace", className: "mono small", render: (n) => n.ns },
+            { key: "cpu", header: "CPU requested", className: "mono small", render: (n) => formatCpuMillis(n.cpuMillis) },
+            { key: "mem", header: "Memory requested", className: "mono small", render: (n) => formatMemBytes(n.memBytes) },
+          ]}
+        />
       </Card>
 
       <Card>
         <div className="rbac-section-title">By node</div>
-        <div className="table-wrap">
-          <table className="kb-table">
-            <thead>
-              <tr><th>Node</th><th>Allocatable</th><th>Requested</th><th>System overhead</th><th>Idle</th></tr>
-            </thead>
-            <tbody>
-              {byNode.map((n) => (
-                <tr key={n.name}>
-                  <td className="mono small">{n.name}</td>
-                  <td className="mono small">
-                    {formatCpuMillis(n.allocatableCpuMillis)} / {formatMemBytes(n.allocatableMemBytes)}
-                  </td>
-                  <td className="mono small">
-                    {formatCpuMillis(n.requestedCpuMillis)} / {formatMemBytes(n.requestedMemBytes)}
-                  </td>
-                  <td className="mono small">
-                    {formatCpuMillis(n.systemOverheadCpuMillis)} / {formatMemBytes(n.systemOverheadMemBytes)}
-                  </td>
-                  <td className="mono small strong">
-                    {formatCpuMillis(n.idleCpuMillis)} / {formatMemBytes(n.idleMemBytes)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          rows={byNode}
+          rowKey={(n) => n.name}
+          columns={[
+            { key: "node", header: "Node", className: "mono small", render: (n) => n.name },
+            {
+              key: "alloc",
+              header: "Allocatable",
+              className: "mono small",
+              render: (n) => `${formatCpuMillis(n.allocatableCpuMillis)} / ${formatMemBytes(n.allocatableMemBytes)}`,
+            },
+            {
+              key: "req",
+              header: "Requested",
+              className: "mono small",
+              render: (n) => `${formatCpuMillis(n.requestedCpuMillis)} / ${formatMemBytes(n.requestedMemBytes)}`,
+            },
+            {
+              key: "sys",
+              header: "System overhead",
+              className: "mono small",
+              render: (n) => `${formatCpuMillis(n.systemOverheadCpuMillis)} / ${formatMemBytes(n.systemOverheadMemBytes)}`,
+            },
+            {
+              key: "idle",
+              header: "Idle",
+              className: "mono small strong",
+              render: (n) => `${formatCpuMillis(n.idleCpuMillis)} / ${formatMemBytes(n.idleMemBytes)}`,
+            },
+          ]}
+        />
       </Card>
     </div>
   );

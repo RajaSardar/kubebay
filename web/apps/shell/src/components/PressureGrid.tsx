@@ -1,5 +1,6 @@
 import type { PressureGrid as PressureGridData } from "../lib/pressure";
 import { formatCpuMillis, formatMemBytes } from "../lib/rightsizing";
+import { EmptyState } from "@kubebay/ui";
 
 const CELL = 26;
 const GAP = 2;
@@ -17,9 +18,9 @@ const COL_LABEL_H = 90;
 export function PressureGrid({ grid }: { grid: PressureGridData }) {
   if (grid.namespaces.length === 0 || grid.nodes.length === 0) {
     return (
-      <div className="empty-state">
+      <EmptyState>
         <p>No pods scheduled — nothing to plot.</p>
-      </div>
+      </EmptyState>
     );
   }
 
@@ -79,8 +80,8 @@ export function PressureGrid({ grid }: { grid: PressureGridData }) {
                       width={CELL}
                       height={CELL}
                       rx={3}
-                      fill={frac > 0 ? `color-mix(in srgb, var(--kb-status-warn, #f59e0b) ${Math.round(frac * 100)}%, var(--kb-bg-inset))` : "var(--kb-bg-inset)"}
-                      stroke={bestEffort ? "var(--kb-status-err, #ef4444)" : "var(--kb-border-subtle)"}
+                      fill={frac > 0 ? `color-mix(in srgb, var(--kb-status-warn) ${Math.round(frac * 100)}%, var(--kb-bg-inset))` : "var(--kb-bg-inset)"}
+                      stroke={bestEffort ? "var(--kb-status-err)" : "var(--kb-border-subtle)"}
                       strokeWidth={bestEffort ? 1.5 : 1}
                       strokeDasharray={bestEffort ? "3 2" : undefined}
                     >

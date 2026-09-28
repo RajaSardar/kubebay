@@ -127,6 +127,10 @@ Replace `<target>` with your Rust target triple, e.g. `aarch64-apple-darwin` on 
 
 ---
 
+## UI and the design system
+
+All UI is built from the `@kubebay/ui` package: its tokens, components and styles. Read [docs/DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md) before changing anything in `web/`. Tests fail on hand-written tables, banners and buttons, on colour literals, and on `app.css` rules that restyle package classes.
+
 ## Before Opening a PR
 
 Run checks locally before pushing:

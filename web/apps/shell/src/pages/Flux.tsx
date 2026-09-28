@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { PageHeader } from "@kubebay/ui";
+import { EmptyState, PageHeader } from "@kubebay/ui";
 import { FluxSummary } from "../components/FluxSummary";
 import { PageLoader } from "../components/PageLoader";
 import { crdApi } from "../lib/api";
@@ -41,7 +41,7 @@ export default function Flux() {
     return (
       <div className="page">
         <PageHeader level={2} title="Flux" />
-        <div className="empty-state"><p>Select a cluster first.</p></div>
+        <EmptyState><p>Select a cluster first.</p></EmptyState>
       </div>
     );
   }
@@ -60,13 +60,13 @@ export default function Flux() {
       <div className="page">
         <PageHeader level={2} title="Flux" />
         <div className="page-body">
-          <div className="empty-state">
+          <EmptyState>
             <p>Flux not detected on this cluster.</p>
             <p className="muted small">
               Neither <code className="mono">kustomizations.kustomize.toolkit.fluxcd.io</code> nor{" "}
               <code className="mono">helmreleases.helm.toolkit.fluxcd.io</code> was found via cluster discovery.
             </p>
-          </div>
+          </EmptyState>
         </div>
       </div>
     );

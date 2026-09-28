@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Button } from "@kubebay/ui";
+import { Button, EmptyState, InlineBanner, chartColor } from "@kubebay/ui";
 import { LineChart } from "./LineChart";
 import { promApi } from "../lib/api";
 
@@ -139,8 +139,6 @@ export function PodGraphs({
     };
   }, [anyErr, isUnreachable, retryCount, queryClient]);
 
-  const palette = ["#5b8def", "#41c98e", "#dca154", "#c586e8", "#4fc4cf"];
-
   function toSeries(
     res: { data: { result: { metric: Record<string, string>; values: [number, string][] }[] } } | undefined,
     colorSeed: number,
@@ -148,7 +146,7 @@ export function PodGraphs({
   ) {
     return (res?.data.result ?? []).map((r, i) => ({
       label: r.metric.container || "container",
-      color: palette[(i + colorSeed) % palette.length] ?? "#5b8def",
+      color: chartColor(i + colorSeed),
       points: r.values.map(([ts, v]) => [ts * 1000, scale(Number(v))] as [number, number]),
     }));
   }
@@ -167,10 +165,10 @@ export function PodGraphs({
 
   if (!promUrl)
     return (
-      <div className="empty-state" style={{ margin: "var(--kb-gutter)" }}>
+      <EmptyState style={{ margin: "var(--kb-gutter)" }}>
         <p>History graphs need Prometheus.</p>
         <p className="muted small">Set the server URL in Settings &rarr; Prometheus.</p>
-      </div>
+      </EmptyState>
     );
 
   const pfCommand = "kubectl -n monitoring port-forward svc/<prometheus-server> 19090:80";
@@ -191,7 +189,7 @@ export function PodGraphs({
       </div>
 
       {isUnreachable && (
-        <div className="error-banner">
+        <InlineBanner flush>
           Prometheus is not reachable. Start a port-forward with:
           <CopyableCommand command={pfCommand} />
           {retrying && retryCount < MAX_RETRIES && (
@@ -222,11 +220,11 @@ export function PodGraphs({
               </button>
             </p>
           )}
-        </div>
+        </InlineBanner>
       )}
 
       {anyErr && !isUnreachable && (
-        <div className="error-banner">Prometheus query failed -- check URL/reachability in Settings.</div>
+        <InlineBanner flush>Prometheus query failed -- check URL/reachability in Settings.</InlineBanner>
       )}
 
       {!anyErr && (

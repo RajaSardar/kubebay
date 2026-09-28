@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Badge, Button, TextField } from "@kubebay/ui";
+import { Badge, Button, InlineBanner, TextField } from "@kubebay/ui";
 import { api, wasteApi } from "../lib/api";
 import { useResourceStream } from "../lib/useResourceStream";
 import { resolveWorkloadOwner } from "../lib/podOwner";
@@ -149,15 +149,15 @@ export function ResizePanel({
     <div style={{ padding: 14 }}>
       <div className="rbac-section-title">Resize container "{container}"</div>
       {live.isLoading && <div className="muted small" style={{ marginBottom: 8 }}>Loading current resources…</div>}
-      {live.isError && <div className="error-banner" style={{ marginBottom: 10 }}>Could not load current resources.</div>}
+      {live.isError && <InlineBanner flush style={{ marginBottom: 10 }}>Could not load current resources.</InlineBanner>}
       {suggestion && (
-        <div className="inline-banner" role="status" style={{ marginBottom: 10 }}>
+        <InlineBanner role="status" style={{ marginBottom: 10 }}>
           Suggested{suggestion.workloadLevel ? " (workload-level, not container-exact)" : ""}: cpu {suggestion.cpu} /
           memory {suggestion.memory}.{" "}
           <Button variant="ghost" onClick={useSuggested}>
             Use suggested
           </Button>
-        </div>
+        </InlineBanner>
       )}
       <div className="pf-form" style={{ gridTemplateColumns: "repeat(2, minmax(160px, 1fr))" }}>
         {FIELDS.map((f) => (

@@ -81,7 +81,7 @@ export function ClusterIconPicker({ clusterId, current, onSave, onReset, onClose
         <div className="icon-picker-title">Customize icon</div>
 
         {/* Preview */}
-        <div className="icon-picker-preview" style={{ background: previewImageUrl ? "transparent" : bg }}>
+        <div className="icon-picker-preview" style={{ background: previewImageUrl ? "transparent" : bg, color: avatarLabelColor(bg) }}>
           {previewImageUrl
             ? <img src={previewImageUrl} alt="icon preview" className="icon-picker-preview-img" onError={() => setImgError(true)} />
             : (label || "?")}
@@ -185,4 +185,18 @@ export function ClusterIconPicker({ clusterId, current, onSave, onReset, onClose
       </div>
     </>
   );
+}
+
+/** Label colour for initials on a user-picked avatar colour: white or near-black, whichever contrasts more. */
+export function avatarLabelColor(bg: string): string {
+  const m = /^#([0-9a-f]{6})$/i.exec(bg.trim());
+  if (!m) return "#ffffff";
+  const lin = (i: number) => {
+    const v = parseInt(m[1]!.slice(i, i + 2), 16) / 255;
+    return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+  };
+  const l = 0.2126 * lin(0) + 0.7152 * lin(2) + 0.0722 * lin(4);
+  const onWhite = 1.05 / (l + 0.05);
+  const onDark = (l + 0.05) / (0.0056 + 0.05); // #111111
+  return onWhite >= onDark ? "#ffffff" : "#111111";
 }

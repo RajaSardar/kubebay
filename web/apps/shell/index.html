@@ -1,9 +1,29 @@
 <!doctype html>
-<html lang="en" data-theme="dusk">
+<html lang="en" data-theme="dawn">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#0a0b10" />
+    <meta name="theme-color" content="#f2f2f7" />
+    <!-- Resolve the saved theme before first paint so a light-theme user never
+         sees a dark frame. Mirrors resolveTheme() in src/lib/theme.ts; the
+         colours are each theme's --kb-theme-color (themeBoot.test.ts checks both). -->
+    <script id="kb-theme-boot">
+      (function () {
+        var colors = {"dusk":"#161617","dawn":"#f2f2f7","dusk-hc":"#000000","dawn-hc":"#ffffff","vscode-dark":"#1e1e1e","vscode-light":"#f3f3f3","one-dark":"#282c34","dracula":"#282a36","nord":"#2e3440","github-dark":"#0d1117","github-light":"#f6f8fa","catppuccin":"#1e1e2e"};
+        var t = "dawn";
+        try {
+          if (localStorage.getItem("kb.theme.version")) t = localStorage.getItem("kb.theme") || "dawn";
+        } catch (e) {}
+        if (t === "system") {
+          var mm = function (q) { return window.matchMedia && window.matchMedia(q).matches; };
+          t = (mm("(prefers-color-scheme: dark)") ? "dusk" : "dawn") + (mm("(prefers-contrast: more)") ? "-hc" : "");
+        }
+        if (!colors[t]) t = "dawn";
+        document.documentElement.setAttribute("data-theme", t);
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute("content", colors[t]);
+      })();
+    </script>
     <link rel="manifest" href="/manifest.json" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />

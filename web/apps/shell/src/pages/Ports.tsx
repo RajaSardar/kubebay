@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Button, Card, PageHeader, Select, TextField } from "@kubebay/ui";
+import { Button, Card, DataTable, EmptyState, PageHeader, Select, TextField } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { useCluster } from "../lib/useCluster";
 
@@ -75,49 +75,40 @@ export default function Ports() {
       </Card>
 
       {(forwards.data ?? []).length === 0 ? (
-        <div className="empty-state">
+        <EmptyState>
           <p>No active tunnels.</p>
           <p className="muted small">Tunnels bind to 127.0.0.1 only and die with the engine.</p>
-        </div>
+        </EmptyState>
       ) : (
-        <div className="table-wrap">
-          <table className="kb-table">
-            <thead>
-              <tr>
-                <th>Local</th>
-                <th>Target</th>
-                <th>Cluster</th>
-                <th>Started</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {(forwards.data ?? []).map((f) => (
-                <tr key={f.id}>
-                  <td>
-                    <a className="mono strong pf-link" href={`http://127.0.0.1:${f.localPort}`} target="_blank" rel="noreferrer">
-                      127.0.0.1:{f.localPort}
-                    </a>
-                  </td>
-                  <td className="mono muted">
-                    {f.namespace}/{f.pod}:{f.podPort}
-                  </td>
-                  <td className="mono muted">{f.cluster}</td>
-                  <td className="mono muted">
-                    {new Date(f.startedAt).toLocaleTimeString()}
-                  </td>
-                  <td>
-                    <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                      <Button variant="danger" onClick={() => void stop(f.id)}>
-                        Stop
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          rows={forwards.data ?? []}
+          rowKey={(f) => f.id}
+          columns={[
+            {
+              key: "local",
+              header: "Local",
+              render: (f) => (
+                <a className="mono strong pf-link" href={`http://127.0.0.1:${f.localPort}`} target="_blank" rel="noreferrer">
+                  127.0.0.1:{f.localPort}
+                </a>
+              ),
+            },
+            { key: "target", header: "Target", className: "mono muted", render: (f) => `${f.namespace}/${f.pod}:${f.podPort}` },
+            { key: "cluster", header: "Cluster", className: "mono muted", render: (f) => f.cluster },
+            { key: "started", header: "Started", className: "mono muted", render: (f) => new Date(f.startedAt).toLocaleTimeString() },
+            {
+              key: "actions",
+              header: "",
+              render: (f) => (
+                <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                  <Button variant="danger" onClick={() => void stop(f.id)}>
+                    Stop
+                  </Button>
+                </div>
+              ),
+            },
+          ]}
+        />
       )}
     </div>
   );

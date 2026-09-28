@@ -9,6 +9,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 ### Added
 - **Shared shell components in `@kubebay/ui`**: `StatusPill` + `phaseTone()`, `Tabs`, `NavItem`/`NavSection` + `navItemClass()`, `TextField`, `Select`, `Kbd`, `PageHeader` (with `level` and `live`) and `ContextMenu`. Their styles now live in the package (#12)
 - `--kb-on-danger` token in every theme for labels on danger fills (#12)
+- **`DataTable` and table primitives in `@kubebay/ui`**: every table in the app (resources, pods, Helm, ArgoCD, audit log, port forwards, network policies, cluster picker, cost and right-sizing panels) now shares the ResourceTable design. Also new: `EmptyState`, `InlineBanner`, `KubebayMark`
+- `docs/DESIGN_SYSTEM.md` and a CLAUDE.md rule: all UI is built from `@kubebay/ui`, enforced by tests
 - **Karpenter safe editing**: an Edit affordance on each NodePool card shows a blast-radius impact banner (nodes/pods/namespaces backed by the pool, spot count, and real PodDisruptionBudget coverage via Kubernetes label-selector matching) and requires typing the NodePool's name to confirm before applying any of three eviction-causing edits (shrinking `spec.limits`, lowering a disruption budget's `nodes` value, or switching `consolidationPolicy` to `WhenEmptyOrUnderutilized`)
 - **KEDA ScaledObject wizard**: an "Add ScaledObject" flow in the Autoscaling tab generates a manifest for cron, CPU/memory, or Prometheus triggers, previews it with a live diff, and dry-runs/applies it — always created paused, with scale-to-zero (`minReplicaCount: 0`) gated behind typing the workload's name to confirm, and blocked outright if an HPA already targets the same workload. The Prometheus trigger suggests in-cluster Service candidates for `serverAddress` rather than reusing Kubebay's local Prometheus proxy URL, which resolves to a different address entirely
 
@@ -16,10 +18,22 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 - **Every theme meets WCAG AA**: text reads at 4.5:1 or better on every surface, status pills and button labels reach 4.5:1, and focus rings are solid and at least 3:1. Dawn HC and Dusk HC reach 7:1 for body text with 3:1 control borders. Hues are kept; only lightness moves. Visible changes: Dusk primary buttons use a dark label on cyan, Dawn's accent is a deeper blue (`#0065c9`), VS Code Dark+ uses a lighter blue (`#31a6ff`), and Nord's error red is a pale rose (`#e6c1c4`) (#12, this release)
 - The shell renders every page header, toolbar input and select, keycap and sidebar link through `@kubebay/ui`, so the package is the single source of truth for that markup
 - Settings theme swatches match each theme's colours
+- Ghost and danger buttons match the design system everywhere (an `app.css` override had given them a weaker border and smaller text); the cluster picker's search, table, status and provider badges and row menu use the shared components; provider badges are neutral instead of hand-picked hues that failed contrast in light themes
+- Cluster avatars pick black or white initials by contrast with their colour
+- **"System" theme follows the OS contrast setting**: with "Increase contrast" on, it picks Dusk HC or Dawn HC
+- **Pending has its own colour**: Pending pods use each theme's info hue instead of the warning orange, so they no longer read as warnings
 
 ### Fixed
 - Borders, focus halos, text colour and backgrounds missing in the Network Policy view, cluster picker and cluster detail drawer: six undefined `--kb-*` variables now point at real tokens (#12)
 - Cluster-picker nav highlight and engine-status dot follow the theme instead of fixed colours (#12)
+- ArgoCD sync and health pills had no background or border (their colour was built as invalid CSS)
+- Two notices styled with an `info-banner` class that had no CSS now render as proper banners
+- Light-theme users no longer see a dark frame on launch: the saved theme is applied before first paint
+- Text inputs and selects have a visible edge in every theme (3:1, WCAG 1.4.11) via a new `--kb-border-control` token; before, it measured 1.1–1.8:1
+- Focus rings, selected rows and status dots stay visible in Windows High Contrast (forced colours)
+- Pod history graphs use the theme's chart colours (`--kb-chart-1…5`, 3:1 on every ground) instead of one fixed palette for all 12 themes
+- In Dawn and VS Code Light, the ok, warn and error colours now read at 4.5:1 on inset fields too
+- Code editors use Monaco's high-contrast themes in Dawn HC and Dusk HC
 
 ## [0.1.3] — 2026-09-09
 

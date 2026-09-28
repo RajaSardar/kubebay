@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { DiffEditor } from "@monaco-editor/react";
-import { ArmedButton, Badge, Button, Card, PageHeader } from "@kubebay/ui";
+import { ArmedButton, Badge, Button, Card, EmptyState, InlineBanner, PageHeader } from "@kubebay/ui";
 import { PageLoader } from "../components/PageLoader";
 import { RightSizingTable, rowKey, type Selection } from "../components/RightSizingTable";
 import { useResourceStream, shouldShowSkeleton } from "../lib/useResourceStream";
@@ -202,7 +202,7 @@ export default function RightSizing() {
     return (
       <div className="page">
         <PageHeader level={2} title="Right-sizing" />
-        <div className="empty-state"><p>Select a cluster first.</p></div>
+        <EmptyState><p>Select a cluster first.</p></EmptyState>
       </div>
     );
   }
@@ -231,14 +231,14 @@ export default function RightSizing() {
 
       <div className="page-body">
         {vpas.rows.length === 0 && (
-          <div className="empty-state" style={{ marginBottom: 16 }}>
+          <EmptyState style={{ marginBottom: 16 }}>
             <p>No VerticalPodAutoscalers found on this cluster.</p>
             <p className="muted small">
               Kubebay's own metrics-server-based recommendations (below, badged "Kubebay") still work without one —
               install the VPA recommender too (with <code className="mono">updateMode: "Off"</code> to keep it
               observe-only) for a purpose-built alternative on the same workloads.
             </p>
-          </div>
+          </EmptyState>
         )}
 
         <RightSizingTable rows={rows} selected={selection} onToggle={toggle} />
@@ -276,7 +276,7 @@ export default function RightSizing() {
                     </div>
                   </div>
 
-                  {preview?.status === "error" && <div className="error-banner" style={{ marginTop: 10 }}>{preview.error}</div>}
+                  {preview?.status === "error" && <InlineBanner flush style={{ marginTop: 10 }}>{preview.error}</InlineBanner>}
 
                   {preview?.status === "ready" && preview.original !== undefined && (
                     <div style={{ marginTop: 10, height: 220, border: "1px solid var(--kb-border-subtle)", borderRadius: 6, overflow: "hidden" }}>

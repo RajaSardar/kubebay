@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { DiffEditor } from "@monaco-editor/react";
-import { Badge, Button, Select, TextField } from "@kubebay/ui";
+import { Badge, Button, InlineBanner, Select, TextField } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { useMonacoTheme } from "../lib/theme";
 import { buildScaledObjectYaml, validateKedaWizardInput, type KedaTrigger, type KedaWizardInput } from "../lib/kedaWizard";
@@ -227,17 +227,17 @@ export function KedaWizard({
       )}
 
       {errors.length > 0 && (
-        <div className="error-banner" role="alert">
+        <InlineBanner flush role="alert">
           <ul style={{ margin: 0, paddingLeft: 18 }}>
             {errors.map((e, i) => (
               <li key={i} className="small">{e}</li>
             ))}
           </ul>
-        </div>
+        </InlineBanner>
       )}
 
       {minReplicaCount === 0 && (
-        <div className="inline-banner" role="alert">
+        <InlineBanner role="alert">
           <div className="small">
             ⚠ scale-to-zero (minReplicaCount: 0) — the workload can go idle between triggers. Type{" "}
             <span className="mono strong">{targetName}</span> to confirm before applying.
@@ -252,7 +252,7 @@ export function KedaWizard({
               spellCheck={false}
             />
           </div>
-        </div>
+        </InlineBanner>
       )}
 
       <div style={{ height: 220 }}>
@@ -267,7 +267,7 @@ export function KedaWizard({
 
       {rejection && <PolicyRejectionCard rejection={rejection} />}
       {!rejection && msg && (
-        <div className={msg.ok ? "info-banner" : "error-banner"}>{msg.text}</div>
+        <InlineBanner flush tone={msg.ok ? "ok" : "err"}>{msg.text}</InlineBanner>
       )}
 
       <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>

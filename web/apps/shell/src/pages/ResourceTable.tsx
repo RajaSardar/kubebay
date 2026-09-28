@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams, useLocation } from "react-router-dom";
-import { Badge, Button, PageHeader, Skeleton, StatusDot, TextField, phaseTone } from "@kubebay/ui";
+import { Badge, Button, EmptyState, InlineBanner, NsPill, PageHeader, SelectAllHeader, SelectCell, SkeletonRows, SortHeader, StatusDot, Table, TableRow, TableWrap, TextField, phaseTone } from "@kubebay/ui";
 import { api, crdApi, metricsApi, type PrinterColumn } from "../lib/api";
 import { useQuery as useRQQuery } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -392,27 +392,6 @@ function ContainerDots({ o }: { o: Row }) {
   );
 }
 
-// Checkbox with indeterminate support
-function SelectAllCheckbox({ checked, indeterminate, onChange }: {
-  checked: boolean;
-  indeterminate: boolean;
-  onChange: (checked: boolean) => void;
-}) {
-  const ref = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    if (ref.current) ref.current.indeterminate = indeterminate;
-  }, [indeterminate]);
-  return (
-    <input
-      ref={ref}
-      type="checkbox"
-      checked={checked}
-      onChange={(e) => onChange(e.target.checked)}
-      className="kb-checkbox"
-      aria-label="Select all"
-    />
-  );
-}
 
 export default function ResourceTable() {
   const { kind = "" } = useParams();
@@ -564,9 +543,9 @@ export default function ResourceTable() {
   if (!def) {
     return (
       <div className="page">
-        <div className="empty-state">
+        <EmptyState>
           <p>Unknown resource "{kind}".</p>
-        </div>
+        </EmptyState>
       </div>
     );
   }
@@ -619,7 +598,7 @@ export default function ResourceTable() {
       />
 
       {bulkDelete.pending && (
-        <div className="inline-banner">
+        <InlineBanner>
           <span>
             {bulkDelete.pending.length === 1 ? (
               <>
@@ -644,10 +623,10 @@ export default function ResourceTable() {
               {bulkDelete.busy ? "Deleting…" : "Delete"}
             </Button>
           </div>
-        </div>
+        </InlineBanner>
       )}
-      {bulkDelete.rejection && <PolicyRejectionCard rejection={bulkDelete.rejection} />}
-      {!bulkDelete.rejection && bulkDelete.error && <div className="inline-banner">{bulkDelete.error}</div>}
+      {bulkDelete.rejection && <PolicyRejectionCard flush={false} rejection={bulkDelete.rejection} />}
+      {!bulkDelete.rejection && bulkDelete.error && <InlineBanner>{bulkDelete.error}</InlineBanner>}
 
       <div className="toolbar">
         {!def.scoped && (
@@ -662,8 +641,8 @@ export default function ResourceTable() {
       </div>
 
       {shouldShowSkeleton(stream.synced, stream.rows.length) ? (
-        <div className="table-wrap">
-          <table className="kb-table">
+        <TableWrap>
+          <Table>
             <thead>
               <tr>
                 <th style={{ width: 40 }} />
@@ -671,25 +650,18 @@ export default function ResourceTable() {
               </tr>
             </thead>
             <tbody>
-              {[0, 1, 2, 3, 4].map((i) => (
-                <tr key={i}>
-                  <td />
-                  {headers.map((_, j) => (
-                    <td key={j}><Skeleton w={[150, 90, 60, 70, 60, 50][j % 6]} /></td>
-                  ))}
-                </tr>
-              ))}
+              <SkeletonRows columns={headers.length} leadingBlank />
             </tbody>
-          </table>
-        </div>
+          </Table>
+        </TableWrap>
       ) : rows.length === 0 ? (
-        <div className="empty-state">
+        <EmptyState>
           <p>No {def.label.toLowerCase()} match.</p>
           <p className="muted small">{search || nsFilter.length ? "Loosen the filters." : `Nothing in this ${def.scoped ? "cluster" : "namespace"} yet.`}</p>
-        </div>
+        </EmptyState>
       ) : (
-        <div className="table-wrap" ref={scrollRef}>
-          <table className="kb-table">
+        <TableWrap ref={scrollRef}>
+          <Table>
             <colgroup>
               <col style={{ width: 40 }} />
               {headers.map((h, i) => <col key={h} style={{ width: widths[i] }} />)}
@@ -698,24 +670,23 @@ export default function ResourceTable() {
             <thead>
               <tr>
                 {/* Select-all checkbox */}
-                <th className="col-select" style={{ width: 40 }}>
-                  <SelectAllCheckbox
-                    checked={isAllSelected(allKeys)}
-                    indeterminate={isIndeterminate(allKeys)}
-                    onChange={(checked) => checked ? selectAll(allKeys) : clearAll()}
-                  />
-                </th>
+                <SelectAllHeader
+                  checked={isAllSelected(allKeys)}
+                  indeterminate={isIndeterminate(allKeys)}
+                  onChange={(checked) => (checked ? selectAll(allKeys) : clearAll())}
+                />
                 {headers.map((h, i) => (
-                  <th
+                  <SortHeader
                     key={h}
-                    className="th-sortable"
-                    style={{ width: widths[i], position: "relative" }}
-                    onClick={() => toggleSort(h)}
+                    label={h}
+                    active={sortCol === h}
+                    asc={sortAsc}
+                    onSort={() => toggleSort(h)}
+                    width={widths[i]}
+                    style={{ position: "relative" }}
                   >
-                    {h}
-                    {sortCol === h && <span className="sort-indicator">{sortAsc ? " ↑" : " ↓"}</span>}
                     <div className="col-resize-handle" {...getResizeHandleProps(i)} />
-                  </th>
+                  </SortHeader>
                 ))}
                 <th className="col-row-menu" style={{ width: 36 }} /> {/* ⋮ header spacer */}
               </tr>
@@ -737,39 +708,31 @@ export default function ResourceTable() {
                 const isSelected = selectedKeys.has(key);
                 const isTerminating = !!rec(o.metadata).deletionTimestamp;
                 return (
-                  <tr
+                  <TableRow
                     key={key}
                     data-index={virtualRow.index}
                     ref={rowVirtualizer.measureElement}
-                    data-terminating={isTerminating || undefined}
-                    className={`row-clickable${isSelected ? " selected" : ""}${hoveredRowKey === key ? " hovered" : ""}`}
+                    clickable
+                    selected={isSelected}
+                    hovered={hoveredRowKey === key}
+                    dimmed={isTerminating}
                     onClick={() => setSelected({ ns, name })}
                     onMouseEnter={() => setHoveredRowKey(key)}
                     onMouseLeave={() => setHoveredRowKey(null)}
                     onContextMenu={(e) => { e.preventDefault(); setCtx({ x: e.clientX, y: e.clientY, ns, name }); }}
                   >
-                    <td className="col-select" onClick={(e) => e.stopPropagation()}>
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => toggleRow(key)}
-                        className="kb-checkbox"
-                        aria-label={`Select ${name}`}
-                      />
-                    </td>
+                    <SelectCell checked={isSelected} onChange={() => toggleRow(key)} label={`Select ${name}`} />
                     <td className="mono td-name" title={name}>{name}</td>
                     {!def.scoped && (
                       <td className="mono">
-                        <span
-                          className="cell-link ns-pill"
+                        <NsPill
                           title={`Filter by namespace: ${ns}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
+                          onClick={() => {
                             if (effectiveCluster) setNamespaces(effectiveCluster, [ns]);
                           }}
                         >
                           {ns}
-                        </span>
+                        </NsPill>
                       </td>
                     )}
                     {cols.map((col) => {
@@ -823,12 +786,12 @@ export default function ResourceTable() {
                         ⋮
                       </button>
                     </td>
-                  </tr>
+                  </TableRow>
                 );
               })}
             </tbody>
-          </table>
-        </div>
+          </Table>
+        </TableWrap>
       )}
 
       {ctx && (
@@ -837,10 +800,10 @@ export default function ResourceTable() {
           y={ctx.y}
           onClose={() => setCtx(null)}
           items={[
-            { label: "View details", icon: "📋", onClick: () => setSelected({ ns: ctx.ns, name: ctx.name }) },
-            { label: "Edit YAML", icon: "📝", onClick: () => setSelected({ ns: ctx.ns, name: ctx.name }) },
+            { label: "View details", onClick: () => setSelected({ ns: ctx.ns, name: ctx.name }) },
+            { label: "Edit YAML", onClick: () => setSelected({ ns: ctx.ns, name: ctx.name }) },
             { separator: true, label: "", onClick: () => {} },
-            { label: "Delete", icon: "🗑", danger: true, onClick: () => {
+            { label: "Delete", danger: true, onClick: () => {
               bulkDelete.request([{ ns: ctx.ns, name: ctx.name }]);
             }},
           ]}

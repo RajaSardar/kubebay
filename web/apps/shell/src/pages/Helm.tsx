@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Editor from "@monaco-editor/react";
-import { ArmedButton, Badge, Button, PageHeader, Skeleton, StatusDot, TextField } from "@kubebay/ui";
+import { ArmedButton, Badge, Button, DataTable, EmptyState, InlineBanner, PageHeader, Skeleton, StatusDot, TextField } from "@kubebay/ui";
 import { helmApi, type HelmRelease } from "../lib/api";
 import { useCluster } from "../lib/useCluster";
 import { useMonacoTheme } from "../lib/theme";
@@ -140,7 +140,7 @@ function ReleaseDrawer({
         <div className="drawer-head-actions">
           {!confirmingDelete ? (
             <>
-              <Button variant="ghost" className="kb-btn-danger-ghost" onClick={() => setConfirmingDelete(true)}>
+              <Button variant="danger-ghost" onClick={() => setConfirmingDelete(true)}>
                 Uninstall
               </Button>
               <Button variant="ghost" onClick={onClose}>
@@ -168,9 +168,9 @@ function ReleaseDrawer({
       </div>
 
       {err && (
-        <div className="error-banner" style={{ margin: "10px 14px 0" }}>
+        <InlineBanner flush style={{ margin: "10px 14px 0" }}>
           {err}
-        </div>
+        </InlineBanner>
       )}
 
       <div className="tabs">
@@ -315,79 +315,55 @@ export default function Helm() {
       <PageHeader level={2} title="Helm releases" count={!releases.isLoading && `· ${rows.length}`} />
 
       {releases.isError && (
-        <div className="error-banner">
+        <InlineBanner flush>
           Failed to list releases —{" "}
           {releases.error instanceof Error ? releases.error.message : "is the cluster reachable?"}
-          <button className="btn-ghost small" style={{ marginLeft: 8 }} onClick={() => void releases.refetch()}>Retry</button>
-        </div>
+          <Button variant="ghost" onClick={() => void releases.refetch()}>Retry</Button>
+        </InlineBanner>
       )}
 
       {!effectiveCluster ? (
         <div className="loading-state">
           <p>Waiting for cluster…</p>
         </div>
-      ) : releases.isLoading ? (
-        <div className="table-wrap">
-          <table className="kb-table">
-            <thead>
-              <tr>{["Name", "Namespace", "Chart", "Status", "Revision", "Updated"].map((h) => <th key={h}>{h}</th>)}</tr>
-            </thead>
-            <tbody>
-              {[0, 1, 2].map((i) => (
-                <tr key={i}>
-                  {[140, 90, 150, 80, 50, 90].map((w, j) => (
-                    <td key={j}>
-                      <Skeleton w={w} />
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : rows.length === 0 ? (
-        <div className="empty-state">
-          <p>No Helm releases in this cluster.</p>
-          <p className="muted small">Install one with your local helm CLI — it appears here within seconds.</p>
-        </div>
       ) : (
-        <div className="table-wrap">
-          <table className="kb-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Namespace</th>
-                <th>Chart</th>
-                <th>Status</th>
-                <th>Rev</th>
-                <th>Updated</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => {
+        <DataTable
+          loading={releases.isLoading}
+          rows={rows}
+          rowKey={(r) => `${r.namespace}/${r.name}`}
+          onRowClick={pick}
+          empty={
+            <EmptyState
+              title="No Helm releases in this cluster."
+              hint="Install one with your local helm CLI — it appears here within seconds."
+            />
+          }
+          columns={[
+            { key: "name", header: "Name", className: "mono strong", render: (r) => r.name },
+            { key: "ns", header: "Namespace", className: "mono muted", render: (r) => r.namespace },
+            {
+              key: "chart",
+              header: "Chart",
+              className: "mono muted",
+              render: (r) => `${r.chart}${r.appVersion ? ` (${r.appVersion})` : ""}`,
+            },
+            {
+              key: "status",
+              header: "Status",
+              render: (r) => {
                 const tone = statusTone(r.status);
                 return (
-                  <tr key={`${r.namespace}/${r.name}`} className="row-clickable" onClick={() => pick(r)}>
-                    <td className="mono strong">{r.name}</td>
-                    <td className="mono muted">{r.namespace}</td>
-                    <td className="mono muted">
-                      {r.chart}
-                      {r.appVersion ? ` (${r.appVersion})` : ""}
-                    </td>
-                    <td>
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
-                        <StatusDot status={tone.dot} />
-                        <Badge tone={tone.badge}>{r.status.toLowerCase()}</Badge>
-                      </span>
-                    </td>
-                    <td className="mono muted">{r.revision}</td>
-                    <td className="mono muted">{fmtUpdated(r.updated)}</td>
-                  </tr>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
+                    <StatusDot status={tone.dot} />
+                    <Badge tone={tone.badge}>{r.status.toLowerCase()}</Badge>
+                  </span>
                 );
-              })}
-            </tbody>
-          </table>
-        </div>
+              },
+            },
+            { key: "rev", header: "Rev", className: "mono muted", render: (r) => r.revision },
+            { key: "updated", header: "Updated", className: "mono muted", render: (r) => fmtUpdated(r.updated) },
+          ]}
+        />
       )}
 
       {selected && <ReleaseDrawer cluster={effectiveCluster} rel={selected} onClose={() => setSelected(null)} />}

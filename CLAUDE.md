@@ -51,6 +51,19 @@ No PR merges if `go test ./...` or `pnpm test` is red. Tests are not optional.
 
 ---
 
+## DESIGN SYSTEM RULE: Build UI only from @kubebay/ui
+
+**Every UI change uses the design system. No exceptions.** Read `docs/DESIGN_SYSTEM.md` before touching `web/`.
+
+- Render tables with `DataTable` (or the table primitives for virtualised or expandable tables), and page headers, inputs, selects, keycaps, nav links, tabs, status pills, menus, empty states, banners and buttons with their `@kubebay/ui` components, never by class name.
+- Colours come from `--kb-*` tokens only: no hex or rgb literals in shell TSX or `app.css`, and no `var(--x, #fallback)`.
+- Never restyle a `@kubebay/ui` class from `app.css`; add a prop or variant to the component instead.
+- A new colour goes into all 12 theme blocks in `tokens.css` and must pass the contrast test (4.5:1 text, 7:1 in HC themes).
+- The guard tests (`shellAdoption`, `themeTokens`, `themeContrast`) are part of the CI gate. Never weaken or skip them to get green; fix the code.
+- After a design-system change merges, re-sync the design system artifact (https://claude.ai/artifact/J35D45QQ7X6Sgd7mwfRSnF).
+
+---
+
 ## Multi-Agent Debate Rule
 
 **When multiple expert agents are launched for analysis, they MUST debate each other — not just run in parallel.**

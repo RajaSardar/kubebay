@@ -1,4 +1,4 @@
-import { Badge, Card } from "@kubebay/ui";
+import { Badge, Card, DataTable, EmptyState } from "@kubebay/ui";
 import { fmtAge } from "../lib/resources";
 import type { UnschedulablePod } from "../lib/karpenter";
 
@@ -11,9 +11,9 @@ import type { UnschedulablePod } from "../lib/karpenter";
 export function UnschedulablePods({ rows }: { rows: UnschedulablePod[] }) {
   if (rows.length === 0) {
     return (
-      <div className="empty-state">
+      <EmptyState>
         <p>No unschedulable pods.</p>
-      </div>
+      </EmptyState>
     );
   }
 
@@ -23,24 +23,23 @@ export function UnschedulablePods({ rows }: { rows: UnschedulablePod[] }) {
         Unschedulable pods
         <Badge tone="err">{rows.length}</Badge>
       </div>
-      <div className="table-wrap">
-        <table className="kb-table">
-          <thead>
-            <tr><th>Namespace</th><th>Pod</th><th>Message</th><th style={{ width: 70 }}>Count</th><th style={{ width: 80 }}>Age</th></tr>
-          </thead>
-          <tbody>
-            {rows.map((r, i) => (
-              <tr key={i}>
-                <td className="mono small">{r.ns}</td>
-                <td className="mono small strong">{r.pod}</td>
-                <td className="small">{r.message}</td>
-                <td className="mono small">{r.count}</td>
-                <td className="mono small muted">{r.lastTimestamp ? fmtAge(Date.now() - Date.parse(r.lastTimestamp)) : "–"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        rows={rows}
+        rowKey={(r, i) => `${r.ns}/${r.pod}/${i}`}
+        columns={[
+          { key: "ns", header: "Namespace", className: "mono small", render: (r) => r.ns },
+          { key: "pod", header: "Pod", className: "mono small strong", render: (r) => r.pod },
+          { key: "msg", header: "Message", className: "small", render: (r) => r.message },
+          { key: "count", header: "Count", width: 70, className: "mono small", render: (r) => r.count },
+          {
+            key: "age",
+            header: "Age",
+            width: 80,
+            className: "mono small muted",
+            render: (r) => (r.lastTimestamp ? fmtAge(Date.now() - Date.parse(r.lastTimestamp)) : "–"),
+          },
+        ]}
+      />
     </Card>
   );
 }

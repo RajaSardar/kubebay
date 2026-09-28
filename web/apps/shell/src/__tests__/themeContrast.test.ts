@@ -106,12 +106,72 @@ describe.each(NATIVE)("$id theme contrast", ({ id, text }) => {
     }
   });
 
+  it("pending reads as its own status, not as a warning or an error", () => {
+    const hue = ([r, g, b]: RGBA) => {
+      const [R, G, B] = [r / 255, g / 255, b / 255];
+      const max = Math.max(R, G, B), d = max - Math.min(R, G, B);
+      if (d === 0) return 0;
+      const h = max === R ? ((G - B) / d) % 6 : max === G ? (B - R) / d + 2 : (R - G) / d + 4;
+      return (h * 60 + 360) % 360;
+    };
+    const apart = (a: number, b: number) => Math.min(Math.abs(a - b), 360 - Math.abs(a - b));
+    for (const other of ["warn", "err"]) {
+      const d = apart(hue(c("kb-status-pending")), hue(c(`kb-status-${other}`)));
+      if (d < 60) failures.push(`pending is ${d.toFixed(0)}° from ${other}`);
+    }
+    expect(failures).toEqual([]);
+  });
+
+  it("chart series reach 3:1 on every ground and stay apart in hue", () => {
+    const series = [1, 2, 3, 4, 5].map((n) => `kb-chart-${n}`);
+    for (const sName of series) for (const g of grounds) check(sName, c(g), g, 3);
+    const hue = ([r, g, b]: RGBA) => {
+      const [R, G, B] = [r / 255, g / 255, b / 255];
+      const max = Math.max(R, G, B), d = max - Math.min(R, G, B);
+      if (d === 0) return 0;
+      const h = max === R ? ((G - B) / d) % 6 : max === G ? (B - R) / d + 2 : (R - G) / d + 4;
+      return (h * 60 + 360) % 360;
+    };
+    for (let i = 0; i < series.length; i++)
+      for (let j = i + 1; j < series.length; j++) {
+        const a = hue(c(series[i]!)), b = hue(c(series[j]!));
+        const d = Math.min(Math.abs(a - b), 360 - Math.abs(a - b));
+        if (d < 20) failures.push(`${series[i]} and ${series[j]} are ${d.toFixed(0)}° apart`);
+      }
+    expect(failures).toEqual([]);
+  });
+
+  it("status colours read on raised and inset grounds too", () => {
+    for (const g of ["kb-bg-raised", "kb-bg-inset"]) {
+      for (const s of ["ok", "warn", "err", "pending"]) check(`kb-status-${s}`, c(g), g, 4.5);
+    }
+    expect(failures).toEqual([]);
+  });
+
+  it("form control borders reach 3:1 on every ground (WCAG 1.4.11)", () => {
+    for (const g of grounds) {
+      const r = contrast(over(c("kb-border-control"), c(g)), c(g));
+      if (r < 3) failures.push(`kb-border-control on ${g}: ${r.toFixed(2)} < 3`);
+    }
+    expect(failures).toEqual([]);
+  });
+
   if (text === 7) {
     it("high-contrast control borders reach 3:1", () => {
       check("kb-border-strong", c("kb-bg-surface"), "kb-bg-surface", 3);
       expect(failures).toEqual([]);
     });
   }
+});
+
+it("inputs and selects draw their border with the control token", () => {
+  const rule = /\.toolbar-select,\s*\.toolbar-input\s*\{([^}]*)\}/.exec(stylesCss)![1]!;
+  expect(rule).toMatch(/border:\s*1px solid var\(--kb-border-control\)/);
+  const appCss = readFileSync(resolve(root, "web/apps/shell/src/app.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  const weak = [...appCss.matchAll(/([^{}]*(?:input|select|textarea)[^{}]*)\{([^}]*)\}/g)]
+    .filter((m) => !/:(hover|focus)/.test(m[1]!) && /(?:^|;|\s)border:\s*1px solid var\(--kb-border-(subtle|strong)\)/.test(m[2]!))
+    .map((m) => m[1]!.trim());
+  expect(weak).toEqual([]);
 });
 
 it("danger buttons take their label colour from a token", () => {

@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { PageHeader } from "@kubebay/ui";
+import { EmptyState, PageHeader } from "@kubebay/ui";
 import { WasteBreakdown } from "../components/WasteBreakdown";
 import { WorkloadUsageTable } from "../components/WorkloadUsageTable";
 import { PageLoader } from "../components/PageLoader";
@@ -34,7 +34,7 @@ export default function CostWaste() {
     return (
       <div className="page">
         <PageHeader level={2} title="Cost / Waste" />
-        <div className="empty-state"><p>Select a cluster first.</p></div>
+        <EmptyState><p>Select a cluster first.</p></EmptyState>
       </div>
     );
   }

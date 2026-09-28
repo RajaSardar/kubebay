@@ -1,6 +1,6 @@
 import { useState } from "react";
 import Editor from "@monaco-editor/react";
-import { Button, Select } from "@kubebay/ui";
+import { Button, InlineBanner, Select } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { useMonacoTheme } from "../lib/theme";
 import { RESOURCE_TEMPLATES } from "../lib/resourceTemplates";
@@ -89,15 +89,15 @@ export default function CreateResource() {
         </div>
       )}
       {!rejection && result && (
-        <div className={result.ok ? "info-banner" : "error-banner"} style={{ margin: "0 0 8px" }}>
+        <InlineBanner flush tone={result.ok ? "ok" : "err"} style={{ margin: "0 0 8px" }}>
           {result.msg}
-        </div>
+        </InlineBanner>
       )}
 
       {!active && (
-        <div className="error-banner" style={{ margin: "0 0 8px" }}>
+        <InlineBanner flush style={{ margin: "0 0 8px" }}>
           No cluster selected.
-        </div>
+        </InlineBanner>
       )}
 
       <div style={{ flex: 1, minHeight: 0 }}>
