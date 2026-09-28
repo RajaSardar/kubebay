@@ -6,6 +6,7 @@ import { ExecTerm, YamlTab } from "../components/heavy";
 import { PodSummary } from "../components/PodSummary";
 import { PodGraphs } from "../components/PodGraphs";
 import { ResizePanel } from "../components/ResizePanel";
+import { PodVulnerabilitiesTab } from "../components/PodVulnerabilitiesTab";
 
 export interface SelectedPod {
   cluster: string;
@@ -24,11 +25,13 @@ function classify(line: string): "" | "err" | "warn" {
 }
 
 export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod; onClose: () => void; onDeleted?: () => void }) {
-  const [tab, setTabState] = useState<"summary" | "logs" | "shell" | "graphs" | "size" | "yaml">(() => {
+  const [tab, setTabState] = useState<"summary" | "logs" | "shell" | "graphs" | "size" | "vulnerabilities" | "yaml">(() => {
     const saved = localStorage.getItem("kb.drawerTab");
-    return saved === "shell" || saved === "yaml" || saved === "graphs" || saved === "size" || saved === "summary" ? saved : "summary";
+    return saved === "shell" || saved === "yaml" || saved === "graphs" || saved === "size" || saved === "vulnerabilities" || saved === "summary"
+      ? saved
+      : "summary";
   });
-  const setTab = (t: "summary" | "logs" | "shell" | "graphs" | "size" | "yaml") => {
+  const setTab = (t: "summary" | "logs" | "shell" | "graphs" | "size" | "vulnerabilities" | "yaml") => {
     localStorage.setItem("kb.drawerTab", t);
     setTabState(t);
   };
@@ -159,9 +162,21 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
       )}
 
       <div className="tabs">
-        {(["summary", "logs", "shell", "graphs", "size", "yaml"] as const).map((t) => (
+        {(["summary", "logs", "shell", "graphs", "size", "vulnerabilities", "yaml"] as const).map((t) => (
           <button key={t} className={`tab${tab === t ? " active" : ""}`} onClick={() => setTab(t)}>
-            {t === "summary" ? "Summary" : t === "logs" ? "Logs" : t === "shell" ? "Terminal" : t === "graphs" ? "Graphs" : t === "size" ? "Size" : "YAML"}
+            {t === "summary"
+              ? "Summary"
+              : t === "logs"
+                ? "Logs"
+                : t === "shell"
+                  ? "Terminal"
+                  : t === "graphs"
+                    ? "Graphs"
+                    : t === "size"
+                      ? "Size"
+                      : t === "vulnerabilities"
+                        ? "Vulnerabilities"
+                        : "YAML"}
           </button>
         ))}
         <Select
@@ -246,6 +261,14 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
           cluster={pod.cluster}
           namespace={pod.namespace}
           pod={pod.pod}
+          containers={pod.containers}
+          podObj={pod.obj}
+        />
+      ) : tab === "vulnerabilities" ? (
+        <PodVulnerabilitiesTab
+          cluster={pod.cluster}
+          ns={pod.namespace}
+          podName={pod.pod}
           containers={pod.containers}
           podObj={pod.obj}
         />

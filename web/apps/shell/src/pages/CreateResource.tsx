@@ -5,6 +5,8 @@ import { api } from "../lib/api";
 import { useMonacoTheme } from "../lib/theme";
 import { RESOURCE_TEMPLATES } from "../lib/resourceTemplates";
 import { useActiveCluster } from "../App";
+import { PolicyRejectionError, type PolicyRejectionDetail } from "../lib/policyRejection";
+import { PolicyRejectionCard } from "../components/PolicyRejectionCard";
 
 export default function CreateResource() {
   const { active } = useActiveCluster();
@@ -15,6 +17,7 @@ export default function CreateResource() {
   const [applying, setApplying] = useState(false);
   const [dryRun, setDryRun] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [rejection, setRejection] = useState<PolicyRejectionDetail | null>(null);
 
   const template = RESOURCE_TEMPLATES.find((t) => t.kind === selectedKind) ?? RESOURCE_TEMPLATES[0]!;
   const effectiveYaml = yaml ?? template.yaml;
@@ -23,19 +26,25 @@ export default function CreateResource() {
     setSelectedKind(kind);
     setYaml(null); // reset to template when kind changes
     setResult(null);
+    setRejection(null);
   }
 
   async function apply() {
     if (!active) return;
     setApplying(true);
     setResult(null);
+    setRejection(null);
     try {
       const res = await api.createResource({ cluster: active, yaml: effectiveYaml, dryRun });
       const count = res.total > 1 ? `${res.applied}/${res.total} documents` : "Resource";
       setResult({ ok: true, msg: dryRun ? `Dry-run passed — ${count} validated.` : `${count} applied successfully.` });
       void res;
     } catch (e) {
-      setResult({ ok: false, msg: String(e instanceof Error ? e.message : e) });
+      if (e instanceof PolicyRejectionError) {
+        setRejection(e.rejection);
+      } else {
+        setResult({ ok: false, msg: String(e instanceof Error ? e.message : e) });
+      }
     } finally {
       setApplying(false);
     }
@@ -74,7 +83,12 @@ export default function CreateResource() {
         </Button>
       </div>
 
-      {result && (
+      {rejection && (
+        <div style={{ margin: "0 0 8px" }}>
+          <PolicyRejectionCard rejection={rejection} />
+        </div>
+      )}
+      {!rejection && result && (
         <InlineBanner flush tone={result.ok ? "ok" : "err"} style={{ margin: "0 0 8px" }}>
           {result.msg}
         </InlineBanner>
@@ -89,7 +103,7 @@ export default function CreateResource() {
       <div style={{ flex: 1, minHeight: 0 }}>
         <Editor
           value={effectiveYaml}
-          onChange={(v) => { setYaml(v ?? ""); setResult(null); }}
+          onChange={(v) => { setYaml(v ?? ""); setResult(null); setRejection(null); }}
           defaultLanguage="yaml"
           theme={monacoTheme}
           options={{

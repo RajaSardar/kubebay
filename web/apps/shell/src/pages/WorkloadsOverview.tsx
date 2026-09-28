@@ -4,24 +4,12 @@ import { useQuery as useRQQuery } from "@tanstack/react-query";
 import { Badge, Card, PageHeader, Select, Skeleton } from "@kubebay/ui";
 import { useCluster } from "../lib/useCluster";
 import { useResourceStream, shouldShowSkeleton } from "../lib/useResourceStream";
-import type { KObj } from "../lib/topology";
 import { WorkloadTabBar } from "../components/WorkloadTabBar";
 import { PressureGrid } from "../components/PressureGrid";
 import { aggregatePressure } from "../lib/pressure";
 import { useLeadingThrottle } from "../lib/useLeadingThrottle";
 import { api } from "../lib/api";
-
-function rec(v: unknown): Record<string, unknown> {
-  return (v ?? {}) as Record<string, unknown>;
-}
-
-interface KindSummary {
-  label: string;
-  to: string;
-  total: number;
-  healthy: number;
-  unhealthy: number;
-}
+import { computeKindCounts } from "../lib/kindCounts";
 
 function useKindCounts(
   cluster: string | undefined,
@@ -33,64 +21,20 @@ function useKindCounts(
   const dss = useResourceStream(cluster, "apps/v1/daemonsets", { mode: "full" });
   const jobs = useResourceStream(cluster, "batch/v1/jobs", { mode: "full" });
 
-  return useMemo(() => {
-    const out: KindSummary[] = [];
-
-    let podOk = 0;
-    let podBad = 0;
-    for (const raw of pods.rows) {
-      const o = raw as KObj;
-      const status = rec(o.status);
-      const phase = (status.phase as string) ?? "";
-      if (phase === "Running" || phase === "Succeeded") podOk++;
-      else podBad++;
-    }
-    out.push({ label: "Pods", to: "/workloads", total: pods.rows.length, healthy: podOk, unhealthy: podBad });
-
-    function wlHealth(rows: Record<string, unknown>[]): { ok: number; bad: number } {
-      let ok = 0, bad = 0;
-      for (const raw of rows) {
-        const o = raw as KObj;
-        const status = rec(o.status);
-        const spec = rec(o.spec);
-        const desired = Number((spec.replicas as number) ?? 1);
-        const ready = Number((status.readyReplicas as number) ?? 0);
-        if (ready >= desired && desired > 0) ok++;
-        else bad++;
-      }
-      return { ok, bad };
-    }
-
-    const depH = wlHealth(deps.rows);
-    out.push({ label: "Deployments", to: "/r/deployments", total: deps.rows.length, healthy: depH.ok, unhealthy: depH.bad });
-    const stsH = wlHealth(stss.rows);
-    out.push({ label: "StatefulSets", to: "/r/statefulsets", total: stss.rows.length, healthy: stsH.ok, unhealthy: stsH.bad });
-    const dsH = wlHealth(dss.rows);
-    out.push({ label: "DaemonSets", to: "/r/daemonsets", total: dss.rows.length, healthy: dsH.ok, unhealthy: dsH.bad });
-
-    let jobOk = 0, jobBad = 0;
-    for (const raw of jobs.rows) {
-      const o = raw as KObj;
-      const failed = Number((rec(o.status).failed as number) ?? 0);
-      if (failed > 0) jobBad++;
-      else jobOk++;
-    }
-    out.push({ label: "Jobs", to: "/r/jobs", total: jobs.rows.length, healthy: jobOk, unhealthy: jobBad });
-
-    let nodeReady = 0;
-    for (const raw of nodes.rows) {
-      const o = raw as KObj;
-      const conds = (rec(o.status).conditions ?? []) as Record<string, unknown>[];
-      const ready = conds.find((c) => c.type === "Ready");
-      if (ready?.status === "True") nodeReady++;
-    }
-    out.push({ label: "Nodes", to: "/r/nodes", total: nodes.rows.length, healthy: nodeReady, unhealthy: nodes.rows.length - nodeReady });
-
-    return {
-      kinds: out,
+  return useMemo(
+    () => ({
+      kinds: computeKindCounts({
+        pods: pods.rows,
+        nodes: nodes.rows,
+        deployments: deps.rows,
+        statefulsets: stss.rows,
+        daemonsets: dss.rows,
+        jobs: jobs.rows,
+      }),
       synced: pods.synced && deps.synced && stss.synced && dss.synced && jobs.synced && nodes.synced,
-    };
-  }, [pods, deps, stss, dss, jobs, nodes]);
+    }),
+    [pods, deps, stss, dss, jobs, nodes],
+  );
 }
 
 type OverviewTab = "overview" | "pressure";

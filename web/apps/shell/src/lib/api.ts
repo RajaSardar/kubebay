@@ -79,9 +79,27 @@ async function send<T>(method: string, path: string, body?: unknown): Promise<T>
   });
   if (!res.ok) {
     const text = await res.text();
+    throwIfPolicyRejection(res, text);
     throw new Error(text || `${res.status} ${res.statusText}`);
   }
   return res.json() as Promise<T>;
+}
+
+// A policy rejection comes back as structured JSON (see parsePolicyRejection
+// in the engine, and writePolicyRejectionOrError which every mutating
+// handler now routes through — backlog #17) on any mutating endpoint, not
+// just /api/yaml; everything else stays the existing plain-text error.
+function throwIfPolicyRejection(res: Response, text: string): void {
+  if (!res.headers.get("Content-Type")?.includes("application/json")) return;
+  try {
+    const body = JSON.parse(text) as { error?: string; policyRejection?: PolicyRejectionDetail };
+    if (body.error === "policy-rejected" && body.policyRejection) {
+      throw new PolicyRejectionError(body.policyRejection);
+    }
+  } catch (e) {
+    if (e instanceof PolicyRejectionError) throw e;
+    // Malformed JSON body — fall through to the plain-text error in send().
+  }
 }
 
 export interface PortForwardInfo {
@@ -152,7 +170,7 @@ export const api = {
   auditLog: () => get<{ time: string; action: string; cluster: string; namespace?: string; resource?: string; detail?: string; userAgent?: string }[]>("/api/audit"),
 };
 
-async function applyYamlRequest(b: {
+function applyYamlRequest(b: {
   cluster: string;
   gvr: string;
   ns: string;
@@ -162,27 +180,7 @@ async function applyYamlRequest(b: {
   force: boolean;
   action?: string;
 }): Promise<{ applied: boolean; dryRun: boolean; resultYaml?: string }> {
-  const res = await fetch("/api/yaml", {
-    method: "PUT",
-    headers: { "X-Kubebay-Token": getToken(), "Content-Type": "application/json" },
-    body: JSON.stringify(b),
-  });
-  if (res.ok) return res.json();
-  const text = await res.text();
-  // A policy rejection comes back as structured JSON (see parsePolicyRejection
-  // in the engine); everything else is the existing plain-text error.
-  if (res.headers.get("Content-Type")?.includes("application/json")) {
-    try {
-      const body = JSON.parse(text) as { error?: string; policyRejection?: PolicyRejectionDetail };
-      if (body.error === "policy-rejected" && body.policyRejection) {
-        throw new PolicyRejectionError(body.policyRejection);
-      }
-    } catch (e) {
-      if (e instanceof PolicyRejectionError) throw e;
-      // Malformed JSON body — fall through to the plain-text error below.
-    }
-  }
-  throw new Error(text);
+  return send("PUT", "/api/yaml", b);
 }
 
 async function fetchObject(

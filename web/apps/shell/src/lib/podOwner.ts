@@ -8,12 +8,20 @@ function arr(v: unknown): unknown[] {
   return Array.isArray(v) ? v : [];
 }
 
-interface OwnerRef {
+export interface OwnerRef {
   kind: string;
   name: string;
 }
 
-function controllerOwner(obj: Record<string, unknown>): OwnerRef | null {
+/**
+ * The pod's immediate controller — one hop only. Exported for backlog #16's
+ * vulnerability-report join, which needs exactly this (Trivy-Operator scans
+ * and labels by the pod's direct controller, e.g. a ReplicaSet, never the
+ * Deployment above it) — resolveWorkloadOwner below over-walks to a
+ * Deployment and would silently drop bare-Pod and StatefulSet/DaemonSet
+ * owners that #16 still needs to match.
+ */
+export function controllerOwner(obj: Record<string, unknown>): OwnerRef | null {
   const refs = arr(rec(obj.metadata).ownerReferences);
   for (const r of refs) {
     const rr = rec(r);
