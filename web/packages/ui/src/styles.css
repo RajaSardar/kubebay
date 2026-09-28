@@ -1133,3 +1133,8 @@ tr.row-clickable:active {
   margin-left: var(--kb-gutter);
   margin-right: var(--kb-gutter);
 }
+
+/* Inside a drawer, form or card the banner keeps its box but not the page gutter. */
+.inline-banner.flush {
+  margin: 0 0 var(--kb-space-3);
+}

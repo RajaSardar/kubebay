@@ -6,6 +6,7 @@ import {
   DataTable,
   EmptyState,
   InlineBanner,
+  KubebayMark,
   NsPill,
   SelectAllHeader,
   SelectCell,
@@ -195,5 +196,32 @@ describe("DataTable", () => {
     expect(screen.getByText("No pods.")).toBeInTheDocument();
     rerender(<DataTable columns={columns} rows={[]} rowKey={(p) => p.name} loading />);
     expect(screen.getByRole("table").querySelectorAll(".kb-skeleton").length).toBeGreaterThan(0);
+  });
+});
+
+describe("KubebayMark", () => {
+  it("draws the brand mark once, with a gradient id unique per instance", () => {
+    const { container } = render(
+      <>
+        <KubebayMark size={28} className="brand-logo" />
+        <KubebayMark size={48} />
+      </>,
+    );
+    const svgs = container.querySelectorAll("svg");
+    expect(svgs).toHaveLength(2);
+    expect(svgs[0]).toHaveClass("brand-logo");
+    expect(svgs[0]).toHaveAttribute("width", "28");
+    expect(svgs[0]).toHaveAttribute("aria-hidden", "true");
+    const ids = [...container.querySelectorAll("linearGradient")].map((g) => g.id);
+    expect(new Set(ids).size).toBe(2);
+    expect(svgs[0]!.querySelector("rect")!.getAttribute("fill")).toBe(`url(#${ids[0]})`);
+    expect([...svgs[0]!.querySelectorAll("stop")].map((s) => s.getAttribute("stop-color"))).toEqual(["#22d3ee", "#41c98e"]);
+  });
+});
+
+describe("InlineBanner flush", () => {
+  it("drops the page gutter when the banner sits inside a drawer or form", () => {
+    const { container } = render(<InlineBanner flush>Could not load.</InlineBanner>);
+    expect(container.firstChild).toHaveClass("inline-banner", "flush");
   });
 });

@@ -37,12 +37,14 @@ export interface InlineBannerProps extends Omit<HTMLAttributes<HTMLDivElement>, 
   tone?: "err" | "ok" | "warn";
   /** Right-hand buttons, e.g. Cancel / Delete. */
   actions?: ReactNode;
+  /** No page gutter: for banners inside a drawer, form or card. */
+  flush?: boolean;
   className?: string;
 }
 
 /** A status box between the page header and the content: errors, confirmations, notices. */
-export function InlineBanner({ tone = "err", actions, className, children, ...props }: InlineBannerProps) {
-  const cls = `inline-banner${tone === "err" ? "" : " " + tone}${className ? " " + className : ""}`;
+export function InlineBanner({ tone = "err", actions, flush, className, children, ...props }: InlineBannerProps) {
+  const cls = `inline-banner${tone === "err" ? "" : " " + tone}${flush ? " flush" : ""}${className ? " " + className : ""}`;
   return (
     <div className={cls} {...props}>
       {children}
@@ -163,10 +165,14 @@ export function NsPill({ children, onClick, title }: { children: ReactNode; onCl
     <span
       className="cell-link ns-pill"
       title={title}
-      onClick={(e) => {
-        e.stopPropagation();
-        onClick?.();
-      }}
+      onClick={
+        onClick
+          ? (e) => {
+              e.stopPropagation();
+              onClick();
+            }
+          : undefined
+      }
     >
       {children}
     </span>
