@@ -136,6 +136,22 @@ describe("no dead styles or pages", () => {
     expect(unused).toEqual([]);
   });
 
+  // Classes the source uses only as test hooks or prefixes, with no styles of their own.
+  const HOOKS = new Set([
+    "actionsbar", "catalog-status-cell", "events-", "fleet-card", "ghost", "icon-picker-btn", "kb-fg-muted",
+    "np-ns-badge", "palette-pod-status--", "pod-summary", "rbac-finding", "rbac-findings-list", "status-", "statusbar-center",
+  ]);
+
+  it("every class the shell and ui source use is styled somewhere (so deleting CSS cannot orphan markup)", () => {
+    const styled = new Set([...(appCss + stylesCss).matchAll(/\.([a-zA-Z][\w-]*)/g)].map((m) => m[1]!));
+    const used = new Set(
+      [...allSource.matchAll(/className=(?:"([^"]*)"|\{`([^`]*)`\})/g)].flatMap((m) =>
+        (m[1] ?? m[2] ?? "").replace(/\$\{[^}]*\}/g, " ").split(/\s+/).filter(Boolean),
+      ),
+    );
+    expect([...used].filter((c) => !styled.has(c) && !HOOKS.has(c)).sort()).toEqual([]);
+  });
+
   it("every app.css @keyframes is played by some animation", () => {
     const names = [...appCss.matchAll(/@keyframes\s+([\w-]+)/g)].map((m) => m[1]!);
     const played = appCss.replace(/@keyframes\s+[\w-]+/g, "") + stylesCss + allSource;

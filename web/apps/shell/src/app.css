@@ -1953,6 +1953,42 @@ h2 {
   font-size: var(--kb-text-sm);
 }
 
+/* "Show" on a hidden cluster in the cluster picker */
+.cp-show-btn {
+  padding: 3px 10px;
+  border-radius: var(--kb-radius-sm);
+  border: 1px solid var(--kb-border-subtle);
+  background: var(--kb-bg-surface);
+  color: var(--kb-fg-default);
+  cursor: pointer;
+  font-size: var(--kb-text-xs);
+  transition: background var(--kb-dur-fast);
+}
+.cp-show-btn:hover {
+  background: var(--kb-bg-hover);
+}
+
+/* "Back to clusters" link at the top of the sidebar */
+.cp-back-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  margin: 8px 8px 0;
+  border-radius: var(--kb-radius-sm);
+  border: 1px solid var(--kb-border-subtle);
+  background: var(--kb-bg-inset);
+  color: var(--kb-fg-muted);
+  font-size: var(--kb-text-xs);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background var(--kb-dur-fast), color var(--kb-dur-fast);
+}
+.cp-back-btn:hover {
+  background: var(--kb-bg-hover);
+  color: var(--kb-fg-default);
+}
+
 /* ══════════════════════════════════════════════════════════════════════════════
    Catalog — full-screen Freelens-style cluster management
    ══════════════════════════════════════════════════════════════════════════════ */
