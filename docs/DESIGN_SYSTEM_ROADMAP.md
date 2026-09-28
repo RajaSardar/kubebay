@@ -6,26 +6,26 @@ first. Tick an item when its PR merges.
 
 ## Phase 1: theme correctness and accessibility (bugs users see today)
 
-- [ ] **No theme flash on launch.** `index.html` hard-codes `data-theme="dusk"`
+- [x] **No theme flash on launch.** `index.html` hard-codes `data-theme="dusk"`
       and a dark `theme-color`, so light-theme users see a dark frame until the
       bundle runs. An inline boot script resolves the saved theme before paint.
-- [ ] **"System" follows the OS contrast setting.** `prefers-contrast: more`
+- [x] **"System" follows the OS contrast setting.** `prefers-contrast: more`
       picks Dusk HC or Dawn HC instead of Dusk or Dawn.
-- [ ] **Control borders reach 3:1 (WCAG 1.4.11).** New `--kb-border-control`
+- [x] **Control borders reach 3:1 (WCAG 1.4.11).** New `--kb-border-control`
       token in all 12 themes, used by every text input and select.
       Before: 1.44–1.79:1 in the ten non-HC themes.
-- [ ] **Pending is not Warning.** `--kb-status-pending` equals
+- [x] **Pending is not Warning.** `--kb-status-pending` equals
       `--kb-status-warn` in 11 of 12 themes; pending takes the info hue.
-- [ ] **Forced colours.** A `forced-colors: active` block so buttons, inputs,
+- [x] **Forced colours.** A `forced-colors: active` block so buttons, inputs,
       pills and focus rings stay visible in Windows High Contrast.
 
 ## Phase 2: themed surfaces that ignore the theme
 
-- [ ] Monaco uses `hc-black`/`hc-light` in the HC themes.
-- [ ] Chart tokens `--kb-chart-1…5` in all 12 themes and `chartColor(i)`;
+- [x] Monaco uses `hc-black`/`hc-light` in the HC themes.
+- [x] Chart tokens `--kb-chart-1…5` in all 12 themes and `chartColor(i)`;
       `PodGraphs` uses them instead of hex literals. Topology and RBAC status
       dots use `StatusDot`.
-- [ ] Contrast test covers status colours on raised and inset grounds and the
+- [x] Contrast test covers status colours on raised and inset grounds and the
       chart series.
 
 ## Phase 3: missing components (the biggest adoption gap)
@@ -33,12 +33,13 @@ first. Tick an item when its PR merges.
 - [ ] `Drawer` / `Modal` (backdrop, header, close, focus trap, Escape), then
       migrate GenericDrawer, EventsDrawer, ClusterDetailDrawer, HelmCharts,
       ClusterIconPicker, PodPanel.
-- [ ] `IconButton` for close, back, star and row-menu buttons; migrate the
-      51 hand-written `<button>` elements.
-- [ ] `Chip` and `SegmentedControl`; migrate `ns-chip`, `settings-chip`,
-      `np-status-chip`, the Settings theme cards.
-- [ ] `Badge` tones `warn`, `info`, `neutral`; migrate `crd-badge` and
-      `events-type-badge`.
+- [x] `IconButton` for close, back, star, pop-out and row-menu buttons.
+      Migrated the nine icon-only buttons; the other raw `<button>`s are
+      list rows, cards and triggers that need their own components.
+- [x] `SegmentedControl` for the Settings display options and the Workloads
+      and Network Policy view switches; hand-written tabs moved to `Tabs`.
+- [x] `Badge` tones `warn` and `info`; `crd-badge` and `events-type-badge`
+      migrated.
 - [ ] Layout primitives (`Stack`, `Row`) to replace the 383 inline
       `style={{}}` blocks, starting with Settings and KedaWizard.
 

@@ -16,7 +16,7 @@ https://claude.ai/artifact/J35D45QQ7X6Sgd7mwfRSnF
 | Type scale, spacing, radii, motion | `web/packages/ui/src/tokens.css` (`:root`) | `--kb-text-*`, `--kb-space-*`, `--kb-radius-*`, `--kb-dur*`, `--kb-ease*` |
 | Component styles | `web/packages/ui/src/styles.css` | the only CSS for package classes |
 | Core components | `web/packages/ui/src/index.tsx` | `Button`, `ArmedButton`, `Card`, `Badge`, `StatusDot`, `Skeleton`, `chartColor()` |
-| Shell components | `web/packages/ui/src/shell.tsx` | `StatusPill`/`phaseTone`, `Tabs`, `NavItem`/`NavSection`/`navItemClass`, `TextField`, `Select`, `Kbd`, `PageHeader`, `ContextMenu` |
+| Shell components | `web/packages/ui/src/shell.tsx` | `StatusPill`/`phaseTone`, `Tabs` (with `trailing` controls), `SegmentedControl`, `IconButton`, `NavItem`/`NavSection`/`navItemClass`, `TextField`, `Select`, `Kbd`, `PageHeader`, `ContextMenu` |
 | Tables and feedback | `web/packages/ui/src/table.tsx` | `DataTable`, `TableWrap`, `Table`, `SortHeader`, `SelectAllHeader`, `SelectCell`, `TableRow`, `NsPill`, `SkeletonRows`, `EmptyState`, `InlineBanner` |
 | Brand mark | `web/packages/ui/src/brand.tsx` | `KubebayMark` |
 | Icons | `web/packages/ui/src/icons.tsx` | 18 stroke icons, `currentColor` |
@@ -26,8 +26,13 @@ https://claude.ai/artifact/J35D45QQ7X6Sgd7mwfRSnF
 
 1. **Use the component, not its class name.** Tables, page headers, inputs,
    selects, keycaps, nav links, tabs, status pills, menus, empty states,
-   banners and buttons are rendered with their `@kubebay/ui` component. Router
-   links take `navItemClass()`.
+   banners, badges and buttons are rendered with their `@kubebay/ui` component.
+   Router links take `navItemClass()`. Pick the control by what it does:
+   `Tabs` switch the panel below them; `SegmentedControl` picks one value or
+   view from a short list in a toolbar or form row; `IconButton` is any
+   icon-only button (close, back, row menu, pop-out, star) and always has a
+   `label`; `Badge` takes `tone` `ok`, `warn`, `err` or `info` (none is
+   neutral).
 2. **Every table is the ResourceTable design.** Use `DataTable` for ordinary
    tables (columns, rows, optional sort, selection, row click, `loading`,
    `empty`). Use the primitives (`TableWrap`, `Table`, `SortHeader`,
@@ -54,7 +59,10 @@ https://claude.ai/artifact/J35D45QQ7X6Sgd7mwfRSnF
    changing a colour means updating all 12 theme blocks; the contrast test
    computes the ratios from `tokens.css`.
 6. **Labels on fills use their on-colour token**: `--kb-accent-fg` on
-   `--kb-accent`, `--kb-on-danger` on `--kb-status-err`. Never `#fff`.
+   `--kb-accent`, `--kb-on-danger` on `--kb-status-err`. Never `#fff`. The
+   on-colour tokens are for solid fills only: on a tint such as
+   `--kb-accent-subtle`, text takes `--kb-accent` (in Dawn, `--kb-accent-fg`
+   is white).
 7. **Buttons**: `primary` for the one action a view is for, `ghost` for
    everything else, `danger-ghost` for the first step of a destructive action
    and `danger` (or `ArmedButton`) to confirm it. `Button` defaults to
