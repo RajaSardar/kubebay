@@ -1138,3 +1138,23 @@ tr.row-clickable:active {
 .inline-banner.flush {
   margin: 0 0 var(--kb-space-3);
 }
+
+/* ── Forced colours (Windows High Contrast) ──
+   The browser drops box-shadow and author backgrounds here, so focus rings,
+   the selected-row bar and status dots are restated with system colours. */
+@media (forced-colors: active) {
+  :focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+
+  .kb-table tbody tr.selected {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+
+  .kb-dot,
+  .kb-skeleton {
+    forced-color-adjust: none;
+  }
+}

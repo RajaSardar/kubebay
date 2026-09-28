@@ -137,3 +137,21 @@ describe("app.css colours come from tokens", () => {
     expect(offenders).toEqual([]);
   });
 });
+
+describe("forced colours (Windows High Contrast)", () => {
+  // Forced-colours mode drops box-shadow and author backgrounds, so anything drawn
+  // with them (focus rings, the selected-row bar, status dots) must be restated.
+  const block = /@media\s*\(forced-colors:\s*active\)\s*\{([\s\S]*?)\n\}/.exec(stripComments(stylesCss))?.[1] ?? "";
+
+  it("restores focus rings with an outline", () => {
+    expect(block).toMatch(/:focus-visible[^{]*\{[^}]*outline:\s*2px solid Highlight/);
+  });
+
+  it("marks selected table rows without the box-shadow bar", () => {
+    expect(block).toMatch(/\.kb-table tbody tr\.selected[^{]*\{[^}]*outline:[^;]*Highlight/);
+  });
+
+  it("keeps status dots and skeletons in their own colours", () => {
+    expect(block).toMatch(/\.kb-dot[^{]*\{[^}]*forced-color-adjust:\s*none/);
+  });
+});
