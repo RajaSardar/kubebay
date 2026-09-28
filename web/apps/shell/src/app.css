@@ -1778,7 +1778,7 @@ h2 {
 .icon-picker-input {
   width: 100%;
   background: var(--kb-bg-inset);
-  border: 1px solid var(--kb-border-subtle);
+  border: 1px solid var(--kb-border-control);
   border-radius: var(--kb-radius-sm);
   color: var(--kb-fg-default);
   font-family: var(--kb-font-mono, monospace);
@@ -2682,7 +2682,7 @@ h2 {
   font-family: var(--kb-font-mono);
   font-size: var(--kb-text-sm);
   padding: 8px 10px;
-  border: 1px solid var(--kb-border-strong);
+  border: 1px solid var(--kb-border-control);
   border-radius: var(--kb-radius-sm);
   background: var(--kb-bg-inset);
   color: var(--kb-fg-default);

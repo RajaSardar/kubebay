@@ -20,12 +20,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 - Settings theme swatches match each theme's colours
 - Ghost and danger buttons match the design system everywhere (an `app.css` override had given them a weaker border and smaller text); the cluster picker's search, table, status and provider badges and row menu use the shared components; provider badges are neutral instead of hand-picked hues that failed contrast in light themes
 - Cluster avatars pick black or white initials by contrast with their colour
+- **"System" theme follows the OS contrast setting**: with "Increase contrast" on, it picks Dusk HC or Dawn HC
+- **Pending has its own colour**: Pending pods use each theme's info hue instead of the warning orange, so they no longer read as warnings
 
 ### Fixed
 - Borders, focus halos, text colour and backgrounds missing in the Network Policy view, cluster picker and cluster detail drawer: six undefined `--kb-*` variables now point at real tokens (#12)
 - Cluster-picker nav highlight and engine-status dot follow the theme instead of fixed colours (#12)
 - ArgoCD sync and health pills had no background or border (their colour was built as invalid CSS)
 - Two notices styled with an `info-banner` class that had no CSS now render as proper banners
+- Light-theme users no longer see a dark frame on launch: the saved theme is applied before first paint
+- Text inputs and selects have a visible edge in every theme (3:1, WCAG 1.4.11) via a new `--kb-border-control` token; before, it measured 1.1–1.8:1
+- Focus rings, selected rows and status dots stay visible in Windows High Contrast (forced colours)
 
 ## [0.1.3] — 2026-09-09
 

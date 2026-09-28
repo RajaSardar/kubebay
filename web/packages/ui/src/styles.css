@@ -297,7 +297,7 @@ kbd {
   letter-spacing: -0.003em;
   color: var(--kb-fg-default);
   background: var(--kb-bg-inset);
-  border: 1px solid var(--kb-border-subtle);
+  border: 1px solid var(--kb-border-control);
   border-radius: var(--kb-radius-sm);
   padding: 4px 9px;
   height: 26px;
@@ -314,7 +314,7 @@ kbd {
 
 .toolbar-select:hover,
 .toolbar-input:hover {
-  border-color: var(--kb-border-strong);
+  border-color: var(--kb-fg-subtle);
 }
 
 .toolbar-select:focus-visible,
@@ -1137,4 +1137,24 @@ tr.row-clickable:active {
 /* Inside a drawer, form or card the banner keeps its box but not the page gutter. */
 .inline-banner.flush {
   margin: 0 0 var(--kb-space-3);
+}
+
+/* ── Forced colours (Windows High Contrast) ──
+   The browser drops box-shadow and author backgrounds here, so focus rings,
+   the selected-row bar and status dots are restated with system colours. */
+@media (forced-colors: active) {
+  :focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+
+  .kb-table tbody tr.selected {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+
+  .kb-dot,
+  .kb-skeleton {
+    forced-color-adjust: none;
+  }
 }
