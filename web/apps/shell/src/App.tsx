@@ -59,7 +59,7 @@ import { discoveryApi } from "./lib/api";
 import { KNOWN_GVRS, extSlug } from "./lib/resources";
 import { FavoritesSidebar, useFavorites } from "./components/Favorites";
 import { useClusterIcons } from "./lib/useClusterIcons";
-import { ClusterIconPicker, autoAvatar, avatarLabelColor } from "./components/ClusterIconPicker";
+import { ClusterIconPicker, autoAvatar, avatarLabelColor, stripAvatarLook } from "./components/ClusterIconPicker";
 import { useWsStatus } from "./lib/useWsStatus";
 import { connectCluster, isClusterConnected } from "./lib/clusterConnections";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -503,21 +503,21 @@ function ClusterStrip() {
                 fontSize: "var(--kb-text-xs)",
                 // White border: inset to layout, never clipped by overflow
                 border: isActive ? "2.5px solid var(--kb-fg-default)" : "2.5px solid transparent",
-                opacity: broken ? 0.22 : isActive ? 1 : isStreaming ? 0.65 : 0.32,
+                ...stripAvatarLook({ broken, active: isActive, streaming: isStreaming }),
                 cursor: broken ? "not-allowed" : "pointer",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 padding: 0,
                 flexShrink: 0,
-                transition: "opacity 200ms, border-color 200ms",
+                transition: "opacity 200ms, filter 200ms, border-color 200ms",
                 fontFamily: "var(--kb-font-mono, monospace)",
                 letterSpacing: "-0.02em",
                 overflow: "hidden",
               }}
             >
               {isSwitching ? (
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="white" strokeWidth="2.5" style={{ animation: "spin 0.8s linear infinite" }}>
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ animation: "spin 0.8s linear infinite" }}>
                   <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
                 </svg>
               ) : imageUrl ? (
