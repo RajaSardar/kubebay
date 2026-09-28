@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resolveWorkloadOwner } from "../podOwner";
+import { resolveWorkloadOwner, controllerOwner } from "../podOwner";
 
 function pod(owner?: { kind: string; name: string; controller?: boolean }) {
   return {
@@ -54,5 +54,21 @@ describe("resolveWorkloadOwner", () => {
     const p = pod({ kind: "ReplicaSet", name: "app-abc123" });
     const rss = [replicaSet("app-abc123", "other-ns", { kind: "Deployment", name: "app" })];
     expect(resolveWorkloadOwner(p, "default", rss)).toBeNull();
+  });
+});
+
+describe("controllerOwner (exported for backlog #16's one-hop vulnerability-report join)", () => {
+  it("returns the immediate controller reference, one hop only — e.g. a ReplicaSet, not the Deployment above it", () => {
+    const p = pod({ kind: "ReplicaSet", name: "app-abc123" });
+    expect(controllerOwner(p)).toEqual({ kind: "ReplicaSet", name: "app-abc123" });
+  });
+
+  it("returns null for a bare pod with no controller reference", () => {
+    expect(controllerOwner(pod())).toBeNull();
+  });
+
+  it("ignores a non-controller ownerReference", () => {
+    const p = pod({ kind: "ReplicaSet", name: "app-abc123", controller: false });
+    expect(controllerOwner(p)).toBeNull();
   });
 });
