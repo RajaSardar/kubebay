@@ -44,13 +44,20 @@ fn appearance_name(a: Appearance) -> &'static str {
 }
 
 pub fn from_args(background: &str, appearance: &str) -> Option<WindowTheme> {
-    Some(WindowTheme { background: parse_hex(background)?, appearance: parse_appearance(appearance)? })
+    Some(WindowTheme {
+        background: parse_hex(background)?,
+        appearance: parse_appearance(appearance)?,
+    })
 }
 
 /// The theme saved by the last session, if any.
 pub fn load(path: &Path) -> Option<WindowTheme> {
-    let json: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(path).ok()?).ok()?;
-    from_args(json.get("background")?.as_str()?, json.get("appearance")?.as_str()?)
+    let json: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(path).ok()?).ok()?;
+    from_args(
+        json.get("background")?.as_str()?,
+        json.get("appearance")?.as_str()?,
+    )
 }
 
 pub fn save(path: &Path, theme: &WindowTheme) -> std::io::Result<()> {
@@ -92,7 +99,10 @@ mod tests {
     fn rejects_bad_arguments_from_the_page() {
         assert_eq!(
             from_args("#000000", "dark"),
-            Some(WindowTheme { background: (0, 0, 0), appearance: Appearance::Dark })
+            Some(WindowTheme {
+                background: (0, 0, 0),
+                appearance: Appearance::Dark
+            })
         );
         assert_eq!(from_args("red", "dark"), None);
         assert_eq!(from_args("#000000", "blue"), None);
@@ -102,7 +112,10 @@ mod tests {
     fn round_trips_through_its_file() {
         let dir = std::env::temp_dir().join(format!("kb-window-theme-{}", std::process::id()));
         let path = dir.join("nested").join("window-theme.json");
-        let theme = WindowTheme { background: (0x28, 0x2a, 0x36), appearance: Appearance::System };
+        let theme = WindowTheme {
+            background: (0x28, 0x2a, 0x36),
+            appearance: Appearance::System,
+        };
         save(&path, &theme).expect("save");
         assert_eq!(load(&path), Some(theme));
         let _ = std::fs::remove_dir_all(&dir);

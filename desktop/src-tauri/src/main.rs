@@ -14,7 +14,10 @@ static ENGINE_CHILD: OnceLock<Mutex<Option<CommandChild>>> = OnceLock::new();
 
 /// Where the window's last theme colour and appearance are kept between launches.
 fn window_theme_path(app: &tauri::AppHandle) -> Option<PathBuf> {
-    app.path().app_config_dir().ok().map(|d| d.join("window-theme.json"))
+    app.path()
+        .app_config_dir()
+        .ok()
+        .map(|d| d.join("window-theme.json"))
 }
 
 fn apply_window_theme(window: &tauri::WebviewWindow, theme: &window_theme::WindowTheme) {
@@ -351,15 +354,12 @@ fn main() {
                 let saved = window_theme_path(&handle).and_then(|p| window_theme::load(&p));
                 let h2 = handle.clone();
                 let _ = handle.run_on_main_thread(move || {
-                    let mut builder = WebviewWindowBuilder::new(
-                        &h2,
-                        "main",
-                        WebviewUrl::External(url),
-                    )
-                    .title("Kubebay")
-                    .initialization_script(init)
-                    .inner_size(1320.0, 850.0)
-                    .min_inner_size(980.0, 620.0);
+                    let mut builder =
+                        WebviewWindowBuilder::new(&h2, "main", WebviewUrl::External(url))
+                            .title("Kubebay")
+                            .initialization_script(init)
+                            .inner_size(1320.0, 850.0)
+                            .min_inner_size(980.0, 620.0);
                     // Open in the last theme's colours so the window does not
                     // flash the OS default before the page paints.
                     if let Some(theme) = saved {
