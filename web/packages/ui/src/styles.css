@@ -1289,3 +1289,84 @@ tr.row-clickable:active {
     forced-color-adjust: none;
   }
 }
+
+/* ── Drawer: the side panel for one resource ── */
+.drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(820px, 75vw);
+  background: var(--kb-bg-surface);
+  border-left: 1px solid var(--kb-border-strong);
+  box-shadow: var(--kb-shadow-lift);
+  display: flex;
+  flex-direction: column;
+  z-index: 50;
+  outline: none;
+  animation: drawer-slide-in var(--kb-dur-slow) var(--kb-ease-out) both;
+}
+
+@keyframes drawer-slide-in {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+
+/* Full-page resource view: the same panel fills its container. */
+.drawer.embedded {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  border-left: none;
+  box-shadow: none;
+  animation: none;
+}
+
+.drawer-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--kb-border-subtle);
+}
+
+.drawer-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.drawer-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ── Modal: a dialog that holds focus ── */
+.kb-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: color-mix(in srgb, var(--kb-bg-canvas) 55%, transparent);
+  animation: kb-modal-fade var(--kb-dur) var(--kb-ease) both;
+}
+
+.kb-modal-backdrop.clear {
+  background: transparent;
+  animation: none;
+}
+
+.kb-modal {
+  position: fixed;
+  z-index: 201;
+  background: var(--kb-bg-surface);
+  border: 1px solid var(--kb-border-subtle);
+  border-radius: var(--kb-radius);
+  box-shadow: var(--kb-shadow-menu);
+  outline: none;
+}
+
+@keyframes kb-modal-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
