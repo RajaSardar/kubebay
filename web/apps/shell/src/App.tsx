@@ -51,6 +51,7 @@ const CreateResource = lazy(() => import("./pages/CreateResource"));
 const AuditLog = lazy(() => import("./pages/AuditLog"));
 const RightSizing = lazy(() => import("./pages/RightSizing"));
 const CostWaste = lazy(() => import("./pages/CostWaste"));
+const Fleet = lazy(() => import("./pages/Fleet"));
 const Karpenter = lazy(() => import("./pages/Karpenter"));
 const Flux = lazy(() => import("./pages/Flux"));
 import { Palette } from "./components/Palette";
@@ -167,6 +168,8 @@ const GROUPS: NavGroupDef[] = [
       { to: "/r/validatingadmissionpolicybindings", label: "Policy Bindings" },
       { to: "/r/policyreports", label: "Policy Reports" },
       { to: "/r/clusterpolicyreports", label: "Cluster Policy Reports" },
+      { to: "/r/vulnerabilityreports", label: "Vulnerability Reports" },
+      { to: "/r/clustervulnerabilityreports", label: "Cluster Vulnerability Reports" },
     ],
   },
   {
@@ -197,6 +200,7 @@ const TOOLS = [
   { to: "/rbac", label: "RBAC", icon: <IconShield /> },
   { to: "/right-sizing", label: "Right-sizing", icon: <IconLayers /> },
   { to: "/cost-waste", label: "Cost / Waste", icon: <IconDatabase /> },
+  { to: "/fleet", label: "Fleet", icon: <IconTopology /> },
   { to: "/karpenter", label: "Karpenter", icon: <IconTopology /> },
   { to: "/audit", label: "Audit Log", icon: <IconTimeline /> },
   { to: "/timeline", label: "Timeline", icon: <IconTimeline /> },
@@ -787,6 +791,7 @@ function AppInner() {
               <Route path="/rbac" element={<Rbac />} />
               <Route path="/right-sizing" element={<RightSizing />} />
               <Route path="/cost-waste" element={<CostWaste />} />
+              <Route path="/fleet" element={<Fleet />} />
               <Route path="/karpenter" element={<Karpenter />} />
               <Route path="/helm" element={<Helm />} />
               <Route path="/argocd" element={<ArgoCD />} />

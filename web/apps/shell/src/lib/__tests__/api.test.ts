@@ -44,3 +44,39 @@ describe("api.applyYaml", () => {
     await expect(api.applyYaml(applyArgs)).rejects.toThrow("apply: connection refused");
   });
 });
+
+describe("api — policy rejection now surfaces on every mutating call, not just applyYaml (backlog #17)", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const policyRejection = { engine: "kyverno", webhook: "validate.kyverno.svc-fail", message: "label 'team' is required", causes: [] };
+
+  it("api.scale throws a PolicyRejectionError on a 422 policy rejection", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(422, { error: "policy-rejected", policyRejection })));
+    await expect(api.scale({ cluster: "kind-test", gvr: "apps/v1/deployments", ns: "default", name: "web", replicas: 3 })).rejects.toBeInstanceOf(
+      PolicyRejectionError,
+    );
+  });
+
+  it("api.deleteResource throws a PolicyRejectionError on a 422 policy rejection", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(422, { error: "policy-rejected", policyRejection })));
+    await expect(
+      api.deleteResource({ cluster: "kind-test", gvr: "v1/pods", ns: "default", name: "web" }),
+    ).rejects.toBeInstanceOf(PolicyRejectionError);
+  });
+
+  it("api.createResource throws a PolicyRejectionError on a 422 policy rejection", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(422, { error: "policy-rejected", policyRejection })));
+    await expect(api.createResource({ cluster: "kind-test", yaml: "kind: ConfigMap", dryRun: false })).rejects.toBeInstanceOf(
+      PolicyRejectionError,
+    );
+  });
+
+  it("a plain send() call still throws a normal Error for a non-policy failure", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(textResponse(502, "connection refused")));
+    await expect(api.scale({ cluster: "kind-test", gvr: "apps/v1/deployments", ns: "default", name: "web", replicas: 3 })).rejects.toThrow(
+      "connection refused",
+    );
+  });
+});

@@ -19,6 +19,13 @@ type Entry struct {
 	Resource  string    `json:"resource,omitempty"` // pod/deployment name
 	Detail    string    `json:"detail,omitempty"`   // extra context (command, replicas, etc.)
 	UserAgent string    `json:"userAgent,omitempty"`
+	// Outcome is empty for a successful mutation (the default, and the only
+	// value every entry recorded before this field existed has) or
+	// "rejected" when an admission webhook denied the request — see
+	// writePolicyRejectionOrError, which every mutating handler now routes
+	// through. Empty-string default keeps old log lines and this struct
+	// backward compatible with each other.
+	Outcome string `json:"outcome,omitempty"`
 }
 
 type Logger struct {
