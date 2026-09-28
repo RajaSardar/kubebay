@@ -1,6 +1,6 @@
 /// <reference types="node" />
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { inflateSync } from "node:zlib";
 
@@ -76,6 +76,14 @@ describe("brand assets match KubebayMark", () => {
     expect(read("README.md")).toMatch(new RegExp(`color=${CYAN.slice(1)}\\)`));
   });
 
+  it.each(["Nav", "Footer"])("the website %s shows the mark, not a separate K logo", (name) => {
+    const src = read(`website/src/components/${name}.astro`);
+    expect(src).toMatch(/<KubebayMark\b/);
+    expect(src).not.toMatch(/<text\b/);
+    const mark = read("website/src/components/KubebayMark.astro");
+    expect(stops(mark)).toEqual([CYAN, GREEN]);
+  });
+
   it("the website favicon is the mark, not a separate logo", () => {
     expect(stops(read("website/public/favicon.svg"))).toEqual([CYAN, GREEN]);
   });
@@ -97,5 +105,43 @@ describe("brand assets match KubebayMark", () => {
     const tol = width <= 32 ? 40 : 24;
     expect({ file, topLeft: near(at(0.2), hex(CYAN), tol) }).toEqual({ file, topLeft: true });
     expect({ file, bottomRight: near(at(0.8), hex(GREEN), tol) }).toEqual({ file, bottomRight: true });
+  });
+});
+
+describe("the website shares the app's tokens", () => {
+  const tokens = read("web/packages/ui/src/tokens.css");
+  const layout = read("website/src/layouts/Layout.astro");
+  const global = read("website/src/styles/global.css").replace(/\/\*[\s\S]*?\*\//g, "");
+  const siteRoot = /:root\s*\{([^}]*)\}/.exec(global)![1]!;
+  const components = readdirSync(resolve(root, "website/src/components"))
+    .map((f) => `website/src/components/${f}`)
+    .concat("website/src/pages/index.astro", "website/src/pages/404.astro");
+  /** CSS the site writes: global.css plus every <style> block and style="" attribute. */
+  const siteCss = [global, ...components.map(read).flatMap((t) => [
+    ...[...t.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map((m) => m[1]!),
+    ...[...t.matchAll(/style="([^"]*)"/g)].map((m) => m[1]!),
+  ])].join("\n");
+
+  it("declares the brand colours as tokens, equal to KubebayMark's", () => {
+    expect(/--kb-brand-cyan:\s*(#[0-9a-f]{6})/.exec(tokens)?.[1]).toBe(CYAN);
+    expect(/--kb-brand-green:\s*(#[0-9a-f]{6})/.exec(tokens)?.[1]).toBe(GREEN);
+  });
+
+  it("the layout imports tokens.css and pins the dark theme", () => {
+    expect(layout).toMatch(/import ['"][./]+web\/packages\/ui\/src\/tokens\.css['"]/);
+    expect(layout).toMatch(/<html[^>]*data-theme="dusk"/);
+  });
+
+  it("the site's variables point at --kb-* tokens, with no colour literals of their own", () => {
+    const literals = [...siteRoot.matchAll(/(--[\w-]+)\s*:\s*([^;]*(#[0-9a-f]{3,8}\b|rgba?\()[^;]*);/gi)].map((m) => `${m[1]}: ${m[2]}`);
+    expect(literals).toEqual([]);
+    for (const v of ["--bg", "--surface", "--text", "--muted", "--accent", "--accent-2", "--radius", "--ease"]) {
+      expect({ v, value: new RegExp(`${v}\\s*:\\s*([^;]+);`).exec(siteRoot)?.[1] }).toMatchObject({ v, value: expect.stringContaining("var(--kb-") });
+    }
+  });
+
+  it("site styles use the brand variables, not the brand hex or its rgba()", () => {
+    const hits = [...siteCss.matchAll(/#22d3ee|#41c98e|rgba\(\s*(34,\s*211,\s*238|65,\s*201,\s*142)\s*,/gi)].map((m) => m[0]);
+    expect(hits).toEqual([]);
   });
 });
