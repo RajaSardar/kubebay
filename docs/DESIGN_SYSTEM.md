@@ -13,7 +13,7 @@ https://claude.ai/artifact/J35D45QQ7X6Sgd7mwfRSnF
 | What | File | Notes |
 |---|---|---|
 | Colour, shadow and focus tokens for all 12 themes | `web/packages/ui/src/tokens.css` | `--kb-*` custom properties, one block per `data-theme` |
-| Type scale, spacing, radii, motion | `web/packages/ui/src/tokens.css` (`:root`) | `--kb-text-*`, `--kb-space-*`, `--kb-radius-*`, `--kb-dur*`, `--kb-ease*` |
+| Type scale, spacing, radii, motion, layers | `web/packages/ui/src/tokens.css` (`:root`) | `--kb-text-*`, `--kb-space-*`, `--kb-radius-*`, `--kb-dur*`, `--kb-ease*`, `--kb-z-*` |
 | Component styles | `web/packages/ui/src/styles.css` | the only CSS for package classes |
 | Core components | `web/packages/ui/src/index.tsx` | `Button`, `ArmedButton`, `Card`, `Badge`, `StatusDot`, `Skeleton`, `chartColor()` |
 | Shell components | `web/packages/ui/src/shell.tsx` | `StatusPill`/`phaseTone`, `Tabs` (with `trailing` controls), `SegmentedControl`, `IconButton`, `NavItem`/`NavSection`/`navItemClass`, `TextField`, `Select`, `Kbd`, `PageHeader`, `ContextMenu` |
@@ -21,6 +21,7 @@ https://claude.ai/artifact/J35D45QQ7X6Sgd7mwfRSnF
 | Overlays | `web/packages/ui/src/overlays.tsx` | `Drawer` (with `embedded` for the full-page view), `Modal` |
 | Brand mark | `web/packages/ui/src/brand.tsx` | `KubebayMark` |
 | Icons | `web/packages/ui/src/icons.tsx` | 18 stroke icons, `currentColor` |
+| Reduced motion, forced colours | `web/packages/ui/src/styles.css` | apply to any app using the package |
 | Page layout, one-off page styling | `web/apps/shell/src/app.css` | layout only; never a package class |
 
 ## Rules
@@ -80,7 +81,17 @@ https://claude.ai/artifact/J35D45QQ7X6Sgd7mwfRSnF
    everything else, `danger-ghost` for the first step of a destructive action
    and `danger` (or `ArmedButton`) to confirm it. `Button` defaults to
    `type="button"`; a form's submit button must say `type="submit"`.
-8. **Copy follows the brand book**: Kubernetes words keep Kubernetes casing;
+8. **Sizes, layers and timing come from the scales.** Font sizes are
+   `--kb-text-*` (`--kb-text-icon` for a glyph inside a control or avatar),
+   radii `--kb-radius-*` (or `50%` for a circle), and any transition or
+   one-shot animation up to 400 ms is `--kb-dur-fast`, `--kb-dur`,
+   `--kb-dur-slow` or `--kb-dur-slower`; only long loops (spinners, pulses)
+   keep a literal. Anything that floats over the page takes a `--kb-z-*`
+   layer (sticky, drawer, dropdown, overlay, palette, modal, popover, lowest
+   first); `z-index` 0–3 is only for stacking inside one component. New
+   overlays are a `Drawer` or `Modal`, never a hand-built dialog or portal,
+   and new controls use a component rather than a raw `<button>`.
+9. **Copy follows the brand book**: Kubernetes words keep Kubernetes casing;
    everything else is sentence case; "…" for work in progress; "·" to join
    facts; no emoji in new UI.
 
@@ -97,6 +108,11 @@ All run with `pnpm --filter @kubebay/shell test`:
   `styles.css`; `app.css` never names a package class; `app.css` has no colour
   literals; Settings swatches match their themes.
 - `src/__tests__/themeContrast.test.ts`: WCAG contrast for every theme.
+- `src/__tests__/cssHygiene.test.ts`: every `var(--kb-*)` in TSX exists; font
+  sizes, radii, durations and z-index come from their scales; no unused
+  `app.css` classes, keyframes or page modules; reduced motion lives in the
+  package; no hand-built dialogs or portals, no new `position: fixed` in
+  `app.css`, and the per-file count of raw `<button>`s may only go down.
 - `src/components/__tests__/ui*.test.tsx`: behaviour of each component.
 
 ## Changing the system

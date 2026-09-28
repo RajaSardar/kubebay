@@ -17,6 +17,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 - **KEDA ScaledObject wizard**: an "Add ScaledObject" flow in the Autoscaling tab generates a manifest for cron, CPU/memory, or Prometheus triggers, previews it with a live diff, and dry-runs/applies it — always created paused, with scale-to-zero (`minReplicaCount: 0`) gated behind typing the workload's name to confirm, and blocked outright if an HPA already targets the same workload. The Prometheus trigger suggests in-cluster Service candidates for `serverAddress` rather than reusing Kubebay's local Prometheus proxy URL, which resolves to a different address entirely
 
 ### Changed
+- Removed about 800 lines of unused styles and two unrouted pages (the old Home and Overview)
 - **Every theme meets WCAG AA**: text reads at 4.5:1 or better on every surface, status pills and button labels reach 4.5:1, and focus rings are solid and at least 3:1. Dawn HC and Dusk HC reach 7:1 for body text with 3:1 control borders. Hues are kept; only lightness moves. Visible changes: Dusk primary buttons use a dark label on cyan, Dawn's accent is a deeper blue (`#0065c9`), VS Code Dark+ uses a lighter blue (`#31a6ff`), and Nord's error red is a pale rose (`#e6c1c4`) (#12, this release)
 - The shell renders every page header, toolbar input and select, keycap and sidebar link through `@kubebay/ui`, so the package is the single source of truth for that markup
 - Settings theme swatches match each theme's colours
@@ -26,6 +27,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 - **Pending has its own colour**: Pending pods use each theme's info hue instead of the warning orange, so they no longer read as warnings
 
 ### Fixed
+- The Create Resource dry-run toggle label used an undeclared colour token; it now uses the muted text colour
+- Every size, radius, animation duration and stacking layer in the app comes from the design tokens, so the command palette, context menus, drawers and dialogs always stack in the same order
 - Borders, focus halos, text colour and backgrounds missing in the Network Policy view, cluster picker and cluster detail drawer: six undefined `--kb-*` variables now point at real tokens (#12)
 - Cluster-picker nav highlight and engine-status dot follow the theme instead of fixed colours (#12)
 - ArgoCD sync and health pills had no background or border (their colour was built as invalid CSS)
