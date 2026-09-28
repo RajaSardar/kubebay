@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Badge, PageHeader, Select } from "@kubebay/ui";
+import { Badge, DataTable, EmptyState, NsPill, PageHeader, Select } from "@kubebay/ui";
 import { PageLoader } from "../components/PageLoader";
 import { useCluster } from "../lib/useCluster";
 import { useResourceStream } from "../lib/useResourceStream";
@@ -390,10 +390,10 @@ interface MatrixViewProps {
 function MatrixView({ groups, matrix, selectedCell, onSelectCell }: MatrixViewProps) {
   if (groups.length === 0) {
     return (
-      <div className="empty-state" style={{ margin: "var(--kb-gutter)" }}>
+      <EmptyState style={{ margin: "var(--kb-gutter)" }}>
         <p>No pods found in this namespace.</p>
         <p className="muted small">Select a different namespace or check your cluster connection.</p>
-      </div>
+      </EmptyState>
     );
   }
 
@@ -427,7 +427,7 @@ function MatrixView({ groups, matrix, selectedCell, onSelectCell }: MatrixViewPr
               {groups.map((g) => (
                 <th key={g.key} className="np-col-header" title={g.key}>
                   <div className="np-group-label">
-                    <span className="np-ns-badge">{g.namespace}</span>
+                    <NsPill>{g.namespace}</NsPill>
                     <span className="np-app-label">{g.appLabel}</span>
                   </div>
                 </th>
@@ -439,7 +439,7 @@ function MatrixView({ groups, matrix, selectedCell, onSelectCell }: MatrixViewPr
               <tr key={src.key}>
                 <td className="np-row-header" title={src.key}>
                   <div className="np-group-label">
-                    <span className="np-ns-badge">{src.namespace}</span>
+                    <NsPill>{src.namespace}</NsPill>
                     <span className="np-app-label">{src.appLabel}</span>
                   </div>
                 </td>
@@ -545,63 +545,61 @@ function CellDetailPanel({ cell, onClose }: { cell: CellDetail; onClose: () => v
 function PolicyListView({ policies }: { policies: PolicyInfo[] }) {
   if (policies.length === 0) {
     return (
-      <div className="empty-state" style={{ margin: "var(--kb-gutter)" }}>
+      <EmptyState style={{ margin: "var(--kb-gutter)" }}>
         <p>No NetworkPolicies found.</p>
         <p className="muted small">All traffic is unrestricted in this namespace.</p>
-      </div>
+      </EmptyState>
     );
   }
 
-  return (
-    <div className="table-wrap" style={{ flex: 1 }}>
-      <table className="kb-table">
-        <thead>
-          <tr>
-            <th style={{ width: "20%" }}>Namespace</th>
-            <th style={{ width: "25%" }}>Name</th>
-            <th style={{ width: "15%" }}>Types</th>
-            <th style={{ width: "20%" }}>Pod Selector</th>
-            <th style={{ width: "10%" }}>Ingress Rules</th>
-            <th style={{ width: "10%" }}>Egress Rules</th>
-          </tr>
-        </thead>
-        <tbody>
-          {policies.map((p) => {
-            const types = strArr(p.spec.policyTypes);
-            const podSel = p.spec.podSelector;
-            const selStr = podSel?.matchLabels
-              ? Object.entries(podSel.matchLabels)
-                  .map(([k, v]) => `${k}=${v}`)
-                  .join(", ")
-              : "(all pods)";
-            const ingressCount = Array.isArray(p.spec.ingress) ? p.spec.ingress.length : "–";
-            const egressCount = Array.isArray(p.spec.egress) ? p.spec.egress.length : "–";
+  const selectorOf = (p: PolicyInfo) =>
+    p.spec.podSelector?.matchLabels
+      ? Object.entries(p.spec.podSelector.matchLabels)
+          .map(([k, v]) => `${k}=${v}`)
+          .join(", ")
+      : "(all pods)";
 
-            return (
-              <tr key={`${p.namespace}/${p.name}`}>
-                <td>
-                  <span className="np-ns-badge">{p.namespace}</span>
-                </td>
-                <td className="mono">{p.name}</td>
-                <td>
-                  {types.length === 0 ? (
-                    <Badge>Ingress</Badge>
-                  ) : (
-                    <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                      {types.map((t) => (
-                        <Badge key={t}>{t}</Badge>
-                      ))}
-                    </div>
-                  )}
-                </td>
-                <td className="mono small" title={selStr}>{selStr}</td>
-                <td className="muted">{ingressCount}</td>
-                <td className="muted">{egressCount}</td>
-              </tr>
+  return (
+    <DataTable
+      rows={policies}
+      rowKey={(p) => `${p.namespace}/${p.name}`}
+      style={{ flex: 1 }}
+      columns={[
+        { key: "ns", header: "Namespace", width: "20%", render: (p) => <NsPill>{p.namespace}</NsPill> },
+        { key: "name", header: "Name", width: "25%", className: "mono td-name", title: (p) => p.name, render: (p) => p.name },
+        {
+          key: "types",
+          header: "Types",
+          width: "15%",
+          render: (p) => {
+            const types = strArr(p.spec.policyTypes);
+            return types.length === 0 ? (
+              <Badge>Ingress</Badge>
+            ) : (
+              <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                {types.map((t) => (
+                  <Badge key={t}>{t}</Badge>
+                ))}
+              </div>
             );
-          })}
-        </tbody>
-      </table>
-    </div>
+          },
+        },
+        { key: "sel", header: "Pod selector", width: "20%", className: "mono small", title: selectorOf, render: selectorOf },
+        {
+          key: "in",
+          header: "Ingress rules",
+          width: "10%",
+          className: "cell-secondary",
+          render: (p) => (Array.isArray(p.spec.ingress) ? p.spec.ingress.length : "–"),
+        },
+        {
+          key: "out",
+          header: "Egress rules",
+          width: "10%",
+          className: "cell-secondary",
+          render: (p) => (Array.isArray(p.spec.egress) ? p.spec.egress.length : "–"),
+        },
+      ]}
+    />
   );
 }

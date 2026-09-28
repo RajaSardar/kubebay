@@ -76,7 +76,7 @@ describe("@kubebay/ui owns the styles of its components", () => {
     ".status-ok", ".status-terminating", ".tabs", ".tab.active", ".nav-item", ".nav-item.sub", ".nav-section",
     ".toolbar-input", ".toolbar-select", "kbd", ".page-header", ".page-header-actions", ".ctx-menu", ".ctx-item",
     ".kb-table", ".kb-table th", ".palette-box", ".palette-item.active", ".ns-pill", ".cell-link", ".live-pill",
-    ".empty-state", ".inline-banner", ".inline-banner.warn", ".inline-banner-actions", ".row-clickable", ".drawer-pane-tabs .tab",
+    ".empty-state", ".inline-banner", ".inline-banner.warn", ".inline-banner-actions", ".row-clickable", ".drawer-pane-tabs .tab", ".inline-banner.flush",
   ];
   const defines = (css: string, sel: string) =>
     stripComments(css)
@@ -123,6 +123,17 @@ describe("app.css never restyles @kubebay/ui classes", () => {
       .map((m) => m[1]!.trim())
       .filter((sel) => !sel.startsWith("@") && !/^(from|to|[\d.%,\s]+)$/.test(sel))
       .filter((sel) => [...sel.matchAll(/\.([a-zA-Z][\w-]*)/g)].some((c) => owned.has(c[1]!)));
+    expect(offenders).toEqual([]);
+  });
+});
+
+describe("app.css colours come from tokens", () => {
+  it("has no hex or rgb() colour literals", () => {
+    const offenders = stripComments(appCss)
+      .split("\n")
+      .map((l, i) => [i + 1, l] as const)
+      .filter(([, l]) => /#[0-9a-fA-F]{3,8}\b|rgba?\(\s*\d/.test(l))
+      .map(([n, l]) => `${n}: ${l.trim()}`);
     expect(offenders).toEqual([]);
   });
 });

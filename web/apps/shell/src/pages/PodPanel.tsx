@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Badge, Button, Select, StatusDot, TextField } from "@kubebay/ui";
+import { Badge, Button, InlineBanner, Select, StatusDot, TextField } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { usePodLogs, type PodLogsSpec } from "../lib/usePodLogs";
 import { ExecTerm, YamlTab } from "../components/heavy";
@@ -115,7 +115,7 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
           {error && <span className="error-text small">{error}</span>}
           {!confirmingDelete ? (
             <>
-              <Button variant="ghost" className="kb-btn-danger-ghost" onClick={() => setConfirmingDelete(true)}>
+              <Button variant="danger-ghost" onClick={() => setConfirmingDelete(true)}>
                 Delete
               </Button>
               <Button variant="ghost" onClick={onClose}>
@@ -153,9 +153,9 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
         </div>
       </div>
       {deleteErr && (
-        <div className="error-banner" style={{ margin: "10px 14px 0" }}>
+        <InlineBanner flush style={{ margin: "10px 14px 0" }}>
           {deleteErr}
-        </div>
+        </InlineBanner>
       )}
 
       <div className="tabs">

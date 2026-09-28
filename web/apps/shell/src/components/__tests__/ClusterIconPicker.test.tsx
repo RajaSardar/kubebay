@@ -69,3 +69,14 @@ describe("autoAvatar – sanitized IDs", () => {
     expect(a.label).toBe("ORB");
   });
 });
+
+describe("avatarLabelColor", () => {
+  it("picks whichever of white or near-black reads better on the avatar colour", async () => {
+    const { avatarLabelColor } = await import("../ClusterIconPicker");
+    expect(avatarLabelColor("#4285F4")).toBe("#111111"); // GCP blue: white is only 3.6:1
+    expect(avatarLabelColor("#7C3AED")).toBe("#ffffff"); // kind purple
+    expect(avatarLabelColor("#22d3ee")).toBe("#111111"); // OrbStack cyan: white is 1.8:1
+    expect(avatarLabelColor("#41c98e")).toBe("#111111"); // DEV green
+    expect(avatarLabelColor("not-a-colour")).toBe("#ffffff");
+  });
+});

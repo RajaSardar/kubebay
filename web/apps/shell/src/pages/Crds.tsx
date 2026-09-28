@@ -5,7 +5,7 @@ import { PageLoader } from "../components/PageLoader";
 import { crdApi, type CRDEntry } from "../lib/api";
 import { extSlug } from "../lib/resources";
 import { useCluster } from "../lib/useCluster";
-import { PageHeader, TextField } from "@kubebay/ui";
+import { Button, InlineBanner, PageHeader, TextField } from "@kubebay/ui";
 
 function extPath(r: CRDEntry) {
   return `/r/ext--${extSlug(r.gvr)}?scoped=${r.namespaced ? 1 : 0}`;
@@ -67,10 +67,10 @@ export default function Crds() {
       <PageHeader title="Custom Resource Definitions" count={q.isLoading ? "Loading…" : `${totalCount} CRDs`} />
 
       {q.isError && (
-        <div className="inline-banner">
+        <InlineBanner>
           <span>Failed to load CRDs: {String(q.error)}</span>
-          <button className="btn-ghost small" onClick={() => q.refetch()}>Retry</button>
-        </div>
+          <Button variant="ghost" onClick={() => void q.refetch()}>Retry</Button>
+        </InlineBanner>
       )}
 
       <div className="toolbar" style={{ gap: 8, marginBottom: 12 }}>

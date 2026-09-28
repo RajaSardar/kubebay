@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Badge, Button, Card } from "@kubebay/ui";
+import { Badge, Button, Card, EmptyState, InlineBanner } from "@kubebay/ui";
 import { crdApi } from "../lib/api";
 import { useResourceStream } from "../lib/useResourceStream";
 import { explainScaledObject, hpaConflictsWithScaledObject } from "../lib/keda";
@@ -32,9 +32,9 @@ export function AutoscalingSummary({
 }) {
   if (scaledObjects.length === 0 && hpas.length === 0 && vpas.length === 0) {
     return (
-      <div className="empty-state" style={{ padding: 14 }}>
+      <EmptyState style={{ padding: 14 }}>
         <p>No autoscaler targets this workload.</p>
-      </div>
+      </EmptyState>
     );
   }
 
@@ -56,15 +56,15 @@ export function AutoscalingSummary({
               {explain.currentReplicas !== undefined ? ` / current ${explain.currentReplicas}` : ""}
             </div>
             {explain.minReplicaZero && (
-              <div className="small" style={{ marginTop: 8, color: "var(--kb-status-warn, #f59e0b)" }}>
+              <div className="small" style={{ marginTop: 8, color: "var(--kb-status-warn)" }}>
                 ⚠ scale-to-zero (minReplicaCount: 0) — the workload can go idle between triggers.
               </div>
             )}
             {conflict && (
-              <div className="error-banner" style={{ marginTop: 8 }}>
+              <InlineBanner flush style={{ marginTop: 8 }}>
                 Conflict: an HPA also targets {explain.targetKind.toLowerCase()} "{explain.targetName}" — dual ownership causes
                 replica flapping. Remove one.
-              </div>
+              </InlineBanner>
             )}
           </Card>
         );

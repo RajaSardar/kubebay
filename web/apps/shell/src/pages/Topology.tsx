@@ -9,7 +9,7 @@ import {
   type NodeProps,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { Badge, PageHeader, Select } from "@kubebay/ui";
+import { Badge, EmptyState, PageHeader, Select } from "@kubebay/ui";
 import { PageLoader } from "../components/PageLoader";
 import { useCluster } from "../lib/useCluster";
 import { useResourceStream } from "../lib/useResourceStream";
@@ -186,10 +186,10 @@ export default function Topology() {
       ) : !ready && graph.nodes.length === 0 ? (
         <PageLoader message={`Mapping the bay... syncing workloads for ${effectiveNs}`} />
       ) : graph.nodes.length === 0 ? (
-        <div className="topo-canvas topo-canvas-empty empty-state">
+        <EmptyState className="topo-canvas topo-canvas-empty">
           <p>Nothing running in "{effectiveNs}".</p>
           <p className="muted small">Pick another namespace above.</p>
-        </div>
+        </EmptyState>
       ) : (
         <div className="topo-canvas">
           <ReactFlow

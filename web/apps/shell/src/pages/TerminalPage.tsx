@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { LocalShellTerm } from "../components/LocalShellTerm";
 import { useActiveCluster } from "../App";
 import { api } from "../lib/api";
+import { EmptyState } from "@kubebay/ui";
 
 export default function TerminalPage() {
   const { active } = useActiveCluster();
@@ -10,10 +11,10 @@ export default function TerminalPage() {
   if (!active) {
     return (
       <div className="page">
-        <div className="empty-state">
+        <EmptyState>
           <p>No cluster selected.</p>
           <p className="muted small">Select a cluster to open a terminal.</p>
-        </div>
+        </EmptyState>
       </div>
     );
   }

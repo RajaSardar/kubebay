@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Badge } from "@kubebay/ui";
+import { Badge, DataTable } from "@kubebay/ui";
 import type { ArgoCDResource } from "../lib/api";
 import { sortResourcesByDrift } from "../lib/argoDrift";
 import { slugForKind } from "../lib/resources";
@@ -20,30 +20,28 @@ export function ArgoDriftList({ resources }: { resources: ArgoCDResource[] }) {
   const sorted = sortResourcesByDrift(resources);
 
   return (
-    <div className="table-wrap">
-      <table className="kb-table">
-        <thead>
-          <tr><th>Kind</th><th>Namespace</th><th>Name</th><th>Status</th><th>Health</th></tr>
-        </thead>
-        <tbody>
-          {sorted.map((r, i) => {
+    <DataTable
+      rows={sorted}
+      rowKey={(r, i) => `${r.kind}/${r.namespace}/${r.name}/${i}`}
+      columns={[
+        { key: "kind", header: "Kind", className: "mono small", render: (r) => r.kind },
+        { key: "ns", header: "Namespace", className: "mono small", render: (r) => r.namespace || "–" },
+        {
+          key: "name",
+          header: "Name",
+          className: "mono small strong",
+          render: (r) => {
             const slug = slugForKind(r.kind);
-            return (
-              <tr key={i}>
-                <td className="mono small">{r.kind}</td>
-                <td className="mono small">{r.namespace || "–"}</td>
-                <td className="mono small strong">
-                  {slug ? <Link to={`/detail/${slug}/${r.namespace || "_"}/${r.name}`}>{r.name}</Link> : r.name}
-                </td>
-                <td>
-                  <Badge tone={r.status === "OutOfSync" ? "err" : "ok"}>{r.status}</Badge>
-                </td>
-                <td className="small">{r.health || "–"}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+            return slug ? <Link to={`/detail/${slug}/${r.namespace || "_"}/${r.name}`}>{r.name}</Link> : r.name;
+          },
+        },
+        {
+          key: "status",
+          header: "Status",
+          render: (r) => <Badge tone={r.status === "OutOfSync" ? "err" : "ok"}>{r.status}</Badge>,
+        },
+        { key: "health", header: "Health", className: "small", render: (r) => r.health || "–" },
+      ]}
+    />
   );
 }

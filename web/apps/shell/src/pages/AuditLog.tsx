@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Badge, PageHeader, Skeleton, TextField } from "@kubebay/ui";
+import { Badge, DataTable, EmptyState, InlineBanner, PageHeader, StatusDot, TextField } from "@kubebay/ui";
 import { api } from "../lib/api";
 
 interface AuditEntry {
@@ -70,73 +70,53 @@ export default function AuditLog() {
         <Badge>{sorted.length}</Badge>
       </div>
 
-      {q.isLoading && (
-        <div className="table-wrap">
-          <table className="kb-table">
-            <thead>
-              <tr>
-                <th>Time</th><th>Action</th><th>Cluster</th><th>Namespace</th><th>Resource</th><th>Detail</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[0,1,2,3,4].map((i) => (
-                <tr key={i}>
-                  {[90,60,80,80,120,160].map((w, j) => <td key={j}><Skeleton w={w} /></td>)}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
       {q.isError && (
-        <div className="error-banner" style={{ margin: "8px 0" }}>
+        <InlineBanner flush style={{ margin: "8px 0" }}>
           {String(q.error instanceof Error ? q.error.message : q.error)}
-        </div>
+        </InlineBanner>
       )}
 
-      {!q.isLoading && sorted.length === 0 && !q.isError && (
-        <div className="empty-state">
-          <p>No audit entries yet.</p>
-          <p className="muted small">Actions like scale, delete, exec, and port-forward appear here.</p>
-        </div>
-      )}
-
-      {!q.isLoading && sorted.length > 0 && (
-        <div className="table-wrap">
-          <table className="kb-table">
-            <thead>
-              <tr>
-                <th style={{ width: 160 }}>Time</th>
-                <th style={{ width: 110 }}>Action</th>
-                <th style={{ width: 130 }}>Cluster</th>
-                <th style={{ width: 110 }}>Namespace</th>
-                <th style={{ width: 160 }}>Resource</th>
-                <th>Detail</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sorted.map((e, i) => (
-                <tr key={i}>
-                  <td className="mono muted small">{fmtTime(e.time)}</td>
-                  <td>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                      <span
-                        className="status-dot"
-                        style={{ background: `var(--kb-status-${ACTION_DOT[e.action] === "connected" ? "ok" : ACTION_DOT[e.action] === "unreachable" ? "err" : "warn"})` }}
-                      />
-                      <span className="mono">{e.action}</span>
-                    </span>
-                  </td>
-                  <td className="mono muted small">{e.cluster}</td>
-                  <td className="mono muted small">{e.namespace || "–"}</td>
-                  <td className="mono strong small" title={e.resource}>{e.resource || "–"}</td>
-                  <td className="mono muted small">{e.detail || "–"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      {!q.isError && (
+        <DataTable
+          loading={q.isLoading}
+          rows={sorted}
+          rowKey={(_, i) => String(i)}
+          empty={
+            <EmptyState
+              title="No audit entries yet."
+              hint="Actions like scale, delete, exec, and port-forward appear here."
+            />
+          }
+          columns={[
+            { key: "time", header: "Time", width: 160, className: "mono muted small", render: (e) => fmtTime(e.time) },
+            {
+              key: "action",
+              header: "Action",
+              width: 110,
+              render: (e) => (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <StatusDot
+                    status={
+                      ACTION_DOT[e.action] === "connected" ? "connected" : ACTION_DOT[e.action] === "unreachable" ? "unreachable" : "degraded"
+                    }
+                  />
+                  <span className="mono">{e.action}</span>
+                </span>
+              ),
+            },
+            { key: "cluster", header: "Cluster", width: 130, className: "mono muted small", render: (e) => e.cluster },
+            { key: "ns", header: "Namespace", width: 110, className: "mono muted small", render: (e) => e.namespace || "–" },
+            {
+              key: "resource",
+              header: "Resource",
+              width: 160,
+              className: "mono strong small",
+              title: (e) => e.resource,
+              render: (e) => e.resource || "–",
+            },
+            { key: "detail", header: "Detail", className: "mono muted small", render: (e) => e.detail || "–" },
+          ]}
+        />
       )}
     </div>
   );

@@ -13,6 +13,7 @@ import {
 } from "../lib/rightsizing";
 import { useResourceStream } from "../lib/useResourceStream";
 import { wasteApi } from "../lib/api";
+import { InlineBanner } from "@kubebay/ui";
 
 /**
  * Pure rendering half — "discovery requires you to already be on the
@@ -23,10 +24,10 @@ import { wasteApi } from "../lib/api";
 export function RightSizingBannerView({ summary }: { summary: WorkloadRightSizingSummary | null }) {
   if (!summary) return null;
   return (
-    <div className="inline-banner" role="status" style={{ marginBottom: 12 }}>
+    <InlineBanner role="status" style={{ marginBottom: 12 }}>
       Right-sizing opportunity: {formatCpuMillis(summary.wastedCpuMillis)} / {formatMemBytes(summary.wastedMemBytes)}{" "}
       wasted. <Link to="/right-sizing">View in Right-sizing →</Link>
-    </div>
+    </InlineBanner>
   );
 }
 

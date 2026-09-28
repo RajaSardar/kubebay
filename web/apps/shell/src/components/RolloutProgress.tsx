@@ -1,5 +1,6 @@
 import { useResourceStream } from "../lib/useResourceStream";
 import { buildRolloutProgress } from "../lib/rollout";
+import { InlineBanner } from "@kubebay/ui";
 
 /**
  * Answers "is this rollout stuck, and on which ReplicaSet" — a stacked bar of
@@ -36,9 +37,9 @@ export function RolloutProgress({
   return (
     <div className="pod-summary" style={{ padding: 14, overflowY: "auto", flex: 1 }}>
       {progress.stuck && (
-        <div className="error-banner" role="alert" style={{ marginBottom: 12 }}>
+        <InlineBanner flush role="alert" style={{ marginBottom: 12 }}>
           Rollout stuck (ProgressDeadlineExceeded){progress.progressingMessage ? `: ${progress.progressingMessage}` : "."}
-        </div>
+        </InlineBanner>
       )}
       <div className="pod-section-title">
         Rollout progress ({totalReady}/{progress.desiredReplicas} ready)

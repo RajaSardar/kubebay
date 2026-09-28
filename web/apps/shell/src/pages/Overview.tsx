@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Badge, Button, Card, PageHeader, Skeleton, StatusDot } from "@kubebay/ui";
+import { Badge, Button, Card, EmptyState, InlineBanner, PageHeader, Skeleton, StatusDot } from "@kubebay/ui";
 import { IconAlert, IconRefresh } from "@kubebay/ui/src/icons";
 import { api, type ClusterInfo } from "../lib/api";
 
@@ -65,10 +65,10 @@ export default function Overview() {
 
       <div className="page-body">
         {clusters.isError && (
-          <div className="error-banner">
+          <InlineBanner flush>
             <IconAlert size={15} />
             <span>Engine unreachable — start it, then reload.</span>
-          </div>
+          </InlineBanner>
         )}
 
         <div className="cluster-grid">
@@ -77,10 +77,10 @@ export default function Overview() {
         </div>
 
         {!clusters.isLoading && !clusters.isError && list.length === 0 && (
-          <div className="empty-state">
+          <EmptyState>
             <p>No contexts found in your kubeconfig.</p>
             <p className="muted small">Add one to ~/.kube/config — it hot-reloads automatically.</p>
-          </div>
+          </EmptyState>
         )}
       </div>
     </div>

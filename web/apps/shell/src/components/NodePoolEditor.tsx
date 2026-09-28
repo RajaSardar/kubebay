@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { YamlTab } from "./YamlTab";
 import { computeNodePoolImpact } from "../lib/karpenterImpact";
 import { detectDangerousChanges } from "../lib/karpenterDangerousChange";
+import { InlineBanner } from "@kubebay/ui";
 
 function plural(n: number, word: string): string {
   return `${n} ${word}${n === 1 ? "" : "s"}`;
@@ -32,14 +33,14 @@ export function NodePoolEditor({
   const impact = useMemo(() => computeNodePoolImpact(name, nodes, pods, pdbs), [name, nodes, pods, pdbs]);
 
   const banner = (
-    <div className="inline-banner" role="status">
+    <InlineBanner role="status">
       Backs {plural(impact.nodeCount, "node")} / {plural(impact.podCount, "pod")} /{" "}
       {plural(impact.namespaceCount, "namespace")}
       {impact.pdbProtectedPodCount > 0 && (
         <> · {plural(impact.pdbProtectedPodCount, "pod")} covered by a PodDisruptionBudget</>
       )}
       {impact.spotCount > 0 && <> · {plural(impact.spotCount, "spot node")}</>}
-    </div>
+    </InlineBanner>
   );
 
   return (

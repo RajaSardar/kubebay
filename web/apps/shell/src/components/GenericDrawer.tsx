@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Badge, Button, Select, StatusDot, Tabs, TextField } from "@kubebay/ui";
+import { Badge, Button, InlineBanner, Select, StatusDot, Tabs, TextField } from "@kubebay/ui";
 import { api, nodeApi } from "../lib/api";
 import { ExecTerm, YamlTab } from "./heavy";
 import { EventsDrawer } from "./EventsDrawer";
@@ -128,7 +128,7 @@ function PaneContent({
     }
     return (
       <div className="page" style={{ paddingTop: 24 }}>
-        {shellErr && <div className="error-banner">{shellErr}</div>}
+        {shellErr && <InlineBanner flush>{shellErr}</InlineBanner>}
         <p className="muted small" style={{ marginTop: 0 }}>
           Starts a short-lived privileged helper pod (busybox + hostPID) pinned to{" "}
           <span className="mono">{name}</span>, giving you a root shell on the node.
@@ -493,7 +493,7 @@ export default function GenericDrawer({
                   <rect x="8" y="1" width="5" height="12" rx="1.5" stroke="currentColor" strokeWidth="1.4" fill="none" />
                 </svg>
               </button>
-              <Button variant="ghost" className="kb-btn-danger-ghost" onClick={() => setConfirming(true)}>
+              <Button variant="danger-ghost" onClick={() => setConfirming(true)}>
                 Delete
               </Button>
               <Button variant="ghost" onClick={onClose}>
@@ -534,9 +534,9 @@ export default function GenericDrawer({
 
       {/* ── Error banner ── */}
       {err && (
-        <div className="error-banner" style={{ margin: "10px 14px 0" }}>
+        <InlineBanner flush style={{ margin: "10px 14px 0" }}>
           {err}
-        </div>
+        </InlineBanner>
       )}
 
       {/* ── Actions bar ── */}

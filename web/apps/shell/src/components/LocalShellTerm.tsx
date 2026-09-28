@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArmedButton, Button } from "@kubebay/ui";
+import { ArmedButton, Button, EmptyState, InlineBanner } from "@kubebay/ui";
 import { settingsApi, type ClusterInfo, type LocalShellCapability } from "../lib/api";
 import {
   bindTo,
@@ -70,7 +70,7 @@ function ShellSession({
 function Unavailable({ cap }: { cap?: LocalShellCapability }) {
   return (
     <div className="page">
-      <div className="empty-state">
+      <EmptyState>
         <p>This engine build has no local shell.</p>
         <p className="muted small">{cap?.reason ?? "The engine reports no local-shell support."}</p>
         <p className="muted small" style={{ maxWidth: 520 }}>
@@ -79,7 +79,7 @@ function Unavailable({ cap }: { cap?: LocalShellCapability }) {
           execution on this machine. Build the engine with <code>-tags localshell</code> and start
           it with <code>--local-shell</code> on a loopback address to enable it.
         </p>
-      </div>
+      </EmptyState>
     </div>
   );
 }
@@ -131,10 +131,10 @@ export function LocalShellTerm({
   if (!selectedCluster) {
     return (
       <div className="page">
-        <div className="empty-state">
+        <EmptyState>
           <p>No cluster selected.</p>
           <p className="muted small">A local shell is opened against one kubeconfig context.</p>
-        </div>
+        </EmptyState>
       </div>
     );
   }
@@ -149,7 +149,7 @@ export function LocalShellTerm({
 
       {!bound && selectedIsProd && (
         <div className="page">
-          <div className="empty-state">
+          <EmptyState>
             <p>
               Open a shell on <strong>{selectedContext}</strong>?
             </p>
@@ -164,32 +164,32 @@ export function LocalShellTerm({
                 onGo={() => bind(selectedCluster)}
               />
             </div>
-          </div>
+          </EmptyState>
         </div>
       )}
 
       {bound && (
         <>
           {boundIsProd && (
-            <div className="inline-banner warn">
+            <InlineBanner tone="warn">
               <span>
                 <strong>{bound.context}</strong> reads like a production context. This is a check
                 on the name only: it cannot tell what the cluster really is, and a name that looks
                 harmless proves nothing.
               </span>
-            </div>
+            </InlineBanner>
           )}
 
-          <div className="inline-banner ok">
+          <InlineBanner tone="ok">
             <span>
               Bound to context <strong>{bound.context}</strong> (cluster{" "}
               <strong>{bound.cluster}</strong>). kubectl in this terminal targets that context. It
               does not follow the cluster picker.
             </span>
-          </div>
+          </InlineBanner>
 
           {stale && (
-            <div className="inline-banner warn">
+            <InlineBanner tone="warn">
               <span>
                 Kubebay now shows <strong>{selectedCluster}</strong>. This shell stays on{" "}
                 <strong>{bound.context}</strong> until you say otherwise.
@@ -204,35 +204,35 @@ export function LocalShellTerm({
                   Keep this shell
                 </Button>
               </span>
-            </div>
+            </InlineBanner>
           )}
 
           {phase.at === "ended" && phase.end.kind === "unsupported" && (
-            <div className="inline-banner">
+            <InlineBanner>
               <span>{phase.end.detail}</span>
-            </div>
+            </InlineBanner>
           )}
 
           {phase.at === "ended" && phase.end.kind === "exit" && (
-            <div className="inline-banner warn">
+            <InlineBanner tone="warn">
               <span>Session ended — {describeExit(phase.end.code)}.</span>
               <span className="inline-banner-actions">
                 <Button onClick={() => setNonce((n) => n + 1)}>Restart</Button>
               </span>
-            </div>
+            </InlineBanner>
           )}
 
           {phase.at === "ended" && phase.end.kind === "error" && (
-            <div className="inline-banner">
+            <InlineBanner>
               <span>Session ended — {phase.end.detail}.</span>
               <span className="inline-banner-actions">
                 <Button onClick={() => setNonce((n) => n + 1)}>Restart</Button>
               </span>
-            </div>
+            </InlineBanner>
           )}
 
           {phase.at === "lost" && (
-            <div className="inline-banner warn">
+            <InlineBanner tone="warn">
               <span>
                 The engine connection dropped. Kubebay replays its watches on reconnect but not
                 terminals, so this shell's process is gone.
@@ -240,7 +240,7 @@ export function LocalShellTerm({
               <span className="inline-banner-actions">
                 <Button onClick={() => setNonce((n) => n + 1)}>Restart</Button>
               </span>
-            </div>
+            </InlineBanner>
           )}
 
           <ShellSession

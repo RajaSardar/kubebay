@@ -2,6 +2,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useCluster } from "../lib/useCluster";
 import { lookupDef } from "../lib/resources";
 import GenericDrawer from "../components/GenericDrawer";
+import { Button, EmptyState } from "@kubebay/ui";
 
 export default function ResourceDetail() {
   const { kind = "", ns = "_", name = "" } = useParams();
@@ -19,10 +20,10 @@ export default function ResourceDetail() {
   if (!def) {
     return (
       <div className="page">
-        <div className="empty-state">
+        <EmptyState>
           <p>Unknown resource kind "{kind}".</p>
-          <button className="kb-btn" onClick={goBack}>Go back</button>
-        </div>
+          <Button variant="ghost" onClick={goBack}>Go back</Button>
+        </EmptyState>
       </div>
     );
   }

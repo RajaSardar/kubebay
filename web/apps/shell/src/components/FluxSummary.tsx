@@ -1,4 +1,4 @@
-import { Badge, Card } from "@kubebay/ui";
+import { Badge, Card, EmptyState } from "@kubebay/ui";
 import type { FluxObjectStatus } from "../lib/flux";
 
 /**
@@ -13,9 +13,9 @@ import type { FluxObjectStatus } from "../lib/flux";
 export function FluxSummary({ items }: { items: FluxObjectStatus[] }) {
   if (items.length === 0) {
     return (
-      <div className="empty-state">
+      <EmptyState>
         <p>No Kustomizations or HelmReleases found.</p>
-      </div>
+      </EmptyState>
     );
   }
 
@@ -38,7 +38,7 @@ export function FluxSummary({ items }: { items: FluxObjectStatus[] }) {
             manages {it.managedResourceCount} resource{it.managedResourceCount === 1 ? "" : "s"}
           </div>
           {it.driftEventCount > 0 && (
-            <div className="small" style={{ marginTop: 6, color: "var(--kb-status-warn, #f59e0b)" }}>
+            <div className="small" style={{ marginTop: 6, color: "var(--kb-status-warn)" }}>
               Drift detected ({it.driftEventCount}) — Flux already reconciled it back to the desired state.
             </div>
           )}

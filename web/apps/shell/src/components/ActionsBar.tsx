@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArmedButton, Badge, Button, TextField } from "@kubebay/ui";
+import { ArmedButton, Badge, Button, InlineBanner, TextField } from "@kubebay/ui";
 import { actionApi, api } from "../lib/api";
 import { ownerLabel, ownerWarning, type GitOpsOwner } from "../lib/gitops";
 
@@ -54,9 +54,9 @@ export function ActionsBar({
   return (
     <div className="log-controls actionsbar" style={{ flexDirection: "column", alignItems: "stretch" }}>
       {gitopsOwner && (
-        <div className="inline-banner" role="alert">
+        <InlineBanner role="alert">
           {ownerWarning(gitopsOwner)}
-        </div>
+        </InlineBanner>
       )}
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
       {showScale && (

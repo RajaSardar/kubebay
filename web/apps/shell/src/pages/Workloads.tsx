@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Badge, Button, PageHeader, Select, Skeleton, StatusDot, TextField } from "@kubebay/ui";
+import { Badge, Button, EmptyState, InlineBanner, NsPill, PageHeader, Select, SelectAllHeader, SelectCell, SkeletonRows, SortHeader, StatusPill, Table, TableRow, TableWrap, TextField, type StatusTone } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { useResourceStream, shouldShowSkeleton } from "../lib/useResourceStream";
 import PodPanel, { type SelectedPod } from "./PodPanel";
@@ -131,35 +131,14 @@ function fmtAge(ms: number): string {
   return `${Math.floor(h / 24)}d`;
 }
 
-const STATUS_TONE: Record<PodRow["status"], { color: string; badge?: "ok" | "err" | "pending" }> = {
-  running: { color: "var(--kb-status-ok)", badge: "ok" },
-  succeeded: { color: "var(--kb-status-info)" },
-  pending: { color: "var(--kb-status-pending)", badge: "pending" },
-  failed: { color: "var(--kb-status-err)", badge: "err" },
-  warning: { color: "var(--kb-status-err)", badge: "err" },
+const STATUS_TONE: Record<PodRow["status"], { pill: StatusTone }> = {
+  running: { pill: "ok" },
+  succeeded: { pill: "terminated" },
+  pending: { pill: "pending" },
+  failed: { pill: "err" },
+  warning: { pill: "err" },
 };
 
-// Checkbox that supports the indeterminate state (not a standard React prop)
-function SelectAllCheckbox({ checked, indeterminate, onChange }: {
-  checked: boolean;
-  indeterminate: boolean;
-  onChange: (checked: boolean) => void;
-}) {
-  const ref = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    if (ref.current) ref.current.indeterminate = indeterminate;
-  }, [indeterminate]);
-  return (
-    <input
-      ref={ref}
-      type="checkbox"
-      checked={checked}
-      onChange={(e) => onChange(e.target.checked)}
-      className="kb-checkbox"
-      aria-label="Select all"
-    />
-  );
-}
 
 // Column order: checkbox(0), Name(1), Namespace(2), Ready(3), Status(4), Restarts(5), Node(6), IP(7), CPU(8), Memory(9), Age(10)
 const HEADERS = ["Name", "Namespace", "Ready", "Status", "Restarts", "Node", "IP", "CPU", "Memory", "Age"] as const;
@@ -299,7 +278,7 @@ export default function Workloads() {
       />
 
       {bulkDelete.pending && (
-        <div className="inline-banner">
+        <InlineBanner>
           <span>
             {bulkDelete.pending.length === 1 ? (
               <>
@@ -322,9 +301,9 @@ export default function Workloads() {
               {bulkDelete.busy ? "Deleting…" : "Delete"}
             </Button>
           </div>
-        </div>
+        </InlineBanner>
       )}
-      {bulkDelete.error && <div className="inline-banner">{bulkDelete.error}</div>}
+      {bulkDelete.error && <InlineBanner>{bulkDelete.error}</InlineBanner>}
 
       <div className="toolbar">
         <Select
@@ -351,8 +330,8 @@ export default function Workloads() {
       )}
 
       {effectiveCluster && shouldShowSkeleton(synced, pods.length) && (
-        <div className="table-wrap">
-          <table className="kb-table">
+        <TableWrap>
+          <Table>
             <thead>
               <tr>
                 <th style={{ width: 40 }} />
@@ -360,54 +339,45 @@ export default function Workloads() {
               </tr>
             </thead>
             <tbody>
-              {[0, 1, 2, 3, 4, 5].map((i) => (
-                <tr key={i}>
-                  <td />
-                  {[140, 80, 40, 70, 30, 100, 80, 60, 60, 30].map((w, j) => (
-                    <td key={j}><Skeleton w={w} /></td>
-                  ))}
-                </tr>
-              ))}
+              <SkeletonRows columns={HEADERS.length} rows={6} leadingBlank />
             </tbody>
-          </table>
-        </div>
+          </Table>
+        </TableWrap>
       )}
 
       {effectiveCluster && !shouldShowSkeleton(synced, pods.length) && pods.length === 0 && (
-        <div className="empty-state">
+        <EmptyState>
           <p>No pods match.</p>
           <p className="muted small">{filter || nsFilter.length ? "Try clearing the filters." : "This cluster looks quiet."}</p>
-        </div>
+        </EmptyState>
       )}
 
       {pods.length > 0 && (
-        <div className="table-wrap">
-          <table className="kb-table">
+        <TableWrap>
+          <Table>
             <colgroup>
               <col style={{ width: 40 }} />
               {HEADERS.map((h, i) => <col key={h} style={{ width: widths[i] }} />)}
             </colgroup>
             <thead>
               <tr>
-                {/* Select-all checkbox */}
-                <th className="col-select" style={{ width: 40 }}>
-                  <SelectAllCheckbox
-                    checked={isAllSelected(allKeys)}
-                    indeterminate={isIndeterminate(allKeys)}
-                    onChange={handleSelectAll}
-                  />
-                </th>
+                <SelectAllHeader
+                  checked={isAllSelected(allKeys)}
+                  indeterminate={isIndeterminate(allKeys)}
+                  onChange={handleSelectAll}
+                />
                 {HEADERS.map((h, i) => (
-                  <th
+                  <SortHeader
                     key={h}
-                    className="th-sortable"
-                    style={{ width: widths[i], position: "relative" }}
-                    onClick={() => toggleSort(h)}
+                    label={h}
+                    active={sortCol === h}
+                    asc={sortAsc}
+                    onSort={() => toggleSort(h)}
+                    width={widths[i]}
+                    style={{ position: "relative" }}
                   >
-                    {h}
-                    {sortCol === h && <span className="sort-indicator">{sortAsc ? " ↑" : " ↓"}</span>}
                     <div className="col-resize-handle" {...getResizeHandleProps(i)} />
-                  </th>
+                  </SortHeader>
                 ))}
               </tr>
             </thead>
@@ -416,9 +386,10 @@ export default function Workloads() {
                 const tone = STATUS_TONE[p.status];
                 const isSelected = selectedKeys.has(p.key);
                 return (
-                  <tr
+                  <TableRow
                     key={p.key}
-                    className={`row-clickable${isSelected ? " selected" : ""}`}
+                    clickable
+                    selected={isSelected}
                     onClick={() => {
                       const rawObj = rows.find((r) => {
                         const m = rec((r ?? {}) as Record<string, unknown>).metadata as Record<string, unknown> | undefined;
@@ -433,23 +404,12 @@ export default function Workloads() {
                       });
                     }}
                   >
-                    <td className="col-select" onClick={(e) => e.stopPropagation()}>
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => toggleRow(p.key)}
-                        className="kb-checkbox"
-                        aria-label={`Select ${p.name}`}
-                      />
-                    </td>
-                    <td className="mono strong" title={p.name}>{p.name}</td>
-                    <td className="mono"><span className="cell-link">{p.namespace}</span></td>
+                    <SelectCell checked={isSelected} onChange={() => toggleRow(p.key)} label={`Select ${p.name}`} />
+                    <td className="mono td-name" title={p.name}>{p.name}</td>
+                    <td className="mono"><NsPill>{p.namespace}</NsPill></td>
                     <td className="mono">{p.ready}</td>
                     <td>
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
-                        <StatusDot status={tone.badge === "ok" ? "connected" : tone.badge === "err" ? "unreachable" : tone.badge === "pending" ? "degraded" : "pending"} />
-                        <span style={{ color: tone.color }}>{p.statusLabel}</span>
-                      </span>
+                      <StatusPill tone={tone.pill}>{p.statusLabel}</StatusPill>
                     </td>
                     <td className={`mono${p.restarts > 0 ? " restart-warn" : ""}`}>{p.restarts}</td>
                     <td className="mono muted small" title={p.node}>{p.node || "–"}</td>
@@ -475,12 +435,12 @@ export default function Workloads() {
                       ) : <span className="mono muted">–</span>}
                     </td>
                     <td className="mono muted">{fmtAge(p.ageMs)}</td>
-                  </tr>
+                  </TableRow>
                 );
               })}
             </tbody>
-          </table>
-        </div>
+          </Table>
+        </TableWrap>
       )}
 
       {selected && <PodPanel pod={selected} onClose={() => setSelected(null)} />}

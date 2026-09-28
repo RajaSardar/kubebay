@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import Editor, { DiffEditor } from "@monaco-editor/react";
-import { Badge, Button, TextField } from "@kubebay/ui";
+import { Badge, Button, InlineBanner, TextField } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { useMonacoTheme } from "../lib/theme";
 import { ownerWarning, type GitOpsOwner } from "../lib/gitops";
@@ -191,12 +191,12 @@ export function YamlTab({
       </div>
       {impactBanner}
       {gitopsOwner && (
-        <div className="inline-banner" role="alert">
+        <InlineBanner role="alert">
           {ownerWarning(gitopsOwner)}
-        </div>
+        </InlineBanner>
       )}
       {dirty && dangerousChanges.length > 0 && (
-        <div className="error-banner" role="alert">
+        <InlineBanner flush role="alert">
           <div>
             <strong>This change looks risky</strong>
           </div>
@@ -215,10 +215,10 @@ export function YamlTab({
               spellCheck={false}
             />
           </div>
-        </div>
+        </InlineBanner>
       )}
       {policyRejection && (
-        <div className="error-banner" role="alert">
+        <InlineBanner flush role="alert">
           <div>
             <strong>
               {policyRejection.engine ? `${policyRejection.engine} policy rejected this change` : "Policy rejected this change"}
@@ -238,7 +238,7 @@ export function YamlTab({
               ))}
             </ul>
           )}
-        </div>
+        </InlineBanner>
       )}
       <div className="yaml-editor">{editor}</div>
     </div>
