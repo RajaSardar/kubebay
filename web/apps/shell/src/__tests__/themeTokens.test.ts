@@ -183,10 +183,10 @@ describe("shell chrome stays legible and focusable", () => {
     expect(rule(".catalog-row-icon") ?? "").not.toMatch(/opacity:\s*0?\.\d/);
   });
 
-  it("the active theme card still shows the focus ring when focused", () => {
-    const css = stripComments(appCss);
-    const focus = rule(".theme-card:focus-visible") ?? "";
+  it("the selected ChoiceCard still shows the focus ring when focused", () => {
+    const css = stripComments(stylesCss);
+    const focus = new RegExp(`\\.kb-choice-card:focus-visible\\s*\\{([^}]*)\\}`).exec(css)?.[1] ?? "";
     expect(focus).toMatch(/box-shadow:\s*var\(--kb-focus-ring\)/);
-    expect(css.indexOf(".theme-card:focus-visible")).toBeGreaterThan(css.indexOf(".theme-card.active"));
+    expect(css.indexOf(".kb-choice-card:focus-visible")).toBeGreaterThan(css.indexOf(".kb-choice-card.active"));
   });
 });
