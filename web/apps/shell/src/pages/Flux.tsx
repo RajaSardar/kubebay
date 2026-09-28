@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { PageHeader } from "@kubebay/ui";
 import { FluxSummary } from "../components/FluxSummary";
 import { PageLoader } from "../components/PageLoader";
 import { crdApi } from "../lib/api";
@@ -39,7 +40,7 @@ export default function Flux() {
   if (!effectiveCluster) {
     return (
       <div className="page">
-        <div className="page-header"><h2>Flux</h2></div>
+        <PageHeader level={2} title="Flux" />
         <div className="empty-state"><p>Select a cluster first.</p></div>
       </div>
     );
@@ -48,7 +49,7 @@ export default function Flux() {
   if (crds.isLoading) {
     return (
       <div className="page">
-        <div className="page-header"><h2>Flux</h2></div>
+        <PageHeader level={2} title="Flux" />
         <PageLoader message="Checking for Flux…" />
       </div>
     );
@@ -57,7 +58,7 @@ export default function Flux() {
   if (!detection.installed) {
     return (
       <div className="page">
-        <div className="page-header"><h2>Flux</h2></div>
+        <PageHeader level={2} title="Flux" />
         <div className="page-body">
           <div className="empty-state">
             <p>Flux not detected on this cluster.</p>
@@ -73,13 +74,7 @@ export default function Flux() {
 
   return (
     <div className="page">
-      <div className="page-header">
-        <h2>
-          Flux
-          <span className="page-header-count">· {items.length} object(s)</span>
-        </h2>
-        <div />
-      </div>
+      <PageHeader level={2} title="Flux" count={`· ${items.length} object(s)`} />
       <div className="page-body">
         <div className="muted small" style={{ marginBottom: 12 }}>
           Flux's kustomize-controller corrects drift on reconcile rather than reporting it, so this isn't a

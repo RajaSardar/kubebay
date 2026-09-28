@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { DiffEditor } from "@monaco-editor/react";
-import { Badge, Button } from "@kubebay/ui";
+import { Badge, Button, Select, TextField } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { useMonacoTheme } from "../lib/theme";
 import { buildScaledObjectYaml, validateKedaWizardInput, type KedaTrigger, type KedaWizardInput } from "../lib/kedaWizard";
@@ -94,12 +94,11 @@ export function KedaWizard({
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
         <label className="ctl" style={{ flexDirection: "column", alignItems: "flex-start" }}>
           ScaledObject name
-          <input className="toolbar-input" value={scaledObjectName} onChange={(e) => setScaledObjectName(e.target.value)} spellCheck={false} />
+          <TextField value={scaledObjectName} onChange={(e) => setScaledObjectName(e.target.value)} spellCheck={false} />
         </label>
         <label className="ctl" style={{ flexDirection: "column", alignItems: "flex-start" }}>
           Min replicas
-          <input
-            className="toolbar-input"
+          <TextField
             style={{ maxWidth: 80 }}
             type="number"
             min={0}
@@ -109,8 +108,7 @@ export function KedaWizard({
         </label>
         <label className="ctl" style={{ flexDirection: "column", alignItems: "flex-start" }}>
           Max replicas
-          <input
-            className="toolbar-input"
+          <TextField
             style={{ maxWidth: 80 }}
             type="number"
             min={0}
@@ -120,12 +118,12 @@ export function KedaWizard({
         </label>
         <label className="ctl" style={{ flexDirection: "column", alignItems: "flex-start" }}>
           Trigger
-          <select className="toolbar-select" value={triggerType} onChange={(e) => setTriggerType(e.target.value as KedaTrigger["type"])}>
+          <Select value={triggerType} onChange={(e) => setTriggerType(e.target.value as KedaTrigger["type"])}>
             <option value="cpu">CPU utilization</option>
             <option value="memory">Memory utilization</option>
             <option value="cron">Cron schedule</option>
             <option value="prometheus">Prometheus query</option>
-          </select>
+          </Select>
         </label>
       </div>
 
@@ -133,20 +131,19 @@ export function KedaWizard({
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
           <label className="ctl" style={{ flexDirection: "column", alignItems: "flex-start" }}>
             Start (cron)
-            <input className="toolbar-input" placeholder="0 9 * * 1-5" value={cronStart} onChange={(e) => setCronStart(e.target.value)} spellCheck={false} />
+            <TextField placeholder="0 9 * * 1-5" value={cronStart} onChange={(e) => setCronStart(e.target.value)} spellCheck={false} />
           </label>
           <label className="ctl" style={{ flexDirection: "column", alignItems: "flex-start" }}>
             End (cron)
-            <input className="toolbar-input" placeholder="0 18 * * 1-5" value={cronEnd} onChange={(e) => setCronEnd(e.target.value)} spellCheck={false} />
+            <TextField placeholder="0 18 * * 1-5" value={cronEnd} onChange={(e) => setCronEnd(e.target.value)} spellCheck={false} />
           </label>
           <label className="ctl" style={{ flexDirection: "column", alignItems: "flex-start" }}>
             Timezone
-            <input className="toolbar-input" value={cronTimezone} onChange={(e) => setCronTimezone(e.target.value)} spellCheck={false} />
+            <TextField value={cronTimezone} onChange={(e) => setCronTimezone(e.target.value)} spellCheck={false} />
           </label>
           <label className="ctl" style={{ flexDirection: "column", alignItems: "flex-start" }}>
             Desired replicas
-            <input
-              className="toolbar-input"
+            <TextField
               style={{ maxWidth: 80 }}
               type="number"
               min={0}
@@ -160,8 +157,7 @@ export function KedaWizard({
       {(triggerType === "cpu" || triggerType === "memory") && (
         <label className="ctl" style={{ flexDirection: "column", alignItems: "flex-start" }}>
           Target utilization (%)
-          <input
-            className="toolbar-input"
+          <TextField
             style={{ maxWidth: 100 }}
             type="number"
             min={1}
@@ -180,8 +176,7 @@ export function KedaWizard({
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
             <label className="ctl" style={{ flexDirection: "column", alignItems: "flex-start" }}>
               Server address (in-cluster)
-              <input
-                className="toolbar-input"
+              <TextField
                 style={{ minWidth: 260 }}
                 placeholder="http://prometheus-server.monitoring.svc:9090"
                 value={promServerAddress}
@@ -201,8 +196,7 @@ export function KedaWizard({
             </label>
             <label className="ctl" style={{ flexDirection: "column", alignItems: "flex-start" }}>
               Threshold
-              <input
-                className="toolbar-input"
+              <TextField
                 style={{ maxWidth: 100 }}
                 type="number"
                 min={0}
@@ -213,8 +207,7 @@ export function KedaWizard({
           </div>
           <label className="ctl" style={{ flexDirection: "column", alignItems: "flex-start" }}>
             PromQL query
-            <input
-              className="toolbar-input"
+            <TextField
               style={{ minWidth: 320 }}
               placeholder="sum(rate(http_requests_total[2m]))"
               value={promQuery}
@@ -243,8 +236,7 @@ export function KedaWizard({
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
             <Badge tone="err">type name to confirm</Badge>
-            <input
-              className="toolbar-input"
+            <TextField
               style={{ maxWidth: 180 }}
               placeholder={targetName}
               value={zeroConfirm}

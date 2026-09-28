@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
 import Editor from "@monaco-editor/react";
-import { Badge, Button, Card, Skeleton } from "@kubebay/ui";
+import { Badge, Button, Card, Select, Skeleton, TextField } from "@kubebay/ui";
 import { helmApi, helmMarketApi, type HelmChartEntry } from "../lib/api";
 import { useMonacoTheme } from "../lib/theme";
 
@@ -84,24 +84,21 @@ function InstallPanel({
       )}
 
       <div className="log-controls">
-        <input
-          className="toolbar-input"
+        <TextField
           placeholder="release name"
           value={name}
           onChange={(e) => setName(e.target.value)}
           spellCheck={false}
           style={{ maxWidth: 160 }}
         />
-        <input
-          className="toolbar-input"
+        <TextField
           placeholder="namespace"
           value={ns}
           onChange={(e) => setNs(e.target.value)}
           spellCheck={false}
           style={{ maxWidth: 130 }}
         />
-        <input
-          className="toolbar-input"
+        <TextField
           placeholder={`version (${chart.version})`}
           value={version}
           onChange={(e) => setVersion(e.target.value)}
@@ -242,8 +239,7 @@ export function ChartsTab({ cluster }: { cluster: string }) {
   return (
     <>
       <div className="toolbar">
-        <select
-          className="toolbar-select"
+        <Select
           value={isAll ? ALL_REPOS : effectiveRepo}
           onChange={(e) => setRepoSel(e.target.value)}
           aria-label="repository"
@@ -257,9 +253,8 @@ export function ChartsTab({ cluster }: { cluster: string }) {
             </option>
           ))}
           {!repoList.length && <option value="">no repositories</option>}
-        </select>
-        <input
-          className="toolbar-input"
+        </Select>
+        <TextField
           placeholder="Search charts…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}

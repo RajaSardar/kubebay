@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { PageHeader } from "@kubebay/ui";
 import { WasteBreakdown } from "../components/WasteBreakdown";
 import { WorkloadUsageTable } from "../components/WorkloadUsageTable";
 import { PageLoader } from "../components/PageLoader";
@@ -32,7 +33,7 @@ export default function CostWaste() {
   if (!effectiveCluster) {
     return (
       <div className="page">
-        <div className="page-header"><h2>Cost / Waste</h2></div>
+        <PageHeader level={2} title="Cost / Waste" />
         <div className="empty-state"><p>Select a cluster first.</p></div>
       </div>
     );
@@ -41,7 +42,7 @@ export default function CostWaste() {
   if (shouldShowSkeleton(nodes.synced, nodes.rows.length) || shouldShowSkeleton(pods.synced, pods.rows.length)) {
     return (
       <div className="page">
-        <div className="page-header"><h2>Cost / Waste</h2></div>
+        <PageHeader level={2} title="Cost / Waste" />
         <PageLoader message="Computing capacity accounting…" />
       </div>
     );
@@ -49,13 +50,7 @@ export default function CostWaste() {
 
   return (
     <div className="page">
-      <div className="page-header">
-        <h2>
-          Cost / Waste
-          <span className="page-header-count">· {nodes.rows.length} nodes</span>
-        </h2>
-        <div />
-      </div>
+      <PageHeader level={2} title="Cost / Waste" count={`· ${nodes.rows.length} nodes`} />
       <div className="page-body">
         <div className="muted small" style={{ marginBottom: 12 }}>
           Tier 0: allocatable minus requests, computed directly from the live cluster — no metrics required, so this

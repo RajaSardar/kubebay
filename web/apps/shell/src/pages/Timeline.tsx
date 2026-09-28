@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Badge } from "@kubebay/ui";
+import { Badge, PageHeader, Select, TextField } from "@kubebay/ui";
 import { PageLoader } from "../components/PageLoader";
 import { EventHeatStrip } from "../components/EventHeatStrip";
 import { useCluster } from "../lib/useCluster";
@@ -110,21 +110,17 @@ export default function Timeline() {
 
   return (
     <div className="page">
-      <div className="page-header">
-        <h2>
-          Timeline
-          {synced && (
-            <span className="live-pill">live</span>
-          )}
-        </h2>
-        <Badge tone={warnCount > 0 ? "err" : "ok"}>{warnCount} warnings</Badge>
-      </div>
+      <PageHeader
+        level={2}
+        title="Timeline"
+        live={synced}
+        actions={<Badge tone={warnCount > 0 ? "err" : "ok"}>{warnCount} warnings</Badge>}
+      />
 
       {allWarnings.length > 0 && <EventHeatStrip events={allWarnings} />}
 
       <div className="toolbar">
-        <select
-          className="toolbar-select"
+        <Select
           value={effectiveCluster}
           onChange={(e) => setCluster(e.target.value)}
         >
@@ -133,9 +129,8 @@ export default function Timeline() {
               {c.id}
             </option>
           ))}
-        </select>
-        <input
-          className="toolbar-input"
+        </Select>
+        <TextField
           placeholder="Filter message / reason / object…"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}

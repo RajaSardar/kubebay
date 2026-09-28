@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { StatusDot } from "@kubebay/ui";
+import { Kbd, StatusDot } from "@kubebay/ui";
 import { api, type ClusterInfo } from "../lib/api";
 import { useResourceStream } from "../lib/useResourceStream";
 import { DEFS, EXTRA_DEFS } from "../lib/resources";
@@ -319,7 +319,7 @@ export function Palette({
                     <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {item.label}
                     </span>
-                    <kbd>↵</kbd>
+                    <Kbd>↵</Kbd>
                   </button>
                 );
               })}
@@ -365,7 +365,7 @@ export function Palette({
                         {pod.statusLabel}
                       </span>
                     </span>
-                    <kbd>↵</kbd>
+                    <Kbd>↵</Kbd>
                   </button>
                 );
               })}

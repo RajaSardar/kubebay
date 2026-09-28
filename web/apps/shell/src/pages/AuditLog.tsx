@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Badge, Skeleton } from "@kubebay/ui";
+import { Badge, PageHeader, Skeleton, TextField } from "@kubebay/ui";
 import { api } from "../lib/api";
 
 interface AuditEntry {
@@ -58,13 +58,10 @@ export default function AuditLog() {
 
   return (
     <div className="page">
-      <div className="page-header">
-        <h2>Audit Log</h2>
-      </div>
+      <PageHeader level={2} title="Audit Log" />
 
       <div className="toolbar">
-        <input
-          className="toolbar-input"
+        <TextField
           placeholder="Filter by action, cluster, resource…"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Badge, Button, Skeleton, StatusDot } from "@kubebay/ui";
+import { Badge, Button, PageHeader, Select, Skeleton, StatusDot, TextField } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { useResourceStream, shouldShowSkeleton } from "../lib/useResourceStream";
 import PodPanel, { type SelectedPod } from "./PodPanel";
@@ -271,32 +271,32 @@ export default function Workloads() {
   return (
     <div className="page">
       <WorkloadTabBar />
-      <div className="page-header">
-        <h2>
-          Workloads <span className="page-header-count">· Pods</span>
-          {synced && connected && (
-            <span className="live-pill">live</span>
-          )}
-        </h2>
-        {selectedKeys.size > 0 && (
-          <div className="page-header-actions">
-            <span className="muted small">{selectedKeys.size} selected</span>
-            <Button
-              variant="danger"
-              onClick={() => {
-                bulkDelete.request(
-                  [...selectedKeys].map((key) => {
-                    const i = key.indexOf("/");
-                    return { ns: key.slice(0, i), name: key.slice(i + 1) };
-                  }),
-                );
-              }}
-            >
-              Delete {selectedKeys.size} selected
-            </Button>
-          </div>
-        )}
-      </div>
+      <PageHeader
+        level={2}
+        title="Workloads"
+        count="· Pods"
+        live={synced && connected}
+        actions={
+          selectedKeys.size > 0 && (
+            <>
+              <span className="muted small">{selectedKeys.size} selected</span>
+              <Button
+                variant="danger"
+                onClick={() => {
+                  bulkDelete.request(
+                    [...selectedKeys].map((key) => {
+                      const i = key.indexOf("/");
+                      return { ns: key.slice(0, i), name: key.slice(i + 1) };
+                    }),
+                  );
+                }}
+              >
+                Delete {selectedKeys.size} selected
+              </Button>
+            </>
+          )
+        }
+      />
 
       {bulkDelete.pending && (
         <div className="inline-banner">
@@ -327,8 +327,7 @@ export default function Workloads() {
       {bulkDelete.error && <div className="inline-banner">{bulkDelete.error}</div>}
 
       <div className="toolbar">
-        <select
-          className="toolbar-select"
+        <Select
           value={effectiveCluster}
           onChange={(e) => setActiveCluster(e.target.value)}
         >
@@ -336,10 +335,9 @@ export default function Workloads() {
             <option key={c.id} value={c.id}>{c.id}</option>
           ))}
           {list.length === 0 && <option>no clusters</option>}
-        </select>
+        </Select>
         <NamespaceFilter cluster={effectiveCluster || undefined} />
-        <input
-          className="toolbar-input"
+        <TextField
           placeholder="Filter by name or namespace…"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}

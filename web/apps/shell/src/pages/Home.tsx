@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Skeleton, StatusDot } from "@kubebay/ui";
+import { PageHeader, Skeleton, StatusDot } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { useActiveCluster } from "../App";
 import { useClusterIcons } from "../lib/useClusterIcons";
@@ -136,14 +136,7 @@ export default function Home() {
 
   return (
     <div className="page">
-      <div className="page-header">
-        <h1>
-          Clusters
-          {!clusters.isLoading && list.length > 0 && (
-            <span className="page-header-count">{list.length} configured</span>
-          )}
-        </h1>
-      </div>
+      <PageHeader title="Clusters" count={!clusters.isLoading && list.length > 0 && `${list.length} configured`} />
 
       <div className="page-body">
         {clusters.isLoading && (

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { DiffEditor } from "@monaco-editor/react";
-import { ArmedButton, Badge, Button, Card } from "@kubebay/ui";
+import { ArmedButton, Badge, Button, Card, PageHeader } from "@kubebay/ui";
 import { PageLoader } from "../components/PageLoader";
 import { RightSizingTable, rowKey, type Selection } from "../components/RightSizingTable";
 import { useResourceStream, shouldShowSkeleton } from "../lib/useResourceStream";
@@ -201,7 +201,7 @@ export default function RightSizing() {
   if (!effectiveCluster) {
     return (
       <div className="page">
-        <div className="page-header"><h2>Right-sizing</h2></div>
+        <PageHeader level={2} title="Right-sizing" />
         <div className="empty-state"><p>Select a cluster first.</p></div>
       </div>
     );
@@ -210,7 +210,7 @@ export default function RightSizing() {
   if (anyLoading) {
     return (
       <div className="page">
-        <div className="page-header"><h2>Right-sizing</h2></div>
+        <PageHeader level={2} title="Right-sizing" />
         <PageLoader message="Loading VPA recommendations…" />
       </div>
     );
@@ -218,16 +218,16 @@ export default function RightSizing() {
 
   return (
     <div className="page">
-      <div className="page-header">
-        <h2>
-          Right-sizing
-          <span className="page-header-count">
+      <PageHeader
+        level={2}
+        title="Right-sizing"
+        count={
+          <>
             · {rows.length} opportunit{rows.length === 1 ? "y" : "ies"} · {formatCpuMillis(totalWastedCpu)} /{" "}
             {formatMemBytes(totalWastedMem)} wasted fleet-wide
-          </span>
-        </h2>
-        <div />
-      </div>
+          </>
+        }
+      />
 
       <div className="page-body">
         {vpas.rows.length === 0 && (

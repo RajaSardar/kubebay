@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Button, Card } from "@kubebay/ui";
+import { Button, Card, PageHeader, Select, TextField } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { useCluster } from "../lib/useCluster";
 
@@ -48,21 +48,11 @@ export default function Ports() {
 
   return (
     <div className="page">
-      <div className="page-header">
-        <h2>
-          Port forwards{" "}
-          {!forwards.isLoading && (
-            <span className="page-header-count">
-              · {(forwards.data ?? []).length}
-            </span>
-          )}
-        </h2>
-      </div>
+      <PageHeader level={2} title="Port forwards" count={!forwards.isLoading && `· ${(forwards.data ?? []).length}`} />
 
       <Card style={{ marginBottom: 16 }}>
         <div className="pf-form">
-          <select
-            className="toolbar-select"
+          <Select
             value={effectiveCluster}
             onChange={(e) => setCluster(e.target.value)}
             aria-label="cluster"
@@ -72,11 +62,11 @@ export default function Ports() {
                 {c.id}
               </option>
             ))}
-          </select>
-          <input className="toolbar-input" placeholder="namespace" value={ns} onChange={(e) => setNs(e.target.value)} spellCheck={false} />
-          <input className="toolbar-input" placeholder="pod name" value={pod} onChange={(e) => setPod(e.target.value)} spellCheck={false} style={{ flex: 2 }} />
-          <input className="toolbar-input" placeholder="pod port" value={podPort} onChange={(e) => setPodPort(e.target.value.replace(/\D/g, ""))} inputMode="numeric" />
-          <input className="toolbar-input" placeholder="local (auto)" value={localPort} onChange={(e) => setLocalPort(e.target.value.replace(/\D/g, ""))} inputMode="numeric" />
+          </Select>
+          <TextField placeholder="namespace" value={ns} onChange={(e) => setNs(e.target.value)} spellCheck={false} />
+          <TextField placeholder="pod name" value={pod} onChange={(e) => setPod(e.target.value)} spellCheck={false} style={{ flex: 2 }} />
+          <TextField placeholder="pod port" value={podPort} onChange={(e) => setPodPort(e.target.value.replace(/\D/g, ""))} inputMode="numeric" />
+          <TextField placeholder="local (auto)" value={localPort} onChange={(e) => setLocalPort(e.target.value.replace(/\D/g, ""))} inputMode="numeric" />
           <Button disabled={busy || !effectiveCluster || !pod || !podPort} onClick={() => void create()}>
             Forward
           </Button>

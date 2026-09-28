@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Badge, Button, Card } from "@kubebay/ui";
+import { Badge, Button, Card, PageHeader, Select, TextField } from "@kubebay/ui";
 import { PageLoader } from "../components/PageLoader";
 import { RbacFindingsCard } from "../components/RbacFindingsCard";
 import { rbacApi, type RBACSnapshot } from "../lib/api";
@@ -172,7 +172,7 @@ export default function Rbac() {
   if (snap.isLoading) {
     return (
       <div className="page">
-        <div className="page-header"><h2>RBAC explorer</h2></div>
+        <PageHeader level={2} title="RBAC explorer" />
         <PageLoader message="Loading RBAC data…" />
       </div>
     );
@@ -180,34 +180,27 @@ export default function Rbac() {
 
   return (
     <div className="page">
-      <div className="page-header">
-        <h2>
-          RBAC explorer
-          {data && (
-            <span className="page-header-count">
-              · {(data.clusterRoleBindings?.length ?? 0) + (data.roleBindings?.length ?? 0)} bindings
-            </span>
-          )}
-        </h2>
-        <div />
-      </div>
+      <PageHeader
+        level={2}
+        title="RBAC explorer"
+        count={data && `· ${(data.clusterRoleBindings?.length ?? 0) + (data.roleBindings?.length ?? 0)} bindings`}
+      />
 
       <div className="page-body">
       <Card style={{ marginBottom: 16 }}>
         <div className="rbac-section-title">Who can …</div>
         <div className="pf-form">
-          <select className="toolbar-select" value={verb} onChange={(e) => setVerb(e.target.value)} aria-label="verb">
+          <Select value={verb} onChange={(e) => setVerb(e.target.value)} aria-label="verb">
             {VERBS.map((v) => (
               <option key={v}>{v}</option>
             ))}
-          </select>
-          <select className="toolbar-select" value={kindSel} onChange={(e) => setKindSel(e.target.value)} aria-label="resource">
+          </Select>
+          <Select value={kindSel} onChange={(e) => setKindSel(e.target.value)} aria-label="resource">
             {KIND_OPTIONS.map((k) => (
               <option key={k}>{k}</option>
             ))}
-          </select>
-          <input
-            className="toolbar-input"
+          </Select>
+          <TextField
             placeholder="namespace (optional)"
             value={nsQuery}
             onChange={(e) => setNsQuery(e.target.value)}

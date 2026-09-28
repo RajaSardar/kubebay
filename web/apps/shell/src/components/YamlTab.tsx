@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import Editor, { DiffEditor } from "@monaco-editor/react";
-import { Badge, Button } from "@kubebay/ui";
+import { Badge, Button, TextField } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { useMonacoTheme } from "../lib/theme";
 import { ownerWarning, type GitOpsOwner } from "../lib/gitops";
@@ -207,8 +207,7 @@ export function YamlTab({
           </ul>
           <div className="small" style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
             <Badge tone="err">type name to confirm</Badge>
-            <input
-              className="toolbar-input"
+            <TextField
               style={{ maxWidth: 180 }}
               placeholder={name}
               value={confirmText}

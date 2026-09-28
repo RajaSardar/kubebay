@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Badge, Button, StatusDot } from "@kubebay/ui";
+import { Badge, Button, Select, StatusDot, TextField } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { usePodLogs, type PodLogsSpec } from "../lib/usePodLogs";
 import { ExecTerm, YamlTab } from "../components/heavy";
@@ -124,8 +124,7 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
             </>
           ) : (
             <>
-              <input
-                className="toolbar-input"
+              <TextField
                 style={{ maxWidth: 180 }}
                 placeholder={`type "${pod.pod}"`}
                 value={deleteInput}
@@ -165,8 +164,8 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
             {t === "summary" ? "Summary" : t === "logs" ? "Logs" : t === "shell" ? "Terminal" : t === "graphs" ? "Graphs" : t === "size" ? "Size" : "YAML"}
           </button>
         ))}
-        <select
-          className="toolbar-select drawer-select"
+        <Select
+          className="drawer-select"
           value={container ?? ""}
           onChange={(e) => setContainer(e.target.value || undefined)}
         >
@@ -175,10 +174,10 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
               {c}
             </option>
           ))}
-        </select>
+        </Select>
         {tab === "shell" && (
-          <select
-            className="toolbar-select drawer-select"
+          <Select
+            className="drawer-select"
             value={shell}
             onChange={(e) => setShell(e.target.value as typeof shell)}
             aria-label="shell"
@@ -187,7 +186,7 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
             <option value="bash">bash</option>
             <option value="sh">sh</option>
             <option value="ash">ash</option>
-          </select>
+          </Select>
         )}
       </div>
 
@@ -196,13 +195,13 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
           <div className="log-controls">
             <label className="ctl">
               tail
-              <select className="toolbar-select" value={tail} onChange={(e) => setTail(Number(e.target.value))}>
+              <Select value={tail} onChange={(e) => setTail(Number(e.target.value))}>
                 {TAILS.map((t) => (
                   <option key={t} value={t}>
                     {t}
                   </option>
                 ))}
-              </select>
+              </Select>
             </label>
             <label className="ctl">
               <input type="checkbox" checked={follow} onChange={(e) => setFollow(e.target.checked)} />
@@ -212,8 +211,7 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
               <input type="checkbox" checked={previous} onChange={(e) => setPrevious(e.target.checked)} />
               previous
             </label>
-            <input
-              className="toolbar-input"
+            <TextField
               placeholder="Filter lines…"
               value={filter}
               onChange={(e) => setFilter(e.target.value)}

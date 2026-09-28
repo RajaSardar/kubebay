@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery as useRQQuery } from "@tanstack/react-query";
-import { Badge, Card, Skeleton } from "@kubebay/ui";
+import { Badge, Card, PageHeader, Select, Skeleton } from "@kubebay/ui";
 import { useCluster } from "../lib/useCluster";
 import { useResourceStream, shouldShowSkeleton } from "../lib/useResourceStream";
 import type { KObj } from "../lib/topology";
@@ -139,20 +139,14 @@ export default function WorkloadsOverview() {
   return (
     <div className="page">
       <WorkloadTabBar />
-      <div className="page-header">
-        <h2>
-          Workloads Overview
-          {synced && <span className="live-pill">live</span>}
-        </h2>
-        <Badge>{totals.total} objects</Badge>
-      </div>
+      <PageHeader level={2} title="Workloads Overview" live={synced} actions={<Badge>{totals.total} objects</Badge>} />
 
       <div className="toolbar">
-        <select className="toolbar-select" value={effectiveCluster} onChange={(e) => setCluster(e.target.value)} aria-label="cluster">
+        <Select value={effectiveCluster} onChange={(e) => setCluster(e.target.value)} aria-label="cluster">
           {list.map((c) => (
             <option key={c.id} value={c.id}>{c.id}</option>
           ))}
-        </select>
+        </Select>
         <div className="drawer-pane-tabs" style={{ marginLeft: "auto" }}>
           <button className={`tab${tab === "overview" ? " active" : ""}`} onClick={() => setTab("overview")}>Overview</button>
           <button className={`tab${tab === "pressure" ? " active" : ""}`} onClick={() => setTab("pressure")}>Pressure</button>

@@ -5,6 +5,7 @@ import { PageLoader } from "../components/PageLoader";
 import { crdApi, type CRDEntry } from "../lib/api";
 import { extSlug } from "../lib/resources";
 import { useCluster } from "../lib/useCluster";
+import { PageHeader, TextField } from "@kubebay/ui";
 
 function extPath(r: CRDEntry) {
   return `/r/ext--${extSlug(r.gvr)}?scoped=${r.namespaced ? 1 : 0}`;
@@ -63,12 +64,7 @@ export default function Crds() {
 
   return (
     <div className="page" style={{ overflowY: "auto" }}>
-      <div className="page-header">
-        <h1>
-          Custom Resource Definitions
-          <span className="page-header-count">{q.isLoading ? "Loading…" : `${totalCount} CRDs`}</span>
-        </h1>
-      </div>
+      <PageHeader title="Custom Resource Definitions" count={q.isLoading ? "Loading…" : `${totalCount} CRDs`} />
 
       {q.isError && (
         <div className="inline-banner">
@@ -78,8 +74,7 @@ export default function Crds() {
       )}
 
       <div className="toolbar" style={{ gap: 8, marginBottom: 12 }}>
-        <input
-          className="toolbar-input"
+        <TextField
           placeholder="Search kinds…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}

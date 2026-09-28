@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams, useLocation } from "react-router-dom";
-import { Badge, Button, Skeleton, StatusDot } from "@kubebay/ui";
+import { Badge, Button, PageHeader, Skeleton, StatusDot, TextField, phaseTone } from "@kubebay/ui";
 import { api, crdApi, metricsApi, type PrinterColumn } from "../lib/api";
 import { useQuery as useRQQuery } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -282,17 +282,10 @@ export function extraColumns(
         },
         Status: (o) => {
           const phase = str(rec(o.status).phase) || "Unknown";
-          let cls: string;
-          let dot: Cell["dot"];
-          switch (phase) {
-            case "Running":    cls = "status-ok";         dot = "ok";      break;
-            case "Succeeded":  cls = "status-terminated"; dot = "ok";      break;
-            case "Failed":     cls = "status-err";        dot = "err";     break;
-            case "Pending":    cls = "status-pending";    dot = "pending"; break;
-            case "Terminating": cls = "status-terminating"; dot = undefined; break;
-            default:           cls = "muted";             dot = undefined;
-          }
-          return { v: phase, cls, dot };
+          const tone = phaseTone(phase);
+          const dot: Cell["dot"] =
+            tone === "ok" || tone === "terminated" ? "ok" : tone === "err" ? "err" : tone === "pending" ? "pending" : undefined;
+          return { v: phase, cls: tone ? `status-${tone}` : "muted", dot };
         },
         Ready: (o) => {
           const cs = (rec(o.status).containerStatuses ?? []) as Record<string, unknown>[];
@@ -590,36 +583,39 @@ export default function ResourceTable() {
   return (
     <div className="page">
       {isWorkloadRoute(location.pathname) && <WorkloadTabBar />}
-      <div className="page-header">
-        <h2>
-          {def.label}
-          <StarButton path={`/r/${kind}`} />
-          {stream.synced && (
-            <span className="live-pill">live</span>
-          )}
-        </h2>
-        <div className="page-header-actions">
-          {selectedKeys.size > 0 && (
-            <>
-              <span className="muted small">{selectedKeys.size} selected</span>
-              <Button
-                variant="danger"
-                onClick={() => {
-                  bulkDelete.request(
-                    [...selectedKeys].map((key) => {
-                      const i = key.indexOf("/");
-                      return { ns: key.slice(0, i), name: key.slice(i + 1) };
-                    }),
-                  );
-                }}
-              >
-                Delete {selectedKeys.size} selected
-              </Button>
-            </>
-          )}
-          <Badge>{rows.length}</Badge>
-        </div>
-      </div>
+      <PageHeader
+        level={2}
+        title={
+          <>
+            {def.label}
+            <StarButton path={`/r/${kind}`} />
+          </>
+        }
+        live={stream.synced}
+        actions={
+          <>
+            {selectedKeys.size > 0 && (
+              <>
+                <span className="muted small">{selectedKeys.size} selected</span>
+                <Button
+                  variant="danger"
+                  onClick={() => {
+                    bulkDelete.request(
+                      [...selectedKeys].map((key) => {
+                        const i = key.indexOf("/");
+                        return { ns: key.slice(0, i), name: key.slice(i + 1) };
+                      }),
+                    );
+                  }}
+                >
+                  Delete {selectedKeys.size} selected
+                </Button>
+              </>
+            )}
+            <Badge>{rows.length}</Badge>
+          </>
+        }
+      />
 
       {bulkDelete.pending && (
         <div className="inline-banner">
@@ -655,8 +651,7 @@ export default function ResourceTable() {
         {!def.scoped && (
           <NamespaceFilter cluster={effectiveCluster || undefined} />
         )}
-        <input
-          className="toolbar-input"
+        <TextField
           placeholder={`Filter ${def.label.toLowerCase()}…`}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
