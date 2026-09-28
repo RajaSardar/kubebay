@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Button, Card, PageHeader, SegmentedControl, Select, Stack, TextField } from "@kubebay/ui";
+import { Button, Card, ChoiceCard, PageHeader, SegmentedControl, Select, Stack, TextField } from "@kubebay/ui";
 import { settingsApi } from "../lib/api";
 import { useCluster } from "../lib/useCluster";
 import { useTheme, type ThemeName } from "../lib/theme";
@@ -323,20 +323,20 @@ export default function Settings() {
         <p className="muted small" style={{ marginBottom: 10 }}>Apple</p>
         <div className="theme-grid" style={{ marginBottom: 16 }}>
           {appleThemes.map((t) => (
-            <button key={t.id} className={theme === t.id ? "theme-card active" : "theme-card"} onClick={() => setTheme(t.id)}>
+            <ChoiceCard key={t.id} selected={theme === t.id} onClick={() => setTheme(t.id)}>
               <ThemeSwatch t={t} />
               <ThemeLabel t={t} />
-            </button>
+            </ChoiceCard>
           ))}
         </div>
 
         <p className="muted small" style={{ marginBottom: 10 }}>Community favourites</p>
         <div className="theme-grid">
           {communityThemes.map((t) => (
-            <button key={t.id} className={theme === t.id ? "theme-card active" : "theme-card"} onClick={() => setTheme(t.id)}>
+            <ChoiceCard key={t.id} selected={theme === t.id} onClick={() => setTheme(t.id)}>
               <ThemeSwatch t={t} />
               <ThemeLabel t={t} />
-            </button>
+            </ChoiceCard>
           ))}
         </div>
 

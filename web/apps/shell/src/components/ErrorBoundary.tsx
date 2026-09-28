@@ -1,5 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
-import { EmptyState, Row } from "@kubebay/ui";
+import { Button, EmptyState, Row } from "@kubebay/ui";
 
 interface Props {
   children: ReactNode;
@@ -47,21 +47,10 @@ export class ErrorBoundary extends Component<Props, State> {
             </p>
           )}
           <Row gap={2} style={{ marginTop: 16 }}>
-            <button
-              type="button"
-              className="ns-clear"
-              onClick={() => this.setState({ error: null })}
-            >
-              Try again
-            </button>
-            <button
-              type="button"
-              className="ns-clear"
-              style={{ opacity: 0.5 }}
-              onClick={() => window.location.href = "/"}
-            >
+            <Button onClick={() => this.setState({ error: null })}>Try again</Button>
+            <Button variant="ghost" onClick={() => (window.location.href = "/")}>
               Go home
-            </button>
+            </Button>
           </Row>
         </EmptyState>
       </Row>
