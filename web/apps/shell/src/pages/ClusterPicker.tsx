@@ -323,7 +323,7 @@ export default function ClusterPicker() {
             <span className="catalog-engine-dot" />
             Engine running
           </span>
-          <span className="catalog-statusbar-sep">—</span>
+          <span className="catalog-statusbar-sep" aria-hidden="true">—</span>
           <span className="catalog-statusbar-clusters">
             {connectedCount} / {list.length} cluster{list.length !== 1 ? "s" : ""} connected
           </span>

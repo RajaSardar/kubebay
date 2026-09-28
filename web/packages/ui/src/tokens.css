@@ -82,9 +82,9 @@
   --kb-status-ok-fg:          #30d158;
   --kb-status-warn-subtle:    color-mix(in srgb, #ff9f0a 12%, transparent);
   --kb-status-warn-fg:        #ff9f0a;
-  --kb-status-err-subtle:     color-mix(in srgb, #ff4c42 12%, transparent);
-  --kb-status-err-fg:         #ff4c42;
-  --kb-status-pending-subtle: color-mix(in srgb, #32ade6 12%, transparent);
+  --kb-status-err-subtle:     color-mix(in srgb, #ff4c42 8%, transparent);
+  --kb-status-err-fg:         #ff6e66;
+  --kb-status-pending-subtle: color-mix(in srgb, #32ade6 9%, transparent);
   --kb-status-pending-fg:     #32ade6;
 
   /* Borders — macOS-style translucent separators */
@@ -131,27 +131,27 @@
   --kb-fg-muted:   rgba(60, 60, 67, 0.85);
   --kb-fg-subtle:  rgba(60, 60, 67, 0.75);
 
-  --kb-accent:        #0065c9;
-  --kb-accent-hover:  #0058b0;
-  --kb-accent-subtle: rgba(0, 101, 201, 0.1);
+  --kb-accent:        #005dba;
+  --kb-accent-hover:  #0050a1;
+  --kb-accent-subtle: rgba(0, 93, 186, 0.08);
   --kb-accent-fg:     #ffffff;
   --kb-on-danger: #ffffff;
 
   --kb-status-ok:         #1b7236;
   --kb-status-warn:       #9c4e00;
   --kb-status-err:        #c41230;
-  --kb-status-pending:    #0065c9;
-  --kb-status-info:       #0065c9;
+  --kb-status-pending:    #005dba;
+  --kb-status-info:       #005dba;
   --kb-status-terminated: #8e8e93;
 
-  --kb-status-ok-subtle:      color-mix(in srgb, #1b7236 10%, transparent);
-  --kb-status-ok-fg:          #1b7236;
-  --kb-status-warn-subtle:    color-mix(in srgb, #9c4e00 10%, transparent);
-  --kb-status-warn-fg:        #9c4e00;
-  --kb-status-err-subtle:     color-mix(in srgb, #c41230 10%, transparent);
-  --kb-status-err-fg:         #c41230;
-  --kb-status-pending-subtle: color-mix(in srgb, #0065c9 10%, transparent);
-  --kb-status-pending-fg:     #0065c9;
+  --kb-status-ok-subtle:      color-mix(in srgb, #1b7236 8%, transparent);
+  --kb-status-ok-fg:          #196a32;
+  --kb-status-warn-subtle:    color-mix(in srgb, #9c4e00 8%, transparent);
+  --kb-status-warn-fg:        #924900;
+  --kb-status-err-subtle:     color-mix(in srgb, #c41230 8%, transparent);
+  --kb-status-err-fg:         #b6112d;
+  --kb-status-pending-subtle: color-mix(in srgb, #005dba 8%, transparent);
+  --kb-status-pending-fg:     #005dba;
 
   --kb-border-subtle: rgba(60, 60, 67, 0.12);
   --kb-border-strong: rgba(60, 60, 67, 0.22);
@@ -162,7 +162,7 @@
   --kb-shadow-lift: 0 10px 30px -10px rgba(0, 0, 0, 0.18), 0 2px 6px rgba(0, 0, 0, 0.08);
   --kb-shadow-menu: 0 8px 32px rgba(0, 0, 0, 0.15), 0 0 0 0.5px rgba(0,0,0,0.08);
 
-  --kb-focus-ring: 0 0 0 2px #0065c9;
+  --kb-focus-ring: 0 0 0 2px #005dba;
   --kb-selection:  rgba(0, 119, 237, 0.18);
 
   --kb-glow-a: transparent;
@@ -170,7 +170,7 @@
   --kb-theme-color: #f2f2f7;
 
   /* Chart series: 3:1 on every ground, hues at least 20° apart */
-  --kb-chart-1: #0065c9;
+  --kb-chart-1: #005dba;
   --kb-chart-2: #1b7236;
   --kb-chart-3: #9c4e00;
   --kb-chart-4: #8944ab;
@@ -213,7 +213,7 @@
   --kb-status-ok-fg:          #30d158;
   --kb-status-warn-subtle:    color-mix(in srgb, #ffb340 14%, transparent);
   --kb-status-warn-fg:        #ffb340;
-  --kb-status-err-subtle:     color-mix(in srgb, #ff6961 14%, transparent);
+  --kb-status-err-subtle:     color-mix(in srgb, #ff6961 10%, transparent);
   --kb-status-err-fg:         #ff6961;
   --kb-status-pending-subtle: color-mix(in srgb, #40c8e0 14%, transparent);
   --kb-status-pending-fg:     #40c8e0;
@@ -263,7 +263,7 @@
 
   --kb-accent:        #004e9b;
   --kb-accent-hover:  #003f7c;
-  --kb-accent-subtle: rgba(0, 78, 155, 0.12);
+  --kb-accent-subtle: rgba(0, 78, 155, 0.10);
   --kb-accent-fg:     #ffffff;
   --kb-on-danger: #ffffff;
 
@@ -328,12 +328,12 @@
 
   --kb-accent:        #31a6ff;
   --kb-accent-hover:  #1a8fe3;
-  --kb-accent-subtle: rgba(49, 166, 255, 0.16);
+  --kb-accent-subtle: rgba(49, 166, 255, 0.09);
   --kb-accent-fg:     #141414;
   --kb-on-danger: #000000;
 
   --kb-status-ok:         #4ec9b0;
-  --kb-status-warn:       #ce9178;
+  --kb-status-warn:       #d7ba7d;
   --kb-status-err:        #f66f6f;
   --kb-status-pending:    #9cdcfe;
   --kb-status-info:       #9cdcfe;
@@ -341,10 +341,10 @@
 
   --kb-status-ok-subtle:      color-mix(in srgb, #4ec9b0 12%, transparent);
   --kb-status-ok-fg:          #4ec9b0;
-  --kb-status-warn-subtle:    color-mix(in srgb, #ce9178 12%, transparent);
-  --kb-status-warn-fg:        #ce9178;
-  --kb-status-err-subtle:     color-mix(in srgb, #f66f6f 12%, transparent);
-  --kb-status-err-fg:         #f66f6f;
+  --kb-status-warn-subtle:    color-mix(in srgb, #d7ba7d 8%, transparent);
+  --kb-status-warn-fg:        #d7ba7d;
+  --kb-status-err-subtle:     color-mix(in srgb, #f66f6f 8%, transparent);
+  --kb-status-err-fg:         #f77d7d;
   --kb-status-pending-subtle: color-mix(in srgb, #9cdcfe 12%, transparent);
   --kb-status-pending-fg:     #9cdcfe;
 
@@ -391,27 +391,27 @@
   --kb-fg-muted:   #616161;
   --kb-fg-subtle:  #6a6a6a;
 
-  --kb-accent:        #006cc0;
-  --kb-accent-hover:  #005a9e;
-  --kb-accent-subtle: rgba(0, 108, 192, 0.1);
+  --kb-accent:        #0063b1;
+  --kb-accent-hover:  #00518f;
+  --kb-accent-subtle: rgba(0, 99, 177, 0.08);
   --kb-accent-fg:     #ffffff;
   --kb-on-danger: #ffffff;
 
   --kb-status-ok:         #007900;
   --kb-status-warn:       #795e00;
   --kb-status-err:        #d01300;
-  --kb-status-pending:    #006cc0;
-  --kb-status-info:       #006cc0;
+  --kb-status-pending:    #0063b1;
+  --kb-status-info:       #0063b1;
   --kb-status-terminated: #939393;
 
-  --kb-status-ok-subtle:      color-mix(in srgb, #007900 10%, transparent);
-  --kb-status-ok-fg:          #007900;
-  --kb-status-warn-subtle:    color-mix(in srgb, #795e00 10%, transparent);
+  --kb-status-ok-subtle:      color-mix(in srgb, #007900 8%, transparent);
+  --kb-status-ok-fg:          #006f00;
+  --kb-status-warn-subtle:    color-mix(in srgb, #795e00 9%, transparent);
   --kb-status-warn-fg:        #795e00;
-  --kb-status-err-subtle:     color-mix(in srgb, #d01300 10%, transparent);
-  --kb-status-err-fg:         #d01300;
-  --kb-status-pending-subtle: color-mix(in srgb, #006cc0 10%, transparent);
-  --kb-status-pending-fg:     #006cc0;
+  --kb-status-err-subtle:     color-mix(in srgb, #d01300 8%, transparent);
+  --kb-status-err-fg:         #c11200;
+  --kb-status-pending-subtle: color-mix(in srgb, #0063b1 8%, transparent);
+  --kb-status-pending-fg:     #0063b1;
 
   --kb-border-subtle: rgba(0, 0, 0, 0.12);
   --kb-border-strong: rgba(0, 0, 0, 0.22);
@@ -422,7 +422,7 @@
   --kb-shadow-lift: 0 4px 16px rgba(0, 0, 0, 0.12);
   --kb-shadow-menu: 0 4px 16px rgba(0, 0, 0, 0.12), 0 0 0 0.5px rgba(0,0,0,0.08);
 
-  --kb-focus-ring: 0 0 0 1px #006cc0;
+  --kb-focus-ring: 0 0 0 1px #0063b1;
   --kb-selection:  rgba(0, 120, 212, 0.20);
 
   --kb-glow-a: transparent;
@@ -430,7 +430,7 @@
   --kb-theme-color: #f3f3f3;
 
   /* Chart series: 3:1 on every ground, hues at least 20° apart */
-  --kb-chart-1: #006cc0;
+  --kb-chart-1: #0063b1;
   --kb-chart-2: #007900;
   --kb-chart-3: #795e00;
   --kb-chart-4: #af00db;
@@ -458,24 +458,24 @@
 
   --kb-accent:        #61afef;
   --kb-accent-hover:  #82bfff;
-  --kb-accent-subtle: rgba(97, 175, 239, 0.15);
+  --kb-accent-subtle: rgba(97, 175, 239, 0.08);
   --kb-accent-fg:     #1b1f27;
   --kb-on-danger: #000000;
 
-  --kb-status-ok:         #98c379;
+  --kb-status-ok:         #8ccf65;
   --kb-status-warn:       #e5c07b;
   --kb-status-err:        #e47f86;
   --kb-status-pending:    #61afef;
   --kb-status-info:       #61afef;
   --kb-status-terminated: #4b5263;
 
-  --kb-status-ok-subtle:      color-mix(in srgb, #98c379 14%, transparent);
-  --kb-status-ok-fg:          #98c379;
+  --kb-status-ok-subtle:      color-mix(in srgb, #8ccf65 14%, transparent);
+  --kb-status-ok-fg:          #8ccf65;
   --kb-status-warn-subtle:    color-mix(in srgb, #e5c07b 14%, transparent);
   --kb-status-warn-fg:        #e5c07b;
-  --kb-status-err-subtle:     color-mix(in srgb, #e47f86 14%, transparent);
-  --kb-status-err-fg:         #e47f86;
-  --kb-status-pending-subtle: color-mix(in srgb, #61afef 14%, transparent);
+  --kb-status-err-subtle:     color-mix(in srgb, #e47f86 8%, transparent);
+  --kb-status-err-fg:         #e78c92;
+  --kb-status-pending-subtle: color-mix(in srgb, #61afef 10%, transparent);
   --kb-status-pending-fg:     #61afef;
 
   --kb-border-subtle: rgba(255, 255, 255, 0.08);
@@ -518,12 +518,12 @@
   --kb-material-blur: blur(20px) saturate(160%);
 
   --kb-fg-default: #f8f8f2;
-  --kb-fg-muted:   #bd93f9;
+  --kb-fg-muted:   #b6bcd6;
   --kb-fg-subtle:  #8995ba;
 
   --kb-accent:        #bd93f9;
   --kb-accent-hover:  #caa7ff;
-  --kb-accent-subtle: rgba(189, 147, 249, 0.15);
+  --kb-accent-subtle: rgba(189, 147, 249, 0.11);
   --kb-accent-fg:     #21222c;
   --kb-on-danger: #000000;
 
@@ -538,8 +538,8 @@
   --kb-status-ok-fg:          #50fa7b;
   --kb-status-warn-subtle:    color-mix(in srgb, #ffb86c 12%, transparent);
   --kb-status-warn-fg:        #ffb86c;
-  --kb-status-err-subtle:     color-mix(in srgb, #ff5f5f 12%, transparent);
-  --kb-status-err-fg:         #ff5f5f;
+  --kb-status-err-subtle:     color-mix(in srgb, #ff5f5f 8%, transparent);
+  --kb-status-err-fg:         #ff7979;
   --kb-status-pending-subtle: color-mix(in srgb, #8be9fd 12%, transparent);
   --kb-status-pending-fg:     #8be9fd;
 
@@ -586,27 +586,27 @@
   --kb-fg-muted:   #d8dee9;
   --kb-fg-subtle:  #a7bed4;
 
-  --kb-accent:        #aad2dd;
-  --kb-accent-hover:  #9ecfdf;
-  --kb-accent-subtle: rgba(170, 210, 221, 0.15);
+  --kb-accent:        #aed4de;
+  --kb-accent-hover:  #a2d1e0;
+  --kb-accent-subtle: rgba(174, 212, 222, 0.08);
   --kb-accent-fg:     #2e3440;
   --kb-on-danger: #000000;
 
-  --kb-status-ok:         #bbcfaa;
+  --kb-status-ok:         #a6da86;
   --kb-status-warn:       #ebcb8b;
-  --kb-status-err:        #e6c1c4;
-  --kb-status-pending:    #aad2dd;
-  --kb-status-info:       #aad2dd;
+  --kb-status-err:        #f5a9b0;
+  --kb-status-pending:    #aed4de;
+  --kb-status-info:       #aed4de;
   --kb-status-terminated: #4c566a;
 
-  --kb-status-ok-subtle:      color-mix(in srgb, #bbcfaa 14%, transparent);
-  --kb-status-ok-fg:          #bbcfaa;
-  --kb-status-warn-subtle:    color-mix(in srgb, #ebcb8b 14%, transparent);
+  --kb-status-ok-subtle:      color-mix(in srgb, #a6da86 8%, transparent);
+  --kb-status-ok-fg:          #acdc8e;
+  --kb-status-warn-subtle:    color-mix(in srgb, #ebcb8b 8%, transparent);
   --kb-status-warn-fg:        #ebcb8b;
-  --kb-status-err-subtle:     color-mix(in srgb, #e6c1c4 14%, transparent);
-  --kb-status-err-fg:         #e6c1c4;
-  --kb-status-pending-subtle: color-mix(in srgb, #aad2dd 14%, transparent);
-  --kb-status-pending-fg:     #aad2dd;
+  --kb-status-err-subtle:     color-mix(in srgb, #f5a9b0 8%, transparent);
+  --kb-status-err-fg:         #f8c0c5;
+  --kb-status-pending-subtle: color-mix(in srgb, #aed4de 8%, transparent);
+  --kb-status-pending-fg:     #b2d6df;
 
   --kb-border-subtle: rgba(255, 255, 255, 0.08);
   --kb-border-strong: rgba(255, 255, 255, 0.14);
@@ -617,7 +617,7 @@
   --kb-shadow-lift: 0 8px 24px rgba(0, 0, 0, 0.55);
   --kb-shadow-menu: 0 4px 16px rgba(0, 0, 0, 0.45), 0 0 0 0.5px rgba(255,255,255,0.08);
 
-  --kb-focus-ring: 0 0 0 2px #aad2dd;
+  --kb-focus-ring: 0 0 0 2px #aed4de;
   --kb-selection:  rgba(136, 192, 208, 0.22);
 
   --kb-glow-a: transparent;
@@ -625,7 +625,7 @@
   --kb-theme-color: #2e3440;
 
   /* Chart series: 3:1 on every ground, hues at least 20° apart */
-  --kb-chart-1: #aad2dd;
+  --kb-chart-1: #aed4de;
   --kb-chart-2: #bbcfaa;
   --kb-chart-3: #ebcb8b;
   --kb-chart-4: #b691af;
@@ -653,24 +653,24 @@
 
   --kb-accent:        #58a6ff;
   --kb-accent-hover:  #79b8ff;
-  --kb-accent-subtle: rgba(88, 166, 255, 0.15);
+  --kb-accent-subtle: rgba(88, 166, 255, 0.14);
   --kb-accent-fg:     #0d1117;
   --kb-on-danger: #000000;
 
-  --kb-status-ok:         #3fb950;
+  --kb-status-ok:         #40c055;
   --kb-status-warn:       #d29922;
   --kb-status-err:        #f85149;
   --kb-status-pending:    #58a6ff;
   --kb-status-info:       #58a6ff;
   --kb-status-terminated: #484f58;
 
-  --kb-status-ok-subtle:      color-mix(in srgb, #3fb950 12%, transparent);
-  --kb-status-ok-fg:          #3fb950;
-  --kb-status-warn-subtle:    color-mix(in srgb, #d29922 12%, transparent);
+  --kb-status-ok-subtle:      color-mix(in srgb, #40c055 10%, transparent);
+  --kb-status-ok-fg:          #40c055;
+  --kb-status-warn-subtle:    color-mix(in srgb, #d29922 11%, transparent);
   --kb-status-warn-fg:        #d29922;
-  --kb-status-err-subtle:     color-mix(in srgb, #f85149 12%, transparent);
-  --kb-status-err-fg:         #f85149;
-  --kb-status-pending-subtle: color-mix(in srgb, #58a6ff 12%, transparent);
+  --kb-status-err-subtle:     color-mix(in srgb, #f85149 8%, transparent);
+  --kb-status-err-fg:         #f9726b;
+  --kb-status-pending-subtle: color-mix(in srgb, #58a6ff 10%, transparent);
   --kb-status-pending-fg:     #58a6ff;
 
   --kb-border-subtle: rgba(240, 246, 252, 0.10);
@@ -716,27 +716,27 @@
   --kb-fg-muted:   #636c76;
   --kb-fg-subtle:  #6b737d;
 
-  --kb-accent:        #0969da;
-  --kb-accent-hover:  #0550ae;
-  --kb-accent-subtle: rgba(9, 105, 218, 0.10);
+  --kb-accent:        #0964d0;
+  --kb-accent-hover:  #054ba4;
+  --kb-accent-subtle: rgba(9, 100, 208, 0.08);
   --kb-accent-fg:     #ffffff;
   --kb-on-danger: #ffffff;
 
   --kb-status-ok:         #1a7d36;
   --kb-status-warn:       #946300;
   --kb-status-err:        #cf242f;
-  --kb-status-pending:    #0969da;
-  --kb-status-info:       #0969da;
+  --kb-status-pending:    #0964d0;
+  --kb-status-info:       #0964d0;
   --kb-status-terminated: #9198a1;
 
-  --kb-status-ok-subtle:      color-mix(in srgb, #1a7d36 10%, transparent);
-  --kb-status-ok-fg:          #1a7d36;
-  --kb-status-warn-subtle:    color-mix(in srgb, #946300 10%, transparent);
-  --kb-status-warn-fg:        #946300;
-  --kb-status-err-subtle:     color-mix(in srgb, #cf242f 10%, transparent);
-  --kb-status-err-fg:         #cf242f;
-  --kb-status-pending-subtle: color-mix(in srgb, #0969da 10%, transparent);
-  --kb-status-pending-fg:     #0969da;
+  --kb-status-ok-subtle:      color-mix(in srgb, #1a7d36 8%, transparent);
+  --kb-status-ok-fg:          #187532;
+  --kb-status-warn-subtle:    color-mix(in srgb, #946300 8%, transparent);
+  --kb-status-warn-fg:        #8a5c00;
+  --kb-status-err-subtle:     color-mix(in srgb, #cf242f 8%, transparent);
+  --kb-status-err-fg:         #c2222c;
+  --kb-status-pending-subtle: color-mix(in srgb, #0964d0 8%, transparent);
+  --kb-status-pending-fg:     #0862cb;
 
   --kb-border-subtle: rgba(31, 35, 40, 0.12);
   --kb-border-strong: rgba(31, 35, 40, 0.20);
@@ -747,15 +747,15 @@
   --kb-shadow-lift: 0 4px 16px rgba(31, 35, 40, 0.15);
   --kb-shadow-menu: 0 4px 16px rgba(31, 35, 40, 0.15), 0 0 0 0.5px rgba(0,0,0,0.08);
 
-  --kb-focus-ring: 0 0 0 3px #0969da;
-  --kb-selection:  rgba(9, 105, 218, 0.18);
+  --kb-focus-ring: 0 0 0 3px #0964d0;
+  --kb-selection:  rgba(9, 100, 208, 0.18);
 
   --kb-glow-a: transparent;
   --kb-glow-b: transparent;
   --kb-theme-color: #f6f8fa;
 
   /* Chart series: 3:1 on every ground, hues at least 20° apart */
-  --kb-chart-1: #0969da;
+  --kb-chart-1: #0964d0;
   --kb-chart-2: #1a7d36;
   --kb-chart-3: #946300;
   --kb-chart-4: #8250df;
@@ -798,7 +798,7 @@
   --kb-status-ok-fg:          #a6e3a1;
   --kb-status-warn-subtle:    color-mix(in srgb, #fab387 13%, transparent);
   --kb-status-warn-fg:        #fab387;
-  --kb-status-err-subtle:     color-mix(in srgb, #f38ba8 13%, transparent);
+  --kb-status-err-subtle:     color-mix(in srgb, #f38ba8 12%, transparent);
   --kb-status-err-fg:         #f38ba8;
   --kb-status-pending-subtle: color-mix(in srgb, #89dceb 13%, transparent);
   --kb-status-pending-fg:     #89dceb;

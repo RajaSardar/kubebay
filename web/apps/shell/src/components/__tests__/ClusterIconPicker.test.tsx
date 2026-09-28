@@ -79,4 +79,24 @@ describe("avatarLabelColor", () => {
     expect(avatarLabelColor("#41c98e")).toBe("#111111"); // DEV green
     expect(avatarLabelColor("not-a-colour")).toBe("#ffffff");
   });
+
+  it("reads the three-digit hex of the AWS preset and the theme accent of unknown clusters", async () => {
+    const { avatarLabelColor, autoAvatar } = await import("../ClusterIconPicker");
+    expect(avatarLabelColor("#F90")).toBe("#111111"); // white on AWS orange is 1.9:1
+    expect(avatarLabelColor(autoAvatar("arn:aws:eks:us-east-1:1:cluster/prod").bg)).toBe("#111111");
+    expect(avatarLabelColor(autoAvatar("my-cluster").bg)).toBe("var(--kb-accent-fg)");
+  });
+});
+
+describe("stripAvatarLook", () => {
+  it("keeps every clickable cluster at full opacity so its label stays readable", async () => {
+    const { stripAvatarLook } = await import("../ClusterIconPicker");
+    for (const state of [{ active: true }, { streaming: true }, {}]) {
+      expect(stripAvatarLook(state).opacity).toBe(1);
+    }
+    expect(stripAvatarLook({}).filter).toMatch(/saturate\(/);
+    expect(stripAvatarLook({ active: true }).filter).toBe("none");
+    // A broken cluster is a disabled button; it may fade.
+    expect(stripAvatarLook({ broken: true }).opacity).toBeLessThan(0.5);
+  });
 });

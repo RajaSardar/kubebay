@@ -445,6 +445,11 @@ h2 {
   box-shadow: 0 0 0 1px var(--kb-accent), var(--kb-shadow-rest);
 }
 
+/* After .active, so keyboard focus on the chosen theme still shows its ring. */
+.theme-card:focus-visible {
+  box-shadow: var(--kb-focus-ring);
+}
+
 .swatch {
   width: 34px;
   height: 34px;
@@ -2891,12 +2896,10 @@ h2 {
   font-family: var(--kb-font-mono, monospace);
   letter-spacing: -0.02em;
   overflow: hidden;
-  opacity: 0.85;
 }
 
 .catalog-row-icon:hover {
   filter: brightness(1.2);
-  opacity: 1;
 }
 
 /* Overflow cells (Context, Server) */

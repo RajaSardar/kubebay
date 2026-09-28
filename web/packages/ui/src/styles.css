@@ -230,9 +230,13 @@
 
 .kb-skeleton {
   position: relative;
+  display: inline-block;
+  vertical-align: middle;
   overflow: hidden;
   border-radius: var(--kb-radius-sm);
-  background: var(--kb-bg-inset);
+  /* A tint of the text colour reads on every ground; kb-bg-inset vanished on
+     dark surfaces. */
+  background: color-mix(in srgb, var(--kb-fg-default) 14%, transparent);
 }
 
 .kb-skeleton::after {
@@ -518,6 +522,12 @@ kbd {
 .kb-table tbody tr.selected {
   background: var(--kb-accent-subtle);
   box-shadow: inset 3px 0 0 var(--kb-accent);
+}
+
+/* A namespace pill on a selected row would stack a second accent tint and
+   drop below 4.5:1; it sits on the surface there instead. */
+.kb-table tbody tr.selected .ns-pill {
+  background: var(--kb-bg-surface);
 }
 
 .kb-table tbody tr:hover {
@@ -812,15 +822,27 @@ kbd {
   font-size: var(--kb-text-2xs);
   font-weight: 400;
   font-family: var(--kb-font-mono);
-  color: var(--kb-fg-subtle);
+  color: var(--kb-fg-muted);
   text-transform: none;
   letter-spacing: 0;
+}
+
+/* The word stays readable; a small dot breathes beside it instead. */
+.palette-section-loading::before {
+  content: "";
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-right: 5px;
+  border-radius: 50%;
+  background: var(--kb-accent);
+  vertical-align: 1px;
   animation: palette-loading-pulse 1.4s ease-in-out infinite;
 }
 
 @keyframes palette-loading-pulse {
-  0%, 100% { opacity: 0.4; }
-  50%       { opacity: 1;   }
+  0%, 100% { opacity: 0.35; }
+  50%       { opacity: 1;    }
 }
 
 /* ── Pod rows inside palette ── */
