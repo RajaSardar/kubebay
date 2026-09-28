@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { KedaWizard } from "../KedaWizard";
 import { api } from "../../lib/api";
+import { PolicyRejectionError } from "../../lib/policyRejection";
 
 vi.mock("@monaco-editor/react", () => ({
   default: () => <div data-testid="editor" />,
@@ -94,5 +95,16 @@ describe("KedaWizard", () => {
     fireEvent.change(screen.getByLabelText(/start/i), { target: { value: "0 9 * * 1-5" } });
     fireEvent.change(screen.getByLabelText(/end/i), { target: { value: "0 18 * * 1-5" } });
     expect(screen.getByRole("button", { name: /^apply$/i })).not.toBeDisabled();
+  });
+
+  it("renders the structured PolicyRejectionCard instead of a raw error string on a 422 rejection (backlog #17)", async () => {
+    vi.mocked(api.createResource).mockRejectedValueOnce(
+      new PolicyRejectionError({ engine: "kyverno", webhook: "validate.kyverno.svc-fail", message: "label 'team' is required" }),
+    );
+    render(<KedaWizard {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: /^apply$/i }));
+
+    expect(await screen.findByText(/kyverno policy rejected this change/i)).toBeTruthy();
+    expect(screen.getByText("validate.kyverno.svc-fail")).toBeTruthy();
   });
 });

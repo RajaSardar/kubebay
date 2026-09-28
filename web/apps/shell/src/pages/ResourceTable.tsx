@@ -29,6 +29,7 @@ import GenericDrawer from "../components/GenericDrawer";
 import { ContextMenu } from "../components/ContextMenu";
 import { StarButton } from "../components/Favorites";
 import { NamespaceFilter } from "../components/NamespaceFilter";
+import { PolicyRejectionCard } from "../components/PolicyRejectionCard";
 import { useNamespaceStore, useSelectedNamespaces } from "../lib/namespace-store";
 import { WorkloadTabBar, isWorkloadRoute } from "../components/WorkloadTabBar";
 
@@ -624,7 +625,8 @@ export default function ResourceTable() {
           </div>
         </InlineBanner>
       )}
-      {bulkDelete.error && <InlineBanner>{bulkDelete.error}</InlineBanner>}
+      {bulkDelete.rejection && <PolicyRejectionCard flush={false} rejection={bulkDelete.rejection} />}
+      {!bulkDelete.rejection && bulkDelete.error && <InlineBanner>{bulkDelete.error}</InlineBanner>}
 
       <div className="toolbar">
         {!def.scoped && (

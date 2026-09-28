@@ -5,6 +5,8 @@ import { api } from "../lib/api";
 import { useMonacoTheme } from "../lib/theme";
 import { buildScaledObjectYaml, validateKedaWizardInput, type KedaTrigger, type KedaWizardInput } from "../lib/kedaWizard";
 import { findCandidatePrometheusServices } from "../lib/prometheusServiceDiscovery";
+import { PolicyRejectionError, type PolicyRejectionDetail } from "../lib/policyRejection";
+import { PolicyRejectionCard } from "./PolicyRejectionCard";
 
 /**
  * Backlog #2 P3: cron + CPU/memory wizard. Generates a ScaledObject from a
@@ -47,6 +49,7 @@ export function KedaWizard({
   const [zeroConfirm, setZeroConfirm] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [rejection, setRejection] = useState<PolicyRejectionDetail | null>(null);
 
   const promCandidates = useMemo(() => findCandidatePrometheusServices(services), [services]);
 
@@ -73,6 +76,7 @@ export function KedaWizard({
   async function apply(dryRun: boolean) {
     setBusy(true);
     setMsg(null);
+    setRejection(null);
     try {
       const r = await api.createResource({ cluster, yaml, dryRun });
       const dryRunText =
@@ -83,7 +87,11 @@ export function KedaWizard({
       if (!dryRun) onApplied?.();
       void r;
     } catch (e) {
-      setMsg({ ok: false, text: String(e instanceof Error ? e.message : e) });
+      if (e instanceof PolicyRejectionError) {
+        setRejection(e.rejection);
+      } else {
+        setMsg({ ok: false, text: String(e instanceof Error ? e.message : e) });
+      }
     } finally {
       setBusy(false);
     }
@@ -257,7 +265,8 @@ export function KedaWizard({
         />
       </div>
 
-      {msg && (
+      {rejection && <PolicyRejectionCard rejection={rejection} />}
+      {!rejection && msg && (
         <InlineBanner flush tone={msg.ok ? "ok" : "err"}>{msg.text}</InlineBanner>
       )}
 

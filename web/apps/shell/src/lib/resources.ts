@@ -166,6 +166,11 @@ export const EXTRA_DEFS: Record<string, ResourceDef> = {
   // registered, no engine changes needed.
   policyreports: def("policyreports", "Policy Reports", "PolicyReport", "wgpolicyk8s.io/v1alpha2/policyreports", { mode: "full" }),
   clusterpolicyreports: def("clusterpolicyreports", "Cluster Policy Reports", "ClusterPolicyReport", "wgpolicyk8s.io/v1alpha2/clusterpolicyreports", { scoped: true, mode: "full" }),
+  // Trivy-Operator (and any other scanner implementing the same CRD) writes
+  // one of these per (workload, container) it scans — same free-table
+  // pattern as the policy reports above, no engine changes needed.
+  vulnerabilityreports: def("vulnerabilityreports", "Vulnerability Reports", "VulnerabilityReport", "aquasecurity.github.io/v1alpha1/vulnerabilityreports", { mode: "full" }),
+  clustervulnerabilityreports: def("clustervulnerabilityreports", "Cluster Vulnerability Reports", "ClusterVulnerabilityReport", "aquasecurity.github.io/v1alpha1/clustervulnerabilityreports", { scoped: true, mode: "full" }),
 };
 
 export const KNOWN_GVRS = new Set(
