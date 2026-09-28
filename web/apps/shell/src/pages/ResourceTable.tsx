@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams, useLocation } from "react-router-dom";
-import { Badge, Button, EmptyState, InlineBanner, NsPill, PageHeader, SelectAllHeader, SelectCell, SkeletonRows, SortHeader, StatusDot, Table, TableRow, TableWrap, TextField, phaseTone } from "@kubebay/ui";
+import { Badge, Button, EmptyState, IconButton, InlineBanner, NsPill, PageHeader, SelectAllHeader, SelectCell, SkeletonRows, SortHeader, StatusDot, Table, TableRow, TableWrap, TextField, phaseTone } from "@kubebay/ui";
 import { api, crdApi, metricsApi, type PrinterColumn } from "../lib/api";
 import { useQuery as useRQQuery } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -775,16 +775,16 @@ export default function ResourceTable() {
                     <td className="mono muted">{fmtAge(ageOf(o))}</td>
                     {/* ⋮ kebab — visible only on row hover */}
                     <td className="col-row-menu" onClick={(e) => e.stopPropagation()}>
-                      <button
+                      <IconButton
+                        label="Row actions"
                         className="row-menu-btn"
-                        aria-label="Row actions"
                         onClick={(e) => {
                           e.stopPropagation();
                           setCtx({ x: e.clientX, y: e.clientY, ns, name });
                         }}
                       >
                         ⋮
-                      </button>
+                      </IconButton>
                     </td>
                   </TableRow>
                 );

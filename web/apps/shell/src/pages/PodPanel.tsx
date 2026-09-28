@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Badge, Button, InlineBanner, Select, StatusDot, TextField } from "@kubebay/ui";
+import { Badge, Button, InlineBanner, Select, StatusDot, Tabs, TextField } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { usePodLogs, type PodLogsSpec } from "../lib/usePodLogs";
 import { ExecTerm, YamlTab } from "../components/heavy";
@@ -23,6 +23,17 @@ function classify(line: string): "" | "err" | "warn" {
   if (/\b(WARN|Warning|W\d{4})\b/.test(line)) return "warn";
   return "";
 }
+
+const POD_TABS = ["summary", "logs", "shell", "graphs", "size", "vulnerabilities", "yaml"] as const;
+const POD_TAB_LABELS = {
+  summary: "Summary",
+  logs: "Logs",
+  shell: "Terminal",
+  graphs: "Graphs",
+  size: "Size",
+  vulnerabilities: "Vulnerabilities",
+  yaml: "YAML",
+};
 
 export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod; onClose: () => void; onDeleted?: () => void }) {
   const [tab, setTabState] = useState<"summary" | "logs" | "shell" | "graphs" | "size" | "vulnerabilities" | "yaml">(() => {
@@ -161,49 +172,41 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
         </InlineBanner>
       )}
 
-      <div className="tabs">
-        {(["summary", "logs", "shell", "graphs", "size", "vulnerabilities", "yaml"] as const).map((t) => (
-          <button key={t} className={`tab${tab === t ? " active" : ""}`} onClick={() => setTab(t)}>
-            {t === "summary"
-              ? "Summary"
-              : t === "logs"
-                ? "Logs"
-                : t === "shell"
-                  ? "Terminal"
-                  : t === "graphs"
-                    ? "Graphs"
-                    : t === "size"
-                      ? "Size"
-                      : t === "vulnerabilities"
-                        ? "Vulnerabilities"
-                        : "YAML"}
-          </button>
-        ))}
-        <Select
-          className="drawer-select"
-          value={container ?? ""}
-          onChange={(e) => setContainer(e.target.value || undefined)}
-        >
-          {pod.containers.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </Select>
-        {tab === "shell" && (
-          <Select
-            className="drawer-select"
-            value={shell}
-            onChange={(e) => setShell(e.target.value as typeof shell)}
-            aria-label="shell"
-          >
-            <option value="auto">auto</option>
-            <option value="bash">bash</option>
-            <option value="sh">sh</option>
-            <option value="ash">ash</option>
-          </Select>
-        )}
-      </div>
+      <Tabs
+        tabs={POD_TABS}
+        active={tab}
+        labels={POD_TAB_LABELS}
+        onChange={setTab}
+        trailing={
+          <>
+            <Select
+              className="drawer-select"
+              aria-label="Container"
+              value={container ?? ""}
+              onChange={(e) => setContainer(e.target.value || undefined)}
+            >
+              {pod.containers.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </Select>
+            {tab === "shell" && (
+              <Select
+                className="drawer-select"
+                value={shell}
+                onChange={(e) => setShell(e.target.value as typeof shell)}
+                aria-label="shell"
+              >
+                <option value="auto">auto</option>
+                <option value="bash">bash</option>
+                <option value="sh">sh</option>
+                <option value="ash">ash</option>
+              </Select>
+            )}
+          </>
+        }
+      />
 
       {tab === "logs" ? (
         <>

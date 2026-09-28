@@ -188,6 +188,8 @@ it("rules filled with the accent or danger colour use the matching on-colour tok
     if (!color) continue;
     if (/background:\s*var\(--kb-accent[,)]/.test(body) && color !== "var(--kb-accent-fg)") bad.push(`${sel}: ${color}`);
     if (/background:\s*var\(--kb-status-err[,)]/.test(body) && color !== "var(--kb-on-danger)") bad.push(`${sel}: ${color}`);
+    // The on-colour tokens are for solid fills only: on a tint (or no fill) they vanish.
+    if (color === "var(--kb-accent-fg)" && !/background:\s*var\(--kb-accent(-hover)?\)/.test(body)) bad.push(`${sel}: accent-fg off the accent fill`);
   }
   expect(bad).toEqual([]);
 });

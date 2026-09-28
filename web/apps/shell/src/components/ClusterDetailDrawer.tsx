@@ -1,6 +1,6 @@
 import { avatarLabelColor } from "./ClusterIconPicker";
 import { useState, useRef, useEffect } from "react";
-import { Badge, Button, StatusDot } from "@kubebay/ui";
+import { Badge, Button, IconButton, StatusDot } from "@kubebay/ui";
 import type { ClusterInfo } from "../lib/api";
 import type { ClusterMeta } from "../lib/cluster-meta-store";
 import { detectDistro } from "../lib/clusterDistro";
@@ -52,13 +52,9 @@ export function ClusterDetailDrawer({
       {/* Header */}
       <div className="cluster-drawer-header">
         <span className="cluster-drawer-header-title">Cluster Details</span>
-        <button
-          className="cluster-drawer-close"
-          aria-label="close"
-          onClick={onClose}
-        >
+        <IconButton label="Close" onClick={onClose}>
           ×
-        </button>
+        </IconButton>
       </div>
 
       {/* Body */}

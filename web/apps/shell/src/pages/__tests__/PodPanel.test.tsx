@@ -28,7 +28,7 @@ describe("PodPanel — Vulnerabilities tab wiring (backlog #16)", () => {
 
   it("shows a Vulnerabilities tab button that renders PodVulnerabilitiesTab with the pod's identity", () => {
     render(<PodPanel pod={pod} onClose={() => {}} />);
-    fireEvent.click(screen.getByRole("button", { name: /vulnerabilities/i }));
+    fireEvent.click(screen.getByRole("tab", { name: /vulnerabilities/i }));
 
     expect(screen.getByTestId("pod-vulnerabilities").textContent).toBe("team-a/web-abc-xyz [nginx]");
   });

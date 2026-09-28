@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery as useRQQuery } from "@tanstack/react-query";
-import { Badge, Card, PageHeader, Select, Skeleton } from "@kubebay/ui";
+import { Badge, Card, PageHeader, SegmentedControl, Select, Skeleton } from "@kubebay/ui";
 import { useCluster } from "../lib/useCluster";
 import { useResourceStream, shouldShowSkeleton } from "../lib/useResourceStream";
 import { WorkloadTabBar } from "../components/WorkloadTabBar";
@@ -91,10 +91,16 @@ export default function WorkloadsOverview() {
             <option key={c.id} value={c.id}>{c.id}</option>
           ))}
         </Select>
-        <div className="drawer-pane-tabs" style={{ marginLeft: "auto" }}>
-          <button className={`tab${tab === "overview" ? " active" : ""}`} onClick={() => setTab("overview")}>Overview</button>
-          <button className={`tab${tab === "pressure" ? " active" : ""}`} onClick={() => setTab("pressure")}>Pressure</button>
-        </div>
+        <SegmentedControl
+          label="View"
+          className="toolbar-end"
+          options={[
+            { value: "overview", label: "Overview" },
+            { value: "pressure", label: "Pressure" },
+          ]}
+          value={tab}
+          onChange={setTab}
+        />
       </div>
 
       <div className="page-body">

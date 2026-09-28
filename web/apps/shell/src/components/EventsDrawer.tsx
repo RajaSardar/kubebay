@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { Badge } from "@kubebay/ui";
 import { useResourceStream } from "../lib/useResourceStream";
 import { fmtAge } from "../lib/resources";
 
@@ -53,7 +54,7 @@ export function EventsDrawer({
         return (
           <div key={i} className={`events-row events-${type.toLowerCase()}`}>
             <div className="events-row-top">
-              <span className={`events-type-badge ${type.toLowerCase()}`}>{type}</span>
+              <Badge tone={type === "Warning" ? "warn" : type === "Normal" ? "info" : "err"}>{type}</Badge>
               <span className="events-reason mono">{reason}</span>
               {count > 1 && <span className="events-count">×{count}</span>}
               <span className="muted small" style={{ marginLeft: "auto" }}>{fmtAge(Date.now() - created)}</span>

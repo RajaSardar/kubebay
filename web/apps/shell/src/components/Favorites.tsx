@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
 import { DEFS, EXTRA_DEFS } from "../lib/resources";
+import { IconButton } from "@kubebay/ui";
 
 const FAV_KEY = "kb.favorites";
 
@@ -110,16 +111,16 @@ export function FavoritesSidebar({ favorites, onRemove }: { favorites: string[];
             >
               {labelFor(fav)}
             </NavLink>
-            <button
+            <IconButton
+              label="Remove from favorites"
               className="favorites-remove"
               onClick={(e) => {
                 e.preventDefault();
                 onRemove(fav);
               }}
-              title="Remove from favorites"
             >
               ×
-            </button>
+            </IconButton>
           </div>
         ))}
       </div>
@@ -132,12 +133,13 @@ export function StarButton({ path }: { path: string }) {
   const isFav = favorites.includes(path);
 
   return (
-    <button
-      className={`star-btn${isFav ? " starred" : ""}`}
+    <IconButton
+      label={isFav ? "Remove from favorites" : "Add to favorites"}
+      className="star-btn"
+      active={isFav}
       onClick={() => toggle(path)}
-      title={isFav ? "Remove from favorites" : "Add to favorites"}
     >
       {isFav ? "★" : "☆"}
-    </button>
+    </IconButton>
   );
 }
