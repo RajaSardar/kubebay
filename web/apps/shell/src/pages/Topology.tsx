@@ -186,7 +186,7 @@ export default function Topology() {
       ) : !ready && graph.nodes.length === 0 ? (
         <PageLoader message={`Mapping the bay... syncing workloads for ${effectiveNs}`} />
       ) : graph.nodes.length === 0 ? (
-        <div className="topo-canvas empty-state">
+        <div className="topo-canvas topo-canvas-empty empty-state">
           <p>Nothing running in "{effectiveNs}".</p>
           <p className="muted small">Pick another namespace above.</p>
         </div>

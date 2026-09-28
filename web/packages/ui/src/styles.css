@@ -1053,3 +1053,83 @@ kbd {
   flex-shrink: 0;
   animation: kb-pulse 1.6s ease-in-out infinite;
 }
+
+/* ── Feedback, rows and drawer tabs (moved from web/apps/shell/src/app.css) ── */
+
+.empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--kb-radius-sm);
+  padding: var(--kb-space-6) var(--kb-space-5);
+  text-align: center;
+  background: var(--kb-bg-surface);
+  min-height: 200px;
+  margin-bottom: var(--kb-space-3);
+  border: 1px dashed var(--kb-border-strong);
+}
+
+.inline-banner {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--kb-space-3);
+  padding: var(--kb-space-2) var(--kb-space-3);
+  background: var(--kb-status-err-subtle);
+  color: var(--kb-status-err-fg);
+  border: 1px solid color-mix(in srgb, var(--kb-status-err) 35%, transparent);
+  border-radius: var(--kb-radius);
+  margin: 0 var(--kb-gutter) var(--kb-space-3);
+  font-size: var(--kb-text-md);
+}
+
+.inline-banner.ok {
+  background: var(--kb-status-ok-subtle);
+  color: var(--kb-status-ok-fg);
+  border-color: color-mix(in srgb, var(--kb-status-ok) 35%, transparent);
+}
+
+.inline-banner.warn {
+  background: var(--kb-status-warn-subtle);
+  color: var(--kb-status-warn-fg);
+  border-color: color-mix(in srgb, var(--kb-status-warn) 35%, transparent);
+}
+
+.inline-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--kb-space-2);
+  flex-shrink: 0;
+}
+
+.row-clickable {
+  cursor: pointer;
+}
+
+tr.row-clickable:active {
+  transform: scale(0.998);
+}
+
+.drawer-pane-tabs .tab {
+  font-size: var(--kb-text-xs);
+  padding: 4px 10px;
+}
+
+.drawer-pane-tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--kb-border-subtle);
+  flex-shrink: 0;
+  background: color-mix(in srgb, var(--kb-bg-inset) 40%, transparent);
+}
+
+/* A page-level empty state sits on the page gutter. */
+.page > .empty-state {
+  margin-left: var(--kb-gutter);
+  margin-right: var(--kb-gutter);
+}

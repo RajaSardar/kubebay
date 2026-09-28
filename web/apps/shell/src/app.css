@@ -298,12 +298,6 @@ body::before {
 }
 
 /* Right-hand group: badges, selection counts, toolbar buttons. */
-.inline-banner-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--kb-space-2);
-  flex-shrink: 0;
-}
 
 h1 {
   margin: 0;
@@ -472,7 +466,6 @@ h2 {
   border-radius: 50%;
 }
 
-.empty-state,
 .loading-state {
   flex: 1;
   display: flex;
@@ -485,10 +478,6 @@ h2 {
   background: var(--kb-bg-surface);
   min-height: 200px;
   margin-bottom: var(--kb-space-3);
-}
-
-.empty-state {
-  border: 1px dashed var(--kb-border-strong);
 }
 
 /* Waiting for data is not the same as having none, so no dashed "you could put
@@ -538,7 +527,6 @@ h2 {
 /* Same reason as .inline-banner: a rounded, bordered box dropped straight into
    the unpadded .page ran flush to the window edge. Scoped to direct children so
    the ones already inside a padded .page-body are not inset twice. */
-.page > .empty-state,
 .page > .loading-state {
   margin-left: var(--kb-gutter);
   margin-right: var(--kb-gutter);
@@ -578,14 +566,6 @@ h2 {
 
 .restart-warn {
   color: var(--kb-status-warn);
-}
-
-.row-clickable {
-  cursor: pointer;
-}
-
-tr.row-clickable:active {
-  transform: scale(0.998);
 }
 
 .drawer {
@@ -763,7 +743,7 @@ tr.row-clickable:active {
   overflow: hidden;
 }
 
-.topo-canvas.empty-state {
+.topo-canvas-empty {
   display: grid;
   place-items: center;
   border-style: dashed;
@@ -1403,33 +1383,10 @@ tr.row-clickable:active {
    content. Named .crd-error when only the CRDs page had one; three pages use
    it now. It is a rounded, bordered box, so it needs the page gutter on both
    sides — without it the corners were rounding against the window edge. */
-.inline-banner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--kb-space-3);
-  padding: var(--kb-space-2) var(--kb-space-3);
-  background: var(--kb-status-err-subtle);
-  color: var(--kb-status-err-fg);
-  border: 1px solid color-mix(in srgb, var(--kb-status-err) 35%, transparent);
-  border-radius: var(--kb-radius);
-  margin: 0 var(--kb-gutter) var(--kb-space-3);
-  font-size: var(--kb-text-md);
-}
 
 /* The banner reads as an error by default. `.ok` and `.warn` restate the same
    box in the two other status tokens so a "this is what is bound" or "this
    changed under you" notice does not shout in red. */
-.inline-banner.ok {
-  background: var(--kb-status-ok-subtle);
-  color: var(--kb-status-ok-fg);
-  border-color: color-mix(in srgb, var(--kb-status-ok) 35%, transparent);
-}
-.inline-banner.warn {
-  background: var(--kb-status-warn-subtle);
-  color: var(--kb-status-warn-fg);
-  border-color: color-mix(in srgb, var(--kb-status-warn) 35%, transparent);
-}
 
 /* ──── Local shell ──── */
 /* Mounted once outside <Routes> and hidden between visits: a route would
@@ -1454,9 +1411,6 @@ tr.row-clickable:active {
   min-height: 0;
   flex: 1;
   padding-top: var(--kb-space-3);
-}
-.local-shell .inline-banner {
-  flex-shrink: 0;
 }
 .local-shell .term-host {
   margin: 0 var(--kb-gutter) var(--kb-gutter);
@@ -2524,21 +2478,6 @@ tr.row-clickable:active {
   flex-direction: column;
   min-width: 0;
   overflow: hidden;
-}
-
-.drawer-pane-tabs {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  padding: 5px 8px;
-  border-bottom: 1px solid var(--kb-border-subtle);
-  flex-shrink: 0;
-  background: color-mix(in srgb, var(--kb-bg-inset) 40%, transparent);
-}
-
-.drawer-pane-tabs .tab {
-  font-size: var(--kb-text-xs);
-  padding: 4px 10px;
 }
 
 .drawer-pane-body {
@@ -4046,38 +3985,6 @@ tr.row-clickable:active {
   display: flex;
   gap: 8px;
   margin-top: 4px;
-}
-
-.kb-btn-ghost {
-  background: none;
-  border: 1px solid var(--kb-border-subtle);
-  color: var(--kb-fg-muted);
-  border-radius: 6px;
-  padding: 5px 12px;
-  font-size: 12px;
-  cursor: pointer;
-  font-family: inherit;
-  transition: background 120ms, color 120ms;
-}
-.kb-btn-ghost:hover {
-  background: var(--kb-bg-hover, rgba(255,255,255,0.06));
-  color: var(--kb-fg-default);
-}
-
-.kb-btn-danger {
-  background: var(--kb-status-err, #f87171);
-  border: none;
-  color: var(--kb-on-danger);
-  border-radius: 6px;
-  padding: 5px 12px;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  font-family: inherit;
-  transition: filter 120ms;
-}
-.kb-btn-danger:hover {
-  filter: brightness(1.12);
 }
 
 /* ══ Workload tab bar ═══════════════════════════════════════════════════════ */
