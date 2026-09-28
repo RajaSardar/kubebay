@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { Badge, StatusDot } from "@kubebay/ui";
 import { ResourceLink } from "./ResourceLink";
 import { PodEnvValue } from "./PodEnvValue";
+import { PodContainerPortForward } from "./PodContainerPortForward";
 import { describeVolume } from "../lib/podVolumes";
 import { describeLastState } from "../lib/podContainerState";
 
@@ -217,14 +218,17 @@ export function PodSummary({
             <KV
               k="Ports"
               v={
-                <span style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                   {c.ports.map((p, i) => (
-                    <Badge key={i}>
-                      {str(p.containerPort)}/{str(p.protocol) || "TCP"}
-                      {p.name ? ` (${str(p.name)})` : ""}
-                    </Badge>
+                    <span key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <Badge>
+                        {str(p.containerPort)}/{str(p.protocol) || "TCP"}
+                        {p.name ? ` (${str(p.name)})` : ""}
+                      </Badge>
+                      <PodContainerPortForward cluster={cluster} namespace={data.namespace} pod={data.name} podPort={Number(p.containerPort)} />
+                    </span>
                   ))}
-                </span>
+                </div>
               }
             />
           )}

@@ -14,6 +14,10 @@ vi.mock("./PodEnvValue", () => ({
   PodEnvValue: ({ envVar }: { envVar: { name: string } }) => <span data-testid={`env-${envVar.name}`}>resolved</span>,
 }));
 
+vi.mock("./PodContainerPortForward", () => ({
+  PodContainerPortForward: ({ podPort }: { podPort: number }) => <span data-testid={`pf-${podPort}`}>forward-control</span>,
+}));
+
 function renderSummary(obj: Record<string, unknown>) {
   return render(
     <MemoryRouter>
@@ -91,5 +95,14 @@ describe("PodSummary", () => {
   it("shows nothing extra for last state when the container has never crashed", () => {
     renderSummary(basePod);
     expect(screen.queryByText(/exit code/i)).toBeNull();
+  });
+
+  it("renders a port-forward control for each container port", () => {
+    const obj = {
+      ...basePod,
+      spec: { ...basePod.spec, containers: [{ name: "app", image: "app:1.0", ports: [{ containerPort: 8080, protocol: "TCP" }] }] },
+    };
+    renderSummary(obj);
+    expect(screen.getByTestId("pf-8080")).toBeTruthy();
   });
 });
