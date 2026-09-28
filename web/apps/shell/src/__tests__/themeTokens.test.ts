@@ -76,7 +76,7 @@ describe("@kubebay/ui owns the styles of its components", () => {
     ".status-ok", ".status-terminating", ".tabs", ".tab.active", ".nav-item", ".nav-item.sub", ".nav-section",
     ".toolbar-input", ".toolbar-select", "kbd", ".page-header", ".page-header-actions", ".ctx-menu", ".ctx-item",
     ".kb-table", ".kb-table th", ".palette-box", ".palette-item.active", ".ns-pill", ".cell-link", ".live-pill",
-    ".empty-state", ".inline-banner", ".inline-banner.warn", ".inline-banner-actions", ".row-clickable", ".drawer-pane-tabs .tab", ".inline-banner.flush",
+    ".empty-state", ".inline-banner", ".inline-banner.warn", ".inline-banner-actions", ".row-clickable", ".drawer-pane-tabs .tab", ".inline-banner.flush", ".drawer", ".drawer-head", ".drawer-head-actions", ".kb-modal", ".kb-modal-backdrop",
   ];
   const defines = (css: string, sel: string) =>
     stripComments(css)

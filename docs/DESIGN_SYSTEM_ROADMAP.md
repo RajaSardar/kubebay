@@ -30,9 +30,10 @@ first. Tick an item when its PR merges.
 
 ## Phase 3: missing components (the biggest adoption gap)
 
-- [ ] `Drawer` / `Modal` (backdrop, header, close, focus trap, Escape), then
-      migrate GenericDrawer, EventsDrawer, ClusterDetailDrawer, HelmCharts,
-      ClusterIconPicker, PodPanel.
+- [x] `Drawer` / `Modal` (backdrop, header, close, focus trap, Escape).
+      Migrated the Pod, Helm release, Helm chart and resource drawers (and the
+      full-page resource view) and the cluster icon picker. EventsDrawer and
+      ClusterDetailDrawer are inline panels, not overlays, and stay as they are.
 - [x] `IconButton` for close, back, star, pop-out and row-menu buttons.
       Migrated the nine icon-only buttons; the other raw `<button>`s are
       list rows, cards and triggers that need their own components.

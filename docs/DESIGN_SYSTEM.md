@@ -18,6 +18,7 @@ https://claude.ai/artifact/J35D45QQ7X6Sgd7mwfRSnF
 | Core components | `web/packages/ui/src/index.tsx` | `Button`, `ArmedButton`, `Card`, `Badge`, `StatusDot`, `Skeleton`, `chartColor()` |
 | Shell components | `web/packages/ui/src/shell.tsx` | `StatusPill`/`phaseTone`, `Tabs` (with `trailing` controls), `SegmentedControl`, `IconButton`, `NavItem`/`NavSection`/`navItemClass`, `TextField`, `Select`, `Kbd`, `PageHeader`, `ContextMenu` |
 | Tables and feedback | `web/packages/ui/src/table.tsx` | `DataTable`, `TableWrap`, `Table`, `SortHeader`, `SelectAllHeader`, `SelectCell`, `TableRow`, `NsPill`, `SkeletonRows`, `EmptyState`, `InlineBanner` |
+| Overlays | `web/packages/ui/src/overlays.tsx` | `Drawer` (with `embedded` for the full-page view), `Modal` |
 | Brand mark | `web/packages/ui/src/brand.tsx` | `KubebayMark` |
 | Icons | `web/packages/ui/src/icons.tsx` | 18 stroke icons, `currentColor` |
 | Page layout, one-off page styling | `web/apps/shell/src/app.css` | layout only; never a package class |
@@ -32,7 +33,11 @@ https://claude.ai/artifact/J35D45QQ7X6Sgd7mwfRSnF
    view from a short list in a toolbar or form row; `IconButton` is any
    icon-only button (close, back, row menu, pop-out, star) and always has a
    `label`; `Badge` takes `tone` `ok`, `warn`, `err` or `info` (none is
-   neutral).
+   neutral). A panel about one resource is a `Drawer` (it closes on Escape,
+   except while the user types in a field, the YAML editor or the terminal,
+   and hands focus back when it closes); anything that must hold focus until
+   dismissed is a `Modal`, which renders into `document.body` so a translucent
+   ancestor cannot clip it.
 2. **Every table is the ResourceTable design.** Use `DataTable` for ordinary
    tables (columns, rows, optional sort, selection, row click, `loading`,
    `empty`). Use the primitives (`TableWrap`, `Table`, `SortHeader`,

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Editor from "@monaco-editor/react";
-import { ArmedButton, Badge, Button, DataTable, EmptyState, InlineBanner, PageHeader, Skeleton, StatusDot, Tabs, TextField } from "@kubebay/ui";
+import { ArmedButton, Badge, Button, DataTable, EmptyState, InlineBanner, PageHeader, Skeleton, StatusDot, Tabs, TextField, Drawer } from "@kubebay/ui";
 import { helmApi, type HelmRelease } from "../lib/api";
 import { useCluster } from "../lib/useCluster";
 import { useMonacoTheme } from "../lib/theme";
@@ -130,14 +130,13 @@ function ReleaseDrawer({
   const tone = statusTone(rel.status);
 
   return (
-    <aside className="drawer">
-      <div className="drawer-head">
-        <StatusDot status={tone.dot} />
-        <div style={{ minWidth: 0 }}>
-          <div className="mono strong">{rel.name}</div>
-          <div className="muted small mono">{rel.namespace}</div>
-        </div>
-        <div className="drawer-head-actions">
+    <Drawer
+      title={rel.name}
+      subtitle={rel.namespace}
+      leading={<StatusDot status={tone.dot} />}
+      onClose={onClose}
+      actions={
+        <>
           {!confirmingDelete ? (
             <>
               <Button variant="danger-ghost" onClick={() => setConfirmingDelete(true)}>
@@ -164,8 +163,9 @@ function ReleaseDrawer({
               </Button>
             </>
           )}
-        </div>
-      </div>
+        </>
+      }
+    >
 
       {err && (
         <InlineBanner flush style={{ margin: "10px 14px 0" }}>
@@ -263,7 +263,7 @@ function ReleaseDrawer({
           {manifestQ.isLoading ? "Loading…" : manifestQ.data}
         </pre>
       )}
-    </aside>
+    </Drawer>
   );
 }
 

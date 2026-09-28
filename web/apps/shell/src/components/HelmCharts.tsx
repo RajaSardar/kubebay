@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
 import Editor from "@monaco-editor/react";
-import { Badge, Button, Card, EmptyState, InlineBanner, Select, Skeleton, TextField } from "@kubebay/ui";
+import { Badge, Button, Card, EmptyState, InlineBanner, Select, Skeleton, TextField, Drawer } from "@kubebay/ui";
 import { helmApi, helmMarketApi, type HelmChartEntry } from "../lib/api";
 import { useMonacoTheme } from "../lib/theme";
 
@@ -63,19 +63,20 @@ function InstallPanel({
   }
 
   return (
-    <aside className="drawer">
-      <div className="drawer-head">
-        <div style={{ minWidth: 0 }}>
-          <div className="mono strong">{chart.name}</div>
-          <div className="muted small">{chart.description?.slice(0, 90)}</div>
-        </div>
-        <div className="drawer-head-actions">
+    <Drawer
+      title={chart.name}
+      subtitle={chart.description?.slice(0, 90)}
+      subtitleMono={false}
+      onClose={onClose}
+      actions={
+        <>
           <Badge>v{chart.version}</Badge>
           <Button variant="ghost" onClick={onClose}>
             Close
           </Button>
-        </div>
-      </div>
+        </>
+      }
+    >
 
       {err && (
         <InlineBanner flush style={{ margin: "10px 14px 0" }}>
@@ -130,7 +131,7 @@ function InstallPanel({
           />
         )}
       </div>
-    </aside>
+    </Drawer>
   );
 }
 
