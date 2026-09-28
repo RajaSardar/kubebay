@@ -27,8 +27,8 @@ import {
 import { api } from "./lib/api";
 import ClusterPicker from "./pages/ClusterPicker";
 
-// Home stays eager — it is the landing route, so lazying it would only add a
-// round-trip before first paint. Everything else is split out: Topology alone
+// ClusterPicker stays eager — it is the landing route, so lazying it would only
+// add a round-trip before first paint. Everything else is split out: Topology alone
 // pulls in @xyflow + d3 (~180 kB) and the pod shell pulls xterm (~330 kB),
 // neither of which most sessions ever open.
 const loadWorkloads = () => import("./pages/Workloads");

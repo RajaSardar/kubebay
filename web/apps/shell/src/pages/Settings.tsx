@@ -300,8 +300,7 @@ export default function Settings() {
   const settings = useQuery({ queryKey: ["settings"], queryFn: settingsApi.get });
   const location = useLocation();
 
-  // Deep-link support: /settings#kubeconfig-sources scrolls that card into view
-  // (e.g. from Home.tsx's onboarding paths).
+  // Deep-link support: /settings#kubeconfig-sources scrolls that card into view.
   useEffect(() => {
     if (!location.hash) return;
     const id = location.hash.slice(1);
