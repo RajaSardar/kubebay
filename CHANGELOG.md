@@ -7,6 +7,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 ## [Unreleased]
 
 ### Added
+- **`Row`, `Stack`, `DisclosureButton` and `ChoiceCard` in `@kubebay/ui`**: every flex layout in the app uses `Row` or `Stack` with gaps from the spacing scale; sidebar groups announce whether they are expanded and theme cards which one is chosen to screen readers
 - **Shared shell components in `@kubebay/ui`**: `StatusPill` + `phaseTone()`, `Tabs`, `NavItem`/`NavSection` + `navItemClass()`, `TextField`, `Select`, `Kbd`, `PageHeader` (with `level` and `live`) and `ContextMenu`. Their styles now live in the package (#12)
 - `--kb-on-danger` token in every theme for labels on danger fills (#12)
 - **`Drawer` and `Modal` in `@kubebay/ui`**: the Pod, Helm release, Helm chart and resource drawers share one component that closes on Escape (not while you type in a field, the YAML editor or the terminal) and returns focus to where it was; the cluster icon picker is a `Modal` that keeps focus inside until it closes

@@ -41,8 +41,11 @@ first. Tick an item when its PR merges.
       and Network Policy view switches; hand-written tabs moved to `Tabs`.
 - [x] `Badge` tones `warn` and `info`; `crd-badge` and `events-type-badge`
       migrated.
-- [ ] Layout primitives (`Stack`, `Row`) to replace the 383 inline
-      `style={{}}` blocks, starting with Settings and KedaWizard.
+- [x] Layout primitives (`Stack`, `Row`): all 80 inline flex layouts
+      migrated and guarded. The other ~300 inline styles are sizes and
+      margins, not layout.
+- [x] `DisclosureButton` (sidebar group headers, now with `aria-expanded`)
+      and `ChoiceCard` (theme cards, now with `aria-pressed`).
 
 ## Phase 4: scale hygiene and cleanup
 
