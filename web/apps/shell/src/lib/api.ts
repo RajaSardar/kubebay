@@ -170,6 +170,14 @@ export const api = {
   auditLog: () => get<{ time: string; action: string; cluster: string; namespace?: string; resource?: string; detail?: string; userAgent?: string }[]>("/api/audit"),
 };
 
+export const secretApi = {
+  /** Reveals exactly one key of one Secret -- never the whole object. Every call is audited engine-side. */
+  revealValue: (b: { cluster: string; ns: string; name: string; key: string }) =>
+    get<{ value: string }>(
+      `/api/secret-value?cluster=${encodeURIComponent(b.cluster)}&ns=${encodeURIComponent(b.ns)}&name=${encodeURIComponent(b.name)}&key=${encodeURIComponent(b.key)}`,
+    ),
+};
+
 function applyYamlRequest(b: {
   cluster: string;
   gvr: string;

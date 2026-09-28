@@ -1,5 +1,9 @@
 import { useMemo } from "react";
 import { Badge, StatusDot } from "@kubebay/ui";
+import { ResourceLink } from "./ResourceLink";
+import { PodEnvValue } from "./PodEnvValue";
+import { describeVolume } from "../lib/podVolumes";
+import { describeLastState } from "../lib/podContainerState";
 
 function rec(v: unknown): Record<string, unknown> {
   return (v ?? {}) as Record<string, unknown>;
@@ -53,8 +57,10 @@ function str(v: unknown): string {
 
 export function PodSummary({
   obj,
+  cluster,
 }: {
   obj: Record<string, unknown>;
+  cluster: string;
 }) {
   const data = useMemo(() => {
     const meta = rec(obj.metadata);
@@ -105,6 +111,8 @@ export function PodSummary({
         requests,
         limits,
         env,
+        rawContainer: { resources: { requests: requests as Record<string, string>, limits: limits as Record<string, string> } },
+        lastState: describeLastState(rec(cst?.lastState)),
         ports,
         mounts,
         liveness,
@@ -150,8 +158,15 @@ export function PodSummary({
       </div>
 
       <Section title="Metadata">
-        <KV k="Node" v={data.nodeName ? <span className="mono">{data.nodeName}</span> : null} />
-        <KV k="Service Account" v={<span className="mono">{data.sa}</span>} />
+        <KV k="Node" v={data.nodeName ? <ResourceLink kind="nodes" name={data.nodeName}><span className="mono">{data.nodeName}</span></ResourceLink> : null} />
+        <KV
+          k="Service Account"
+          v={
+            <ResourceLink kind="serviceaccounts" ns={data.namespace} name={data.sa}>
+              <span className="mono">{data.sa}</span>
+            </ResourceLink>
+          }
+        />
         <KV k="Scheduler" v={<span className="mono">{data.scheduler}</span>} />
         <KV k="Restart Policy" v={data.restartPolicy} />
         <KV k="DNS Policy" v={data.dnsPolicy} />
@@ -186,6 +201,18 @@ export function PodSummary({
             {c.stateReason && <Badge tone={c.stateType === "running" ? "ok" : "err"}>{c.stateReason || c.stateType}</Badge>}
           </div>
           <KV k="Image" v={<span className="mono small">{c.image}</span>} />
+          {c.lastState && (
+            <KV
+              k="Last State"
+              v={
+                <span className="mono small">
+                  {c.lastState.reason}
+                  {c.lastState.exitCode !== null && ` (exit code: ${c.lastState.exitCode})`}
+                  {c.lastState.ranFor && ` · ran for ${c.lastState.ranFor}`}
+                </span>
+              }
+            />
+          )}
           {c.ports.length > 0 && (
             <KV
               k="Ports"
@@ -223,11 +250,16 @@ export function PodSummary({
                 <div className="pod-env-list">
                   {c.env.slice(0, 20).map((e, i) => {
                     const name = str(e.name);
-                    const value = str(e.value) || (e.valueFrom ? "← ref" : "");
                     return (
                       <div key={i} className="pod-env-item">
                         <span className="mono">{name}</span>
-                        <span className="muted mono small">{value}</span>
+                        <PodEnvValue
+                          cluster={cluster}
+                          namespace={data.namespace}
+                          pod={obj}
+                          container={c.rawContainer}
+                          envVar={e as { name: string; value?: string; valueFrom?: Record<string, unknown> }}
+                        />
                       </div>
                     );
                   })}
@@ -259,16 +291,18 @@ export function PodSummary({
           <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
             {data.volumes.map((v, i) => {
               const name = str(v.name);
-              const keys = Object.keys(v).filter((k) => k !== "name");
-              const type = keys[0] ?? "unknown";
-              const detail = rec(v[type]);
-              const detailStr =
-                str(detail.claimName) || str(rec(detail.configMap).name) || str(rec(detail.secret).secretName) || str(rec(detail.hostPath).path) || type;
+              const desc = describeVolume(v, data.namespace);
               return (
                 <div key={i} style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   <span className="mono small">{name}</span>
-                  <Badge>{type}</Badge>
-                  <span className="muted small mono">{detailStr}</span>
+                  <Badge>{desc.label}</Badge>
+                  {desc.link ? (
+                    <ResourceLink kind={desc.link.kind} ns={desc.link.ns} name={desc.link.name}>
+                      <span className="muted small mono">{desc.detail}</span>
+                    </ResourceLink>
+                  ) : (
+                    <span className="muted small mono">{desc.detail}</span>
+                  )}
                 </div>
               );
             })}
