@@ -71,7 +71,9 @@ https://claude.ai/artifact/J35D45QQ7X6Sgd7mwfRSnF
    12 theme blocks; the contrast test computes the ratios from `tokens.css`.
    Token pairs are not the whole story: before a design-system change merges,
    render every component in all 12 themes and measure each text run against
-   its real composited background.
+   its real composited background. `node scripts/theme-audit/theme-audit.mjs`
+   does this for the token gate, cluster catalog and Settings (text, control
+   edges and focus rings) against an offline kubeconfig, after `make build`.
 6. **Labels on fills use their on-colour token**: `--kb-accent-fg` on
    `--kb-accent`, `--kb-on-danger` on `--kb-status-err`. Never `#fff`. The
    on-colour tokens are for solid fills only: on a tint such as
