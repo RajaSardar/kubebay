@@ -562,6 +562,58 @@ kbd {
   cursor: pointer;
 }
 
+/* A per-API-group folder nested inside "Custom Resources", e.g. all
+   argoproj.io kinds under one collapsible "argoproj.io" row. */
+.nav-subgroup-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 5px 10px;
+  font: inherit;
+  font-size: var(--kb-text-sm);
+  font-weight: 500;
+  color: var(--kb-fg-muted);
+  background: transparent;
+  border: none;
+  border-radius: var(--kb-radius-sm);
+  cursor: pointer;
+  transition:
+    background var(--kb-dur-fast) var(--kb-ease),
+    color var(--kb-dur-fast) var(--kb-ease);
+}
+
+.nav-subgroup-title:hover {
+  background: var(--kb-bg-raised);
+  color: var(--kb-fg-default);
+}
+
+.nav-subgroup-title .chev {
+  margin-left: auto;
+  opacity: 0.45;
+  color: var(--kb-fg-subtle);
+  transition: transform var(--kb-dur-fast) var(--kb-ease), opacity var(--kb-dur-fast) var(--kb-ease);
+}
+
+.nav-subgroup-title:hover .chev {
+  opacity: 0.75;
+}
+
+.nav-subgroup.open .nav-subgroup-title .chev {
+  transform: rotate(90deg);
+}
+
+.nav-subgroup-items {
+  display: none;
+  flex-direction: column;
+  gap: 1px;
+  padding-left: 14px;
+}
+
+.nav-subgroup.open .nav-subgroup-items {
+  display: flex;
+}
+
 .palette-overlay {
   position: fixed;
   inset: 0;

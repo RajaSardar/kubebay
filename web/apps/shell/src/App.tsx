@@ -1,6 +1,6 @@
 import { createContext, lazy, Suspense, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { ClusterInfo } from "./lib/api";
+import type { APIResourceEntry, ClusterInfo } from "./lib/api";
 import { NavLink, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { useClusterStore } from "./lib/cluster-store";
 import { shouldRedirectToPicker } from "./lib/clusterPickerLogic";
@@ -217,43 +217,24 @@ function NavSub({ leaf }: { leaf: NavLeaf }) {
 // the count next to it is what stops the remainder from vanishing silently.
 const CRD_NAV_PREVIEW = 40;
 
-export function CustomResourcesGroup() {
-  const queryClient = useQueryClient();
-  const clusterListCRG = queryClient.getQueryData<ClusterInfo[]>(["clusters"]) ?? [];
-  const cluster = clusterListCRG.find((c) => c.status === "connected")?.id ?? "";
-  const disc = useQuery({
-    queryKey: ["apis", cluster],
-    queryFn: () => discoveryApi.apis(cluster),
-    enabled: !!cluster,
-    staleTime: 5 * 60_000, // API resource list changes only on CRD install/remove
-    retry: false,
-  });
+function CrdGroupFolder({ group, entries }: { group: string; entries: APIResourceEntry[] }) {
   const [open, setOpen] = useState(false);
   const [showAll, setShowAll] = useState(false);
-  const items = useMemo(
-    () =>
-      (disc.data ?? [])
-        .filter((e) => e.group !== "" && !KNOWN_GVRS.has(e.gvr))
-        // Discovery order is arbitrary, so without a sort the kinds that make
-        // the preview would change from one cluster/refresh to the next.
-        .sort((a, b) => a.kind.localeCompare(b.kind) || a.gvr.localeCompare(b.gvr)),
-    [disc.data],
-  );
-  if (!items.length) return null;
-  const hidden = showAll ? 0 : Math.max(0, items.length - CRD_NAV_PREVIEW);
-  const visible = hidden > 0 ? items.slice(0, CRD_NAV_PREVIEW) : items;
+  const hidden = showAll ? 0 : Math.max(0, entries.length - CRD_NAV_PREVIEW);
+  const visible = hidden > 0 ? entries.slice(0, CRD_NAV_PREVIEW) : entries;
   return (
-    <div className={`nav-group${open ? " open" : ""}`}>
-      <button className="nav-group-title" onClick={() => setOpen((o) => !o)}>
-        <span className="nav-icon"><IconCube /></span>
-        <span>Custom Resources</span>
-        <span className="nav-group-count">{items.length}</span>
+    <div className={`nav-subgroup${open ? " open" : ""}`}>
+      <button className="nav-subgroup-title" onClick={() => setOpen((o) => !o)}>
+        {/* Zero-width space after each dot lets the group string (e.g.
+            "argoproj.io") wrap on a narrow sidebar without an ugly mid-word break. */}
+        <span>{group.replaceAll(".", "\u200b.")}</span>
+        <span className="nav-group-count">{entries.length}</span>
         <svg className="chev" viewBox="0 0 10 10" width="10" height="10" fill="none" style={{ marginLeft: "auto", flexShrink: 0 }}><path d="M3 2l4 3-4 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
       </button>
       {/* Only mount the links while expanded — a CRD-heavy cluster is hundreds
           of NavLinks, each of which re-renders on every navigation. */}
       {open && (
-        <div className="nav-group-items">
+        <div className="nav-subgroup-items">
           {visible.map((e) => (
             <NavLink
               key={e.gvr}
@@ -266,9 +247,61 @@ export function CustomResourcesGroup() {
           ))}
           {hidden > 0 && (
             <button className={navItemClass({ sub: true, extra: "nav-group-more" })} onClick={() => setShowAll(true)}>
-              Show all {items.length}
+              Show all {entries.length}
             </button>
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function CustomResourcesGroup() {
+  const queryClient = useQueryClient();
+  const clusterListCRG = queryClient.getQueryData<ClusterInfo[]>(["clusters"]) ?? [];
+  const cluster = clusterListCRG.find((c) => c.status === "connected")?.id ?? "";
+  const disc = useQuery({
+    queryKey: ["apis", cluster],
+    queryFn: () => discoveryApi.apis(cluster),
+    enabled: !!cluster,
+    staleTime: 5 * 60_000, // API resource list changes only on CRD install/remove
+    retry: false,
+  });
+  const [open, setOpen] = useState(false);
+  // Grouped by raw API group string (e.g. "argoproj.io") rather than a
+  // hardcoded project→name mapping — a new CRD-based project shows up in its
+  // own folder automatically, the same way FreeLens groups by spec.group.
+  const groups = useMemo(() => {
+    const byGroup = new Map<string, APIResourceEntry[]>();
+    for (const e of disc.data ?? []) {
+      if (e.group === "" || KNOWN_GVRS.has(e.gvr)) continue;
+      if (!byGroup.has(e.group)) byGroup.set(e.group, []);
+      byGroup.get(e.group)!.push(e);
+    }
+    return [...byGroup.entries()]
+      .map(([group, entries]): [string, APIResourceEntry[]] => [
+        group,
+        // Discovery order is arbitrary, so without a sort the kinds that make
+        // the preview would change from one cluster/refresh to the next.
+        [...entries].sort((a, b) => a.kind.localeCompare(b.kind) || a.gvr.localeCompare(b.gvr)),
+      ])
+      .sort(([a], [b]) => a.localeCompare(b));
+  }, [disc.data]);
+  const totalCount = groups.reduce((n, [, entries]) => n + entries.length, 0);
+  if (!totalCount) return null;
+  return (
+    <div className={`nav-group${open ? " open" : ""}`}>
+      <button className="nav-group-title" onClick={() => setOpen((o) => !o)}>
+        <span className="nav-icon"><IconCube /></span>
+        <span>Custom Resources</span>
+        <span className="nav-group-count">{totalCount}</span>
+        <svg className="chev" viewBox="0 0 10 10" width="10" height="10" fill="none" style={{ marginLeft: "auto", flexShrink: 0 }}><path d="M3 2l4 3-4 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+      </button>
+      {open && (
+        <div className="nav-group-items">
+          {groups.map(([group, entries]) => (
+            <CrdGroupFolder key={group} group={group} entries={entries} />
+          ))}
         </div>
       )}
     </div>
