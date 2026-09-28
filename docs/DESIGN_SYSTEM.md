@@ -19,7 +19,9 @@ https://claude.ai/artifact/J35D45QQ7X6Sgd7mwfRSnF
 | Shell components | `web/packages/ui/src/shell.tsx` | `StatusPill`/`phaseTone`, `Tabs` (with `trailing` controls), `SegmentedControl`, `IconButton`, `NavItem`/`NavSection`/`navItemClass`, `TextField`, `Select`, `Kbd`, `PageHeader`, `ContextMenu` |
 | Tables and feedback | `web/packages/ui/src/table.tsx` | `DataTable`, `TableWrap`, `Table`, `SortHeader`, `SelectAllHeader`, `SelectCell`, `TableRow`, `NsPill`, `SkeletonRows`, `EmptyState`, `InlineBanner` |
 | Overlays | `web/packages/ui/src/overlays.tsx` | `Drawer` (with `embedded` for the full-page view), `Modal` |
-| Brand mark | `web/packages/ui/src/brand.tsx` | `KubebayMark` |
+| Brand mark | `web/packages/ui/src/brand.tsx` | `KubebayMark`; the gradient is `--kb-brand-cyan` → `--kb-brand-green`, also used by the favicons, app icons and the website's `KubebayMark.astro` |
+| Website | `website/src/styles/global.css` | imports `tokens.css` (Dusk); its `--bg`, `--text`, `--accent`… are aliases for `--kb-*` tokens |
+| Desktop window | `web/apps/shell/src/lib/nativeWindow.ts`, `desktop/src-tauri/src/window_theme.rs` | the native window's colour and title bar follow the theme |
 | Icons | `web/packages/ui/src/icons.tsx` | 18 stroke icons, `currentColor` |
 | Page layout, one-off page styling | `web/apps/shell/src/app.css` | layout only; never a package class |
 
@@ -97,6 +99,9 @@ All run with `pnpm --filter @kubebay/shell test`:
   `styles.css`; `app.css` never names a package class; `app.css` has no colour
   literals; Settings swatches match their themes.
 - `src/__tests__/themeContrast.test.ts`: WCAG contrast for every theme.
+- `src/__tests__/brandAssets.test.ts`: every favicon, app icon and website
+  logo uses the mark's gradient, and the website takes its colours from
+  `tokens.css`.
 - `src/components/__tests__/ui*.test.tsx`: behaviour of each component.
 
 ## Changing the system
