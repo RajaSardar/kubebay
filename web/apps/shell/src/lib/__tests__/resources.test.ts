@@ -49,6 +49,24 @@ describe("lookupDef", () => {
   });
 });
 
+describe("Trivy-Operator EXTRA_DEFS (backlog #16)", () => {
+  it("registers vulnerabilityreports as namespaced", () => {
+    const d = EXTRA_DEFS.vulnerabilityreports;
+    expect(d?.kind).toBe("VulnerabilityReport");
+    expect(d?.gvr).toBe("aquasecurity.github.io/v1alpha1/vulnerabilityreports");
+    expect(d?.scoped).toBe(false);
+    expect(d?.mode).toBe("full");
+  });
+
+  it("registers clustervulnerabilityreports as cluster-scoped", () => {
+    const d = EXTRA_DEFS.clustervulnerabilityreports;
+    expect(d?.kind).toBe("ClusterVulnerabilityReport");
+    expect(d?.gvr).toBe("aquasecurity.github.io/v1alpha1/clustervulnerabilityreports");
+    expect(d?.scoped).toBe(true);
+    expect(d?.mode).toBe("full");
+  });
+});
+
 describe("slugForKind", () => {
   it("finds the registered slug for a built-in Kind", () => {
     expect(slugForKind("Deployment")).toBe("deployments");

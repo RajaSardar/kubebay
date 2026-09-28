@@ -2,6 +2,8 @@ import { useState } from "react";
 import { ArmedButton, Badge, Button, TextField } from "@kubebay/ui";
 import { actionApi, api } from "../lib/api";
 import { ownerLabel, ownerWarning, type GitOpsOwner } from "../lib/gitops";
+import { PolicyRejectionError, type PolicyRejectionDetail } from "../lib/policyRejection";
+import { PolicyRejectionCard } from "./PolicyRejectionCard";
 
 type Slug = "deployments" | "statefulsets" | "daemonsets" | "cronjobs" | "nodes";
 
@@ -14,21 +16,27 @@ const GVR: Partial<Record<Slug, string>> = {
 function useFeedback() {
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
+  const [rejection, setRejection] = useState<PolicyRejectionDetail | null>(null);
   const [busy, setBusy] = useState(false);
   async function run(fn: () => Promise<string | void>) {
     setBusy(true);
     setErr("");
     setMsg("");
+    setRejection(null);
     try {
       const ok = await fn();
       if (typeof ok === "string") setMsg(ok);
     } catch (e) {
-      setErr(String(e instanceof Error ? e.message : e));
+      if (e instanceof PolicyRejectionError) {
+        setRejection(e.rejection);
+      } else {
+        setErr(String(e instanceof Error ? e.message : e));
+      }
     } finally {
       setBusy(false);
     }
   }
-  return { msg, err, busy, run, setMsg };
+  return { msg, err, rejection, busy, run, setMsg };
 }
 
 export function ActionsBar({
@@ -44,7 +52,7 @@ export function ActionsBar({
   name: string;
   gitopsOwner?: GitOpsOwner | null;
 }) {
-  const { msg, err, busy, run } = useFeedback();
+  const { msg, err, rejection, busy, run } = useFeedback();
   const [replicas, setReplicas] = useState("");
   const ownerDetail = gitopsOwner ? ownerLabel(gitopsOwner) : undefined;
 
@@ -180,12 +188,13 @@ export function ActionsBar({
           />
         </>
       )}
-      {(msg || err) && (
+      {rejection && <PolicyRejectionCard rejection={rejection} />}
+      {!rejection && (msg || err) && (
         <span className={`small ${err ? "error-text" : ""}`} style={{ color: err ? undefined : "var(--kb-status-ok)" }}>
           {err || msg}
         </span>
       )}
-      {!msg && !err && !busy && <Badge>actions</Badge>}
+      {!msg && !err && !rejection && !busy && <Badge>actions</Badge>}
       </div>
     </div>
   );

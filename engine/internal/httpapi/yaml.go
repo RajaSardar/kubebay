@@ -182,20 +182,25 @@ func (c *Channels) HandleApplyYAML(w http.ResponseWriter, r *http.Request) {
 	} else {
 		applied, err = ri.Patch(r.Context(), req.Name, types.ApplyPatchType, data, patchOpts)
 	}
+	kind, _ := doc["kind"].(string)
 	if err != nil {
-		if rejection := parsePolicyRejection(err); rejection != nil {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusUnprocessableEntity)
-			_ = json.NewEncoder(w).Encode(map[string]interface{}{
-				"error":           "policy-rejected",
-				"policyRejection": rejection,
+		if rejection := writePolicyRejectionOrError(w, err); rejection != nil {
+			detail := fmt.Sprintf("gvr=%s kind=%s dryRun=%t force=%t webhook=%s: %s", req.GVR, kind, req.DryRun, req.Force, rejection.Webhook, rejection.Message)
+			if owner := gitopsOwnerFromDoc(doc); owner != "" {
+				detail += " owner=" + owner
+			}
+			c.Audit.Record(audit.Entry{
+				Action:    auditActionFor(req),
+				Cluster:   req.Cluster,
+				Namespace: req.Namespace,
+				Resource:  req.Name,
+				Detail:    detail,
+				UserAgent: r.Header.Get("User-Agent"),
+				Outcome:   "rejected",
 			})
-			return
 		}
-		http.Error(w, fmt.Sprintf("apply: %v", err), http.StatusBadGateway)
 		return
 	}
-	kind, _ := doc["kind"].(string)
 	detail := fmt.Sprintf("gvr=%s kind=%s dryRun=%t force=%t", req.GVR, kind, req.DryRun, req.Force)
 	if owner := gitopsOwnerFromDoc(doc); owner != "" {
 		detail += " owner=" + owner
@@ -344,7 +349,17 @@ func (c *Channels) HandleCreateResource(w http.ResponseWriter, r *http.Request) 
 			_, err = ri.Patch(r.Context(), name, types.ApplyPatchType, data, patchOpts)
 		}
 		if err != nil {
-			http.Error(w, fmt.Sprintf("doc %d (%s/%s): apply: %v", i+1, kind, name, err), http.StatusBadGateway)
+			if rejection := writePolicyRejectionOrError(w, err); rejection != nil {
+				c.Audit.Record(audit.Entry{
+					Action:    "create",
+					Cluster:   req.Cluster,
+					Namespace: ns,
+					Resource:  name,
+					Detail:    fmt.Sprintf("kind=%s doc=%d/%d webhook=%s: %s", kind, i+1, len(docs), rejection.Webhook, rejection.Message),
+					UserAgent: r.Header.Get("User-Agent"),
+					Outcome:   "rejected",
+				})
+			}
 			return
 		}
 		applied++
