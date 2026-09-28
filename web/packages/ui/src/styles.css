@@ -488,7 +488,7 @@ kbd {
   z-index: 2;
   /* Subtle visual divider */
   border-right: 2px solid transparent;
-  transition: border-color 150ms;
+  transition: border-color var(--kb-dur);
 }
 
 .col-resize-handle:hover {
@@ -730,7 +730,7 @@ kbd {
   justify-content: center;
   align-items: flex-start;
   padding-top: 12vh;
-  animation: palette-overlay-in 150ms var(--kb-ease) both;
+  animation: palette-overlay-in var(--kb-dur) var(--kb-ease) both;
 }
 
 @keyframes palette-overlay-in {
@@ -745,7 +745,7 @@ kbd {
   border-radius: var(--kb-radius-lg);
   box-shadow: var(--kb-shadow-lift), var(--kb-highlight-inset);
   overflow: hidden;
-  animation: palette-box-in 200ms var(--kb-ease-out) both;
+  animation: palette-box-in var(--kb-dur-slow) var(--kb-ease-out) both;
 }
 
 @keyframes palette-box-in {
@@ -925,7 +925,7 @@ kbd {
   border-radius: var(--kb-radius);
   box-shadow: var(--kb-shadow-lift);
   padding: 4px;
-  animation: ctx-appear 100ms var(--kb-ease);
+  animation: ctx-appear var(--kb-dur-fast) var(--kb-ease);
 }
 
 @keyframes ctx-appear {
@@ -1123,7 +1123,7 @@ kbd {
   display: inline-block;
   width: 8px;
   height: 8px;
-  border-radius: 2px;
+  border-radius: var(--kb-radius-2xs);
   flex-shrink: 0;
 }
 
@@ -1290,6 +1290,18 @@ tr.row-clickable:active {
 /* Inside a drawer, form or card the banner keeps its box but not the page gutter. */
 .inline-banner.flush {
   margin: 0 0 var(--kb-space-3);
+}
+
+/* Reduced motion: every animation and transition collapses to its end state.
+   Lives in the package so any app that uses @kubebay/ui honours the setting. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* ── Forced colours (Windows High Contrast) ──

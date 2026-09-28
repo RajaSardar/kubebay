@@ -14,7 +14,10 @@
   --kb-text-lg:  15px;
   --kb-text-xl:  18px;
   --kb-text-2xl: 28px;
+  /* Glyph size for an icon or monogram inside a control or avatar, not text. */
+  --kb-text-icon: 22px;
 
+  --kb-radius-2xs:  2px;  /* hairline bars and swatches */
   --kb-radius-xs:   4px;
   --kb-radius-sm:   6px;
   --kb-radius:      8px;
@@ -29,6 +32,7 @@
   --kb-dur-fast: 70ms;
   --kb-dur:      120ms;
   --kb-dur-slow: 200ms;
+  --kb-dur-slower: 300ms; /* progress fills and step changes the eye follows */
   --kb-ease:     cubic-bezier(0.22, 1, 0.36, 1);
   --kb-ease-out: cubic-bezier(0.16, 1, 0.3,  1);
 

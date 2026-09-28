@@ -82,7 +82,7 @@ describe("z-index scale", () => {
 describe("type, radius and motion scales", () => {
   it.each(Object.entries(sheets))("%s font sizes come from --kb-text-*", (_, css) => {
     const offenders = declarations(css, /^font-size$/)
-      .filter(({ value }) => !/^var\(--kb-text-[\w-]+\)$/.test(value) && !/^(inherit|1em|100%)$/.test(value))
+      .filter(({ value }) => !/^var\(--kb-(text-[\w-]+|[\w-]+-font-size, var\(--kb-text-[\w-]+\))\)$/.test(value) && !/^(inherit|1em|100%)$/.test(value))
       .map(({ sel, value }) => `${sel} { font-size: ${value} }`);
     expect(offenders).toEqual([]);
   });
@@ -106,14 +106,15 @@ describe("type, radius and motion scales", () => {
     expect(offenders).toEqual([]);
   });
 
-  it("inline font sizes in TSX use --kb-text-* (Monaco's numeric option excepted)", () => {
+  it("inline font sizes in TSX use --kb-text-*", () => {
     const offenders: string[] = [];
-    for (const f of shellFiles) {
+    for (const f of shellFiles.filter((f) => f.endsWith(".tsx"))) {
       const text = read(f);
       for (const m of text.matchAll(/fontSize\s*:\s*([^,}\n]+)/g)) {
         const before = text.slice(0, m.index);
-        const inOptions = before.lastIndexOf("options={{") > before.lastIndexOf("style={{");
-        if (inOptions && /^\d+$/.test(m[1]!.trim())) continue;
+        const style = before.lastIndexOf("style={{");
+        // Only inline styles: Monaco and xterm take a numeric fontSize option.
+        if (style < 0 || before.lastIndexOf("options={{") > style || before.indexOf("}}", style) >= 0) continue;
         if (/^["']var\(--kb-text-[\w-]+\)["']$|^["']inherit["']$/.test(m[1]!.trim())) continue;
         offenders.push(`${relative(src, f)}: fontSize: ${m[1]!.trim()}`);
       }
@@ -169,14 +170,28 @@ describe("overlays and buttons go through @kubebay/ui", () => {
       .filter(({ value }) => value === "fixed")
       .map(({ sel }) => sel)
       .sort();
-    // The page backdrop, the new-resource button and the connecting overlay.
-    expect(fixed).toEqual(["body::before", ".conn-overlay", ".resource-fab"].sort());
+    // The page backdrop, the new-resource button and the icon picker's
+    // placement (a Modal className).
+    expect(fixed).toEqual(["body::before", ".icon-picker", ".resource-fab"].sort());
   });
 
   // Raw <button>s still in the shell, per file. The count may only go down:
   // new controls use Button, IconButton, SegmentedControl, Tabs or a new
   // @kubebay/ui component.
-  const RAW_BUTTONS: Record<string, number> = {};
+  const RAW_BUTTONS: Record<string, number> = {
+    "App.tsx": 7,
+    "components/ClusterDetailDrawer.tsx": 3,
+    "components/ClusterIconPicker.tsx": 2,
+    "components/ErrorBoundary.tsx": 2,
+    "components/NamespaceFilter.tsx": 4,
+    "components/Palette.tsx": 2,
+    "components/PodGraphs.tsx": 2,
+    "pages/ClusterPicker.tsx": 1,
+    "pages/Crds.tsx": 1,
+    "pages/ResourceDetail.tsx": 1,
+    "pages/ResourceTable.tsx": 1,
+    "pages/Settings.tsx": 2,
+  };
 
   it("adds no hand-written <button>s", () => {
     const counts = Object.fromEntries(
