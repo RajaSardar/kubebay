@@ -155,3 +155,38 @@ describe("forced colours (Windows High Contrast)", () => {
     expect(block).toMatch(/\.kb-dot[^{]*\{[^}]*forced-color-adjust:\s*none/);
   });
 });
+
+describe("stylesheets parse", () => {
+  // Regex-based tests above read rules one by one and would not notice a stray
+  // brace; the production build would. Catch it here first.
+  it.each([
+    ["tokens.css", tokensCss],
+    ["styles.css", stylesCss],
+    ["app.css", appCss],
+  ])("%s has balanced braces", (_name, css) => {
+    let depth = 0;
+    let minDepth = 0;
+    for (const ch of stripComments(css).replace(/"[^"]*"|'[^']*'/g, "")) {
+      if (ch === "{") depth++;
+      if (ch === "}") depth--;
+      minDepth = Math.min(minDepth, depth);
+    }
+    expect({ depth, minDepth }).toEqual({ depth: 0, minDepth: 0 });
+  });
+});
+
+describe("shell chrome stays legible and focusable", () => {
+  const rule = (sel: string) =>
+    new RegExp(`(?:^|\\n)${sel.replace(/[.:]/g, (c) => "\\" + c)}\\s*\\{([^}]*)\\}`).exec(stripComments(appCss))?.[1];
+
+  it("catalog avatars are not faded (their labels must reach 4.5:1)", () => {
+    expect(rule(".catalog-row-icon") ?? "").not.toMatch(/opacity:\s*0?\.\d/);
+  });
+
+  it("the active theme card still shows the focus ring when focused", () => {
+    const css = stripComments(appCss);
+    const focus = rule(".theme-card:focus-visible") ?? "";
+    expect(focus).toMatch(/box-shadow:\s*var\(--kb-focus-ring\)/);
+    expect(css.indexOf(".theme-card:focus-visible")).toBeGreaterThan(css.indexOf(".theme-card.active"));
+  });
+});
