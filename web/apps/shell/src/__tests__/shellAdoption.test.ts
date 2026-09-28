@@ -35,6 +35,7 @@ const PATTERNS: [string, RegExp][] = [
   ["Badge (hand-written badge spans)", /\b(crd-badge|events-type-badge)\b/],
   ["Drawer", /className="drawer(-head)?"/],
   ["Modal (hand-written backdrop)", /className="[^"]*-backdrop"/],
+  ["Row / Stack (inline flex layout)", /display:\s*["']flex["']/],
 ];
 
 // Files allowed a specific exception, with the reason.
