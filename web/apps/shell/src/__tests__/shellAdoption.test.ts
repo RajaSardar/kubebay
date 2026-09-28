@@ -33,6 +33,8 @@ const PATTERNS: [string, RegExp][] = [
   ["SegmentedControl (hand-written toggle group)", /\b(np-tab|settings-chip)\b/],
   ["IconButton (raw icon-only button)", /<button\b[^>]*?className=\{?[`"][^`"]*\b(row-menu-btn|drawer-popout-btn|star-btn|favorites-remove|cluster-drawer-close|np-detail-close)\b/],
   ["Badge (hand-written badge spans)", /\b(crd-badge|events-type-badge)\b/],
+  ["Drawer", /className="drawer(-head)?"/],
+  ["Modal (hand-written backdrop)", /className="[^"]*-backdrop"/],
 ];
 
 // Files allowed a specific exception, with the reason.

@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { Tabs } from "@kubebay/ui";
+import { useRef, useState } from "react";
+import { Button, Modal, Tabs } from "@kubebay/ui";
 import type { ClusterIcon } from "../lib/useClusterIcons";
 
 export { type ClusterIcon };
@@ -44,14 +44,6 @@ export function ClusterIconPicker({ clusterId, current, onSave, onReset, onClose
   const [imgError, setImgError] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -76,9 +68,7 @@ export function ClusterIconPicker({ clusterId, current, onSave, onReset, onClose
   const previewImageUrl = tab === "image" && imageUrl && !imgError ? imageUrl : null;
 
   return (
-    <>
-      <div className="icon-picker-backdrop" onClick={onClose} />
-      <div className="icon-picker">
+    <Modal label="Customize icon" onClose={onClose} backdrop="clear" className="icon-picker">
         <div className="icon-picker-title">Customize icon</div>
 
         {/* Preview */}
@@ -165,15 +155,12 @@ export function ClusterIconPicker({ clusterId, current, onSave, onReset, onClose
         )}
 
         <div className="icon-picker-actions">
-          <button className="icon-picker-btn ghost" onClick={() => { onReset(); onClose(); }}>
+          <Button variant="ghost" onClick={() => { onReset(); onClose(); }}>
             Reset
-          </button>
-          <button role="button" aria-label="Apply" className="icon-picker-btn primary" onClick={handleApply}>
-            Apply
-          </button>
+          </Button>
+          <Button onClick={handleApply}>Apply</Button>
         </div>
-      </div>
-    </>
+    </Modal>
   );
 }
 

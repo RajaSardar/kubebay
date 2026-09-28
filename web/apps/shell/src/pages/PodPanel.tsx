@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Badge, Button, InlineBanner, Select, StatusDot, Tabs, TextField } from "@kubebay/ui";
+import { Badge, Button, InlineBanner, Select, StatusDot, Tabs, TextField, Drawer } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { usePodLogs, type PodLogsSpec } from "../lib/usePodLogs";
 import { ExecTerm, YamlTab } from "../components/heavy";
@@ -117,14 +117,13 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
   }
 
   return (
-    <aside className="drawer">
-      <div className="drawer-head">
-        <StatusDot status="connected" pulse={status === "streaming"} />
-        <div style={{ minWidth: 0 }}>
-          <div className="mono strong">{pod.pod}</div>
-          <div className="muted small mono">{pod.namespace}</div>
-        </div>
-        <div className="drawer-head-actions">
+    <Drawer
+      title={pod.pod}
+      subtitle={pod.namespace}
+      leading={<StatusDot status="connected" pulse={status === "streaming"} />}
+      onClose={onClose}
+      actions={
+        <>
           {status === "closed" && <Badge tone="err">ended</Badge>}
           {error && <span className="error-text small">{error}</span>}
           {!confirmingDelete ? (
@@ -164,8 +163,9 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
               </Button>
             </>
           )}
-        </div>
-      </div>
+        </>
+      }
+    >
       {deleteErr && (
         <InlineBanner flush style={{ margin: "10px 14px 0" }}>
           {deleteErr}
@@ -295,6 +295,6 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
           />
         </div>
       )}
-    </aside>
+    </Drawer>
   );
 }
