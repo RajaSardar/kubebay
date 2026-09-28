@@ -608,6 +608,7 @@ kbd {
 
 .chev {
   margin-left: auto;
+  flex-shrink: 0;
   opacity: 0.45;
   color: var(--kb-fg-subtle);
   transition: transform var(--kb-dur-fast) var(--kb-ease), opacity var(--kb-dur-fast) var(--kb-ease);
@@ -1423,3 +1424,38 @@ tr.row-clickable:active {
 .kb-justify-between { justify-content: space-between; }
 
 .kb-wrap { flex-wrap: wrap; }
+
+/* ── ChoiceCard: pick one option from a grid of cards ── */
+.kb-choice-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--kb-bg-surface);
+  color: var(--kb-fg-default);
+  border: 1px solid var(--kb-border-strong);
+  border-radius: var(--kb-radius);
+  padding: 11px 13px;
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--kb-text-md);
+  text-align: left;
+  transition:
+    border-color var(--kb-dur-fast) var(--kb-ease),
+    box-shadow var(--kb-dur-fast) var(--kb-ease),
+    transform var(--kb-dur-fast) var(--kb-ease);
+}
+
+.kb-choice-card:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--kb-shadow-lift);
+}
+
+.kb-choice-card.active {
+  border-color: var(--kb-accent);
+  box-shadow: 0 0 0 1px var(--kb-accent), var(--kb-shadow-rest);
+}
+
+/* After .active, so keyboard focus on the chosen theme still shows its ring. */
+.kb-choice-card:focus-visible {
+  box-shadow: var(--kb-focus-ring);
+}

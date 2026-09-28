@@ -447,40 +447,6 @@ h2 {
   margin-bottom: 16px;
 }
 
-.theme-card {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: var(--kb-bg-surface);
-  color: var(--kb-fg-default);
-  border: 1px solid var(--kb-border-strong);
-  border-radius: var(--kb-radius);
-  padding: 11px 13px;
-  cursor: pointer;
-  font: inherit;
-  font-size: var(--kb-text-md);
-  text-align: left;
-  transition:
-    border-color var(--kb-dur-fast) var(--kb-ease),
-    box-shadow var(--kb-dur-fast) var(--kb-ease),
-    transform var(--kb-dur-fast) var(--kb-ease);
-}
-
-.theme-card:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--kb-shadow-lift);
-}
-
-.theme-card.active {
-  border-color: var(--kb-accent);
-  box-shadow: 0 0 0 1px var(--kb-accent), var(--kb-shadow-rest);
-}
-
-/* After .active, so keyboard focus on the chosen theme still shows its ring. */
-.theme-card:focus-visible {
-  box-shadow: var(--kb-focus-ring);
-}
-
 .swatch {
   width: 34px;
   height: 34px;
