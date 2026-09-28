@@ -1,5 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
-import { EmptyState } from "@kubebay/ui";
+import { EmptyState, Row } from "@kubebay/ui";
 
 interface Props {
   children: ReactNode;
@@ -35,7 +35,7 @@ export class ErrorBoundary extends Component<Props, State> {
     if (!error) return this.props.children;
 
     return (
-      <div className="page" style={{ alignItems: "center", justifyContent: "center", display: "flex" }}>
+      <Row align="center" justify="center" className="page">
         <EmptyState style={{ maxWidth: 600 }}>
           <p>⚠️ Something went wrong rendering this view</p>
           <p className="muted small mono" style={{ wordBreak: "break-word", marginTop: 8, padding: "8px 12px", backgroundColor: "var(--kb-bg-inset)", borderRadius: "var(--kb-radius-xs)" }}>
@@ -46,7 +46,7 @@ export class ErrorBoundary extends Component<Props, State> {
               {error.stack}
             </p>
           )}
-          <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
+          <Row gap={2} style={{ marginTop: 16 }}>
             <button
               type="button"
               className="ns-clear"
@@ -62,9 +62,9 @@ export class ErrorBoundary extends Component<Props, State> {
             >
               Go home
             </button>
-          </div>
+          </Row>
         </EmptyState>
-      </div>
+      </Row>
     );
   }
 }

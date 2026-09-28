@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArmedButton, Badge, Button, InlineBanner, TextField } from "@kubebay/ui";
+import { ArmedButton, Badge, Button, InlineBanner, Row, TextField } from "@kubebay/ui";
 import { actionApi, api } from "../lib/api";
 import { ownerLabel, ownerWarning, type GitOpsOwner } from "../lib/gitops";
 import { PolicyRejectionError, type PolicyRejectionDetail } from "../lib/policyRejection";
@@ -66,7 +66,7 @@ export function ActionsBar({
           {ownerWarning(gitopsOwner)}
         </InlineBanner>
       )}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+      <Row align="center" gap={2} wrap>
       {showScale && (
         <>
           <label className="ctl">
@@ -195,7 +195,7 @@ export function ActionsBar({
         </span>
       )}
       {!msg && !err && !rejection && !busy && <Badge>actions</Badge>}
-      </div>
+      </Row>
     </div>
   );
 }

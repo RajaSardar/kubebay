@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Badge } from "@kubebay/ui";
+import { Badge, Row, Stack } from "@kubebay/ui";
 
 function rec(v: unknown): Record<string, unknown> {
   return (v ?? {}) as Record<string, unknown>;
@@ -58,15 +58,15 @@ export function ServiceSummary({ obj }: { obj: Record<string, unknown> }) {
 
   return (
     <div className="pod-summary" style={{ padding: 14, overflowY: "auto", flex: 1 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+      <Row align="center" gap={2} wrap style={{ marginBottom: 14 }}>
         <Badge>{data.type}</Badge>
         {data.clusterIP && data.clusterIP !== "None" && <Badge>{data.clusterIP}</Badge>}
         {data.sessionAffinity !== "None" && <Badge>{data.sessionAffinity}</Badge>}
-      </div>
+      </Row>
 
       <Section title="Ports">
         {data.ports.length > 0 ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <Stack gap={1}>
             {data.ports.map((p, i) => {
               const port = str(p.port);
               const target = str(p.targetPort);
@@ -74,15 +74,15 @@ export function ServiceSummary({ obj }: { obj: Record<string, unknown> }) {
               const proto = str(p.protocol) || "TCP";
               const name = str(p.name);
               return (
-                <div key={i} style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <Row gap={2} align="center" key={i}>
                   {name && <span className="mono small" style={{ color: "var(--kb-accent)" }}>{name}</span>}
                   <span className="mono small">{port}/{proto}</span>
                   {target && target !== port && <span className="muted small">→ {target}</span>}
                   {nodePort && <Badge>node:{nodePort}</Badge>}
-                </div>
+                </Row>
               );
             })}
-          </div>
+          </Stack>
         ) : (
           <span className="muted small">No ports exposed</span>
         )}
@@ -90,11 +90,11 @@ export function ServiceSummary({ obj }: { obj: Record<string, unknown> }) {
 
       <Section title="Selector">
         {Object.keys(data.selector).length > 0 ? (
-          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+          <Row gap={1} wrap>
             {Object.entries(data.selector).map(([k, v]) => (
               <Badge key={k}>{k}={str(v)}</Badge>
             ))}
-          </div>
+          </Row>
         ) : (
           <span className="muted small">No selector (manual endpoints)</span>
         )}
@@ -110,11 +110,11 @@ export function ServiceSummary({ obj }: { obj: Record<string, unknown> }) {
 
       {Object.keys(data.labels).length > 0 && (
         <Section title="Labels">
-          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+          <Row gap={1} wrap>
             {Object.entries(data.labels).map(([k, v]) => (
               <Badge key={k}>{k}={str(v)}</Badge>
             ))}
-          </div>
+          </Row>
         </Section>
       )}
     </div>

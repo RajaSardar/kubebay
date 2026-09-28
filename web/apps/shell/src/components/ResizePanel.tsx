@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Badge, Button, InlineBanner, TextField } from "@kubebay/ui";
+import { Badge, Button, InlineBanner, Row, TextField } from "@kubebay/ui";
 import { api, wasteApi } from "../lib/api";
 import { useResourceStream } from "../lib/useResourceStream";
 import { resolveWorkloadOwner } from "../lib/podOwner";
@@ -173,7 +173,7 @@ export function ResizePanel({
           </label>
         ))}
       </div>
-      <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 12 }}>
+      <Row gap={2} align="center" style={{ marginTop: 12 }}>
         <Button disabled={busy || live.isLoading} onClick={() => void apply()}>
           {busy ? "Patching…" : "Apply resize"}
         </Button>
@@ -183,7 +183,7 @@ export function ResizePanel({
         {msg && <span className="small" style={{ color: "var(--kb-status-ok)" }}>{msg}</span>}
         {err && <span className="error-text small">{err}</span>}
         {!msg && !err && <Badge>K8s ≥1.33 in-place</Badge>}
-      </div>
+      </Row>
       <p className="muted small" style={{ marginTop: 10 }}>
         Only filled fields are patched. Restart behaviour follows each container's <span className="mono">resizePolicy</span>.
       </p>

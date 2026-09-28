@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Button, Card, PageHeader, SegmentedControl, Select, TextField } from "@kubebay/ui";
+import { Button, Card, PageHeader, SegmentedControl, Select, Stack, TextField } from "@kubebay/ui";
 import { settingsApi } from "../lib/api";
 import { useCluster } from "../lib/useCluster";
 import { useTheme, type ThemeName } from "../lib/theme";
@@ -407,9 +407,9 @@ function ThemeSwatch({ t }: { t: typeof THEMES[0] }) {
 
 function ThemeLabel({ t }: { t: typeof THEMES[0] }) {
   return (
-    <span style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+    <Stack as="span">
       <strong style={{ fontWeight: 600 }}>{t.label}</strong>
       <span className="muted small">{t.hint}</span>
-    </span>
+    </Stack>
   );
 }

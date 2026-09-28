@@ -488,32 +488,15 @@ function ClusterStrip() {
         return (
           <div key={c.id} className={`cluster-strip-item${isActive ? " active" : isStreaming ? " streaming" : ""}`}>
             <button
+              className={`cluster-strip-avatar${isActive ? " active" : ""}`}
               disabled={broken}
               title={broken ? `${c.id} — can't be loaded: ${c.error ?? "unknown error"}` : `${c.id} — right-click to customize icon`}
               onClick={() => { if (!broken) setActive(c.id); }}
               onContextMenu={(e) => { e.preventDefault(); setPicker(c.id); }}
               style={{
-                position: "relative",
-                width: 40,
-                height: 40,
-                borderRadius: "var(--kb-radius)",
                 background: imageUrl ? "transparent" : bg,
                 color: avatarLabelColor(bg),
-                fontWeight: 700,
-                fontSize: "var(--kb-text-xs)",
-                // White border: inset to layout, never clipped by overflow
-                border: isActive ? "2.5px solid var(--kb-fg-default)" : "2.5px solid transparent",
                 ...stripAvatarLook({ broken, active: isActive, streaming: isStreaming }),
-                cursor: broken ? "not-allowed" : "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: 0,
-                flexShrink: 0,
-                transition: "opacity 200ms, filter 200ms, border-color 200ms",
-                fontFamily: "var(--kb-font-mono, monospace)",
-                letterSpacing: "-0.02em",
-                overflow: "hidden",
               }}
             >
               {isSwitching ? (

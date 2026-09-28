@@ -1,4 +1,4 @@
-import { Badge } from "@kubebay/ui";
+import { Badge, Row, Stack } from "@kubebay/ui";
 import { ConditionsTable, type Condition } from "./ConditionsTable";
 import { ageOf, fmtAge } from "../lib/resources";
 import { ownerOf, ownerLabel } from "../lib/gitops";
@@ -65,11 +65,11 @@ export function MetadataSummary({ obj }: { obj: Record<string, unknown> | null }
 
       <Section title={`Labels (${Object.keys(labels).length})`}>
         {Object.keys(labels).length > 0 ? (
-          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+          <Row gap={1} wrap>
             {Object.entries(labels).map(([k, v]) => (
               <Badge key={k}>{k}={str(v)}</Badge>
             ))}
-          </div>
+          </Row>
         ) : (
           <span className="muted small">No labels</span>
         )}
@@ -77,7 +77,7 @@ export function MetadataSummary({ obj }: { obj: Record<string, unknown> | null }
 
       <Section title={`Annotations (${Object.keys(annotations).length})`}>
         {Object.keys(annotations).length > 0 ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <Stack gap={1}>
             {Object.entries(annotations).map(([k, v]) => {
               const value = str(v);
               const truncated = value.length > MAX_ANNOTATION_LEN;
@@ -90,7 +90,7 @@ export function MetadataSummary({ obj }: { obj: Record<string, unknown> | null }
                 </div>
               );
             })}
-          </div>
+          </Stack>
         ) : (
           <span className="muted small">No annotations</span>
         )}
@@ -98,13 +98,13 @@ export function MetadataSummary({ obj }: { obj: Record<string, unknown> | null }
 
       {ownerRefs.length > 0 && (
         <Section title={`Owner References (${ownerRefs.length})`}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <Stack gap={1}>
             {ownerRefs.map((o, i) => (
               <div key={i} className="small">
                 <span className="muted">{str(o.kind)}</span> <span className="mono">{str(o.name)}</span>
               </div>
             ))}
-          </div>
+          </Stack>
         </Section>
       )}
 

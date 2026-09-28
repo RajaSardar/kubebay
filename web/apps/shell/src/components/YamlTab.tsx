@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import Editor, { DiffEditor } from "@monaco-editor/react";
-import { Badge, Button, InlineBanner, TextField } from "@kubebay/ui";
+import { Badge, Button, InlineBanner, Row, TextField } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { useMonacoTheme } from "../lib/theme";
 import { ownerWarning, type GitOpsOwner } from "../lib/gitops";
@@ -175,7 +175,7 @@ export function YamlTab({
             {msg.text}
           </span>
         )}
-        <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+        <Row gap={2} style={{ marginLeft: "auto" }}>
           <Button variant="ghost" onClick={() => void load()}>
             Reload
           </Button>
@@ -188,7 +188,7 @@ export function YamlTab({
           <Button disabled={busy || !dirty || needsConfirm} onClick={() => void apply(false)}>
             Apply
           </Button>
-        </div>
+        </Row>
       </div>
       {impactBanner}
       {gitopsOwner && (
@@ -206,7 +206,7 @@ export function YamlTab({
               <li key={i} className="small">{c.message}</li>
             ))}
           </ul>
-          <div className="small" style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
+          <Row align="center" gap={2} className="small" style={{ marginTop: 8 }}>
             <Badge tone="err">type name to confirm</Badge>
             <TextField
               style={{ maxWidth: 180 }}
@@ -215,7 +215,7 @@ export function YamlTab({
               onChange={(e) => setConfirmText(e.target.value)}
               spellCheck={false}
             />
-          </div>
+          </Row>
         </InlineBanner>
       )}
       {policyRejection && <PolicyRejectionCard rejection={policyRejection} />}

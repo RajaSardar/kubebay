@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Badge, Button, Card, EmptyState, InlineBanner } from "@kubebay/ui";
+import { Badge, Button, Card, EmptyState, InlineBanner, Row, Stack } from "@kubebay/ui";
 import { crdApi } from "../lib/api";
 import { useResourceStream } from "../lib/useResourceStream";
 import { explainScaledObject, hpaConflictsWithScaledObject } from "../lib/keda";
@@ -39,17 +39,17 @@ export function AutoscalingSummary({
   }
 
   return (
-    <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 12 }}>
+    <Stack gap={3} style={{ padding: 14 }}>
       {scaledObjects.map((so, i) => {
         const explain = explainScaledObject(so);
         const conflict = hpaConflictsWithScaledObject(so, hpas);
         return (
           <Card key={i}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <Row align="center" gap={2} wrap>
               <Badge tone="ok">Managed by KEDA</Badge>
               <span className="mono strong small">{explain.name}</span>
               {explain.paused && <Badge>paused</Badge>}
-            </div>
+            </Row>
             <div className="small" style={{ marginTop: 8 }}>{explain.summary}</div>
             <div className="muted small" style={{ marginTop: 4 }}>
               min {explain.minReplicas} / max {explain.maxReplicas}
@@ -76,10 +76,10 @@ export function AutoscalingSummary({
         const current = rec(h.status).currentReplicas;
         return (
           <Card key={`hpa-${i}`}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Row align="center" gap={2}>
               <Badge>HPA</Badge>
               <span className="mono strong small">{str(meta.name)}</span>
-            </div>
+            </Row>
             <div className="muted small" style={{ marginTop: 4 }}>
               min {String(spec.minReplicas ?? "–")} / max {String(spec.maxReplicas ?? "–")}
               {typeof current === "number" ? ` / current ${current}` : ""}
@@ -93,15 +93,15 @@ export function AutoscalingSummary({
         const updateMode = str(rec(rec(v.spec).updatePolicy).updateMode) || "Off";
         return (
           <Card key={`vpa-${i}`}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Row align="center" gap={2}>
               <Badge>VPA</Badge>
               <span className="mono strong small">{str(meta.name)}</span>
-            </div>
+            </Row>
             <div className="muted small" style={{ marginTop: 4 }}>update mode: {updateMode}</div>
           </Card>
         );
       })}
-    </div>
+    </Stack>
   );
 }
 
@@ -175,12 +175,12 @@ export function AutoscalingTab({
             </Button>
           ) : (
             <Card>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px 0" }}>
+              <Row justify="between" align="center" style={{ padding: "10px 14px 0" }}>
                 <span className="mono strong small">New ScaledObject</span>
                 <Button variant="ghost" onClick={() => setShowWizard(false)}>
                   Cancel
                 </Button>
-              </div>
+              </Row>
               <KedaWizard
                 cluster={cluster}
                 ns={ns}

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import Editor from "@monaco-editor/react";
-import { Button, InlineBanner, Select } from "@kubebay/ui";
+import { Button, InlineBanner, Row, Select, Stack } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { useMonacoTheme } from "../lib/theme";
 import { RESOURCE_TEMPLATES } from "../lib/resourceTemplates";
@@ -51,7 +51,7 @@ export default function CreateResource() {
   }
 
   return (
-    <div className="page" style={{ display: "flex", flexDirection: "column", gap: 0, height: "100%" }}>
+    <Stack gap={0} className="page" style={{ height: "100%" }}>
       <div className="toolbar">
         <span className="mono strong" style={{ fontSize: 13 }}>Create Resource</span>
         <Select
@@ -67,14 +67,14 @@ export default function CreateResource() {
         </Select>
         <span className="muted small">{template.apiVersion}</span>
         <div style={{ marginLeft: "auto" }} />
-        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--kb-text-muted)" }}>
+        <Row align="center" gap={2} as="label" style={{ fontSize: 12, color: "var(--kb-text-muted)" }}>
           <input
             type="checkbox"
             checked={dryRun}
             onChange={(e) => setDryRun(e.target.checked)}
           />
           Dry run
-        </label>
+        </Row>
         <Button
           disabled={applying || !active}
           onClick={() => void apply()}
@@ -116,6 +116,6 @@ export default function CreateResource() {
           }}
         />
       </div>
-    </div>
+    </Stack>
   );
 }

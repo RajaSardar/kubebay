@@ -1,4 +1,4 @@
-import { Badge, Card, DataTable } from "@kubebay/ui";
+import { Badge, Card, DataTable, Row, Stack } from "@kubebay/ui";
 import { formatCpuMillis, formatMemBytes } from "../lib/rightsizing";
 import type { ClusterWaste } from "../lib/waste";
 
@@ -17,8 +17,8 @@ export function WasteBreakdown({ waste }: { waste: ClusterWaste }) {
   const byNode = [...waste.nodes].sort((a, b) => b.idleCpuMillis + b.idleMemBytes / 1024 ** 3 - (a.idleCpuMillis + a.idleMemBytes / 1024 ** 3));
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+    <Stack gap={4}>
+      <Row gap={3} wrap>
         <Card style={{ flex: "1 1 220px" }}>
           <div className="muted small">Idle capacity (cluster-wide)</div>
           <div className="mono strong" style={{ fontSize: "var(--kb-text-lg)", marginTop: 6 }}>
@@ -34,7 +34,7 @@ export function WasteBreakdown({ waste }: { waste: ClusterWaste }) {
             {formatCpuMillis(waste.totalSystemOverheadCpuMillis)} cores / {formatMemBytes(waste.totalSystemOverheadMemBytes)}
           </div>
         </Card>
-      </div>
+      </Row>
 
       {waste.unrequestedContainers.length > 0 && (
         <Card>
@@ -106,6 +106,6 @@ export function WasteBreakdown({ waste }: { waste: ClusterWaste }) {
           ]}
         />
       </Card>
-    </div>
+    </Stack>
   );
 }

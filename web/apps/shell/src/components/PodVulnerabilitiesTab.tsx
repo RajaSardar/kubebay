@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Badge, Card, Button, EmptyState } from "@kubebay/ui";
+import { Badge, Button, Card, EmptyState, Row, Stack } from "@kubebay/ui";
 import { crdApi } from "../lib/api";
 import { useResourceStream } from "../lib/useResourceStream";
 import { detectTrivyOperator } from "../lib/trivyOperator";
@@ -35,18 +35,18 @@ export function VulnFindingsSummary({ findings }: { findings: VulnFinding[] }) {
   const shown = showAll ? findings : topSeverity;
 
   return (
-    <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
+    <Stack gap={2} style={{ padding: 14 }}>
       <div className="muted small">
         {counts.CRITICAL} critical · {counts.HIGH} high · {counts.MEDIUM} medium · {counts.LOW} low
         {counts.UNKNOWN > 0 ? ` · ${counts.UNKNOWN} unknown` : ""}
       </div>
       {shown.map((f, i) => (
         <Card key={`${f.reportName}-${f.id}-${i}`}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <Row align="center" gap={2} wrap>
             <Badge tone={SEVERITY_TONE[f.severity]}>{f.severity}</Badge>
             <span className="mono strong small">{f.id}</span>
             <span className="muted small">({f.container})</span>
-          </div>
+          </Row>
           {(f.installedVersion || f.fixedVersion) && (
             <div className="small" style={{ marginTop: 4 }}>
               {f.installedVersion ?? "unknown"} → {f.fixedVersion ?? "no fix available"}
@@ -67,7 +67,7 @@ export function VulnFindingsSummary({ findings }: { findings: VulnFinding[] }) {
           Show all {findings.length}
         </Button>
       )}
-    </div>
+    </Stack>
   );
 }
 

@@ -116,6 +116,37 @@ body::before {
   border-left-color: var(--kb-fg-subtle);
 }
 
+/* The avatar button itself; its colour, label colour and faded look come
+   from the cluster (inline). */
+.cluster-strip-avatar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  overflow: hidden;
+  border-radius: var(--kb-radius);
+  /* Inset to the layout, never clipped by overflow */
+  border: 2.5px solid transparent;
+  font-family: var(--kb-font-mono);
+  font-size: var(--kb-text-xs);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  cursor: pointer;
+  transition: opacity var(--kb-dur-slow), filter var(--kb-dur-slow), border-color var(--kb-dur-slow);
+}
+
+.cluster-strip-avatar.active {
+  border-color: var(--kb-fg-default);
+}
+
+.cluster-strip-avatar:disabled {
+  cursor: not-allowed;
+}
+
 .cluster-strip-logo {
   width: 56px;
   height: 38px;

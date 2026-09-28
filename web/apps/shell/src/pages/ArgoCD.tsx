@@ -1,6 +1,6 @@
 import { Fragment, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArmedButton, Button, EmptyState, PageHeader, Skeleton, StatusPill, Table, TableRow, TableWrap, type StatusTone } from "@kubebay/ui";
+import { ArmedButton, Button, EmptyState, PageHeader, Row, Skeleton, Stack, StatusPill, Table, TableRow, TableWrap, type StatusTone } from "@kubebay/ui";
 import { argoCDApi, type ArgoCDApp } from "../lib/api";
 import { useCluster } from "../lib/useCluster";
 import { ArgoDriftList } from "../components/ArgoDriftList";
@@ -68,7 +68,7 @@ function SyncButton({ cluster, app }: { cluster: string; app: ArgoCDApp }) {
   }
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+    <Row align="center" gap={2}>
       <ArmedButton
         label="Hard Sync"
         confirmLabel="Confirm hard sync?"
@@ -80,7 +80,7 @@ function SyncButton({ cluster, app }: { cluster: string; app: ArgoCDApp }) {
           failed
         </span>
       )}
-    </div>
+    </Row>
   );
 }
 
@@ -123,9 +123,9 @@ export default function ArgoCD() {
 
       <div className="page-body" style={{ padding: "0 16px 16px" }}>
         {isLoading && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingTop: 12 }}>
+          <Stack gap={2} style={{ paddingTop: 12 }}>
             {[0, 1, 2].map((i) => <Skeleton key={i} w="100%" h={44} r={8} />)}
-          </div>
+          </Stack>
         )}
 
         {isError && (

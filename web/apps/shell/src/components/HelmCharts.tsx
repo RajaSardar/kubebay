@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
 import Editor from "@monaco-editor/react";
-import { Badge, Button, Card, EmptyState, InlineBanner, Select, Skeleton, TextField, Drawer } from "@kubebay/ui";
+import { Badge, Button, Card, Drawer, EmptyState, InlineBanner, Row, Select, Skeleton, TextField } from "@kubebay/ui";
 import { helmApi, helmMarketApi, type HelmChartEntry } from "../lib/api";
 import { useMonacoTheme } from "../lib/theme";
 
@@ -290,18 +290,18 @@ export function ChartsTab({ cluster }: { cluster: string }) {
         {filtered.map(({ chart: c, repoName }) => (
           <Card key={`${repoName}/${c.name}`} interactive className="fleet-card">
             <div style={{ cursor: "pointer" }} onClick={() => setInstalling({ chart: c, repoName })}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Row align="center" gap={2}>
                 <strong>{c.name}</strong>
                 <Badge>v{c.version}</Badge>
                 {c.versions > 1 && <span className="muted small mono">{c.versions} versions</span>}
-              </div>
+              </Row>
               <p className="muted small" style={{ margin: "6px 0 0", minHeight: 30 }}>
                 {c.description || "—"}
               </p>
-              <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+              <Row gap={2} style={{ marginTop: 4 }}>
                 {c.appVersion && <span className="muted small mono">app {c.appVersion}</span>}
                 {isAll && <span className="muted small mono" style={{ marginLeft: "auto" }}>{repoName}</span>}
-              </div>
+              </Row>
             </div>
           </Card>
         ))}

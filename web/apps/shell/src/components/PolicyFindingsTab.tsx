@@ -1,4 +1,4 @@
-import { Badge, Card, EmptyState } from "@kubebay/ui";
+import { Badge, Card, EmptyState, Row, Stack } from "@kubebay/ui";
 import { useResourceStream } from "../lib/useResourceStream";
 import { findingsForResource, type PolicyFinding } from "../lib/policyFindings";
 
@@ -29,7 +29,7 @@ export function PolicyFindingsSummary({ findings }: { findings: PolicyFinding[] 
   const notPassing = findings.filter((f) => f.result !== "pass");
 
   return (
-    <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
+    <Stack gap={2} style={{ padding: 14 }}>
       {passing.length > 0 && (
         <div className="muted small">
           {passing.length} check{passing.length === 1 ? "" : "s"} passed.
@@ -37,16 +37,16 @@ export function PolicyFindingsSummary({ findings }: { findings: PolicyFinding[] 
       )}
       {notPassing.map((f, i) => (
         <Card key={i}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <Row align="center" gap={2} wrap>
             <Badge tone={RESULT_TONE[f.result]}>{f.result}</Badge>
             <span className="mono strong small">{f.rule}</span>
             <span className="muted small">({f.policy})</span>
-          </div>
+          </Row>
           {f.message && <div className="small" style={{ marginTop: 4 }}>{f.message}</div>}
           {f.severity && <div className="muted small mono">{f.severity}</div>}
         </Card>
       ))}
-    </div>
+    </Stack>
   );
 }
 
