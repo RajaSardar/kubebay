@@ -167,6 +167,8 @@ const GROUPS: NavGroupDef[] = [
       { to: "/r/validatingadmissionpolicybindings", label: "Policy Bindings" },
       { to: "/r/policyreports", label: "Policy Reports" },
       { to: "/r/clusterpolicyreports", label: "Cluster Policy Reports" },
+      { to: "/r/vulnerabilityreports", label: "Vulnerability Reports" },
+      { to: "/r/clustervulnerabilityreports", label: "Cluster Vulnerability Reports" },
     ],
   },
   {
