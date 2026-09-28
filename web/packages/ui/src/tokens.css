@@ -4,6 +4,11 @@
     "Roboto", -apple-system, "Helvetica Neue", "Segoe UI", Arial, sans-serif;
   --kb-font-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
 
+  /* Brand colours: the KubebayMark gradient stops. The same in every theme;
+     for the mark and the website, never for UI state (that is --kb-accent). */
+  --kb-brand-cyan:  #22d3ee;
+  --kb-brand-green: #41c98e;
+
   /* Type scale — every font-size in the app resolves to one of these seven
      steps. Integer px only: half-pixel sizes render with fuzzy glyph metrics
      and were the main source of "not quite aligned" text across pages. */
