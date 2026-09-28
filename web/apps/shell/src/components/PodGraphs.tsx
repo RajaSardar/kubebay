@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Button, EmptyState, InlineBanner } from "@kubebay/ui";
+import { Button, EmptyState, InlineBanner, chartColor } from "@kubebay/ui";
 import { LineChart } from "./LineChart";
 import { promApi } from "../lib/api";
 
@@ -139,8 +139,6 @@ export function PodGraphs({
     };
   }, [anyErr, isUnreachable, retryCount, queryClient]);
 
-  const palette = ["#5b8def", "#41c98e", "#dca154", "#c586e8", "#4fc4cf"];
-
   function toSeries(
     res: { data: { result: { metric: Record<string, string>; values: [number, string][] }[] } } | undefined,
     colorSeed: number,
@@ -148,7 +146,7 @@ export function PodGraphs({
   ) {
     return (res?.data.result ?? []).map((r, i) => ({
       label: r.metric.container || "container",
-      color: palette[(i + colorSeed) % palette.length] ?? "#5b8def",
+      color: chartColor(i + colorSeed),
       points: r.values.map(([ts, v]) => [ts * 1000, scale(Number(v))] as [number, number]),
     }));
   }

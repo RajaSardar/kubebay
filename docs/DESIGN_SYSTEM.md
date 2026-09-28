@@ -15,7 +15,7 @@ https://claude.ai/artifact/J35D45QQ7X6Sgd7mwfRSnF
 | Colour, shadow and focus tokens for all 12 themes | `web/packages/ui/src/tokens.css` | `--kb-*` custom properties, one block per `data-theme` |
 | Type scale, spacing, radii, motion | `web/packages/ui/src/tokens.css` (`:root`) | `--kb-text-*`, `--kb-space-*`, `--kb-radius-*`, `--kb-dur*`, `--kb-ease*` |
 | Component styles | `web/packages/ui/src/styles.css` | the only CSS for package classes |
-| Core components | `web/packages/ui/src/index.tsx` | `Button`, `ArmedButton`, `Card`, `Badge`, `StatusDot`, `Skeleton` |
+| Core components | `web/packages/ui/src/index.tsx` | `Button`, `ArmedButton`, `Card`, `Badge`, `StatusDot`, `Skeleton`, `chartColor()` |
 | Shell components | `web/packages/ui/src/shell.tsx` | `StatusPill`/`phaseTone`, `Tabs`, `NavItem`/`NavSection`/`navItemClass`, `TextField`, `Select`, `Kbd`, `PageHeader`, `ContextMenu` |
 | Tables and feedback | `web/packages/ui/src/table.tsx` | `DataTable`, `TableWrap`, `Table`, `SortHeader`, `SelectAllHeader`, `SelectCell`, `TableRow`, `NsPill`, `SkeletonRows`, `EmptyState`, `InlineBanner` |
 | Brand mark | `web/packages/ui/src/brand.tsx` | `KubebayMark` |
@@ -37,9 +37,13 @@ https://claude.ai/artifact/J35D45QQ7X6Sgd7mwfRSnF
    namespaces `NsPill`, phases `StatusPill` (with `phaseTone` for pods).
 3. **Colours come from tokens.** No hex, `rgb()` or `rgba()` literals in shell
    TSX or `app.css`, and no `var(--kb-x, #fallback)` fallbacks. The only
-   exceptions are data: the Settings theme swatches, user-picked cluster
-   colours (`ClusterIconPicker.tsx`) and chart series (`PodGraphs.tsx`). Text on
-   a user-picked colour uses `avatarLabelColor()`.
+   exceptions are data: the Settings theme swatches and user-picked cluster
+   colours (`ClusterIconPicker.tsx`). Text on a user-picked colour uses
+   `avatarLabelColor()`. Chart series take `chartColor(i)` (the theme's
+   `--kb-chart-1…5`, each 3:1 on every ground); status dots are `StatusDot`
+   (tones `ok`, `warn`, `err`, `pending` or a connection state). Code editors
+   take `useMonacoTheme()`, which picks Monaco's high-contrast themes in
+   Dawn HC and Dusk HC.
 4. **Never restyle a package class from `app.css`.** If a component needs a new
    look, add a prop or variant to the component and its styles to
    `styles.css`. A later `app.css` rule silently overrides the design system;

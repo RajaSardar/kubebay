@@ -28,6 +28,7 @@ const PATTERNS: [string, RegExp][] = [
   ["InlineBanner (legacy error/info banner)", /\b(error|info)-banner\b/],
   ["Button (raw button with design-system classes)", /<button[^>]*className="[^"]*\b(kb-btn[\w-]*|btn-primary|btn-ghost)\b/],
   ["KubebayMark (inline brand gradient)", /stopColor="#22d3ee"/],
+  ["StatusDot", /className="kb-dot[\s"]/],
 ];
 
 // Files allowed a specific exception, with the reason.
@@ -47,7 +48,7 @@ describe("shell uses @kubebay/ui instead of hand-written patterns", () => {
 
 describe("shell colours come from tokens", () => {
   // Data, not styling: theme swatches, user-picked cluster colours, chart series.
-  const allowed = ["pages/Settings.tsx", "components/ClusterIconPicker.tsx", "components/PodGraphs.tsx"];
+  const allowed = ["pages/Settings.tsx", "components/ClusterIconPicker.tsx"];
   const files = tsxFiles(src).map((f) => [relative(src, f), readFileSync(f, "utf8")] as const);
 
   it("no hex or rgb() colour literals in shell components", () => {

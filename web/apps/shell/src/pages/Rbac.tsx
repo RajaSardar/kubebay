@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Badge, Button, Card, PageHeader, Select, TextField } from "@kubebay/ui";
+import { Badge, Button, Card, PageHeader, Select, StatusDot, TextField } from "@kubebay/ui";
 import { PageLoader } from "../components/PageLoader";
 import { RbacFindingsCard } from "../components/RbacFindingsCard";
 import { rbacApi, type RBACSnapshot } from "../lib/api";
@@ -247,7 +247,7 @@ export default function Rbac() {
               const allowed = res.allowed === true && res.denied !== true;
               return (
                 <div key={key} className={`rbac-self-item ${allowed ? "ok" : "no"}`}>
-                  <StatusDotInline ok={allowed} />
+                  <StatusDot status={allowed ? "ok" : "err"} />
                   <span className="mono small">{key}</span>
                   {!allowed && res.reason && <span className="muted small">{res.reason}</span>}
                 </div>
@@ -261,14 +261,3 @@ export default function Rbac() {
   );
 }
 
-function StatusDotInline({ ok }: { ok: boolean }) {
-  return (
-    <span
-      className="kb-dot"
-      style={{
-        background: ok ? "var(--kb-status-ok)" : "var(--kb-status-err)",
-        boxShadow: `0 0 0 3px color-mix(in srgb, ${ok ? "var(--kb-status-ok)" : "var(--kb-status-err)"} 18%, transparent)`,
-      }}
-    />
-  );
-}

@@ -42,11 +42,19 @@ export function Card({
 }
 
 const STATUS_COLORS: Record<string, string> = {
+  ok: "var(--kb-status-ok)",
+  warn: "var(--kb-status-warn)",
+  err: "var(--kb-status-err)",
   connected: "var(--kb-status-ok)",
   degraded: "var(--kb-status-warn)",
   unreachable: "var(--kb-status-err)",
   pending: "var(--kb-status-pending)",
 };
+
+/** Colour of chart series `i`: cycles through the theme's five `--kb-chart-*` tokens. */
+export function chartColor(i: number): string {
+  return `var(--kb-chart-${(((i % 5) + 5) % 5) + 1})`;
+}
 
 export function StatusDot({ status, pulse }: { status: string; pulse?: boolean }) {
   const color = STATUS_COLORS[status] ?? STATUS_COLORS.pending;
