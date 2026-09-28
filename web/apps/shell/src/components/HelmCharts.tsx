@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
 import Editor from "@monaco-editor/react";
-import { Badge, Button, Card, Select, Skeleton, TextField } from "@kubebay/ui";
+import { Badge, Button, Card, EmptyState, InlineBanner, Select, Skeleton, TextField } from "@kubebay/ui";
 import { helmApi, helmMarketApi, type HelmChartEntry } from "../lib/api";
 import { useMonacoTheme } from "../lib/theme";
 
@@ -78,9 +78,9 @@ function InstallPanel({
       </div>
 
       {err && (
-        <div className="error-banner" style={{ margin: "10px 14px 0" }}>
+        <InlineBanner flush style={{ margin: "10px 14px 0" }}>
           {err}
-        </div>
+        </InlineBanner>
       )}
 
       <div className="log-controls">
@@ -273,16 +273,16 @@ export function ChartsTab({ cluster }: { cluster: string }) {
       )}
 
       {!repoList.length && (
-        <div className="empty-state">
+        <EmptyState>
           <p>No Helm repositories configured.</p>
           <p className="muted small">Kubebay reads your local helm config — run "helm repo add …" once.</p>
-        </div>
+        </EmptyState>
       )}
 
       {errorMessages.length > 0 && (
-        <div className="error-banner">
+        <InlineBanner flush>
           {errorMessages.map((m, i) => <div key={i}>{m}</div>)}
-        </div>
+        </InlineBanner>
       )}
 
       <div className="cluster-grid">

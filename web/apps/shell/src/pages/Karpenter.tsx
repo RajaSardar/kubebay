@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { PageHeader } from "@kubebay/ui";
+import { EmptyState, PageHeader } from "@kubebay/ui";
 import { NodePoolSummary } from "../components/NodePoolSummary";
 import { UnschedulablePods } from "../components/UnschedulablePods";
 import { PageLoader } from "../components/PageLoader";
@@ -44,7 +44,7 @@ export default function Karpenter() {
     return (
       <div className="page">
         <PageHeader level={2} title="Karpenter" />
-        <div className="empty-state"><p>Select a cluster first.</p></div>
+        <EmptyState><p>Select a cluster first.</p></EmptyState>
       </div>
     );
   }
@@ -63,7 +63,7 @@ export default function Karpenter() {
       <div className="page">
         <PageHeader level={2} title="Karpenter" />
         <div className="page-body">
-          <div className="empty-state">
+          <EmptyState>
             <p>Karpenter not detected on this cluster.</p>
             <p className="muted small">
               This page is read-only observability for an existing Karpenter install — NodePool CRDs
@@ -71,7 +71,7 @@ export default function Karpenter() {
               deliberately doesn't install or configure Karpenter (it needs cloud IAM/networking Kubebay has no way
               to provision safely) — see the docs for the Helm chart.
             </p>
-          </div>
+          </EmptyState>
         </div>
       </div>
     );

@@ -1,5 +1,6 @@
+import { avatarLabelColor } from "./ClusterIconPicker";
 import { useState, useRef, useEffect } from "react";
-import { StatusDot } from "@kubebay/ui";
+import { Badge, Button, StatusDot } from "@kubebay/ui";
 import type { ClusterInfo } from "../lib/api";
 import type { ClusterMeta } from "../lib/cluster-meta-store";
 import { detectDistro } from "../lib/clusterDistro";
@@ -66,7 +67,7 @@ export function ClusterDetailDrawer({
         <div className="cluster-drawer-icon-wrap">
           <button
             className="cluster-drawer-icon"
-            style={{ background: icon.bg }}
+            style={{ background: icon.bg, color: avatarLabelColor(icon.bg) }}
             onClick={onChangeIcon}
             title="Click to change icon"
             aria-label="Change cluster icon"
@@ -101,7 +102,7 @@ export function ClusterDetailDrawer({
             </button>
           )}
           {meta.pinned && <span className="catalog-pin-dot" title="Pinned">★</span>}
-          {isActive && <span className="catalog-connected-badge">connected</span>}
+          {isActive && <Badge tone="ok">connected</Badge>}
         </div>
 
         {/* Metadata table */}
@@ -146,20 +147,17 @@ export function ClusterDetailDrawer({
 
         {/* Primary actions */}
         <div className="cluster-drawer-actions">
-          <button
-            className="cluster-drawer-connect-btn kb-btn-primary"
-            disabled={broken}
-            onClick={onConnect}
-          >
+          <Button className="cluster-drawer-btn" disabled={broken} onClick={onConnect}>
             {isActive ? "Reconnect" : "Connect"}
-          </button>
-          <button
-            className="cluster-drawer-pin-btn kb-btn-ghost"
+          </Button>
+          <Button
+            variant="ghost"
+            className="cluster-drawer-btn"
             onClick={onTogglePin}
             title={meta.pinned ? "Remove from pinned" : "Pin to top of list"}
           >
             {meta.pinned ? "★ Unpin" : "☆ Pin to top"}
-          </button>
+          </Button>
         </div>
 
         {/* Danger zone */}
@@ -169,8 +167,8 @@ export function ClusterDetailDrawer({
               <p className="small">Are you sure you want to remove <strong>{displayName}</strong> from the list?</p>
               <p className="muted small">Your kubeconfig is unchanged. You can restore it from the hidden section below the table.</p>
               <div className="cluster-drawer-confirm-btns">
-                <button className="kb-btn-ghost small" onClick={() => setConfirming(false)}>Cancel</button>
-                <button className="kb-btn-danger small" onClick={onRemove}>Remove</button>
+                <Button variant="ghost" onClick={() => setConfirming(false)}>Cancel</Button>
+                <Button variant="danger" onClick={onRemove}>Remove</Button>
               </div>
             </div>
           ) : (

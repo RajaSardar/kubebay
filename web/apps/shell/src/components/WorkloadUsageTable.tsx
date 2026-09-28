@@ -1,4 +1,4 @@
-import { Card } from "@kubebay/ui";
+import { Card, DataTable, EmptyState } from "@kubebay/ui";
 import { formatCpuMillis, formatMemBytes, type RightSizingRow } from "../lib/rightsizing";
 
 /**
@@ -10,44 +10,46 @@ import { formatCpuMillis, formatMemBytes, type RightSizingRow } from "../lib/rig
 export function WorkloadUsageTable({ rows }: { rows: RightSizingRow[] }) {
   if (rows.length === 0) {
     return (
-      <div className="empty-state">
+      <EmptyState>
         <p>No usage-based recommendations yet.</p>
         <p className="muted small">
           Kubebay samples metrics-server every 60s; this fills in once a workload has enough observed usage to
           differ materially from its requests.
         </p>
-      </div>
+      </EmptyState>
     );
   }
 
   return (
     <Card>
       <div className="rbac-section-title">Workload usage vs requests</div>
-      <div className="table-wrap">
-        <table className="kb-table">
-          <thead>
-            <tr><th>Workload</th><th>Namespace</th><th>Requested</th><th>Observed p95</th><th>Wasted</th><th>Window</th></tr>
-          </thead>
-          <tbody>
-            {rows.map((r, i) => (
-              <tr key={i}>
-                <td className="mono small strong">{r.workloadName}</td>
-                <td className="mono small">{r.ns}</td>
-                <td className="mono small">
-                  {formatCpuMillis(r.currentCpuMillis)} / {formatMemBytes(r.currentMemBytes)}
-                </td>
-                <td className="mono small">
-                  {formatCpuMillis(r.targetCpuMillis)} / {formatMemBytes(r.targetMemBytes)}
-                </td>
-                <td className="mono small">
-                  {formatCpuMillis(r.wastedCpuMillis)} / {formatMemBytes(r.wastedMemBytes)}
-                </td>
-                <td className="muted small">{r.window}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        rows={rows}
+        rowKey={(r, i) => `${r.ns}/${r.workloadName}/${i}`}
+        columns={[
+          { key: "w", header: "Workload", className: "mono small strong", render: (r) => r.workloadName },
+          { key: "ns", header: "Namespace", className: "mono small", render: (r) => r.ns },
+          {
+            key: "req",
+            header: "Requested",
+            className: "mono small",
+            render: (r) => `${formatCpuMillis(r.currentCpuMillis)} / ${formatMemBytes(r.currentMemBytes)}`,
+          },
+          {
+            key: "p95",
+            header: "Observed p95",
+            className: "mono small",
+            render: (r) => `${formatCpuMillis(r.targetCpuMillis)} / ${formatMemBytes(r.targetMemBytes)}`,
+          },
+          {
+            key: "waste",
+            header: "Wasted",
+            className: "mono small",
+            render: (r) => `${formatCpuMillis(r.wastedCpuMillis)} / ${formatMemBytes(r.wastedMemBytes)}`,
+          },
+          { key: "window", header: "Window", className: "muted small", render: (r) => r.window },
+        ]}
+      />
     </Card>
   );
 }

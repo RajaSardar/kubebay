@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Button } from "@kubebay/ui";
+import { Button, EmptyState, InlineBanner } from "@kubebay/ui";
 import { LineChart } from "./LineChart";
 import { promApi } from "../lib/api";
 
@@ -167,10 +167,10 @@ export function PodGraphs({
 
   if (!promUrl)
     return (
-      <div className="empty-state" style={{ margin: "var(--kb-gutter)" }}>
+      <EmptyState style={{ margin: "var(--kb-gutter)" }}>
         <p>History graphs need Prometheus.</p>
         <p className="muted small">Set the server URL in Settings &rarr; Prometheus.</p>
-      </div>
+      </EmptyState>
     );
 
   const pfCommand = "kubectl -n monitoring port-forward svc/<prometheus-server> 19090:80";
@@ -191,7 +191,7 @@ export function PodGraphs({
       </div>
 
       {isUnreachable && (
-        <div className="error-banner">
+        <InlineBanner flush>
           Prometheus is not reachable. Start a port-forward with:
           <CopyableCommand command={pfCommand} />
           {retrying && retryCount < MAX_RETRIES && (
@@ -222,11 +222,11 @@ export function PodGraphs({
               </button>
             </p>
           )}
-        </div>
+        </InlineBanner>
       )}
 
       {anyErr && !isUnreachable && (
-        <div className="error-banner">Prometheus query failed -- check URL/reachability in Settings.</div>
+        <InlineBanner flush>Prometheus query failed -- check URL/reachability in Settings.</InlineBanner>
       )}
 
       {!anyErr && (

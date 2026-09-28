@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Badge, Card, Button } from "@kubebay/ui";
+import { Badge, Card, Button, EmptyState } from "@kubebay/ui";
 import { crdApi } from "../lib/api";
 import { useResourceStream } from "../lib/useResourceStream";
 import { detectTrivyOperator } from "../lib/trivyOperator";
@@ -25,9 +25,7 @@ export function VulnFindingsSummary({ findings }: { findings: VulnFinding[] }) {
 
   if (findings.length === 0) {
     return (
-      <div className="empty-state" style={{ padding: 14 }}>
-        <p>No vulnerability findings for this pod.</p>
-      </div>
+      <EmptyState style={{ padding: 14 }} title="No vulnerability findings for this pod." />
     );
   }
 

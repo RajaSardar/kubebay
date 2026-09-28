@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Badge, PageHeader, Select, TextField } from "@kubebay/ui";
+import { Badge, EmptyState, PageHeader, Select, TextField } from "@kubebay/ui";
 import { PageLoader } from "../components/PageLoader";
 import { EventHeatStrip } from "../components/EventHeatStrip";
 import { useCluster } from "../lib/useCluster";
@@ -147,10 +147,10 @@ export default function Timeline() {
         {shouldShowSkeleton(synced, events.length) ? (
           <PageLoader message="Connecting to event stream…" />
         ) : events.length === 0 ? (
-          <div className="empty-state">
+          <EmptyState>
             <p>No events match.</p>
             <p className="muted small">{filter || warningsOnly ? "Loosen the filters." : "A quiet cluster is a happy cluster."}</p>
-          </div>
+          </EmptyState>
         ) : (
           <div className="timeline-list">
             {events.map((e) => {

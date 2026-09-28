@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Badge, Card, PageHeader, StatusDot } from "@kubebay/ui";
+import { Badge, Card, EmptyState, PageHeader, StatusDot } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { useCluster } from "../lib/useCluster";
 import { useFleetWaste } from "../lib/useFleetWaste";
@@ -58,7 +58,7 @@ export default function Fleet() {
       <div className="page">
         <PageHeader level={1} title="Fleet" />
         <div className="page-body">
-          <div className="empty-state"><p>Loading clusters…</p></div>
+          <EmptyState title="Loading clusters…" />
         </div>
       </div>
     );
@@ -70,7 +70,7 @@ export default function Fleet() {
 
       <div className="page-body">
         {clusters.length === 0 && (
-          <div className="empty-state"><p>No clusters configured.</p></div>
+          <EmptyState title="No clusters configured." />
         )}
 
         {attention.length > 0 && (

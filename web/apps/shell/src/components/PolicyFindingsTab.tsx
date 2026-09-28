@@ -1,4 +1,4 @@
-import { Badge, Card } from "@kubebay/ui";
+import { Badge, Card, EmptyState } from "@kubebay/ui";
 import { useResourceStream } from "../lib/useResourceStream";
 import { findingsForResource, type PolicyFinding } from "../lib/policyFindings";
 
@@ -19,9 +19,9 @@ const RESULT_TONE: Record<string, "err" | "ok" | undefined> = {
 export function PolicyFindingsSummary({ findings }: { findings: PolicyFinding[] }) {
   if (findings.length === 0) {
     return (
-      <div className="empty-state" style={{ padding: 14 }}>
+      <EmptyState style={{ padding: 14 }}>
         <p>No policy findings for this resource.</p>
-      </div>
+      </EmptyState>
     );
   }
 

@@ -1,23 +1,24 @@
-import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { forwardRef, useEffect, useState, type ButtonHTMLAttributes, type CSSProperties, type ReactNode } from "react";
 import "./styles.css";
 
-export interface ButtonProps {
-  children: ReactNode;
-  onClick?: () => void;
-  variant?: "primary" | "ghost" | "danger";
-  className?: string;
-  style?: CSSProperties;
-  disabled?: boolean;
+export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  /** primary = the one action a view is for; ghost = everything else; danger = a confirmed destructive action;
+   *  danger-ghost = the first, unconfirmed step of one. */
+  variant?: "primary" | "ghost" | "danger" | "danger-ghost";
 }
 
-export function Button({ children, onClick, variant = "primary", className, style, disabled }: ButtonProps) {
-  const cls = `kb-btn kb-btn-${variant}${className ? " " + className : ""}`;
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
+  { children, variant = "primary", className, type = "button", ...props },
+  ref,
+) {
+  const v = variant === "danger-ghost" ? "ghost kb-btn-danger-ghost" : variant;
+  const cls = `kb-btn kb-btn-${v}${className ? " " + className : ""}`;
   return (
-    <button className={cls} style={style} onClick={onClick} disabled={disabled}>
+    <button ref={ref} type={type} className={cls} {...props}>
       {children}
     </button>
   );
-}
+});
 
 export function Card({
   children,
@@ -109,3 +110,5 @@ export function ArmedButton({
 }
 
 export * from "./shell";
+export * from "./table";
+export * from "./brand";

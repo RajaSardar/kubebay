@@ -4,7 +4,7 @@ import type { ClusterInfo } from "./lib/api";
 import { NavLink, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { useClusterStore } from "./lib/cluster-store";
 import { shouldRedirectToPicker } from "./lib/clusterPickerLogic";
-import { Kbd, StatusDot, navItemClass } from "@kubebay/ui";
+import { EmptyState, Kbd, KubebayMark, StatusDot, navItemClass } from "@kubebay/ui";
 import {
   IconArgoCD,
   IconCube,
@@ -59,7 +59,7 @@ import { discoveryApi } from "./lib/api";
 import { KNOWN_GVRS, extSlug } from "./lib/resources";
 import { FavoritesSidebar, useFavorites } from "./components/Favorites";
 import { useClusterIcons } from "./lib/useClusterIcons";
-import { ClusterIconPicker, autoAvatar } from "./components/ClusterIconPicker";
+import { ClusterIconPicker, autoAvatar, avatarLabelColor } from "./components/ClusterIconPicker";
 import { useWsStatus } from "./lib/useWsStatus";
 import { connectCluster, isClusterConnected } from "./lib/clusterConnections";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -363,7 +363,7 @@ function ClusterConnectingOverlay({
     <div className="conn-overlay">
       <div className="conn-card">
         {/* Avatar */}
-        <div className="conn-avatar" style={{ background: avatar.imageUrl ? "transparent" : avatar.bg }}>
+        <div className="conn-avatar" style={{ background: avatar.imageUrl ? "transparent" : avatar.bg, color: avatarLabelColor(avatar.bg) }}>
           {avatar.imageUrl
             ? <img src={avatar.imageUrl} alt={avatar.label} style={{ width: "100%", height: "100%", objectFit: "contain", borderRadius: "inherit" }} />
             : avatar.label}
@@ -444,18 +444,7 @@ function ClusterStrip() {
   return (
     <div className="cluster-strip">
       {/* Kubebay mini logo at top */}
-      <svg className="cluster-strip-logo" viewBox="0 0 32 32" aria-hidden>
-        <defs>
-          <linearGradient id="ks-g" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#22d3ee" />
-            <stop offset="100%" stopColor="#41c98e" />
-          </linearGradient>
-        </defs>
-        <rect width="32" height="32" rx="9" fill="url(#ks-g)" />
-        <circle cx="16" cy="14.5" r="5.4" fill="none" stroke="#fff" strokeWidth="2" />
-        <path d="M7.5 22.5c2.6 2.3 5.4 3.4 8.5 3.4s5.9-1.1 8.5-3.4" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
-        <path d="M16 9v11M10 13.5h12" stroke="#fff" strokeWidth="2" strokeLinecap="round" opacity=".85" />
-      </svg>
+      <KubebayMark className="cluster-strip-logo" />
       {list.map((c) => {
         const auto = autoAvatar(c.id);
         const { bg, label, imageUrl } = icons[c.id] ?? auto;
@@ -476,11 +465,11 @@ function ClusterStrip() {
                 height: 40,
                 borderRadius: "var(--kb-radius)",
                 background: imageUrl ? "transparent" : bg,
-                color: "#fff",
+                color: avatarLabelColor(bg),
                 fontWeight: 700,
                 fontSize: "var(--kb-text-xs)",
                 // White border: inset to layout, never clipped by overflow
-                border: isActive ? "2.5px solid rgba(255,255,255,0.9)" : "2.5px solid transparent",
+                border: isActive ? "2.5px solid var(--kb-fg-default)" : "2.5px solid transparent",
                 opacity: broken ? 0.22 : isActive ? 1 : isStreaming ? 0.65 : 0.32,
                 cursor: broken ? "not-allowed" : "pointer",
                 display: "flex",
@@ -554,18 +543,7 @@ function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
   return (
     <aside className="sidebar">
       <div className="brand">
-        <svg className="brand-logo" viewBox="0 0 32 32" aria-hidden>
-          <defs>
-            <linearGradient id="kb-g" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stopColor="#22d3ee" />
-              <stop offset="100%" stopColor="#41c98e" />
-            </linearGradient>
-          </defs>
-          <rect width="32" height="32" rx="9" fill="url(#kb-g)" />
-          <circle cx="16" cy="14.5" r="5.4" fill="none" stroke="#fff" strokeWidth="2" />
-          <path d="M7.5 22.5c2.6 2.3 5.4 3.4 8.5 3.4s5.9-1.1 8.5-3.4" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
-          <path d="M16 9v11M10 13.5h12" stroke="#fff" strokeWidth="2" strokeLinecap="round" opacity=".85" />
-        </svg>
+        <KubebayMark className="brand-logo" />
         <div className="brand-info">
           <span className="brand-name">Kubebay</span>
           {activeCluster && (
@@ -641,13 +619,13 @@ function NotFound() {
   const navigate = useNavigate();
   return (
     <div className="page">
-      <div className="empty-state">
+      <EmptyState>
         <p>This page doesn't exist.</p>
         <p className="muted small">The link may be out of date — try Home or search with ⌘K.</p>
         <button className="ns-clear" style={{ marginTop: 12 }} onClick={() => navigate("/")}>
           Go home
         </button>
-      </div>
+      </EmptyState>
     </div>
   );
 }

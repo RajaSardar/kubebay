@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Badge, Button, Card } from "@kubebay/ui";
+import { Badge, Button, Card, EmptyState } from "@kubebay/ui";
 import { formatCpuMillis, formatMemBytes } from "../lib/rightsizing";
 import type { NodePoolRow } from "../lib/karpenter";
 import { NodePoolEditor } from "./NodePoolEditor";
@@ -31,9 +31,9 @@ export function NodePoolSummary({
 
   if (rows.length === 0) {
     return (
-      <div className="empty-state">
+      <EmptyState>
         <p>No NodePools found.</p>
-      </div>
+      </EmptyState>
     );
   }
 

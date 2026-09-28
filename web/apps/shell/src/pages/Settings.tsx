@@ -76,8 +76,7 @@ function KubeconfigSources() {
         <div key={p} className="rbac-subject" style={{ marginBottom: 6 }}>
           <span className="mono small" style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis" }}>{p}</span>
           <Button
-            variant="ghost"
-            className="kb-btn-danger-ghost"
+            variant="danger-ghost"
             onClick={() => void persist(extras.filter((x) => x !== p))}
           >
             Remove

@@ -77,7 +77,7 @@ export function TokenGate({ children }: { children: ReactNode }) {
           aria-label="session token"
         />
         {error && <p className="token-gate-error">{error}</p>}
-        <Button disabled={busy || !value.trim()}>{busy ? "Checking…" : "Connect"}</Button>
+        <Button type="submit" disabled={busy || !value.trim()}>{busy ? "Checking…" : "Connect"}</Button>
       </form>
     </div>
   );

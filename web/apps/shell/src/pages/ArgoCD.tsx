@@ -1,6 +1,6 @@
 import { Fragment, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArmedButton, PageHeader, Skeleton } from "@kubebay/ui";
+import { ArmedButton, Button, EmptyState, PageHeader, Skeleton, StatusPill, Table, TableRow, TableWrap, type StatusTone } from "@kubebay/ui";
 import { argoCDApi, type ArgoCDApp } from "../lib/api";
 import { useCluster } from "../lib/useCluster";
 import { ArgoDriftList } from "../components/ArgoDriftList";
@@ -11,55 +11,23 @@ import { driftCount } from "../lib/argoDrift";
 type SyncState = "Synced" | "OutOfSync" | "Unknown";
 type HealthState = "Healthy" | "Degraded" | "Progressing" | "Suspended" | "Missing" | "Unknown";
 
-function syncColor(status: string): string {
+function syncTone(status: string): StatusTone {
   switch (status as SyncState) {
-    case "Synced":     return "var(--kb-status-ok)";
-    case "OutOfSync":  return "#f59e0b";
-    default:           return "var(--kb-fg-muted)";
+    case "Synced":     return "ok";
+    case "OutOfSync":  return "warn";
+    default:           return "terminated";
   }
 }
 
-function healthColor(status: string): string {
+function healthTone(status: string): StatusTone {
   switch (status as HealthState) {
-    case "Healthy":     return "var(--kb-status-ok)";
-    case "Degraded":    return "var(--kb-status-err)";
-    case "Progressing": return "#3b82f6";
-    case "Suspended":   return "#f59e0b";
-    case "Missing":     return "#f59e0b";
-    default:            return "var(--kb-fg-muted)";
+    case "Healthy":     return "ok";
+    case "Degraded":    return "err";
+    case "Progressing": return "pending";
+    case "Suspended":   return "warn";
+    case "Missing":     return "warn";
+    default:            return "terminated";
   }
-}
-
-function Badge({ label, color }: { label: string; color: string }) {
-  return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 5,
-        padding: "2px 8px",
-        borderRadius: "var(--kb-radius-pill)",
-        fontSize: "var(--kb-text-xs)",
-        fontWeight: 600,
-        background: `${color}22`,
-        color,
-        border: `1px solid ${color}55`,
-        letterSpacing: "0.01em",
-        whiteSpace: "nowrap",
-      }}
-    >
-      <span
-        style={{
-          width: 6,
-          height: 6,
-          borderRadius: "50%",
-          background: color,
-          flexShrink: 0,
-        }}
-      />
-      {label || "Unknown"}
-    </span>
-  );
 }
 
 // ── Time formatter ────────────────────────────────────────────────────────────
@@ -161,14 +129,14 @@ export default function ArgoCD() {
         )}
 
         {isError && (
-          <div className="empty-state">
+          <EmptyState>
             <p style={{ color: "var(--kb-status-err)" }}>Failed to load ArgoCD applications</p>
             <p className="muted small">{error instanceof Error ? error.message : String(error)}</p>
-          </div>
+          </EmptyState>
         )}
 
         {!isLoading && !isError && !installed && (
-          <div className="empty-state">
+          <EmptyState>
             <svg viewBox="0 0 48 48" width="40" height="40" fill="none" style={{ opacity: 0.3, marginBottom: 12 }}>
               <circle cx="24" cy="24" r="20" stroke="currentColor" strokeWidth="2" />
               <path d="M24 4v8M24 36v8M4 24h8M36 24h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
@@ -178,44 +146,30 @@ export default function ArgoCD() {
             <p className="muted small">
               Install ArgoCD to see GitOps Application sync status here.
             </p>
-          </div>
+          </EmptyState>
         )}
 
         {!isLoading && !isError && installed && apps.length === 0 && (
-          <div className="empty-state">
+          <EmptyState>
             <p>No ArgoCD Applications found.</p>
             <p className="muted small">Create an Application resource to manage GitOps deployments.</p>
-          </div>
+          </EmptyState>
         )}
 
         {!isLoading && !isError && installed && apps.length > 0 && (
-          <div style={{ overflowX: "auto" }}>
-            <table
-              style={{
-                width: "100%",
-                borderCollapse: "collapse",
-                fontSize: "var(--kb-text-sm)",
-              }}
-            >
+          <TableWrap>
+            <Table>
               <thead>
-                <tr style={{ borderBottom: "1px solid var(--kb-border-subtle)" }}>
-                  {["Name", "Project", "Repo", "Target", "Sync Status", "Drift", "Health", "Last Sync", "Actions"].map((h) => (
-                    <th
-                      key={h}
-                      style={{
-                        textAlign: "left",
-                        padding: "8px 10px",
-                        fontWeight: 600,
-                        color: "var(--kb-fg-muted)",
-                        fontSize: "var(--kb-text-xs)",
-                        textTransform: "uppercase",
-                        letterSpacing: "0.04em",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {h}
-                    </th>
-                  ))}
+                <tr>
+                  <th>Name</th>
+                  <th style={{ width: 110 }}>Project</th>
+                  <th>Repo</th>
+                  <th style={{ width: 100 }}>Target</th>
+                  <th style={{ width: 110 }}>Sync status</th>
+                  <th style={{ width: 120 }}>Drift</th>
+                  <th style={{ width: 110 }}>Health</th>
+                  <th style={{ width: 150 }}>Last sync</th>
+                  <th style={{ width: 110 }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -224,87 +178,50 @@ export default function ArgoCD() {
                   const drift = driftCount(app.resources);
                   const isOpen = expanded.has(key);
                   return (
-                  <Fragment key={key}>
-                  <tr
-                    style={{
-                      borderBottom: isOpen ? "none" : "1px solid var(--kb-border-subtle)",
-                      transition: "background 120ms",
-                    }}
-                    onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLTableRowElement).style.background = "var(--kb-bg-hover)";
-                    }}
-                    onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLTableRowElement).style.background = "";
-                    }}
-                  >
-                    <td style={{ padding: "9px 10px", fontWeight: 600 }}>
-                      <div>{app.name}</div>
-                      {app.namespace && (
-                        <div style={{ fontSize: "var(--kb-text-2xs)", color: "var(--kb-fg-muted)", marginTop: 1 }}>
-                          {app.namespace}
-                        </div>
+                    <Fragment key={key}>
+                      <TableRow selected={isOpen}>
+                        <td className="td-name" title={app.name}>
+                          <div>{app.name}</div>
+                          {app.namespace && <div className="muted small mono">{app.namespace}</div>}
+                        </td>
+                        <td className="cell-secondary">{app.project || "–"}</td>
+                        <td className="cell-secondary" title={app.repoURL}>
+                          {app.repoURL ? app.repoURL.replace(/^https?:\/\//, "").replace(/\.git$/, "") : "–"}
+                        </td>
+                        <td className="mono cell-secondary">{app.targetRevision || "HEAD"}</td>
+                        <td>
+                          <StatusPill tone={syncTone(app.syncStatus)}>{app.syncStatus || "Unknown"}</StatusPill>
+                        </td>
+                        <td>
+                          {app.resources.length === 0 ? (
+                            <span className="muted small">–</span>
+                          ) : (
+                            <Button variant="ghost" onClick={() => toggleExpanded(key)} aria-expanded={isOpen}>
+                              {drift > 0 ? `${drift} drifted` : "in sync"} {isOpen ? "▲" : "▼"}
+                            </Button>
+                          )}
+                        </td>
+                        <td>
+                          <StatusPill tone={healthTone(app.healthStatus)}>{app.healthStatus || "Unknown"}</StatusPill>
+                        </td>
+                        <td className="cell-secondary">{fmtTime(app.lastSyncTime)}</td>
+                        <td>
+                          <SyncButton cluster={cluster} app={app} />
+                        </td>
+                      </TableRow>
+                      {isOpen && (
+                        <tr>
+                          <td colSpan={9} style={{ maxWidth: "none", whiteSpace: "normal", background: "var(--kb-bg-inset)" }}>
+                            <ArgoDriftList resources={app.resources} />
+                          </td>
+                        </tr>
                       )}
-                    </td>
-                    <td style={{ padding: "9px 10px", color: "var(--kb-fg-muted)" }}>
-                      {app.project || "–"}
-                    </td>
-                    <td
-                      style={{
-                        padding: "9px 10px",
-                        maxWidth: 180,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                        color: "var(--kb-fg-muted)",
-                      }}
-                      title={app.repoURL}
-                    >
-                      {app.repoURL
-                        ? app.repoURL.replace(/^https?:\/\//, "").replace(/\.git$/, "")
-                        : "–"}
-                    </td>
-                    <td style={{ padding: "9px 10px", color: "var(--kb-fg-muted)", fontFamily: "var(--kb-font-mono, monospace)", fontSize: "var(--kb-text-xs)" }}>
-                      {app.targetRevision || "HEAD"}
-                    </td>
-                    <td style={{ padding: "9px 10px" }}>
-                      <Badge label={app.syncStatus} color={syncColor(app.syncStatus)} />
-                    </td>
-                    <td style={{ padding: "9px 10px" }}>
-                      {app.resources.length === 0 ? (
-                        <span className="muted small">–</span>
-                      ) : (
-                        <button
-                          className="kb-btn kb-btn-ghost"
-                          style={{ padding: "2px 8px", fontSize: "var(--kb-text-xs)" }}
-                          onClick={() => toggleExpanded(key)}
-                        >
-                          {drift > 0 ? `${drift} drifted` : "in sync"} {isOpen ? "▲" : "▼"}
-                        </button>
-                      )}
-                    </td>
-                    <td style={{ padding: "9px 10px" }}>
-                      <Badge label={app.healthStatus} color={healthColor(app.healthStatus)} />
-                    </td>
-                    <td style={{ padding: "9px 10px", color: "var(--kb-fg-muted)", whiteSpace: "nowrap" }}>
-                      {fmtTime(app.lastSyncTime)}
-                    </td>
-                    <td style={{ padding: "9px 10px" }}>
-                      <SyncButton cluster={cluster} app={app} />
-                    </td>
-                  </tr>
-                  {isOpen && (
-                    <tr key={`${key}-drift`} style={{ borderBottom: "1px solid var(--kb-border-subtle)" }}>
-                      <td colSpan={9} style={{ padding: "0 10px 12px", background: "var(--kb-bg-inset)" }}>
-                        <ArgoDriftList resources={app.resources} />
-                      </td>
-                    </tr>
-                  )}
-                  </Fragment>
+                    </Fragment>
                   );
                 })}
               </tbody>
-            </table>
-          </div>
+            </Table>
+          </TableWrap>
         )}
       </div>
     </div>

@@ -34,4 +34,12 @@ describe("PolicyRejectionCard", () => {
     render(<PolicyRejectionCard rejection={{ engine: "kyverno", webhook: "x", message: "blocked" }} />);
     expect(screen.queryByRole("list")).toBeNull();
   });
+
+  it("is a design-system error banner, flush inside drawers and with the page gutter on pages", () => {
+    const { rerender } = render(<PolicyRejectionCard rejection={{ engine: "kyverno", webhook: "x", message: "blocked" }} />);
+    expect(screen.getByRole("alert")).toHaveClass("inline-banner", "flush");
+    rerender(<PolicyRejectionCard flush={false} rejection={{ engine: "kyverno", webhook: "x", message: "blocked" }} />);
+    expect(screen.getByRole("alert")).toHaveClass("inline-banner");
+    expect(screen.getByRole("alert")).not.toHaveClass("flush");
+  });
 });
