@@ -9,12 +9,12 @@ import {
   type NodeProps,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { Badge, EmptyState, PageHeader, Select } from "@kubebay/ui";
+import { Badge, EmptyState, PageHeader, Select, StatusDot } from "@kubebay/ui";
 import { PageLoader } from "../components/PageLoader";
 import { useCluster } from "../lib/useCluster";
 import { useResourceStream } from "../lib/useResourceStream";
 import { useSingleNamespace } from "../lib/namespace-store";
-import { buildTopology, type Health, type KObj, type TopoNode } from "../lib/topology";
+import { buildTopology, type KObj, type TopoNode } from "../lib/topology";
 import PodPanel from "./PodPanel";
 
 interface FlowData {
@@ -27,7 +27,7 @@ function Shell({ kb }: { kb: TopoNode }) {
       className="topo-card"
       title={kb.detail}
     >
-      <StatusDotDot health={kb.health} />
+      <StatusDot status={kb.health} />
       <div style={{ minWidth: 0 }}>
         <div className="mono strong" style={{ fontSize: "var(--kb-text-xs)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {kb.name}
@@ -38,11 +38,6 @@ function Shell({ kb }: { kb: TopoNode }) {
   );
 }
 
-function StatusDotDot({ health }: { health: Health }) {
-  const color =
-    health === "ok" ? "var(--kb-status-ok)" : health === "err" ? "var(--kb-status-err)" : health === "warn" ? "var(--kb-status-warn)" : "var(--kb-status-pending)";
-  return <span className="kb-dot" style={{ background: color, boxShadow: `0 0 0 3px color-mix(in srgb, ${color} 18%, transparent)` }} />;
-}
 
 function WorkloadNode(props: NodeProps) {
   const { kb } = props.data as unknown as FlowData;

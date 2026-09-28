@@ -22,8 +22,9 @@ first. Tick an item when its PR merges.
 ## Phase 2: themed surfaces that ignore the theme
 
 - [ ] Monaco uses `hc-black`/`hc-light` in the HC themes.
-- [ ] Chart tokens `--kb-chart-1…5` in all 12 themes; `PodGraphs` and the
-      Topology status dots read them instead of hex literals.
+- [ ] Chart tokens `--kb-chart-1…5` in all 12 themes and `chartColor(i)`;
+      `PodGraphs` uses them instead of hex literals. Topology and RBAC status
+      dots use `StatusDot`.
 - [ ] Contrast test covers status colours on raised and inset grounds and the
       chart series.
 

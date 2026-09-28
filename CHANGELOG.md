@@ -31,6 +31,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 - Light-theme users no longer see a dark frame on launch: the saved theme is applied before first paint
 - Text inputs and selects have a visible edge in every theme (3:1, WCAG 1.4.11) via a new `--kb-border-control` token; before, it measured 1.1–1.8:1
 - Focus rings, selected rows and status dots stay visible in Windows High Contrast (forced colours)
+- Pod history graphs use the theme's chart colours (`--kb-chart-1…5`, 3:1 on every ground) instead of one fixed palette for all 12 themes
+- In Dawn and VS Code Light, the ok, warn and error colours now read at 4.5:1 on inset fields too
+- Code editors use Monaco's high-contrast themes in Dawn HC and Dusk HC
 
 ## [0.1.3] — 2026-09-09
 

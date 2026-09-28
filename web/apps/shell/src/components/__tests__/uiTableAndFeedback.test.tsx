@@ -225,3 +225,27 @@ describe("InlineBanner flush", () => {
     expect(container.firstChild).toHaveClass("inline-banner", "flush");
   });
 });
+
+describe("chartColor", () => {
+  it("cycles through the five theme chart tokens", async () => {
+    const { chartColor } = await import("@kubebay/ui");
+    expect([0, 1, 4, 5, 7].map(chartColor)).toEqual([
+      "var(--kb-chart-1)", "var(--kb-chart-2)", "var(--kb-chart-5)", "var(--kb-chart-1)", "var(--kb-chart-3)",
+    ]);
+  });
+});
+
+describe("StatusDot tones", () => {
+  it("takes the ok, warn and err tones as well as connection states", async () => {
+    const { StatusDot } = await import("@kubebay/ui");
+    const { container } = render(
+      <>
+        <StatusDot status="ok" />
+        <StatusDot status="warn" />
+        <StatusDot status="err" />
+      </>,
+    );
+    const bg = [...container.querySelectorAll(".kb-dot")].map((d) => (d as HTMLElement).style.background);
+    expect(bg).toEqual(["var(--kb-status-ok)", "var(--kb-status-warn)", "var(--kb-status-err)"]);
+  });
+});

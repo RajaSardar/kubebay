@@ -56,8 +56,16 @@ const LIGHT_THEMES = new Set<ThemeName>(["dawn", "dawn-hc", "vscode-light", "git
  * Monaco ships its own themes, so an editor does not follow our CSS variables.
  * Pick the matching built-in instead of hardcoding one.
  */
-export function useMonacoTheme(): "vs" | "vs-dark" {
-  return LIGHT_THEMES.has(useTheme((s) => s.resolved)) ? "vs" : "vs-dark";
+export type MonacoTheme = "vs" | "vs-dark" | "hc-black" | "hc-light";
+
+export function monacoThemeFor(t: Exclude<ThemeName, "system">): MonacoTheme {
+  if (t === "dusk-hc") return "hc-black";
+  if (t === "dawn-hc") return "hc-light";
+  return LIGHT_THEMES.has(t) ? "vs" : "vs-dark";
+}
+
+export function useMonacoTheme(): MonacoTheme {
+  return monacoThemeFor(useTheme((s) => s.resolved));
 }
 
 if (typeof window !== "undefined") {
