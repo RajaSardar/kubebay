@@ -33,6 +33,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 - Light-theme users no longer see a dark frame on launch: the saved theme is applied before first paint
 - Text inputs and selects have a visible edge in every theme (3:1, WCAG 1.4.11) via a new `--kb-border-control` token; before, it measured 1.1–1.8:1
 - Focus rings, selected rows and status dots stay visible in Windows High Contrast (forced colours)
+- **Full design-system audit across all 12 themes** (every component rendered and measured, plus the cluster catalog and Settings in the running app):
+  - Table loading states drew nothing: skeleton blocks were inline spans with no size inside table cells. They are now visible blocks on every ground
+  - Pill, badge, active-segment and palette text fell below 4.5:1 on canvas, raised and inset grounds and on selected rows in up to nine themes. Tints are lighter, pill text is adjusted per theme, and Dawn, VS Code Light+, GitHub Light and Nord have a slightly deeper accent
+  - Cluster avatars: the AWS preset (`#F90`) and unknown clusters showed white labels on light colours (1.9:1); inactive clusters in the strip were faded to 32%, taking labels to 1.3:1. Labels pick their colour correctly and inactive avatars are desaturated instead of faded
+  - The active theme card hid its keyboard focus ring; a namespace pill on a selected row stacked a second tint; the palette's "syncing…" faded to unreadable
+  - Dracula's muted text was the accent purple (looked like links); Nord's error was a pale rose indistinguishable from its success and warning; VS Code Dark+ warning sat 17° from its error
 - The cluster icon picker opened half off-screen and under the sidebar: the translucent cluster strip trapped its fixed position. Modals now render into the page body
 - Text that was unreadable in light themes: the CRD "ns" badge, the Normal event badge, the active CRD tree row and the active favourite used the white on-accent label colour on a pale tint; they now use the accent. A contrast test stops it recurring
 - Pod history graphs use the theme's chart colours (`--kb-chart-1…5`, 3:1 on every ground) instead of one fixed palette for all 12 themes

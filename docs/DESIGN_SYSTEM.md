@@ -59,10 +59,18 @@ https://claude.ai/artifact/J35D45QQ7X6Sgd7mwfRSnF
    `styles.css`. A later `app.css` rule silently overrides the design system;
    that is how ghost and danger buttons drifted before this was enforced.
 5. **Every theme must stay readable.** Text reads at 4.5:1 or better on every
-   ground in every theme (7:1 in Dawn HC and Dusk HC), status pills and labels
-   on fills reach 4.5:1, and focus rings are solid and at least 3:1. Adding or
-   changing a colour means updating all 12 theme blocks; the contrast test
-   computes the ratios from `tokens.css`.
+   ground in every theme (body and muted text 7:1 in Dawn HC and Dusk HC, also
+   on a selected row), status pills and labels on fills reach 4.5:1, and focus
+   rings are solid and at least 3:1. Tinted fills (pills, badges, the active
+   segment, the active palette item) keep their text at 4.5:1 on every ground
+   they can sit on: canvas, surface, raised, inset and a selected row. Ok,
+   warn and err stay saturated and at least 25° of hue apart, and muted text
+   never takes the accent's hue. Clickable things are never faded to show a
+   state; desaturate instead. Adding or changing a colour means updating all
+   12 theme blocks; the contrast test computes the ratios from `tokens.css`.
+   Token pairs are not the whole story: before a design-system change merges,
+   render every component in all 12 themes and measure each text run against
+   its real composited background.
 6. **Labels on fills use their on-colour token**: `--kb-accent-fg` on
    `--kb-accent`, `--kb-on-danger` on `--kb-status-err`. Never `#fff`. The
    on-colour tokens are for solid fills only: on a tint such as
