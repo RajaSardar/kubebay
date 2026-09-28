@@ -99,10 +99,10 @@ All run with `pnpm --filter @kubebay/shell test`:
   `styles.css`; `app.css` never names a package class; `app.css` has no colour
   literals; Settings swatches match their themes.
 - `src/__tests__/themeContrast.test.ts`: WCAG contrast for every theme.
+- `src/components/__tests__/ui*.test.tsx`: behaviour of each component.
 - `src/__tests__/brandAssets.test.ts`: every favicon, app icon and website
   logo uses the mark's gradient, and the website takes its colours from
   `tokens.css`.
-- `src/components/__tests__/ui*.test.tsx`: behaviour of each component.
 
 ## Changing the system
 
