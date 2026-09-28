@@ -103,6 +103,13 @@
   --kb-glow-a: rgba(50, 173, 230, 0.04);
   --kb-glow-b: rgba(48, 209, 88,  0.03);
   --kb-theme-color: #161617;
+
+  /* Chart series: 3:1 on every ground, hues at least 20° apart */
+  --kb-chart-1: #32ade6;
+  --kb-chart-2: #30d158;
+  --kb-chart-3: #ff9f0a;
+  --kb-chart-4: #bf5af2;
+  --kb-chart-5: #e87db3;
 }
 
 /* ── Dawn (light — macOS light mode) ────────────────────────────────────────── */
@@ -130,17 +137,17 @@
   --kb-accent-fg:     #ffffff;
   --kb-on-danger: #ffffff;
 
-  --kb-status-ok:         #1d7a3a;
-  --kb-status-warn:       #ab5600;
+  --kb-status-ok:         #1b7236;
+  --kb-status-warn:       #9c4e00;
   --kb-status-err:        #c41230;
   --kb-status-pending:    #0065c9;
   --kb-status-info:       #0065c9;
   --kb-status-terminated: #8e8e93;
 
-  --kb-status-ok-subtle:      color-mix(in srgb, #1d7a3a 10%, transparent);
-  --kb-status-ok-fg:          #1d7a3a;
-  --kb-status-warn-subtle:    color-mix(in srgb, #ab5600 10%, transparent);
-  --kb-status-warn-fg:        #ab5600;
+  --kb-status-ok-subtle:      color-mix(in srgb, #1b7236 10%, transparent);
+  --kb-status-ok-fg:          #1b7236;
+  --kb-status-warn-subtle:    color-mix(in srgb, #9c4e00 10%, transparent);
+  --kb-status-warn-fg:        #9c4e00;
   --kb-status-err-subtle:     color-mix(in srgb, #c41230 10%, transparent);
   --kb-status-err-fg:         #c41230;
   --kb-status-pending-subtle: color-mix(in srgb, #0065c9 10%, transparent);
@@ -161,6 +168,13 @@
   --kb-glow-a: transparent;
   --kb-glow-b: transparent;
   --kb-theme-color: #f2f2f7;
+
+  /* Chart series: 3:1 on every ground, hues at least 20° apart */
+  --kb-chart-1: #0065c9;
+  --kb-chart-2: #1b7236;
+  --kb-chart-3: #9c4e00;
+  --kb-chart-4: #8944ab;
+  --kb-chart-5: #ad1f66;
 }
 
 /* ── Dusk HC ──────────────────────────────────────────────────────────────── */
@@ -219,6 +233,13 @@
   --kb-glow-a: transparent;
   --kb-glow-b: transparent;
   --kb-theme-color: #000000;
+
+  /* Chart series: 3:1 on every ground, hues at least 20° apart */
+  --kb-chart-1: #40c8e0;
+  --kb-chart-2: #30d158;
+  --kb-chart-3: #ffb340;
+  --kb-chart-4: #da8fff;
+  --kb-chart-5: #e87db2;
 }
 
 /* ── Dawn HC ──────────────────────────────────────────────────────────────── */
@@ -277,6 +298,13 @@
   --kb-glow-a: transparent;
   --kb-glow-b: transparent;
   --kb-theme-color: #ffffff;
+
+  /* Chart series: 3:1 on every ground, hues at least 20° apart */
+  --kb-chart-1: #004e9b;
+  --kb-chart-2: #006638;
+  --kb-chart-3: #7a4d00;
+  --kb-chart-4: #6a1b9a;
+  --kb-chart-5: #ad1f6c;
 }
 
 /* ── VS Code Dark+ ────────────────────────────────────────────────────── */
@@ -335,6 +363,13 @@
   --kb-glow-a: transparent;
   --kb-glow-b: transparent;
   --kb-theme-color: #1e1e1e;
+
+  /* Chart series: 3:1 on every ground, hues at least 20° apart */
+  --kb-chart-1: #31a6ff;
+  --kb-chart-2: #4ec9b0;
+  --kb-chart-3: #ce9178;
+  --kb-chart-4: #c586c0;
+  --kb-chart-5: #e87d86;
 }
 
 /* ── VS Code Light+ ───────────────────────────────────────────────────── */
@@ -362,19 +397,19 @@
   --kb-accent-fg:     #ffffff;
   --kb-on-danger: #ffffff;
 
-  --kb-status-ok:         #007e00;
+  --kb-status-ok:         #007900;
   --kb-status-warn:       #795e00;
-  --kb-status-err:        #d51300;
+  --kb-status-err:        #d01300;
   --kb-status-pending:    #006cc0;
   --kb-status-info:       #006cc0;
   --kb-status-terminated: #939393;
 
-  --kb-status-ok-subtle:      color-mix(in srgb, #007e00 10%, transparent);
-  --kb-status-ok-fg:          #007e00;
+  --kb-status-ok-subtle:      color-mix(in srgb, #007900 10%, transparent);
+  --kb-status-ok-fg:          #007900;
   --kb-status-warn-subtle:    color-mix(in srgb, #795e00 10%, transparent);
   --kb-status-warn-fg:        #795e00;
-  --kb-status-err-subtle:     color-mix(in srgb, #d51300 10%, transparent);
-  --kb-status-err-fg:         #d51300;
+  --kb-status-err-subtle:     color-mix(in srgb, #d01300 10%, transparent);
+  --kb-status-err-fg:         #d01300;
   --kb-status-pending-subtle: color-mix(in srgb, #006cc0 10%, transparent);
   --kb-status-pending-fg:     #006cc0;
 
@@ -393,6 +428,13 @@
   --kb-glow-a: transparent;
   --kb-glow-b: transparent;
   --kb-theme-color: #f3f3f3;
+
+  /* Chart series: 3:1 on every ground, hues at least 20° apart */
+  --kb-chart-1: #006cc0;
+  --kb-chart-2: #007900;
+  --kb-chart-3: #795e00;
+  --kb-chart-4: #af00db;
+  --kb-chart-5: #ad1f53;
 }
 
 /* ── One Dark Pro ─────────────────────────────────────────────────────── */
@@ -451,6 +493,13 @@
   --kb-glow-a: transparent;
   --kb-glow-b: transparent;
   --kb-theme-color: #282c34;
+
+  /* Chart series: 3:1 on every ground, hues at least 20° apart */
+  --kb-chart-1: #61afef;
+  --kb-chart-2: #98c379;
+  --kb-chart-3: #e5c07b;
+  --kb-chart-4: #c678dd;
+  --kb-chart-5: #e87da7;
 }
 
 /* ── Dracula ──────────────────────────────────────────────────────────── */
@@ -509,6 +558,13 @@
   --kb-glow-a: rgba(189, 147, 249, 0.04);
   --kb-glow-b: rgba(80, 250, 123, 0.03);
   --kb-theme-color: #282a36;
+
+  /* Chart series: 3:1 on every ground, hues at least 20° apart */
+  --kb-chart-1: #bd93f9;
+  --kb-chart-2: #50fa7b;
+  --kb-chart-3: #ffb86c;
+  --kb-chart-4: #8be9fd;
+  --kb-chart-5: #7e7de8;
 }
 
 /* ── Nord ─────────────────────────────────────────────────────────────── */
@@ -567,6 +623,13 @@
   --kb-glow-a: transparent;
   --kb-glow-b: transparent;
   --kb-theme-color: #2e3440;
+
+  /* Chart series: 3:1 on every ground, hues at least 20° apart */
+  --kb-chart-1: #aad2dd;
+  --kb-chart-2: #bbcfaa;
+  --kb-chart-3: #ebcb8b;
+  --kb-chart-4: #b691af;
+  --kb-chart-5: #e87f7d;
 }
 
 /* ── GitHub Dark ──────────────────────────────────────────────────────── */
@@ -625,6 +688,13 @@
   --kb-glow-a: rgba(88, 166, 255, 0.03);
   --kb-glow-b: rgba(63, 185, 80, 0.02);
   --kb-theme-color: #0d1117;
+
+  /* Chart series: 3:1 on every ground, hues at least 20° apart */
+  --kb-chart-1: #58a6ff;
+  --kb-chart-2: #3fb950;
+  --kb-chart-3: #d29922;
+  --kb-chart-4: #bc8cff;
+  --kb-chart-5: #e87dcd;
 }
 
 /* ── GitHub Light ─────────────────────────────────────────────────────── */
@@ -683,6 +753,13 @@
   --kb-glow-a: transparent;
   --kb-glow-b: transparent;
   --kb-theme-color: #f6f8fa;
+
+  /* Chart series: 3:1 on every ground, hues at least 20° apart */
+  --kb-chart-1: #0969da;
+  --kb-chart-2: #1a7d36;
+  --kb-chart-3: #946300;
+  --kb-chart-4: #8250df;
+  --kb-chart-5: #ad1f93;
 }
 
 /* ── Catppuccin Mocha ─────────────────────────────────────────────────── */
@@ -741,4 +818,11 @@
   --kb-glow-a: rgba(203, 166, 247, 0.04);
   --kb-glow-b: rgba(166, 227, 161, 0.03);
   --kb-theme-color: #1e1e2e;
+
+  /* Chart series: 3:1 on every ground, hues at least 20° apart */
+  --kb-chart-1: #cba6f7;
+  --kb-chart-2: #a6e3a1;
+  --kb-chart-3: #fab387;
+  --kb-chart-4: #89dceb;
+  --kb-chart-5: #7d7ee8;
 }
