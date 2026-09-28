@@ -88,6 +88,8 @@ export function extraColumns(
       },
       "Instance type": (o) => ({ v: str((rec(o.metadata).labels as Record<string, unknown> | undefined)?.["node.kubernetes.io/instance-type"]) || "–" }),
       Zone: (o) => ({ v: str((rec(o.metadata).labels as Record<string, unknown> | undefined)?.["topology.kubernetes.io/zone"]) || "–" }),
+      NodePool: (o) => ({ v: str((rec(o.metadata).labels as Record<string, unknown> | undefined)?.["karpenter.sh/nodepool"]) || "–" }),
+      "Capacity type": (o) => ({ v: str((rec(o.metadata).labels as Record<string, unknown> | undefined)?.["karpenter.sh/capacity-type"]) || "–" }),
       Pods: (o) => ({ v: podCounts ? String(podCounts.get(str(rec(o.metadata).name)) ?? 0) : "–" }),
       Capacity: (o) => {
         const cap = rec(o.status).capacity;

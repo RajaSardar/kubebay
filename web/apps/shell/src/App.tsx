@@ -14,7 +14,9 @@ import {
   IconHelm,
   IconHome,
   IconNetwork,
+  IconLayers,
   IconPlus,
+  IconRefresh,
   IconSearch,
   IconShield,
   IconSliders,
@@ -47,6 +49,10 @@ const ArgoCD = lazy(() => import("./pages/ArgoCD"));
 const TerminalPage = lazy(() => import("./pages/TerminalPage"));
 const CreateResource = lazy(() => import("./pages/CreateResource"));
 const AuditLog = lazy(() => import("./pages/AuditLog"));
+const RightSizing = lazy(() => import("./pages/RightSizing"));
+const CostWaste = lazy(() => import("./pages/CostWaste"));
+const Karpenter = lazy(() => import("./pages/Karpenter"));
+const Flux = lazy(() => import("./pages/Flux"));
 import { Palette } from "./components/Palette";
 import { discoveryApi } from "./lib/api";
 import { KNOWN_GVRS, extSlug } from "./lib/resources";
@@ -187,7 +193,11 @@ const TOOLS = [
   { to: "/ports", label: "Ports", icon: <IconForward /> },
   { to: "/helm", label: "Helm", icon: <IconHelm /> },
   { to: "/argocd", label: "ArgoCD", icon: <IconArgoCD /> },
+  { to: "/flux", label: "Flux", icon: <IconRefresh /> },
   { to: "/rbac", label: "RBAC", icon: <IconShield /> },
+  { to: "/right-sizing", label: "Right-sizing", icon: <IconLayers /> },
+  { to: "/cost-waste", label: "Cost / Waste", icon: <IconDatabase /> },
+  { to: "/karpenter", label: "Karpenter", icon: <IconTopology /> },
   { to: "/audit", label: "Audit Log", icon: <IconTimeline /> },
   { to: "/timeline", label: "Timeline", icon: <IconTimeline /> },
   { to: "/topology", label: "Topology", icon: <IconTopology /> },
@@ -742,8 +752,12 @@ function AppInner() {
               <Route path="/timeline" element={<Timeline />} />
               <Route path="/topology" element={<Topology />} />
               <Route path="/rbac" element={<Rbac />} />
+              <Route path="/right-sizing" element={<RightSizing />} />
+              <Route path="/cost-waste" element={<CostWaste />} />
+              <Route path="/karpenter" element={<Karpenter />} />
               <Route path="/helm" element={<Helm />} />
               <Route path="/argocd" element={<ArgoCD />} />
+              <Route path="/flux" element={<Flux />} />
               <Route path="/crds" element={<Crds />} />
               <Route path="/network-policy" element={<NetworkPolicy />} />
               <Route path="/terminal" element={<TerminalPage />} />

@@ -7,6 +7,10 @@ import { ActionsBar } from "./ActionsBar";
 import { NodeSummary } from "./NodeSummary";
 import { ServiceSummary } from "./ServiceSummary";
 import { MetadataSummary } from "./MetadataSummary";
+import { RolloutProgress } from "./RolloutProgress";
+import { AutoscalingTab } from "./AutoscalingTab";
+import { PolicyFindingsTab } from "./PolicyFindingsTab";
+import { RightSizingBanner } from "./RightSizingBanner";
 import type { ResourceDef } from "../lib/resources";
 import { ownerOf } from "../lib/gitops";
 
@@ -14,7 +18,14 @@ import { ownerOf } from "../lib/gitops";
 type NodeTab = "summary" | "shell" | "yaml";
 type SvcTab = "summary" | "yaml";
 type PodTab = "yaml" | "events" | "terminal";
-type GenTab = "summary" | "yaml" | "events";
+type GenTab = "summary" | "rollout" | "autoscaling" | "policy" | "yaml" | "events";
+
+// KEDA ScaledObjects, HPAs, and VPAs can all target these kinds — every
+// other generic kind (ConfigMap, Secret, …) has nothing to autoscale.
+const AUTOSCALABLE_SLUGS = new Set(["deployments", "statefulsets"]);
+// The right-sizing recommender (VPA + Kubebay's own) only covers these three
+// kinds — see lib/rightsizing.ts's SUPPORTED_KINDS.
+const RIGHTSIZABLE_SLUGS = new Set(["deployments", "statefulsets", "daemonsets"]);
 
 // ── Split-pane drag handle ────────────────────────────────────────────────────
 function SplitDivider({
@@ -160,7 +171,26 @@ function PaneContent({
   }
   if (!isNode && !isService && !isPod && genTab === "summary") {
     if (objLoading) return <div className="muted small" style={{ padding: 14 }}>Loading…</div>;
-    return <MetadataSummary obj={obj} />;
+    return (
+      <div>
+        {RIGHTSIZABLE_SLUGS.has(def.slug) && (
+          <div style={{ padding: "14px 14px 0" }}>
+            <RightSizingBanner cluster={cluster} ns={ns} name={name} kind={def.kind} />
+          </div>
+        )}
+        <MetadataSummary obj={obj} />
+      </div>
+    );
+  }
+  if (!isNode && !isService && !isPod && genTab === "rollout") {
+    if (objLoading) return <div className="muted small" style={{ padding: 14 }}>Loading…</div>;
+    return <RolloutProgress cluster={cluster} namespace={ns} obj={obj} />;
+  }
+  if (!isNode && !isService && !isPod && genTab === "autoscaling") {
+    return <AutoscalingTab cluster={cluster} ns={ns} name={name} kind={def.kind} />;
+  }
+  if (!isNode && !isService && !isPod && genTab === "policy") {
+    return <PolicyFindingsTab cluster={cluster} ns={ns} name={name} kind={def.kind} />;
   }
   if ((isNode && nodeTab === "yaml") || (isService && svcTab === "yaml") || (isPod && podTab === "yaml") || (!isNode && !isService && !isPod && genTab === "yaml")) {
     return (
@@ -390,7 +420,20 @@ export default function GenericDrawer({
   const nodeTabLabels: Record<NodeTab, string> = { summary: "Summary", shell: "Terminal", yaml: "YAML" };
   const svcTabLabels: Record<SvcTab, string> = { summary: "Summary", yaml: "YAML" };
   const podTabLabels: Record<PodTab, string> = { yaml: "YAML", events: "Events", terminal: "Terminal" };
-  const genTabLabels: Record<GenTab, string> = { summary: "Summary", yaml: "YAML", events: "Events" };
+  const genTabLabels: Record<GenTab, string> = { summary: "Summary", rollout: "Rollout", autoscaling: "Autoscaling", policy: "Policy", yaml: "YAML", events: "Events" };
+  // Rollout progress only makes sense for Deployments (old-RS-vs-new-RS
+  // replica counts); Autoscaling only for kinds an HPA/VPA/ScaledObject can
+  // target. Policy findings apply to any resource except a PolicyReport
+  // itself (findings about findings would be circular). Every other
+  // generic kind keeps the plain three tabs.
+  const genTabs: GenTab[] = [
+    "summary",
+    ...(def.slug === "deployments" ? (["rollout"] as const) : []),
+    ...(AUTOSCALABLE_SLUGS.has(def.slug) ? (["autoscaling"] as const) : []),
+    ...(def.slug !== "policyreports" && def.slug !== "clusterpolicyreports" ? (["policy"] as const) : []),
+    "yaml",
+    "events",
+  ];
 
   // ── Shared pane content props ────────────────────────────────────────────
   const sharedContentProps = {
@@ -512,7 +555,7 @@ export default function GenericDrawer({
         <Tabs tabs={["yaml", "events", "terminal"] as const} active={podTab} labels={podTabLabels} onChange={setPodTab} />
       )}
       {!split && !isNode && !isService && !isPod && (
-        <Tabs tabs={["summary", "yaml", "events"] as const} active={genTab} labels={genTabLabels} onChange={setGenTab} />
+        <Tabs tabs={genTabs} active={genTab} labels={genTabLabels} onChange={setGenTab} />
       )}
 
       {/* ── Content area ── */}
@@ -547,7 +590,7 @@ export default function GenericDrawer({
             )}
             {!isNode && !isService && !isPod && (
               <PaneTabs
-                tabs={["summary", "yaml", "events"] as const}
+                tabs={genTabs}
                 active={leftGenTab}
                 labels={genTabLabels}
                 onChange={setLeftGenTab}
@@ -595,7 +638,7 @@ export default function GenericDrawer({
             )}
             {!isNode && !isService && !isPod && (
               <PaneTabs
-                tabs={["summary", "yaml", "events"] as const}
+                tabs={genTabs}
                 active={rightGenTab}
                 labels={genTabLabels}
                 onChange={setRightGenTab}

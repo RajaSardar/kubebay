@@ -37,6 +37,20 @@ type ApplyYAMLRequest struct {
 	YAML      string `json:"yaml"`
 	DryRun    bool   `json:"dryRun"`
 	Force     bool   `json:"force"`
+	// Action overrides the audit log's Action field (default "apply") for
+	// callers that apply through this same endpoint for a more specific
+	// purpose, e.g. "rightsize" — never changes what's actually applied.
+	Action string `json:"action,omitempty"`
+}
+
+// auditActionFor names the audit entry for an apply — "apply" by default, or
+// the caller's own override (e.g. "rightsize") when it names a specific,
+// narrower purpose than a raw YAML edit.
+func auditActionFor(req ApplyYAMLRequest) string {
+	if req.Action != "" {
+		return req.Action
+	}
+	return "apply"
 }
 
 func stripNoisyFields(obj map[string]interface{}) {
@@ -187,7 +201,7 @@ func (c *Channels) HandleApplyYAML(w http.ResponseWriter, r *http.Request) {
 		detail += " owner=" + owner
 	}
 	c.Audit.Record(audit.Entry{
-		Action:    "apply",
+		Action:    auditActionFor(req),
 		Cluster:   req.Cluster,
 		Namespace: req.Namespace,
 		Resource:  req.Name,

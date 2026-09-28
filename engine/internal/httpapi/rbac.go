@@ -13,9 +13,11 @@ import (
 )
 
 type Rule struct {
-	Verbs     []string `json:"verbs"`
-	APIGroups []string `json:"apiGroups"`
-	Resources []string `json:"resources"`
+	Verbs           []string `json:"verbs"`
+	APIGroups       []string `json:"apiGroups"`
+	Resources       []string `json:"resources"`
+	ResourceNames   []string `json:"resourceNames,omitempty"`
+	NonResourceURLs []string `json:"nonResourceURLs,omitempty"`
 }
 
 type RoleSummary struct {
@@ -25,16 +27,18 @@ type RoleSummary struct {
 	Rules []Rule `json:"rules"`
 }
 
+type Subject struct {
+	Kind      string `json:"kind"`
+	Name      string `json:"name"`
+	Namespace string `json:"ns,omitempty"`
+}
+
 type BindingSummary struct {
-	Name     string `json:"name"`
-	NS       string `json:"ns,omitempty"`
-	Kind     string `json:"kind"`
-	RoleRef  string `json:"roleRef"`
-	Subjects []struct {
-		Kind      string `json:"kind"`
-		Name      string `json:"name"`
-		Namespace string `json:"ns,omitempty"`
-	} `json:"subjects"`
+	Name     string    `json:"name"`
+	NS       string    `json:"ns,omitempty"`
+	Kind     string    `json:"kind"`
+	RoleRef  string    `json:"roleRef"`
+	Subjects []Subject `json:"subjects"`
 }
 
 type RBACSnapshot struct {
@@ -42,6 +46,7 @@ type RBACSnapshot struct {
 	ClusterRoles        []RoleSummary    `json:"clusterRoles"`
 	RoleBindings        []BindingSummary `json:"roleBindings"`
 	ClusterRoleBindings []BindingSummary `json:"clusterRoleBindings"`
+	Findings            []Finding        `json:"findings"`
 }
 
 type RBAC struct {
@@ -99,6 +104,16 @@ func (rb *RBAC) HandleAll(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("rolebindings: %v", err), http.StatusBadGateway)
 		return
 	}
+	// Used only for the advisor's dangling-ServiceAccount-subject check.
+	// Not fatal if it fails — the rest of the snapshot is still useful, so
+	// that one check is just skipped (existingServiceAccounts stays nil).
+	var existingServiceAccounts map[string]bool
+	if sas, err := cs.CoreV1().ServiceAccounts(metav1.NamespaceAll).List(ctx, metav1.ListOptions{}); err == nil {
+		existingServiceAccounts = make(map[string]bool, len(sas.Items))
+		for _, sa := range sas.Items {
+			existingServiceAccounts[sa.Namespace+"/"+sa.Name] = true
+		}
+	}
 
 	snap := RBACSnapshot{}
 	for _, cr := range crs.Items {
@@ -110,25 +125,18 @@ func (rb *RBAC) HandleAll(w http.ResponseWriter, r *http.Request) {
 	for _, b := range crbs.Items {
 		bb := BindingSummary{Name: b.Name, Kind: "ClusterRoleBinding", RoleRef: b.RoleRef.Kind + ":" + b.RoleRef.Name}
 		for _, s := range b.Subjects {
-			bb.Subjects = append(bb.Subjects, struct {
-				Kind      string `json:"kind"`
-				Name      string `json:"name"`
-				Namespace string `json:"ns,omitempty"`
-			}{s.Kind, s.Name, s.Namespace})
+			bb.Subjects = append(bb.Subjects, Subject{Kind: s.Kind, Name: s.Name, Namespace: s.Namespace})
 		}
 		snap.ClusterRoleBindings = append(snap.ClusterRoleBindings, bb)
 	}
 	for _, b := range rbs.Items {
 		bb := BindingSummary{Name: b.Name, NS: b.Namespace, Kind: "RoleBinding", RoleRef: b.RoleRef.Kind + ":" + b.RoleRef.Name}
 		for _, s := range b.Subjects {
-			bb.Subjects = append(bb.Subjects, struct {
-				Kind      string `json:"kind"`
-				Name      string `json:"name"`
-				Namespace string `json:"ns,omitempty"`
-			}{s.Kind, s.Name, s.Namespace})
+			bb.Subjects = append(bb.Subjects, Subject{Kind: s.Kind, Name: s.Name, Namespace: s.Namespace})
 		}
 		snap.RoleBindings = append(snap.RoleBindings, bb)
 	}
+	snap.Findings = AnalyzeRBAC(snap, existingServiceAccounts)
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(snap)

@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArmedButton, PageHeader, Skeleton } from "@kubebay/ui";
 import { argoCDApi, type ArgoCDApp } from "../lib/api";
 import { useCluster } from "../lib/useCluster";
+import { ArgoDriftList } from "../components/ArgoDriftList";
+import { driftCount } from "../lib/argoDrift";
 
 // ── Status badge helpers ──────────────────────────────────────────────────────
 
@@ -118,6 +120,16 @@ function SyncButton({ cluster, app }: { cluster: string; app: ArgoCDApp }) {
 
 export default function ArgoCD() {
   const { cluster } = useCluster();
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  function toggleExpanded(key: string) {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
 
   const { data, isLoading, isError, error, dataUpdatedAt } = useQuery({
     queryKey: ["argocd-apps", cluster],
@@ -187,7 +199,7 @@ export default function ArgoCD() {
             >
               <thead>
                 <tr style={{ borderBottom: "1px solid var(--kb-border-subtle)" }}>
-                  {["Name", "Project", "Repo", "Target", "Sync Status", "Health", "Last Sync", "Actions"].map((h) => (
+                  {["Name", "Project", "Repo", "Target", "Sync Status", "Drift", "Health", "Last Sync", "Actions"].map((h) => (
                     <th
                       key={h}
                       style={{
@@ -207,11 +219,15 @@ export default function ArgoCD() {
                 </tr>
               </thead>
               <tbody>
-                {apps.map((app) => (
+                {apps.map((app) => {
+                  const key = `${app.namespace}/${app.name}`;
+                  const drift = driftCount(app.resources);
+                  const isOpen = expanded.has(key);
+                  return (
+                  <Fragment key={key}>
                   <tr
-                    key={`${app.namespace}/${app.name}`}
                     style={{
-                      borderBottom: "1px solid var(--kb-border-subtle)",
+                      borderBottom: isOpen ? "none" : "1px solid var(--kb-border-subtle)",
                       transition: "background 120ms",
                     }}
                     onMouseEnter={(e) => {
@@ -254,6 +270,19 @@ export default function ArgoCD() {
                       <Badge label={app.syncStatus} color={syncColor(app.syncStatus)} />
                     </td>
                     <td style={{ padding: "9px 10px" }}>
+                      {app.resources.length === 0 ? (
+                        <span className="muted small">–</span>
+                      ) : (
+                        <button
+                          className="kb-btn kb-btn-ghost"
+                          style={{ padding: "2px 8px", fontSize: "var(--kb-text-xs)" }}
+                          onClick={() => toggleExpanded(key)}
+                        >
+                          {drift > 0 ? `${drift} drifted` : "in sync"} {isOpen ? "▲" : "▼"}
+                        </button>
+                      )}
+                    </td>
+                    <td style={{ padding: "9px 10px" }}>
                       <Badge label={app.healthStatus} color={healthColor(app.healthStatus)} />
                     </td>
                     <td style={{ padding: "9px 10px", color: "var(--kb-fg-muted)", whiteSpace: "nowrap" }}>
@@ -263,7 +292,16 @@ export default function ArgoCD() {
                       <SyncButton cluster={cluster} app={app} />
                     </td>
                   </tr>
-                ))}
+                  {isOpen && (
+                    <tr key={`${key}-drift`} style={{ borderBottom: "1px solid var(--kb-border-subtle)" }}>
+                      <td colSpan={9} style={{ padding: "0 10px 12px", background: "var(--kb-bg-inset)" }}>
+                        <ArgoDriftList resources={app.resources} />
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>

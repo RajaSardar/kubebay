@@ -131,6 +131,7 @@ export const api = {
     name: string;
     container: string;
     resources: { requests?: Record<string, string>; limits?: Record<string, string> };
+    gitopsOwner?: string;
   }) => send<{ ok: boolean }>("POST", "/api/action/resize-pod", b),
 
   getYamlText: async (cluster: string, gvr: string, ns: string, name: string): Promise<string> => {
@@ -159,6 +160,7 @@ async function applyYamlRequest(b: {
   yaml: string;
   dryRun: boolean;
   force: boolean;
+  action?: string;
 }): Promise<{ applied: boolean; dryRun: boolean; resultYaml?: string }> {
   const res = await fetch("/api/yaml", {
     method: "PUT",
@@ -227,11 +229,33 @@ export const actionApi = {
     send<{ ok: boolean }>("POST", "/api/action/suspend-cronjob", b),
 };
 
+export interface RBACRule {
+  verbs: string[];
+  apiGroups: string[];
+  resources: string[];
+  resourceNames?: string[];
+  nonResourceURLs?: string[];
+}
+
+export interface RBACFinding {
+  severity: "high" | "medium";
+  title: string;
+  subject: string;
+  roleRef: string;
+  why: string;
+  rule?: string;
+  suggestion?: string;
+  verb?: string;
+  group?: string;
+  resource?: string;
+}
+
 export interface RBACSnapshot {
-  roles: { name: string; ns?: string; kind: string; rules: { verbs: string[]; apiGroups: string[]; resources: string[] }[] }[];
-  clusterRoles: { name: string; ns?: string; kind: string; rules: { verbs: string[]; apiGroups: string[]; resources: string[] }[] }[];
+  roles: { name: string; ns?: string; kind: string; rules: RBACRule[] }[];
+  clusterRoles: { name: string; ns?: string; kind: string; rules: RBACRule[] }[];
   roleBindings: { name: string; ns?: string; kind: string; roleRef: string; subjects: { kind: string; name: string; ns?: string }[] }[];
   clusterRoleBindings: { name: string; ns?: string; kind: string; roleRef: string; subjects: { kind: string; name: string; ns?: string }[] }[];
+  findings: RBACFinding[];
 }
 
 export const rbacApi = {
@@ -368,6 +392,15 @@ export const settingsApi = {
   save: (b: AppSettings) => send<{ ok: boolean; saved: AppSettings }>("POST", "/api/settings", b),
 };
 
+export interface ArgoCDResource {
+  group: string;
+  kind: string;
+  namespace: string;
+  name: string;
+  status: string;
+  health: string;
+}
+
 export interface ArgoCDApp {
   name: string;
   namespace: string;
@@ -378,6 +411,7 @@ export interface ArgoCDApp {
   healthStatus: string;
   lastSyncTime: string;
   message: string;
+  resources: ArgoCDResource[];
 }
 
 export interface ArgoCDAppsResponse {
@@ -390,6 +424,25 @@ export const argoCDApi = {
     get<ArgoCDAppsResponse>(`/api/argocd/apps?cluster=${encodeURIComponent(cluster)}`),
   sync: (b: { cluster: string; namespace: string; name: string }) =>
     send<{ ok: boolean }>("POST", "/api/argocd/sync", b),
+};
+
+export interface WorkloadWaste {
+  cluster: string;
+  ns: string;
+  kind: string;
+  name: string;
+  podCount: number;
+  requestedCpuMillis: number;
+  requestedMemBytes: number;
+  p95CpuMillis: number;
+  p95MemBytes: number;
+  source: string;
+  window: string;
+}
+
+export const wasteApi = {
+  workloads: (cluster: string) =>
+    get<WorkloadWaste[]>(`/api/waste/workloads?cluster=${encodeURIComponent(cluster)}`),
 };
 
 export const promApi = {

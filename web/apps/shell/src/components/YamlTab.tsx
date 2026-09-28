@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import Editor, { DiffEditor } from "@monaco-editor/react";
-import { Badge, Button } from "@kubebay/ui";
+import { Badge, Button, TextField } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { useMonacoTheme } from "../lib/theme";
 import { ownerWarning, type GitOpsOwner } from "../lib/gitops";
@@ -12,12 +12,22 @@ export function YamlTab({
   ns,
   name,
   gitopsOwner,
+  impactBanner,
+  dangerousChangeCheck,
 }: {
   cluster: string;
   gvr: string;
   ns: string;
   name: string;
   gitopsOwner?: GitOpsOwner | null;
+  /** Optional blast-radius context (e.g. Karpenter's NodePool impact banner) shown above the editor. */
+  impactBanner?: ReactNode;
+  /**
+   * Optional gate: when it finds anything on the current edit, Apply is
+   * disabled until the user types the resource's name to confirm. Dry-run
+   * stays enabled — it never mutates the cluster.
+   */
+  dangerousChangeCheck?: (original: string, modified: string) => { message: string }[];
 }) {
   const monacoTheme = useMonacoTheme();
   const [original, setOriginal] = useState("");
@@ -29,6 +39,7 @@ export function YamlTab({
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [policyRejection, setPolicyRejection] = useState<PolicyRejectionDetail | null>(null);
+  const [confirmText, setConfirmText] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -51,6 +62,8 @@ export function YamlTab({
   }, [load]);
 
   const dirty = modified !== original;
+  const dangerousChanges = dangerousChangeCheck ? dangerousChangeCheck(original, modified) : [];
+  const needsConfirm = dangerousChanges.length > 0 && confirmText.trim() !== name;
 
   // Clear server preview when user keeps editing
   function onEdit(v: string) {
@@ -58,6 +71,7 @@ export function YamlTab({
     setServerPreview(null);
     setMsg(null);
     setPolicyRejection(null);
+    setConfirmText("");
   }
 
   // Discards the in-progress edit and reloads the last-fetched version —
@@ -67,6 +81,7 @@ export function YamlTab({
     setServerPreview(null);
     setMsg(null);
     setPolicyRejection(null);
+    setConfirmText("");
   }
 
   async function apply(dryRun: boolean) {
@@ -169,14 +184,37 @@ export function YamlTab({
           <Button variant="ghost" disabled={busy || !dirty} onClick={() => void apply(true)}>
             Dry-run
           </Button>
-          <Button disabled={busy || !dirty} onClick={() => void apply(false)}>
+          <Button disabled={busy || !dirty || needsConfirm} onClick={() => void apply(false)}>
             Apply
           </Button>
         </div>
       </div>
+      {impactBanner}
       {gitopsOwner && (
         <div className="inline-banner" role="alert">
           {ownerWarning(gitopsOwner)}
+        </div>
+      )}
+      {dirty && dangerousChanges.length > 0 && (
+        <div className="error-banner" role="alert">
+          <div>
+            <strong>This change looks risky</strong>
+          </div>
+          <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
+            {dangerousChanges.map((c, i) => (
+              <li key={i} className="small">{c.message}</li>
+            ))}
+          </ul>
+          <div className="small" style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
+            <Badge tone="err">type name to confirm</Badge>
+            <TextField
+              style={{ maxWidth: 180 }}
+              placeholder={name}
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              spellCheck={false}
+            />
+          </div>
         </div>
       )}
       {policyRejection && (

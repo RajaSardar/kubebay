@@ -247,6 +247,7 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
           namespace={pod.namespace}
           pod={pod.pod}
           containers={pod.containers}
+          podObj={pod.obj}
         />
       ) : tab === "shell" ? (
         <div className="term-wrap">

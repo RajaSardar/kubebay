@@ -72,6 +72,51 @@ describe("YamlTab — revert unsaved edits", () => {
   });
 });
 
+describe("YamlTab — impact banner", () => {
+  it("renders the caller-supplied impact banner", async () => {
+    render(<YamlTab {...props} impactBanner={<div>backs 3 nodes / 12 pods</div>} />);
+    await screen.findByTestId("editor");
+    expect(screen.getByText("backs 3 nodes / 12 pods")).toBeTruthy();
+  });
+
+  it("renders nothing extra when no impact banner is supplied", async () => {
+    render(<YamlTab {...props} />);
+    await screen.findByTestId("editor");
+    expect(screen.queryByText(/backs/)).toBeNull();
+  });
+});
+
+describe("YamlTab — dangerous-change type-to-confirm gate", () => {
+  it("does not gate Apply when dangerousChangeCheck finds nothing", async () => {
+    render(<YamlTab {...props} dangerousChangeCheck={() => []} />);
+    const editor = await screen.findByTestId("editor");
+    fireEvent.click(editor);
+    expect(screen.getByRole("button", { name: /^apply$/i })).not.toBeDisabled();
+  });
+
+  it("disables Apply (but not Dry-run) until the resource name is typed to confirm", async () => {
+    render(
+      <YamlTab
+        {...props}
+        dangerousChangeCheck={() => [{ message: "spec.limits.cpu is shrinking" }]}
+      />,
+    );
+    const editor = await screen.findByTestId("editor");
+    fireEvent.click(editor);
+
+    expect(await screen.findByText(/spec\.limits\.cpu is shrinking/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^apply$/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /dry-run/i })).not.toBeDisabled();
+
+    const confirmInput = screen.getByPlaceholderText(props.name);
+    fireEvent.change(confirmInput, { target: { value: "wrong-name" } });
+    expect(screen.getByRole("button", { name: /^apply$/i })).toBeDisabled();
+
+    fireEvent.change(confirmInput, { target: { value: props.name } });
+    expect(screen.getByRole("button", { name: /^apply$/i })).not.toBeDisabled();
+  });
+});
+
 describe("YamlTab — structured policy rejection", () => {
   it("renders a pre-flight card with the engine, webhook, and message on a policy rejection", async () => {
     vi.mocked(api.applyYaml).mockRejectedValueOnce(

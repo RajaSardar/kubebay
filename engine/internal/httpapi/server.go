@@ -37,6 +37,7 @@ type Deps struct {
 	Settings  *SettingsManager
 	Auth      *Authenticator
 	Audit     *audit.Logger
+	Waste     wasteSnapshotter
 }
 
 func (d Deps) authEnabled() bool { return d.Auth != nil && d.Auth.Enabled() }
@@ -229,11 +230,12 @@ func Router(d Deps, token string) http.Handler {
 		})
 		r.Post("/api/action/resize-pod", func(w http.ResponseWriter, r *http.Request) {
 			var body struct {
-				Cluster   string                 `json:"cluster"`
-				NS        string                 `json:"ns"`
-				Name      string                 `json:"name"`
-				Container string                 `json:"container"`
-				Resources map[string]interface{} `json:"resources"`
+				Cluster     string                 `json:"cluster"`
+				NS          string                 `json:"ns"`
+				Name        string                 `json:"name"`
+				Container   string                 `json:"container"`
+				Resources   map[string]interface{} `json:"resources"`
+				GitOpsOwner string                 `json:"gitopsOwner,omitempty"`
 			}
 			if err := decodeBody(r, &body); err != nil || body.Cluster == "" || body.Name == "" || body.Container == "" {
 				http.Error(w, "cluster, ns, name, container required", http.StatusBadRequest)
@@ -245,6 +247,14 @@ func Router(d Deps, token string) http.Handler {
 				http.Error(w, err.Error(), http.StatusBadGateway)
 				return
 			}
+			d.Audit.Record(audit.Entry{
+				Action:    "resize-pod",
+				Cluster:   body.Cluster,
+				Namespace: body.NS,
+				Resource:  body.Name,
+				Detail:    appendOwnerDetail(resizePodAuditDetail(body.Container, body.Resources), body.GitOpsOwner),
+				UserAgent: r.Header.Get("User-Agent"),
+			})
 			writeJSON(w, map[string]bool{"ok": true})
 		})
 
@@ -269,6 +279,7 @@ func Router(d Deps, token string) http.Handler {
 		r.Get("/api/settings", d.Settings.HandleGet)
 		r.Post("/api/settings", d.Settings.HandleSave)
 		r.Get("/api/prom/query_range", d.Settings.HandlePromQueryRange)
+		r.Get("/api/prom/query", d.Settings.HandlePromQuery)
 		r.Get("/api/metrics/nodes", d.Metrics.HandleNodeMetrics)
 		r.Get("/api/rbac/all", d.RBAC.HandleAll)
 		r.Post("/api/rbac/self", d.RBAC.HandleSelfCheck)
@@ -372,6 +383,8 @@ func Router(d Deps, token string) http.Handler {
 
 		r.Get("/api/argocd/apps", argoCDAppsHandler(d.Metrics))
 		r.Post("/api/argocd/sync", argoCDSyncHandler(d.Metrics))
+
+		r.Get("/api/waste/workloads", wasteWorkloadsHandler(d.Waste))
 
 		r.Post("/api/helm/rollback", d.Helm.HandleRollback)
 		r.Post("/api/helm/uninstall", d.Helm.HandleUninstall)

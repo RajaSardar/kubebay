@@ -2,12 +2,14 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Badge, PageHeader, Select, TextField } from "@kubebay/ui";
 import { PageLoader } from "../components/PageLoader";
+import { EventHeatStrip } from "../components/EventHeatStrip";
 import { useCluster } from "../lib/useCluster";
 import { useResourceStream, shouldShowSkeleton } from "../lib/useResourceStream";
 
 interface EventRow {
   key: string;
   ts: number;
+  firstTs: number;
   type: string;
   reason: string;
   message: string;
@@ -44,10 +46,12 @@ function deriveEvent(obj: Record<string, unknown>): EventRow | null {
   const ns = (involved.namespace as string) ?? "";
   const objName = (involved.name as string) ?? "";
   const last = (obj.lastTimestamp as string) || (obj.eventTime as string) || (meta.creationTimestamp as string) || "";
+  const first = (obj.firstTimestamp as string) || last;
 
   return {
     key: `${ns}/${name}`,
     ts: last ? Date.parse(last) : 0,
+    firstTs: first ? Date.parse(first) : 0,
     type: (obj.type as string) ?? "Normal",
     reason: (obj.reason as string) ?? "",
     message: (obj.message as string) ?? "",
@@ -80,6 +84,18 @@ export default function Timeline() {
 
   const warnCount = useMemo(() => events.filter((e) => e.type === "Warning").length, [events]);
 
+  // Unfiltered by the search/warnings-only toolbar — the heat strip shows
+  // true cluster-wide warning activity regardless of what the list below is
+  // currently narrowed to.
+  const allWarnings = useMemo(
+    () =>
+      rows
+        .map(deriveEvent)
+        .filter((e): e is EventRow => e !== null && e.type === "Warning")
+        .map((e) => ({ ts: e.ts, firstTs: e.firstTs, count: e.count })),
+    [rows],
+  );
+
   function fmtRel(ms: number): string {
     if (!ms) return "–";
     const s = Math.max(0, Math.floor((Date.now() - ms) / 1000));
@@ -100,6 +116,8 @@ export default function Timeline() {
         live={synced}
         actions={<Badge tone={warnCount > 0 ? "err" : "ok"}>{warnCount} warnings</Badge>}
       />
+
+      {allWarnings.length > 0 && <EventHeatStrip events={allWarnings} />}
 
       <div className="toolbar">
         <Select
