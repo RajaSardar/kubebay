@@ -5,6 +5,7 @@ import { api } from "../lib/api";
 import { useMonacoTheme } from "../lib/theme";
 import { ownerWarning, type GitOpsOwner } from "../lib/gitops";
 import { PolicyRejectionError, type PolicyRejectionDetail } from "../lib/policyRejection";
+import { PolicyRejectionCard } from "./PolicyRejectionCard";
 
 export function YamlTab({
   cluster,
@@ -217,29 +218,7 @@ export function YamlTab({
           </div>
         </div>
       )}
-      {policyRejection && (
-        <div className="error-banner" role="alert">
-          <div>
-            <strong>
-              {policyRejection.engine ? `${policyRejection.engine} policy rejected this change` : "Policy rejected this change"}
-            </strong>
-            {policyRejection.webhook && (
-              <span className="muted small mono" style={{ marginLeft: 8 }}>{policyRejection.webhook}</span>
-            )}
-          </div>
-          <div className="small">{policyRejection.message}</div>
-          {policyRejection.causes && policyRejection.causes.length > 0 && (
-            <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
-              {policyRejection.causes.map((c, i) => (
-                <li key={i} className="small">
-                  {c.field && <span className="mono muted">{c.field}: </span>}
-                  {c.message}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
+      {policyRejection && <PolicyRejectionCard rejection={policyRejection} />}
       <div className="yaml-editor">{editor}</div>
     </div>
   );

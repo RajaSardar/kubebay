@@ -10,6 +10,7 @@ import { useResizableColumns } from "../lib/useResizableColumns";
 import { useRowSelection } from "../lib/useRowSelection";
 import { useBulkDelete } from "../lib/useBulkDelete";
 import { NamespaceFilter } from "../components/NamespaceFilter";
+import { PolicyRejectionCard } from "../components/PolicyRejectionCard";
 import { useSelectedNamespaces } from "../lib/namespace-store";
 import { WorkloadTabBar } from "../components/WorkloadTabBar";
 import { PageLoader } from "../components/PageLoader";
@@ -324,7 +325,8 @@ export default function Workloads() {
           </div>
         </div>
       )}
-      {bulkDelete.error && <div className="inline-banner">{bulkDelete.error}</div>}
+      {bulkDelete.rejection && <PolicyRejectionCard rejection={bulkDelete.rejection} />}
+      {!bulkDelete.rejection && bulkDelete.error && <div className="inline-banner">{bulkDelete.error}</div>}
 
       <div className="toolbar">
         <Select
