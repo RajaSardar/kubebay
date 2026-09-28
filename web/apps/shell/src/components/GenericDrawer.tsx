@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Badge, Button, InlineBanner, Select, StatusDot, Tabs, TextField } from "@kubebay/ui";
+import { Badge, Button, IconButton, InlineBanner, Select, StatusDot, Tabs, TextField } from "@kubebay/ui";
 import { api, nodeApi } from "../lib/api";
 import { ExecTerm, YamlTab } from "./heavy";
 import { EventsDrawer } from "./EventsDrawer";
@@ -467,32 +467,21 @@ export default function GenericDrawer({
           {!confirming ? (
             <>
               {onPopOut && (
-                <button
-                  className="drawer-popout-btn"
-                  onClick={onPopOut}
-                  title="Open full page (⌘⇧↵)"
-                  aria-label="Open full page"
-                >
+                <IconButton label="Open full page" title="Open full page (⌘⇧↵)" onClick={onPopOut}>
                   <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
                     <rect x="1" y="1" width="12" height="12" rx="1.5" stroke="currentColor" strokeWidth="1.4" fill="none" />
                     <path d="M8 2.5h3.5V6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
                     <path d="M11.5 2.5L7.5 6.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
                   </svg>
-                </button>
+                </IconButton>
               )}
               {/* Split view toggle */}
-              <button
-                className={`drawer-popout-btn${split ? " active" : ""}`}
-                onClick={toggleSplit}
-                title="Split view (⌘⇧S)"
-                aria-label="Toggle split view"
-                aria-pressed={split}
-              >
+              <IconButton label="Toggle split view" title="Split view (⌘⇧S)" active={split} onClick={toggleSplit}>
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
                   <rect x="1" y="1" width="5" height="12" rx="1.5" stroke="currentColor" strokeWidth="1.4" fill="none" />
                   <rect x="8" y="1" width="5" height="12" rx="1.5" stroke="currentColor" strokeWidth="1.4" fill="none" />
                 </svg>
-              </button>
+              </IconButton>
               <Button variant="danger-ghost" onClick={() => setConfirming(true)}>
                 Delete
               </Button>

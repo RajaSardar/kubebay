@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Tabs } from "@kubebay/ui";
 import type { ClusterIcon } from "../lib/useClusterIcons";
 
 export { type ClusterIcon };
@@ -88,24 +89,13 @@ export function ClusterIconPicker({ clusterId, current, onSave, onReset, onClose
         </div>
 
         {/* Tabs */}
-        <div className="icon-picker-tabs">
-          <button
-            role="tab"
-            aria-selected={tab === "color"}
-            className={`icon-picker-tab${tab === "color" ? " active" : ""}`}
-            onClick={() => setTab("color")}
-          >
-            Color
-          </button>
-          <button
-            role="tab"
-            aria-selected={tab === "image"}
-            className={`icon-picker-tab${tab === "image" ? " active" : ""}`}
-            onClick={() => setTab("image")}
-          >
-            Image
-          </button>
-        </div>
+        <Tabs
+          tabs={["color", "image"] as const}
+          active={tab}
+          labels={{ color: "Color", image: "Image" }}
+          onChange={setTab}
+          className="tabs icon-picker-tabs"
+        />
 
         {tab === "color" && (
           <>

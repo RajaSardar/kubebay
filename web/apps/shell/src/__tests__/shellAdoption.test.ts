@@ -29,6 +29,10 @@ const PATTERNS: [string, RegExp][] = [
   ["Button (raw button with design-system classes)", /<button[^>]*className="[^"]*\b(kb-btn[\w-]*|btn-primary|btn-ghost)\b/],
   ["KubebayMark (inline brand gradient)", /stopColor="#22d3ee"/],
   ["StatusDot", /className="kb-dot[\s"]/],
+  ["Tabs (hand-written tab buttons)", /className=\{`(tab|icon-picker-tab)\$\{|className="tab[\s"]/],
+  ["SegmentedControl (hand-written toggle group)", /\b(np-tab|settings-chip)\b/],
+  ["IconButton (raw icon-only button)", /<button\b[^>]*?className=\{?[`"][^`"]*\b(row-menu-btn|drawer-popout-btn|star-btn|favorites-remove|cluster-drawer-close|np-detail-close)\b/],
+  ["Badge (hand-written badge spans)", /\b(crd-badge|events-type-badge)\b/],
 ];
 
 // Files allowed a specific exception, with the reason.

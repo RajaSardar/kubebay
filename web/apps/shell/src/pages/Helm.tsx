@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Editor from "@monaco-editor/react";
-import { ArmedButton, Badge, Button, DataTable, EmptyState, InlineBanner, PageHeader, Skeleton, StatusDot, TextField } from "@kubebay/ui";
+import { ArmedButton, Badge, Button, DataTable, EmptyState, InlineBanner, PageHeader, Skeleton, StatusDot, Tabs, TextField } from "@kubebay/ui";
 import { helmApi, type HelmRelease } from "../lib/api";
 import { useCluster } from "../lib/useCluster";
 import { useMonacoTheme } from "../lib/theme";
@@ -173,13 +173,12 @@ function ReleaseDrawer({
         </InlineBanner>
       )}
 
-      <div className="tabs">
-        {(["history", "values", "manifest"] as const).map((t) => (
-          <button key={t} className={`tab${tab === t ? " active" : ""}`} onClick={() => setTab(t)}>
-            {t[0]?.toUpperCase() + t.slice(1)}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        tabs={["history", "values", "manifest"] as const}
+        active={tab}
+        labels={{ history: "History", values: "Values", manifest: "Manifest" }}
+        onChange={setTab}
+      />
 
       {tab === "history" && (
         <div className="log-view" style={{ background: "var(--kb-bg-surface)" }}>
@@ -298,13 +297,13 @@ export default function Helm() {
 
   return (
     <div className="page">
-      <div className="tabs" style={{ padding: 0, marginBottom: 14 }}>
-        {(["releases", "charts"] as const).map((t) => (
-          <button key={t} className={`tab${view === t ? " active" : ""}`} onClick={() => setView(t)}>
-            {t === "releases" ? "Releases" : "Charts — install"}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        tabs={["releases", "charts"] as const}
+        active={view}
+        labels={{ releases: "Releases", charts: "Charts — install" }}
+        onChange={setView}
+        style={{ padding: 0, marginBottom: 14 }}
+      />
 
       {view === "charts" && (
         <ChartsTab cluster={effectiveCluster} />

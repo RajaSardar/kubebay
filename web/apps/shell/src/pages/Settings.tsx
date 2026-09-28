@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Button, Card, PageHeader, Select, TextField } from "@kubebay/ui";
+import { Button, Card, PageHeader, SegmentedControl, Select, TextField } from "@kubebay/ui";
 import { settingsApi } from "../lib/api";
 import { useCluster } from "../lib/useCluster";
 import { useTheme, type ThemeName } from "../lib/theme";
@@ -289,17 +289,7 @@ function OptionRow<T extends string>({
   return (
     <div className="settings-option-row">
       <span className="settings-option-label">{label}</span>
-      <div className="settings-option-group">
-        {options.map((o) => (
-          <button
-            key={o.id}
-            className={value === o.id ? "settings-chip active" : "settings-chip"}
-            onClick={() => onChange(o.id)}
-          >
-            {o.label}
-          </button>
-        ))}
-      </div>
+      <SegmentedControl label={label} options={options.map((o) => ({ value: o.id, label: o.label }))} value={value} onChange={onChange} />
     </div>
   );
 }

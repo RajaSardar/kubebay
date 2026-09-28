@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Badge, DataTable, EmptyState, NsPill, PageHeader, Select } from "@kubebay/ui";
+import { Badge, DataTable, EmptyState, IconButton, NsPill, PageHeader, SegmentedControl, Select } from "@kubebay/ui";
 import { PageLoader } from "../components/PageLoader";
 import { useCluster } from "../lib/useCluster";
 import { useResourceStream } from "../lib/useResourceStream";
@@ -340,21 +340,16 @@ export default function NetworkPolicyPage() {
         </Select>
         <NamespaceFilter cluster={effectiveCluster || undefined} />
 
-        {/* Tab toggle */}
-        <div style={{ marginLeft: "auto", display: "flex", gap: 4 }}>
-          <button
-            className={activeTab === "matrix" ? "np-tab active" : "np-tab"}
-            onClick={() => setActiveTab("matrix")}
-          >
-            Connectivity Matrix
-          </button>
-          <button
-            className={activeTab === "policies" ? "np-tab active" : "np-tab"}
-            onClick={() => setActiveTab("policies")}
-          >
-            Policy List
-          </button>
-        </div>
+        <SegmentedControl
+          label="View"
+          className="toolbar-end"
+          options={[
+            { value: "matrix", label: "Connectivity matrix" },
+            { value: "policies", label: "Policy list" },
+          ]}
+          value={activeTab}
+          onChange={setActiveTab}
+        />
       </div>
 
       {/* ── Body ── */}
@@ -507,9 +502,9 @@ function CellDetailPanel({ cell, onClose }: { cell: CellDetail; onClose: () => v
             {cfg.symbol} {cell.status}
           </span>
         </div>
-        <button className="np-detail-close" onClick={onClose} aria-label="close">
+        <IconButton label="Close" onClick={onClose}>
           ×
-        </button>
+        </IconButton>
       </div>
       <div className="np-detail-body">
         {cell.status === "open" && (

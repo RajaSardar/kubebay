@@ -5,7 +5,7 @@ import { PageLoader } from "../components/PageLoader";
 import { crdApi, type CRDEntry } from "../lib/api";
 import { extSlug } from "../lib/resources";
 import { useCluster } from "../lib/useCluster";
-import { Button, InlineBanner, PageHeader, TextField } from "@kubebay/ui";
+import { Badge, Button, InlineBanner, PageHeader, TextField } from "@kubebay/ui";
 
 function extPath(r: CRDEntry) {
   return `/r/ext--${extSlug(r.gvr)}?scoped=${r.namespaced ? 1 : 0}`;
@@ -121,13 +121,9 @@ export default function Crds() {
                       <span className="crd-tree-kind">{r.kind}</span>
                       <span className="crd-tree-meta">
                         <span className="mono muted" style={{ fontSize: "var(--kb-text-xs)" }}>{r.version}</span>
-                        <span className={`crd-badge ${r.namespaced ? "ns" : "cluster"}`}>
-                          {r.namespaced ? "ns" : "cluster"}
-                        </span>
+                        <Badge tone={r.namespaced ? "info" : "warn"}>{r.namespaced ? "ns" : "cluster"}</Badge>
                         {r.columns.length > 0 && (
-                          <span className="crd-badge cols" title={r.columns.map((c) => c.name).join(", ")}>
-                            {r.columns.length} cols
-                          </span>
+                          <Badge title={r.columns.map((c) => c.name).join(", ")}>{r.columns.length} cols</Badge>
                         )}
                       </span>
                     </NavLink>

@@ -9,6 +9,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 ### Added
 - **Shared shell components in `@kubebay/ui`**: `StatusPill` + `phaseTone()`, `Tabs`, `NavItem`/`NavSection` + `navItemClass()`, `TextField`, `Select`, `Kbd`, `PageHeader` (with `level` and `live`) and `ContextMenu`. Their styles now live in the package (#12)
 - `--kb-on-danger` token in every theme for labels on danger fills (#12)
+- **`IconButton`, `SegmentedControl` and `Badge` tones `warn`/`info` in `@kubebay/ui`**: close, pop-out, star and row-menu buttons share one look and always carry an accessible label; the Settings display options and the Workloads and Network Policy view switches are keyboard-navigable radio groups; hand-written tab rows (Pod panel, Helm, cluster icon picker) use `Tabs`
 - **`DataTable` and table primitives in `@kubebay/ui`**: every table in the app (resources, pods, Helm, ArgoCD, audit log, port forwards, network policies, cluster picker, cost and right-sizing panels) now shares the ResourceTable design. Also new: `EmptyState`, `InlineBanner`, `KubebayMark`
 - `docs/DESIGN_SYSTEM.md` and a CLAUDE.md rule: all UI is built from `@kubebay/ui`, enforced by tests
 - **Karpenter safe editing**: an Edit affordance on each NodePool card shows a blast-radius impact banner (nodes/pods/namespaces backed by the pool, spot count, and real PodDisruptionBudget coverage via Kubernetes label-selector matching) and requires typing the NodePool's name to confirm before applying any of three eviction-causing edits (shrinking `spec.limits`, lowering a disruption budget's `nodes` value, or switching `consolidationPolicy` to `WhenEmptyOrUnderutilized`)
@@ -31,6 +32,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 - Light-theme users no longer see a dark frame on launch: the saved theme is applied before first paint
 - Text inputs and selects have a visible edge in every theme (3:1, WCAG 1.4.11) via a new `--kb-border-control` token; before, it measured 1.1–1.8:1
 - Focus rings, selected rows and status dots stay visible in Windows High Contrast (forced colours)
+- Text that was unreadable in light themes: the CRD "ns" badge, the Normal event badge, the active CRD tree row and the active favourite used the white on-accent label colour on a pale tint; they now use the accent. A contrast test stops it recurring
 - Pod history graphs use the theme's chart colours (`--kb-chart-1…5`, 3:1 on every ground) instead of one fixed palette for all 12 themes
 - In Dawn and VS Code Light, the ok, warn and error colours now read at 4.5:1 on inset fields too
 - Code editors use Monaco's high-contrast themes in Dawn HC and Dusk HC

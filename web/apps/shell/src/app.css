@@ -594,27 +594,6 @@ h2 {
   gap: 10px;
 }
 
-.drawer-popout-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  padding: 0;
-  background: transparent;
-  border: none;
-  border-radius: var(--kb-radius-sm);
-  color: var(--kb-fg-muted);
-  cursor: pointer;
-  transition: background var(--kb-dur-fast) var(--kb-ease), color var(--kb-dur-fast) var(--kb-ease);
-  flex-shrink: 0;
-}
-
-.drawer-popout-btn:hover {
-  background: var(--kb-bg-raised);
-  color: var(--kb-fg-default);
-}
-
 .drawer-select {
   margin-left: auto;
   max-width: 180px;
@@ -1026,12 +1005,12 @@ h2 {
   justify-content: center;
   font-size: var(--kb-text-2xs);
   flex-shrink: 0;
-  color: var(--kb-accent-fg);
 }
 
 .ns-checkbox.checked {
   background: var(--kb-accent);
   border-color: var(--kb-accent);
+  color: var(--kb-accent-fg);
 }
 
 .ns-clear {
@@ -1246,24 +1225,11 @@ h2 {
   transition: background var(--kb-dur-fast);
 }
 .crd-tree-row:hover { background: var(--kb-bg-hover); }
-.crd-tree-row.active { background: var(--kb-accent-subtle); color: var(--kb-accent-fg); }
+.crd-tree-row.active { background: var(--kb-accent-subtle); color: var(--kb-accent); }
 
 .crd-tree-kind { font-weight: 500; min-width: 160px; }
 
 .crd-tree-meta { display: flex; align-items: center; gap: 6px; margin-left: auto; }
-
-.crd-badge {
-  display: inline-block;
-  font-size: var(--kb-text-2xs);
-  padding: 1px 6px;
-  border-radius: var(--kb-radius-xs);
-  text-transform: uppercase;
-  font-weight: 500;
-  flex-shrink: 0;
-}
-.crd-badge.ns { background: var(--kb-accent-subtle); color: var(--kb-accent-fg); }
-.crd-badge.cluster { background: var(--kb-status-warn-subtle); color: var(--kb-status-warn-fg); }
-.crd-badge.cols { background: var(--kb-bg-surface); color: var(--kb-fg-muted); border: 1px solid var(--kb-border-subtle); }
 
 /* Errors and delete-confirm prompts that sit between the page header and the
    content. Named .crd-error when only the CRDs page had one; three pages use
@@ -1357,7 +1323,7 @@ h2 {
 }
 
 .favorites-link.active {
-  color: var(--kb-accent-fg);
+  color: var(--kb-accent);
   background: var(--kb-accent-subtle);
   font-weight: 500;
 }
@@ -1367,18 +1333,11 @@ h2 {
   right: 4px;
   top: 50%;
   transform: translateY(-50%);
-  background: none;
-  border: none;
-  color: var(--kb-fg-muted);
-  font-size: var(--kb-text-lg);
-  cursor: pointer;
-  padding: 0 4px;
-  border-radius: var(--kb-radius-xs);
   opacity: 0;
-  transition: opacity 150ms;
 }
 
-.favorites-item:hover .favorites-remove {
+.favorites-item:hover .favorites-remove,
+.favorites-remove:focus-visible {
   opacity: 1;
 }
 
@@ -1387,22 +1346,11 @@ h2 {
   background: var(--kb-status-err-subtle);
 }
 
-.star-btn {
-  background: none;
-  border: none;
-  font-size: var(--kb-text-lg);
-  cursor: pointer;
-  color: var(--kb-fg-muted);
-  padding: 0;
-  transition: color 150ms;
-}
-
-.star-btn:hover {
+/* A favourite is starred in the warn amber, like a macOS flag. */
+.star-btn:hover,
+.star-btn.active {
   color: var(--kb-status-warn);
-}
-
-.star-btn.starred {
-  color: var(--kb-status-warn);
+  background: transparent;
 }
 
 /* ──── Events drawer ──── */
@@ -1438,29 +1386,6 @@ h2 {
   align-items: center;
   gap: 6px;
   margin-bottom: 3px;
-}
-
-.events-type-badge {
-  font-size: var(--kb-text-2xs);
-  font-weight: 600;
-  padding: 1px 6px;
-  border-radius: var(--kb-radius-xs);
-  text-transform: uppercase;
-}
-
-.events-type-badge.warning {
-  background: var(--kb-status-warn-subtle);
-  color: var(--kb-status-warn-fg);
-}
-
-.events-type-badge.error {
-  background: var(--kb-status-err-subtle);
-  color: var(--kb-status-err-fg);
-}
-
-.events-type-badge.normal {
-  background: var(--kb-accent-subtle);
-  color: var(--kb-accent-fg);
 }
 
 .events-reason {
@@ -1554,37 +1479,9 @@ h2 {
   flex-shrink: 0;
 }
 
-.settings-option-group {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.settings-chip {
-  font: inherit;
-  font-size: var(--kb-text-sm);
-  padding: 5px 12px;
-  border-radius: var(--kb-radius-pill);
-  border: 1px solid var(--kb-border-strong);
-  background: var(--kb-bg-inset);
-  color: var(--kb-fg-muted);
-  cursor: pointer;
-  transition:
-    background var(--kb-dur-fast) var(--kb-ease),
-    color var(--kb-dur-fast) var(--kb-ease),
-    border-color var(--kb-dur-fast) var(--kb-ease);
-}
-
-.settings-chip:hover {
-  background: var(--kb-bg-raised);
-  color: var(--kb-fg-default);
-}
-
-.settings-chip.active {
-  background: var(--kb-accent-subtle);
-  color: var(--kb-accent);
-  border-color: var(--kb-accent);
-  font-weight: 600;
+/* Pushes a toolbar control (a view switch) to the right end of the row. */
+.toolbar-end {
+  margin-left: auto;
 }
 
 /* ──── Button styles ──── */
@@ -1832,25 +1729,6 @@ h2 {
   border-bottom: 1px solid var(--kb-border-subtle);
   margin: 8px -4px 0;
   padding: 0 4px;
-}
-
-.icon-picker-tab {
-  flex: 1;
-  padding: 6px 0;
-  border: none;
-  background: none;
-  color: var(--kb-fg-subtle);
-  font-size: var(--kb-text-sm);
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  transition: color 120ms, border-color 120ms;
-}
-
-.icon-picker-tab.active {
-  color: var(--kb-accent);
-  border-bottom-color: var(--kb-accent);
-  font-weight: 500;
 }
 
 /* Image tab */
@@ -2352,45 +2230,9 @@ h2 {
   background: var(--kb-accent);
 }
 
-/* Active state for the split toggle button */
-.drawer-popout-btn.active {
-  background: var(--kb-accent-subtle);
-  color: var(--kb-accent);
-}
-
 /* ── Network Policy visualizer ──────────────────────────────────────────────── */
 
 /* Tab buttons in the toolbar */
-.np-tab {
-  font: inherit;
-  font-size: var(--kb-text-sm);
-  color: var(--kb-fg-muted);
-  background: var(--kb-bg-inset);
-  border: 1px solid var(--kb-border-subtle);
-  border-radius: var(--kb-radius-sm);
-  padding: 3px 10px;
-  height: 26px;
-  cursor: pointer;
-  transition:
-    background var(--kb-dur-fast) var(--kb-ease),
-    color var(--kb-dur-fast) var(--kb-ease),
-    border-color var(--kb-dur-fast) var(--kb-ease);
-  white-space: nowrap;
-}
-
-.np-tab:hover {
-  background: var(--kb-bg-hover);
-  color: var(--kb-fg-default);
-  border-color: var(--kb-border-strong);
-}
-
-.np-tab.active {
-  background: var(--kb-accent-subtle);
-  color: var(--kb-accent);
-  border-color: var(--kb-accent);
-  font-weight: 500;
-}
-
 /* Legend bar */
 .np-legend {
   display: flex;
@@ -2599,25 +2441,6 @@ h2 {
   text-transform: capitalize;
   padding: 2px 8px;
   border-radius: var(--kb-radius-pill);
-}
-
-.np-detail-close {
-  font: inherit;
-  font-size: var(--kb-text-xl);
-  line-height: 1;
-  color: var(--kb-fg-muted);
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 2px 6px;
-  border-radius: var(--kb-radius-xs);
-  flex-shrink: 0;
-  transition: background var(--kb-dur-fast) var(--kb-ease);
-}
-
-.np-detail-close:hover {
-  background: var(--kb-bg-hover);
-  color: var(--kb-fg-default);
 }
 
 .np-detail-body {
@@ -3297,25 +3120,6 @@ h2 {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   opacity: 0.55;
-}
-
-.cluster-drawer-close {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--kb-fg-muted);
-  font-size: 18px;
-  line-height: 1;
-  padding: 2px 4px;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 120ms, color 120ms;
-}
-.cluster-drawer-close:hover {
-  background: var(--kb-bg-hover);
-  color: var(--kb-fg-default);
 }
 
 .cluster-drawer-body {

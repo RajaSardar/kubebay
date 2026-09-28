@@ -12,7 +12,7 @@ import { ClusterIconPicker, autoAvatar, avatarLabelColor } from "../components/C
 import { ClusterDetailDrawer } from "../components/ClusterDetailDrawer";
 import { providerBadge, clusterDisplayName } from "../lib/clusterDistro";
 import { useResizableColumns } from "../lib/useResizableColumns";
-import { Badge, ContextMenu, EmptyState, KubebayMark, SkeletonRows, StatusDot, StatusPill, Table, TableRow, TableWrap, TextField, type StatusTone } from "@kubebay/ui";
+import { Badge, ContextMenu, EmptyState, IconButton, KubebayMark, SkeletonRows, StatusDot, StatusPill, Table, TableRow, TableWrap, TextField, type StatusTone } from "@kubebay/ui";
 
 const APP_VERSION = "v0.2.0";
 
@@ -58,9 +58,9 @@ function RowMenu({ cluster, pinned, onOpenDetails, onConnect, onHide, onTogglePi
 
   return (
     <div className="catalog-row-menu">
-      <button
+      <IconButton
+        label="Row actions"
         className="row-menu-btn"
-        aria-label="Row actions"
         aria-haspopup="menu"
         onClick={(e) => {
           e.stopPropagation();
@@ -69,7 +69,7 @@ function RowMenu({ cluster, pinned, onOpenDetails, onConnect, onHide, onTogglePi
         }}
       >
         ⋮
-      </button>
+      </IconButton>
       {at && (
         <ContextMenu
           x={at.x}
