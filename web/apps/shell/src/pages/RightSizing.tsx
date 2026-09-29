@@ -4,12 +4,14 @@ import { DiffEditor } from "@monaco-editor/react";
 import { ArmedButton, Badge, Button, Card, EmptyState, InlineBanner, PageHeader, Row, Stack } from "@kubebay/ui";
 import { PageLoader } from "../components/PageLoader";
 import { InstallVpaRecommender } from "../components/InstallVpaRecommender";
+import { CreateVpaObject } from "../components/CreateVpaObject";
 import { RightSizingTable, rowKey, type Selection } from "../components/RightSizingTable";
 import { useResourceStream, shouldShowSkeleton } from "../lib/useResourceStream";
 import { useCluster } from "../lib/useCluster";
 import { useMonacoTheme } from "../lib/theme";
-import { api, wasteApi } from "../lib/api";
+import { api, crdApi, wasteApi } from "../lib/api";
 import { ownerLabel } from "../lib/gitops";
+import { detectVpa } from "../lib/vpa";
 import {
   computeRightSizingRows,
   computeEngineRightSizingRows,
@@ -87,6 +89,20 @@ export default function RightSizing() {
   const daemonsets = useResourceStream(effectiveCluster || undefined, "apps/v1/daemonsets", { mode: "full" });
   const hpas = useResourceStream(effectiveCluster || undefined, "autoscaling/v2/horizontalpodautoscalers", { mode: "full" });
 
+  // CRD-based "is the recommender even installed" detection, independent of
+  // whether any VerticalPodAutoscaler object exists yet — installing the
+  // recommender (InstallVpaRecommender) creates zero VPA objects on its own,
+  // so `vpas.rows.length === 0` alone can't tell "not installed" apart from
+  // "installed, nothing targets it yet".
+  const crds = useQuery({
+    queryKey: ["crds", effectiveCluster],
+    queryFn: () => crdApi.list(effectiveCluster),
+    enabled: !!effectiveCluster,
+    staleTime: 5 * 60_000,
+    retry: false,
+  });
+  const vpaDetection = useMemo(() => detectVpa(crds.data ?? []), [crds.data]);
+
   const workloads = useMemo(
     () => [...deployments.rows, ...statefulsets.rows, ...daemonsets.rows],
     [deployments.rows, statefulsets.rows, daemonsets.rows],
@@ -105,6 +121,11 @@ export default function RightSizing() {
     const engineRows = computeEngineRightSizingRows(wasteQ.data ?? [], hpas.rows);
     return mergeRightSizingRows(vpaRows, engineRows);
   }, [vpas.rows, workloads, hpas.rows, wasteQ.data]);
+
+  // Engine-sourced rows are exactly the workloads Kubebay already has
+  // waste/usage visibility into that no VPA object covers yet — the natural,
+  // already-ranked candidate list for "create a real VPA object here too".
+  const vpaCandidates = useMemo(() => rows.filter((r) => r.source !== "vpa"), [rows]);
 
   const [selection, setSelection] = useState<Selection>({});
 
@@ -231,15 +252,41 @@ export default function RightSizing() {
       />
 
       <div className="page-body">
-        {vpas.rows.length === 0 && (
+        {vpas.rows.length === 0 && !crds.isLoading && !vpaDetection.installed && (
           <EmptyState style={{ marginBottom: 16 }}>
-            <p>No VerticalPodAutoscalers found on this cluster.</p>
+            <p>No VPA recommender detected on this cluster.</p>
             <p className="muted small">
               Kubebay's own metrics-server-based recommendations (below, badged "Kubebay") still work without one —
               install the VPA recommender too (with <code className="mono">updateMode: "Off"</code> to keep it
               observe-only) for a purpose-built alternative on the same workloads.
             </p>
             <InstallVpaRecommender cluster={effectiveCluster} />
+          </EmptyState>
+        )}
+
+        {vpas.rows.length === 0 && !crds.isLoading && vpaDetection.installed && (
+          <EmptyState style={{ marginBottom: 16 }}>
+            <p>VPA recommender is installed, but no VerticalPodAutoscaler objects exist yet.</p>
+            <p className="muted small">
+              The recommender only computes recommendations for VerticalPodAutoscaler objects that already target a
+              workload — installing the controller alone doesn't create any. Kubebay's own metrics-server-based
+              recommendations (below, badged "Kubebay") still work without one; create a VPA (
+              <code className="mono">updateMode: "Off"</code>, observe-only) for a workload below to also get
+              real VPA-sourced data.
+            </p>
+            {vpaCandidates.length > 0 && (
+              <Stack gap={2} style={{ marginTop: 12 }}>
+                {vpaCandidates.slice(0, 10).map((r) => (
+                  <Row key={`${r.ns}/${r.workloadKind}/${r.workloadName}`} align="center" justify="between" gap={2} wrap>
+                    <span className="small">
+                      <span className="mono strong">{r.workloadName}</span>
+                      <span className="muted"> · {r.workloadKind} · {r.ns}</span>
+                    </span>
+                    <CreateVpaObject cluster={effectiveCluster} ns={r.ns} kind={r.workloadKind} name={r.workloadName} />
+                  </Row>
+                ))}
+              </Stack>
+            )}
           </EmptyState>
         )}
 
