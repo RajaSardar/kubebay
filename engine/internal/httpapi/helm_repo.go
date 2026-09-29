@@ -73,6 +73,76 @@ func (h *HelmManager) HandleUpdateRepos(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, results)
 }
 
+// addOrUpdateRepoEntry adds a new repo entry to f, or updates an existing
+// one's URL in place, returning whether the file actually changed so the
+// caller only needs to persist it to disk when something moved.
+func addOrUpdateRepoEntry(f *repo.File, name, url string) (*repo.Entry, bool) {
+	if existing := f.Get(name); existing != nil {
+		if existing.URL == url {
+			return existing, false
+		}
+		existing.URL = url
+		return existing, true
+	}
+	entry := &repo.Entry{Name: name, URL: url}
+	f.Add(entry)
+	return entry, true
+}
+
+type AddRepoRequest struct {
+	Name string `json:"name"`
+	URL  string `json:"url"`
+}
+
+// HandleAddRepo is the missing piece backlog #2/#3 flagged: without it, a
+// chart repo not already in the local repositories.yaml can never be
+// installed from at all. Validates the repo by downloading its index
+// before persisting the entry, so a typo'd URL never silently gets saved.
+func (h *HelmManager) HandleAddRepo(w http.ResponseWriter, r *http.Request) {
+	var req AddRepoRequest
+	if err := decodeBody(r, &req); err != nil || req.Name == "" || req.URL == "" {
+		http.Error(w, "name and url required", http.StatusBadRequest)
+		return
+	}
+
+	settings := h.settings()
+	f, err := repo.LoadFile(settings.RepositoryConfig)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			http.Error(w, fmt.Sprintf("load repo file: %v", err), http.StatusInternalServerError)
+			return
+		}
+		f = repo.NewFile()
+	}
+
+	entry, changed := addOrUpdateRepoEntry(f, req.Name, req.URL)
+
+	getters := getter.All(settings)
+	cr, cerr := repo.NewChartRepository(entry, getters)
+	if cerr != nil {
+		http.Error(w, fmt.Sprintf("repo config: %v", cerr), http.StatusBadRequest)
+		return
+	}
+	cr.CachePath = settings.RepositoryCache
+	if _, derr := cr.DownloadIndexFile(); derr != nil {
+		http.Error(w, fmt.Sprintf("fetch index: %v", derr), http.StatusBadGateway)
+		return
+	}
+
+	if changed {
+		if err := os.MkdirAll(filepath.Dir(settings.RepositoryConfig), 0755); err != nil {
+			http.Error(w, fmt.Sprintf("mkdir: %v", err), http.StatusInternalServerError)
+			return
+		}
+		if err := f.WriteFile(settings.RepositoryConfig, 0644); err != nil {
+			http.Error(w, fmt.Sprintf("write repo file: %v", err), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	writeJSON(w, RepoSummary{Name: entry.Name, URL: entry.URL})
+}
+
 func (h *HelmManager) HandleCharts(w http.ResponseWriter, r *http.Request) {
 	repoName := r.URL.Query().Get("repo")
 	if repoName == "" {

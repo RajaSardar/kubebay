@@ -94,7 +94,7 @@ func main() {
 	defer cancelWaste()
 	wasteSampler := waste.NewSampler(mgr, log)
 	wasteSampler.Start(wasteCtx)
-	helmMgr := httpapi.NewHelm(mgr)
+	helmMgr := httpapi.NewHelm(mgr, auditLog)
 	settingsMgr := httpapi.NewSettingsManager(mgr)
 	settingsMgr.LocalShell = localShellStatus
 	// Tier A (Prometheus) is a no-op until a cluster actually has one
