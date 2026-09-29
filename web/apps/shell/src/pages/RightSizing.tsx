@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { DiffEditor } from "@monaco-editor/react";
 import { ArmedButton, Badge, Button, Card, EmptyState, InlineBanner, PageHeader } from "@kubebay/ui";
 import { PageLoader } from "../components/PageLoader";
+import { InstallVpaRecommender } from "../components/InstallVpaRecommender";
 import { RightSizingTable, rowKey, type Selection } from "../components/RightSizingTable";
 import { useResourceStream, shouldShowSkeleton } from "../lib/useResourceStream";
 import { useCluster } from "../lib/useCluster";
@@ -238,6 +239,7 @@ export default function RightSizing() {
               install the VPA recommender too (with <code className="mono">updateMode: "Off"</code> to keep it
               observe-only) for a purpose-built alternative on the same workloads.
             </p>
+            <InstallVpaRecommender cluster={effectiveCluster} />
           </EmptyState>
         )}
 

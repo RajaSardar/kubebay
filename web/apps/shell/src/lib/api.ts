@@ -280,6 +280,7 @@ export interface HelmRelease {
   revision: number;
   updated?: string;
   description?: string;
+  manifest?: string;
 }
 
 export const helmApi = {
@@ -302,7 +303,7 @@ export const helmApi = {
     send<{ ok: boolean }>("POST", "/api/helm/rollback", b),
   uninstall: (b: { cluster: string; ns: string; name: string }) =>
     send<{ ok: boolean }>("POST", "/api/helm/uninstall", b),
-  upgrade: (b: { cluster: string; ns: string; name: string; chartRef: string; version?: string; valuesYaml: string }) =>
+  upgrade: (b: { cluster: string; ns: string; name: string; chartRef: string; version?: string; valuesYaml: string; dryRun?: boolean }) =>
     send<HelmRelease>("POST", "/api/helm/upgrade", b),
 };
 
@@ -355,6 +356,7 @@ export interface HelmChartEntry {
 
 export const helmMarketApi = {
   repos: (cluster: string) => get<HelmRepo[]>(`/api/helm/repos?cluster=${encodeURIComponent(cluster)}`),
+  addRepo: (b: { name: string; url: string }) => send<HelmRepo>("POST", "/api/helm/repos/add", b),
   updateRepos: (cluster: string) =>
     send<Record<string, string>>("POST", `/api/helm/repos/update?cluster=${encodeURIComponent(cluster)}`, {}),
   charts: (cluster: string, repo: string) =>
