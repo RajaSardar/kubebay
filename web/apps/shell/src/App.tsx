@@ -4,7 +4,7 @@ import type { APIResourceEntry, ClusterInfo } from "./lib/api";
 import { NavLink, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { useClusterStore } from "./lib/cluster-store";
 import { shouldRedirectToPicker } from "./lib/clusterPickerLogic";
-import { Button, DisclosureButton, EmptyState, Kbd, KubebayMark, navItemClass, StatusDot } from "@kubebay/ui";
+import { Button, DisclosureButton, EmptyState, Kbd, KubebayMark, navItemClass, Spinner, StatusDot } from "@kubebay/ui";
 import {
   IconArgoCD,
   IconCube,
@@ -63,6 +63,7 @@ import { ClusterIconPicker, autoAvatar, avatarLabelColor, stripAvatarLook } from
 import { useWsStatus } from "./lib/useWsStatus";
 import { connectCluster, isClusterConnected } from "./lib/clusterConnections";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { ClusterConnectingOverlay } from "./components/ClusterConnectingOverlay";
 import { usePrewarm } from "./lib/usePrewarm";
 
 // ──── Cluster Context ────────────────────────────────────────────────────────
@@ -309,155 +310,6 @@ export function CustomResourcesGroup() {
 
 // ──── ClusterStrip ───────────────────────────────────────────────────────────
 
-// ──── ClusterConnectingOverlay ────────────────────────────────────────────────
-
-interface OverlayProps {
-  clusterId: string;
-  clusterStatus: string;
-  clusterError?: string;
-  clusterVersion?: string;
-  wsConnected: boolean;
-  wsRetry: number;
-  wsNextRetryMs: number;
-  isReconnect: boolean; // true = WS dropped, false = cluster switch
-  avatar: { bg: string; label: string; imageUrl?: string };
-}
-
-function ClusterConnectingOverlay({
-  clusterId,
-  clusterStatus,
-  clusterError,
-  clusterVersion,
-  wsConnected,
-  wsRetry,
-  wsNextRetryMs,
-  isReconnect,
-  avatar,
-}: OverlayProps) {
-  const [countdown, setCountdown] = useState(Math.ceil(wsNextRetryMs / 1000));
-
-  useEffect(() => {
-    if (wsConnected || wsNextRetryMs <= 0) return;
-    setCountdown(Math.ceil(wsNextRetryMs / 1000));
-    const interval = setInterval(() => {
-      setCountdown((n) => Math.max(0, n - 1));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [wsNextRetryMs, wsConnected]);
-
-  // Steps: 0=Auth/Credentials  1=API Server  2=Live Stream
-  // For WS reconnect the steps are: 0=Disconnected  1=Reconnecting  2=Restored
-  const steps = isReconnect
-    ? ["Disconnected", "Reconnecting", "Restored"]
-    : ["Credentials", "API Server", "Live Stream"];
-
-  // Current step index
-  let currentStep = 0;
-  if (isReconnect) {
-    if (wsConnected) currentStep = 2;
-    else if (wsRetry > 0) currentStep = 1;
-    else currentStep = 0;
-  } else {
-    if (clusterStatus === "connected" && wsConnected) currentStep = 2;
-    else if (clusterStatus === "connected") currentStep = 1;
-    else currentStep = 0;
-  }
-
-  // Status message shown under the steps
-  let statusMsg = "";
-  let isError = false;
-  if (isReconnect) {
-    if (wsConnected) {
-      statusMsg = "Stream restored — reloading data…";
-    } else if (wsRetry > 0) {
-      statusMsg = `Attempt ${wsRetry} · retrying in ${countdown}s`;
-    } else {
-      statusMsg = "Connection lost — reconnecting…";
-    }
-  } else {
-    if (clusterStatus === "connected" && wsConnected) {
-      statusMsg = clusterVersion ? `Connected · ${clusterVersion}` : "Connected";
-    } else if (clusterStatus === "connected") {
-      statusMsg = "API reachable · opening live stream…";
-    } else if (clusterError) {
-      statusMsg = clusterError;
-      isError = true;
-    } else {
-      statusMsg = "Checking cluster credentials…";
-    }
-  }
-
-  return (
-    <div className="conn-overlay">
-      <div className="conn-card">
-        {/* Avatar */}
-        <div className="conn-avatar" style={{ background: avatar.imageUrl ? "transparent" : avatar.bg, color: avatarLabelColor(avatar.bg) }}>
-          {avatar.imageUrl
-            ? <img src={avatar.imageUrl} alt={avatar.label} style={{ width: "100%", height: "100%", objectFit: "contain", borderRadius: "inherit" }} />
-            : avatar.label}
-        </div>
-        <div className="conn-cluster-name">{clusterId}</div>
-
-        {/* Stepper */}
-        <div className="conn-stepper">
-          {steps.map((label, i) => {
-            const done = i < currentStep;
-            const active = i === currentStep;
-            return (
-              <div key={label} className="conn-step-item">
-                <div className={`conn-step-dot${done ? " done" : active ? " active" : ""}`}>
-                  {done ? (
-                    <svg viewBox="0 0 10 10" width="10" height="10" fill="none">
-                      <polyline points="2,5 4.5,7.5 8,3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  ) : active ? (
-                    <span className="conn-pulse" />
-                  ) : null}
-                </div>
-                {i < steps.length - 1 && (
-                  <div className={`conn-step-line${done ? " done" : ""}`} />
-                )}
-                <div className={`conn-step-label${active ? " active" : done ? " done" : ""}`}>
-                  {label}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Status message */}
-        <div className={`conn-status-msg${isError ? " error" : ""}`}>
-          {isError && (
-            <svg viewBox="0 0 16 16" width="13" height="13" fill="none" style={{ flexShrink: 0, marginTop: 1 }}>
-              <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5" />
-              <path d="M8 5v4M8 11v.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
-          )}
-          {statusMsg}
-        </div>
-
-        {/* Retry hint for WS reconnect */}
-        {isReconnect && !wsConnected && wsRetry > 0 && (
-          <div className="conn-retry-bar">
-            <svg viewBox="0 0 16 16" width="12" height="12" fill="none" style={{ animation: "spin 1.4s linear infinite", flexShrink: 0 }}>
-              <path d="M8 2a6 6 0 0 1 5.66 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-              <path d="M13.66 10 l-2 2 2 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            <span>WebSocket reconnecting</span>
-          </div>
-        )}
-
-        {/* Error detail hint */}
-        {isError && (
-          <div className="conn-error-hint">
-            Check that the cluster API server is reachable and credentials are valid.
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
 function ClusterStrip() {
   const { active } = useClusterStore();
   const { switching, setActive } = useContext(ClusterCtx);
@@ -495,9 +347,7 @@ function ClusterStrip() {
               }}
             >
               {isSwitching ? (
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ animation: "spin 0.8s linear infinite" }}>
-                  <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
-                </svg>
+                <Spinner label={`Switching to ${c.id}…`} size={18} className="cluster-strip-spinner" />
               ) : imageUrl ? (
                 <img src={imageUrl} alt={label} style={{ width: "100%", height: "100%", objectFit: "contain", borderRadius: "var(--kb-radius)" }} />
               ) : label}
@@ -786,9 +636,7 @@ function AppInner() {
           </span>
           {!ws.connected && ws.hasEverConnected && (
             <span className="statusbar-center muted" style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", display: "inline-flex", alignItems: "center", gap: 5 }}>
-              <svg viewBox="0 0 16 16" width="11" height="11" fill="none" style={{ animation: "spin 1.4s linear infinite" }}>
-                <path d="M8 2a6 6 0 0 1 5.66 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-              </svg>
+              <Spinner label={null} size={11} />
               WS reconnecting · attempt {ws.retryAttempt}
             </span>
           )}

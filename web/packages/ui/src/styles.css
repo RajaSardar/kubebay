@@ -1293,6 +1293,24 @@ tr.row-clickable:active {
   margin: 0 0 var(--kb-space-3);
 }
 
+/* ── Spinner: the helm icon turning ── */
+.kb-spinner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--kb-accent);
+  line-height: 0;
+}
+
+.kb-spinner svg {
+  animation: kb-spin 1.2s linear infinite;
+}
+
+@keyframes kb-spin {
+  to { transform: rotate(360deg); }
+}
+
 /* Reduced motion: every animation and transition collapses to its end state.
    Lives in the package so any app that uses @kubebay/ui honours the setting. */
 @media (prefers-reduced-motion: reduce) {
