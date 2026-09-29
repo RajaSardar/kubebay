@@ -51,7 +51,7 @@ export const DEFS: Record<string, ResourceDef> = {
   nodes: def("nodes", "Nodes", "Node", "v1/nodes", { scoped: true, mode: "full" }),
   networkpolicies: def("networkpolicies", "NetworkPolicies", "NetworkPolicy", "networking.k8s.io/v1/networkpolicies"),
   endpoints: def("endpoints", "Endpoints", "Endpoints", "v1/endpoints"),
-  endpointslices: def("endpointslices", "EndpointSlices", "EndpointSlice", "discovery.k8s.io/v1/endpointslices"),
+  endpointslices: def("endpointslices", "EndpointSlices", "EndpointSlice", "discovery.k8s.io/v1/endpointslices", { mode: "full" }),
   horizontalpodautoscalers: def("horizontalpodautoscalers", "HPAs", "HorizontalPodAutoscaler", "autoscaling/v2/horizontalpodautoscalers", { mode: "full" }),
   verticalpodautoscalers: def("verticalpodautoscalers", "VerticalPodAutoscalers", "VerticalPodAutoscaler", "autoscaling.k8s.io/v1/verticalpodautoscalers", { mode: "full" }),
   poddisruptionbudgets: def("poddisruptionbudgets", "PDBs", "PodDisruptionBudget", "policy/v1/poddisruptionbudgets"),

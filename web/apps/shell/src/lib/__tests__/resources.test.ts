@@ -17,6 +17,12 @@ describe("ResourceDef.kind", () => {
   });
 });
 
+describe("DEFS.endpointslices", () => {
+  it("streams in full mode, not metadata -- the generic table's own EndPoints column reads .endpoints, which a metadata-mode payload strips entirely", () => {
+    expect(DEFS.endpointslices?.mode).toBe("full");
+  });
+});
+
 describe("lookupDef", () => {
   const sp = new URLSearchParams();
 

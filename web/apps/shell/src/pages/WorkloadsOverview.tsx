@@ -6,18 +6,20 @@ import { useCluster } from "../lib/useCluster";
 import { useResourceStream, shouldShowSkeleton } from "../lib/useResourceStream";
 import { WorkloadTabBar } from "../components/WorkloadTabBar";
 import { PressureGrid } from "../components/PressureGrid";
+import { SpofRadarList } from "../components/SpofRadarList";
 import { aggregatePressure } from "../lib/pressure";
+import { computeSpofFindings } from "../lib/spof";
 import { useLeadingThrottle } from "../lib/useLeadingThrottle";
 import { api } from "../lib/api";
 import { computeKindCounts } from "../lib/kindCounts";
 
 function useKindCounts(
-  cluster: string | undefined,
   pods: ReturnType<typeof useResourceStream>,
   nodes: ReturnType<typeof useResourceStream>,
+  deps: ReturnType<typeof useResourceStream>,
+  stss: ReturnType<typeof useResourceStream>,
+  cluster: string | undefined,
 ) {
-  const deps = useResourceStream(cluster, "apps/v1/deployments", { mode: "full" });
-  const stss = useResourceStream(cluster, "apps/v1/statefulsets", { mode: "full" });
   const dss = useResourceStream(cluster, "apps/v1/daemonsets", { mode: "full" });
   const jobs = useResourceStream(cluster, "batch/v1/jobs", { mode: "full" });
 
@@ -37,7 +39,7 @@ function useKindCounts(
   );
 }
 
-type OverviewTab = "overview" | "pressure";
+type OverviewTab = "overview" | "pressure" | "spof";
 
 export default function WorkloadsOverview() {
   const { cluster: effectiveCluster, setCluster, list } = useCluster();
@@ -48,8 +50,31 @@ export default function WorkloadsOverview() {
   // same GVR+mode.
   const pods = useResourceStream(effectiveCluster || undefined, "v1/pods", { mode: "full" });
   const nodes = useResourceStream(effectiveCluster || undefined, "v1/nodes", { mode: "full" });
+  // Also lifted (not just pods/nodes) so the SPOF Radar tab can reuse these
+  // instead of opening a second subscription for the same GVR+mode.
+  const deployments = useResourceStream(effectiveCluster || undefined, "apps/v1/deployments", { mode: "full" });
+  const statefulSets = useResourceStream(effectiveCluster || undefined, "apps/v1/statefulsets", { mode: "full" });
 
-  const { kinds, synced } = useKindCounts(effectiveCluster || undefined, pods, nodes);
+  const { kinds, synced } = useKindCounts(pods, nodes, deployments, statefulSets, effectiveCluster || undefined);
+
+  // SPOF Radar's own resources -- only opened once that tab is actually
+  // selected, same gating discipline the Pressure tab's podMetricsQ uses.
+  const spofActive = tab === "spof";
+  const pdbs = useResourceStream(effectiveCluster || undefined, "policy/v1/poddisruptionbudgets", { mode: "full", enabled: spofActive });
+  const services = useResourceStream(effectiveCluster || undefined, "v1/services", { mode: "full", enabled: spofActive });
+  const endpointSlices = useResourceStream(effectiveCluster || undefined, "discovery.k8s.io/v1/endpointslices", { mode: "full", enabled: spofActive });
+  const spofFindings = useMemo(
+    () =>
+      computeSpofFindings({
+        deployments: deployments.rows,
+        statefulSets: statefulSets.rows,
+        pdbs: pdbs.rows,
+        pods: pods.rows,
+        services: services.rows,
+        endpointSlices: endpointSlices.rows,
+      }),
+    [deployments.rows, statefulSets.rows, pdbs.rows, pods.rows, services.rows, endpointSlices.rows],
+  );
 
   const totals = useMemo(() => {
     let total = 0, healthy = 0, unhealthy = 0;
@@ -97,6 +122,7 @@ export default function WorkloadsOverview() {
           options={[
             { value: "overview", label: "Overview" },
             { value: "pressure", label: "Pressure" },
+            { value: "spof", label: "SPOF Radar" },
           ]}
           value={tab}
           onChange={setTab}
@@ -106,6 +132,8 @@ export default function WorkloadsOverview() {
       <div className="page-body">
       {tab === "pressure" ? (
         <PressureGrid grid={pressureGrid} />
+      ) : tab === "spof" ? (
+        <SpofRadarList findings={spofFindings} />
       ) : shouldShowSkeleton(synced, totals.total) ? (
         <div className="cluster-grid">
           {[0, 1, 2, 3, 4, 5].map((i) => (
