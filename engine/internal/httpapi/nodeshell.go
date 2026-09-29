@@ -56,6 +56,47 @@ type NodeShellResult struct {
 
 func priv(b bool) *bool { return &b }
 
+// buildNodeShellPod is the pod spec for the privileged helper pod pinned to
+// the target node. It never chroots or nsenters itself -- the container's
+// own command is a long-lived placeholder (an interactive `sh` that blocks
+// on stdin nothing ever feeds, since the frontend always execs a *new*
+// process via the exec API rather than attaching to this one). HostIPC and
+// HostNetwork join HostPID here so the pod's own namespaces fully match the
+// host's, the same shape Freelens's own Node Shell uses -- the exec'd
+// command (lib/execShell.ts's "node" shell mode, added alongside this) is
+// what actually does `nsenter -t 1 -m -u -i -n -p` to land in the host's
+// mount/UTS/IPC/net/PID namespaces, which is the part that was missing
+// before: without nsenter, `sh` only ever saw this container's own
+// filesystem, never the node's.
+func buildNodeShellPod(name, node, image string) *corev1.Pod {
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: "default",
+			Labels:    map[string]string{"app.kubernetes.io/managed-by": "kubebay", "kubebay.io/role": "node-shell"},
+		},
+		Spec: corev1.PodSpec{
+			NodeName:      node,
+			HostPID:       true,
+			HostIPC:       true,
+			HostNetwork:   true,
+			RestartPolicy: corev1.RestartPolicyNever,
+			Tolerations:   []corev1.Toleration{{Operator: corev1.TolerationOpExists}},
+			Containers: []corev1.Container{
+				{
+					Name:            "shell",
+					Image:           image,
+					Command:         []string{"sh"},
+					Stdin:           true,
+					StdinOnce:       true,
+					TTY:             true,
+					SecurityContext: &corev1.SecurityContext{Privileged: priv(true)},
+				},
+			},
+		},
+	}
+}
+
 func (n *NodeShellManager) HandleStart(w http.ResponseWriter, r *http.Request) {
 	var req NodeShellRequest
 	if err := decodeBody(r, &req); err != nil || req.Cluster == "" || req.Node == "" {
@@ -77,30 +118,7 @@ func (n *NodeShellManager) HandleStart(w http.ResponseWriter, r *http.Request) {
 	_, _ = rand.Read(rb)
 	name := "kubebay-node-shell-" + hex.EncodeToString(rb)
 
-	pod := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: "default",
-			Labels:    map[string]string{"app.kubernetes.io/managed-by": "kubebay", "kubebay.io/role": "node-shell"},
-		},
-		Spec: corev1.PodSpec{
-			NodeName:      req.Node,
-			HostPID:       true,
-			RestartPolicy: corev1.RestartPolicyNever,
-			Tolerations:   []corev1.Toleration{{Operator: corev1.TolerationOpExists}},
-			Containers: []corev1.Container{
-				{
-					Name:            "shell",
-					Image:           n.image(),
-					Command:         []string{"sh"},
-					Stdin:           true,
-					StdinOnce:       true,
-					TTY:             true,
-					SecurityContext: &corev1.SecurityContext{Privileged: priv(true)},
-				},
-			},
-		},
-	}
+	pod := buildNodeShellPod(name, req.Node, n.image())
 
 	ctx, cancel := context.WithTimeout(r.Context(), 150*time.Second)
 	defer cancel()

@@ -122,7 +122,7 @@ function PaneContent({
     if (shellPod) {
       return (
         <div className="term-wrap">
-          <ExecTerm cluster={cluster} namespace={shellPod.ns} pod={shellPod.pod} container="shell" shell="sh" />
+          <ExecTerm cluster={cluster} namespace={shellPod.ns} pod={shellPod.pod} container="shell" shell="node" />
         </div>
       );
     }
@@ -130,9 +130,10 @@ function PaneContent({
       <div className="page" style={{ paddingTop: 24 }}>
         {shellErr && <InlineBanner flush>{shellErr}</InlineBanner>}
         <p className="muted small" style={{ marginTop: 0 }}>
-          Starts a short-lived privileged helper pod (busybox + hostPID) pinned to{" "}
-          <span className="mono">{name}</span>, giving you a root shell on the node.
-          It is deleted automatically when this panel closes.
+          Starts a short-lived privileged helper pod pinned to <span className="mono">{name}</span>, then
+          nsenters into the node's own mount/PID/network namespaces — a real root shell on the node itself
+          (its filesystem, processes, and network), not just the helper pod's own. It is deleted automatically
+          when this panel closes.
         </p>
         <Button disabled={creating} onClick={onStartShell}>
           {creating ? "Creating…" : "Start node shell"}
