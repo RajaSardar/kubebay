@@ -12,6 +12,8 @@ import { computeSpofFindings } from "../lib/spof";
 import { useLeadingThrottle } from "../lib/useLeadingThrottle";
 import { api } from "../lib/api";
 import { computeKindCounts } from "../lib/kindCounts";
+import { ServiceMismatchList } from "../components/ServiceMismatchList";
+import { findServiceSelectorMismatches } from "../lib/serviceSelectorMismatch";
 
 function useKindCounts(
   pods: ReturnType<typeof useResourceStream>,
@@ -39,7 +41,7 @@ function useKindCounts(
   );
 }
 
-type OverviewTab = "overview" | "pressure" | "spof";
+type OverviewTab = "overview" | "pressure" | "spof" | "service-health";
 
 export default function WorkloadsOverview() {
   const { cluster: effectiveCluster, setCluster, list } = useCluster();
@@ -105,6 +107,16 @@ export default function WorkloadsOverview() {
     [pressureInputs],
   );
 
+  // Backlog #27: tab-gated so an unvisited tab opens zero extra subscriptions,
+  // same convention as the Pressure tab's own podMetrics query.
+  const serviceHealthActive = tab === "service-health";
+  const services = useResourceStream(effectiveCluster || undefined, "v1/services", { mode: "full", enabled: serviceHealthActive });
+  const endpointSlices = useResourceStream(effectiveCluster || undefined, "discovery.k8s.io/v1/endpointslices", { mode: "full", enabled: serviceHealthActive });
+  const serviceMismatches = useMemo(
+    () => findServiceSelectorMismatches(services.rows, pods.rows, endpointSlices.rows),
+    [services.rows, pods.rows, endpointSlices.rows],
+  );
+
   return (
     <div className="page">
       <WorkloadTabBar />
@@ -123,6 +135,7 @@ export default function WorkloadsOverview() {
             { value: "overview", label: "Overview" },
             { value: "pressure", label: "Pressure" },
             { value: "spof", label: "SPOF Radar" },
+            { value: "service-health", label: "Service Health" },
           ]}
           value={tab}
           onChange={setTab}
@@ -134,6 +147,8 @@ export default function WorkloadsOverview() {
         <PressureGrid grid={pressureGrid} />
       ) : tab === "spof" ? (
         <SpofRadarList findings={spofFindings} />
+      ) : tab === "service-health" ? (
+        <ServiceMismatchList findings={serviceMismatches} />
       ) : shouldShowSkeleton(synced, totals.total) ? (
         <div className="cluster-grid">
           {[0, 1, 2, 3, 4, 5].map((i) => (
