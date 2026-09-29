@@ -3,9 +3,9 @@ import { render, screen } from "@testing-library/react";
 import { PageLoader } from "../PageLoader";
 
 describe("PageLoader", () => {
-  it("renders the spinner element", () => {
+  it("renders the design-system Spinner", () => {
     const { container } = render(<PageLoader />);
-    expect(container.querySelector(".page-loader-spinner")).toBeTruthy();
+    expect(container.querySelector(".kb-spinner")).toBeTruthy();
   });
 
   it("renders inside a .page-loader wrapper", () => {

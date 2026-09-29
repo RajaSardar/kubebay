@@ -36,6 +36,7 @@ const PATTERNS: [string, RegExp][] = [
   ["Drawer", /className="drawer(-head)?"/],
   ["Modal (hand-written backdrop)", /className="[^"]*-backdrop"/],
   ["Row / Stack (inline flex layout)", /display:\s*["']flex["']/],
+  ["Spinner (hand-drawn spinning SVG or CSS ring)", /animation:\s*["'`]spin\b|page-loader-spinner/],
   ["DisclosureButton (hand-written nav group toggle)", /<button[^>]*className="nav-(sub)?group-title"/],
   ["ChoiceCard (hand-written theme card)", /\btheme-card\b/],
   ["Button (list-footer button used as a page action)", /className="ns-clear"/],
