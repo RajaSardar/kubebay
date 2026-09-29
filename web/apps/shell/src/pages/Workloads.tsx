@@ -17,6 +17,9 @@ import { absoluteTime, countLabel, matchesFilter, useSortPref, useTableKeyboard 
 import { LiveAge } from "../components/LiveAge";
 import { WorkloadTabBar } from "../components/WorkloadTabBar";
 import { podResources, usageBar, type PodResources, type UsageBar } from "../lib/podUsage";
+import { VirtualSpacer } from "../components/VirtualSpacer";
+import { useTableVirtualizer } from "../lib/useTableVirtualizer";
+import { ROW_HEIGHT, useDisplay } from "../lib/display";
 import { ownerAmongTargets, ownerLabel, ownerWarning } from "../lib/gitops";
 
 function rec(v: unknown): Record<string, unknown> {
@@ -286,10 +289,20 @@ export default function Workloads() {
     filterRef,
     onClearFilter: useCallback(() => setFilter(""), []),
   });
+  // Only the rows in view are mounted: 5,000 pods would otherwise be 5,000
+  // rows, each re-rendered on every stream delta.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const { density } = useDisplay();
+  const headerRef = useRef<HTMLTableSectionElement>(null);
+  const { virtualizer: rowVirtualizer, items: virtualRows, topSpace, bottomSpace } = useTableVirtualizer({
+    count: pods.length,
+    estimate: ROW_HEIGHT[density],
+    scrollRef,
+    headerRef,
+  });
   useEffect(() => {
-    if (activeRow < 0) return;
-    document.querySelector(`[data-pod-row="${activeRow}"]`)?.scrollIntoView({ block: "nearest" });
-  }, [activeRow]);
+    if (activeRow >= 0) rowVirtualizer.scrollToIndex(activeRow, { align: "auto" });
+  }, [activeRow, rowVirtualizer]);
 
   // If no cluster is selected and we're done loading, send user to cluster picker.
   // This handles direct navigation (e.g. deep link to /workloads) without going
@@ -396,14 +409,14 @@ export default function Workloads() {
       )}
 
       {pods.length > 0 && (
-        <TableWrap busy={!synced || !connected}>
+        <TableWrap ref={scrollRef} busy={!synced || !connected}>
           <Table>
             <colgroup>
               <col style={{ width: 40 }} />
               {HEADERS.map((h, i) => <col key={h} style={{ width: widths[i] }} />)}
               <col style={{ width: 36 }} />
             </colgroup>
-            <thead>
+            <thead ref={headerRef}>
               <tr>
                 <SelectAllHeader
                   checked={isAllSelected(allKeys)}
@@ -427,13 +440,17 @@ export default function Workloads() {
               </tr>
             </thead>
             <tbody>
-              {pods.map((p, index) => {
+              <VirtualSpacer height={topSpace} colSpan={HEADERS.length + 2} />
+              {virtualRows.map((virtualRow) => {
+                const index = virtualRow.index;
+                const p = pods[index]!;
                 const tone = STATUS_TONE[p.status];
                 const isSelected = selectedKeys.has(p.key);
                 return (
                   <TableRow
                     key={p.key}
-                    data-pod-row={index}
+                    data-index={index}
+                    ref={rowVirtualizer.measureElement}
                     clickable
                     selected={isSelected}
                     hovered={activeRow === index}
@@ -483,6 +500,10 @@ export default function Workloads() {
                   </TableRow>
                 );
               })}
+              <VirtualSpacer
+                height={bottomSpace}
+                colSpan={HEADERS.length + 2}
+              />
             </tbody>
           </Table>
         </TableWrap>
