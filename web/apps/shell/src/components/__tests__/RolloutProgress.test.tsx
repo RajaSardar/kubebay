@@ -27,7 +27,7 @@ describe("RolloutProgress", () => {
   it("shows a loading state before the ReplicaSet stream syncs", () => {
     mockUseResourceStream.mockReturnValue({ rows: [], synced: false, connected: true });
     render(<RolloutProgress cluster="kind-test" namespace="default" obj={deployment} />);
-    expect(screen.getByText(/loading rollout status/i)).toBeTruthy();
+    expect(screen.getByRole("status", { name: /loading rollout status/i })).toBeTruthy();
   });
 
   it("shows the ready count and a segment per owned ReplicaSet", () => {

@@ -1,11 +1,10 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { NavLink } from "react-router-dom";
-import { PageLoader } from "../components/PageLoader";
 import { crdApi, type CRDEntry } from "../lib/api";
 import { extSlug } from "../lib/resources";
 import { useCluster } from "../lib/useCluster";
-import { Badge, Button, InlineBanner, PageHeader, TextField } from "@kubebay/ui";
+import { Badge, Button, InlineBanner, PageHeader, SkeletonLines, TextField } from "@kubebay/ui";
 
 function extPath(r: CRDEntry) {
   return `/r/ext--${extSlug(r.gvr)}?scoped=${r.namespaced ? 1 : 0}`;
@@ -81,7 +80,7 @@ export default function Crds() {
           spellCheck={false}
           style={{ maxWidth: 280 }}
         />
-        {q.isLoading && <PageLoader />}
+        {q.isLoading && <SkeletonLines lines={10} label="Loading custom resource definitions…" />}
         {!q.isLoading && search && (
           <span className="muted small">
             {filtered.reduce((s, [, r]) => s + r.length, 0)} of {totalCount} matching

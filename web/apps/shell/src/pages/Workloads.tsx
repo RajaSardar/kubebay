@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Badge, Button, EmptyState, InlineBanner, NsPill, PageHeader, Row, Select, SelectAllHeader, SelectCell, SkeletonRows, SortHeader, StatusPill, Table, TableRow, TableWrap, TextField, type StatusTone } from "@kubebay/ui";
+import { Badge, Button, EmptyState, InlineBanner, NsPill, PageHeader, Row, Select, SelectAllHeader, SelectCell, SkeletonTable, SortHeader, StatusPill, Table, TableRow, TableWrap, TextField, type StatusTone } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { useResourceStream, shouldShowSkeleton } from "../lib/useResourceStream";
 import PodPanel, { type SelectedPod } from "./PodPanel";
@@ -13,7 +13,6 @@ import { NamespaceFilter } from "../components/NamespaceFilter";
 import { PolicyRejectionCard } from "../components/PolicyRejectionCard";
 import { useSelectedNamespaces } from "../lib/namespace-store";
 import { WorkloadTabBar } from "../components/WorkloadTabBar";
-import { PageLoader } from "../components/PageLoader";
 import { ownerAmongTargets, ownerLabel, ownerWarning } from "../lib/gitops";
 
 function rec(v: unknown): Record<string, unknown> {
@@ -327,24 +326,8 @@ export default function Workloads() {
         <Badge>{pods.length}</Badge>
       </div>
 
-      {!effectiveCluster && (
-        <PageLoader message="Waiting for cluster…" />
-      )}
-
-      {effectiveCluster && shouldShowSkeleton(synced, pods.length) && (
-        <TableWrap>
-          <Table>
-            <thead>
-              <tr>
-                <th style={{ width: 40 }} />
-                {HEADERS.map((h, i) => <th key={h} style={{ width: widths[i] }}>{h}</th>)}
-              </tr>
-            </thead>
-            <tbody>
-              <SkeletonRows columns={HEADERS.length} rows={6} leadingBlank />
-            </tbody>
-          </Table>
-        </TableWrap>
+      {(!effectiveCluster || shouldShowSkeleton(synced, pods.length)) && (
+        <SkeletonTable headers={HEADERS} widths={widths} rows={10} leadingBlank label="Loading pods…" />
       )}
 
       {effectiveCluster && !shouldShowSkeleton(synced, pods.length) && pods.length === 0 && (
@@ -355,7 +338,7 @@ export default function Workloads() {
       )}
 
       {pods.length > 0 && (
-        <TableWrap>
+        <TableWrap busy={!synced || !connected}>
           <Table>
             <colgroup>
               <col style={{ width: 40 }} />

@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Badge, Card, EmptyState, PageHeader, Row, StatusDot } from "@kubebay/ui";
+import { Badge, Card, EmptyState, PageHeader, Row, SkeletonLines, StatusDot } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { useCluster } from "../lib/useCluster";
 import { useFleetWaste } from "../lib/useFleetWaste";
@@ -58,7 +58,13 @@ export default function Fleet() {
       <div className="page">
         <PageHeader level={1} title="Fleet" />
         <div className="page-body">
-          <EmptyState title="Loading clusters…" />
+          <div className="cluster-grid" role="status" aria-label="Loading clusters…" aria-busy="true">
+            {[0, 1, 2].map((i) => (
+              <Card key={i}>
+                <SkeletonLines lines={3} label="Loading cluster…" />
+              </Card>
+            ))}
+          </div>
         </div>
       </div>
     );

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import Editor, { DiffEditor } from "@monaco-editor/react";
-import { Badge, Button, InlineBanner, Row, TextField } from "@kubebay/ui";
+import { Badge, Button, InlineBanner, Row, SkeletonLines, TextField } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { useMonacoTheme } from "../lib/theme";
 import { ownerWarning, type GitOpsOwner } from "../lib/gitops";
@@ -120,7 +120,7 @@ export function YamlTab({
     }
   }
 
-  if (loading) return <div className="loading-state">Loading YAML…</div>;
+  if (loading) return <SkeletonLines lines={12} label="Loading YAML…" />;
 
   // In diff mode: if we have a server preview, show live vs server-computed.
   // Otherwise show local edits vs original.

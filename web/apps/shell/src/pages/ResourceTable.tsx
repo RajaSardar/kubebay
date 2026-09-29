@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams, useLocation } from "react-router-dom";
-import { Badge, Button, EmptyState, IconButton, InlineBanner, NsPill, PageHeader, SelectAllHeader, SelectCell, SkeletonRows, SortHeader, StatusDot, Table, TableRow, TableWrap, TextField, phaseTone } from "@kubebay/ui";
+import { Badge, Button, EmptyState, IconButton, InlineBanner, NsPill, PageHeader, phaseTone, SelectAllHeader, SelectCell, SkeletonTable, SortHeader, StatusDot, Table, TableRow, TableWrap, TextField } from "@kubebay/ui";
 import { api, crdApi, metricsApi, type PrinterColumn } from "../lib/api";
 import { useQuery as useRQQuery } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -641,26 +641,14 @@ export default function ResourceTable() {
       </div>
 
       {shouldShowSkeleton(stream.synced, stream.rows.length) ? (
-        <TableWrap>
-          <Table>
-            <thead>
-              <tr>
-                <th style={{ width: 40 }} />
-                {headers.map((h, i) => <th key={h} style={{ width: widths[i] }}>{h}</th>)}
-              </tr>
-            </thead>
-            <tbody>
-              <SkeletonRows columns={headers.length} leadingBlank />
-            </tbody>
-          </Table>
-        </TableWrap>
+        <SkeletonTable headers={headers} widths={widths} rows={10} leadingBlank label={`Loading ${def.label.toLowerCase()}…`} />
       ) : rows.length === 0 ? (
         <EmptyState>
           <p>No {def.label.toLowerCase()} match.</p>
           <p className="muted small">{search || nsFilter.length ? "Loosen the filters." : `Nothing in this ${def.scoped ? "cluster" : "namespace"} yet.`}</p>
         </EmptyState>
       ) : (
-        <TableWrap ref={scrollRef}>
+        <TableWrap ref={scrollRef} busy={!stream.synced}>
           <Table>
             <colgroup>
               <col style={{ width: 40 }} />

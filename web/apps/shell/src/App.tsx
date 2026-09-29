@@ -64,6 +64,7 @@ import { useWsStatus } from "./lib/useWsStatus";
 import { connectCluster, isClusterConnected } from "./lib/clusterConnections";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { ClusterConnectingOverlay } from "./components/ClusterConnectingOverlay";
+import { PageSkeleton } from "./components/PageSkeleton";
 import { usePrewarm } from "./lib/usePrewarm";
 
 // ──── Cluster Context ────────────────────────────────────────────────────────
@@ -583,7 +584,7 @@ function AppInner() {
           <ErrorBoundary resetKey={location.pathname}>
             {/* Empty page shell, not a spinner: chunks resolve in a few ms on
                 local disk and a spinner would flash more than it informs. */}
-            <Suspense fallback={<div className="page" />}>
+            <Suspense fallback={<PageSkeleton />}>
             <Routes>
               <Route path="/" element={<Navigate to="/workloads-overview" replace />} />
               <Route path="/workloads" element={<Workloads />} />
