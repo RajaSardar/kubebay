@@ -8,7 +8,7 @@ A free, open-source, **local-first Kubernetes IDE** — cleaner than Lens, light
 
 [![CI](https://github.com/RajaSardar/kubebay/actions/workflows/ci.yml/badge.svg)](https://github.com/RajaSardar/kubebay/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-41c98e.svg)](LICENSE)
-[![Latest Release](https://img.shields.io/github/v/release/RajaSardar/kubebay?color=5b8def)](https://github.com/RajaSardar/kubebay/releases/latest)
+[![Latest Release](https://img.shields.io/github/v/release/RajaSardar/kubebay?color=22d3ee)](https://github.com/RajaSardar/kubebay/releases/latest)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-ef5f68.svg)](CONTRIBUTING.md)
 
 </div>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from "react";
-import { Badge, Card, Skeleton } from "@kubebay/ui";
+import { Badge, Card, Row, Skeleton } from "@kubebay/ui";
 import { useResourceStream } from "../lib/useResourceStream";
 import { useStaggeredEnable } from "../lib/useStaggeredEnable";
 import { computeKindCounts } from "../lib/kindCounts";
@@ -71,14 +71,14 @@ export function FleetClusterHealthCard({
   return (
     <Card interactive>
       <div onClick={() => onOpen(cluster)} style={{ cursor: "pointer" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+        <Row align="center" gap={2} style={{ marginBottom: 10 }}>
           <strong className="mono">{cluster}</strong>
           {synced && (
-            <span style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+            <Row gap={2} as="span" style={{ marginLeft: "auto" }}>
               {totalUnhealthy > 0 ? <Badge tone="err">{totalUnhealthy} issues</Badge> : <Badge tone="ok">healthy</Badge>}
-            </span>
+            </Row>
           )}
-        </div>
+        </Row>
         {!synced ? (
           <>
             <Skeleton w={160} h={10} />

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { DiffEditor } from "@monaco-editor/react";
-import { ArmedButton, Badge, Button, Card, EmptyState, InlineBanner, PageHeader } from "@kubebay/ui";
+import { ArmedButton, Badge, Button, Card, EmptyState, InlineBanner, PageHeader, Row, Stack } from "@kubebay/ui";
 import { PageLoader } from "../components/PageLoader";
 import { InstallVpaRecommender } from "../components/InstallVpaRecommender";
 import { RightSizingTable, rowKey, type Selection } from "../components/RightSizingTable";
@@ -246,19 +246,19 @@ export default function RightSizing() {
         <RightSizingTable rows={rows} selected={selection} onToggle={toggle} />
 
         {plans.length > 0 && (
-          <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+          <Stack gap={3} style={{ marginTop: 16 }}>
             {plans.map((plan) => {
               const key = planWorkloadKey(plan);
               const preview = previews[key];
               return (
                 <Card key={key}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+                  <Row align="center" justify="between" wrap gap={2}>
                     <div>
                       <span className="mono strong">{plan.name}</span>
                       <span className="muted small"> · {plan.kind} · {plan.ns}</span>
                       {plan.gitopsOwner && <Badge>{ownerLabel(plan.gitopsOwner)}</Badge>}
                     </div>
-                    <div style={{ display: "flex", gap: 8 }}>
+                    <Row gap={2}>
                       <Button variant="ghost" onClick={() => void previewPlan(plan)}>
                         {preview?.status === "loading" ? "Previewing…" : "Preview dry-run"}
                       </Button>
@@ -275,8 +275,8 @@ export default function RightSizing() {
                           onGo={() => void applyPlan(plan)}
                         />
                       )}
-                    </div>
-                  </div>
+                    </Row>
+                  </Row>
 
                   {preview?.status === "error" && <InlineBanner flush style={{ marginTop: 10 }}>{preview.error}</InlineBanner>}
 
@@ -301,7 +301,7 @@ export default function RightSizing() {
                 </Card>
               );
             })}
-          </div>
+          </Stack>
         )}
       </div>
     </div>

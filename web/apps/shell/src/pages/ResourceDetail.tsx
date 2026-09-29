@@ -39,7 +39,6 @@ export default function ResourceDetail() {
         </button>
       </div>
 
-      {/* Render GenericDrawer in full-page mode by overriding its aside/drawer styles */}
       <div className="resource-detail-content">
         <GenericDrawer
           cluster={effectiveCluster}
@@ -47,6 +46,7 @@ export default function ResourceDetail() {
           ns={namespace}
           name={name}
           onClose={goBack}
+          embedded
         />
       </div>
     </div>

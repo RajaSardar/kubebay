@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { LIGHT_THEMES, nativeAppearance, syncNativeWindow } from "./nativeWindow";
 
 export type ThemeName =
   | "dusk" | "dawn" | "system" | "dusk-hc" | "dawn-hc"
@@ -50,8 +51,6 @@ export const useTheme = create<ThemeState>((set) => ({
   },
 }));
 
-const LIGHT_THEMES = new Set<ThemeName>(["dawn", "dawn-hc", "vscode-light", "github-light"]);
-
 /**
  * Monaco ships its own themes, so an editor does not follow our CSS variables.
  * Pick the matching built-in instead of hardcoding one.
@@ -75,9 +74,15 @@ if (typeof window !== "undefined") {
       if (theme === "system") setTheme("system");
     });
   }
+  const applied = (s: { theme: ThemeName }) => {
+    const color = getComputedStyle(document.documentElement).getPropertyValue("--kb-theme-color").trim();
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", color);
+    syncNativeWindow(color, nativeAppearance(s.theme));
+  };
   useTheme.subscribe((s) => {
     document.documentElement.dataset.theme = s.resolved;
-    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", getComputedStyle(document.documentElement).getPropertyValue("--kb-theme-color").trim());
+    applied(s);
   });
   document.documentElement.dataset.theme = resolve(stored);
+  applied({ theme: stored });
 }

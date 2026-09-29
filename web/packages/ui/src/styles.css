@@ -230,9 +230,13 @@
 
 .kb-skeleton {
   position: relative;
+  display: inline-block;
+  vertical-align: middle;
   overflow: hidden;
   border-radius: var(--kb-radius-sm);
-  background: var(--kb-bg-inset);
+  /* A tint of the text colour reads on every ground; kb-bg-inset vanished on
+     dark surfaces. */
+  background: color-mix(in srgb, var(--kb-fg-default) 14%, transparent);
 }
 
 .kb-skeleton::after {
@@ -484,7 +488,7 @@ kbd {
   z-index: 2;
   /* Subtle visual divider */
   border-right: 2px solid transparent;
-  transition: border-color 150ms;
+  transition: border-color var(--kb-dur);
 }
 
 .col-resize-handle:hover {
@@ -518,6 +522,12 @@ kbd {
 .kb-table tbody tr.selected {
   background: var(--kb-accent-subtle);
   box-shadow: inset 3px 0 0 var(--kb-accent);
+}
+
+/* A namespace pill on a selected row would stack a second accent tint and
+   drop below 4.5:1; it sits on the surface there instead. */
+.kb-table tbody tr.selected .ns-pill {
+  background: var(--kb-bg-surface);
 }
 
 .kb-table tbody tr:hover {
@@ -598,6 +608,7 @@ kbd {
 
 .chev {
   margin-left: auto;
+  flex-shrink: 0;
   opacity: 0.45;
   color: var(--kb-fg-subtle);
   transition: transform var(--kb-dur-fast) var(--kb-ease), opacity var(--kb-dur-fast) var(--kb-ease);
@@ -715,12 +726,12 @@ kbd {
   inset: 0;
   background: color-mix(in srgb, var(--kb-bg-canvas) 55%, transparent);
   backdrop-filter: blur(3px);
-  z-index: 100;
+  z-index: var(--kb-z-palette);
   display: flex;
   justify-content: center;
   align-items: flex-start;
   padding-top: 12vh;
-  animation: palette-overlay-in 150ms var(--kb-ease) both;
+  animation: palette-overlay-in var(--kb-dur) var(--kb-ease) both;
 }
 
 @keyframes palette-overlay-in {
@@ -735,7 +746,7 @@ kbd {
   border-radius: var(--kb-radius-lg);
   box-shadow: var(--kb-shadow-lift), var(--kb-highlight-inset);
   overflow: hidden;
-  animation: palette-box-in 200ms var(--kb-ease-out) both;
+  animation: palette-box-in var(--kb-dur-slow) var(--kb-ease-out) both;
 }
 
 @keyframes palette-box-in {
@@ -812,15 +823,27 @@ kbd {
   font-size: var(--kb-text-2xs);
   font-weight: 400;
   font-family: var(--kb-font-mono);
-  color: var(--kb-fg-subtle);
+  color: var(--kb-fg-muted);
   text-transform: none;
   letter-spacing: 0;
+}
+
+/* The word stays readable; a small dot breathes beside it instead. */
+.palette-section-loading::before {
+  content: "";
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-right: 5px;
+  border-radius: 50%;
+  background: var(--kb-accent);
+  vertical-align: 1px;
   animation: palette-loading-pulse 1.4s ease-in-out infinite;
 }
 
 @keyframes palette-loading-pulse {
-  0%, 100% { opacity: 0.4; }
-  50%       { opacity: 1;   }
+  0%, 100% { opacity: 0.35; }
+  50%       { opacity: 1;    }
 }
 
 /* ── Pod rows inside palette ── */
@@ -896,14 +919,14 @@ kbd {
 /* ──── Context menu ──── */
 .ctx-menu {
   position: fixed;
-  z-index: 200;
+  z-index: var(--kb-z-popover);
   min-width: 180px;
   background: var(--kb-bg-raised);
   border: 1px solid var(--kb-border-strong);
   border-radius: var(--kb-radius);
   box-shadow: var(--kb-shadow-lift);
   padding: 4px;
-  animation: ctx-appear 100ms var(--kb-ease);
+  animation: ctx-appear var(--kb-dur-fast) var(--kb-ease);
 }
 
 @keyframes ctx-appear {
@@ -1101,7 +1124,7 @@ kbd {
   display: inline-block;
   width: 8px;
   height: 8px;
-  border-radius: 2px;
+  border-radius: var(--kb-radius-2xs);
   flex-shrink: 0;
 }
 
@@ -1270,6 +1293,18 @@ tr.row-clickable:active {
   margin: 0 0 var(--kb-space-3);
 }
 
+/* Reduced motion: every animation and transition collapses to its end state.
+   Lives in the package so any app that uses @kubebay/ui honours the setting. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 /* ── Forced colours (Windows High Contrast) ──
    The browser drops box-shadow and author backgrounds here, so focus rings,
    the selected-row bar and status dots are restated with system colours. */
@@ -1288,4 +1323,170 @@ tr.row-clickable:active {
   .kb-skeleton {
     forced-color-adjust: none;
   }
+}
+
+/* ── Drawer: the side panel for one resource ── */
+.drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(820px, 75vw);
+  background: var(--kb-bg-surface);
+  border-left: 1px solid var(--kb-border-strong);
+  box-shadow: var(--kb-shadow-lift);
+  display: flex;
+  flex-direction: column;
+  z-index: var(--kb-z-drawer);
+  outline: none;
+  animation: drawer-slide-in var(--kb-dur-slow) var(--kb-ease-out) both;
+}
+
+@keyframes drawer-slide-in {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+
+/* Full-page resource view: the same panel fills its container. */
+.drawer.embedded {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  border-left: none;
+  box-shadow: none;
+  animation: none;
+}
+
+.drawer-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--kb-border-subtle);
+}
+
+.drawer-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.drawer-name {
+  font-family: var(--kb-font-mono);
+  font-size: var(--kb-text-sm);
+  font-weight: 600;
+  color: var(--kb-fg-default);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.drawer-subtitle {
+  font-size: var(--kb-text-sm);
+  color: var(--kb-fg-muted);
+}
+
+.drawer-subtitle-mono {
+  font-family: var(--kb-font-mono);
+}
+
+.drawer-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ── Modal: a dialog that holds focus ── */
+.kb-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--kb-z-modal);
+  background: color-mix(in srgb, var(--kb-bg-canvas) 55%, transparent);
+  animation: kb-modal-fade var(--kb-dur) var(--kb-ease) both;
+}
+
+.kb-modal-backdrop.clear {
+  background: transparent;
+  animation: none;
+}
+
+.kb-modal {
+  position: fixed;
+  z-index: calc(var(--kb-z-modal) + 1);
+  background: var(--kb-bg-surface);
+  border: 1px solid var(--kb-border-subtle);
+  border-radius: var(--kb-radius);
+  box-shadow: var(--kb-shadow-menu);
+  outline: none;
+}
+
+@keyframes kb-modal-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ── Layout: Row and Stack ── */
+.kb-row {
+  display: flex;
+}
+
+.kb-stack {
+  display: flex;
+  flex-direction: column;
+}
+
+.kb-gap-0 { gap: 0; }
+.kb-gap-1 { gap: var(--kb-space-1); }
+.kb-gap-2 { gap: var(--kb-space-2); }
+.kb-gap-3 { gap: var(--kb-space-3); }
+.kb-gap-4 { gap: var(--kb-space-4); }
+.kb-gap-5 { gap: var(--kb-space-5); }
+.kb-gap-6 { gap: var(--kb-space-6); }
+
+.kb-align-start { align-items: flex-start; }
+.kb-align-center { align-items: center; }
+.kb-align-end { align-items: flex-end; }
+.kb-align-baseline { align-items: baseline; }
+.kb-align-stretch { align-items: stretch; }
+
+.kb-justify-start { justify-content: flex-start; }
+.kb-justify-center { justify-content: center; }
+.kb-justify-end { justify-content: flex-end; }
+.kb-justify-between { justify-content: space-between; }
+
+.kb-wrap { flex-wrap: wrap; }
+
+/* ── ChoiceCard: pick one option from a grid of cards ── */
+.kb-choice-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--kb-bg-surface);
+  color: var(--kb-fg-default);
+  border: 1px solid var(--kb-border-strong);
+  border-radius: var(--kb-radius);
+  padding: 11px 13px;
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--kb-text-md);
+  text-align: left;
+  transition:
+    border-color var(--kb-dur-fast) var(--kb-ease),
+    box-shadow var(--kb-dur-fast) var(--kb-ease),
+    transform var(--kb-dur-fast) var(--kb-ease);
+}
+
+.kb-choice-card:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--kb-shadow-lift);
+}
+
+.kb-choice-card.active {
+  border-color: var(--kb-accent);
+  box-shadow: 0 0 0 1px var(--kb-accent), var(--kb-shadow-rest);
+}
+
+/* After .active, so keyboard focus on the chosen theme still shows its ring. */
+.kb-choice-card:focus-visible {
+  box-shadow: var(--kb-focus-ring);
 }

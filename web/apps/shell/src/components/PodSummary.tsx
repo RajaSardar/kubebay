@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Badge, StatusDot } from "@kubebay/ui";
+import { Badge, Row, Stack, StatusDot } from "@kubebay/ui";
 import { ResourceLink } from "./ResourceLink";
 import { PodEnvValue } from "./PodEnvValue";
 import { PodContainerPortForward } from "./PodContainerPortForward";
@@ -149,13 +149,13 @@ export function PodSummary({
   return (
     <div className="pod-summary" style={{ padding: 14, overflowY: "auto", flex: 1 }}>
       <div className="pod-section" style={{ marginBottom: 14 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <Row align="center" gap={2} wrap>
           <StatusDot status={data.phase === "Running" ? "connected" : data.phase === "Succeeded" ? "pending" : data.phase === "Failed" ? "unreachable" : "degraded"} />
           <strong>{data.phase}</strong>
           {data.podIP && <Badge>{data.podIP}</Badge>}
           {data.qos && <Badge>{data.qos}</Badge>}
           {data.deletionTimestamp && <Badge tone="err">terminating</Badge>}
-        </div>
+        </Row>
       </div>
 
       <Section title="Metadata">
@@ -195,12 +195,12 @@ export function PodSummary({
 
       {data.containerDetails.map((c) => (
         <Section key={c.name} title={`Container: ${c.name}`}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+          <Row align="center" gap={2} style={{ marginBottom: 8 }}>
             <StatusDot status={c.ready ? "connected" : "unreachable"} />
             <span className="small">{c.ready ? "Ready" : "Not ready"}</span>
             {c.restarts > 0 && <Badge tone="err">{c.restarts} restarts</Badge>}
             {c.stateReason && <Badge tone={c.stateType === "running" ? "ok" : "err"}>{c.stateReason || c.stateType}</Badge>}
-          </div>
+          </Row>
           <KV k="Image" v={<span className="mono small">{c.image}</span>} />
           {c.lastState && (
             <KV
@@ -218,17 +218,17 @@ export function PodSummary({
             <KV
               k="Ports"
               v={
-                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <Stack gap={1}>
                   {c.ports.map((p, i) => (
-                    <span key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <Row align="center" gap={2} as="span" key={i}>
                       <Badge>
                         {str(p.containerPort)}/{str(p.protocol) || "TCP"}
                         {p.name ? ` (${str(p.name)})` : ""}
                       </Badge>
                       <PodContainerPortForward cluster={cluster} namespace={data.namespace} pod={data.name} podPort={Number(p.containerPort)} />
-                    </span>
+                    </Row>
                   ))}
-                </div>
+                </Stack>
               }
             />
           )}
@@ -276,14 +276,14 @@ export function PodSummary({
             <KV
               k={`Mounts (${c.mounts.length})`}
               v={
-                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                <Stack>
                   {c.mounts.map((m, i) => (
                     <span key={i} className="mono small">
                       {str(m.mountPath)} ← {str(m.name)}
                       {m.readOnly ? " (ro)" : ""}
                     </span>
                   ))}
-                </div>
+                </Stack>
               }
             />
           )}
@@ -292,12 +292,12 @@ export function PodSummary({
 
       {data.volumes.length > 0 && (
         <Section title={`Volumes (${data.volumes.length})`}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+          <Stack gap={1}>
             {data.volumes.map((v, i) => {
               const name = str(v.name);
               const desc = describeVolume(v, data.namespace);
               return (
-                <div key={i} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <Row gap={2} align="center" key={i}>
                   <span className="mono small">{name}</span>
                   <Badge>{desc.label}</Badge>
                   {desc.link ? (
@@ -307,10 +307,10 @@ export function PodSummary({
                   ) : (
                     <span className="muted small mono">{desc.detail}</span>
                   )}
-                </div>
+                </Row>
               );
             })}
-          </div>
+          </Stack>
         </Section>
       )}
     </div>

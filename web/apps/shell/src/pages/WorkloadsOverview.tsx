@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery as useRQQuery } from "@tanstack/react-query";
-import { Badge, Card, PageHeader, SegmentedControl, Select, Skeleton } from "@kubebay/ui";
+import { Badge, Card, PageHeader, Row, SegmentedControl, Select, Skeleton } from "@kubebay/ui";
 import { useCluster } from "../lib/useCluster";
 import { useResourceStream, shouldShowSkeleton } from "../lib/useResourceStream";
 import { WorkloadTabBar } from "../components/WorkloadTabBar";
@@ -125,16 +125,16 @@ export default function WorkloadsOverview() {
           {kinds.map((k) => (
             <Card key={k.label} interactive className="fleet-card">
               <Link to={k.to} style={{ textDecoration: "none", color: "inherit" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                <Row align="center" gap={2} style={{ marginBottom: 10 }}>
                   <strong>{k.label}</strong>
                   <Badge>{k.total}</Badge>
-                  <span style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+                  <Row gap={2} as="span" style={{ marginLeft: "auto" }}>
                     {k.healthy > 0 && <Badge tone="ok">{k.healthy} ok</Badge>}
                     {k.unhealthy > 0 && <Badge tone="err">{k.unhealthy} issues</Badge>}
-                  </span>
-                </div>
+                  </Row>
+                </Row>
                 {k.total > 0 && (
-                  <div style={{ display: "flex", gap: 0, height: 6, borderRadius: "var(--kb-radius-xs)", overflow: "hidden", background: "var(--kb-bg-inset)" }}>
+                  <Row gap={0} style={{ height: 6, borderRadius: "var(--kb-radius-xs)", overflow: "hidden", background: "var(--kb-bg-inset)" }}>
                     <div style={{
                       width: `${k.healthy > 0 ? (k.healthy / k.total) * 100 : 0}%`,
                       background: "var(--kb-status-ok)",
@@ -145,7 +145,7 @@ export default function WorkloadsOverview() {
                       background: "var(--kb-status-err)",
                       transition: "width 300ms",
                     }} />
-                  </div>
+                  </Row>
                 )}
                 {k.total === 0 && <div className="muted small" style={{ marginTop: 4 }}>None</div>}
               </Link>

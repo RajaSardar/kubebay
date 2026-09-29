@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Button, Card, DataTable, EmptyState, PageHeader, Select, TextField } from "@kubebay/ui";
+import { Button, Card, DataTable, EmptyState, PageHeader, Row, Select, TextField } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { useCluster } from "../lib/useCluster";
 
@@ -100,11 +100,11 @@ export default function Ports() {
               key: "actions",
               header: "",
               render: (f) => (
-                <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <Row justify="end">
                   <Button variant="danger" onClick={() => void stop(f.id)}>
                     Stop
                   </Button>
-                </div>
+                </Row>
               ),
             },
           ]}

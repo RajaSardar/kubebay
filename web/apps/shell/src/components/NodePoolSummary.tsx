@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Badge, Button, Card, EmptyState } from "@kubebay/ui";
+import { Badge, Button, Card, EmptyState, Row, Stack } from "@kubebay/ui";
 import { formatCpuMillis, formatMemBytes } from "../lib/rightsizing";
 import type { NodePoolRow } from "../lib/karpenter";
 import { NodePoolEditor } from "./NodePoolEditor";
@@ -38,20 +38,20 @@ export function NodePoolSummary({
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+    <Stack gap={3}>
       {rows.map((r) => (
         <Card key={r.name}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+          <Row align="center" justify="between" wrap gap={2}>
             <span className="mono strong">{r.name}</span>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Row align="center" gap={2}>
               <span className="muted small">
                 {r.nodeCount} node{r.nodeCount === 1 ? "" : "s"} · {r.podCount} pods · {r.namespaceCount} namespaces
               </span>
               <Button variant="ghost" onClick={() => setEditing(editing === r.name ? null : r.name)}>
                 {editing === r.name ? "Close" : "Edit"}
               </Button>
-            </div>
-          </div>
+            </Row>
+          </Row>
           <div className="muted small" style={{ marginTop: 6 }}>
             {r.spotCount} spot / {r.onDemandCount} on-demand
           </div>
@@ -62,15 +62,15 @@ export function NodePoolSummary({
             {r.limitMemBytes !== undefined ? formatMemBytes(r.limitMemBytes) : "no limit"} memory
           </div>
           {editing === r.name && (
-            <div style={{ marginTop: 12, height: 420, display: "flex", flexDirection: "column" }}>
+            <Stack style={{ marginTop: 12, height: 420 }}>
               <Badge>editing NodePool</Badge>
               <div style={{ flex: 1, minHeight: 0, marginTop: 8 }}>
                 <NodePoolEditor cluster={cluster} gvr={gvr} name={r.name} nodes={nodes} pods={pods} pdbs={pdbs} />
               </div>
-            </div>
+            </Stack>
           )}
         </Card>
       ))}
-    </div>
+    </Stack>
   );
 }

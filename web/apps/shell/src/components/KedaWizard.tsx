@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { DiffEditor } from "@monaco-editor/react";
-import { Badge, Button, InlineBanner, Select, TextField } from "@kubebay/ui";
+import { Badge, Button, InlineBanner, Row, Select, Stack, TextField } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { useMonacoTheme } from "../lib/theme";
 import { buildScaledObjectYaml, validateKedaWizardInput, type KedaTrigger, type KedaWizardInput } from "../lib/kedaWizard";
@@ -98,8 +98,8 @@ export function KedaWizard({
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: 14 }}>
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
+    <Stack gap={2} style={{ padding: 14 }}>
+      <Row gap={3} wrap align="end">
         <label className="ctl" style={{ flexDirection: "column", alignItems: "flex-start" }}>
           ScaledObject name
           <TextField value={scaledObjectName} onChange={(e) => setScaledObjectName(e.target.value)} spellCheck={false} />
@@ -133,10 +133,10 @@ export function KedaWizard({
             <option value="prometheus">Prometheus query</option>
           </Select>
         </label>
-      </div>
+      </Row>
 
       {triggerType === "cron" && (
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
+        <Row gap={3} wrap align="end">
           <label className="ctl" style={{ flexDirection: "column", alignItems: "flex-start" }}>
             Start (cron)
             <TextField placeholder="0 9 * * 1-5" value={cronStart} onChange={(e) => setCronStart(e.target.value)} spellCheck={false} />
@@ -159,7 +159,7 @@ export function KedaWizard({
               onChange={(e) => setCronDesiredReplicas(Number(e.target.value))}
             />
           </label>
-        </div>
+        </Row>
       )}
 
       {(triggerType === "cpu" || triggerType === "memory") && (
@@ -176,12 +176,12 @@ export function KedaWizard({
       )}
 
       {triggerType === "prometheus" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <Stack gap={2}>
           <div className="muted small">
             KEDA resolves this address in-cluster — it is never the same as Kubebay's local Prometheus proxy (usually a laptop
             port-forward), so nothing here is prefilled from Settings.
           </div>
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
+          <Row gap={3} wrap align="end">
             <label className="ctl" style={{ flexDirection: "column", alignItems: "flex-start" }}>
               Server address (in-cluster)
               <TextField
@@ -212,7 +212,7 @@ export function KedaWizard({
                 onChange={(e) => setPromThreshold(Number(e.target.value))}
               />
             </label>
-          </div>
+          </Row>
           <label className="ctl" style={{ flexDirection: "column", alignItems: "flex-start" }}>
             PromQL query
             <TextField
@@ -223,7 +223,7 @@ export function KedaWizard({
               spellCheck={false}
             />
           </label>
-        </div>
+        </Stack>
       )}
 
       {errors.length > 0 && (
@@ -242,7 +242,7 @@ export function KedaWizard({
             ⚠ scale-to-zero (minReplicaCount: 0) — the workload can go idle between triggers. Type{" "}
             <span className="mono strong">{targetName}</span> to confirm before applying.
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
+          <Row align="center" gap={2} style={{ marginTop: 6 }}>
             <Badge tone="err">type name to confirm</Badge>
             <TextField
               style={{ maxWidth: 180 }}
@@ -251,7 +251,7 @@ export function KedaWizard({
               onChange={(e) => setZeroConfirm(e.target.value)}
               spellCheck={false}
             />
-          </div>
+          </Row>
         </InlineBanner>
       )}
 
@@ -270,14 +270,14 @@ export function KedaWizard({
         <InlineBanner flush tone={msg.ok ? "ok" : "err"}>{msg.text}</InlineBanner>
       )}
 
-      <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
+      <Row gap={2} style={{ marginLeft: "auto" }}>
         <Button variant="ghost" disabled={busy || blocked} onClick={() => void apply(true)}>
           Dry-run
         </Button>
         <Button disabled={busy || blocked || needsZeroConfirm} onClick={() => void apply(false)}>
           Apply
         </Button>
-      </div>
-    </div>
+      </Row>
+    </Stack>
   );
 }

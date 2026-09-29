@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Badge, Button, Card } from "@kubebay/ui";
+import { Badge, Button, Card, Row, Stack } from "@kubebay/ui";
 import type { RBACFinding } from "../lib/api";
 import { isSystemFinding, findingQuery, type FindingQuery } from "../lib/rbacFindings";
 
@@ -31,10 +31,10 @@ export function RbacFindingsCard({
 
   return (
     <Card style={{ marginBottom: 16 }}>
-      <div className="rbac-section-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <Row align="center" gap={2} className="rbac-section-title">
         Findings
         <Badge tone={visible.length > 0 ? "err" : "ok"}>{visible.length}</Badge>
-      </div>
+      </Row>
       <label className="ctl" style={{ cursor: "pointer" }}>
         <input type="checkbox" checked={hideSystem} onChange={(e) => setHideSystem(e.target.checked)} />
         hide system:* roles
@@ -45,15 +45,15 @@ export function RbacFindingsCard({
           No findings{hiddenCount > 0 ? ` (${hiddenCount} hidden by the system:* filter)` : ""}.
         </div>
       ) : (
-        <div className="rbac-findings-list" style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 10 }}>
+        <Stack gap={2} className="rbac-findings-list" style={{ marginTop: 10 }}>
           {visible.map((f, i) => {
             const q = findingQuery(f);
             return (
               <div key={i} className="rbac-finding" style={{ borderBottom: "1px solid var(--kb-border-subtle)", paddingBottom: 10 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <Row align="center" gap={2} wrap>
                   <Badge tone={f.severity === "high" ? "err" : undefined}>{f.severity}</Badge>
                   <span className="small strong">{f.title}</span>
-                </div>
+                </Row>
                 <div className="small muted">
                   {f.subject} via <span className="mono">{f.roleRef}</span>
                 </div>
@@ -67,7 +67,7 @@ export function RbacFindingsCard({
               </div>
             );
           })}
-        </div>
+        </Stack>
       )}
     </Card>
   );

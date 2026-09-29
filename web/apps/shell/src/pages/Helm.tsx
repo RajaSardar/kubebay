@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Editor from "@monaco-editor/react";
-import { ArmedButton, Badge, Button, DataTable, EmptyState, InlineBanner, PageHeader, Skeleton, StatusDot, Tabs, TextField } from "@kubebay/ui";
+import { ArmedButton, Badge, Button, DataTable, Drawer, EmptyState, InlineBanner, PageHeader, Row, Skeleton, StatusDot, Tabs, TextField } from "@kubebay/ui";
 import { helmApi, type HelmRelease } from "../lib/api";
 import { useCluster } from "../lib/useCluster";
 import { useMonacoTheme } from "../lib/theme";
@@ -130,14 +130,13 @@ function ReleaseDrawer({
   const tone = statusTone(rel.status);
 
   return (
-    <aside className="drawer">
-      <div className="drawer-head">
-        <StatusDot status={tone.dot} />
-        <div style={{ minWidth: 0 }}>
-          <div className="mono strong">{rel.name}</div>
-          <div className="muted small mono">{rel.namespace}</div>
-        </div>
-        <div className="drawer-head-actions">
+    <Drawer
+      title={rel.name}
+      subtitle={rel.namespace}
+      leading={<StatusDot status={tone.dot} />}
+      onClose={onClose}
+      actions={
+        <>
           {!confirmingDelete ? (
             <>
               <Button variant="danger-ghost" onClick={() => setConfirmingDelete(true)}>
@@ -164,8 +163,9 @@ function ReleaseDrawer({
               </Button>
             </>
           )}
-        </div>
-      </div>
+        </>
+      }
+    >
 
       {err && (
         <InlineBanner flush style={{ margin: "10px 14px 0" }}>
@@ -186,7 +186,7 @@ function ReleaseDrawer({
             <div key={h.revision} className="tl-item" style={{ padding: "8px 4px" }}>
               <StatusDot status={statusTone(h.status).dot} />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <Row gap={2} align="center">
                   <span className="mono strong">rev {h.revision}</span>
                   <Badge tone={statusTone(h.status).badge}>{h.status.toLowerCase()}</Badge>
                   <span className="mono muted small">{h.chartVersion && `chart ${h.chartVersion}`}</span>
@@ -200,7 +200,7 @@ function ReleaseDrawer({
                       onGo={() => void rollback(h.revision)}
                     />
                   )}
-                </div>
+                </Row>
                 {h.description && <div className="muted small">{h.description}</div>}
               </div>
             </div>
@@ -227,14 +227,14 @@ function ReleaseDrawer({
               style={{ maxWidth: 130 }}
             />
             {valuesDirty && <Badge>modified</Badge>}
-            <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+            <Row gap={2} style={{ marginLeft: "auto" }}>
               <Button variant="ghost" onClick={() => setValuesEdited(null)} disabled={!valuesDirty}>
                 Discard
               </Button>
               <Button disabled={busy || !valuesDirty} onClick={() => void apply()}>
                 Save &amp; upgrade
               </Button>
-            </div>
+            </Row>
           </div>
           <div className="yaml-editor" style={{ height: "calc(100vh - 300px)" }}>
             {valuesQ.isLoading ? (
@@ -263,7 +263,7 @@ function ReleaseDrawer({
           {manifestQ.isLoading ? "Loading…" : manifestQ.data}
         </pre>
       )}
-    </aside>
+    </Drawer>
   );
 }
 

@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { Tabs } from "@kubebay/ui";
+import { useRef, useState } from "react";
+import { Button, Modal, Tabs } from "@kubebay/ui";
 import type { ClusterIcon } from "../lib/useClusterIcons";
 
 export { type ClusterIcon };
@@ -44,14 +44,6 @@ export function ClusterIconPicker({ clusterId, current, onSave, onReset, onClose
   const [imgError, setImgError] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -76,9 +68,7 @@ export function ClusterIconPicker({ clusterId, current, onSave, onReset, onClose
   const previewImageUrl = tab === "image" && imageUrl && !imgError ? imageUrl : null;
 
   return (
-    <>
-      <div className="icon-picker-backdrop" onClick={onClose} />
-      <div className="icon-picker">
+    <Modal label="Customize icon" onClose={onClose} backdrop="clear" className="icon-picker">
         <div className="icon-picker-title">Customize icon</div>
 
         {/* Preview */}
@@ -147,10 +137,7 @@ export function ClusterIconPicker({ clusterId, current, onSave, onReset, onClose
             {imgError && <p className="icon-picker-error">Could not load image</p>}
 
             <div className="icon-picker-section">Or upload a file</div>
-            <button
-              className="icon-picker-btn ghost icon-picker-upload-btn"
-              onClick={() => fileInputRef.current?.click()}
-            >
+            <button type="button" className="icon-picker-upload-btn" onClick={() => fileInputRef.current?.click()}>
               {imageUrl.startsWith("data:") ? "✓ File loaded — click to change" : "Choose file…"}
             </button>
             <input
@@ -165,28 +152,44 @@ export function ClusterIconPicker({ clusterId, current, onSave, onReset, onClose
         )}
 
         <div className="icon-picker-actions">
-          <button className="icon-picker-btn ghost" onClick={() => { onReset(); onClose(); }}>
+          <Button variant="ghost" onClick={() => { onReset(); onClose(); }}>
             Reset
-          </button>
-          <button role="button" aria-label="Apply" className="icon-picker-btn primary" onClick={handleApply}>
-            Apply
-          </button>
+          </Button>
+          <Button onClick={handleApply}>Apply</Button>
         </div>
-      </div>
-    </>
+    </Modal>
   );
 }
 
 /** Label colour for initials on a user-picked avatar colour: white or near-black, whichever contrasts more. */
 export function avatarLabelColor(bg: string): string {
-  const m = /^#([0-9a-f]{6})$/i.exec(bg.trim());
-  if (!m) return "#ffffff";
+  const v = bg.trim();
+  // The theme accent (the fallback avatar) has its own on-colour token.
+  if (v === "var(--kb-accent)") return "var(--kb-accent-fg)";
+  const short = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(v);
+  const hex = short ? `${short[1]}${short[1]}${short[2]}${short[2]}${short[3]}${short[3]}` : /^#([0-9a-f]{6})$/i.exec(v)?.[1];
+  if (!hex) return "#ffffff";
   const lin = (i: number) => {
-    const v = parseInt(m[1]!.slice(i, i + 2), 16) / 255;
-    return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+    const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
   };
   const l = 0.2126 * lin(0) + 0.7152 * lin(2) + 0.0722 * lin(4);
   const onWhite = 1.05 / (l + 0.05);
   const onDark = (l + 0.05) / (0.0056 + 0.05); // #111111
   return onWhite >= onDark ? "#ffffff" : "#111111";
+}
+
+/**
+ * How a cluster avatar in the strip shows its state. Clickable avatars stay at
+ * full opacity (fading them took their labels below 1.5:1); inactive ones are
+ * desaturated instead, which keeps the label's contrast. A broken cluster is a
+ * disabled button and may fade.
+ */
+export function stripAvatarLook({ broken, active, streaming }: { broken?: boolean; active?: boolean; streaming?: boolean }): {
+  opacity: number;
+  filter: string;
+} {
+  if (broken) return { opacity: 0.22, filter: "grayscale(1)" };
+  if (active) return { opacity: 1, filter: "none" };
+  return { opacity: 1, filter: streaming ? "saturate(0.6)" : "saturate(0.2)" };
 }

@@ -13,13 +13,18 @@ https://claude.ai/artifact/J35D45QQ7X6Sgd7mwfRSnF
 | What | File | Notes |
 |---|---|---|
 | Colour, shadow and focus tokens for all 12 themes | `web/packages/ui/src/tokens.css` | `--kb-*` custom properties, one block per `data-theme` |
-| Type scale, spacing, radii, motion | `web/packages/ui/src/tokens.css` (`:root`) | `--kb-text-*`, `--kb-space-*`, `--kb-radius-*`, `--kb-dur*`, `--kb-ease*` |
+| Type scale, spacing, radii, motion, layers | `web/packages/ui/src/tokens.css` (`:root`) | `--kb-text-*`, `--kb-space-*`, `--kb-radius-*`, `--kb-dur*`, `--kb-ease*`, `--kb-z-*` |
 | Component styles | `web/packages/ui/src/styles.css` | the only CSS for package classes |
 | Core components | `web/packages/ui/src/index.tsx` | `Button`, `ArmedButton`, `Card`, `Badge`, `StatusDot`, `Skeleton`, `chartColor()` |
-| Shell components | `web/packages/ui/src/shell.tsx` | `StatusPill`/`phaseTone`, `Tabs` (with `trailing` controls), `SegmentedControl`, `IconButton`, `NavItem`/`NavSection`/`navItemClass`, `TextField`, `Select`, `Kbd`, `PageHeader`, `ContextMenu` |
+| Shell components | `web/packages/ui/src/shell.tsx` | `StatusPill`/`phaseTone`, `Tabs` (with `trailing` controls), `SegmentedControl`, `IconButton`, `NavItem`/`NavSection`/`navItemClass`, `DisclosureButton`, `ChoiceCard`, `TextField`, `Select`, `Kbd`, `PageHeader`, `ContextMenu` |
+| Layout | `web/packages/ui/src/layout.tsx` | `Row`, `Stack` (`gap` on the `--kb-space-*` scale, `align`, `justify`, `wrap`, `as`) |
 | Tables and feedback | `web/packages/ui/src/table.tsx` | `DataTable`, `TableWrap`, `Table`, `SortHeader`, `SelectAllHeader`, `SelectCell`, `TableRow`, `NsPill`, `SkeletonRows`, `EmptyState`, `InlineBanner` |
-| Brand mark | `web/packages/ui/src/brand.tsx` | `KubebayMark` |
+| Overlays | `web/packages/ui/src/overlays.tsx` | `Drawer` (with `embedded` for the full-page view), `Modal` |
+| Brand mark | `web/packages/ui/src/brand.tsx` | `KubebayMark`; the gradient is `--kb-brand-cyan` → `--kb-brand-green`, also used by the favicons, app icons and the website's `KubebayMark.astro` |
+| Website | `website/src/styles/global.css` | imports `tokens.css` (Dusk); its `--bg`, `--text`, `--accent`… are aliases for `--kb-*` tokens |
+| Desktop window | `web/apps/shell/src/lib/nativeWindow.ts`, `desktop/src-tauri/src/window_theme.rs` | the native window's colour and title bar follow the theme |
 | Icons | `web/packages/ui/src/icons.tsx` | 18 stroke icons, `currentColor` |
+| Reduced motion, forced colours | `web/packages/ui/src/styles.css` | apply to any app using the package |
 | Page layout, one-off page styling | `web/apps/shell/src/app.css` | layout only; never a package class |
 
 ## Rules
@@ -32,7 +37,14 @@ https://claude.ai/artifact/J35D45QQ7X6Sgd7mwfRSnF
    view from a short list in a toolbar or form row; `IconButton` is any
    icon-only button (close, back, row menu, pop-out, star) and always has a
    `label`; `Badge` takes `tone` `ok`, `warn`, `err` or `info` (none is
-   neutral).
+   neutral). A collapsible group's header is a `DisclosureButton`; one choice
+   from a grid of cards (themes) is a `ChoiceCard`. Flex layout is `Row` or
+   `Stack`, never an inline `display: flex`; spacing between children is their
+   `gap`, not margins. A panel about one resource is a `Drawer` (it closes on Escape,
+   except while the user types in a field, the YAML editor or the terminal,
+   and hands focus back when it closes); anything that must hold focus until
+   dismissed is a `Modal`, which renders into `document.body` so a translucent
+   ancestor cannot clip it.
 2. **Every table is the ResourceTable design.** Use `DataTable` for ordinary
    tables (columns, rows, optional sort, selection, row click, `loading`,
    `empty`). Use the primitives (`TableWrap`, `Table`, `SortHeader`,
@@ -54,10 +66,20 @@ https://claude.ai/artifact/J35D45QQ7X6Sgd7mwfRSnF
    `styles.css`. A later `app.css` rule silently overrides the design system;
    that is how ghost and danger buttons drifted before this was enforced.
 5. **Every theme must stay readable.** Text reads at 4.5:1 or better on every
-   ground in every theme (7:1 in Dawn HC and Dusk HC), status pills and labels
-   on fills reach 4.5:1, and focus rings are solid and at least 3:1. Adding or
-   changing a colour means updating all 12 theme blocks; the contrast test
-   computes the ratios from `tokens.css`.
+   ground in every theme (body and muted text 7:1 in Dawn HC and Dusk HC, also
+   on a selected row), status pills and labels on fills reach 4.5:1, and focus
+   rings are solid and at least 3:1. Tinted fills (pills, badges, the active
+   segment, the active palette item) keep their text at 4.5:1 on every ground
+   they can sit on: canvas, surface, raised, inset and a selected row. Ok,
+   warn and err stay saturated and at least 25° of hue apart, and muted text
+   never takes the accent's hue. Clickable things are never faded to show a
+   state; desaturate instead. Adding or changing a colour means updating all
+   12 theme blocks; the contrast test computes the ratios from `tokens.css`.
+   Token pairs are not the whole story: before a design-system change merges,
+   render every component in all 12 themes and measure each text run against
+   its real composited background. `node scripts/theme-audit/theme-audit.mjs`
+   does this for the token gate, cluster catalog and Settings (text, control
+   edges and focus rings) against an offline kubeconfig, after `make build`.
 6. **Labels on fills use their on-colour token**: `--kb-accent-fg` on
    `--kb-accent`, `--kb-on-danger` on `--kb-status-err`. Never `#fff`. The
    on-colour tokens are for solid fills only: on a tint such as
@@ -67,7 +89,17 @@ https://claude.ai/artifact/J35D45QQ7X6Sgd7mwfRSnF
    everything else, `danger-ghost` for the first step of a destructive action
    and `danger` (or `ArmedButton`) to confirm it. `Button` defaults to
    `type="button"`; a form's submit button must say `type="submit"`.
-8. **Copy follows the brand book**: Kubernetes words keep Kubernetes casing;
+8. **Sizes, layers and timing come from the scales.** Font sizes are
+   `--kb-text-*` (`--kb-text-icon` for a glyph inside a control or avatar),
+   radii `--kb-radius-*` (or `50%` for a circle), and any transition or
+   one-shot animation up to 400 ms is `--kb-dur-fast`, `--kb-dur`,
+   `--kb-dur-slow` or `--kb-dur-slower`; only long loops (spinners, pulses)
+   keep a literal. Anything that floats over the page takes a `--kb-z-*`
+   layer (sticky, drawer, dropdown, overlay, palette, modal, popover, lowest
+   first); `z-index` 0–3 is only for stacking inside one component. New
+   overlays are a `Drawer` or `Modal`, never a hand-built dialog or portal,
+   and new controls use a component rather than a raw `<button>`.
+9. **Copy follows the brand book**: Kubernetes words keep Kubernetes casing;
    everything else is sentence case; "…" for work in progress; "·" to join
    facts; no emoji in new UI.
 
@@ -84,7 +116,15 @@ All run with `pnpm --filter @kubebay/shell test`:
   `styles.css`; `app.css` never names a package class; `app.css` has no colour
   literals; Settings swatches match their themes.
 - `src/__tests__/themeContrast.test.ts`: WCAG contrast for every theme.
+- `src/__tests__/cssHygiene.test.ts`: every `var(--kb-*)` in TSX exists; font
+  sizes, radii, durations and z-index come from their scales; no unused
+  `app.css` classes, keyframes or page modules; reduced motion lives in the
+  package; no hand-built dialogs or portals, no new `position: fixed` in
+  `app.css`, and the per-file count of raw `<button>`s may only go down.
 - `src/components/__tests__/ui*.test.tsx`: behaviour of each component.
+- `src/__tests__/brandAssets.test.ts`: every favicon, app icon and website
+  logo uses the mark's gradient, and the website takes its colours from
+  `tokens.css`.
 
 ## Changing the system
 

@@ -148,7 +148,7 @@ const timeline = [
 
 <style>
   .why-kubebay {
-    background: linear-gradient(180deg, #111111 0%, #0e0e0e 100%);
+    background: linear-gradient(180deg, var(--surface) 0%, #0e0e0e 100%);
     padding: 100px 24px;
     position: relative;
     overflow: hidden;
@@ -162,7 +162,7 @@ const timeline = [
     transform: translateX(-50%);
     width: 800px;
     height: 400px;
-    background: radial-gradient(ellipse at center, rgba(34, 211, 238, 0.04) 0%, transparent 70%);
+    background: radial-gradient(ellipse at center, color-mix(in srgb, var(--accent) 4%, transparent) 0%, transparent 70%);
     pointer-events: none;
   }
 
@@ -183,9 +183,9 @@ const timeline = [
     font-weight: 600;
     letter-spacing: 0.12em;
     text-transform: uppercase;
-    color: #22d3ee;
-    background: rgba(34, 211, 238, 0.08);
-    border: 1px solid rgba(34, 211, 238, 0.18);
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
     padding: 4px 14px;
     border-radius: 100px;
     margin-bottom: 20px;
@@ -194,7 +194,7 @@ const timeline = [
   .section-header h2 {
     font-size: clamp(1.75rem, 4vw, 2.75rem);
     font-weight: 700;
-    color: #f0f0f0;
+    color: var(--text);
     letter-spacing: -0.03em;
     line-height: 1.2;
     margin: 0 0 16px;
@@ -204,7 +204,7 @@ const timeline = [
     max-width: 560px;
     margin: 0 auto;
     font-size: 1rem;
-    color: #8a8a8a;
+    color: var(--muted);
     line-height: 1.7;
   }
 
@@ -226,7 +226,7 @@ const timeline = [
   }
 
   .principle-card {
-    background: #111111;
+    background: var(--surface);
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 16px;
     padding: 36px 28px 32px;
@@ -307,14 +307,14 @@ const timeline = [
   .principle-card h3 {
     font-size: 1.125rem;
     font-weight: 700;
-    color: #f0f0f0;
+    color: var(--text);
     margin: 0 0 14px;
     letter-spacing: -0.02em;
   }
 
   .principle-card > p {
     font-size: 0.9rem;
-    color: #8a8a8a;
+    color: var(--muted);
     line-height: 1.7;
     margin: 0 0 24px;
     flex: 1;
@@ -333,7 +333,7 @@ const timeline = [
 
   .highlights li {
     font-size: 0.8125rem;
-    color: color-mix(in srgb, var(--accent) 80%, #f0f0f0);
+    color: color-mix(in srgb, var(--accent) 80%, var(--text));
     padding-left: 18px;
     position: relative;
   }
@@ -363,7 +363,7 @@ const timeline = [
     font-weight: 600;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: #8a8a8a;
+    color: var(--muted);
     margin: 0 0 48px;
   }
 
@@ -393,7 +393,7 @@ const timeline = [
     left: 0;
     width: 0%;
     height: 100%;
-    background: linear-gradient(90deg, #22d3ee, #41c98e, #a78bfa);
+    background: linear-gradient(90deg, var(--accent), var(--accent-2), #a78bfa);
     transition: width 1.2s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
@@ -446,9 +446,9 @@ const timeline = [
   }
 
   .current .timeline-dot {
-    background: rgba(34, 211, 238, 0.12);
-    border: 1px solid rgba(34, 211, 238, 0.4);
-    box-shadow: 0 0 12px rgba(34, 211, 238, 0.2);
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 20%, transparent);
   }
 
   .dot-inner {
@@ -460,7 +460,7 @@ const timeline = [
   .archived .dot-inner { background: rgba(255, 255, 255, 0.25); }
   .closed .dot-inner { background: #ef4444; opacity: 0.7; }
   .heavy .dot-inner { background: #fbbf24; opacity: 0.8; }
-  .current .dot-inner { background: #22d3ee; }
+  .current .dot-inner { background: var(--accent); }
 
   .timeline-content {
     text-align: center;
@@ -470,36 +470,36 @@ const timeline = [
     font-size: 0.6875rem;
     font-weight: 700;
     letter-spacing: 0.08em;
-    color: #8a8a8a;
+    color: var(--muted);
     margin-bottom: 4px;
     font-variant-numeric: tabular-nums;
   }
 
   .current .timeline-year {
-    color: #22d3ee;
+    color: var(--accent);
   }
 
   .timeline-label {
     font-size: 0.875rem;
     font-weight: 600;
-    color: #f0f0f0;
+    color: var(--text);
     margin-bottom: 6px;
     line-height: 1.3;
   }
 
-  .archived .timeline-label { color: #8a8a8a; }
-  .closed .timeline-label { color: #f0f0f0; }
+  .archived .timeline-label { color: var(--muted); }
+  .closed .timeline-label { color: var(--text); }
 
   .timeline-note {
     font-size: 0.75rem;
-    color: #8a8a8a;
+    color: var(--muted);
     line-height: 1.5;
   }
 
-  .archived .timeline-note { color: rgba(138, 138, 138, 0.6); }
+  .archived .timeline-note { color: color-mix(in srgb, var(--muted) 60%, transparent); }
   .closed .timeline-note { color: rgba(239, 68, 68, 0.7); }
   .heavy .timeline-note { color: rgba(251, 191, 36, 0.7); }
-  .current .timeline-note { color: rgba(34, 211, 238, 0.8); font-weight: 500; }
+  .current .timeline-note { color: color-mix(in srgb, var(--accent) 80%, transparent); font-weight: 500; }
 
   @media (max-width: 640px) {
     .timeline {

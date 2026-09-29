@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Badge, Button, IconButton, InlineBanner, Select, StatusDot, Tabs, TextField } from "@kubebay/ui";
+import { Badge, Button, Drawer, IconButton, InlineBanner, Select, Stack, StatusDot, Tabs, TextField } from "@kubebay/ui";
 import { api, nodeApi } from "../lib/api";
 import { ExecTerm, YamlTab } from "./heavy";
 import { EventsDrawer } from "./EventsDrawer";
@@ -144,7 +144,7 @@ function PaneContent({
     const containers = parsePodContainers(obj);
     const effectiveContainer = podContainer || containers[0] || "";
     return (
-      <div className="term-wrap" style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+      <Stack className="term-wrap" style={{ height: "100%" }}>
         {containers.length > 1 && (
           <div style={{ padding: "4px 8px", borderBottom: "1px solid var(--kb-border-subtle)", flexShrink: 0 }}>
             <Select
@@ -159,7 +159,7 @@ function PaneContent({
           </div>
         )}
         <ExecTerm key={`${cluster}/${ns}/${name}/${effectiveContainer}`} cluster={cluster} namespace={ns} pod={name} container={effectiveContainer} />
-      </div>
+      </Stack>
     );
   }
   if (isPod && podTab === "events") {
@@ -234,6 +234,7 @@ export default function GenericDrawer({
   name,
   onClose,
   onPopOut,
+  embedded,
 }: {
   cluster: string;
   def: ResourceDef;
@@ -241,6 +242,8 @@ export default function GenericDrawer({
   name: string;
   onClose: () => void;
   onPopOut?: () => void;
+  /** Fill the full-page resource view instead of sliding over the list. */
+  embedded?: boolean;
 }) {
   const [confirming, setConfirming] = useState(false);
   const [input, setInput] = useState("");
@@ -455,15 +458,14 @@ export default function GenericDrawer({
   };
 
   return (
-    <aside className="drawer">
-      {/* ── Header ── */}
-      <div className="drawer-head">
-        <StatusDot status="connected" />
-        <div style={{ minWidth: 0 }}>
-          <div className="mono strong">{name}</div>
-          <div className="muted small mono">{def.scoped ? def.label : ns}</div>
-        </div>
-        <div className="drawer-head-actions">
+    <Drawer
+      title={name}
+      subtitle={def.scoped ? def.label : ns}
+      leading={<StatusDot status="connected" />}
+      onClose={onClose}
+      embedded={embedded}
+      actions={
+        <>
           {!confirming ? (
             <>
               {onPopOut && (
@@ -518,8 +520,9 @@ export default function GenericDrawer({
               </Button>
             </>
           )}
-        </div>
-      </div>
+        </>
+      }
+    >
 
       {/* ── Error banner ── */}
       {err && (
@@ -654,6 +657,6 @@ export default function GenericDrawer({
           genTab={genTab}
         />
       )}
-    </aside>
+    </Drawer>
   );
 }

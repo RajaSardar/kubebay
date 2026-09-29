@@ -76,7 +76,7 @@ describe("@kubebay/ui owns the styles of its components", () => {
     ".status-ok", ".status-terminating", ".tabs", ".tab.active", ".nav-item", ".nav-item.sub", ".nav-section",
     ".toolbar-input", ".toolbar-select", "kbd", ".page-header", ".page-header-actions", ".ctx-menu", ".ctx-item",
     ".kb-table", ".kb-table th", ".palette-box", ".palette-item.active", ".ns-pill", ".cell-link", ".live-pill",
-    ".empty-state", ".inline-banner", ".inline-banner.warn", ".inline-banner-actions", ".row-clickable", ".drawer-pane-tabs .tab", ".inline-banner.flush",
+    ".empty-state", ".inline-banner", ".inline-banner.warn", ".inline-banner-actions", ".row-clickable", ".drawer-pane-tabs .tab", ".inline-banner.flush", ".drawer", ".drawer-head", ".drawer-head-actions", ".kb-modal", ".kb-modal-backdrop",
   ];
   const defines = (css: string, sel: string) =>
     stripComments(css)
@@ -153,5 +153,40 @@ describe("forced colours (Windows High Contrast)", () => {
 
   it("keeps status dots and skeletons in their own colours", () => {
     expect(block).toMatch(/\.kb-dot[^{]*\{[^}]*forced-color-adjust:\s*none/);
+  });
+});
+
+describe("stylesheets parse", () => {
+  // Regex-based tests above read rules one by one and would not notice a stray
+  // brace; the production build would. Catch it here first.
+  it.each([
+    ["tokens.css", tokensCss],
+    ["styles.css", stylesCss],
+    ["app.css", appCss],
+  ])("%s has balanced braces", (_name, css) => {
+    let depth = 0;
+    let minDepth = 0;
+    for (const ch of stripComments(css).replace(/"[^"]*"|'[^']*'/g, "")) {
+      if (ch === "{") depth++;
+      if (ch === "}") depth--;
+      minDepth = Math.min(minDepth, depth);
+    }
+    expect({ depth, minDepth }).toEqual({ depth: 0, minDepth: 0 });
+  });
+});
+
+describe("shell chrome stays legible and focusable", () => {
+  const rule = (sel: string) =>
+    new RegExp(`(?:^|\\n)${sel.replace(/[.:]/g, (c) => "\\" + c)}\\s*\\{([^}]*)\\}`).exec(stripComments(appCss))?.[1];
+
+  it("catalog avatars are not faded (their labels must reach 4.5:1)", () => {
+    expect(rule(".catalog-row-icon") ?? "").not.toMatch(/opacity:\s*0?\.\d/);
+  });
+
+  it("the selected ChoiceCard still shows the focus ring when focused", () => {
+    const css = stripComments(stylesCss);
+    const focus = new RegExp(`\\.kb-choice-card:focus-visible\\s*\\{([^}]*)\\}`).exec(css)?.[1] ?? "";
+    expect(focus).toMatch(/box-shadow:\s*var\(--kb-focus-ring\)/);
+    expect(css.indexOf(".kb-choice-card:focus-visible")).toBeGreaterThan(css.indexOf(".kb-choice-card.active"));
   });
 });

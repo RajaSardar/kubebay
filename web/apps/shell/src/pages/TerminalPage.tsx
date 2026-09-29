@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { LocalShellTerm } from "../components/LocalShellTerm";
 import { useActiveCluster } from "../App";
 import { api } from "../lib/api";
-import { EmptyState } from "@kubebay/ui";
+import { EmptyState, Stack } from "@kubebay/ui";
 
 export default function TerminalPage() {
   const { active } = useActiveCluster();
@@ -20,8 +20,8 @@ export default function TerminalPage() {
   }
 
   return (
-    <div className="page" style={{ padding: 0, height: "100%", display: "flex", flexDirection: "column" }}>
+    <Stack className="page" style={{ padding: 0, height: "100%" }}>
       <LocalShellTerm selectedCluster={active} clusters={clusters.data ?? []} />
-    </div>
+    </Stack>
   );
 }

@@ -33,10 +33,18 @@ const PATTERNS: [string, RegExp][] = [
   ["SegmentedControl (hand-written toggle group)", /\b(np-tab|settings-chip)\b/],
   ["IconButton (raw icon-only button)", /<button\b[^>]*?className=\{?[`"][^`"]*\b(row-menu-btn|drawer-popout-btn|star-btn|favorites-remove|cluster-drawer-close|np-detail-close)\b/],
   ["Badge (hand-written badge spans)", /\b(crd-badge|events-type-badge)\b/],
+  ["Drawer", /className="drawer(-head)?"/],
+  ["Modal (hand-written backdrop)", /className="[^"]*-backdrop"/],
+  ["Row / Stack (inline flex layout)", /display:\s*["']flex["']/],
+  ["DisclosureButton (hand-written nav group toggle)", /<button[^>]*className="nav-(sub)?group-title"/],
+  ["ChoiceCard (hand-written theme card)", /\btheme-card\b/],
+  ["Button (list-footer button used as a page action)", /className="ns-clear"/],
 ];
 
 // Files allowed a specific exception, with the reason.
 const EXCEPTIONS: Record<string, string[]> = {
+  // The namespace menu's "Select all" footer row is what .ns-clear is for.
+  "Button (list-footer button used as a page action)": ["components/NamespaceFilter.tsx"],
   // (The network-policy reachability matrix, table.np-matrix, is a grid visualisation,
   // not a data table; the pattern above skips it.)
 };

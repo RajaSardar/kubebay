@@ -1,4 +1,5 @@
 ---
+import KubebayMark from "./KubebayMark.astro";
 const navLinks = [
   { label: 'Features',  href: '#features' },
   { label: 'Download',  href: '#download' },
@@ -13,26 +14,7 @@ const repoURL = 'https://github.com/RajaSardar/kubebay';
   <nav class="nav-inner">
     <!-- Logo -->
     <a href="/" class="logo" aria-label="Kubebay home">
-      <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
-        <defs>
-          <linearGradient id="logo-grad" x1="0" y1="0" x2="28" y2="28" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stop-color="#22d3ee"/>
-            <stop offset="100%" stop-color="#41c98e"/>
-          </linearGradient>
-        </defs>
-        <!-- Outer rounded square -->
-        <rect width="28" height="28" rx="7" fill="url(#logo-grad)" opacity="0.15"/>
-        <!-- Bold K letterform -->
-        <text
-          x="5" y="21"
-          font-family="Inter, sans-serif"
-          font-weight="700"
-          font-size="18"
-          fill="url(#logo-grad)"
-        >K</text>
-        <!-- Subtle anchor-dot at bottom right -->
-        <circle cx="22" cy="22" r="2.5" fill="#22d3ee" opacity="0.7"/>
-      </svg>
+      <KubebayMark size={28} id="nav-mark" />
       <span class="wordmark">Kubebay</span>
     </a>
 
@@ -145,7 +127,7 @@ const repoURL = 'https://github.com/RajaSardar/kubebay';
   }
 
   header.scrolled {
-    background: rgba(9, 9, 9, 0.82);
+    background: color-mix(in srgb, var(--bg) 82%, transparent);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     border-bottom-color: rgba(255, 255, 255, 0.06);
@@ -177,7 +159,7 @@ const repoURL = 'https://github.com/RajaSardar/kubebay';
     font-weight: 700;
     font-size: 1.05rem;
     letter-spacing: -0.02em;
-    background: linear-gradient(135deg, #22d3ee, #41c98e);
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -262,9 +244,9 @@ const repoURL = 'https://github.com/RajaSardar/kubebay';
     font-family: 'Inter', sans-serif;
     font-size: 0.875rem;
     font-weight: 600;
-    color: #090909;
+    color: var(--bg);
     text-decoration: none;
-    background: linear-gradient(135deg, #22d3ee, #41c98e);
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
     border-radius: 8px;
     transition: opacity 0.15s, transform 0.15s;
   }
@@ -340,7 +322,7 @@ const repoURL = 'https://github.com/RajaSardar/kubebay';
       align-items: stretch;
       gap: 2px;
       padding: 12px 16px 16px;
-      background: rgba(9, 9, 9, 0.96);
+      background: color-mix(in srgb, var(--bg) 96%, transparent);
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
       border-bottom: 1px solid rgba(255, 255, 255, 0.06);

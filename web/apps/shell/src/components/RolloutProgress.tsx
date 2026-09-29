@@ -1,6 +1,6 @@
 import { useResourceStream } from "../lib/useResourceStream";
 import { buildRolloutProgress } from "../lib/rollout";
-import { InlineBanner } from "@kubebay/ui";
+import { InlineBanner, Row } from "@kubebay/ui";
 
 /**
  * Answers "is this rollout stuck, and on which ReplicaSet" — a stacked bar of
@@ -61,14 +61,14 @@ export function RolloutProgress({
           <span className="muted small">No ReplicaSets found for this Deployment yet.</span>
         ) : (
           progress.replicaSets.map((rs) => (
-            <div key={rs.name} className="small" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <Row align="center" gap={2} key={rs.name} className="small">
               <span className={`rollout-dot${rs.isNew ? " new" : " old"}`} />
               <span className="mono">{rs.name}</span>
               <span className="muted">rev {rs.revision || "–"}</span>
               <span className="muted" style={{ marginLeft: "auto" }}>
                 {rs.ready}/{rs.desired} ready
               </span>
-            </div>
+            </Row>
           ))
         )}
       </div>

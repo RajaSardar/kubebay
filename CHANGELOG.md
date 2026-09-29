@@ -7,15 +7,19 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 ## [Unreleased]
 
 ### Added
+- **`Row`, `Stack`, `DisclosureButton` and `ChoiceCard` in `@kubebay/ui`**: every flex layout in the app uses `Row` or `Stack` with gaps from the spacing scale; sidebar groups announce whether they are expanded and theme cards which one is chosen to screen readers
 - **Shared shell components in `@kubebay/ui`**: `StatusPill` + `phaseTone()`, `Tabs`, `NavItem`/`NavSection` + `navItemClass()`, `TextField`, `Select`, `Kbd`, `PageHeader` (with `level` and `live`) and `ContextMenu`. Their styles now live in the package (#12)
 - `--kb-on-danger` token in every theme for labels on danger fills (#12)
+- **`Drawer` and `Modal` in `@kubebay/ui`**: the Pod, Helm release, Helm chart and resource drawers share one component that closes on Escape (not while you type in a field, the YAML editor or the terminal) and returns focus to where it was; the cluster icon picker is a `Modal` that keeps focus inside until it closes
 - **`IconButton`, `SegmentedControl` and `Badge` tones `warn`/`info` in `@kubebay/ui`**: close, pop-out, star and row-menu buttons share one look and always carry an accessible label; the Settings display options and the Workloads and Network Policy view switches are keyboard-navigable radio groups; hand-written tab rows (Pod panel, Helm, cluster icon picker) use `Tabs`
 - **`DataTable` and table primitives in `@kubebay/ui`**: every table in the app (resources, pods, Helm, ArgoCD, audit log, port forwards, network policies, cluster picker, cost and right-sizing panels) now shares the ResourceTable design. Also new: `EmptyState`, `InlineBanner`, `KubebayMark`
 - `docs/DESIGN_SYSTEM.md` and a CLAUDE.md rule: all UI is built from `@kubebay/ui`, enforced by tests
 - **Karpenter safe editing**: an Edit affordance on each NodePool card shows a blast-radius impact banner (nodes/pods/namespaces backed by the pool, spot count, and real PodDisruptionBudget coverage via Kubernetes label-selector matching) and requires typing the NodePool's name to confirm before applying any of three eviction-causing edits (shrinking `spec.limits`, lowering a disruption budget's `nodes` value, or switching `consolidationPolicy` to `WhenEmptyOrUnderutilized`)
 - **KEDA ScaledObject wizard**: an "Add ScaledObject" flow in the Autoscaling tab generates a manifest for cron, CPU/memory, or Prometheus triggers, previews it with a live diff, and dry-runs/applies it — always created paused, with scale-to-zero (`minReplicaCount: 0`) gated behind typing the workload's name to confirm, and blocked outright if an HPA already targets the same workload. The Prometheus trigger suggests in-cluster Service candidates for `serverAddress` rather than reusing Kubebay's local Prometheus proxy URL, which resolves to a different address entirely
+- **The desktop window follows the theme**: the title bar and the window behind the page take the chosen theme's appearance and colour (or follow macOS for System), and the next launch opens in them instead of flashing the OS default
 
 ### Changed
+- Removed about 800 lines of unused styles and two unrouted pages (the old Home and Overview)
 - **Every theme meets WCAG AA**: text reads at 4.5:1 or better on every surface, status pills and button labels reach 4.5:1, and focus rings are solid and at least 3:1. Dawn HC and Dusk HC reach 7:1 for body text with 3:1 control borders. Hues are kept; only lightness moves. Visible changes: Dusk primary buttons use a dark label on cyan, Dawn's accent is a deeper blue (`#0065c9`), VS Code Dark+ uses a lighter blue (`#31a6ff`), and Nord's error red is a pale rose (`#e6c1c4`) (#12, this release)
 - The shell renders every page header, toolbar input and select, keycap and sidebar link through `@kubebay/ui`, so the package is the single source of truth for that markup
 - Settings theme swatches match each theme's colours
@@ -25,6 +29,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 - **Pending has its own colour**: Pending pods use each theme's info hue instead of the warning orange, so they no longer read as warnings
 
 ### Fixed
+- The Create Resource dry-run toggle label used an undeclared colour token; it now uses the muted text colour
+- Every size, radius, animation duration and stacking layer in the app comes from the design tokens, so the command palette, context menus, drawers and dialogs always stack in the same order
 - Borders, focus halos, text colour and backgrounds missing in the Network Policy view, cluster picker and cluster detail drawer: six undefined `--kb-*` variables now point at real tokens (#12)
 - Cluster-picker nav highlight and engine-status dot follow the theme instead of fixed colours (#12)
 - ArgoCD sync and health pills had no background or border (their colour was built as invalid CSS)
@@ -32,10 +38,19 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 - Light-theme users no longer see a dark frame on launch: the saved theme is applied before first paint
 - Text inputs and selects have a visible edge in every theme (3:1, WCAG 1.4.11) via a new `--kb-border-control` token; before, it measured 1.1–1.8:1
 - Focus rings, selected rows and status dots stay visible in Windows High Contrast (forced colours)
+- **Full design-system audit across all 12 themes** (every component rendered and measured, plus the cluster catalog and Settings in the running app):
+  - Table loading states drew nothing: skeleton blocks were inline spans with no size inside table cells. They are now visible blocks on every ground
+  - Pill, badge, active-segment and palette text fell below 4.5:1 on canvas, raised and inset grounds and on selected rows in up to nine themes. Tints are lighter, pill text is adjusted per theme, and Dawn, VS Code Light+, GitHub Light and Nord have a slightly deeper accent
+  - Cluster avatars: the AWS preset (`#F90`) and unknown clusters showed white labels on light colours (1.9:1); inactive clusters in the strip were faded to 32%, taking labels to 1.3:1. Labels pick their colour correctly and inactive avatars are desaturated instead of faded
+  - The active theme card hid its keyboard focus ring; a namespace pill on a selected row stacked a second tint; the palette's "syncing…" faded to unreadable
+  - Dracula's muted text was the accent purple (looked like links); Nord's error was a pale rose indistinguishable from its success and warning; VS Code Dark+ warning sat 17° from its error
+- The cluster icon picker opened half off-screen and under the sidebar: the translucent cluster strip trapped its fixed position. Modals now render into the page body
 - Text that was unreadable in light themes: the CRD "ns" badge, the Normal event badge, the active CRD tree row and the active favourite used the white on-accent label colour on a pale tint; they now use the accent. A contrast test stops it recurring
 - Pod history graphs use the theme's chart colours (`--kb-chart-1…5`, 3:1 on every ground) instead of one fixed palette for all 12 themes
 - In Dawn and VS Code Light, the ok, warn and error colours now read at 4.5:1 on inset fields too
 - Code editors use Monaco's high-contrast themes in Dawn HC and Dusk HC
+- Favicons, the PWA icons and the macOS and Windows app icons use the cyan-to-green Kubebay mark (they still had the old blue start colour); the website favicon, nav and footer show the mark instead of a separate K logo
+- The website uses the app's design tokens (`tokens.css`) for colour, radii and motion instead of its own copies
 
 ## [0.1.3] — 2026-09-09
 

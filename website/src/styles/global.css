@@ -15,44 +15,44 @@
    Design Tokens — CSS Custom Properties
    ------------------------------------------------------------ */
 :root {
+  /* Colours, radii and motion come from the app's tokens
+     (web/packages/ui/src/tokens.css, imported by Layout.astro). The site
+     pins the Dusk theme; these names are the site's aliases for them. */
+
   /* --- Colour: Backgrounds --- */
-  --bg:        #090909;
-  --surface:   #111111;
-  --surface-2: #1a1a1a;
+  --bg:        var(--kb-bg-inset);
+  --surface:   var(--kb-bg-canvas);
+  --surface-2: var(--kb-bg-surface);
 
   /* --- Colour: Borders --- */
-  --border:        rgba(255, 255, 255, 0.08);
-  --border-strong: rgba(255, 255, 255, 0.14);
+  --border:        var(--kb-border-subtle);
+  --border-strong: var(--kb-border-strong);
 
   /* --- Colour: Text --- */
-  --text:   #f0f0f0;
-  --muted:  #8a8a8a;
-  --subtle: #555555;
+  --text:   var(--kb-fg-default);
+  --muted:  var(--kb-fg-muted);
+  --subtle: var(--kb-fg-subtle);
 
-  /* --- Colour: Accent (cyan) --- */
-  --accent:      #22d3ee;
-  --accent-glow: rgba(34, 211, 238, 0.15);
+  /* --- Colour: Brand (the mark's gradient) --- */
+  --accent:        var(--kb-brand-cyan);
+  --accent-glow:   color-mix(in srgb, var(--kb-brand-cyan) 15%, transparent);
+  --accent-2:      var(--kb-brand-green);
+  --accent-2-glow: color-mix(in srgb, var(--kb-brand-green) 15%, transparent);
 
-  /* --- Colour: Accent 2 (green) --- */
-  --accent-2:      #41c98e;
-  --accent-2-glow: rgba(65, 201, 142, 0.15);
-
-  /* --- Typography --- */
-  --font: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
-          Roboto, Helvetica, Arial, sans-serif;
-  --mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas',
-          'Courier New', monospace;
+  /* --- Typography: the site's display faces, then the app's stacks --- */
+  --font: Inter, var(--kb-font);
+  --mono: 'JetBrains Mono', var(--kb-font-mono);
 
   /* --- Sizing --- */
-  --radius:    10px;
-  --radius-sm: 6px;
+  --radius:    var(--kb-radius);
+  --radius-sm: var(--kb-radius-sm);
   --max-w:     1160px;
   --section-py: 96px;
 
   /* --- Transitions --- */
-  --ease:     cubic-bezier(0.4, 0, 0.2, 1);
-  --ease-out: cubic-bezier(0, 0, 0.2, 1);
-  --duration: 200ms;
+  --ease:     var(--kb-ease);
+  --ease-out: var(--kb-ease-out);
+  --duration: var(--kb-dur-slow);
 }
 
 /* ------------------------------------------------------------
@@ -342,13 +342,13 @@ p {
 
 .badge--accent {
   background: var(--accent-glow);
-  border-color: rgba(34, 211, 238, 0.25);
+  border-color: color-mix(in srgb, var(--accent) 25%, transparent);
   color: var(--accent);
 }
 
 .badge--green {
   background: var(--accent-2-glow);
-  border-color: rgba(65, 201, 142, 0.25);
+  border-color: color-mix(in srgb, var(--accent-2) 25%, transparent);
   color: var(--accent-2);
 }
 
@@ -377,7 +377,7 @@ p {
 }
 
 .card--glow:hover {
-  border-color: rgba(34, 211, 238, 0.3);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
   box-shadow: 0 0 32px var(--accent-glow);
 }
 
@@ -594,7 +594,7 @@ pre code {
    Selection
    ------------------------------------------------------------ */
 ::selection {
-  background: rgba(34, 211, 238, 0.2);
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
   color: var(--text);
 }
 
@@ -635,7 +635,7 @@ pre code {
   color: var(--accent);
   text-decoration: underline;
   text-underline-offset: 3px;
-  text-decoration-color: rgba(34, 211, 238, 0.3);
+  text-decoration-color: color-mix(in srgb, var(--accent) 30%, transparent);
   transition: text-decoration-color var(--duration) var(--ease);
 }
 

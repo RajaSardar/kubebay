@@ -1,4 +1,4 @@
-import { Badge, StatusDot } from "@kubebay/ui";
+import { Badge, Row, Stack, StatusDot } from "@kubebay/ui";
 import { ConditionsTable } from "./ConditionsTable";
 
 function rec(v: unknown): Record<string, unknown> {
@@ -78,12 +78,12 @@ export function NodeSummary({
 
   return (
     <div className="pod-summary" style={{ padding: 14, overflowY: "auto", flex: 1 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+      <Row align="center" gap={2} wrap style={{ marginBottom: 14 }}>
         <StatusDot status={data.unschedulable ? "degraded" : "connected"} />
         <strong>{data.unschedulable ? "Cordoned" : "Schedulable"}</strong>
         {podCount != null && <Badge>{podCount} pods</Badge>}
         {data.instanceType && <Badge>{data.instanceType}</Badge>}
-      </div>
+      </Row>
 
       <Section title="Info">
         <KV k="OS" v={data.os} />
@@ -109,15 +109,15 @@ export function NodeSummary({
 
       {data.taints.length > 0 && (
         <Section title={`Taints (${data.taints.length})`}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <Stack gap={1}>
             {data.taints.map((t, i) => (
-              <div key={i} style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <Row gap={2} align="center" key={i}>
                 <span className="mono small">{str(t.key)}</span>
                 {str(t.value) && <span className="muted small">={str(t.value)}</span>}
                 <Badge tone={str(t.effect) === "NoSchedule" ? "err" : undefined}>{str(t.effect)}</Badge>
-              </div>
+              </Row>
             ))}
-          </div>
+          </Stack>
         </Section>
       )}
     </div>
