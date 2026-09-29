@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import CreateResource from "../CreateResource";
 import { api } from "../../lib/api";
 import { PolicyRejectionError } from "../../lib/policyRejection";
@@ -25,7 +26,7 @@ describe("CreateResource — structured policy rejection (backlog #17)", () => {
     vi.mocked(api.createResource).mockRejectedValueOnce(
       new PolicyRejectionError({ engine: "kyverno", webhook: "validate.kyverno.svc-fail", message: "label 'team' is required" }),
     );
-    render(<CreateResource />);
+    render(<MemoryRouter><CreateResource /></MemoryRouter>);
     fireEvent.click(screen.getByRole("button", { name: /apply/i }));
 
     expect(await screen.findByText(/kyverno policy rejected this change/i)).toBeTruthy();
@@ -34,9 +35,29 @@ describe("CreateResource — structured policy rejection (backlog #17)", () => {
 
   it("still shows a plain error banner for a non-policy failure", async () => {
     vi.mocked(api.createResource).mockRejectedValueOnce(new Error("connection refused"));
-    render(<CreateResource />);
+    render(<MemoryRouter><CreateResource /></MemoryRouter>);
     fireEvent.click(screen.getByRole("button", { name: /apply/i }));
 
     expect(await screen.findByText(/connection refused/)).toBeTruthy();
+  });
+});
+
+describe("CreateResource opened from a table's + button", () => {
+  it("starts on that table's kind", () => {
+    render(
+      <MemoryRouter initialEntries={["/create-resource?kind=Service"]}>
+        <CreateResource />
+      </MemoryRouter>,
+    );
+    expect((screen.getByLabelText("resource kind") as HTMLSelectElement).value).toBe("Service");
+  });
+
+  it("falls back to the first template for an unknown kind", () => {
+    render(
+      <MemoryRouter initialEntries={["/create-resource?kind=Nope"]}>
+        <CreateResource />
+      </MemoryRouter>,
+    );
+    expect((screen.getByLabelText("resource kind") as HTMLSelectElement).value).toBe("Deployment");
   });
 });
