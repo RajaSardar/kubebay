@@ -16,9 +16,7 @@ import { ContextMenu } from "../components/ContextMenu";
 import { absoluteTime, countLabel, matchesFilter, useSortPref, useTableKeyboard } from "../lib/tableUx";
 import { LiveAge } from "../components/LiveAge";
 import { WorkloadTabBar } from "../components/WorkloadTabBar";
-import { VirtualSpacer } from "../components/VirtualSpacer";
-import { useTableVirtualizer } from "../lib/useTableVirtualizer";
-import { ROW_HEIGHT, useDisplay } from "../lib/display";
+import { podResources, usageBar, type PodResources, type UsageBar } from "../lib/podUsage";
 import { ownerAmongTargets, ownerLabel, ownerWarning } from "../lib/gitops";
 
 function rec(v: unknown): Record<string, unknown> {
@@ -58,6 +56,8 @@ interface PodRow {
   created: string;
   /** The waiting reason's message (why it is CrashLoopBackOff), for the status tooltip. */
   statusDetail: string;
+  /** Requests and limits, which the CPU and memory bars measure against. */
+  resources: PodResources;
 }
 
 function asRecord(v: unknown): Record<string, unknown> {
@@ -132,9 +132,28 @@ function derivePod(obj: Record<string, unknown>): PodRow | null {
     podIP: (status.podIP as string) ?? "",
     created: (meta.creationTimestamp as string) ?? "",
     statusDetail: detail,
+    resources: podResources(obj),
   };
 }
 
+
+const METER_FILL: Record<UsageBar["tone"], string> = {
+  accent: "var(--kb-accent)",
+  warn: "var(--kb-status-warn)",
+  err: "var(--kb-status-err)",
+};
+
+/** A CPU or memory cell: a bar against the pod's limit (or request) and the amount. */
+function UsageMeter({ bar, text }: { bar: UsageBar; text: string }) {
+  return (
+    <Row align="center" gap={2} title={bar.title}>
+      <div className="line-progress" style={{ width: 44, visibility: bar.pct == null ? "hidden" : undefined }}>
+        <div className="line-progress-fill" style={{ width: `${bar.pct ?? 0}%`, background: METER_FILL[bar.tone] }} />
+      </div>
+      <span className="mono muted small">{text}</span>
+    </Row>
+  );
+}
 
 const STATUS_TONE: Record<PodRow["status"], { pill: StatusTone }> = {
   running: { pill: "ok" },
@@ -267,20 +286,10 @@ export default function Workloads() {
     filterRef,
     onClearFilter: useCallback(() => setFilter(""), []),
   });
-  // Only the rows in view are mounted: 5,000 pods would otherwise be 5,000
-  // rows, each re-rendered on every stream delta.
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const { density } = useDisplay();
-  const headerRef = useRef<HTMLTableSectionElement>(null);
-  const { virtualizer: rowVirtualizer, items: virtualRows, topSpace, bottomSpace } = useTableVirtualizer({
-    count: pods.length,
-    estimate: ROW_HEIGHT[density],
-    scrollRef,
-    headerRef,
-  });
   useEffect(() => {
-    if (activeRow >= 0) rowVirtualizer.scrollToIndex(activeRow, { align: "auto" });
-  }, [activeRow, rowVirtualizer]);
+    if (activeRow < 0) return;
+    document.querySelector(`[data-pod-row="${activeRow}"]`)?.scrollIntoView({ block: "nearest" });
+  }, [activeRow]);
 
   // If no cluster is selected and we're done loading, send user to cluster picker.
   // This handles direct navigation (e.g. deep link to /workloads) without going
@@ -387,14 +396,14 @@ export default function Workloads() {
       )}
 
       {pods.length > 0 && (
-        <TableWrap ref={scrollRef} busy={!synced || !connected}>
+        <TableWrap busy={!synced || !connected}>
           <Table>
             <colgroup>
               <col style={{ width: 40 }} />
               {HEADERS.map((h, i) => <col key={h} style={{ width: widths[i] }} />)}
               <col style={{ width: 36 }} />
             </colgroup>
-            <thead ref={headerRef}>
+            <thead>
               <tr>
                 <SelectAllHeader
                   checked={isAllSelected(allKeys)}
@@ -418,17 +427,13 @@ export default function Workloads() {
               </tr>
             </thead>
             <tbody>
-              <VirtualSpacer height={topSpace} colSpan={HEADERS.length + 2} />
-              {virtualRows.map((virtualRow) => {
-                const index = virtualRow.index;
-                const p = pods[index]!;
+              {pods.map((p, index) => {
                 const tone = STATUS_TONE[p.status];
                 const isSelected = selectedKeys.has(p.key);
                 return (
                   <TableRow
                     key={p.key}
-                    data-index={index}
-                    ref={rowVirtualizer.measureElement}
+                    data-pod-row={index}
                     clickable
                     selected={isSelected}
                     hovered={activeRow === index}
@@ -457,22 +462,12 @@ export default function Workloads() {
                     <td className="mono muted small">{p.podIP || "–"}</td>
                     <td>
                       {usage.get(p.key)?.cpuMillis != null ? (
-                        <Row align="center" gap={2}>
-                          <div className="line-progress" style={{ width: 44 }}>
-                            <div className="line-progress-fill" style={{ width: `${Math.min(100, (usage.get(p.key)!.cpuMillis / 1000) * 100)}%`, background: "var(--kb-accent)" }} />
-                          </div>
-                          <span className="mono muted small">{fmtCpu(usage.get(p.key)!.cpuMillis)}</span>
-                        </Row>
+                        <UsageMeter bar={usageBar(usage.get(p.key)!.cpuMillis, p.resources.cpuRequest, p.resources.cpuLimit, fmtCpu)} text={fmtCpu(usage.get(p.key)!.cpuMillis)} />
                       ) : <span className="mono muted">–</span>}
                     </td>
                     <td>
                       {usage.get(p.key)?.memBytes != null ? (
-                        <Row align="center" gap={2}>
-                          <div className="line-progress" style={{ width: 44 }}>
-                            <div className="line-progress-fill" style={{ width: `${Math.min(100, (usage.get(p.key)!.memBytes / (1024 * 1024 * 1024)) * 100)}%`, background: "var(--kb-status-warn)" }} />
-                          </div>
-                          <span className="mono muted small">{fmtBytes(usage.get(p.key)!.memBytes)}</span>
-                        </Row>
+                        <UsageMeter bar={usageBar(usage.get(p.key)!.memBytes, p.resources.memRequest, p.resources.memLimit, fmtBytes)} text={fmtBytes(usage.get(p.key)!.memBytes)} />
                       ) : <span className="mono muted">–</span>}
                     </td>
                     <td className="mono muted" title={absoluteTime(p.created)}><LiveAge ts={p.created} /></td>
@@ -488,10 +483,6 @@ export default function Workloads() {
                   </TableRow>
                 );
               })}
-              <VirtualSpacer
-                height={bottomSpace}
-                colSpan={HEADERS.length + 2}
-              />
             </tbody>
           </Table>
         </TableWrap>
