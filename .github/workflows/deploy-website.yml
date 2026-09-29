@@ -6,6 +6,8 @@ on:
       - main
     paths:
       - "website/**"
+      # The site imports the app's design tokens.
+      - "web/packages/ui/src/tokens.css"
   workflow_dispatch:
 
 permissions:

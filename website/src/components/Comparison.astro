@@ -202,7 +202,7 @@ function cellLabel(v: CellValue): string {
 
 <style>
   .comparison {
-    background: #090909;
+    background: var(--bg);
     padding: 96px 24px;
   }
 
@@ -226,7 +226,7 @@ function cellLabel(v: CellValue): string {
 
   .comparison__sub {
     font-size: 1rem;
-    color: #8a8a8a;
+    color: var(--muted);
     margin: 0;
   }
 
@@ -248,8 +248,8 @@ function cellLabel(v: CellValue): string {
 
   /* Header row */
   .compare-table thead tr {
-    background: linear-gradient(90deg, rgba(34,211,238,0.08) 0%, rgba(34,211,238,0.03) 100%);
-    border-bottom: 1px solid rgba(34, 211, 238, 0.18);
+    background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 8%, transparent) 0%, color-mix(in srgb, var(--accent) 3%, transparent) 100%);
+    border-bottom: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
   }
 
   .compare-table thead th {
@@ -259,13 +259,13 @@ function cellLabel(v: CellValue): string {
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.07em;
-    color: #8a8a8a;
+    color: var(--muted);
     white-space: nowrap;
   }
 
   /* Kubebay column header */
   .compare-table thead th.col-kubebay {
-    color: #22d3ee;
+    color: var(--accent);
   }
 
   .col-kubebay__label {
@@ -301,23 +301,23 @@ function cellLabel(v: CellValue): string {
     white-space: nowrap;
     position: sticky;
     left: 0;
-    background: #111111;
+    background: var(--surface);
     z-index: 1;
   }
 
   .compare-table thead .col-feature {
-    background: #111111;
+    background: var(--surface);
   }
 
   /* Kubebay (second) column highlight */
   .col-kubebay {
-    background: rgba(34, 211, 238, 0.04) !important;
-    border-left: 2px solid rgba(34, 211, 238, 0.3);
-    border-right: 2px solid rgba(34, 211, 238, 0.1);
+    background: color-mix(in srgb, var(--accent) 4%, transparent) !important;
+    border-left: 2px solid color-mix(in srgb, var(--accent) 30%, transparent);
+    border-right: 2px solid color-mix(in srgb, var(--accent) 10%, transparent);
   }
 
   .compare-table thead th.col-kubebay {
-    border-left: 2px solid rgba(34, 211, 238, 0.4);
+    border-left: 2px solid color-mix(in srgb, var(--accent) 40%, transparent);
   }
 
   /* ── Cell values ── */
@@ -372,7 +372,7 @@ function cellLabel(v: CellValue): string {
   }
 
   /* Kubebay column — slightly brighter text */
-  .col-kubebay .cell--yes .cell__sym  { color: #22d3ee; }
+  .col-kubebay .cell--yes .cell__sym  { color: var(--accent); }
   .col-kubebay .cell--yes .cell__text { color: #a5f3fc; }
 
   /* ── Responsive ── */

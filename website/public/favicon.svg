@@ -1,13 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
-  <!-- Dark background pill -->
-  <rect width="32" height="32" rx="8" fill="#111111"/>
-  <!-- Stylized K glyph in teal -->
-  <!-- Vertical stem -->
-  <rect x="9" y="7" width="3" height="18" rx="1.5" fill="#22d3ee"/>
-  <!-- Upper diagonal arm -->
-  <path d="M12 16 L22 7.5" stroke="#22d3ee" stroke-width="3" stroke-linecap="round"/>
-  <!-- Lower diagonal arm -->
-  <path d="M12 16 L22 24.5" stroke="#22d3ee" stroke-width="3" stroke-linecap="round"/>
-  <!-- Accent dot — anchor nod -->
-  <circle cx="22" cy="25" r="1.5" fill="#41c98e"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- The Kubebay mark (32-unit drawing), same as KubebayMark in @kubebay/ui -->
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#22d3ee"/>
+      <stop offset="1" stop-color="#41c98e"/>
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="9" fill="url(#g)"/>
+  <circle cx="16" cy="14.5" r="5.4" fill="none" stroke="#fff" stroke-width="2"/>
+  <path d="M7.5 22.5c2.6 2.3 5.4 3.4 8.5 3.4s5.9-1.1 8.5-3.4" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+  <path d="M16 9v11M10 13.5h12" stroke="#fff" stroke-width="2" stroke-linecap="round" opacity=".85"/>
 </svg>
