@@ -54,6 +54,7 @@ const CostWaste = lazy(() => import("./pages/CostWaste"));
 const Fleet = lazy(() => import("./pages/Fleet"));
 const Karpenter = lazy(() => import("./pages/Karpenter"));
 const Keda = lazy(() => import("./pages/Keda"));
+const UpgradeReadiness = lazy(() => import("./pages/UpgradeReadiness"));
 const Flux = lazy(() => import("./pages/Flux"));
 import { Palette } from "./components/Palette";
 import { discoveryApi } from "./lib/api";
@@ -206,6 +207,7 @@ const TOOLS = [
   { to: "/fleet", label: "Fleet", icon: <IconTopology /> },
   { to: "/karpenter", label: "Karpenter", icon: <IconTopology /> },
   { to: "/keda", label: "KEDA", icon: <IconLayers /> },
+  { to: "/upgrade-readiness", label: "Upgrade Readiness", icon: <IconShield /> },
   { to: "/audit", label: "Audit Log", icon: <IconTimeline /> },
   { to: "/timeline", label: "Timeline", icon: <IconTimeline /> },
   { to: "/topology", label: "Topology", icon: <IconTopology /> },
@@ -602,6 +604,7 @@ function AppInner() {
               <Route path="/fleet" element={<Fleet />} />
               <Route path="/karpenter" element={<Karpenter />} />
               <Route path="/keda" element={<Keda />} />
+              <Route path="/upgrade-readiness" element={<UpgradeReadiness />} />
               <Route path="/helm" element={<Helm />} />
               <Route path="/argocd" element={<ArgoCD />} />
               <Route path="/flux" element={<Flux />} />
