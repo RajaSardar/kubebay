@@ -18,7 +18,8 @@ https://claude.ai/artifact/J35D45QQ7X6Sgd7mwfRSnF
 | Core components | `web/packages/ui/src/index.tsx` | `Button`, `ArmedButton`, `Card`, `Badge`, `StatusDot`, `Skeleton`, `chartColor()` |
 | Shell components | `web/packages/ui/src/shell.tsx` | `StatusPill`/`phaseTone`, `Tabs` (with `trailing` controls), `SegmentedControl`, `IconButton`, `NavItem`/`NavSection`/`navItemClass`, `DisclosureButton`, `ChoiceCard`, `TextField`, `Select`, `Kbd`, `PageHeader`, `ContextMenu` |
 | Layout | `web/packages/ui/src/layout.tsx` | `Row`, `Stack` (`gap` on the `--kb-space-*` scale, `align`, `justify`, `wrap`, `as`) |
-| Tables and feedback | `web/packages/ui/src/table.tsx` | `DataTable`, `TableWrap`, `Table`, `SortHeader`, `SelectAllHeader`, `SelectCell`, `TableRow`, `NsPill`, `SkeletonRows`, `EmptyState`, `InlineBanner` |
+| Tables and feedback | `web/packages/ui/src/table.tsx` | `DataTable`, `TableWrap` (`busy` refresh bar), `Table`, `SortHeader`, `SelectAllHeader`, `SelectCell`, `TableRow`, `NsPill`, `SkeletonRows`, `SkeletonTable`, `SkeletonLines`, `EmptyState`, `InlineBanner` |
+| Loading | `web/packages/ui/src/spinner.tsx`, `icons.tsx` | `Spinner` (the helm `IconLoader` turning, `role="status"`) |
 | Overlays | `web/packages/ui/src/overlays.tsx` | `Drawer` (with `embedded` for the full-page view), `Modal` |
 | Brand mark | `web/packages/ui/src/brand.tsx` | `KubebayMark`; the gradient is `--kb-brand-cyan` → `--kb-brand-green`, also used by the favicons, app icons and the website's `KubebayMark.astro` |
 | Website | `website/src/styles/global.css` | imports `tokens.css` (Dusk); its `--bg`, `--text`, `--accent`… are aliases for `--kb-*` tokens |
@@ -45,14 +46,22 @@ https://claude.ai/artifact/J35D45QQ7X6Sgd7mwfRSnF
    and hands focus back when it closes); anything that must hold focus until
    dismissed is a `Modal`, which renders into `document.body` so a translucent
    ancestor cannot clip it.
-2. **Every table is the ResourceTable design.** Use `DataTable` for ordinary
+2. **Loading shows the shape of what is coming.** A list or table with no rows
+   yet is a `SkeletonTable` under its real headers; rows already on screen
+   while the stream re-syncs get `TableWrap busy`; a drawer or pane is
+   `SkeletonLines`. Only a wait with no shape to sketch (detecting an
+   operator, drawing a graph, connecting to a cluster) takes the `Spinner`
+   (`PageLoader` for a whole page), and every loading state says what it is
+   waiting for. Never a blank page, a bare "Loading…" or a hand-drawn spinner.
+   See `docs/TABLE_UX_RESEARCH.md`.
+3. **Every table is the ResourceTable design.** Use `DataTable` for ordinary
    tables (columns, rows, optional sort, selection, row click, `loading`,
    `empty`). Use the primitives (`TableWrap`, `Table`, `SortHeader`,
    `SelectAllHeader`, `SelectCell`, `TableRow`, `NsPill`, `SkeletonRows`) only
    when a table needs virtualisation, column resizing or expandable rows.
    Name cells take `className="mono td-name"`, secondary facts `cell-secondary`,
    namespaces `NsPill`, phases `StatusPill` (with `phaseTone` for pods).
-3. **Colours come from tokens.** No hex, `rgb()` or `rgba()` literals in shell
+4. **Colours come from tokens.** No hex, `rgb()` or `rgba()` literals in shell
    TSX or `app.css`, and no `var(--kb-x, #fallback)` fallbacks. The only
    exceptions are data: the Settings theme swatches and user-picked cluster
    colours (`ClusterIconPicker.tsx`). Text on a user-picked colour uses
@@ -61,11 +70,11 @@ https://claude.ai/artifact/J35D45QQ7X6Sgd7mwfRSnF
    (tones `ok`, `warn`, `err`, `pending` or a connection state). Code editors
    take `useMonacoTheme()`, which picks Monaco's high-contrast themes in
    Dawn HC and Dusk HC.
-4. **Never restyle a package class from `app.css`.** If a component needs a new
+5. **Never restyle a package class from `app.css`.** If a component needs a new
    look, add a prop or variant to the component and its styles to
    `styles.css`. A later `app.css` rule silently overrides the design system;
    that is how ghost and danger buttons drifted before this was enforced.
-5. **Every theme must stay readable.** Text reads at 4.5:1 or better on every
+6. **Every theme must stay readable.** Text reads at 4.5:1 or better on every
    ground in every theme (body and muted text 7:1 in Dawn HC and Dusk HC, also
    on a selected row), status pills and labels on fills reach 4.5:1, and focus
    rings are solid and at least 3:1. Tinted fills (pills, badges, the active
@@ -80,16 +89,16 @@ https://claude.ai/artifact/J35D45QQ7X6Sgd7mwfRSnF
    its real composited background. `node scripts/theme-audit/theme-audit.mjs`
    does this for the token gate, cluster catalog and Settings (text, control
    edges and focus rings) against an offline kubeconfig, after `make build`.
-6. **Labels on fills use their on-colour token**: `--kb-accent-fg` on
+7. **Labels on fills use their on-colour token**: `--kb-accent-fg` on
    `--kb-accent`, `--kb-on-danger` on `--kb-status-err`. Never `#fff`. The
    on-colour tokens are for solid fills only: on a tint such as
    `--kb-accent-subtle`, text takes `--kb-accent` (in Dawn, `--kb-accent-fg`
    is white).
-7. **Buttons**: `primary` for the one action a view is for, `ghost` for
+8. **Buttons**: `primary` for the one action a view is for, `ghost` for
    everything else, `danger-ghost` for the first step of a destructive action
    and `danger` (or `ArmedButton`) to confirm it. `Button` defaults to
    `type="button"`; a form's submit button must say `type="submit"`.
-8. **Sizes, layers and timing come from the scales.** Font sizes are
+9. **Sizes, layers and timing come from the scales.** Font sizes are
    `--kb-text-*` (`--kb-text-icon` for a glyph inside a control or avatar),
    radii `--kb-radius-*` (or `50%` for a circle), and any transition or
    one-shot animation up to 400 ms is `--kb-dur-fast`, `--kb-dur`,
@@ -99,7 +108,7 @@ https://claude.ai/artifact/J35D45QQ7X6Sgd7mwfRSnF
    first); `z-index` 0–3 is only for stacking inside one component. New
    overlays are a `Drawer` or `Modal`, never a hand-built dialog or portal,
    and new controls use a component rather than a raw `<button>`.
-9. **Copy follows the brand book**: Kubernetes words keep Kubernetes casing;
+10. **Copy follows the brand book**: Kubernetes words keep Kubernetes casing;
    everything else is sentence case; "…" for work in progress; "·" to join
    facts; no emoji in new UI.
 

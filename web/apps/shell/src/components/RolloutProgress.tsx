@@ -1,6 +1,6 @@
 import { useResourceStream } from "../lib/useResourceStream";
 import { buildRolloutProgress } from "../lib/rollout";
-import { InlineBanner, Row } from "@kubebay/ui";
+import { InlineBanner, Row, SkeletonLines } from "@kubebay/ui";
 
 /**
  * Answers "is this rollout stuck, and on which ReplicaSet" — a stacked bar of
@@ -27,7 +27,7 @@ export function RolloutProgress({
     return <div className="muted small" style={{ padding: 14 }}>Could not load object data.</div>;
   }
   if (!synced && rows.length === 0) {
-    return <div className="muted small" style={{ padding: 14 }}>Loading rollout status…</div>;
+    return <SkeletonLines lines={4} label="Loading rollout status…" />;
   }
 
   const progress = buildRolloutProgress(obj, rows);

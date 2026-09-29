@@ -216,3 +216,16 @@ export function IconHome({ size, strokeWidth }: IconProps) {
     </svg>
   );
 }
+
+// ── Loading — a ship's helm turning (the wheel in the Kubebay mark) ───────────
+// Rendered still; `Spinner` turns it. Six spokes run through the rim to the
+// handles, so the rotation reads even at 12px.
+export function IconLoader({ size, strokeWidth }: IconProps) {
+  return (
+    <svg {...base(size, strokeWidth)}>
+      <circle cx="12" cy="12" r="6.5" />
+      <circle cx="12" cy="12" r="2" />
+      <path d="M12 10V2M13.73 11l6.93-4M13.73 13l6.93 4M12 14v8M10.27 13l-6.93 4M10.27 11L3.34 7" />
+    </svg>
+  );
+}

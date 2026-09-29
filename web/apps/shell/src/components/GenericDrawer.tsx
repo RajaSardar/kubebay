@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Badge, Button, Drawer, IconButton, InlineBanner, Select, Stack, StatusDot, Tabs, TextField } from "@kubebay/ui";
+import { Badge, Button, Drawer, IconButton, InlineBanner, Select, SkeletonLines, Stack, StatusDot, Tabs, TextField } from "@kubebay/ui";
 import { api, nodeApi } from "../lib/api";
 import { ExecTerm, YamlTab } from "./heavy";
 import { EventsDrawer } from "./EventsDrawer";
@@ -109,12 +109,12 @@ function PaneContent({
   const eventKind = (typeof obj?.kind === "string" && obj.kind) || def.kind;
 
   if (isService && svcTab === "summary") {
-    if (objLoading) return <div className="muted small" style={{ padding: 14 }}>Loading…</div>;
+    if (objLoading) return <SkeletonLines lines={6} label="Loading details…" />;
     if (obj) return <ServiceSummary obj={obj} />;
     return <div className="muted small" style={{ padding: 14 }}>Could not load service data.</div>;
   }
   if (isNode && nodeTab === "summary") {
-    if (objLoading) return <div className="muted small" style={{ padding: 14 }}>Loading…</div>;
+    if (objLoading) return <SkeletonLines lines={6} label="Loading details…" />;
     if (obj) return <NodeSummary obj={obj} />;
     return <div className="muted small" style={{ padding: 14 }}>Could not load node data.</div>;
   }
@@ -170,7 +170,7 @@ function PaneContent({
     );
   }
   if (!isNode && !isService && !isPod && genTab === "summary") {
-    if (objLoading) return <div className="muted small" style={{ padding: 14 }}>Loading…</div>;
+    if (objLoading) return <SkeletonLines lines={6} label="Loading details…" />;
     return (
       <div>
         {RIGHTSIZABLE_SLUGS.has(def.slug) && (
@@ -183,7 +183,7 @@ function PaneContent({
     );
   }
   if (!isNode && !isService && !isPod && genTab === "rollout") {
-    if (objLoading) return <div className="muted small" style={{ padding: 14 }}>Loading…</div>;
+    if (objLoading) return <SkeletonLines lines={6} label="Loading details…" />;
     return <RolloutProgress cluster={cluster} namespace={ns} obj={obj} />;
   }
   if (!isNode && !isService && !isPod && genTab === "autoscaling") {
@@ -235,6 +235,7 @@ export default function GenericDrawer({
   onClose,
   onPopOut,
   embedded,
+  initialTab,
 }: {
   cluster: string;
   def: ResourceDef;
@@ -244,6 +245,8 @@ export default function GenericDrawer({
   onPopOut?: () => void;
   /** Fill the full-page resource view instead of sliding over the list. */
   embedded?: boolean;
+  /** Open on the YAML tab (the row menu's "Edit YAML") instead of the summary. */
+  initialTab?: "yaml";
 }) {
   const [confirming, setConfirming] = useState(false);
   const [input, setInput] = useState("");
@@ -259,11 +262,11 @@ export default function GenericDrawer({
   const splitKey = `kb.split.${def.slug}`;
 
   // ── Single-pane tab state ────────────────────────────────────────────────
-  const [nodeTab, setNodeTab] = useState<NodeTab>("summary");
-  const [svcTab, setSvcTab] = useState<SvcTab>("summary");
+  const [nodeTab, setNodeTab] = useState<NodeTab>(initialTab ?? "summary");
+  const [svcTab, setSvcTab] = useState<SvcTab>(initialTab ?? "summary");
   const [podTab, setPodTab] = useState<PodTab>("yaml");
   const [podContainer, setPodContainer] = useState("");
-  const [genTab, setGenTab] = useState<GenTab>("summary");
+  const [genTab, setGenTab] = useState<GenTab>(initialTab ?? "summary");
 
   // ── Split-pane state ─────────────────────────────────────────────────────
   const [split, setSplit] = useState<boolean>(() => {

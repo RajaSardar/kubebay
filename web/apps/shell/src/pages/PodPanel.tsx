@@ -14,6 +14,8 @@ export interface SelectedPod {
   pod: string;
   containers: string[];
   obj?: Record<string, unknown>;
+  /** Open on this tab (the row menu's Logs, Shell or Edit YAML) instead of the last one used. */
+  tab?: "logs" | "shell" | "yaml";
 }
 
 const TAILS = [200, 2000, 10000];
@@ -37,6 +39,7 @@ const POD_TAB_LABELS = {
 
 export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod; onClose: () => void; onDeleted?: () => void }) {
   const [tab, setTabState] = useState<"summary" | "logs" | "shell" | "graphs" | "size" | "vulnerabilities" | "yaml">(() => {
+    if (pod.tab) return pod.tab;
     const saved = localStorage.getItem("kb.drawerTab");
     return saved === "shell" || saved === "yaml" || saved === "graphs" || saved === "size" || saved === "vulnerabilities" || saved === "summary"
       ? saved

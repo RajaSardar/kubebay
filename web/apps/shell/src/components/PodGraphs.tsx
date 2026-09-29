@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Button, EmptyState, InlineBanner, chartColor } from "@kubebay/ui";
+import { Button, chartColor, EmptyState, InlineBanner, SkeletonLines } from "@kubebay/ui";
 import { LineChart } from "./LineChart";
 import { promApi } from "../lib/api";
 
@@ -161,7 +161,7 @@ export function PodGraphs({
   const cpuSeries = useMemo(() => toSeries(cpu.data, 0, (v) => v * 1000), [cpu.data]);
   const memSeries = useMemo(() => toSeries(mem.data, 2, (v) => v), [mem.data]);
 
-  if (settings.isLoading) return <div className="loading-state">Loading…</div>;
+  if (settings.isLoading) return <SkeletonLines lines={5} label="Loading graphs…" />;
 
   if (!promUrl)
     return (

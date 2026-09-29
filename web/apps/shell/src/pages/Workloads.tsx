@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Badge, Button, EmptyState, InlineBanner, NsPill, PageHeader, Row, Select, SelectAllHeader, SelectCell, SkeletonRows, SortHeader, StatusPill, Table, TableRow, TableWrap, TextField, type StatusTone } from "@kubebay/ui";
+import { Badge, Button, EmptyState, IconButton, InlineBanner, NsPill, PageHeader, Row, Select, SelectAllHeader, SelectCell, SkeletonTable, SortHeader, StatusPill, Table, TableRow, TableWrap, TextField, type StatusTone } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { useResourceStream, shouldShowSkeleton } from "../lib/useResourceStream";
 import PodPanel, { type SelectedPod } from "./PodPanel";
@@ -11,9 +11,10 @@ import { useRowSelection } from "../lib/useRowSelection";
 import { useBulkDelete } from "../lib/useBulkDelete";
 import { NamespaceFilter } from "../components/NamespaceFilter";
 import { PolicyRejectionCard } from "../components/PolicyRejectionCard";
-import { useSelectedNamespaces } from "../lib/namespace-store";
+import { useNamespaceStore, useSelectedNamespaces } from "../lib/namespace-store";
+import { ContextMenu } from "../components/ContextMenu";
+import { absoluteTime, countLabel, matchesFilter, useSortPref, useTableKeyboard } from "../lib/tableUx";
 import { WorkloadTabBar } from "../components/WorkloadTabBar";
-import { PageLoader } from "../components/PageLoader";
 import { ownerAmongTargets, ownerLabel, ownerWarning } from "../lib/gitops";
 
 function rec(v: unknown): Record<string, unknown> {
@@ -49,6 +50,10 @@ interface PodRow {
   containers: string[];
   node: string;
   podIP: string;
+  /** Creation time, for the age tooltip. */
+  created: string;
+  /** The waiting reason's message (why it is CrashLoopBackOff), for the status tooltip. */
+  statusDetail: string;
 }
 
 function asRecord(v: unknown): Record<string, unknown> {
@@ -72,6 +77,7 @@ function derivePod(obj: Record<string, unknown>): PodRow | null {
   const phase = (status.phase as string) ?? "Unknown";
   let state: PodRow["status"] = "pending";
   let label = phase;
+  let detail = (status.message as string) ?? "";
 
   if (meta.deletionTimestamp) {
     state = "pending";
@@ -83,6 +89,7 @@ function derivePod(obj: Record<string, unknown>): PodRow | null {
       if (reason && reason !== "ContainerCreating") {
         state = "failed";
         label = reason;
+        detail = (waiting.message as string) ?? detail;
         break;
       }
     }
@@ -119,6 +126,8 @@ function derivePod(obj: Record<string, unknown>): PodRow | null {
     containers: containerNames,
     node: (spec.nodeName as string) ?? "",
     podIP: (status.podIP as string) ?? "",
+    created: (meta.creationTimestamp as string) ?? "",
+    statusDetail: detail,
   };
 }
 
@@ -151,8 +160,12 @@ export default function Workloads() {
   const clusters = useQuery({ queryKey: ["clusters"], queryFn: api.clusters });
   const { active: activeCluster, setActive: setActiveCluster } = useActiveCluster();
   const [filter, setFilter] = useState("");
-  const [sortCol, setSortCol] = useState<SortCol>(null);
-  const [sortAsc, setSortAsc] = useState(true);
+  const filterRef = useRef<HTMLInputElement>(null);
+  const sort = useSortPref("pods");
+  const sortCol = sort.col as SortCol;
+  const sortAsc = sort.asc;
+  const [ctx, setCtx] = useState<{ x: number; y: number; key: string } | null>(null);
+  const { setNamespaces } = useNamespaceStore();
 
   const list = clusters.data ?? [];
   // Use only the explicitly selected cluster — never fall back to list[0].
@@ -193,28 +206,20 @@ export default function Workloads() {
     });
   });
 
-  // If no cluster is selected and we're done loading, send user to cluster picker.
-  // This handles direct navigation (e.g. deep link to /workloads) without going
-  // through ClusterPicker, which is the only place that sets the active cluster.
-  if (!effectiveCluster && !clusters.isLoading) {
-    return <Navigate to="/clusters" replace />;
-  }
-
   async function confirmDeletePods() {
     const succeeded = await bulkDelete.confirm();
     deselect(succeeded.map((t) => `${t.ns}/${t.name}`));
   }
 
   function toggleSort(col: SortCol) {
-    if (sortCol === col) setSortAsc((a) => !a);
-    else { setSortCol(col); setSortAsc(true); }
+    if (col) sort.toggle(col);
   }
 
   const pods = useMemo(() => {
     let out = rows
       .map(derivePod)
       .filter((p): p is PodRow => p !== null)
-      .filter((p) => !filter || p.name.includes(filter) || p.namespace.includes(filter));
+      .filter((p) => matchesFilter([p.name, p.namespace, p.node, p.podIP, p.statusLabel], filter));
 
     if (sortCol) {
       out.sort((a, b) => {
@@ -242,6 +247,42 @@ export default function Workloads() {
   }, [rows, filter, sortCol, sortAsc, usage]);
 
   const allKeys = useMemo(() => pods.map((p) => p.key), [pods]);
+
+  const openPod = useCallback(
+    (p: PodRow, tab?: SelectedPod["tab"]) => {
+      const rawObj = rows.find((r) => {
+        const m = rec((r ?? {}) as Record<string, unknown>).metadata as Record<string, unknown> | undefined;
+        return (m?.name as string) === p.name && (m?.namespace as string) === p.namespace;
+      });
+      setSelected({
+        cluster: effectiveCluster,
+        namespace: p.namespace,
+        pod: p.name,
+        containers: p.containers.length ? p.containers : [""],
+        obj: rawObj,
+        tab,
+      });
+    },
+    [rows, effectiveCluster],
+  );
+  const { active: activeRow } = useTableKeyboard({
+    count: pods.length,
+    onOpen: useCallback((i: number) => { const p = pods[i]; if (p) openPod(p); }, [pods, openPod]),
+    onToggle: useCallback((i: number) => { const p = pods[i]; if (p) toggleRow(p.key); }, [pods, toggleRow]),
+    filterRef,
+    onClearFilter: useCallback(() => setFilter(""), []),
+  });
+  useEffect(() => {
+    if (activeRow < 0) return;
+    document.querySelector(`[data-pod-row="${activeRow}"]`)?.scrollIntoView({ block: "nearest" });
+  }, [activeRow]);
+
+  // If no cluster is selected and we're done loading, send user to cluster picker.
+  // This handles direct navigation (e.g. deep link to /workloads) without going
+  // through ClusterPicker, which is the only place that sets the active cluster.
+  if (!effectiveCluster && !clusters.isLoading) {
+    return <Navigate to="/clusters" replace />;
+  }
 
   function handleSelectAll(checked: boolean) {
     if (checked) selectAll(allKeys);
@@ -319,32 +360,18 @@ export default function Workloads() {
         </Select>
         <NamespaceFilter cluster={effectiveCluster || undefined} />
         <TextField
-          placeholder="Filter by name or namespace…"
+          ref={filterRef}
+          placeholder="Filter by name, namespace, node, IP or status…  /"
+          aria-label="Filter pods"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           spellCheck={false}
         />
-        <Badge>{pods.length}</Badge>
+        <Badge title={pods.length === rows.length ? undefined : "Shown of total"}>{countLabel(pods.length, rows.length)}</Badge>
       </div>
 
-      {!effectiveCluster && (
-        <PageLoader message="Waiting for cluster…" />
-      )}
-
-      {effectiveCluster && shouldShowSkeleton(synced, pods.length) && (
-        <TableWrap>
-          <Table>
-            <thead>
-              <tr>
-                <th style={{ width: 40 }} />
-                {HEADERS.map((h, i) => <th key={h} style={{ width: widths[i] }}>{h}</th>)}
-              </tr>
-            </thead>
-            <tbody>
-              <SkeletonRows columns={HEADERS.length} rows={6} leadingBlank />
-            </tbody>
-          </Table>
-        </TableWrap>
+      {(!effectiveCluster || shouldShowSkeleton(synced, pods.length)) && (
+        <SkeletonTable headers={HEADERS} widths={widths} rows={10} leadingBlank label="Loading pods…" />
       )}
 
       {effectiveCluster && !shouldShowSkeleton(synced, pods.length) && pods.length === 0 && (
@@ -355,11 +382,12 @@ export default function Workloads() {
       )}
 
       {pods.length > 0 && (
-        <TableWrap>
+        <TableWrap busy={!synced || !connected}>
           <Table>
             <colgroup>
               <col style={{ width: 40 }} />
               {HEADERS.map((h, i) => <col key={h} style={{ width: widths[i] }} />)}
+              <col style={{ width: 36 }} />
             </colgroup>
             <thead>
               <tr>
@@ -381,37 +409,39 @@ export default function Workloads() {
                     <div className="col-resize-handle" {...getResizeHandleProps(i)} />
                   </SortHeader>
                 ))}
+                <th className="col-row-menu" style={{ width: 36 }} />
               </tr>
             </thead>
             <tbody>
-              {pods.map((p) => {
+              {pods.map((p, index) => {
                 const tone = STATUS_TONE[p.status];
                 const isSelected = selectedKeys.has(p.key);
                 return (
                   <TableRow
                     key={p.key}
+                    data-pod-row={index}
                     clickable
                     selected={isSelected}
-                    onClick={() => {
-                      const rawObj = rows.find((r) => {
-                        const m = rec((r ?? {}) as Record<string, unknown>).metadata as Record<string, unknown> | undefined;
-                        return (m?.name as string) === p.name && (m?.namespace as string) === p.namespace;
-                      });
-                      setSelected({
-                        cluster: effectiveCluster,
-                        namespace: p.namespace,
-                        pod: p.name,
-                        containers: p.containers.length ? p.containers : [""],
-                        obj: rawObj,
-                      });
-                    }}
+                    hovered={activeRow === index}
+                    aria-current={activeRow === index ? "true" : undefined}
+                    onClick={() => openPod(p)}
+                    onContextMenu={(e) => { e.preventDefault(); setCtx({ x: e.clientX, y: e.clientY, key: p.key }); }}
                   >
                     <SelectCell checked={isSelected} onChange={() => toggleRow(p.key)} label={`Select ${p.name}`} />
                     <td className="mono td-name" title={p.name}>{p.name}</td>
-                    <td className="mono"><NsPill>{p.namespace}</NsPill></td>
+                    <td className="mono">
+                      <NsPill
+                        title={`Filter by namespace: ${p.namespace}`}
+                        onClick={() => { if (effectiveCluster) setNamespaces(effectiveCluster, [p.namespace]); }}
+                      >
+                        {p.namespace}
+                      </NsPill>
+                    </td>
                     <td className="mono">{p.ready}</td>
                     <td>
-                      <StatusPill tone={tone.pill}>{p.statusLabel}</StatusPill>
+                      <span title={p.statusDetail || undefined}>
+                        <StatusPill tone={tone.pill}>{p.statusLabel}</StatusPill>
+                      </span>
                     </td>
                     <td className={`mono${p.restarts > 0 ? " restart-warn" : ""}`}>{p.restarts}</td>
                     <td className="mono muted small" title={p.node}>{p.node || "–"}</td>
@@ -436,7 +466,16 @@ export default function Workloads() {
                         </Row>
                       ) : <span className="mono muted">–</span>}
                     </td>
-                    <td className="mono muted">{fmtAge(p.ageMs)}</td>
+                    <td className="mono muted" title={absoluteTime(p.created)}>{fmtAge(p.ageMs)}</td>
+                    <td className="col-row-menu" onClick={(e) => e.stopPropagation()}>
+                      <IconButton
+                        label={`Actions for ${p.name}`}
+                        className="row-menu-btn"
+                        onClick={(e) => setCtx({ x: e.clientX, y: e.clientY, key: p.key })}
+                      >
+                        ⋮
+                      </IconButton>
+                    </td>
                   </TableRow>
                 );
               })}
@@ -445,7 +484,28 @@ export default function Workloads() {
         </TableWrap>
       )}
 
-      {selected && <PodPanel pod={selected} onClose={() => setSelected(null)} />}
+      {ctx && (() => {
+        const p = pods.find((x) => x.key === ctx.key);
+        if (!p) return null;
+        return (
+          <ContextMenu
+            x={ctx.x}
+            y={ctx.y}
+            onClose={() => setCtx(null)}
+            items={[
+              { label: "View details", onClick: () => openPod(p) },
+              { label: "Logs", onClick: () => openPod(p, "logs") },
+              { label: "Shell", onClick: () => openPod(p, "shell") },
+              { label: "Edit YAML", onClick: () => openPod(p, "yaml") },
+              { label: "Copy name", onClick: () => void navigator.clipboard?.writeText(p.name) },
+              { separator: true, label: "", onClick: () => {} },
+              { label: "Delete", danger: true, onClick: () => bulkDelete.request([{ ns: p.namespace, name: p.name }]) },
+            ]}
+          />
+        );
+      })()}
+
+      {selected && <PodPanel key={`${selected.namespace}/${selected.pod}/${selected.tab ?? ""}`} pod={selected} onClose={() => setSelected(null)} />}
     </div>
   );
 }

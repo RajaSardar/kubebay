@@ -139,6 +139,11 @@ body::before {
   transition: opacity var(--kb-dur-slow), filter var(--kb-dur-slow), border-color var(--kb-dur-slow);
 }
 
+/* On the cluster's own colour, the spinner takes the avatar's label colour. */
+.cluster-strip-spinner {
+  color: inherit;
+}
+
 .cluster-strip-avatar.active {
   border-color: var(--kb-fg-default);
 }
@@ -423,20 +428,6 @@ h2 {
   gap: 14px;
   min-height: 240px;
   padding: var(--kb-space-6);
-}
-
-.page-loader-spinner {
-  display: block;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  border: 2.5px solid var(--kb-border-strong);
-  border-top-color: var(--kb-accent);
-  animation: page-loader-spin 0.7s linear infinite;
-}
-
-@keyframes page-loader-spin {
-  to { transform: rotate(360deg); }
 }
 
 .page-loader-msg {
@@ -1207,10 +1198,6 @@ h2 {
   transform: scale(0.96);
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
 /* ──── Settings ──── */
 .settings-section-wrap {
   padding: 14px 16px 18px;
@@ -1475,6 +1462,10 @@ h2 {
 }
 
 /* ── Stepper ── */
+.conn-spinner {
+  margin-bottom: var(--kb-space-3);
+}
+
 .conn-stepper {
   display: flex;
   align-items: flex-start;

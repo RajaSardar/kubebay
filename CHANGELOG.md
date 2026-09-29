@@ -7,6 +7,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 ## [Unreleased]
 
 ### Added
+- **Faster, friendlier resource tables**: the filter matches every column (Pods: name, namespace, node, IP and status) and ignores case; the count reads "3 of 340" while filtered; `/` focuses the filter, ↑/↓ or j/k move, Enter opens, x selects, Esc clears; the sort is remembered per table; ages show the exact time on hover; Pods gets a row menu (Logs, Shell, Edit YAML, Copy name, Delete) and clickable namespace pills; the + button opens Create Resource on that kind's template
+- **Loading states**: a new helm loading icon and `Spinner`, shown while switching clusters; lists load as skeleton rows under their real headers, drawers as skeleton lines, lazily loaded pages as a skeleton page, and tables show a thin progress bar while cached rows refresh
 - **`Row`, `Stack`, `DisclosureButton` and `ChoiceCard` in `@kubebay/ui`**: every flex layout in the app uses `Row` or `Stack` with gaps from the spacing scale; sidebar groups announce whether they are expanded and theme cards which one is chosen to screen readers
 - **Shared shell components in `@kubebay/ui`**: `StatusPill` + `phaseTone()`, `Tabs`, `NavItem`/`NavSection` + `navItemClass()`, `TextField`, `Select`, `Kbd`, `PageHeader` (with `level` and `live`) and `ContextMenu`. Their styles now live in the package (#12)
 - `--kb-on-danger` token in every theme for labels on danger fills (#12)
@@ -29,6 +31,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 - **Pending has its own colour**: Pending pods use each theme's info hue instead of the warning orange, so they no longer read as warnings
 
 ### Fixed
+- Tables could stay on their loading skeleton forever on a fast cluster, and a table could briefly show another resource's rows (StatefulSets showing Deployments): stream frames were handled out of order
+- Pods never showed "live" and did not load CPU/memory on a second visit
+- The + button on resource tables did nothing; the row menu's "Edit YAML" opened the summary
 - The Create Resource dry-run toggle label used an undeclared colour token; it now uses the muted text colour
 - Every size, radius, animation duration and stacking layer in the app comes from the design tokens, so the command palette, context menus, drawers and dialogs always stack in the same order
 - Borders, focus halos, text colour and backgrounds missing in the Network Policy view, cluster picker and cluster detail drawer: six undefined `--kb-*` variables now point at real tokens (#12)

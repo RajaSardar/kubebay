@@ -1,6 +1,6 @@
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams, useLocation } from "react-router-dom";
-import { Badge, Button, EmptyState, IconButton, InlineBanner, NsPill, PageHeader, SelectAllHeader, SelectCell, SkeletonRows, SortHeader, StatusDot, Table, TableRow, TableWrap, TextField, phaseTone } from "@kubebay/ui";
+import { Badge, Button, EmptyState, IconButton, InlineBanner, NsPill, PageHeader, phaseTone, SelectAllHeader, SelectCell, SkeletonTable, SortHeader, StatusDot, Table, TableRow, TableWrap, TextField } from "@kubebay/ui";
 import { api, crdApi, metricsApi, type PrinterColumn } from "../lib/api";
 import { useQuery as useRQQuery } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -14,6 +14,8 @@ import { useBulkDelete } from "../lib/useBulkDelete";
 import { useDisplay, type Density } from "../lib/display";
 import { evalPrinterPath } from "../lib/printerPath";
 import { ownerOf, ownerLabel, ownerAmongTargets, ownerWarning } from "../lib/gitops";
+import { absoluteTime, countLabel, matchesFilter, useSortPref, useTableKeyboard } from "../lib/tableUx";
+import { templateKindFor } from "../lib/resourceTemplates";
 
 // Row height (px) per density level — must stay in sync with ROW_PADDING_VALUES in display.ts
 // compact: 4+4px pad + ~20px line + 1px border = 29px
@@ -407,9 +409,11 @@ export default function ResourceTable() {
   const nsFilter = useSelectedNamespaces(effectiveCluster || undefined);
   const { setNamespaces } = useNamespaceStore();
   const [search, setSearch] = useState("");
-  const [sortCol, setSortCol] = useState<string | null>(null);
-  const [sortAsc, setSortAsc] = useState(true);
-  const [selected, setSelected] = useState<{ ns: string; name: string } | null>(null);
+  const filterRef = useRef<HTMLInputElement>(null);
+  const sort = useSortPref(`r/${kind}`);
+  const sortCol = sort.col;
+  const sortAsc = sort.asc;
+  const [selected, setSelected] = useState<{ ns: string; name: string; tab?: "yaml" } | null>(null);
   const [ctx, setCtx] = useState<{ x: number; y: number; ns: string; name: string } | null>(null);
   const [hoveredRowKey, setHoveredRowKey] = useState<string | null>(null);
 
@@ -494,9 +498,16 @@ export default function ResourceTable() {
 
   const rows = useMemo(() => {
     let out = [...stream.rows];
-    if (search) {
-      const q = search.toLowerCase();
-      out = out.filter((r) => str(rec(r.metadata).name).toLowerCase().includes(q));
+    if (search.trim()) {
+      // Name, namespace and every column the table shows, so "crash" or a node
+      // name finds rows as well as a name does.
+      out = out.filter((r) => {
+        const meta = rec(r.metadata);
+        return matchesFilter(
+          [str(meta.name), str(meta.namespace), ...cols.map((c) => String(cellFor(def?.slug ?? "", c, r).v))],
+          search,
+        );
+      });
     }
     if (sortCol) {
       out.sort((a, b) => {
@@ -523,7 +534,7 @@ export default function ResourceTable() {
       out.sort((a, b) => str(rec(a.metadata).name).localeCompare(str(rec(b.metadata).name)));
     }
     return out;
-  }, [stream.rows, search, sortCol, sortAsc, def]);
+  }, [stream.rows, search, sortCol, sortAsc, def, cols]);
 
   const allKeys = useMemo(
     () => rows.map((o) => {
@@ -540,6 +551,26 @@ export default function ResourceTable() {
     overscan: 5,
   });
 
+  const openRow = useCallback((i: number) => {
+    const meta = rec(rows[i]?.metadata);
+    if (rows[i]) setSelected({ ns: str(meta.namespace), name: str(meta.name) });
+  }, [rows]);
+  const toggleRowAt = useCallback((i: number) => {
+    const key = allKeys[i];
+    if (key) toggleRow(key);
+  }, [allKeys, toggleRow]);
+  const clearSearch = useCallback(() => setSearch(""), []);
+  const { active: activeRow } = useTableKeyboard({
+    count: rows.length,
+    onOpen: openRow,
+    onToggle: toggleRowAt,
+    filterRef,
+    onClearFilter: clearSearch,
+  });
+  useEffect(() => {
+    if (activeRow >= 0) rowVirtualizer.scrollToIndex(activeRow, { align: "auto" });
+  }, [activeRow, rowVirtualizer]);
+
   if (!def) {
     return (
       <div className="page">
@@ -550,10 +581,8 @@ export default function ResourceTable() {
     );
   }
 
-  function toggleSort(h: string) {
-    if (sortCol === h) setSortAsc((a) => !a);
-    else { setSortCol(h); setSortAsc(true); }
-  }
+  const toggleSort = sort.toggle;
+  const createKind = templateKindFor(def.slug);
 
   async function confirmDelete() {
     const succeeded = await bulkDelete.confirm();
@@ -592,7 +621,9 @@ export default function ResourceTable() {
                 </Button>
               </>
             )}
-            <Badge>{rows.length}</Badge>
+            <Badge title={rows.length === stream.rows.length ? undefined : "Shown of total"}>
+              {countLabel(rows.length, stream.rows.length)}
+            </Badge>
           </>
         }
       />
@@ -633,7 +664,9 @@ export default function ResourceTable() {
           <NamespaceFilter cluster={effectiveCluster || undefined} />
         )}
         <TextField
-          placeholder={`Filter ${def.label.toLowerCase()}…`}
+          ref={filterRef}
+          placeholder={`Filter ${def.label.toLowerCase()}…  /`}
+          aria-label={`Filter ${def.label.toLowerCase()}`}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           spellCheck={false}
@@ -641,26 +674,14 @@ export default function ResourceTable() {
       </div>
 
       {shouldShowSkeleton(stream.synced, stream.rows.length) ? (
-        <TableWrap>
-          <Table>
-            <thead>
-              <tr>
-                <th style={{ width: 40 }} />
-                {headers.map((h, i) => <th key={h} style={{ width: widths[i] }}>{h}</th>)}
-              </tr>
-            </thead>
-            <tbody>
-              <SkeletonRows columns={headers.length} leadingBlank />
-            </tbody>
-          </Table>
-        </TableWrap>
+        <SkeletonTable headers={headers} widths={widths} rows={10} leadingBlank label={`Loading ${def.label.toLowerCase()}…`} />
       ) : rows.length === 0 ? (
         <EmptyState>
           <p>No {def.label.toLowerCase()} match.</p>
           <p className="muted small">{search || nsFilter.length ? "Loosen the filters." : `Nothing in this ${def.scoped ? "cluster" : "namespace"} yet.`}</p>
         </EmptyState>
       ) : (
-        <TableWrap ref={scrollRef}>
+        <TableWrap ref={scrollRef} busy={!stream.synced}>
           <Table>
             <colgroup>
               <col style={{ width: 40 }} />
@@ -726,7 +747,8 @@ export default function ResourceTable() {
                     ref={rowVirtualizer.measureElement}
                     clickable
                     selected={isSelected}
-                    hovered={hoveredRowKey === key}
+                    hovered={hoveredRowKey === key || activeRow === virtualRow.index}
+                    aria-current={activeRow === virtualRow.index ? "true" : undefined}
                     dimmed={isTerminating}
                     onClick={() => setSelected({ ns, name })}
                     onMouseEnter={() => setHoveredRowKey(key)}
@@ -784,7 +806,7 @@ export default function ResourceTable() {
                       </td>
                     ))}
                     <td className="mono muted">{ownerCell(o).v}</td>
-                    <td className="mono muted">{fmtAge(ageOf(o))}</td>
+                    <td className="mono muted" title={absoluteTime(str(meta.creationTimestamp))}>{fmtAge(ageOf(o))}</td>
                     {/* ⋮ kebab — visible only on row hover */}
                     <td className="col-row-menu" onClick={(e) => e.stopPropagation()}>
                       <IconButton
@@ -822,7 +844,8 @@ export default function ResourceTable() {
           onClose={() => setCtx(null)}
           items={[
             { label: "View details", onClick: () => setSelected({ ns: ctx.ns, name: ctx.name }) },
-            { label: "Edit YAML", onClick: () => setSelected({ ns: ctx.ns, name: ctx.name }) },
+            { label: "Edit YAML", onClick: () => setSelected({ ns: ctx.ns, name: ctx.name, tab: "yaml" }) },
+            { label: "Copy name", onClick: () => void navigator.clipboard?.writeText(ctx.name) },
             { separator: true, label: "", onClick: () => {} },
             { label: "Delete", danger: true, onClick: () => {
               bulkDelete.request([{ ns: ctx.ns, name: ctx.name }]);
@@ -833,10 +856,12 @@ export default function ResourceTable() {
 
       {selected && (
         <GenericDrawer
+          key={`${selected.ns}/${selected.name}/${selected.tab ?? ""}`}
           cluster={effectiveCluster}
           def={def}
           ns={selected.ns}
           name={selected.name}
+          initialTab={selected.tab}
           onClose={() => setSelected(null)}
           onPopOut={() => {
             setSelected(null);
@@ -845,15 +870,17 @@ export default function ResourceTable() {
         />
       )}
 
-      {/* "+" FAB — create new resource */}
-      <button
-        className="resource-fab"
-        aria-label={`Create ${def.label}`}
-        title={`Create ${def.label}`}
-        onClick={() => {/* TODO: open create-resource sheet */}}
-      >
-        +
-      </button>
+      {/* "+" — create one of these, starting from its template */}
+      {createKind && (
+        <button
+          className="resource-fab"
+          aria-label={`Create ${def.label}`}
+          title={`Create ${createKind}`}
+          onClick={() => navigate(`/create-resource?kind=${createKind}`)}
+        >
+          +
+        </button>
+      )}
     </div>
   );
 }

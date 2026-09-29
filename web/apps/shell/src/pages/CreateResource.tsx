@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import Editor from "@monaco-editor/react";
 import { Button, InlineBanner, Row, Select, Stack } from "@kubebay/ui";
 import { api } from "../lib/api";
@@ -11,8 +12,13 @@ import { PolicyRejectionCard } from "../components/PolicyRejectionCard";
 export default function CreateResource() {
   const { active } = useActiveCluster();
   const monacoTheme = useMonacoTheme();
+  // A table's "+" button opens this page on its own kind: /create-resource?kind=Deployment.
+  const [sp] = useSearchParams();
+  const requested = sp.get("kind");
 
-  const [selectedKind, setSelectedKind] = useState(RESOURCE_TEMPLATES[0]!.kind);
+  const [selectedKind, setSelectedKind] = useState(
+    RESOURCE_TEMPLATES.find((t) => t.kind === requested)?.kind ?? RESOURCE_TEMPLATES[0]!.kind,
+  );
   const [yaml, setYaml] = useState<string | null>(null);
   const [applying, setApplying] = useState(false);
   const [dryRun, setDryRun] = useState(false);

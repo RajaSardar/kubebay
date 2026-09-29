@@ -118,6 +118,75 @@ class MultiplexedStream {
     for (const h of this.listeners) fn(h);
   }
 
+  // Frames still being read from a Blob. While any are pending, later frames
+  // queue behind them so the order never changes.
+  private inbox: Promise<void> | null = null;
+  private inboxDepth = 0;
+
+  private receive(data: unknown) {
+    if (this.inbox || data instanceof Blob) {
+      this.inboxDepth++;
+      this.inbox = (this.inbox ?? Promise.resolve())
+        .then(async () => this.handleFrame(data instanceof Blob ? await data.arrayBuffer() : data))
+        .finally(() => {
+          if (--this.inboxDepth === 0) this.inbox = null;
+        });
+      return;
+    }
+    this.handleFrame(data);
+  }
+
+  private handleFrame(data: unknown) {
+    if (typeof data === "string") {
+      let f: ControlFrame;
+      try {
+        f = JSON.parse(data);
+      } catch {
+        return;
+      }
+      switch (f.type) {
+        case "sync":
+          this.dispatch((h) => h.onSync?.(f.id ?? ""));
+          break;
+        case "error":
+          this.dispatch((h) => h.onError?.(f.id ?? "", f.message ?? "unknown error"));
+          break;
+        case "ack":
+          this.dispatch((h) => h.onAck?.(f.id ?? "", f.message));
+          break;
+        case "chan-closed":
+          this.dispatch((h) => h.onChanClosed?.(f.id ?? "", f.message));
+          break;
+      }
+      return;
+    }
+    if (!(data instanceof ArrayBuffer) && !ArrayBuffer.isView(data)) return;
+    let frame: DataFrame;
+    try {
+      frame = decode(data) as DataFrame;
+    } catch {
+      return;
+    }
+    const ops = frame.ops ?? [];
+    switch (frame.type) {
+      case "begin":
+        this.dispatch((h) => h.onBegin?.(frame.id));
+        break;
+      case "items":
+        this.dispatch((h) => h.onItems?.(frame.id, ops));
+        break;
+      case "delta":
+        this.dispatch((h) => h.onDelta?.(frame.id, ops));
+        break;
+      case "chan-data":
+        if (frame.data) {
+          const bytes = frame.data instanceof Uint8Array ? frame.data : new Uint8Array(frame.data);
+          this.dispatch((h) => h.onChanData?.(frame.id, bytes));
+        }
+        break;
+    }
+  }
+
   private connect() {
     const proto = location.protocol === "https:" ? "wss" : "ws";
     // The token rides in Sec-WebSocket-Protocol, the only client-settable
@@ -153,57 +222,13 @@ class MultiplexedStream {
       }, PING_INTERVAL_MS);
     };
 
-    ws.onmessage = (ev) => {
-      if (typeof ev.data === "string") {
-        let f: ControlFrame;
-        try {
-          f = JSON.parse(ev.data);
-        } catch {
-          return;
-        }
-        switch (f.type) {
-          case "sync":
-            this.dispatch((h) => h.onSync?.(f.id ?? ""));
-            break;
-          case "error":
-            this.dispatch((h) => h.onError?.(f.id ?? "", f.message ?? "unknown error"));
-            break;
-          case "ack":
-            this.dispatch((h) => h.onAck?.(f.id ?? "", f.message));
-            break;
-          case "chan-closed":
-            this.dispatch((h) => h.onChanClosed?.(f.id ?? "", f.message));
-            break;
-        }
-        return;
-      }
-      ev.data.arrayBuffer().then((buf: ArrayBuffer) => {
-        let frame: DataFrame;
-        try {
-          frame = decode(buf) as DataFrame;
-        } catch {
-          return;
-        }
-        const ops = frame.ops ?? [];
-        switch (frame.type) {
-          case "begin":
-            this.dispatch((h) => h.onBegin?.(frame.id));
-            break;
-          case "items":
-            this.dispatch((h) => h.onItems?.(frame.id, ops));
-            break;
-          case "delta":
-            this.dispatch((h) => h.onDelta?.(frame.id, ops));
-            break;
-          case "chan-data":
-            if (frame.data) {
-              const bytes = frame.data instanceof Uint8Array ? frame.data : new Uint8Array(frame.data);
-              this.dispatch((h) => h.onChanData?.(frame.id, bytes));
-            }
-            break;
-        }
-      });
-    };
+    // Binary frames arrive as ArrayBuffers, so they decode synchronously and
+    // are handled in the order the server sent them. A Blob would need an
+    // async read, and a "sync" text frame could then overtake the "begin" and
+    // "items" frames before it: the table was marked synced before its rows
+    // arrived, reset by the late "begin", and stuck on its skeleton.
+    ws.binaryType = "arraybuffer";
+    ws.onmessage = (ev) => this.receive(ev.data);
 
     ws.onclose = () => {
       if (this.closedByUser) return;
@@ -245,6 +270,9 @@ class MultiplexedStream {
 
   attach(h: Handlers): () => void {
     this.listeners.add(h);
+    // onStatus fires on changes only; a listener that arrives while the socket
+    // is already open still needs to know it is connected.
+    if (this.ws?.readyState === WebSocket.OPEN) h.onStatus?.(true, this.retry, 0);
     return () => this.listeners.delete(h);
   }
 

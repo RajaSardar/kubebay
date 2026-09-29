@@ -56,11 +56,21 @@ export function InlineBanner({ tone = "err", actions, flush, className, children
 // ── Table primitives (the ResourceTable design) ───────────────────────────────
 
 /** Scroll container for a table: fills the page body on `kb-bg-surface`. */
-export const TableWrap = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(function TableWrap(
-  { className, ...props },
+export interface TableWrapProps extends HTMLAttributes<HTMLDivElement> {
+  /** Rows on screen are being refreshed (a stream re-syncing): a thin progress bar runs along the top. */
+  busy?: boolean;
+}
+
+export const TableWrap = forwardRef<HTMLDivElement, TableWrapProps>(function TableWrap(
+  { className, busy, children, ...props },
   ref,
 ) {
-  return <div ref={ref} className={`table-wrap${className ? " " + className : ""}`} {...props} />;
+  return (
+    <div ref={ref} className={`table-wrap${className ? " " + className : ""}`} aria-busy={busy || undefined} {...props}>
+      {busy && <div className="kb-table-progress" aria-hidden="true" />}
+      {children}
+    </div>
+  );
 });
 
 /** `table.kb-table`: sticky blurred header, hairline rows, ellipsized fixed-layout cells. */
@@ -180,6 +190,12 @@ export function NsPill({ children, onClick, title }: { children: ReactNode; onCl
 }
 
 const SKELETON_WIDTHS = [150, 90, 60, 70, 60, 50];
+// Rows differ in length, as real names and values do, so the sketch reads as data.
+const ROW_FACTORS = [1, 0.72, 0.86, 0.64, 0.93, 0.78];
+
+function skeletonWidth(row: number, col: number) {
+  return Math.round(SKELETON_WIDTHS[col % SKELETON_WIDTHS.length]! * ROW_FACTORS[(row + col) % ROW_FACTORS.length]!);
+}
 
 /** Placeholder rows while a table's data streams in. */
 export function SkeletonRows({ columns, rows = 5, leadingBlank }: { columns: number; rows?: number; leadingBlank?: boolean }) {
@@ -190,12 +206,58 @@ export function SkeletonRows({ columns, rows = 5, leadingBlank }: { columns: num
           {leadingBlank && <td />}
           {Array.from({ length: columns }, (_, j) => (
             <td key={j}>
-              <Skeleton w={SKELETON_WIDTHS[j % SKELETON_WIDTHS.length]} />
+              <Skeleton w={skeletonWidth(i, j)} />
             </td>
           ))}
         </tr>
       ))}
     </>
+  );
+}
+
+export interface SkeletonTableProps {
+  /** The real column headers, so the page keeps its shape when the data lands. */
+  headers: readonly string[];
+  rows?: number;
+  /** A blank first column for the select checkbox. */
+  leadingBlank?: boolean;
+  /** Column widths, in step with the real table's. */
+  widths?: readonly (number | string | undefined)[];
+  /** What is loading, for screen readers. */
+  label?: string;
+}
+
+/** A whole table's placeholder: its header over skeleton rows. Use it for every list that is still loading. */
+export function SkeletonTable({ headers, rows = 8, leadingBlank, widths, label = "Loading…" }: SkeletonTableProps) {
+  return (
+    <TableWrap role="status" aria-label={label} aria-busy="true">
+      <Table>
+        <thead>
+          <tr>
+            {leadingBlank && <th style={{ width: 40 }} />}
+            {headers.map((h, i) => (
+              <th key={h} style={{ width: widths?.[i] }}>
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          <SkeletonRows columns={headers.length} rows={rows} leadingBlank={leadingBlank} />
+        </tbody>
+      </Table>
+    </TableWrap>
+  );
+}
+
+/** Placeholder lines for a paragraph or a key/value list (a drawer's summary, a YAML pane). */
+export function SkeletonLines({ lines = 4, label = "Loading…" }: { lines?: number; label?: string }) {
+  return (
+    <div className="kb-skeleton-lines" role="status" aria-label={label} aria-busy="true">
+      {Array.from({ length: lines }, (_, i) => (
+        <Skeleton key={i} w={`${[92, 76, 84, 58, 70, 64][i % 6]}%`} />
+      ))}
+    </div>
   );
 }
 

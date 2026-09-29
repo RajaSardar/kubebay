@@ -8,7 +8,7 @@
 //   - text contrast (4.5:1; 3:1 for large text and icons; HC themes report <7:1),
 //   - the edges of inputs, selects and segmented controls (3:1),
 //   - the keyboard focus ring of every focusable control (visible, 3:1).
-// Exits 1 if anything fails. docs/DESIGN_SYSTEM.md rule 5 asks for this before
+// Exits 1 if anything fails. docs/DESIGN_SYSTEM.md rule 6 asks for this before
 // a design-system change merges.
 //
 //   node scripts/theme-audit/theme-audit.mjs [--shots <dir>]
