@@ -235,6 +235,7 @@ export default function GenericDrawer({
   onClose,
   onPopOut,
   embedded,
+  initialTab,
 }: {
   cluster: string;
   def: ResourceDef;
@@ -244,6 +245,8 @@ export default function GenericDrawer({
   onPopOut?: () => void;
   /** Fill the full-page resource view instead of sliding over the list. */
   embedded?: boolean;
+  /** Open on the YAML tab (the row menu's "Edit YAML") instead of the summary. */
+  initialTab?: "yaml";
 }) {
   const [confirming, setConfirming] = useState(false);
   const [input, setInput] = useState("");
@@ -259,11 +262,11 @@ export default function GenericDrawer({
   const splitKey = `kb.split.${def.slug}`;
 
   // ── Single-pane tab state ────────────────────────────────────────────────
-  const [nodeTab, setNodeTab] = useState<NodeTab>("summary");
-  const [svcTab, setSvcTab] = useState<SvcTab>("summary");
+  const [nodeTab, setNodeTab] = useState<NodeTab>(initialTab ?? "summary");
+  const [svcTab, setSvcTab] = useState<SvcTab>(initialTab ?? "summary");
   const [podTab, setPodTab] = useState<PodTab>("yaml");
   const [podContainer, setPodContainer] = useState("");
-  const [genTab, setGenTab] = useState<GenTab>("summary");
+  const [genTab, setGenTab] = useState<GenTab>(initialTab ?? "summary");
 
   // ── Split-pane state ─────────────────────────────────────────────────────
   const [split, setSplit] = useState<boolean>(() => {

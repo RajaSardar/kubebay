@@ -472,3 +472,15 @@ handler: runsc
 `,
   },
 ];
+
+function plural(kind: string): string {
+  const k = kind.toLowerCase();
+  if (k.endsWith("y")) return k.slice(0, -1) + "ies";
+  if (k.endsWith("s")) return k + "es";
+  return k + "s";
+}
+
+/** The Create Resource template for a resource route's slug ("deployments" → "Deployment"), if there is one. */
+export function templateKindFor(slug: string): string | undefined {
+  return RESOURCE_TEMPLATES.find((t) => plural(t.kind) === slug)?.kind;
+}
