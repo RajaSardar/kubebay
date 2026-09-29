@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Badge, Button, Card, InlineBanner, TextField } from "@kubebay/ui";
+import { Badge, Button, Card, InlineBanner, Row, TextField } from "@kubebay/ui";
 import { helmApi, helmMarketApi, type HelmRelease } from "../lib/api";
 import { summarizeManifestResources, countManifestKinds, type ManifestResource } from "../lib/manifestSummary";
 
@@ -90,14 +90,14 @@ export function InstallVpaRecommender({ cluster }: { cluster: string }) {
       <p className="small" style={{ marginBottom: 8 }}>
         This will create, in <span className="mono">{VPA_NAMESPACE}</span>:
       </p>
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
+      <Row gap={2} wrap style={{ marginBottom: 12 }}>
         {Object.entries(counts).map(([kind, count]) => (
           <Badge key={kind}>
             {kind}
             {count > 1 ? ` ×${count}` : ""}
           </Badge>
         ))}
-      </div>
+      </Row>
       <ul className="muted small" style={{ margin: "0 0 12px", paddingLeft: 18 }}>
         <li>Recommender only — the updater and admission-controller stay disabled, so nothing evicts or resizes a running pod, and no admission webhook is installed.</li>
         <li>
@@ -107,7 +107,7 @@ export function InstallVpaRecommender({ cluster }: { cluster: string }) {
         <li>Grants cluster-wide read access to pods/deployments (required for the recommender to compute usage) plus write access to VerticalPodAutoscaler objects.</li>
         <li>Upstream's own chart README currently marks this chart as under development and not recommended for production use.</li>
       </ul>
-      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+      <Row gap={2} align="center">
         <TextField
           placeholder={`type "${CONFIRM_PHRASE}" to confirm`}
           value={confirmText}
@@ -118,7 +118,7 @@ export function InstallVpaRecommender({ cluster }: { cluster: string }) {
         <Button disabled={installing || confirmText !== CONFIRM_PHRASE} onClick={() => void install(resources)}>
           {installing ? "Installing…" : "Install"}
         </Button>
-      </div>
+      </Row>
     </Card>
   );
 }
