@@ -64,7 +64,7 @@ func buildTestServer(t *testing.T) (*httptest.Server, *clusters.Manager) {
 		Actions:   &httpapi.Actions{Clusters: mgr},
 		Metrics:   &httpapi.Metrics{Clusters: mgr},
 		RBAC:      &httpapi.RBAC{Clusters: mgr},
-		Helm:      httpapi.NewHelm(mgr),
+		Helm:      httpapi.NewHelm(mgr, auditLog),
 		NodeShell: &httpapi.NodeShellManager{Clusters: mgr},
 		Auth:      auth,
 	}, "testtoken")

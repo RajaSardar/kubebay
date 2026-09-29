@@ -18,14 +18,18 @@ import (
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/storage/driver"
 
+	"github.com/RajaSardar/kubebay/engine/internal/audit"
 	"github.com/RajaSardar/kubebay/engine/internal/clusters"
 )
 
 type HelmManager struct {
 	Clusters *clusters.Manager
+	Audit    *audit.Logger
 }
 
-func NewHelm(mgr *clusters.Manager) *HelmManager { return &HelmManager{Clusters: mgr} }
+func NewHelm(mgr *clusters.Manager, auditLog *audit.Logger) *HelmManager {
+	return &HelmManager{Clusters: mgr, Audit: auditLog}
+}
 
 var helmSilentLog = func(_ string, _ ...interface{}) {}
 
@@ -63,6 +67,17 @@ type ReleaseSummary struct {
 	Revision    int    `json:"revision"`
 	Updated     string `json:"updated,omitempty"`
 	Description string `json:"description,omitempty"`
+	Manifest    string `json:"manifest,omitempty"`
+}
+
+// helmUpgradeAuditDetail names the chart and version an install/upgrade
+// audit entry is for -- "latest" rather than a blank field when no version
+// was pinned, so the log line is never ambiguous about what "" meant.
+func helmUpgradeAuditDetail(chartRef, version string) string {
+	if version == "" {
+		version = "latest"
+	}
+	return fmt.Sprintf("chart=%s version=%s", chartRef, version)
 }
 
 func summarize(r *release.Release) ReleaseSummary {
@@ -75,6 +90,7 @@ func summarize(r *release.Release) ReleaseSummary {
 		Namespace: r.Namespace,
 		Status:    status,
 		Revision:  r.Version,
+		Manifest:  r.Manifest,
 	}
 	if r.Chart != nil && r.Chart.Metadata != nil {
 		out.Chart = r.Chart.Metadata.Name
@@ -241,6 +257,11 @@ type HelmUpgradeRequest struct {
 	ChartRef   string `json:"chartRef"`
 	Version    string `json:"version,omitempty"`
 	ValuesYAML string `json:"valuesYaml"`
+	// DryRun renders the manifest client-side only -- it never contacts the
+	// cluster's API server at all (Helm's --dry-run=client behavior, not
+	// --dry-run=server), so a preview can never itself be the thing that
+	// half-applies a broken install.
+	DryRun bool `json:"dryRun,omitempty"`
 }
 
 func (h *HelmManager) HandleUpgrade(w http.ResponseWriter, r *http.Request) {
@@ -286,10 +307,24 @@ func (h *HelmManager) HandleUpgrade(w http.ResponseWriter, r *http.Request) {
 		inst.Namespace = req.NS
 		inst.CreateNamespace = true
 		inst.Timeout = 5 * time.Minute
+		inst.DryRun = req.DryRun
+		if req.DryRun {
+			inst.DryRunOption = "client"
+		}
 		rel, iErr := inst.Run(ch, vals)
 		if iErr != nil {
 			http.Error(w, fmt.Sprintf("install: %v", iErr), http.StatusBadGateway)
 			return
+		}
+		if !req.DryRun {
+			h.Audit.Record(audit.Entry{
+				Action:    "helm-install",
+				Cluster:   req.Cluster,
+				Namespace: req.NS,
+				Resource:  req.Name,
+				Detail:    helmUpgradeAuditDetail(req.ChartRef, req.Version),
+				UserAgent: r.Header.Get("User-Agent"),
+			})
 		}
 		writeJSON(w, summarize(rel))
 		return
@@ -303,10 +338,24 @@ func (h *HelmManager) HandleUpgrade(w http.ResponseWriter, r *http.Request) {
 	up.ChartPathOptions = cpo
 	up.Namespace = req.NS
 	up.Timeout = 5 * time.Minute
+	up.DryRun = req.DryRun
+	if req.DryRun {
+		up.DryRunOption = "client"
+	}
 	rel, uErr := up.Run(req.Name, ch, vals)
 	if uErr != nil {
 		http.Error(w, fmt.Sprintf("upgrade: %v", uErr), http.StatusBadGateway)
 		return
+	}
+	if !req.DryRun {
+		h.Audit.Record(audit.Entry{
+			Action:    "helm-upgrade",
+			Cluster:   req.Cluster,
+			Namespace: req.NS,
+			Resource:  req.Name,
+			Detail:    helmUpgradeAuditDetail(req.ChartRef, req.Version),
+			UserAgent: r.Header.Get("User-Agent"),
+		})
 	}
 	writeJSON(w, summarize(rel))
 }

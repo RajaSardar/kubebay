@@ -328,6 +328,7 @@ func Router(d Deps, token string) http.Handler {
 		r.Get("/api/helm/releases", d.Helm.HandleReleases)
 		r.Get("/api/helm/repos", d.Helm.HandleRepos)
 		r.Post("/api/helm/repos/update", d.Helm.HandleUpdateRepos)
+		r.Post("/api/helm/repos/add", d.Helm.HandleAddRepo)
 		r.Get("/api/helm/charts", d.Helm.HandleCharts)
 		r.Get("/api/helm/chart-values", d.Helm.HandleChartValues)
 		r.Get("/api/helm/history", d.Helm.HandleHistory)
