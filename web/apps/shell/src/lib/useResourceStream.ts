@@ -75,6 +75,9 @@ export function useResourceStream(
   };
 
   useEffect(() => {
+    // A re-sync buffer belongs to one subscription. Left over from the previous
+    // spec, the next "sync" would swap its rows in: another resource's rows.
+    resyncRef.current = null;
     if (!cluster || opts.enabled === false) {
       storeRef.current = new Map();
       metaRef.current = { synced: false, connected: false };

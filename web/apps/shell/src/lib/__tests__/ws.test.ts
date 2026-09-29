@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { encode } from "@msgpack/msgpack";
 
 type Payload = string | Uint8Array;
 
@@ -150,5 +151,69 @@ describe("error frames", () => {
     socket().onmessage?.({ data: JSON.stringify({ type: "error", message: "bad frame" }) });
 
     expect(onError).toHaveBeenCalledWith("", "bad frame");
+  });
+});
+
+describe("frame order", () => {
+  // Binary frames (begin/items/delta) and text frames (sync) must reach the
+  // handlers in the order the server sent them. Decoding binary frames
+  // asynchronously let "sync" overtake its own "begin"/"items": the table was
+  // marked synced before its rows arrived, then reset by the late "begin", and
+  // sat on its skeleton forever.
+  const bin = (frame: object) => {
+    const u8 = encode(frame);
+    return u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength);
+  };
+
+  it("asks for binary frames as ArrayBuffers", async () => {
+    const { socket } = await freshWs();
+    expect((socket() as unknown as { binaryType?: string }).binaryType).toBe("arraybuffer");
+  });
+
+  it("delivers begin, items and sync in the order they arrived", async () => {
+    const { mod, socket } = await freshWs();
+    const seen: string[] = [];
+    mod.attach({
+      onBegin: (id) => seen.push(`begin:${id}`),
+      onItems: (id, ops) => seen.push(`items:${id}:${ops.length}`),
+      onSync: (id) => seen.push(`sync:${id}`),
+    });
+    socket().accept();
+    socket().onmessage?.({ data: bin({ type: "begin", id: "ui-1" }) });
+    socket().onmessage?.({ data: bin({ type: "items", id: "ui-1", ops: [{ op: "u", key: "a", obj: {} }] }) });
+    socket().onmessage?.({ data: JSON.stringify({ type: "sync", id: "ui-1" }) });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(seen).toEqual(["begin:ui-1", "items:ui-1:1", "sync:ui-1"]);
+  });
+
+  it("keeps the order even if a frame arrives as a Blob", async () => {
+    const { mod, socket } = await freshWs();
+    const seen: string[] = [];
+    mod.attach({ onBegin: (id) => seen.push(`begin:${id}`), onSync: (id) => seen.push(`sync:${id}`) });
+    socket().accept();
+    socket().onmessage?.({ data: new Blob([bin({ type: "begin", id: "ui-2" })]) });
+    socket().onmessage?.({ data: JSON.stringify({ type: "sync", id: "ui-2" }) });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(seen).toEqual(["begin:ui-2", "sync:ui-2"]);
+  });
+});
+
+describe("a listener attached after the socket opened", () => {
+  // Without this, a table mounted after the socket was already up never
+  // learned it was connected: its "live" pill never showed and pod metrics
+  // (enabled only when connected) never loaded.
+  it("is told straight away that the stream is connected", async () => {
+    const { mod, socket } = await freshWs();
+    socket().accept();
+    const onStatus = vi.fn();
+    mod.attach({ onStatus });
+    expect(onStatus).toHaveBeenCalledWith(true, expect.any(Number), 0);
+  });
+
+  it("is not told anything while the socket is still connecting", async () => {
+    const { mod } = await freshWs();
+    const onStatus = vi.fn();
+    mod.attach({ onStatus });
+    expect(onStatus).not.toHaveBeenCalled();
   });
 });
