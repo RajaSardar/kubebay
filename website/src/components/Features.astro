@@ -145,7 +145,7 @@ const features = [
 
 <style>
   .features {
-    background: #090909;
+    background: var(--bg);
     padding: 100px 24px;
     position: relative;
   }
@@ -173,7 +173,7 @@ const features = [
   .section-header h2 {
     font-size: clamp(1.75rem, 4vw, 2.75rem);
     font-weight: 700;
-    color: #f0f0f0;
+    color: var(--text);
     letter-spacing: -0.03em;
     line-height: 1.2;
     margin: 0 0 8px;
@@ -185,7 +185,7 @@ const features = [
     display: block;
     height: 3px;
     width: 60px;
-    background: linear-gradient(90deg, #22d3ee, #41c98e);
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
     border-radius: 2px;
     margin: 12px auto 0;
   }
@@ -194,7 +194,7 @@ const features = [
     margin: 20px auto 0;
     max-width: 540px;
     font-size: 1.0625rem;
-    color: #8a8a8a;
+    color: var(--muted);
     line-height: 1.65;
   }
 
@@ -223,7 +223,7 @@ const features = [
   }
 
   .feature-card {
-    background: #111111;
+    background: var(--surface);
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 12px;
     padding: 28px 24px;
@@ -245,16 +245,16 @@ const features = [
   }
 
   .feature-card:hover {
-    border-color: rgba(34, 211, 238, 0.35);
+    border-color: color-mix(in srgb, var(--accent) 35%, transparent);
     box-shadow:
-      0 0 0 1px rgba(34, 211, 238, 0.1),
-      0 8px 32px rgba(34, 211, 238, 0.08),
+      0 0 0 1px color-mix(in srgb, var(--accent) 10%, transparent),
+      0 8px 32px color-mix(in srgb, var(--accent) 8%, transparent),
       0 2px 8px rgba(0, 0, 0, 0.4);
     transform: translateY(-2px);
   }
 
   .icon {
-    color: #22d3ee;
+    color: var(--accent);
     margin-bottom: 18px;
     display: flex;
     align-items: center;
@@ -269,14 +269,14 @@ const features = [
   .feature-card h3 {
     font-size: 0.9375rem;
     font-weight: 600;
-    color: #f0f0f0;
+    color: var(--text);
     margin: 0 0 10px;
     letter-spacing: -0.01em;
   }
 
   .feature-card p {
     font-size: 0.875rem;
-    color: #8a8a8a;
+    color: var(--muted);
     line-height: 1.65;
     margin: 0;
   }

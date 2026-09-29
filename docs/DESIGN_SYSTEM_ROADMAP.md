@@ -68,7 +68,12 @@ first. Tick an item when its PR merges.
 
 ## Phase 5: brand consistency
 
-- [ ] Favicon gradient matches `KubebayMark` (`#22d3ee → #41c98e`).
-- [ ] The Astro website imports `tokens.css` instead of its own 40 variables.
-- [ ] Tauri window background matches the resolved theme.
+- [x] Favicon gradient matches `KubebayMark` (`#22d3ee → #41c98e`): the SVG
+      and PNG favicons, PWA icons and the macOS/Windows app icons, rendered
+      from the mark's drawings. The website's K logo is replaced by the mark.
+- [x] The Astro website imports `tokens.css` instead of its own 40 variables
+      (new `--kb-brand-cyan`/`--kb-brand-green` tokens). The mock-app colours
+      in the hero screenshot stay literal.
+- [x] Tauri window background and title bar match the resolved theme, and
+      the next launch opens in them (`set_window_theme`).
 - [ ] Re-sync the design system artifact after each phase merges.

@@ -4,11 +4,54 @@ use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
+mod window_theme;
+
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_shell::process::{CommandChild, CommandEvent};
 use tauri_plugin_shell::ShellExt;
 
 static ENGINE_CHILD: OnceLock<Mutex<Option<CommandChild>>> = OnceLock::new();
+
+/// Where the window's last theme colour and appearance are kept between launches.
+fn window_theme_path(app: &tauri::AppHandle) -> Option<PathBuf> {
+    app.path()
+        .app_config_dir()
+        .ok()
+        .map(|d| d.join("window-theme.json"))
+}
+
+fn apply_window_theme(window: &tauri::WebviewWindow, theme: &window_theme::WindowTheme) {
+    let (r, g, b) = theme.background;
+    let _ = window.set_background_color(Some(tauri::window::Color(r, g, b, 255)));
+    let _ = window.set_theme(native_theme(theme.appearance));
+}
+
+fn native_theme(a: window_theme::Appearance) -> Option<tauri::Theme> {
+    match a {
+        window_theme::Appearance::Dark => Some(tauri::Theme::Dark),
+        window_theme::Appearance::Light => Some(tauri::Theme::Light),
+        window_theme::Appearance::System => None,
+    }
+}
+
+/// Called by the web app (lib/nativeWindow.ts) whenever its theme changes: the
+/// window behind the page takes the theme's colour and its title bar the
+/// theme's appearance, and both are saved so the next launch opens that way
+/// instead of flashing the OS default before the page paints.
+#[tauri::command]
+fn set_window_theme(
+    window: tauri::WebviewWindow,
+    background: String,
+    appearance: String,
+) -> Result<(), String> {
+    let theme = window_theme::from_args(&background, &appearance)
+        .ok_or_else(|| "expected #rrggbb and dark, light or system".to_string())?;
+    apply_window_theme(&window, &theme);
+    if let Some(path) = window_theme_path(window.app_handle()) {
+        window_theme::save(&path, &theme).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
 
 /// Where the engine publishes this session's token.
 ///
@@ -229,6 +272,7 @@ fn main() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .invoke_handler(tauri::generate_handler![set_window_theme])
         .setup(|app| {
             let handle = app.handle().clone();
             let port = pick_free_port();
@@ -307,18 +351,24 @@ fn main() {
                     serde_json::to_string(&token).expect("token is a string")
                 );
 
+                let saved = window_theme_path(&handle).and_then(|p| window_theme::load(&p));
                 let h2 = handle.clone();
                 let _ = handle.run_on_main_thread(move || {
-                    let _ = WebviewWindowBuilder::new(
-                        &h2,
-                        "main",
-                        WebviewUrl::External(url),
-                    )
-                    .title("Kubebay")
-                    .initialization_script(init)
-                    .inner_size(1320.0, 850.0)
-                    .min_inner_size(980.0, 620.0)
-                    .build();
+                    let mut builder =
+                        WebviewWindowBuilder::new(&h2, "main", WebviewUrl::External(url))
+                            .title("Kubebay")
+                            .initialization_script(init)
+                            .inner_size(1320.0, 850.0)
+                            .min_inner_size(980.0, 620.0);
+                    // Open in the last theme's colours so the window does not
+                    // flash the OS default before the page paints.
+                    if let Some(theme) = saved {
+                        let (r, g, b) = theme.background;
+                        builder = builder
+                            .background_color(tauri::window::Color(r, g, b, 255))
+                            .theme(native_theme(theme.appearance));
+                    }
+                    let _ = builder.build();
                 });
             });
 

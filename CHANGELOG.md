@@ -16,6 +16,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 - `docs/DESIGN_SYSTEM.md` and a CLAUDE.md rule: all UI is built from `@kubebay/ui`, enforced by tests
 - **Karpenter safe editing**: an Edit affordance on each NodePool card shows a blast-radius impact banner (nodes/pods/namespaces backed by the pool, spot count, and real PodDisruptionBudget coverage via Kubernetes label-selector matching) and requires typing the NodePool's name to confirm before applying any of three eviction-causing edits (shrinking `spec.limits`, lowering a disruption budget's `nodes` value, or switching `consolidationPolicy` to `WhenEmptyOrUnderutilized`)
 - **KEDA ScaledObject wizard**: an "Add ScaledObject" flow in the Autoscaling tab generates a manifest for cron, CPU/memory, or Prometheus triggers, previews it with a live diff, and dry-runs/applies it — always created paused, with scale-to-zero (`minReplicaCount: 0`) gated behind typing the workload's name to confirm, and blocked outright if an HPA already targets the same workload. The Prometheus trigger suggests in-cluster Service candidates for `serverAddress` rather than reusing Kubebay's local Prometheus proxy URL, which resolves to a different address entirely
+- **The desktop window follows the theme**: the title bar and the window behind the page take the chosen theme's appearance and colour (or follow macOS for System), and the next launch opens in them instead of flashing the OS default
 
 ### Changed
 - Removed about 800 lines of unused styles and two unrouted pages (the old Home and Overview)
@@ -48,6 +49,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 - Pod history graphs use the theme's chart colours (`--kb-chart-1…5`, 3:1 on every ground) instead of one fixed palette for all 12 themes
 - In Dawn and VS Code Light, the ok, warn and error colours now read at 4.5:1 on inset fields too
 - Code editors use Monaco's high-contrast themes in Dawn HC and Dusk HC
+- Favicons, the PWA icons and the macOS and Windows app icons use the cyan-to-green Kubebay mark (they still had the old blue start colour); the website favicon, nav and footer show the mark instead of a separate K logo
+- The website uses the app's design tokens (`tokens.css`) for colour, radii and motion instead of its own copies
 
 ## [0.1.3] — 2026-09-09
 
