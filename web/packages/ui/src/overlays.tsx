@@ -68,10 +68,12 @@ export function Drawer({ title, subtitle, subtitleMono = true, leading, actions,
       <div className="drawer-head">
         {leading}
         <div className="drawer-title">
-          <div id={titleId} className="mono strong">
+          <div id={titleId} className="drawer-name">
             {title}
           </div>
-          {subtitle != null && subtitle !== false && <div className={`muted small${subtitleMono ? " mono" : ""}`}>{subtitle}</div>}
+          {subtitle != null && subtitle !== false && (
+            <div className={`drawer-subtitle${subtitleMono ? " drawer-subtitle-mono" : ""}`}>{subtitle}</div>
+          )}
         </div>
         {actions != null && actions !== false && <div className="drawer-head-actions">{actions}</div>}
       </div>

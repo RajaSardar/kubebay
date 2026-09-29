@@ -42,7 +42,7 @@ export class ErrorBoundary extends Component<Props, State> {
             {error.message || "Unknown error"}
           </p>
           {error.stack && (
-            <p className="muted small mono" style={{ wordBreak: "break-all", marginTop: 12, fontSize: "10px", maxHeight: "200px", overflowY: "auto" }}>
+            <p className="muted small mono" style={{ wordBreak: "break-all", marginTop: 12, fontSize: "var(--kb-text-2xs)", maxHeight: "200px", overflowY: "auto" }}>
               {error.stack}
             </p>
           )}

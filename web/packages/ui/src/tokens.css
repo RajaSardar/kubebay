@@ -14,7 +14,10 @@
   --kb-text-lg:  15px;
   --kb-text-xl:  18px;
   --kb-text-2xl: 28px;
+  /* Glyph size for an icon or monogram inside a control or avatar, not text. */
+  --kb-text-icon: 22px;
 
+  --kb-radius-2xs:  2px;  /* hairline bars and swatches */
   --kb-radius-xs:   4px;
   --kb-radius-sm:   6px;
   --kb-radius:      8px;
@@ -29,6 +32,7 @@
   --kb-dur-fast: 70ms;
   --kb-dur:      120ms;
   --kb-dur-slow: 200ms;
+  --kb-dur-slower: 300ms; /* progress fills and step changes the eye follows */
   --kb-ease:     cubic-bezier(0.22, 1, 0.36, 1);
   --kb-ease-out: cubic-bezier(0.16, 1, 0.3,  1);
 
@@ -38,6 +42,17 @@
   --kb-space-4: 16px;
   --kb-space-5: 24px;
   --kb-space-6: 32px;
+
+  /* Layers, lowest first. Stacking inside one component (a sticky table
+     header over its rows) uses 0–3 locally; anything that floats over the
+     page takes one of these. */
+  --kb-z-sticky:   10;  /* floating page controls */
+  --kb-z-drawer:   50;  /* side panels over the page */
+  --kb-z-dropdown: 60;  /* pickers anchored to a trigger */
+  --kb-z-overlay:  80;  /* full-window progress (connecting to a cluster) */
+  --kb-z-palette:  100; /* command palette */
+  --kb-z-modal:    200; /* dialogs and their backdrop */
+  --kb-z-popover:  300; /* context menus, above everything */
 }
 
 /* ── Dusk (default dark — macOS-inspired dark mode) ───────────────────────── */

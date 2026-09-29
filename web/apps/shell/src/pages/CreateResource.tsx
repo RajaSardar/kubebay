@@ -53,7 +53,7 @@ export default function CreateResource() {
   return (
     <div className="page" style={{ display: "flex", flexDirection: "column", gap: 0, height: "100%" }}>
       <div className="toolbar">
-        <span className="mono strong" style={{ fontSize: 13 }}>Create Resource</span>
+        <span className="mono strong" style={{ fontSize: "var(--kb-text-md)" }}>Create Resource</span>
         <Select
           value={selectedKind}
           onChange={(e) => onKindChange(e.target.value)}
@@ -67,7 +67,7 @@ export default function CreateResource() {
         </Select>
         <span className="muted small">{template.apiVersion}</span>
         <div style={{ marginLeft: "auto" }} />
-        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--kb-text-muted)" }}>
+        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "var(--kb-text-sm)", color: "var(--kb-fg-muted)" }}>
           <input
             type="checkbox"
             checked={dryRun}

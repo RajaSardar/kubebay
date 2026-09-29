@@ -488,7 +488,7 @@ kbd {
   z-index: 2;
   /* Subtle visual divider */
   border-right: 2px solid transparent;
-  transition: border-color 150ms;
+  transition: border-color var(--kb-dur);
 }
 
 .col-resize-handle:hover {
@@ -725,12 +725,12 @@ kbd {
   inset: 0;
   background: color-mix(in srgb, var(--kb-bg-canvas) 55%, transparent);
   backdrop-filter: blur(3px);
-  z-index: 100;
+  z-index: var(--kb-z-palette);
   display: flex;
   justify-content: center;
   align-items: flex-start;
   padding-top: 12vh;
-  animation: palette-overlay-in 150ms var(--kb-ease) both;
+  animation: palette-overlay-in var(--kb-dur) var(--kb-ease) both;
 }
 
 @keyframes palette-overlay-in {
@@ -745,7 +745,7 @@ kbd {
   border-radius: var(--kb-radius-lg);
   box-shadow: var(--kb-shadow-lift), var(--kb-highlight-inset);
   overflow: hidden;
-  animation: palette-box-in 200ms var(--kb-ease-out) both;
+  animation: palette-box-in var(--kb-dur-slow) var(--kb-ease-out) both;
 }
 
 @keyframes palette-box-in {
@@ -918,14 +918,14 @@ kbd {
 /* ──── Context menu ──── */
 .ctx-menu {
   position: fixed;
-  z-index: 200;
+  z-index: var(--kb-z-popover);
   min-width: 180px;
   background: var(--kb-bg-raised);
   border: 1px solid var(--kb-border-strong);
   border-radius: var(--kb-radius);
   box-shadow: var(--kb-shadow-lift);
   padding: 4px;
-  animation: ctx-appear 100ms var(--kb-ease);
+  animation: ctx-appear var(--kb-dur-fast) var(--kb-ease);
 }
 
 @keyframes ctx-appear {
@@ -1123,7 +1123,7 @@ kbd {
   display: inline-block;
   width: 8px;
   height: 8px;
-  border-radius: 2px;
+  border-radius: var(--kb-radius-2xs);
   flex-shrink: 0;
 }
 
@@ -1292,6 +1292,18 @@ tr.row-clickable:active {
   margin: 0 0 var(--kb-space-3);
 }
 
+/* Reduced motion: every animation and transition collapses to its end state.
+   Lives in the package so any app that uses @kubebay/ui honours the setting. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 /* ── Forced colours (Windows High Contrast) ──
    The browser drops box-shadow and author backgrounds here, so focus rings,
    the selected-row bar and status dots are restated with system colours. */
@@ -1324,7 +1336,7 @@ tr.row-clickable:active {
   box-shadow: var(--kb-shadow-lift);
   display: flex;
   flex-direction: column;
-  z-index: 50;
+  z-index: var(--kb-z-drawer);
   outline: none;
   animation: drawer-slide-in var(--kb-dur-slow) var(--kb-ease-out) both;
 }
@@ -1358,6 +1370,25 @@ tr.row-clickable:active {
   overflow: hidden;
 }
 
+.drawer-name {
+  font-family: var(--kb-font-mono);
+  font-size: var(--kb-text-sm);
+  font-weight: 600;
+  color: var(--kb-fg-default);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.drawer-subtitle {
+  font-size: var(--kb-text-sm);
+  color: var(--kb-fg-muted);
+}
+
+.drawer-subtitle-mono {
+  font-family: var(--kb-font-mono);
+}
+
 .drawer-head-actions {
   display: flex;
   align-items: center;
@@ -1368,7 +1399,7 @@ tr.row-clickable:active {
 .kb-modal-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 200;
+  z-index: var(--kb-z-modal);
   background: color-mix(in srgb, var(--kb-bg-canvas) 55%, transparent);
   animation: kb-modal-fade var(--kb-dur) var(--kb-ease) both;
 }
@@ -1380,7 +1411,7 @@ tr.row-clickable:active {
 
 .kb-modal {
   position: fixed;
-  z-index: 201;
+  z-index: calc(var(--kb-z-modal) + 1);
   background: var(--kb-bg-surface);
   border: 1px solid var(--kb-border-subtle);
   border-radius: var(--kb-radius);
