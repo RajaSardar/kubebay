@@ -15,6 +15,7 @@ import { useDisplay, type Density } from "../lib/display";
 import { evalPrinterPath } from "../lib/printerPath";
 import { ownerOf, ownerLabel, ownerAmongTargets, ownerWarning } from "../lib/gitops";
 import { absoluteTime, countLabel, matchesFilter, useSortPref, useTableKeyboard } from "../lib/tableUx";
+import { LiveAge } from "../components/LiveAge";
 import { templateKindFor } from "../lib/resourceTemplates";
 
 // Row height (px) per density level — must stay in sync with ROW_PADDING_VALUES in display.ts
@@ -806,7 +807,7 @@ export default function ResourceTable() {
                       </td>
                     ))}
                     <td className="mono muted">{ownerCell(o).v}</td>
-                    <td className="mono muted" title={absoluteTime(str(meta.creationTimestamp))}>{fmtAge(ageOf(o))}</td>
+                    <td className="mono muted" title={absoluteTime(str(meta.creationTimestamp))}><LiveAge ts={str(meta.creationTimestamp)} /></td>
                     {/* ⋮ kebab — visible only on row hover */}
                     <td className="col-row-menu" onClick={(e) => e.stopPropagation()}>
                       <IconButton

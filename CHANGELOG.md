@@ -31,6 +31,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 - **Pending has its own colour**: Pending pods use each theme's info hue instead of the warning orange, so they no longer read as warnings
 
 ### Fixed
+- Ages in tables went stale: a pod created "5s" ago still read "5s" a minute later, because rows only re-render when their data changes. Age cells now keep counting, from one shared clock
 - Tables could stay on their loading skeleton forever on a fast cluster, and a table could briefly show another resource's rows (StatefulSets showing Deployments): stream frames were handled out of order
 - Pods never showed "live" and did not load CPU/memory on a second visit
 - The + button on resource tables did nothing; the row menu's "Edit YAML" opened the summary

@@ -14,6 +14,7 @@ import { PolicyRejectionCard } from "../components/PolicyRejectionCard";
 import { useNamespaceStore, useSelectedNamespaces } from "../lib/namespace-store";
 import { ContextMenu } from "../components/ContextMenu";
 import { absoluteTime, countLabel, matchesFilter, useSortPref, useTableKeyboard } from "../lib/tableUx";
+import { LiveAge } from "../components/LiveAge";
 import { WorkloadTabBar } from "../components/WorkloadTabBar";
 import { ownerAmongTargets, ownerLabel, ownerWarning } from "../lib/gitops";
 
@@ -131,15 +132,6 @@ function derivePod(obj: Record<string, unknown>): PodRow | null {
   };
 }
 
-function fmtAge(ms: number): string {
-  const s = Math.floor(ms / 1000);
-  if (s < 60) return `${s}s`;
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m`;
-  const h = Math.floor(m / 60);
-  if (h < 48) return `${h}h`;
-  return `${Math.floor(h / 24)}d`;
-}
 
 const STATUS_TONE: Record<PodRow["status"], { pill: StatusTone }> = {
   running: { pill: "ok" },
@@ -466,7 +458,7 @@ export default function Workloads() {
                         </Row>
                       ) : <span className="mono muted">–</span>}
                     </td>
-                    <td className="mono muted" title={absoluteTime(p.created)}>{fmtAge(p.ageMs)}</td>
+                    <td className="mono muted" title={absoluteTime(p.created)}><LiveAge ts={p.created} /></td>
                     <td className="col-row-menu" onClick={(e) => e.stopPropagation()}>
                       <IconButton
                         label={`Actions for ${p.name}`}
