@@ -3,7 +3,6 @@ import { useNavigate, useParams, useSearchParams, useLocation } from "react-rout
 import { Badge, Button, EmptyState, IconButton, InlineBanner, NsPill, PageHeader, phaseTone, SelectAllHeader, SelectCell, SkeletonTable, SortHeader, StatusDot, Table, TableRow, TableWrap, TextField } from "@kubebay/ui";
 import { api, crdApi, metricsApi, type PrinterColumn } from "../lib/api";
 import { useQuery as useRQQuery } from "@tanstack/react-query";
-import { useVirtualizer } from "@tanstack/react-virtual";
 import { useCluster } from "../lib/useCluster";
 import { useResourceStream, shouldShowSkeleton } from "../lib/useResourceStream";
 import { ageOf, fmtAge, lookupDef, num, str, type ResourceDef } from "../lib/resources";
@@ -11,22 +10,15 @@ import { fmtBytes, fmtCpu } from "./Workloads";
 import { useResizableColumns } from "../lib/useResizableColumns";
 import { useRowSelection } from "../lib/useRowSelection";
 import { useBulkDelete } from "../lib/useBulkDelete";
-import { useDisplay, type Density } from "../lib/display";
+import { ROW_HEIGHT, useDisplay } from "../lib/display";
+import { VirtualSpacer } from "../components/VirtualSpacer";
+import { useTableVirtualizer } from "../lib/useTableVirtualizer";
 import { evalPrinterPath } from "../lib/printerPath";
 import { ownerOf, ownerLabel, ownerAmongTargets, ownerWarning } from "../lib/gitops";
 import { absoluteTime, countLabel, matchesFilter, useSortPref, useTableKeyboard } from "../lib/tableUx";
 import { LiveAge } from "../components/LiveAge";
 import { templateKindFor } from "../lib/resourceTemplates";
 
-// Row height (px) per density level — must stay in sync with ROW_PADDING_VALUES in display.ts
-// compact: 4+4px pad + ~20px line + 1px border = 29px
-// default: 8+8px pad + ~20px line + 1px border = 37px
-// relaxed: 12+12px pad + ~20px line + 1px border = 45px
-const ROW_HEIGHT: Record<Density, number> = {
-  compact: 29,
-  default: 37,
-  relaxed: 45,
-};
 
 import GenericDrawer from "../components/GenericDrawer";
 import { ContextMenu } from "../components/ContextMenu";
@@ -547,11 +539,12 @@ export default function ResourceTable() {
     [rows],
   );
 
-  const rowVirtualizer = useVirtualizer({
+  const headerRef = useRef<HTMLTableSectionElement>(null);
+  const { virtualizer: rowVirtualizer, items: virtualRows, topSpace, bottomSpace } = useTableVirtualizer({
     count: rows.length,
-    getScrollElement: () => scrollRef.current,
-    estimateSize: () => ROW_HEIGHT[density],
-    overscan: 5,
+    estimate: ROW_HEIGHT[density],
+    scrollRef,
+    headerRef,
   });
 
   const openRow = useCallback((i: number) => {
@@ -691,7 +684,7 @@ export default function ResourceTable() {
               {headers.map((h, i) => <col key={h} style={{ width: widths[i] }} />)}
               <col style={{ width: 36 }} /> {/* ⋮ column */}
             </colgroup>
-            <thead>
+            <thead ref={headerRef}>
               <tr>
                 {/* Select-all checkbox */}
                 <SelectAllHeader
@@ -716,26 +709,8 @@ export default function ResourceTable() {
               </tr>
             </thead>
             <tbody>
-              {/*
-                Space for rows above/below the virtualized window must be real
-                <tr> elements, not padding on <tbody>: browsers ignore
-                padding/margin on table row groups and rows (only cells honor
-                it), so a `<tbody style={{ paddingTop, paddingBottom }}>` never
-                actually grows the container's scrollable area. That silently
-                caps how far the list can scroll to roughly the handful of
-                mounted rows, which is exactly the "only a few rows show and
-                scrolling doesn't reveal the rest" bug — an inline `height` on
-                a spacer <tr>, unlike padding, IS honored by table layout.
-              */}
-              {(() => {
-                const top = rowVirtualizer.getVirtualItems()[0]?.start ?? 0;
-                return top > 0 ? (
-                  <tr aria-hidden style={{ height: top }}>
-                    <td style={{ padding: 0, border: "none" }} colSpan={headers.length + 2} />
-                  </tr>
-                ) : null;
-              })()}
-              {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+              <VirtualSpacer height={topSpace} colSpan={headers.length + 2} />
+              {virtualRows.map((virtualRow) => {
                 const o = rows[virtualRow.index]!;
                 const meta = rec(o.metadata);
                 const name = str(meta.name);
@@ -826,15 +801,10 @@ export default function ResourceTable() {
                   </TableRow>
                 );
               })}
-              {(() => {
-                const bottom =
-                  rowVirtualizer.getTotalSize() - (rowVirtualizer.getVirtualItems().at(-1)?.end ?? 0);
-                return bottom > 0 ? (
-                  <tr aria-hidden style={{ height: bottom }}>
-                    <td style={{ padding: 0, border: "none" }} colSpan={headers.length + 2} />
-                  </tr>
-                ) : null;
-              })()}
+              <VirtualSpacer
+                height={bottomSpace}
+                colSpan={headers.length + 2}
+              />
             </tbody>
           </Table>
         </TableWrap>
