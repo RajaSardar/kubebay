@@ -31,6 +31,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 - **Pending has its own colour**: Pending pods use each theme's info hue instead of the warning orange, so they no longer read as warnings
 
 ### Fixed
+- Pods' CPU and memory bars measured every pod against 1 core and 1 GiB, and memory was always drawn in the warning colour. Bars now measure against the pod's own limit (warning at 80%, error at 100%), or its request when it has no limit, and the tooltip says which
 - Tables could stay on their loading skeleton forever on a fast cluster, and a table could briefly show another resource's rows (StatefulSets showing Deployments): stream frames were handled out of order
 - Pods never showed "live" and did not load CPU/memory on a second visit
 - The + button on resource tables did nothing; the row menu's "Edit YAML" opened the summary
