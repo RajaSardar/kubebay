@@ -239,6 +239,12 @@
   background: color-mix(in srgb, var(--kb-fg-default) 14%, transparent);
 }
 
+/* A bar wider than a narrow column (Age) shrinks to the cell instead of
+   tripping the cell's ellipsis. */
+td > .kb-skeleton {
+  max-width: 100%;
+}
+
 .kb-skeleton::after {
   content: "";
   position: absolute;
