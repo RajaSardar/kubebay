@@ -1481,6 +1481,16 @@ tr.row-clickable:active {
   outline: none;
 }
 
+/* A small confirm card or one-field form, near the top-centre of the window. */
+.kb-modal.center {
+  position: fixed;
+  left: 50%;
+  top: 22%;
+  transform: translateX(-50%);
+  width: min(360px, calc(100vw - 2 * var(--kb-space-4)));
+  padding: var(--kb-space-4);
+}
+
 @keyframes kb-modal-fade {
   from { opacity: 0; }
   to   { opacity: 1; }

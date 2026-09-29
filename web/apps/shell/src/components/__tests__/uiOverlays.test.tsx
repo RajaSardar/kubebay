@@ -150,4 +150,12 @@ describe("Modal", () => {
     render(<Modal label="Pick" onClose={() => {}} backdrop="clear"><button type="button">x</button></Modal>);
     expect(document.querySelector(".kb-modal-backdrop")).toHaveClass("clear");
   });
+
+  it("can centre itself as a small confirm card, styled by the package", () => {
+    render(<Modal label="Restart web?" onClose={() => {}} placement="center"><button type="button">x</button></Modal>);
+    const dialog = screen.getByRole("dialog", { name: "Restart web?" });
+    expect(dialog).toHaveClass("kb-modal", "center");
+    const css = readFileSync(resolve(__dirname, "../../../../../packages/ui/src/styles.css"), "utf8");
+    expect(css).toMatch(/\.kb-modal\.center\s*\{[^}]*position:\s*fixed/);
+  });
 });

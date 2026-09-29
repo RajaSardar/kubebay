@@ -95,7 +95,7 @@ have solved, **P2** polish.
 | 19 | Ages go stale: they are computed at render, and rows only re-render on data changes | all | P1 | **Fixed**: one shared 1 s clock; a cell re-renders only when its text changes |
 | 20 | CPU bar scales to 1 core and memory to 1 GiB for every pod; memory is always drawn in the warning colour | Pods | P1 | Follow-up: bar against requests/limits; accent unless near the limit |
 | 21 | No column chooser (Lens, Headlamp, Rancher have one) | all | P2 | Follow-up: show/hide and reorder, remembered per table |
-| 22 | Deployment row menu has no Restart / Scale, the two most common actions | Deployments, StatefulSets | P1 | Follow-up |
+| 22 | Deployment row menu has no Restart / Scale, the two most common actions | Deployments, StatefulSets | P1 | **Fixed**: Scale… and Restart… in the row menu (Restart only on DaemonSets), each a small confirm dialog with the GitOps warning |
 | 23 | Owner column is text; "show this Deployment's pods" is several clicks | workload tables | P2 | Follow-up: owner as a link, a "Pods" row action |
 | 24 | Live updates are silent: a row that changes status does not draw the eye | all | P2 | Follow-up: a 1 s tint on changed rows, off under reduced motion |
 | 25 | Filter has no field syntax (`ns:shop status:crash label:app=web`) | all | P2 | Follow-up |

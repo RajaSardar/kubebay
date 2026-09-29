@@ -7,6 +7,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 ## [Unreleased]
 
 ### Added
+- **Scale and restart from the table**: Deployment and StatefulSet rows get Scale… and Restart… in their row menu (DaemonSets get Restart…), each a small dialog that warns when Argo CD or Flux owns the workload and shows a policy rejection in place. `Modal` gains `placement="center"` for such dialogs
 - **Faster, friendlier resource tables**: the filter matches every column (Pods: name, namespace, node, IP and status) and ignores case; the count reads "3 of 340" while filtered; `/` focuses the filter, ↑/↓ or j/k move, Enter opens, x selects, Esc clears; the sort is remembered per table; ages show the exact time on hover; Pods gets a row menu (Logs, Shell, Edit YAML, Copy name, Delete) and clickable namespace pills; the + button opens Create Resource on that kind's template
 - **Loading states**: a new helm loading icon and `Spinner`, shown while switching clusters; lists load as skeleton rows under their real headers, drawers as skeleton lines, lazily loaded pages as a skeleton page, and tables show a thin progress bar while cached rows refresh
 - **`Row`, `Stack`, `DisclosureButton` and `ChoiceCard` in `@kubebay/ui`**: every flex layout in the app uses `Row` or `Stack` with gaps from the spacing scale; sidebar groups announce whether they are expanded and theme cards which one is chosen to screen readers
