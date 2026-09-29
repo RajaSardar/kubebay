@@ -16,11 +16,13 @@ import { useTableVirtualizer } from "../lib/useTableVirtualizer";
 import { evalPrinterPath } from "../lib/printerPath";
 import { ownerOf, ownerLabel, ownerAmongTargets, ownerWarning } from "../lib/gitops";
 import { absoluteTime, countLabel, matchesFilter, useSortPref, useTableKeyboard } from "../lib/tableUx";
+import { LiveAge } from "../components/LiveAge";
 import { templateKindFor } from "../lib/resourceTemplates";
 
 
 import GenericDrawer from "../components/GenericDrawer";
 import { ContextMenu } from "../components/ContextMenu";
+import { WorkloadActionDialog, workloadActions } from "../components/WorkloadActionDialog";
 import { StarButton } from "../components/Favorites";
 import { NamespaceFilter } from "../components/NamespaceFilter";
 import { PolicyRejectionCard } from "../components/PolicyRejectionCard";
@@ -406,7 +408,8 @@ export default function ResourceTable() {
   const sortCol = sort.col;
   const sortAsc = sort.asc;
   const [selected, setSelected] = useState<{ ns: string; name: string; tab?: "yaml" } | null>(null);
-  const [ctx, setCtx] = useState<{ x: number; y: number; ns: string; name: string } | null>(null);
+  const [ctx, setCtx] = useState<{ x: number; y: number; ns: string; name: string; obj: Row } | null>(null);
+  const [rowAction, setRowAction] = useState<{ action: "scale" | "restart"; obj: Row } | null>(null);
   const [hoveredRowKey, setHoveredRowKey] = useState<string | null>(null);
 
   const stream = useResourceStream(effectiveCluster || undefined, def?.gvr ?? "v1/configmaps", {
@@ -728,7 +731,7 @@ export default function ResourceTable() {
                     onClick={() => setSelected({ ns, name })}
                     onMouseEnter={() => setHoveredRowKey(key)}
                     onMouseLeave={() => setHoveredRowKey(null)}
-                    onContextMenu={(e) => { e.preventDefault(); setCtx({ x: e.clientX, y: e.clientY, ns, name }); }}
+                    onContextMenu={(e) => { e.preventDefault(); setCtx({ x: e.clientX, y: e.clientY, ns, name, obj: o }); }}
                   >
                     <SelectCell checked={isSelected} onChange={() => toggleRow(key)} label={`Select ${name}`} />
                     <td className="mono td-name" title={name}>{name}</td>
@@ -781,7 +784,7 @@ export default function ResourceTable() {
                       </td>
                     ))}
                     <td className="mono muted">{ownerCell(o).v}</td>
-                    <td className="mono muted" title={absoluteTime(str(meta.creationTimestamp))}>{fmtAge(ageOf(o))}</td>
+                    <td className="mono muted" title={absoluteTime(str(meta.creationTimestamp))}><LiveAge ts={str(meta.creationTimestamp)} /></td>
                     {/* ⋮ kebab — visible only on row hover */}
                     <td className="col-row-menu" onClick={(e) => e.stopPropagation()}>
                       <IconButton
@@ -789,7 +792,7 @@ export default function ResourceTable() {
                         className="row-menu-btn"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setCtx({ x: e.clientX, y: e.clientY, ns, name });
+                          setCtx({ x: e.clientX, y: e.clientY, ns, name, obj: o });
                         }}
                       >
                         ⋮
@@ -815,12 +818,24 @@ export default function ResourceTable() {
           items={[
             { label: "View details", onClick: () => setSelected({ ns: ctx.ns, name: ctx.name }) },
             { label: "Edit YAML", onClick: () => setSelected({ ns: ctx.ns, name: ctx.name, tab: "yaml" }) },
+            ...(workloadActions(def.slug).scale ? [{ label: "Scale…", onClick: () => setRowAction({ action: "scale", obj: ctx.obj }) }] : []),
+            ...(workloadActions(def.slug).restart ? [{ label: "Restart…", onClick: () => setRowAction({ action: "restart", obj: ctx.obj }) }] : []),
             { label: "Copy name", onClick: () => void navigator.clipboard?.writeText(ctx.name) },
             { separator: true, label: "", onClick: () => {} },
             { label: "Delete", danger: true, onClick: () => {
               bulkDelete.request([{ ns: ctx.ns, name: ctx.name }]);
             }},
           ]}
+        />
+      )}
+
+      {rowAction && (
+        <WorkloadActionDialog
+          action={rowAction.action}
+          slug={def.slug}
+          cluster={effectiveCluster}
+          obj={rowAction.obj}
+          onClose={() => setRowAction(null)}
         />
       )}
 
