@@ -1,10 +1,12 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { EmptyState } from "@kubebay/ui";
 import { crdApi } from "../lib/api";
 import { useResourceStream } from "../lib/useResourceStream";
 import { detectTrivyOperator } from "../lib/trivyOperator";
 import { findingsForWorkload, ownerNamesForWorkload } from "../lib/vulnFindings";
 import { VulnFindingsSummary } from "./PodVulnerabilitiesTab";
+import { InstallTrivyOperator } from "./InstallTrivyOperator";
 
 /**
  * Workload-level rollup (backlog #16 Phase 2): "does anything in this
@@ -69,5 +71,16 @@ export function WorkloadVulnerabilitiesTab({
     [reports.rows, ns, ownerKind, ownerNames],
   );
 
-  return <VulnFindingsSummary findings={findings} />;
+  // Same detection-gap fix as PodVulnerabilitiesTab: distinguishes "Trivy-
+  // Operator not installed" from "installed, nothing in this rollout".
+  if (!crds.isLoading && !detection.installed) {
+    return (
+      <EmptyState style={{ padding: 14 }}>
+        <p>Trivy-Operator not detected on this cluster.</p>
+        <InstallTrivyOperator cluster={cluster} />
+      </EmptyState>
+    );
+  }
+
+  return <VulnFindingsSummary findings={findings} emptyLabel="this workload" />;
 }
