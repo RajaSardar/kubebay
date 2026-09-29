@@ -92,10 +92,10 @@ have solved, **P2** polish.
 | 16 | Four hand-drawn spinners, none announced to screen readers | shell | P2 | **Fixed**: one `Spinner` (the helm icon), `role="status"` |
 | 17 | Pods is not virtualised: every row is in the DOM (5,000 pods = 5,000 rows) | Pods | P1 | Follow-up |
 | 18 | Two table implementations (Pods and the rest) drift apart (filter, count placement, row menu, namespace pills, virtualisation and header layout all differed) | Pods, resource tables | P1 | Follow-up: one `ResourceTable` with a Pods column set |
-| 19 | Ages go stale: they are computed at render, and rows only re-render on data changes | all | P1 | Follow-up: a 30 s clock for the Age column |
+| 19 | Ages go stale: they are computed at render, and rows only re-render on data changes | all | P1 | **Fixed**: one shared 1 s clock; a cell re-renders only when its text changes |
 | 20 | CPU bar scales to 1 core and memory to 1 GiB for every pod; memory is always drawn in the warning colour | Pods | P1 | **Fixed**: bars measure against the pod's limit (warn at 80%, error at 100%), else its request; no bar when neither is set; the tooltip says which |
 | 21 | No column chooser (Lens, Headlamp, Rancher have one) | all | P2 | Follow-up: show/hide and reorder, remembered per table |
-| 22 | Deployment row menu has no Restart / Scale, the two most common actions | Deployments, StatefulSets | P1 | Follow-up |
+| 22 | Deployment row menu has no Restart / Scale, the two most common actions | Deployments, StatefulSets | P1 | **Fixed**: Scale… and Restart… in the row menu (Restart only on DaemonSets), each a small confirm dialog with the GitOps warning |
 | 23 | Owner column is text; "show this Deployment's pods" is several clicks | workload tables | P2 | Follow-up: owner as a link, a "Pods" row action |
 | 24 | Live updates are silent: a row that changes status does not draw the eye | all | P2 | Follow-up: a 1 s tint on changed rows, off under reduced motion |
 | 25 | Filter has no field syntax (`ns:shop status:crash label:app=web`) | all | P2 | Follow-up |

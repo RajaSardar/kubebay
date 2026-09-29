@@ -7,6 +7,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 ## [Unreleased]
 
 ### Added
+- **Scale and restart from the table**: Deployment and StatefulSet rows get Scale… and Restart… in their row menu (DaemonSets get Restart…), each a small dialog that warns when Argo CD or Flux owns the workload and shows a policy rejection in place. `Modal` gains `placement="center"` for such dialogs
 - **Faster, friendlier resource tables**: the filter matches every column (Pods: name, namespace, node, IP and status) and ignores case; the count reads "3 of 340" while filtered; `/` focuses the filter, ↑/↓ or j/k move, Enter opens, x selects, Esc clears; the sort is remembered per table; ages show the exact time on hover; Pods gets a row menu (Logs, Shell, Edit YAML, Copy name, Delete) and clickable namespace pills; the + button opens Create Resource on that kind's template
 - **Loading states**: a new helm loading icon and `Spinner`, shown while switching clusters; lists load as skeleton rows under their real headers, drawers as skeleton lines, lazily loaded pages as a skeleton page, and tables show a thin progress bar while cached rows refresh
 - **`Row`, `Stack`, `DisclosureButton` and `ChoiceCard` in `@kubebay/ui`**: every flex layout in the app uses `Row` or `Stack` with gaps from the spacing scale; sidebar groups announce whether they are expanded and theme cards which one is chosen to screen readers
@@ -32,6 +33,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ### Fixed
 - Pods' CPU and memory bars measured every pod against 1 core and 1 GiB, and memory was always drawn in the warning colour. Bars now measure against the pod's own limit (warning at 80%, error at 100%), or its request when it has no limit, and the tooltip says which
+- Ages in tables went stale: a pod created "5s" ago still read "5s" a minute later, because rows only re-render when their data changes. Age cells now keep counting, from one shared clock
 - Tables could stay on their loading skeleton forever on a fast cluster, and a table could briefly show another resource's rows (StatefulSets showing Deployments): stream frames were handled out of order
 - Pods never showed "live" and did not load CPU/memory on a second visit
 - The + button on resource tables did nothing; the row menu's "Edit YAML" opened the summary

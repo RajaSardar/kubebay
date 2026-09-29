@@ -39,3 +39,16 @@ describe("TableWrap busy", () => {
     expect(container.firstElementChild).not.toHaveAttribute("aria-busy");
   });
 });
+
+describe("skeleton bars in table cells", () => {
+  // jsdom has no layout, so this reads the package stylesheet: a bar wider than a
+  // narrow column (Age is 60px) must shrink to the cell, or the cell's ellipsis
+  // draws a stray "…" after it.
+  it("never overflow their cell", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { resolve } = await import("node:path");
+    const css = readFileSync(resolve(__dirname, "../../../../../packages/ui/src/styles.css"), "utf8");
+    const rule = /td\s*>\s*\.kb-skeleton\s*\{[^}]*max-width:\s*100%/;
+    expect(css).toMatch(rule);
+  });
+});

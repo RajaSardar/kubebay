@@ -92,6 +92,8 @@ export interface ModalProps {
   className?: string;
   /** "dim" (default) shades the page; "clear" only catches clicks, for popovers. */
   backdrop?: "dim" | "clear";
+  /** "center" places it as a small card near the top-centre of the window (a confirm or a one-field form). Otherwise `className` places it. */
+  placement?: "center";
   children: ReactNode;
 }
 
@@ -100,7 +102,7 @@ export interface ModalProps {
  * click on the backdrop close it, and focus returns to where it was. It renders
  * into document.body.
  */
-export function Modal({ label, onClose, className, backdrop = "dim", children }: ModalProps) {
+export function Modal({ label, onClose, className, backdrop = "dim", placement, children }: ModalProps) {
   const ref = useRef<HTMLDivElement>(null);
   const focusables = () => [...(ref.current?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? [])];
   useFocusReturn(ref, true, () => focusables()[0] ?? null);
@@ -140,7 +142,7 @@ export function Modal({ label, onClose, className, backdrop = "dim", children }:
         aria-modal="true"
         aria-label={label}
         tabIndex={-1}
-        className={`kb-modal${className ? " " + className : ""}`}
+        className={`kb-modal${placement ? " " + placement : ""}${className ? " " + className : ""}`}
         onKeyDown={onKeyDown}
       >
         {children}
