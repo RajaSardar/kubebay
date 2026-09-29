@@ -90,7 +90,7 @@ have solved, **P2** polish.
 | 14 | Blank page while a lazily loaded page's code downloads | all routes | P1 | **Fixed**: skeleton page |
 | 15 | "Loading…" text in drawers, YAML, rollout, graphs; spinner on the CRD list | drawers, CRDs | P2 | **Fixed**: skeleton lines |
 | 16 | Four hand-drawn spinners, none announced to screen readers | shell | P2 | **Fixed**: one `Spinner` (the helm icon), `role="status"` |
-| 17 | Pods is not virtualised: every row is in the DOM (5,000 pods = 5,000 rows) | Pods | P1 | Follow-up |
+| 17 | Pods is not virtualised: every row is in the DOM (5,000 pods = 5,000 rows) | Pods | P1 | **Fixed**: windowed like the resource tables; the row-height estimate corrected to the real 35/43/51px so keyboard moves keep the active row in view |
 | 18 | Two table implementations (Pods and the rest) drift apart (filter, count placement, row menu, namespace pills, virtualisation and header layout all differed) | Pods, resource tables | P1 | Follow-up: one `ResourceTable` with a Pods column set |
 | 19 | Ages go stale: they are computed at render, and rows only re-render on data changes | all | P1 | **Fixed**: one shared 1 s clock; a cell re-renders only when its text changes |
 | 20 | CPU bar scales to 1 core and memory to 1 GiB for every pod; memory is always drawn in the warning colour | Pods | P1 | Follow-up: bar against requests/limits; accent unless near the limit |
