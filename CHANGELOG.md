@@ -31,6 +31,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 - **Pending has its own colour**: Pending pods use each theme's info hue instead of the warning orange, so they no longer read as warnings
 
 ### Fixed
+- The Pods table mounted every row (5,000 pods meant 5,000 rows); it now renders only the rows in view, like the other tables. Every table also estimated rows 6px too short, which left the active row half off-screen after a keyboard move and made the scrollbar jump
 - Tables could stay on their loading skeleton forever on a fast cluster, and a table could briefly show another resource's rows (StatefulSets showing Deployments): stream frames were handled out of order
 - Pods never showed "live" and did not load CPU/memory on a second visit
 - The + button on resource tables did nothing; the row menu's "Edit YAML" opened the summary

@@ -23,6 +23,17 @@ const ROW_PADDING_VALUES: Record<Density, string> = {
   relaxed: "12px 16px",
 };
 
+// Row height (px) per density, for virtualised tables; in step with ROW_PADDING_VALUES.
+// The 26px row-menu button (.kb-icon-btn), not the text line, sets the height:
+// compact: 4+4px pad + 26px button + 1px border = 35px
+// default: 8+8px pad + 26px button + 1px border = 43px
+// relaxed: 12+12px pad + 26px button + 1px border = 51px
+export const ROW_HEIGHT: Record<Density, number> = {
+  compact: 35,
+  default: 43,
+  relaxed: 51,
+};
+
 const TABLE_FONT_SIZE_VALUES: Record<Density, string> = {
   compact: "12px",
   default: "13px",
