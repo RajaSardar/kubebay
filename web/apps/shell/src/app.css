@@ -116,6 +116,37 @@ body::before {
   border-left-color: var(--kb-fg-subtle);
 }
 
+/* The avatar button itself; its colour, label colour and faded look come
+   from the cluster (inline). */
+.cluster-strip-avatar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  overflow: hidden;
+  border-radius: var(--kb-radius);
+  /* Inset to the layout, never clipped by overflow */
+  border: 2.5px solid transparent;
+  font-family: var(--kb-font-mono);
+  font-size: var(--kb-text-xs);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  cursor: pointer;
+  transition: opacity var(--kb-dur-slow), filter var(--kb-dur-slow), border-color var(--kb-dur-slow);
+}
+
+.cluster-strip-avatar.active {
+  border-color: var(--kb-fg-default);
+}
+
+.cluster-strip-avatar:disabled {
+  cursor: not-allowed;
+}
+
 .cluster-strip-logo {
   width: 56px;
   height: 38px;
@@ -334,40 +365,6 @@ h2 {
   gap: 10px;
   max-width: 760px;
   margin-bottom: 16px;
-}
-
-.theme-card {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: var(--kb-bg-surface);
-  color: var(--kb-fg-default);
-  border: 1px solid var(--kb-border-strong);
-  border-radius: var(--kb-radius);
-  padding: 11px 13px;
-  cursor: pointer;
-  font: inherit;
-  font-size: var(--kb-text-md);
-  text-align: left;
-  transition:
-    border-color var(--kb-dur-fast) var(--kb-ease),
-    box-shadow var(--kb-dur-fast) var(--kb-ease),
-    transform var(--kb-dur-fast) var(--kb-ease);
-}
-
-.theme-card:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--kb-shadow-lift);
-}
-
-.theme-card.active {
-  border-color: var(--kb-accent);
-  box-shadow: 0 0 0 1px var(--kb-accent), var(--kb-shadow-rest);
-}
-
-/* After .active, so keyboard focus on the chosen theme still shows its ring. */
-.theme-card:focus-visible {
-  box-shadow: var(--kb-focus-ring);
 }
 
 .swatch {

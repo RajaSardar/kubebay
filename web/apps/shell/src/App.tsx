@@ -4,7 +4,7 @@ import type { APIResourceEntry, ClusterInfo } from "./lib/api";
 import { NavLink, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { useClusterStore } from "./lib/cluster-store";
 import { shouldRedirectToPicker } from "./lib/clusterPickerLogic";
-import { EmptyState, Kbd, KubebayMark, StatusDot, navItemClass } from "@kubebay/ui";
+import { Button, DisclosureButton, EmptyState, Kbd, KubebayMark, navItemClass, StatusDot } from "@kubebay/ui";
 import {
   IconArgoCD,
   IconCube,
@@ -228,13 +228,11 @@ function CrdGroupFolder({ group, entries }: { group: string; entries: APIResourc
   const visible = hidden > 0 ? entries.slice(0, CRD_NAV_PREVIEW) : entries;
   return (
     <div className={`nav-subgroup${open ? " open" : ""}`}>
-      <button className="nav-subgroup-title" onClick={() => setOpen((o) => !o)}>
-        {/* Zero-width space after each dot lets the group string (e.g.
-            "argoproj.io") wrap on a narrow sidebar without an ugly mid-word break. */}
-        <span>{group.replaceAll(".", "\u200b.")}</span>
-        <span className="nav-group-count">{entries.length}</span>
-        <svg className="chev" viewBox="0 0 10 10" width="10" height="10" fill="none" style={{ marginLeft: "auto", flexShrink: 0 }}><path d="M3 2l4 3-4 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-      </button>
+      {/* Zero-width space after each dot lets the group string (e.g.
+          "argoproj.io") wrap on a narrow sidebar without an ugly mid-word break. */}
+      <DisclosureButton level="sub" open={open} onToggle={() => setOpen((o) => !o)} count={entries.length}>
+        {group.replaceAll(".", "\u200b.")}
+      </DisclosureButton>
       {/* Only mount the links while expanded — a CRD-heavy cluster is hundreds
           of NavLinks, each of which re-renders on every navigation. */}
       {open && (
@@ -295,12 +293,9 @@ export function CustomResourcesGroup() {
   if (!totalCount) return null;
   return (
     <div className={`nav-group${open ? " open" : ""}`}>
-      <button className="nav-group-title" onClick={() => setOpen((o) => !o)}>
-        <span className="nav-icon"><IconCube /></span>
-        <span>Custom Resources</span>
-        <span className="nav-group-count">{totalCount}</span>
-        <svg className="chev" viewBox="0 0 10 10" width="10" height="10" fill="none" style={{ marginLeft: "auto", flexShrink: 0 }}><path d="M3 2l4 3-4 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-      </button>
+      <DisclosureButton open={open} onToggle={() => setOpen((o) => !o)} icon={<IconCube />} count={totalCount}>
+        Custom Resources
+      </DisclosureButton>
       {open && (
         <div className="nav-group-items">
           {groups.map(([group, entries]) => (
@@ -488,32 +483,15 @@ function ClusterStrip() {
         return (
           <div key={c.id} className={`cluster-strip-item${isActive ? " active" : isStreaming ? " streaming" : ""}`}>
             <button
+              className={`cluster-strip-avatar${isActive ? " active" : ""}`}
               disabled={broken}
               title={broken ? `${c.id} — can't be loaded: ${c.error ?? "unknown error"}` : `${c.id} — right-click to customize icon`}
               onClick={() => { if (!broken) setActive(c.id); }}
               onContextMenu={(e) => { e.preventDefault(); setPicker(c.id); }}
               style={{
-                position: "relative",
-                width: 40,
-                height: 40,
-                borderRadius: "var(--kb-radius)",
                 background: imageUrl ? "transparent" : bg,
                 color: avatarLabelColor(bg),
-                fontWeight: 700,
-                fontSize: "var(--kb-text-xs)",
-                // White border: inset to layout, never clipped by overflow
-                border: isActive ? "2.5px solid var(--kb-fg-default)" : "2.5px solid transparent",
                 ...stripAvatarLook({ broken, active: isActive, streaming: isStreaming }),
-                cursor: broken ? "not-allowed" : "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: 0,
-                flexShrink: 0,
-                transition: "opacity 200ms, filter 200ms, border-color 200ms",
-                fontFamily: "var(--kb-font-mono, monospace)",
-                letterSpacing: "-0.02em",
-                overflow: "hidden",
               }}
             >
               {isSwitching ? (
@@ -610,14 +588,13 @@ function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 
         {GROUPS.map((g) => (
           <div key={g.label} className={`nav-group${open[g.label] ? " open" : ""}`}>
-            <button
-              className="nav-group-title"
-              onClick={() => setOpen((o) => ({ ...o, [g.label]: !o[g.label] }))}
+            <DisclosureButton
+              open={!!open[g.label]}
+              onToggle={() => setOpen((o) => ({ ...o, [g.label]: !o[g.label] }))}
+              icon={g.icon}
             >
-              <span className="nav-icon">{g.icon}</span>
-              <span>{g.label}</span>
-              <svg className="chev" viewBox="0 0 10 10" width="10" height="10" fill="none" style={{ marginLeft: "auto", flexShrink: 0 }}><path d="M3 2l4 3-4 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-            </button>
+              {g.label}
+            </DisclosureButton>
             <div className="nav-group-items">
               {g.leaves.map((l) => (
                 <NavSub key={l.to} leaf={l} />
@@ -655,9 +632,9 @@ function NotFound() {
       <EmptyState>
         <p>This page doesn't exist.</p>
         <p className="muted small">The link may be out of date — try Home or search with ⌘K.</p>
-        <button className="ns-clear" style={{ marginTop: 12 }} onClick={() => navigate("/")}>
+        <Button variant="ghost" style={{ marginTop: 12 }} onClick={() => navigate("/")}>
           Go home
-        </button>
+        </Button>
       </EmptyState>
     </div>
   );

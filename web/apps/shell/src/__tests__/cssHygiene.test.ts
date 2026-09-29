@@ -138,7 +138,7 @@ describe("no dead styles or pages", () => {
 
   // Classes the source uses only as test hooks or prefixes, with no styles of their own.
   const HOOKS = new Set([
-    "actionsbar", "catalog-status-cell", "events-", "fleet-card", "ghost", "icon-picker-btn", "kb-fg-muted",
+    "actionsbar", "catalog-status-cell", "events-", "fleet-card", "kb-fg-muted",
     "np-ns-badge", "palette-pod-status--", "pod-summary", "rbac-finding", "rbac-findings-list", "status-", "statusbar-center",
   ]);
 
@@ -195,10 +195,9 @@ describe("overlays and buttons go through @kubebay/ui", () => {
   // new controls use Button, IconButton, SegmentedControl, Tabs or a new
   // @kubebay/ui component.
   const RAW_BUTTONS: Record<string, number> = {
-    "App.tsx": 7,
+    "App.tsx": 3,
     "components/ClusterDetailDrawer.tsx": 3,
     "components/ClusterIconPicker.tsx": 2,
-    "components/ErrorBoundary.tsx": 2,
     "components/NamespaceFilter.tsx": 4,
     "components/Palette.tsx": 2,
     "components/PodGraphs.tsx": 2,
@@ -206,7 +205,6 @@ describe("overlays and buttons go through @kubebay/ui", () => {
     "pages/Crds.tsx": 1,
     "pages/ResourceDetail.tsx": 1,
     "pages/ResourceTable.tsx": 1,
-    "pages/Settings.tsx": 2,
   };
 
   it("adds no hand-written <button>s", () => {

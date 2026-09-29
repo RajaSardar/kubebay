@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Badge, Button, EmptyState, InlineBanner, NsPill, PageHeader, Select, SelectAllHeader, SelectCell, SkeletonRows, SortHeader, StatusPill, Table, TableRow, TableWrap, TextField, type StatusTone } from "@kubebay/ui";
+import { Badge, Button, EmptyState, InlineBanner, NsPill, PageHeader, Row, Select, SelectAllHeader, SelectCell, SkeletonRows, SortHeader, StatusPill, Table, TableRow, TableWrap, TextField, type StatusTone } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { useResourceStream, shouldShowSkeleton } from "../lib/useResourceStream";
 import PodPanel, { type SelectedPod } from "./PodPanel";
@@ -418,22 +418,22 @@ export default function Workloads() {
                     <td className="mono muted small">{p.podIP || "–"}</td>
                     <td>
                       {usage.get(p.key)?.cpuMillis != null ? (
-                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <Row align="center" gap={2}>
                           <div className="line-progress" style={{ width: 44 }}>
                             <div className="line-progress-fill" style={{ width: `${Math.min(100, (usage.get(p.key)!.cpuMillis / 1000) * 100)}%`, background: "var(--kb-accent)" }} />
                           </div>
                           <span className="mono muted small">{fmtCpu(usage.get(p.key)!.cpuMillis)}</span>
-                        </div>
+                        </Row>
                       ) : <span className="mono muted">–</span>}
                     </td>
                     <td>
                       {usage.get(p.key)?.memBytes != null ? (
-                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <Row align="center" gap={2}>
                           <div className="line-progress" style={{ width: 44 }}>
                             <div className="line-progress-fill" style={{ width: `${Math.min(100, (usage.get(p.key)!.memBytes / (1024 * 1024 * 1024)) * 100)}%`, background: "var(--kb-status-warn)" }} />
                           </div>
                           <span className="mono muted small">{fmtBytes(usage.get(p.key)!.memBytes)}</span>
-                        </div>
+                        </Row>
                       ) : <span className="mono muted">–</span>}
                     </td>
                     <td className="mono muted">{fmtAge(p.ageMs)}</td>

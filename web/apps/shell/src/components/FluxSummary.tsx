@@ -1,4 +1,4 @@
-import { Badge, Card, EmptyState } from "@kubebay/ui";
+import { Badge, Card, EmptyState, Row, Stack } from "@kubebay/ui";
 import type { FluxObjectStatus } from "../lib/flux";
 
 /**
@@ -20,10 +20,10 @@ export function FluxSummary({ items }: { items: FluxObjectStatus[] }) {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+    <Stack gap={2}>
       {items.map((it, i) => (
         <Card key={i}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <Row align="center" gap={2} wrap>
             <Badge>{it.kind}</Badge>
             <span className="mono strong small">{it.name}</span>
             <span className="muted small">{it.ns}</span>
@@ -32,7 +32,7 @@ export function FluxSummary({ items }: { items: FluxObjectStatus[] }) {
               {it.ready === false && <Badge tone="err">Not ready</Badge>}
               {it.ready === null && <Badge>Unknown</Badge>}
             </span>
-          </div>
+          </Row>
           {it.readyMessage && <div className="small" style={{ marginTop: 6 }}>{it.readyMessage}</div>}
           <div className="muted small" style={{ marginTop: 6 }}>
             manages {it.managedResourceCount} resource{it.managedResourceCount === 1 ? "" : "s"}
@@ -44,6 +44,6 @@ export function FluxSummary({ items }: { items: FluxObjectStatus[] }) {
           )}
         </Card>
       ))}
-    </div>
+    </Stack>
   );
 }

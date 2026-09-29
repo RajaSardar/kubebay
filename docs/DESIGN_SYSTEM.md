@@ -16,7 +16,8 @@ https://claude.ai/artifact/J35D45QQ7X6Sgd7mwfRSnF
 | Type scale, spacing, radii, motion, layers | `web/packages/ui/src/tokens.css` (`:root`) | `--kb-text-*`, `--kb-space-*`, `--kb-radius-*`, `--kb-dur*`, `--kb-ease*`, `--kb-z-*` |
 | Component styles | `web/packages/ui/src/styles.css` | the only CSS for package classes |
 | Core components | `web/packages/ui/src/index.tsx` | `Button`, `ArmedButton`, `Card`, `Badge`, `StatusDot`, `Skeleton`, `chartColor()` |
-| Shell components | `web/packages/ui/src/shell.tsx` | `StatusPill`/`phaseTone`, `Tabs` (with `trailing` controls), `SegmentedControl`, `IconButton`, `NavItem`/`NavSection`/`navItemClass`, `TextField`, `Select`, `Kbd`, `PageHeader`, `ContextMenu` |
+| Shell components | `web/packages/ui/src/shell.tsx` | `StatusPill`/`phaseTone`, `Tabs` (with `trailing` controls), `SegmentedControl`, `IconButton`, `NavItem`/`NavSection`/`navItemClass`, `DisclosureButton`, `ChoiceCard`, `TextField`, `Select`, `Kbd`, `PageHeader`, `ContextMenu` |
+| Layout | `web/packages/ui/src/layout.tsx` | `Row`, `Stack` (`gap` on the `--kb-space-*` scale, `align`, `justify`, `wrap`, `as`) |
 | Tables and feedback | `web/packages/ui/src/table.tsx` | `DataTable`, `TableWrap`, `Table`, `SortHeader`, `SelectAllHeader`, `SelectCell`, `TableRow`, `NsPill`, `SkeletonRows`, `EmptyState`, `InlineBanner` |
 | Overlays | `web/packages/ui/src/overlays.tsx` | `Drawer` (with `embedded` for the full-page view), `Modal` |
 | Brand mark | `web/packages/ui/src/brand.tsx` | `KubebayMark`; the gradient is `--kb-brand-cyan` → `--kb-brand-green`, also used by the favicons, app icons and the website's `KubebayMark.astro` |
@@ -36,7 +37,10 @@ https://claude.ai/artifact/J35D45QQ7X6Sgd7mwfRSnF
    view from a short list in a toolbar or form row; `IconButton` is any
    icon-only button (close, back, row menu, pop-out, star) and always has a
    `label`; `Badge` takes `tone` `ok`, `warn`, `err` or `info` (none is
-   neutral). A panel about one resource is a `Drawer` (it closes on Escape,
+   neutral). A collapsible group's header is a `DisclosureButton`; one choice
+   from a grid of cards (themes) is a `ChoiceCard`. Flex layout is `Row` or
+   `Stack`, never an inline `display: flex`; spacing between children is their
+   `gap`, not margins. A panel about one resource is a `Drawer` (it closes on Escape,
    except while the user types in a field, the YAML editor or the terminal,
    and hands focus back when it closes); anything that must hold focus until
    dismissed is a `Modal`, which renders into `document.body` so a translucent

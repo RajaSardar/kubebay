@@ -137,10 +137,7 @@ export function ClusterIconPicker({ clusterId, current, onSave, onReset, onClose
             {imgError && <p className="icon-picker-error">Could not load image</p>}
 
             <div className="icon-picker-section">Or upload a file</div>
-            <button
-              className="icon-picker-btn ghost icon-picker-upload-btn"
-              onClick={() => fileInputRef.current?.click()}
-            >
+            <button type="button" className="icon-picker-upload-btn" onClick={() => fileInputRef.current?.click()}>
               {imageUrl.startsWith("data:") ? "✓ File loaded — click to change" : "Choose file…"}
             </button>
             <input

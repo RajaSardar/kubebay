@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Badge, DataTable, EmptyState, IconButton, NsPill, PageHeader, SegmentedControl, Select } from "@kubebay/ui";
+import { Badge, DataTable, EmptyState, IconButton, NsPill, PageHeader, Row, SegmentedControl, Select, Stack } from "@kubebay/ui";
 import { PageLoader } from "../components/PageLoader";
 import { useCluster } from "../lib/useCluster";
 import { useResourceStream } from "../lib/useResourceStream";
@@ -393,7 +393,7 @@ function MatrixView({ groups, matrix, selectedCell, onSelectCell }: MatrixViewPr
   }
 
   return (
-    <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+    <Stack style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
       {/* Legend */}
       <div className="np-legend">
         <span className="np-legend-title">Legend:</span>
@@ -476,7 +476,7 @@ function MatrixView({ groups, matrix, selectedCell, onSelectCell }: MatrixViewPr
       {selectedCell && (
         <CellDetailPanel cell={selectedCell} onClose={() => onSelectCell(null)} />
       )}
-    </div>
+    </Stack>
   );
 }
 
@@ -571,11 +571,11 @@ function PolicyListView({ policies }: { policies: PolicyInfo[] }) {
             return types.length === 0 ? (
               <Badge>Ingress</Badge>
             ) : (
-              <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+              <Row gap={1} wrap>
                 {types.map((t) => (
                   <Badge key={t}>{t}</Badge>
                 ))}
-              </div>
+              </Row>
             );
           },
         },

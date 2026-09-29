@@ -608,6 +608,7 @@ kbd {
 
 .chev {
   margin-left: auto;
+  flex-shrink: 0;
   opacity: 0.45;
   color: var(--kb-fg-subtle);
   transition: transform var(--kb-dur-fast) var(--kb-ease), opacity var(--kb-dur-fast) var(--kb-ease);
@@ -1422,4 +1423,70 @@ tr.row-clickable:active {
 @keyframes kb-modal-fade {
   from { opacity: 0; }
   to   { opacity: 1; }
+}
+
+/* ── Layout: Row and Stack ── */
+.kb-row {
+  display: flex;
+}
+
+.kb-stack {
+  display: flex;
+  flex-direction: column;
+}
+
+.kb-gap-0 { gap: 0; }
+.kb-gap-1 { gap: var(--kb-space-1); }
+.kb-gap-2 { gap: var(--kb-space-2); }
+.kb-gap-3 { gap: var(--kb-space-3); }
+.kb-gap-4 { gap: var(--kb-space-4); }
+.kb-gap-5 { gap: var(--kb-space-5); }
+.kb-gap-6 { gap: var(--kb-space-6); }
+
+.kb-align-start { align-items: flex-start; }
+.kb-align-center { align-items: center; }
+.kb-align-end { align-items: flex-end; }
+.kb-align-baseline { align-items: baseline; }
+.kb-align-stretch { align-items: stretch; }
+
+.kb-justify-start { justify-content: flex-start; }
+.kb-justify-center { justify-content: center; }
+.kb-justify-end { justify-content: flex-end; }
+.kb-justify-between { justify-content: space-between; }
+
+.kb-wrap { flex-wrap: wrap; }
+
+/* ── ChoiceCard: pick one option from a grid of cards ── */
+.kb-choice-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--kb-bg-surface);
+  color: var(--kb-fg-default);
+  border: 1px solid var(--kb-border-strong);
+  border-radius: var(--kb-radius);
+  padding: 11px 13px;
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--kb-text-md);
+  text-align: left;
+  transition:
+    border-color var(--kb-dur-fast) var(--kb-ease),
+    box-shadow var(--kb-dur-fast) var(--kb-ease),
+    transform var(--kb-dur-fast) var(--kb-ease);
+}
+
+.kb-choice-card:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--kb-shadow-lift);
+}
+
+.kb-choice-card.active {
+  border-color: var(--kb-accent);
+  box-shadow: 0 0 0 1px var(--kb-accent), var(--kb-shadow-rest);
+}
+
+/* After .active, so keyboard focus on the chosen theme still shows its ring. */
+.kb-choice-card:focus-visible {
+  box-shadow: var(--kb-focus-ring);
 }

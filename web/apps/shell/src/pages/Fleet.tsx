@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Badge, Card, EmptyState, PageHeader, StatusDot } from "@kubebay/ui";
+import { Badge, Card, EmptyState, PageHeader, Row, StatusDot } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { useCluster } from "../lib/useCluster";
 import { useFleetWaste } from "../lib/useFleetWaste";
@@ -79,13 +79,13 @@ export default function Fleet() {
             <div className="cluster-grid">
               {attention.map((c) => (
                 <Card key={c.id}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <Row align="center" gap={2}>
                     <StatusDot status={c.status} />
                     <strong className="mono">{c.id}</strong>
                     <span style={{ marginLeft: "auto" }}>
                       <Badge tone="err">{c.status}</Badge>
                     </span>
-                  </div>
+                  </Row>
                   {c.error && <div className="error-text small" style={{ marginTop: 6 }}>{c.error}</div>}
                 </Card>
               ))}
@@ -121,12 +121,12 @@ export default function Fleet() {
               {waste.perCluster.map((c) => (
                 <Card key={c.cluster} interactive>
                   <div onClick={() => openCluster(c.cluster, "/cost-waste")} style={{ cursor: "pointer" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                    <Row align="center" gap={2} style={{ marginBottom: 6 }}>
                       <strong className="mono">{c.cluster}</strong>
                       <span style={{ marginLeft: "auto" }}>
                         <Badge>{c.opportunities} opportunit{c.opportunities === 1 ? "y" : "ies"}</Badge>
                       </span>
-                    </div>
+                    </Row>
                     <div className="muted small">
                       {formatCpuMillis(c.wastedCpuMillis)} / {formatMemBytes(c.wastedMemBytes)} wasted
                     </div>

@@ -159,6 +159,56 @@ export function NavSection({ children }: { children: ReactNode }) {
   return <div className="nav-section">{children}</div>;
 }
 
+export interface DisclosureButtonProps {
+  /** Whether the section this button controls is expanded. */
+  open: boolean;
+  onToggle: () => void;
+  icon?: ReactNode;
+  /** How many items the section holds, shown before the chevron. */
+  count?: number;
+  /** "sub" for a group nested inside another. */
+  level?: "group" | "sub";
+  children: ReactNode;
+}
+
+/** The header of a collapsible sidebar group: label, optional count, chevron. */
+export function DisclosureButton({ open, onToggle, icon, count, level = "group", children }: DisclosureButtonProps) {
+  return (
+    <button
+      type="button"
+      className={level === "sub" ? "nav-subgroup-title" : "nav-group-title"}
+      aria-expanded={open}
+      onClick={onToggle}
+    >
+      {icon != null && <span className="nav-icon">{icon}</span>}
+      <span>{children}</span>
+      {count != null && <span className="nav-group-count">{count}</span>}
+      <svg className="chev" viewBox="0 0 10 10" width="10" height="10" fill="none" aria-hidden="true">
+        <path d="M3 2l4 3-4 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </button>
+  );
+}
+
+export interface ChoiceCardProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "type"> {
+  /** The option this card stands for is the current choice. */
+  selected: boolean;
+}
+
+/** One option in a grid of cards where exactly one is chosen (themes, presets). */
+export function ChoiceCard({ selected, className, children, ...props }: ChoiceCardProps) {
+  return (
+    <button
+      type="button"
+      aria-pressed={selected}
+      className={`kb-choice-card${selected ? " active" : ""}${className ? " " + className : ""}`}
+      {...props}
+    >
+      {children}
+    </button>
+  );
+}
+
 export interface NavItemProps {
   label: ReactNode;
   href?: string;
