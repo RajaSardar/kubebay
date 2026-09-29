@@ -1,11 +1,14 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Badge, Button, Card, PageHeader, Select, StatusDot, TextField } from "@kubebay/ui";
 import { PageLoader } from "../components/PageLoader";
 import { RbacFindingsCard } from "../components/RbacFindingsCard";
+import { ServiceAccountAutomountCard } from "../components/ServiceAccountAutomountCard";
 import { rbacApi, type RBACSnapshot } from "../lib/api";
 import type { FindingQuery } from "../lib/rbacFindings";
+import { findDefaultServiceAccountAutomounts } from "../lib/serviceAccountAutomount";
 import { useCluster } from "../lib/useCluster";
+import { useResourceStream } from "../lib/useResourceStream";
 import { DEFS, EXTRA_DEFS } from "../lib/resources";
 
 type Rule = RBACSnapshot["roles"][number]["rules"][number];
@@ -85,6 +88,17 @@ export default function Rbac() {
   const [searched, setSearched] = useState(false);
 
   const data = snap.data;
+
+  // Backlog #28: independent of the rbacApi.all snapshot above -- pod specs
+  // and ServiceAccount objects aren't part of that server-computed RBAC
+  // analysis, so this streams them directly, same pattern every other
+  // client-side detector this session uses.
+  const automountPods = useResourceStream(effectiveCluster || undefined, "v1/pods", { mode: "full" });
+  const automountSAs = useResourceStream(effectiveCluster || undefined, "v1/serviceaccounts", { mode: "full" });
+  const automountFindings = useMemo(
+    () => findDefaultServiceAccountAutomounts(automountPods.rows, automountSAs.rows),
+    [automountPods.rows, automountSAs.rows],
+  );
 
   function runWhoCan(override?: FindingQuery) {
     if (!data) return;
@@ -235,6 +249,8 @@ export default function Rbac() {
       </Card>
 
       <RbacFindingsCard findings={data?.findings ?? []} onQuery={applyFindingQuery} />
+
+      <ServiceAccountAutomountCard findings={automountFindings} />
 
       <Card>
         <div className="rbac-section-title">My access</div>
