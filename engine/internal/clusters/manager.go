@@ -253,8 +253,18 @@ func (m *Manager) Load() error {
 			errStr = cfgErr.Error()
 		}
 		newEntries[id] = &entry{
-			cfg:            cfg,
-			kubeconfigPath: strings.Join(rules.Precedence, string(os.PathListSeparator)),
+			cfg: cfg,
+			// rules.Precedence is only the multi-file search list; it is left
+			// empty whenever rules.ExplicitPath is set (e.g. the engine was
+			// started with --kubeconfig or KUBEBAY_KUBECONFIG, this repo's
+			// recommended way to point at a dedicated kind kubeconfig instead
+			// of the default ~/.kube/config). GetLoadingPrecedence() returns
+			// the right list either way -- see HelmEnv, the only reader of
+			// this field, for what silently breaks otherwise (Helm releases
+			// can never load: HelmEnv would report no kubeconfig file at all
+			// for this cluster, so actionCfg falls back to the ambient
+			// kubeconfig instead of this one).
+			kubeconfigPath: strings.Join(rules.GetLoadingPrecedence(), string(os.PathListSeparator)),
 			cluster: &Cluster{
 				ID:      id,
 				Context: name,

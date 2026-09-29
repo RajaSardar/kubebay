@@ -691,14 +691,26 @@ export default function ResourceTable() {
                 <th className="col-row-menu" style={{ width: 36 }} /> {/* ⋮ header spacer */}
               </tr>
             </thead>
-            <tbody
-              style={{
-                paddingTop: rowVirtualizer.getVirtualItems()[0]?.start ?? 0,
-                paddingBottom:
-                  rowVirtualizer.getTotalSize() -
-                  (rowVirtualizer.getVirtualItems().at(-1)?.end ?? 0),
-              }}
-            >
+            <tbody>
+              {/*
+                Space for rows above/below the virtualized window must be real
+                <tr> elements, not padding on <tbody>: browsers ignore
+                padding/margin on table row groups and rows (only cells honor
+                it), so a `<tbody style={{ paddingTop, paddingBottom }}>` never
+                actually grows the container's scrollable area. That silently
+                caps how far the list can scroll to roughly the handful of
+                mounted rows, which is exactly the "only a few rows show and
+                scrolling doesn't reveal the rest" bug — an inline `height` on
+                a spacer <tr>, unlike padding, IS honored by table layout.
+              */}
+              {(() => {
+                const top = rowVirtualizer.getVirtualItems()[0]?.start ?? 0;
+                return top > 0 ? (
+                  <tr aria-hidden style={{ height: top }}>
+                    <td style={{ padding: 0, border: "none" }} colSpan={headers.length + 2} />
+                  </tr>
+                ) : null;
+              })()}
               {rowVirtualizer.getVirtualItems().map((virtualRow) => {
                 const o = rows[virtualRow.index]!;
                 const meta = rec(o.metadata);
@@ -789,6 +801,15 @@ export default function ResourceTable() {
                   </TableRow>
                 );
               })}
+              {(() => {
+                const bottom =
+                  rowVirtualizer.getTotalSize() - (rowVirtualizer.getVirtualItems().at(-1)?.end ?? 0);
+                return bottom > 0 ? (
+                  <tr aria-hidden style={{ height: bottom }}>
+                    <td style={{ padding: 0, border: "none" }} colSpan={headers.length + 2} />
+                  </tr>
+                ) : null;
+              })()}
             </tbody>
           </Table>
         </TableWrap>
