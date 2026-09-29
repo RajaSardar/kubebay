@@ -335,5 +335,19 @@ Independently verified by direct source inspection (not just an expert's claim) 
 
 **OSS, not Enterprise.** A bug fix to an existing debugging feature, same size and shape as ordinary OSS work elsewhere in this file.
 
+### 23. One-click Trivy-Operator install, plus fixing the same install-vs-detection gap VPA had — status: shipped 2026-09-29 — **third deliberate exception to "detect, never install," and the second time this exact detection bug has been found**
+
+**The third named exception, for the same concrete reason as #20's VPA install.** #16 established "detect and surface, never install" for Trivy-Operator explicitly, citing Lens's paid "Install Trivy Operator" flow as the thing not to copy. Raja asked directly for an enable option here too. Verified before building, not assumed: Trivy-Operator's official chart is distributed via a plain HTTPS chart repo (`https://aquasecurity.github.io/helm-charts/`, chart ref `aqua/trivy-operator`) — confirmed by fetching the chart's own README, not from memory — so the KEDA-style "no OCI registry client" blocker never applies here, exactly the same shape as VPA's chart. The two Helm-layer blockers (`helm repo add`, dry-run) were already closed building #20 — this needed **zero engine changes**, pure reuse.
+
+**Scoped the install the same way #20 scoped VPA's:** the chart's `values.yaml` independently toggles five scanners (vulnerability, config-audit, exposed-secret, infra-assessment, RBAC-assessment) plus cluster-compliance — Kubebay only surfaces `VulnerabilityReport`/`ClusterVulnerabilityReport` (per #16), so the install disables everything except `operator.vulnerabilityScannerEnabled`. Installing all six by default would run real scan Jobs cluster-wide for findings nothing in Kubebay's UI shows.
+
+**A second instance of the exact bug #21 found and fixed for VPA — found immediately when asked to add the install option, because adding "enable if not present" forces the question "how do we know it's already present."** `PodVulnerabilitiesTab.tsx` and `WorkloadVulnerabilitiesTab.tsx` both already computed `detectTrivyOperator(crds)` (Phase 1's own detection), but neither ever branched on `.installed` — both rendered the identical generic "No vulnerability findings" empty state whether Trivy-Operator was absent entirely or installed-and-clean. Same root shape as #21: a detection value computed but never actually used to distinguish "not installed" from "installed, nothing found." Fixed by branching both tabs: CRD absent → `<InstallTrivyOperator>`; CRD present → the existing `VulnFindingsSummary` (now correctly implying "installed and clean" rather than "unknown why nothing's here"). `VulnFindingsSummary` gained an `emptyLabel` prop (default "this pod") so the workload tab's message reads "this workload," not the pod-specific wording it was silently inheriting.
+
+**Effort: XS** (~half a day) — `InstallTrivyOperator.tsx` is a structural clone of `InstallVpaRecommender.tsx` (same preview → dry-run → typed-confirm → install flow, zero new engine work), and the detection-gap fix is a small branch in two already-existing components.
+
+**OSS, not Enterprise.** A scoped controller install plus a bug fix, same size and shape as #20/#21.
+
+**Pattern worth naming explicitly for next time:** both #21 and this entry found the identical bug independently — a `detectX(crds)` computed and used only to gate a stream's `enabled` flag, never to branch the empty-state UI itself. Worth a quick audit of every other `detect*` call in the codebase (Karpenter, KEDA, Argo, Flux) to confirm none of them have the same latent gap before a user finds a third instance.
+
 ### Further ideas worth a look (unscoped, one-liners)
 - **Revert unsaved YAML edits — SHIPPED 2026-09-27.** One-click "discard my in-progress edit" button in `YamlTab.tsx`, next to Reload — a local reset (no network call), unlike Reload which re-fetches from the server.
