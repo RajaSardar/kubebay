@@ -19,51 +19,39 @@ A free, open-source, **local-first Kubernetes IDE** — cleaner than Lens, light
 
 **[→ Latest release](https://github.com/RajaSardar/kubebay/releases/latest)**
 
-### Desktop app (v0.1.4+)
+### Desktop app (v0.4.0+)
 
-Native installers — double-click to install, no terminal needed:
+Native macOS app — arm64 universal build:
 
-| Platform | File to download |
-|---|---|
-| **macOS** (Apple Silicon + Intel, universal) | `Kubebay_VERSION_universal.dmg` |
-| **Windows** x86\_64 | `Kubebay_VERSION_x64-setup.exe` |
-| **Linux** x86\_64 | `kubebay_VERSION_amd64.AppImage` or `kubebay_VERSION_amd64.deb` |
+**One-line installer (macOS):**
+```bash
+brew install rajasardar/tap/kubebay
+```
 
-> **macOS — use the one-line installer to avoid Gatekeeper:**
-> ```bash
-> curl -fsSL https://github.com/RajaSardar/kubebay/releases/latest/download/install-mac.sh | bash
-> ```
-> This downloads, installs to `/Applications`, and removes the quarantine flag automatically — no Apple ID required, no security warning.
->
-> If you installed manually from the `.dmg` and see "Kubebay Not Opened", run:
+Or download directly from [Latest Release](https://github.com/RajaSardar/kubebay/releases/latest) and extract to `/Applications`.
+
+> **Gatekeeper quarantine:** If you see "Kubebay Not Opened", run:
 > ```bash
 > xattr -dr com.apple.quarantine /Applications/Kubebay.app
 > ```
 > Or: **System Settings → Privacy & Security → Open Anyway**.
 
-### CLI engine (all platforms, v0.1.3+)
+### CLI engine (all platforms, v0.4.0+)
 
-Headless engine — serves the web UI, you bring the browser:
+Headless engine — serves the web UI, you bring the browser. Download from [Latest Release](https://github.com/RajaSardar/kubebay/releases/latest).
 
-| Platform | Architecture | Download |
-|---|---|---|
-| **macOS** | Apple Silicon | [kubebay-darwin-arm64.tar.gz](https://github.com/RajaSardar/kubebay/releases/download/v0.1.3/kubebay-darwin-arm64.tar.gz) |
-| **macOS** | Intel | [kubebay-darwin-amd64.tar.gz](https://github.com/RajaSardar/kubebay/releases/download/v0.1.3/kubebay-darwin-amd64.tar.gz) |
-| **Linux** | x86\_64 | [kubebay-linux-amd64.tar.gz](https://github.com/RajaSardar/kubebay/releases/download/v0.1.3/kubebay-linux-amd64.tar.gz) |
-| **Linux** | ARM64 | [kubebay-linux-arm64.tar.gz](https://github.com/RajaSardar/kubebay/releases/download/v0.1.3/kubebay-linux-arm64.tar.gz) |
-| **Windows** | x86\_64 | [kubebay-windows-amd64.tar.gz](https://github.com/RajaSardar/kubebay/releases/download/v0.1.3/kubebay-windows-amd64.tar.gz) |
+### Homebrew (macOS)
 
-### Homebrew (macOS / Linux)
-
+Install the desktop app:
 ```bash
 brew install rajasardar/tap/kubebay
+# Launch from Applications or Spotlight, or run: open -a Kubebay
 ```
 
-Or as a background service:
-
+Or run the CLI engine as a background service:
 ```bash
 brew services start rajasardar/tap/kubebay
-# UI at http://127.0.0.1:9898 — token printed by: brew services info rajasardar/tap/kubebay
+# UI at http://127.0.0.1:9898
 ```
 
 ---
