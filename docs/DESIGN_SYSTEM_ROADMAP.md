@@ -27,6 +27,9 @@ first. Tick an item when its PR merges.
       dots use `StatusDot`.
 - [x] Contrast test covers status colours on raised and inset grounds and the
       chart series.
+- [x] 12-theme audit of every component, rendered and measured against its
+      real composited background (#26): tinted text, table skeletons,
+      avatar labels, focus rings and four themes' status hues fixed.
 
 ## Phase 3: missing components (the biggest adoption gap)
 
@@ -49,14 +52,19 @@ first. Tick an item when its PR merges.
 
 ## Phase 4: scale hygiene and cleanup
 
-- [ ] `--kb-z-*` z-index scale (today: 11 ad-hoc values from 0 to 201).
-- [ ] Replace the remaining literal font sizes (20), radii (19) and
-      transition durations (23) in `app.css` with tokens.
-- [ ] Delete the 36 unused `app.css` classes (old `cp-*` ClusterPicker set and
-      others) and the unrouted `Home.tsx`.
-- [ ] Move the reduced-motion rule into `@kubebay/ui`.
-- [ ] Guard tests for hand-written `<button>`, raw `px` font sizes and new
-      overlay implementations.
+- [x] `--kb-z-*` z-index scale (was 11 ad-hoc values from 0 to 201).
+- [x] Replace the remaining literal font sizes (20), radii (19) and
+      transition durations (23) in `app.css` with tokens. New tokens:
+      `--kb-text-icon`, `--kb-radius-2xs`, `--kb-dur-slower`.
+- [x] Delete the unused `app.css` classes (old `cp-*` ClusterPicker set,
+      onboarding and others: 806 lines) and the unrouted `Home.tsx` and
+      `Overview.tsx`.
+- [x] Move the reduced-motion rule into `@kubebay/ui`.
+- [x] `Drawer` styles its own title and subtitle instead of borrowing the
+      shell's `.mono`/`.strong`/`.muted`/`.small`.
+- [x] Guard tests for hand-written `<button>`, raw `px` font sizes and new
+      overlay implementations (`cssHygiene.test.ts`). Raw `<button>`s are a
+      per-file ratchet that may only go down.
 
 ## Phase 5: brand consistency
 
