@@ -1,3 +1,5 @@
+import type { CRDEntry } from "./api";
+
 function rec(v: unknown): Record<string, unknown> {
   return (v ?? {}) as Record<string, unknown>;
 }
@@ -114,4 +116,85 @@ export function hpaConflictsWithScaledObject(so: Record<string, unknown>, hpas: 
     const ref = rec(rec(h.spec).scaleTargetRef);
     return str(ref.name) === targetName && (str(ref.kind) || "Deployment") === targetKind;
   });
+}
+
+export interface KedaDetection {
+  installed: boolean;
+  scaledObjectGvr?: string;
+  triggerAuthGvr?: string;
+  clusterTriggerAuthGvr?: string;
+}
+
+/**
+ * Fleet-wide KEDA detection (backlog: KEDA nav placement). Same free,
+ * client-side /api/crds filter AutoscalingTab already uses per-workload —
+ * no engine changes, no new resource kind.
+ */
+export function detectKeda(crds: CRDEntry[]): KedaDetection {
+  const scaledObject = crds.find((c) => c.group === "keda.sh" && c.resource === "scaledobjects");
+  const triggerAuth = crds.find((c) => c.group === "keda.sh" && c.resource === "triggerauthentications");
+  const clusterTriggerAuth = crds.find((c) => c.group === "keda.sh" && c.resource === "clustertriggerauthentications");
+  return {
+    installed: !!scaledObject,
+    scaledObjectGvr: scaledObject?.gvr,
+    triggerAuthGvr: triggerAuth?.gvr,
+    clusterTriggerAuthGvr: clusterTriggerAuth?.gvr,
+  };
+}
+
+interface AuthRef {
+  name: string;
+  kind: string;
+}
+
+function referencedAuths(so: Record<string, unknown>): AuthRef[] {
+  const trigs = rec(so.spec).triggers;
+  if (!Array.isArray(trigs)) return [];
+  return trigs
+    .map((t) => rec(rec(t).authenticationRef))
+    .filter((r) => str(r.name))
+    .map((r) => ({ name: str(r.name), kind: str(r.kind) || "TriggerAuthentication" }));
+}
+
+export interface OrphanedTriggerAuth {
+  name: string;
+  /** Empty for a cluster-scoped ClusterTriggerAuthentication. */
+  ns: string;
+  /** true for a namespaced TriggerAuthentication, false for cluster-scoped. */
+  scoped: boolean;
+}
+
+/**
+ * A TriggerAuthentication/ClusterTriggerAuthentication no ScaledObject in
+ * the cluster references at all -- the "no way to see this today" gap the
+ * KEDA-nav-placement research identified: the per-workload Autoscaling tab
+ * only ever looks at one workload's own ScaledObjects, so nothing anywhere
+ * in the app previously cross-referenced auth objects against their users.
+ */
+export function findOrphanedTriggerAuths(
+  scaledObjects: Record<string, unknown>[],
+  triggerAuths: Record<string, unknown>[],
+  clusterTriggerAuths: Record<string, unknown>[],
+): OrphanedTriggerAuth[] {
+  const used = new Set<string>();
+  for (const so of scaledObjects) {
+    const ns = str(rec(so.metadata).namespace);
+    for (const ref of referencedAuths(so)) {
+      const key = ref.kind === "ClusterTriggerAuthentication" ? `cluster:${ref.name}` : `ns:${ns}:${ref.name}`;
+      used.add(key);
+    }
+  }
+
+  const orphanedNamespaced: OrphanedTriggerAuth[] = triggerAuths
+    .filter((ta) => {
+      const meta = rec(ta.metadata);
+      return !used.has(`ns:${str(meta.namespace)}:${str(meta.name)}`);
+    })
+    .map((ta) => ({ name: str(rec(ta.metadata).name), ns: str(rec(ta.metadata).namespace), scoped: true }));
+
+  const orphanedCluster: OrphanedTriggerAuth[] = clusterTriggerAuths
+    .filter((ta) => !used.has(`cluster:${str(rec(ta.metadata).name)}`))
+    .map((ta) => ({ name: str(rec(ta.metadata).name), ns: "", scoped: false }));
+
+  return [...orphanedNamespaced, ...orphanedCluster];
 }
