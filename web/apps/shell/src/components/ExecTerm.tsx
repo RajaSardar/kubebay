@@ -1,13 +1,6 @@
 import { useRef } from "react";
 import { useChannelTerm } from "../lib/useChannelTerm";
-
-const SHELL_CANDIDATES: Record<string, string[][]> = {
-  auto: [["bash", "-l"], ["sh"], ["ash"]],
-  bash: [["bash", "-l"]],
-  sh: [["sh"]],
-  ash: [["ash"]],
-  powershell: [["powershell"]],
-};
+import { shellCandidates, type ShellMode } from "../lib/execShell";
 
 export function ExecTerm({
   cluster,
@@ -20,9 +13,9 @@ export function ExecTerm({
   namespace: string;
   pod: string;
   container?: string;
-  shell?: "auto" | "bash" | "sh" | "ash" | "powershell";
+  shell?: ShellMode;
 }) {
-  const candidates = SHELL_CANDIDATES[shell] ?? SHELL_CANDIDATES.auto!;
+  const candidates = shellCandidates(shell);
   // Which shell we are trying, and whether it ever spoke. Both are per-terminal
   // state, reset in onSetup rather than on render so a reopen starts the ladder
   // from the top again.
