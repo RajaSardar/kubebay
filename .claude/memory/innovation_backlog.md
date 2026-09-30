@@ -472,5 +472,22 @@ From the [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszb
 
 **Effort: XS.** **OSS, not Enterprise.**
 
+### 31. CoreDNS config/health check — status: shipped 2026-09-30
+
+From the [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszbyRLEMgqjEFVVewJ)'s Tier 1 list. Cluster DNS is one Deployment every workload depends on, and its common failure modes are all visible from objects Kubebay already reads. `lib/coreDnsHealth.ts#checkCoreDns` finds the DNS Deployment by the `k8s-app=kube-dns` label in `kube-system` (covers both CoreDNS and legacy kube-dns) and flags:
+
+- **Single replica**: every lookup in the cluster depends on one pod.
+- **Replicas not ready**: `readyReplicas` below `replicas` (a missing `readyReplicas` counts as 0).
+- **All replicas on one node**: one node failure takes out cluster DNS.
+- **Corefile missing a standard plugin** from the upstream default: `loop` (a forwarding loop otherwise crash-loops every pod), `health` (liveness probe target), `ready` (readiness), `cache`. Matched as a directive at the start of a line, so `# loop` comments and `loopback` don't count.
+
+If the `coredns` ConfigMap isn't readable (RBAC), the Corefile checks are skipped and the card says so, rather than reporting missing plugins. No DNS Deployment found → the card says so; nothing is flagged.
+
+**Placement:** a "Cluster DNS" card at the top of `WorkloadsOverview`'s Service Health tab (#27): broken DNS and Services routing nowhere are the same "why can't my app reach X" question. Reuses the page's lifted `deployments`/`pods` streams; one new stream, `v1/configmaps` scoped to `ns: ["kube-system"]` and gated to that tab.
+
+**Not in v1:** judging `forward` targets (a hardcoded public resolver is sometimes deliberate) and NodeLocal DNSCache detection.
+
+**Effort: XS.** **OSS, not Enterprise.**
+
 ### Further ideas worth a look (unscoped, one-liners)
 - **Revert unsaved YAML edits — SHIPPED 2026-09-27.** One-click "discard my in-progress edit" button in `YamlTab.tsx`, next to Reload — a local reset (no network call), unlike Reload which re-fetches from the server.
