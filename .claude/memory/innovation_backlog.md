@@ -685,6 +685,30 @@ From the [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszb
 - following LoadBalancer status
 
 **Effort: M** (v1 about S). **OSS, not Enterprise.**
+### 39. NetworkPolicy reachability check ("can pod A reach pod B?") — status: shipped 2026-09-30
+
+From the [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszbyRLEMgqjEFVVewJ)'s Tier 2 list (item 12, the NetworkPolicy connectivity analyzer). `lib/netpolEval.ts#evaluateConnection` evaluates one source pod → destination pod (optionally on a port and protocol) under standard Kubernetes NetworkPolicy semantics, which the existing connectivity matrix only approximates:
+
+- **Isolation is per pod and per direction.** A pod is isolated once any policy in its namespace selects it with that policy type. `policyTypes` defaults to Ingress, plus Egress when the policy has an `egress` section. An empty `ingress`/`egress` list denies everything.
+- **Both sides must allow the traffic:** the source's egress and the destination's ingress.
+- **Peers:**
+  - `podSelector` alone matches the policy's own namespace only.
+  - `namespaceSelector` is evaluated against real namespace labels, including the automatic `kubernetes.io/metadata.name`.
+  - A peer with both selectors must match both.
+  - `ipBlock` is checked against the pod IP (IPv4), with `except`.
+  - `matchExpressions` are honoured, via the shared `labelSelector` helper.
+- **Ports:** matched by number, by `endPort` range, or by the destination pod's named container port, and by protocol. With no port given, a port-restricted allow is reported as "only on TCP/8080".
+
+**Placement:** a fourth "Can A reach B?" tab on the NetworkPolicy page. You pick a source pod, a destination pod, an optional port and a protocol, and it shows an Allowed/Blocked verdict with an egress line and an ingress line naming the isolating and allowing policies. It respects the page's namespace filter. The `v1/namespaces` stream is gated to that tab. The card says the verdict comes from NetworkPolicy objects only: the CNI has to enforce them, and CNI-specific CRDs aren't included.
+
+**Not in v1:**
+
+- Rewriting the matrix on top of this evaluator. The matrix still approximates isolation per namespace and ignores egress and ports. Worth a follow-up.
+- Service-name targets (resolving a Service to its pods).
+- Cilium and Calico policy CRDs.
+- IPv6 `ipBlock`.
+
+**Effort: M.** **OSS, not Enterprise.**
 
 ### Further ideas worth a look (unscoped, one-liners)
 - **Revert unsaved YAML edits — SHIPPED 2026-09-27.** One-click "discard my in-progress edit" button in `YamlTab.tsx`, next to Reload — a local reset (no network call), unlike Reload which re-fetches from the server.
