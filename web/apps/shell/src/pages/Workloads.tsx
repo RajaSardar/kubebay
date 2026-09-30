@@ -16,7 +16,8 @@ import { ContextMenu } from "../components/ContextMenu";
 import { absoluteTime, countLabel, matchesFilter, useSortPref, useTableKeyboard } from "../lib/tableUx";
 import { LiveAge } from "../components/LiveAge";
 import { WorkloadTabBar } from "../components/WorkloadTabBar";
-import { podResources, usageBar, type PodResources, type UsageBar } from "../lib/podUsage";
+import { usageBar, type UsageBar } from "../lib/podUsage";
+import { derivePod, type PodRow } from "../lib/pods";
 import { VirtualSpacer } from "../components/VirtualSpacer";
 import { useTableVirtualizer } from "../lib/useTableVirtualizer";
 import { ROW_HEIGHT, useDisplay } from "../lib/display";
@@ -26,103 +27,6 @@ import { fmtBytes, fmtCpu } from "../lib/format";
 function rec(v: unknown): Record<string, unknown> {
   return (v ?? {}) as Record<string, unknown>;
 }
-
-interface PodRow {
-  key: string;
-  name: string;
-  namespace: string;
-  ready: string;
-  status: "running" | "succeeded" | "pending" | "failed" | "warning";
-  statusLabel: string;
-  restarts: number;
-  ageMs: number;
-  containers: string[];
-  node: string;
-  podIP: string;
-  /** Creation time, for the age tooltip. */
-  created: string;
-  /** The waiting reason's message (why it is CrashLoopBackOff), for the status tooltip. */
-  statusDetail: string;
-  /** Requests and limits, which the CPU and memory bars measure against. */
-  resources: PodResources;
-}
-
-function asRecord(v: unknown): Record<string, unknown> {
-  return (v ?? {}) as Record<string, unknown>;
-}
-
-function derivePod(obj: Record<string, unknown>): PodRow | null {
-  const meta = asRecord(obj.metadata);
-  const name = meta.name as string | undefined;
-  const namespace = (meta.namespace as string) ?? "default";
-  if (!name) return null;
-
-  const spec = asRecord(obj.spec);
-  const status = asRecord(obj.status);
-  const containers = (spec.containers ?? []) as unknown[];
-  const containerStatuses = (status.containerStatuses ?? []) as Record<string, unknown>[];
-
-  const readyCount = containerStatuses.filter((cs) => cs.ready === true).length;
-  const restarts = containerStatuses.reduce((acc, cs) => acc + ((cs.restartCount as number) ?? 0), 0);
-
-  const phase = (status.phase as string) ?? "Unknown";
-  let state: PodRow["status"] = "pending";
-  let label = phase;
-  let detail = (status.message as string) ?? "";
-
-  if (meta.deletionTimestamp) {
-    state = "pending";
-    label = "Terminating";
-  } else {
-    for (const cs of containerStatuses) {
-      const waiting = asRecord(asRecord(cs.state).waiting);
-      const reason = waiting.reason as string | undefined;
-      if (reason && reason !== "ContainerCreating") {
-        state = "failed";
-        label = reason;
-        detail = (waiting.message as string) ?? detail;
-        break;
-      }
-    }
-    if (state !== "failed") {
-      if (phase === "Running" && containers.length > 0 && readyCount === containers.length) {
-        state = "running";
-        label = "Running";
-      } else if (phase === "Succeeded") {
-        state = "succeeded";
-      } else if (phase === "Failed") {
-        state = "failed";
-      }
-    }
-  }
-
-  const containerNames = [
-    ...new Set([
-      ...containerStatuses.map((cs) => cs.name as string).filter(Boolean),
-      ...((spec.containers ?? []) as Record<string, unknown>[]).map((c) => asRecord(c).name as string).filter(Boolean),
-    ]),
-  ];
-
-  const created = meta.creationTimestamp ? Date.parse(meta.creationTimestamp as string) : Date.now();
-
-  return {
-    key: `${namespace}/${name}`,
-    name,
-    namespace,
-    ready: `${readyCount}/${containerNames.length || "?"}`,
-    status: state,
-    statusLabel: label,
-    restarts,
-    ageMs: Math.max(0, Date.now() - created),
-    containers: containerNames,
-    node: (spec.nodeName as string) ?? "",
-    podIP: (status.podIP as string) ?? "",
-    created: (meta.creationTimestamp as string) ?? "",
-    statusDetail: detail,
-    resources: podResources(obj),
-  };
-}
-
 
 const METER_FILL: Record<UsageBar["tone"], string> = {
   accent: "var(--kb-accent)",
