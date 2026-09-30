@@ -5,6 +5,8 @@ import { useCluster } from "../lib/useCluster";
 import { useResourceStream } from "../lib/useResourceStream";
 import { useSelectedNamespaces } from "../lib/namespace-store";
 import { NamespaceFilter } from "../components/NamespaceFilter";
+import { NetworkPolicyCoverageList } from "../components/NetworkPolicyCoverageList";
+import { findNetworkPolicyCoverageGaps } from "../lib/networkPolicyCoverage";
 
 // ── Type helpers ──────────────────────────────────────────────────────────────
 
@@ -233,7 +235,7 @@ export default function NetworkPolicyPage() {
   // selection means "(all)", matching NamespaceFilter's own convention.
   const nsFilter = useSelectedNamespaces(effectiveCluster || undefined);
 
-  const [activeTab, setActiveTab] = useState<"matrix" | "policies">("matrix");
+  const [activeTab, setActiveTab] = useState<"matrix" | "policies" | "coverage">("matrix");
   const [selectedCell, setSelectedCell] = useState<CellDetail | null>(null);
 
   useEffect(() => setSelectedCell(null), [nsFilter]);
@@ -310,6 +312,17 @@ export default function NetworkPolicyPage() {
     [policies, nsFilter],
   );
 
+  // Backlog #26: coverage gaps computed cluster-wide, then filtered by the
+  // same namespace selection as everything else on this page.
+  const coverageGaps = useMemo(
+    () => findNetworkPolicyCoverageGaps(pods.rows, netpols.rows),
+    [pods.rows, netpols.rows],
+  );
+  const filteredCoverageGaps = useMemo(
+    () => (nsFilter.length === 0 ? coverageGaps : coverageGaps.filter((g) => nsFilter.includes(g.namespace))),
+    [coverageGaps, nsFilter],
+  );
+
   return (
     <div className="page">
       {/* ── Header ── */}
@@ -346,6 +359,7 @@ export default function NetworkPolicyPage() {
           options={[
             { value: "matrix", label: "Connectivity matrix" },
             { value: "policies", label: "Policy list" },
+            { value: "coverage", label: "Coverage gaps" },
           ]}
           value={activeTab}
           onChange={setActiveTab}
@@ -365,8 +379,12 @@ export default function NetworkPolicyPage() {
           onSelectCell={setSelectedCell}
           policies={filteredPolicies}
         />
-      ) : (
+      ) : activeTab === "policies" ? (
         <PolicyListView policies={filteredPolicies} />
+      ) : (
+        <div className="page-body">
+          <NetworkPolicyCoverageList gaps={filteredCoverageGaps} />
+        </div>
       )}
     </div>
   );
