@@ -430,6 +430,19 @@ From the same [Kubebay Intelligence research pass](https://claude.ai/artifact/U1
 **Effort: XS** (~half a day) — one pure `lib/` function reusing an already-shipped selector matcher, one dumb list component, and a new tab on an existing page. No engine work, no new resource kind.
 
 **OSS, not Enterprise.** A local, agentless static-analysis detector over data the app already streams — same size and shape as every other Tier 1 detector shipped this pass.
+### 28. ServiceAccount token over-mount detector — status: shipped 2026-09-29
+
+From the same [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszbyRLEMgqjEFVVewJ)'s Tier 1 list, following #27. Flags a pod running under the `default` ServiceAccount with its API token still automounted — CIS Kubernetes Benchmark 5.1.5 ("ensure that default service accounts are not actively used") / 5.1.6 ("ensure that Service Account Tokens are only mounted where necessary"), the same category of check Popeye and kube-bench already run. The `default` SA is almost never intended for API access; a compromised container in one of these pods gets a live, if low-privilege, cluster credential it didn't need.
+
+**Resolution order matches the API server's own semantics exactly, verified against real K8s docs rather than assumed:** a pod-level `spec.automountServiceAccountToken` always wins when set; if unset, the `ServiceAccount` object's own top-level `automountServiceAccountToken` field decides; if both are unset, the cluster default is `true` (mounted). `lib/serviceAccountAutomount.ts#findDefaultServiceAccountAutomounts` implements exactly this three-level fallback, and only ever considers pods actually resolved to the literal `default` SA (an empty `serviceAccountName`/`serviceAccount` field resolves to `"default"`, same as the API server) — a pod on any other, explicitly-named ServiceAccount is out of scope for this check, even if that SA also leaves automount enabled, since the well-established security concern here is specifically about the *default* SA's broad, implicit reach, not automount in general.
+
+**Grouped by namespace+app label**, reusing the exact same convention `lib/networkPolicyCoverage.ts` (#26) established for this session's other pod-grouping detectors, rather than a per-pod finding that would flood the list with N identical rows for an N-replica Deployment.
+
+**Shipped as a new Card section on `pages/Rbac.tsx`, not a tab.** Unlike #24/#26/#27's tab-based homes, this page's own existing convention is stacking independent security-check `Card`s vertically (the "Who can…" query, `RbacFindingsCard`, "My access") rather than tabs — `ServiceAccountAutomountCard` follows that same shape, sitting directly below `RbacFindingsCard` since both are RBAC/security-posture findings. Streams its own `pods`/`serviceaccounts` (`{mode:"full"}`) independently of the page's existing `rbacApi.all` snapshot query, since pod specs and ServiceAccount objects were never part of that server-side RBAC-binding analysis and adding them there would have meant real engine work for no benefit over a client-side join.
+
+**Effort: XS** (~half a day) — one pure `lib/` function with no new selector-matching logic needed (this is direct field comparison, not LabelSelector matching), one dumb card component, and two new always-on streams on an existing page.
+
+**OSS, not Enterprise.** A local, agentless static-analysis detector over data the app already has access to — same size and shape as the RBAC-smell detector (#5) this page already ships.
 
 ### Further ideas worth a look (unscoped, one-liners)
 - **Revert unsaved YAML edits — SHIPPED 2026-09-27.** One-click "discard my in-progress edit" button in `YamlTab.tsx`, next to Reload — a local reset (no network call), unlike Reload which re-fetches from the server.
