@@ -209,7 +209,6 @@ export default function Workloads() {
         sortKey="pods"
         defaultSort={byNsThenName}
         filterPlaceholder="Filter by name, namespace, node, IP or status…  /"
-        menuLabel={(name) => `Actions for ${name}`}
         onOpen={onOpen}
         toolbar={
           <>

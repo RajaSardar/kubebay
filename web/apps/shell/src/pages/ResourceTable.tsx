@@ -328,7 +328,7 @@ export default function ResourceTable() {
   }, [isCRD, crdListQ.data, def]);
 
   // The kind's columns, then CRD printer columns, then Owner. The filter
-  // matches the kind's columns; printer columns and Owner do not sort.
+  // matches, and headers sort by, every one of them.
   const columns = useMemo<ListColumn<Row>[]>(() => {
     const extra = def ? extraColumns(def.slug, { nodeUsage, podsPerNode }) : {};
     return [
@@ -363,8 +363,16 @@ export default function ResourceTable() {
         id: pc.name,
         header: pc.name,
         cell: (o) => evalPrinterPath(pc.jsonPath, o) || <span className="muted">–</span>,
+        sortValue: (o) => evalPrinterPath(pc.jsonPath, o),
+        filterText: (o) => evalPrinterPath(pc.jsonPath, o),
       })),
-      { id: "Owner", header: "Owner", cell: (o) => ownerCell(o).v },
+      {
+        id: "Owner",
+        header: "Owner",
+        cell: (o) => ownerCell(o).v,
+        sortValue: (o) => ownerCell(o).v,
+        filterText: (o) => ownerCell(o).v,
+      },
     ];
   }, [def, nodeUsage, podsPerNode, printerColumns, navigate]);
 
