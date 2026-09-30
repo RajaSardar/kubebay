@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams, useLocation } from "react-router-dom";
 import { Badge, Button, EmptyState, IconButton, InlineBanner, NsPill, PageHeader, SelectAllHeader, SelectCell, SkeletonTable, SortHeader, StatusDot, Table, TableRow, TableWrap, TextField } from "@kubebay/ui";
 import { api, crdApi, metricsApi, type PrinterColumn } from "../lib/api";
@@ -12,10 +12,10 @@ import { useRowSelection } from "../lib/useRowSelection";
 import { useBulkDelete } from "../lib/useBulkDelete";
 import { ROW_HEIGHT, useDisplay } from "../lib/display";
 import { VirtualSpacer } from "../components/VirtualSpacer";
-import { useTableVirtualizer } from "../lib/useTableVirtualizer";
+import { useResourceList } from "../lib/useResourceList";
 import { evalPrinterPath } from "../lib/printerPath";
 import { ownerOf, ownerLabel, ownerAmongTargets, ownerWarning } from "../lib/gitops";
-import { absoluteTime, compareValues, countLabel, matchesFilter, useSortPref, useTableKeyboard } from "../lib/tableUx";
+import { absoluteTime, compareValues, countLabel } from "../lib/tableUx";
 import { LiveAge } from "../components/LiveAge";
 import { templateKindFor } from "../lib/resourceTemplates";
 
@@ -296,6 +296,12 @@ export function ownerCell(o: Row): Cell {
   return owner ? { v: ownerLabel(owner), cls: "muted" } : { v: "–", cls: "muted" };
 }
 
+const rowKey = (r: Row) => {
+  const meta = rec(r.metadata);
+  return `${str(meta.namespace)}/${str(meta.name)}`;
+};
+const byName = (a: Row, b: Row) => compareValues(str(rec(a.metadata).name), str(rec(b.metadata).name));
+
 export default function ResourceTable() {
   const { kind = "" } = useParams();
   const [sp] = useSearchParams();
@@ -309,11 +315,6 @@ export default function ResourceTable() {
 
   const nsFilter = useSelectedNamespaces(effectiveCluster || undefined);
   const { setNamespaces } = useNamespaceStore();
-  const [search, setSearch] = useState("");
-  const filterRef = useRef<HTMLInputElement>(null);
-  const sort = useSortPref(`r/${kind}`);
-  const sortCol = sort.col;
-  const sortAsc = sort.asc;
   const [selected, setSelected] = useState<{ ns: string; name: string; tab?: "yaml" } | null>(null);
   const [ctx, setCtx] = useState<{ x: number; y: number; ns: string; name: string; obj: Row } | null>(null);
   const [rowAction, setRowAction] = useState<{ action: "scale" | "restart"; obj: Row } | null>(null);
@@ -398,80 +399,44 @@ export default function ResourceTable() {
     });
   });
 
-  const rows = useMemo(() => {
-    let out = [...stream.rows];
-    if (search.trim()) {
-      // Name, namespace and every column the table shows, so "crash" or a node
-      // name finds rows as well as a name does.
-      out = out.filter((r) => {
-        const meta = rec(r.metadata);
-        return matchesFilter(
-          [str(meta.name), str(meta.namespace), ...cols.map((c) => String(cellFor(def?.slug ?? "", c, r).v))],
-          search,
-        );
-      });
-    }
-    if (sortCol) {
-      out.sort((a, b) => {
-        let av: string | number, bv: string | number;
-        if (sortCol === "Name") {
-          av = str(rec(a.metadata).name);
-          bv = str(rec(b.metadata).name);
-        } else if (sortCol === "Namespace") {
-          av = str(rec(a.metadata).namespace);
-          bv = str(rec(b.metadata).namespace);
-        } else if (sortCol === "Age") {
-          av = ageOf(a);
-          bv = ageOf(b);
-        } else {
-          const cellA = cellFor(def?.slug ?? "", sortCol, a);
-          const cellB = cellFor(def?.slug ?? "", sortCol, b);
-          av = cellA.v;
-          bv = cellB.v;
-        }
-        return sortAsc ? compareValues(av, bv) : compareValues(bv, av);
-      });
-    } else {
-      out.sort((a, b) => compareValues(str(rec(a.metadata).name), str(rec(b.metadata).name)));
-    }
-    return out;
-  }, [stream.rows, search, sortCol, sortAsc, def, cols]);
-
-  const allKeys = useMemo(
-    () => rows.map((o) => {
-      const meta = rec(o.metadata);
-      return `${str(meta.namespace)}/${str(meta.name)}`;
-    }),
-    [rows],
-  );
-
+  const slug = def?.slug ?? "";
   const headerRef = useRef<HTMLTableSectionElement>(null);
-  const { virtualizer: rowVirtualizer, items: virtualRows, topSpace, bottomSpace } = useTableVirtualizer({
-    count: rows.length,
+  const list = useResourceList<Row>({
+    rows: stream.rows,
+    keyOf: rowKey,
+    // Name, namespace and every column the table shows, so "crash" or a node
+    // name finds rows as well as a name does.
+    filterFields: useCallback(
+      (r: Row) => {
+        const meta = rec(r.metadata);
+        return [str(meta.name), str(meta.namespace), ...cols.map((c) => String(cellFor(slug, c, r).v))];
+      },
+      [cols, slug],
+    ),
+    sortValue: useCallback(
+      (r: Row, col: string): string | number => {
+        if (col === "Name") return str(rec(r.metadata).name);
+        if (col === "Namespace") return str(rec(r.metadata).namespace);
+        if (col === "Age") return ageOf(r);
+        return cellFor(slug, col, r).v;
+      },
+      [slug],
+    ),
+    defaultSort: byName,
+    sortKey: `r/${kind}`,
+    onOpen: useCallback((r: Row) => {
+      const meta = rec(r.metadata);
+      setSelected({ ns: str(meta.namespace), name: str(meta.name) });
+    }, []),
+    onToggle: toggleRow,
     estimate: ROW_HEIGHT[density],
     scrollRef,
     headerRef,
   });
-
-  const openRow = useCallback((i: number) => {
-    const meta = rec(rows[i]?.metadata);
-    if (rows[i]) setSelected({ ns: str(meta.namespace), name: str(meta.name) });
-  }, [rows]);
-  const toggleRowAt = useCallback((i: number) => {
-    const key = allKeys[i];
-    if (key) toggleRow(key);
-  }, [allKeys, toggleRow]);
-  const clearSearch = useCallback(() => setSearch(""), []);
-  const { active: activeRow } = useTableKeyboard({
-    count: rows.length,
-    onOpen: openRow,
-    onToggle: toggleRowAt,
-    filterRef,
-    onClearFilter: clearSearch,
-  });
-  useEffect(() => {
-    if (activeRow >= 0) rowVirtualizer.scrollToIndex(activeRow, { align: "auto" });
-  }, [activeRow, rowVirtualizer]);
+  const { shown: rows, filter: search, setFilter: setSearch, filterRef, allKeys, activeRow } = list;
+  const sortCol = list.sort.col;
+  const sortAsc = list.sort.asc;
+  const { virtualizer: rowVirtualizer, items: virtualRows, topSpace, bottomSpace } = list.virtual;
 
   if (!def) {
     return (
@@ -483,7 +448,7 @@ export default function ResourceTable() {
     );
   }
 
-  const toggleSort = sort.toggle;
+  const toggleSort = list.sort.toggle;
   const createKind = templateKindFor(def.slug);
 
   async function confirmDelete() {
