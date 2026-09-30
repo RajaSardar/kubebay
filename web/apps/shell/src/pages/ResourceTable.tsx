@@ -6,7 +6,7 @@ import { useQuery as useRQQuery } from "@tanstack/react-query";
 import { useCluster } from "../lib/useCluster";
 import { useResourceStream, shouldShowSkeleton } from "../lib/useResourceStream";
 import { ageOf, fmtAge, lookupDef, num, str, type ResourceDef } from "../lib/resources";
-import { fmtBytes, fmtCpu } from "./Workloads";
+import { fmtBytes, fmtCpu } from "../lib/format";
 import { useResizableColumns } from "../lib/useResizableColumns";
 import { useRowSelection } from "../lib/useRowSelection";
 import { useBulkDelete } from "../lib/useBulkDelete";
