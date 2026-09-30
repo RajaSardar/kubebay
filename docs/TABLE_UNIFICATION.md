@@ -65,7 +65,8 @@ Each is one PR that merges on its own and starts from a failing test.
 3. Move `derivePod` to `lib/pods.ts`. *(refactor)*
 4. Numeric and natural sort in every table. *(behaviour, approved)*
 5. `useResourceList`; ResourceTable adopts it. *(refactor)*
-6. Extract `<ResourceListView>` from ResourceTable; node extras to a hook. *(refactor)*
+6. Extract `<ResourceListView>` from ResourceTable; node extras to a hook
+   (`lib/useNodeExtras.ts`); sort headers sort from the keyboard. *(refactor)*
 7. Pods onto the view: count in the header, dimmed terminating pods, mouse
    hover, one empty-state wording. *(behaviour, approved)*
 8. ResourceTable: kebab named "Actions for …", filter matches every visible

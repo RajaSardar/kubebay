@@ -912,6 +912,11 @@ kbd {
   color: var(--kb-fg-default);
 }
 
+.th-sortable:focus-visible {
+  outline: none;
+  box-shadow: inset var(--kb-focus-ring);
+}
+
 .sort-indicator {
   font-size: var(--kb-text-2xs);
   opacity: 1;

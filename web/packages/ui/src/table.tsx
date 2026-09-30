@@ -90,14 +90,21 @@ export interface SortHeaderProps {
   style?: CSSProperties;
 }
 
-/** A clickable column header with the accent sort arrow. */
+/** A column header with the accent sort arrow; sorts on click, or Enter/Space when focused. */
 export function SortHeader({ label, active, asc, onSort, width, children, style }: SortHeaderProps) {
   return (
     <th
       className="th-sortable"
       style={{ width, ...style }}
       aria-sort={active ? (asc ? "ascending" : "descending") : "none"}
+      tabIndex={0}
       onClick={() => onSort?.(label)}
+      onKeyDown={(e) => {
+        if (e.key !== "Enter" && e.key !== " ") return;
+        // Handled: a table's own Enter (open the active row) stands down.
+        e.preventDefault();
+        onSort?.(label);
+      }}
     >
       {label}
       {active && <span className="sort-indicator">{asc ? "↑" : "↓"}</span>}

@@ -1,32 +1,23 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams, useLocation } from "react-router-dom";
-import { Badge, Button, EmptyState, IconButton, InlineBanner, NsPill, PageHeader, SelectAllHeader, SelectCell, SkeletonTable, SortHeader, StatusDot, Table, TableRow, TableWrap, TextField } from "@kubebay/ui";
-import { api, crdApi, metricsApi, type PrinterColumn } from "../lib/api";
+import { EmptyState, StatusDot } from "@kubebay/ui";
+import { api, crdApi, type PrinterColumn } from "../lib/api";
 import { useQuery as useRQQuery } from "@tanstack/react-query";
 import { useCluster } from "../lib/useCluster";
-import { useResourceStream, shouldShowSkeleton } from "../lib/useResourceStream";
-import { ageOf, fmtAge, lookupDef, num, str, type ResourceDef } from "../lib/resources";
+import { useResourceStream } from "../lib/useResourceStream";
+import { fmtAge, lookupDef, num, str, type ResourceDef } from "../lib/resources";
 import { fmtBytes, fmtCpu } from "../lib/format";
-import { useResizableColumns } from "../lib/useResizableColumns";
-import { useRowSelection } from "../lib/useRowSelection";
-import { useBulkDelete } from "../lib/useBulkDelete";
-import { ROW_HEIGHT, useDisplay } from "../lib/display";
-import { VirtualSpacer } from "../components/VirtualSpacer";
-import { useResourceList } from "../lib/useResourceList";
+import { useNodeExtras } from "../lib/useNodeExtras";
 import { evalPrinterPath } from "../lib/printerPath";
-import { ownerOf, ownerLabel, ownerAmongTargets, ownerWarning } from "../lib/gitops";
-import { absoluteTime, compareValues, countLabel } from "../lib/tableUx";
-import { LiveAge } from "../components/LiveAge";
+import { ownerOf, ownerLabel } from "../lib/gitops";
 import { templateKindFor } from "../lib/resourceTemplates";
-
+import { ResourceListView, type ListColumn } from "../components/ResourceListView";
 
 import GenericDrawer from "../components/GenericDrawer";
-import { ContextMenu } from "../components/ContextMenu";
 import { WorkloadActionDialog, workloadActions } from "../components/WorkloadActionDialog";
 import { StarButton } from "../components/Favorites";
 import { NamespaceFilter } from "../components/NamespaceFilter";
-import { PolicyRejectionCard } from "../components/PolicyRejectionCard";
-import { useNamespaceStore, useSelectedNamespaces } from "../lib/namespace-store";
+import { useSelectedNamespaces } from "../lib/namespace-store";
 import { WorkloadTabBar, isWorkloadRoute } from "../components/WorkloadTabBar";
 
 type Row = Record<string, unknown>;
@@ -296,11 +287,10 @@ export function ownerCell(o: Row): Cell {
   return owner ? { v: ownerLabel(owner), cls: "muted" } : { v: "–", cls: "muted" };
 }
 
-const rowKey = (r: Row) => {
-  const meta = rec(r.metadata);
-  return `${str(meta.namespace)}/${str(meta.name)}`;
-};
-const byName = (a: Row, b: Row) => compareValues(str(rec(a.metadata).name), str(rec(b.metadata).name));
+const nameOf = (r: Row) => str(rec(r.metadata).name);
+const nsOf = (r: Row) => str(rec(r.metadata).namespace);
+const createdOf = (r: Row) => str(rec(r.metadata).creationTimestamp);
+const isTerminating = (r: Row) => !!rec(r.metadata).deletionTimestamp;
 
 export default function ResourceTable() {
   const { kind = "" } = useParams();
@@ -310,47 +300,17 @@ export default function ResourceTable() {
 
   const location = useLocation();
   const { cluster: effectiveCluster } = useCluster();
-  const { density } = useDisplay();
-  const scrollRef = useRef<HTMLDivElement>(null);
 
   const nsFilter = useSelectedNamespaces(effectiveCluster || undefined);
-  const { setNamespaces } = useNamespaceStore();
   const [selected, setSelected] = useState<{ ns: string; name: string; tab?: "yaml" } | null>(null);
-  const [ctx, setCtx] = useState<{ x: number; y: number; ns: string; name: string; obj: Row } | null>(null);
   const [rowAction, setRowAction] = useState<{ action: "scale" | "restart"; obj: Row } | null>(null);
-  const [hoveredRowKey, setHoveredRowKey] = useState<string | null>(null);
 
   const stream = useResourceStream(effectiveCluster || undefined, def?.gvr ?? "v1/configmaps", {
     mode: def?.mode,
     ns: def && !def.scoped && nsFilter.length > 0 ? nsFilter : undefined,
   });
 
-  const nodeUsageQ = useRQQuery({
-    queryKey: ["nodemetrics", effectiveCluster],
-    queryFn: () => metricsApi.nodes(effectiveCluster),
-    enabled: !!effectiveCluster && def?.slug === "nodes",
-    refetchInterval: 15_000,
-    retry: false,
-  });
-  const nodeUsage = useMemo(() => {
-    const m = new Map<string, { cpuMillis: number; memBytes: number }>();
-    for (const u of nodeUsageQ.data ?? []) m.set(u.name, u);
-    return m;
-  }, [nodeUsageQ.data]);
-
-  const nodePods = useResourceStream(
-    effectiveCluster || undefined,
-    "v1/pods",
-    { mode: "full", enabled: def?.slug === "nodes" },
-  );
-  const podsPerNode = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const r of nodePods.rows as Record<string, unknown>[]) {
-      const nodeName = str(rec(rec(r.spec).nodeName));
-      if (nodeName) m.set(nodeName, (m.get(nodeName) ?? 0) + 1);
-    }
-    return m;
-  }, [nodePods.rows]);
+  const { nodeUsage, podsPerNode } = useNodeExtras(effectiveCluster, def?.slug === "nodes");
 
   // Fetch CRD metadata (printer columns) for ext-- resources
   const isCRD = kind.startsWith("ext--");
@@ -367,76 +327,48 @@ export default function ResourceTable() {
     return match?.columns ?? [];
   }, [isCRD, crdListQ.data, def]);
 
-  const cols = useMemo(
-    () => Object.keys(def ? extraColumns(def.slug, { nodeUsage, podsPerNode }) : {}),
-    [def, nodeUsage, podsPerNode],
-  );
+  // The kind's columns, then CRD printer columns, then Owner. The filter
+  // matches the kind's columns; printer columns and Owner do not sort.
+  const columns = useMemo<ListColumn<Row>[]>(() => {
+    const extra = def ? extraColumns(def.slug, { nodeUsage, podsPerNode }) : {};
+    return [
+      ...Object.entries(extra).map(([col, cellOf]): ListColumn<Row> => ({
+        id: col,
+        header: col,
+        sortValue: (o) => cellOf(o).v,
+        filterText: (o) => String(cellOf(o).v),
+        cell: (o) => {
+          const cell = cellOf(o);
+          return (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
+              {cell.dot ? healthDot(cell.dot) : null}
+              {cell.to ? (
+                <span
+                  className="cell-link"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/detail/${cell.to!.kind}/${cell.to!.ns || "_"}/${cell.to!.name}`);
+                  }}
+                >
+                  {cell.v}
+                </span>
+              ) : (
+                <span className={cell.cls ?? ""}>{cell.v}</span>
+              )}
+            </span>
+          );
+        },
+      })),
+      ...printerColumns.map((pc): ListColumn<Row> => ({
+        id: pc.name,
+        header: pc.name,
+        cell: (o) => evalPrinterPath(pc.jsonPath, o) || <span className="muted">–</span>,
+      })),
+      { id: "Owner", header: "Owner", cell: (o) => ownerCell(o).v },
+    ];
+  }, [def, nodeUsage, podsPerNode, printerColumns, navigate]);
 
-  function cellFor(slug: string, col: string, o: Row): Cell {
-    return extraColumns(slug, { nodeUsage, podsPerNode })[col]?.(o) ?? { v: "" };
-  }
-
-  const headers = useMemo(
-    () => ["Name", ...(def?.scoped ? [] : ["Namespace"]), ...cols, ...printerColumns.map((c) => c.name), "Owner", "Age"],
-    [def, cols, printerColumns],
-  );
-
-  // Column widths: Name=240, Namespace=120, extra cols=110, Age=75
-  const initialWidths = useMemo(
-    () => headers.map((h) => h === "Name" ? 240 : h === "Namespace" ? 120 : h === "Age" ? 75 : 110),
-    [headers],
-  );
-  const { widths, getResizeHandleProps } = useResizableColumns(headers.length, initialWidths);
-  const { selectedKeys, toggleRow, selectAll, clearAll, deselect, isAllSelected, isIndeterminate } = useRowSelection();
-  const bulkDelete = useBulkDelete((t) => {
-    const owner = ownerAmongTargets([t], rows);
-    return api.deleteResource({
-      cluster: effectiveCluster,
-      gvr: def?.gvr ?? "",
-      ns: t.ns,
-      name: t.name,
-      gitopsOwner: owner ? ownerLabel(owner) : undefined,
-    });
-  });
-
-  const slug = def?.slug ?? "";
-  const headerRef = useRef<HTMLTableSectionElement>(null);
-  const list = useResourceList<Row>({
-    rows: stream.rows,
-    keyOf: rowKey,
-    // Name, namespace and every column the table shows, so "crash" or a node
-    // name finds rows as well as a name does.
-    filterFields: useCallback(
-      (r: Row) => {
-        const meta = rec(r.metadata);
-        return [str(meta.name), str(meta.namespace), ...cols.map((c) => String(cellFor(slug, c, r).v))];
-      },
-      [cols, slug],
-    ),
-    sortValue: useCallback(
-      (r: Row, col: string): string | number => {
-        if (col === "Name") return str(rec(r.metadata).name);
-        if (col === "Namespace") return str(rec(r.metadata).namespace);
-        if (col === "Age") return ageOf(r);
-        return cellFor(slug, col, r).v;
-      },
-      [slug],
-    ),
-    defaultSort: byName,
-    sortKey: `r/${kind}`,
-    onOpen: useCallback((r: Row) => {
-      const meta = rec(r.metadata);
-      setSelected({ ns: str(meta.namespace), name: str(meta.name) });
-    }, []),
-    onToggle: toggleRow,
-    estimate: ROW_HEIGHT[density],
-    scrollRef,
-    headerRef,
-  });
-  const { shown: rows, filter: search, setFilter: setSearch, filterRef, allKeys, activeRow } = list;
-  const sortCol = list.sort.col;
-  const sortAsc = list.sort.asc;
-  const { virtualizer: rowVirtualizer, items: virtualRows, topSpace, bottomSpace } = list.virtual;
+  const onOpen = useCallback((r: Row) => setSelected({ ns: nsOf(r), name: nameOf(r) }), []);
 
   if (!def) {
     return (
@@ -448,249 +380,52 @@ export default function ResourceTable() {
     );
   }
 
-  const toggleSort = list.sort.toggle;
   const createKind = templateKindFor(def.slug);
-
-  async function confirmDelete() {
-    const succeeded = await bulkDelete.confirm();
-    deselect(succeeded.map((t) => `${t.ns}/${t.name}`));
-  }
 
   return (
     <div className="page">
       {isWorkloadRoute(location.pathname) && <WorkloadTabBar />}
-      <PageHeader
-        level={2}
+      <ResourceListView<Row>
         title={
           <>
             {def.label}
             <StarButton path={`/r/${kind}`} />
           </>
         }
+        label={def.label}
+        rows={stream.rows}
+        objects={stream.rows}
+        synced={stream.synced}
+        busy={!stream.synced}
         live={stream.synced}
-        actions={
-          <>
-            {selectedKeys.size > 0 && (
-              <>
-                <span className="muted small">{selectedKeys.size} selected</span>
-                <Button
-                  variant="danger"
-                  onClick={() => {
-                    bulkDelete.request(
-                      [...selectedKeys].map((key) => {
-                        const i = key.indexOf("/");
-                        return { ns: key.slice(0, i), name: key.slice(i + 1) };
-                      }),
-                    );
-                  }}
-                >
-                  Delete {selectedKeys.size} selected
-                </Button>
-              </>
-            )}
-            <Badge title={rows.length === stream.rows.length ? undefined : "Shown of total"}>
-              {countLabel(rows.length, stream.rows.length)}
-            </Badge>
-          </>
+        cluster={effectiveCluster}
+        scoped={def.scoped}
+        nsFiltered={nsFilter.length > 0}
+        nameOf={nameOf}
+        nsOf={nsOf}
+        createdOf={createdOf}
+        isDimmed={isTerminating}
+        columns={columns}
+        sortKey={`r/${kind}`}
+        onOpen={onOpen}
+        toolbar={!def.scoped && <NamespaceFilter cluster={effectiveCluster || undefined} />}
+        onDelete={(t, gitopsOwner) =>
+          api.deleteResource({ cluster: effectiveCluster, gvr: def.gvr, ns: t.ns, name: t.name, gitopsOwner })
         }
-      />
-
-      {bulkDelete.pending && (
-        <InlineBanner>
-          <span>
-            {bulkDelete.pending.length === 1 ? (
-              <>
-                Delete <strong className="mono">{bulkDelete.pending[0]!.name}</strong>
-                {bulkDelete.pending[0]!.ns ? ` in ${bulkDelete.pending[0]!.ns}` : ""}? This can&apos;t be undone.
-              </>
-            ) : (
-              <>
-                Delete {bulkDelete.pending.length} selected {def.label.toLowerCase()}? This can&apos;t be undone.
-              </>
-            )}
-            {(() => {
-              const owner = ownerAmongTargets(bulkDelete.pending, rows);
-              return owner && <div className="small">{ownerWarning(owner)}</div>;
-            })()}
-          </span>
-          <div className="inline-banner-actions">
-            <Button variant="ghost" disabled={bulkDelete.busy} onClick={bulkDelete.cancel}>
-              Cancel
-            </Button>
-            <Button variant="danger" disabled={bulkDelete.busy} onClick={() => void confirmDelete()}>
-              {bulkDelete.busy ? "Deleting…" : "Delete"}
-            </Button>
-          </div>
-        </InlineBanner>
-      )}
-      {bulkDelete.rejection && <PolicyRejectionCard flush={false} rejection={bulkDelete.rejection} />}
-      {!bulkDelete.rejection && bulkDelete.error && <InlineBanner>{bulkDelete.error}</InlineBanner>}
-
-      <div className="toolbar">
-        {!def.scoped && (
-          <NamespaceFilter cluster={effectiveCluster || undefined} />
-        )}
-        <TextField
-          ref={filterRef}
-          placeholder={`Filter ${def.label.toLowerCase()}…  /`}
-          aria-label={`Filter ${def.label.toLowerCase()}`}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          spellCheck={false}
-        />
-      </div>
-
-      {shouldShowSkeleton(stream.synced, stream.rows.length) ? (
-        <SkeletonTable headers={headers} widths={widths} rows={10} leadingBlank label={`Loading ${def.label.toLowerCase()}…`} />
-      ) : rows.length === 0 ? (
-        <EmptyState>
-          <p>No {def.label.toLowerCase()} match.</p>
-          <p className="muted small">{search || nsFilter.length ? "Loosen the filters." : `Nothing in this ${def.scoped ? "cluster" : "namespace"} yet.`}</p>
-        </EmptyState>
-      ) : (
-        <TableWrap ref={scrollRef} busy={!stream.synced}>
-          <Table>
-            <colgroup>
-              <col style={{ width: 40 }} />
-              {headers.map((h, i) => <col key={h} style={{ width: widths[i] }} />)}
-              <col style={{ width: 36 }} /> {/* ⋮ column */}
-            </colgroup>
-            <thead ref={headerRef}>
-              <tr>
-                {/* Select-all checkbox */}
-                <SelectAllHeader
-                  checked={isAllSelected(allKeys)}
-                  indeterminate={isIndeterminate(allKeys)}
-                  onChange={(checked) => (checked ? selectAll(allKeys) : clearAll())}
-                />
-                {headers.map((h, i) => (
-                  <SortHeader
-                    key={h}
-                    label={h}
-                    active={sortCol === h}
-                    asc={sortAsc}
-                    onSort={() => toggleSort(h)}
-                    width={widths[i]}
-                    style={{ position: "relative" }}
-                  >
-                    <div className="col-resize-handle" {...getResizeHandleProps(i)} />
-                  </SortHeader>
-                ))}
-                <th className="col-row-menu" style={{ width: 36 }} /> {/* ⋮ header spacer */}
-              </tr>
-            </thead>
-            <tbody>
-              <VirtualSpacer height={topSpace} colSpan={headers.length + 2} />
-              {virtualRows.map((virtualRow) => {
-                const o = rows[virtualRow.index]!;
-                const meta = rec(o.metadata);
-                const name = str(meta.name);
-                const ns = str(meta.namespace);
-                const key = `${ns}/${name}`;
-                const isSelected = selectedKeys.has(key);
-                const isTerminating = !!rec(o.metadata).deletionTimestamp;
-                return (
-                  <TableRow
-                    key={key}
-                    data-index={virtualRow.index}
-                    ref={rowVirtualizer.measureElement}
-                    clickable
-                    selected={isSelected}
-                    hovered={hoveredRowKey === key || activeRow === virtualRow.index}
-                    aria-current={activeRow === virtualRow.index ? "true" : undefined}
-                    dimmed={isTerminating}
-                    onClick={() => setSelected({ ns, name })}
-                    onMouseEnter={() => setHoveredRowKey(key)}
-                    onMouseLeave={() => setHoveredRowKey(null)}
-                    onContextMenu={(e) => { e.preventDefault(); setCtx({ x: e.clientX, y: e.clientY, ns, name, obj: o }); }}
-                  >
-                    <SelectCell checked={isSelected} onChange={() => toggleRow(key)} label={`Select ${name}`} />
-                    <td className="mono td-name" title={name}>{name}</td>
-                    {!def.scoped && (
-                      <td className="mono">
-                        <NsPill
-                          title={`Filter by namespace: ${ns}`}
-                          onClick={() => {
-                            if (effectiveCluster) setNamespaces(effectiveCluster, [ns]);
-                          }}
-                        >
-                          {ns}
-                        </NsPill>
-                      </td>
-                    )}
-                    {cols.map((col) => {
-                      const cell = cellFor(def.slug, col, o);
-                      return (
-                        <td key={col} className="mono muted">
-                          <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
-                            {cell.dot ? healthDot(cell.dot) : null}
-                            {cell.to ? (
-                              <span
-                                className="cell-link"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  navigate(`/detail/${cell.to!.kind}/${cell.to!.ns || "_"}/${cell.to!.name}`);
-                                }}
-                              >
-                                {cell.v}
-                              </span>
-                            ) : (
-                              <span className={cell.cls ?? ""}>{cell.v}</span>
-                            )}
-                          </span>
-                        </td>
-                      );
-                    })}
-                    {printerColumns.map((col) => (
-                      <td key={col.name} className="mono muted">
-                        {evalPrinterPath(col.jsonPath, o) || <span className="muted">–</span>}
-                      </td>
-                    ))}
-                    <td className="mono muted">{ownerCell(o).v}</td>
-                    <td className="mono muted" title={absoluteTime(str(meta.creationTimestamp))}><LiveAge ts={str(meta.creationTimestamp)} /></td>
-                    {/* ⋮ kebab — visible only on row hover */}
-                    <td className="col-row-menu" onClick={(e) => e.stopPropagation()}>
-                      <IconButton
-                        label="Row actions"
-                        className="row-menu-btn"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setCtx({ x: e.clientX, y: e.clientY, ns, name, obj: o });
-                        }}
-                      >
-                        ⋮
-                      </IconButton>
-                    </td>
-                  </TableRow>
-                );
-              })}
-              <VirtualSpacer
-                height={bottomSpace}
-                colSpan={headers.length + 2}
-              />
-            </tbody>
-          </Table>
-        </TableWrap>
-      )}
-
-      {ctx && (
-        <ContextMenu
-          x={ctx.x}
-          y={ctx.y}
-          onClose={() => setCtx(null)}
-          items={[
-            { label: "View details", onClick: () => setSelected({ ns: ctx.ns, name: ctx.name }) },
-            { label: "Edit YAML", onClick: () => setSelected({ ns: ctx.ns, name: ctx.name, tab: "yaml" }) },
-            ...(workloadActions(def.slug).scale ? [{ label: "Scale…", onClick: () => setRowAction({ action: "scale", obj: ctx.obj }) }] : []),
-            ...(workloadActions(def.slug).restart ? [{ label: "Restart…", onClick: () => setRowAction({ action: "restart", obj: ctx.obj }) }] : []),
-            { label: "Copy name", onClick: () => void navigator.clipboard?.writeText(ctx.name) },
+        menuItems={(o, { requestDelete }) => {
+          const ns = nsOf(o);
+          const name = nameOf(o);
+          return [
+            { label: "View details", onClick: () => setSelected({ ns, name }) },
+            { label: "Edit YAML", onClick: () => setSelected({ ns, name, tab: "yaml" }) },
+            ...(workloadActions(def.slug).scale ? [{ label: "Scale…", onClick: () => setRowAction({ action: "scale", obj: o }) }] : []),
+            ...(workloadActions(def.slug).restart ? [{ label: "Restart…", onClick: () => setRowAction({ action: "restart", obj: o }) }] : []),
+            { label: "Copy name", onClick: () => void navigator.clipboard?.writeText(name) },
             { separator: true, label: "", onClick: () => {} },
-            { label: "Delete", danger: true, onClick: () => {
-              bulkDelete.request([{ ns: ctx.ns, name: ctx.name }]);
-            }},
-          ]}
-        />
-      )}
+            { label: "Delete", danger: true, onClick: requestDelete },
+          ];
+        }}
+      />
 
       {rowAction && (
         <WorkloadActionDialog
