@@ -318,6 +318,10 @@ export interface APIResourceEntry {
 
 export const discoveryApi = {
   apis: (cluster: string) => get<APIResourceEntry[]>(`/api/apis?cluster=${encodeURIComponent(cluster)}`),
+  // Every apiVersion the server currently serves (not just the preferred one
+  // per group) -- backlog #25's Upgrade Readiness Panel needs this to tell
+  // whether a soon-to-be-removed version is still actually being served.
+  apiVersions: (cluster: string) => get<string[]>(`/api/apiversions?cluster=${encodeURIComponent(cluster)}`),
 };
 
 export interface PrinterColumn {

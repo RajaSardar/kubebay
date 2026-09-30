@@ -316,6 +316,7 @@ func Router(d Deps, token string) http.Handler {
 		r.Post("/api/yaml/create", d.Channels.HandleCreateResource)
 		r.Get("/api/metrics/pods", d.Metrics.HandlePodMetrics)
 		r.Get("/api/apis", d.Metrics.HandleDiscovery)
+		r.Get("/api/apiversions", d.Metrics.HandleAPIVersions)
 		r.Get("/api/crds", d.Metrics.HandleCRDs)
 		r.Get("/api/settings", d.Settings.HandleGet)
 		r.Post("/api/settings", d.Settings.HandleSave)
