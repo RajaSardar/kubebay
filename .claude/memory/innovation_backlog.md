@@ -659,6 +659,32 @@ Waste goes through the same `computeEngineRightSizingRows` materiality gate as t
 **Not in v1:** grouping by a team label instead of namespace name, CSV export, and history over time (depends on #36).
 
 **Effort: S.** **OSS, not Enterprise.** It works across the kubeconfigs on one laptop, with no shared control plane.
+### 38. Ingress / Gateway API routing resolution — status: shipped 2026-09-30
+
+From the [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszbyRLEMgqjEFVVewJ)'s Tier 2 list (item 13). `lib/routeResolution.ts` answers "why doesn't my hostname reach my app": it follows each route to Service → port → ready endpoints and names the first hop that breaks.
+
+- **`resolveIngressRoutes`** checks each Ingress rule path and the default backend:
+  - the Service is missing;
+  - the port doesn't exist on the Service (by number or by name);
+  - the Service has no ready endpoints (skipped when there's no EndpointSlice data, as in #27).
+
+  At the Ingress level it flags an `ingressClassName` with no IngressClass object, no class set and no default class, and a TLS Secret missing from the Ingress's namespace. The legacy `kubernetes.io/ingress.class` annotation counts as a class.
+- **`resolveHttpRoutes`** runs only when the Gateway API CRDs are installed (`detectGatewayApi`):
+  - a parent Gateway that doesn't exist (its namespace defaults to the route's);
+  - Service backendRefs, checked the same way as Ingress backends;
+  - any `Accepted` or `ResolvedRefs` condition the controller set to `False`, shown as-is. This covers the ReferenceGrant cases the resolver doesn't model.
+
+**Placement:** an "Ingress & Gateway routing" card on the Service Health tab, below CoreDNS (#31) and Service selector mismatches (#27), since all three answer the same reachability question. It lists broken routes with each failing hop named, plus a count of routes that resolve cleanly. It reuses the tab's Services and EndpointSlices streams and adds Ingresses, IngressClasses and Secrets, all gated to that tab. Secrets are in metadata mode; only TLS Secret names are needed, and a page test pins that. HTTPRoutes and Gateways stream only when their CRDs exist.
+
+**Not in v1:**
+
+- GRPCRoute, TLSRoute and TCPRoute
+- ReferenceGrant evaluation
+- Gateway listener hostname and port matching
+- controller-specific annotations such as nginx rewrite targets
+- following LoadBalancer status
+
+**Effort: M** (v1 about S). **OSS, not Enterprise.**
 
 ### Further ideas worth a look (unscoped, one-liners)
 - **Revert unsaved YAML edits — SHIPPED 2026-09-27.** One-click "discard my in-progress edit" button in `YamlTab.tsx`, next to Reload — a local reset (no network call), unlike Reload which re-fetches from the server.

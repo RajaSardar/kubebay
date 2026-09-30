@@ -9,6 +9,11 @@ vi.mock("../../lib/useCluster", () => ({
   useCluster: () => ({ cluster: "c1", setCluster: vi.fn(), list: [{ id: "c1" }], isLoading: false }),
 }));
 
+vi.mock("../../lib/api", async (orig) => ({
+  ...(await orig<typeof import("../../lib/api")>()),
+  crdApi: { list: vi.fn(async () => []) },
+}));
+
 vi.mock("../../lib/useResourceStream", () => ({
   useResourceStream: vi.fn(() => ({ rows: [], synced: true })),
   shouldShowSkeleton: () => false,
@@ -67,5 +72,19 @@ describe("WorkloadsOverview", () => {
     fireEvent.click(screen.getByRole("radio", { name: label }));
     expect(enabledFor("v1/services")).toEqual([true]);
     expect(enabledFor("discovery.k8s.io/v1/endpointslices")).toEqual([true]);
+  });
+
+  it("streams Ingresses, IngressClasses and Secret metadata only on the Service Health tab", () => {
+    renderPage();
+    for (const gvr of ["networking.k8s.io/v1/ingresses", "networking.k8s.io/v1/ingressclasses", "v1/secrets"]) {
+      expect(enabledFor(gvr)).toEqual([false]);
+    }
+    fireEvent.click(screen.getByRole("radio", { name: "Service Health" }));
+    for (const gvr of ["networking.k8s.io/v1/ingresses", "networking.k8s.io/v1/ingressclasses", "v1/secrets"]) {
+      expect(enabledFor(gvr)).toEqual([true]);
+    }
+    const secretCall = vi.mocked(useResourceStream).mock.calls.filter(([, g]) => g === "v1/secrets").at(-1);
+    expect((secretCall?.[2] as { mode?: string } | undefined)?.mode).toBe("metadata");
+    expect(screen.getByText("Ingress & Gateway routing")).toBeInTheDocument();
   });
 });
