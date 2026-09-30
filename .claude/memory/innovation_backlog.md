@@ -528,7 +528,7 @@ From the [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszb
 - Default ServiceAccount token automount (#28) → CIS 5.1.5, 5.1.6, and T1528.
 - Secrets in env vars (#29) → CIS 5.4.1.
 - NetworkPolicy coverage gaps (#26) → CIS 5.3.2.
-- Unverified images (#32) → CIS 5.5.1 + T1525. The mapping is in the registry; it's wired into `ImageSignatureCard` once #32 is on main.
+- Unverified images (#32) → CIS 5.5.1 + T1525, shown on `ImageSignatureCard`.
 
 A finding is tagged only where the control plainly describes it. An RBAC title the registry doesn't recognise gets no tags rather than a guessed one.
 

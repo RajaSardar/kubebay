@@ -1,5 +1,7 @@
 import { Badge, Card, Row, Stack } from "@kubebay/ui";
 import type { ImageSignatureReport } from "../lib/imageSignature";
+import { ControlTags } from "./ControlTags";
+import { controlsFor } from "../lib/controlIds";
 
 const STATUS: Record<ImageSignatureReport["status"], { label: string; tone: "ok" | "warn" | "err" }> = {
   enforced: { label: "Enforced", tone: "ok" },
@@ -15,6 +17,7 @@ export function ImageSignatureCard({ report, enginesInstalled }: { report: Image
       <Row align="center" gap={2} className="rbac-section-title">
         Image signature verification
         <Badge tone={s.tone}>{s.label}</Badge>
+        <ControlTags controls={controlsFor("unverified-images")} />
       </Row>
 
       {!enginesInstalled ? (
