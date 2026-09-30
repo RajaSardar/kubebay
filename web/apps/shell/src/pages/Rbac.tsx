@@ -6,11 +6,13 @@ import { RbacFindingsCard } from "../components/RbacFindingsCard";
 import { ServiceAccountAutomountCard } from "../components/ServiceAccountAutomountCard";
 import { SecretExposureCard } from "../components/SecretExposureCard";
 import { ImageSignatureCard } from "../components/ImageSignatureCard";
+import { OrphanedSecretsCard } from "../components/OrphanedSecretsCard";
 import { crdApi, rbacApi, type RBACSnapshot } from "../lib/api";
 import { detectImageSignatureEngines, summarizeImageSignaturePolicies } from "../lib/imageSignature";
 import type { FindingQuery } from "../lib/rbacFindings";
 import { findDefaultServiceAccountAutomounts } from "../lib/serviceAccountAutomount";
 import { findSecretEnvExposures } from "../lib/secretExposure";
+import { findOrphanedSecrets } from "../lib/orphanedSecrets";
 import { useCluster } from "../lib/useCluster";
 import { useResourceStream } from "../lib/useResourceStream";
 import { DEFS, EXTRA_DEFS } from "../lib/resources";
@@ -136,6 +138,25 @@ export default function Rbac() {
     [kyvernoClusterPolicies.rows, kyvernoPolicies.rows, sigstorePolicies.rows, namespaces.rows],
   );
   const sigEnginesInstalled = !!(sigEngines.kyvernoClusterPolicyGvr || sigEngines.kyvernoPolicyGvr || sigEngines.sigstoreClusterImagePolicyGvr);
+
+  // Backlog #35: unreferenced Secret finder. Secrets stay in metadata mode —
+  // the finder needs names/labels/annotations only, not values.
+  const secrets = useResourceStream(effectiveCluster || undefined, "v1/secrets", { mode: "metadata" });
+  const ingresses = useResourceStream(effectiveCluster || undefined, "networking.k8s.io/v1/ingresses", { mode: "full" });
+  const deployments = useResourceStream(effectiveCluster || undefined, "apps/v1/deployments", { mode: "full" });
+  const statefulSets = useResourceStream(effectiveCluster || undefined, "apps/v1/statefulsets", { mode: "full" });
+  const cronJobs = useResourceStream(effectiveCluster || undefined, "batch/v1/cronjobs", { mode: "full" });
+  const orphanedSecrets = useMemo(
+    () =>
+      findOrphanedSecrets({
+        secrets: secrets.rows,
+        pods: automountPods.rows,
+        workloads: [...deployments.rows, ...statefulSets.rows, ...cronJobs.rows],
+        serviceAccounts: automountSAs.rows,
+        ingresses: ingresses.rows,
+      }),
+    [secrets.rows, automountPods.rows, deployments.rows, statefulSets.rows, cronJobs.rows, automountSAs.rows, ingresses.rows],
+  );
 
   function runWhoCan(override?: FindingQuery) {
     if (!data) return;
@@ -292,6 +313,8 @@ export default function Rbac() {
       <SecretExposureCard findings={secretExposureFindings} />
 
       <ImageSignatureCard report={imageSignatureReport} enginesInstalled={sigEnginesInstalled} />
+
+      <OrphanedSecretsCard secrets={orphanedSecrets} />
 
       <Card>
         <div className="rbac-section-title">My access</div>
