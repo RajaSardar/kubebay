@@ -443,6 +443,21 @@ From the same [Kubebay Intelligence research pass](https://claude.ai/artifact/U1
 **Effort: XS** (~half a day) — one pure `lib/` function with no new selector-matching logic needed (this is direct field comparison, not LabelSelector matching), one dumb card component, and two new always-on streams on an existing page.
 
 **OSS, not Enterprise.** A local, agentless static-analysis detector over data the app already has access to — same size and shape as the RBAC-smell detector (#5) this page already ships.
+### 29. Secret exposure surface detector — status: shipped 2026-09-30
+
+From the [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszbyRLEMgqjEFVVewJ)'s Tier 1 list, following #28. Flags a pod group that exposes one or more Secrets via environment variables (`env[].valueFrom.secretKeyRef` or `envFrom[].secretRef`) rather than a mounted volume — a well-established Kubernetes hardening guideline (NSA/CISA Kubernetes Hardening Guide; the official Kubernetes "Good practices for Kubernetes Secrets" page): env-var secrets leak into `kubectl exec … env`, child-process environments, `/proc/<pid>/environ`, and are far more likely to end up in crash dumps or accidental debug logging than a value an app has to deliberately read from a file.
+
+**Scoped deliberately narrow: "how is it exposed," not "what's in it."** `lib/secretExposure.ts#findSecretEnvExposures` only inspects which Secrets a pod's own spec *references* and *how* — it never fetches a Secret object, never reads a value, never decodes base64. That keeps the feature itself from becoming a new secret-exposure surface inside Kubebay (reading every Secret's data client-side just to lint it would be a strictly worse security posture than the problem it detects). Scans both `containers` and `initContainers`, since a migration init-container pulling a DB password via `envFrom` is an extremely common version of exactly this pattern.
+
+**Zero new data source.** Pod `env`/`envFrom` specs are already on every full-mode Pod object; no Secret stream, no engine work.
+
+**Grouped by namespace+app label**, same convention as #26/#28, with each finding carrying the deduplicated set of Secret names exposed across all containers in the group.
+
+**Shipped as a new Card on `pages/Rbac.tsx`**, directly below `RbacFindingsCard` — same reasoning as #28's `ServiceAccountAutomountCard`: that page's own established convention is stacking independent security-posture cards, not tabs. (#28 and #29 were built on separate branches off the same `main`, both inserting a card at the same spot — whichever merges second hits a trivial, expected conflict: keep both cards.)
+
+**Effort: XS** (~half a day).
+
+**OSS, not Enterprise.** A local, agentless static check over data the app already streams.
 
 ### Further ideas worth a look (unscoped, one-liners)
 - **Revert unsaved YAML edits — SHIPPED 2026-09-27.** One-click "discard my in-progress edit" button in `YamlTab.tsx`, next to Reload — a local reset (no network call), unlike Reload which re-fetches from the server.
