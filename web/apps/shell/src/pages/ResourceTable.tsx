@@ -15,7 +15,7 @@ import { VirtualSpacer } from "../components/VirtualSpacer";
 import { useTableVirtualizer } from "../lib/useTableVirtualizer";
 import { evalPrinterPath } from "../lib/printerPath";
 import { ownerOf, ownerLabel, ownerAmongTargets, ownerWarning } from "../lib/gitops";
-import { absoluteTime, countLabel, matchesFilter, useSortPref, useTableKeyboard } from "../lib/tableUx";
+import { absoluteTime, compareValues, countLabel, matchesFilter, useSortPref, useTableKeyboard } from "../lib/tableUx";
 import { LiveAge } from "../components/LiveAge";
 import { templateKindFor } from "../lib/resourceTemplates";
 
@@ -429,11 +429,10 @@ export default function ResourceTable() {
           av = cellA.v;
           bv = cellB.v;
         }
-        if (typeof av === "number" && typeof bv === "number") return sortAsc ? av - bv : bv - av;
-        return sortAsc ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
+        return sortAsc ? compareValues(av, bv) : compareValues(bv, av);
       });
     } else {
-      out.sort((a, b) => str(rec(a.metadata).name).localeCompare(str(rec(b.metadata).name)));
+      out.sort((a, b) => compareValues(str(rec(a.metadata).name), str(rec(b.metadata).name)));
     }
     return out;
   }, [stream.rows, search, sortCol, sortAsc, def, cols]);
