@@ -503,6 +503,19 @@ Overall status: **Enforced** (some policy enforces) · **Audit only** (policies 
 **Not in v1:** Connaisseur, Ratify/Gatekeeper, and per-namespace coverage for Kyverno's `match`/`exclude` (a Kyverno policy is treated as cluster-wide).
 
 **Effort: XS–S.** **OSS, not Enterprise.**
+### 33. Local cluster efficiency score — status: shipped 2026-09-30
+
+From the [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszbyRLEMgqjEFVVewJ)'s Tier 1 list (item 5). One 0–100 number at the top of Cost / Waste, blended only from numbers that page already computes, so there's no new data source and no cross-customer benchmark. `lib/efficiencyScore.ts#computeEfficiencyScore` has three parts:
+
+- **Provisioning (weight 0.5)**: requests vs allocatable, from `computeClusterWaste` (#6 Phase 0), CPU and memory averaged. Requests at or above 80% of allocatable earn full marks; the rest is burst headroom, so a packed cluster isn't pushed toward 100%.
+- **Request coverage (0.2)**: the share of scheduled containers that set requests at all (the same unrequested list `WasteBreakdown` shows).
+- **Workload sizing (0.3)**: the share of measured Deployments/StatefulSets/DaemonSets that pass `computeEngineRightSizingRows`' materiality gate, so the score and the Right-sizing list never disagree. It needs usage data (metrics-server or Prometheus); without it the part is dropped and the other weights renormalized, and the card says so rather than guessing.
+
+Grades: 75+ good, 50+ fair, below that poor. A cluster with no allocatable capacity gets no score.
+
+**Not in v1:** score history over time (depends on the Foundational local historical rollup) and fleet-wide scores on the Fleet page.
+
+**Effort: S.** **OSS, not Enterprise.**
 
 ### Further ideas worth a look (unscoped, one-liners)
 - **Revert unsaved YAML edits — SHIPPED 2026-09-27.** One-click "discard my in-progress edit" button in `YamlTab.tsx`, next to Reload — a local reset (no network call), unlike Reload which re-fetches from the server.
