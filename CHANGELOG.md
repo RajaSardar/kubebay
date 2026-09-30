@@ -32,6 +32,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 - **Pending has its own colour**: Pending pods use each theme's info hue instead of the warning orange, so they no longer read as warnings
 
 ### Fixed
+- Tables sorted counts as text, so a Job with 10 failures sorted below one with 9 (also Restarts, node Pods, event Count). Every table now sorts numbers as numbers and names naturally (pod-9 before pod-10), ignoring case
 - The Pods table mounted every row (5,000 pods meant 5,000 rows); it now renders only the rows in view, like the other tables. Every table also estimated rows 6px too short, which left the active row half off-screen after a keyboard move and made the scrollbar jump
 - Pods' CPU and memory bars measured every pod against 1 core and 1 GiB, and memory was always drawn in the warning colour. Bars now measure against the pod's own limit (warning at 80%, error at 100%), or its request when it has no limit, and the tooltip says which
 - Ages in tables went stale: a pod created "5s" ago still read "5s" a minute later, because rows only re-render when their data changes. Age cells now keep counting, from one shared clock

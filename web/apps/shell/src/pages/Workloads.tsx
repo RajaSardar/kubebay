@@ -13,7 +13,7 @@ import { NamespaceFilter } from "../components/NamespaceFilter";
 import { PolicyRejectionCard } from "../components/PolicyRejectionCard";
 import { useNamespaceStore, useSelectedNamespaces } from "../lib/namespace-store";
 import { ContextMenu } from "../components/ContextMenu";
-import { absoluteTime, countLabel, matchesFilter, useSortPref, useTableKeyboard } from "../lib/tableUx";
+import { absoluteTime, compareValues, countLabel, matchesFilter, useSortPref, useTableKeyboard } from "../lib/tableUx";
 import { LiveAge } from "../components/LiveAge";
 import { WorkloadTabBar } from "../components/WorkloadTabBar";
 import { usageBar, type UsageBar } from "../lib/podUsage";
@@ -142,11 +142,10 @@ export default function Workloads() {
           case "Age":       av = a.ageMs;     bv = b.ageMs;     break;
           default:          av = ""; bv = "";
         }
-        if (typeof av === "number" && typeof bv === "number") return sortAsc ? av - bv : bv - av;
-        return sortAsc ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
+        return sortAsc ? compareValues(av, bv) : compareValues(bv, av);
       });
     } else {
-      out.sort((a, b) => a.namespace.localeCompare(b.namespace) || a.name.localeCompare(b.name));
+      out.sort((a, b) => compareValues(a.namespace, b.namespace) || compareValues(a.name, b.name));
     }
     return out;
   }, [rows, filter, sortCol, sortAsc, usage]);
