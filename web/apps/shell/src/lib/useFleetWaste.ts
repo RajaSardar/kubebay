@@ -1,6 +1,7 @@
 import { useQueries } from "@tanstack/react-query";
 import { wasteApi, type WorkloadWaste } from "./api";
 import { summarizeFleetWaste, type FleetWasteSummary } from "./fleetWaste";
+import { summarizeShowback, type ShowbackRow } from "./fleetShowback";
 
 /**
  * Backlog #15 Phase 2: N parallel React Query calls against the existing
@@ -9,7 +10,7 @@ import { summarizeFleetWaste, type FleetWasteSummary } from "./fleetWaste";
  * fixed-size list of useQuery calls) is what lets this take a variable-length
  * cluster list without breaking the rules of hooks.
  */
-export function useFleetWaste(clusterIds: string[]): { summary: FleetWasteSummary; loading: boolean } {
+export function useFleetWaste(clusterIds: string[]): { summary: FleetWasteSummary; showback: ShowbackRow[]; loading: boolean } {
   const queries = useQueries({
     queries: clusterIds.map((id) => ({
       queryKey: ["waste-workloads", id],
@@ -26,6 +27,7 @@ export function useFleetWaste(clusterIds: string[]): { summary: FleetWasteSummar
 
   return {
     summary: summarizeFleetWaste(byCluster),
+    showback: summarizeShowback(byCluster),
     loading: queries.some((q) => q.isLoading),
   };
 }
