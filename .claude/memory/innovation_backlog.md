@@ -557,7 +557,7 @@ Skipped as managed or used outside pod specs:
 **Not in v1:** Gateway API `certificateRefs`, DaemonSet and Job templates, CSI `nodePublishSecretRef`, and a delete action.
 
 **Effort: S.** **OSS, not Enterprise.**
-### 36. Local historical rollup (retention layer) — status: scoping
+### 36. Local historical rollup (retention layer) — status: building (slice 1a #73, 1b)
 
 The [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszbyRLEMgqjEFVVewJ)'s **Foundational** item. It gates trend-based headroom forecasting and the cost/usage anomaly detector (Tier 2 #20 and #21). Today the only usage history is `waste`'s in-memory ring buffer, which is lost when the engine restarts.
 
