@@ -1,5 +1,7 @@
 import { Badge, Card, Row, Stack } from "@kubebay/ui";
 import type { SecretExposureFinding } from "../lib/secretExposure";
+import { ControlTags } from "./ControlTags";
+import { controlsFor } from "../lib/controlIds";
 
 /**
  * Backlog #29: follows the same stacked-Card convention as
@@ -13,6 +15,7 @@ export function SecretExposureCard({ findings }: { findings: SecretExposureFindi
       <Row align="center" gap={2} className="rbac-section-title">
         Secrets exposed via environment variables
         <Badge tone={findings.length > 0 ? "err" : "ok"}>{findings.length}</Badge>
+        <ControlTags controls={controlsFor("secret-env")} />
       </Row>
 
       {findings.length === 0 ? (

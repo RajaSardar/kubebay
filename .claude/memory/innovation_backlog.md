@@ -514,6 +514,25 @@ From the [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszb
 Grades: 75+ good, 50+ fair, below that poor. A cluster with no allocatable capacity gets no score.
 
 **Not in v1:** score history over time (depends on the Foundational local historical rollup) and fleet-wide scores on the Fleet page.
+### 34. Framework control-ID tags on existing findings — status: shipped 2026-09-30
+
+From the [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszbyRLEMgqjEFVVewJ)'s Tier 1 list (item 11, the settled compliance debate): labels on findings Kubebay already surfaces, with no new detector and no pass/fail compliance verdict. `lib/controlIds.ts` is one registry of CIS Kubernetes Benchmark v1.9 (Policies chapter) and MITRE ATT&CK (Containers matrix) references. `ControlTags` renders them as info badges, with the control's full name in the tooltip:
+
+- RBAC advisor findings, matched on the engine's titles (`rbacadvisor.go`):
+  - cluster-admin binding → CIS 5.1.1;
+  - admin-equivalent wildcards → 5.1.1 + 5.1.3;
+  - other wildcards → 5.1.3;
+  - escalation verbs → 5.1.8;
+  - cluster-wide Secret read → 5.1.2 + T1552.007;
+  - cluster-wide pod exec → T1609.
+- Default ServiceAccount token automount (#28) → CIS 5.1.5, 5.1.6, and T1528.
+- Secrets in env vars (#29) → CIS 5.4.1.
+- NetworkPolicy coverage gaps (#26) → CIS 5.3.2.
+- Unverified images (#32) → CIS 5.5.1 + T1525. The mapping is in the registry; it's wired into `ImageSignatureCard` once #32 is on main.
+
+A finding is tagged only where the control plainly describes it. An RBAC title the registry doesn't recognise gets no tags rather than a guessed one.
+
+**Not in v1:** NSA/CISA hardening guide references, a per-framework filter, and exporting findings grouped by control.
 
 **Effort: S.** **OSS, not Enterprise.**
 

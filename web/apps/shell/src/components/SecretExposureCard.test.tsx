@@ -30,4 +30,9 @@ describe("SecretExposureCard", () => {
     expect(screen.getByText("db-creds")).toBeTruthy();
     expect(screen.getByText("api-key")).toBeTruthy();
   });
+
+  it("shows the CIS control the finding maps to", () => {
+    render(<SecretExposureCard findings={[finding()]} />);
+    expect(screen.getByText("CIS 5.4.1")).toBeTruthy();
+  });
 });
