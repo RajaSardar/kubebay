@@ -109,7 +109,7 @@ describe("ResourceListView", () => {
   it("opens the row menu from the kebab with the page's items", () => {
     renderView();
     const row = screen.getByText("job-10").closest("tr")!;
-    fireEvent.click(within(row).getByRole("button", { name: "Row actions" }));
+    fireEvent.click(within(row).getByRole("button", { name: "Actions for job-10" }));
     expect(screen.getByText("View details")).toBeInTheDocument();
     fireEvent.click(screen.getByText("Delete"));
     expect(screen.getByText(/can.t be undone/)).toBeInTheDocument();
@@ -132,13 +132,12 @@ describe("ResourceListView", () => {
     expect(screen.queryByRole("columnheader", { name: "Namespace" })).toBeNull();
   });
 
-  it("takes a page's own touches: order, header count text, filter hint, cell class and title, menu label", () => {
+  it("takes a page's own touches: order, header count text, filter hint, cell class and title", () => {
     renderView({
       title: "Workloads",
       titleCount: "· Jobs",
       filterPlaceholder: "Filter by name or failures…  /",
       defaultSort: (a, b) => b.failed - a.failed,
-      menuLabel: (name) => `Actions for ${name}`,
       columns: [{ ...failedCol, className: (j) => (j.failed > 9 ? "mono warn" : "mono"), title: (j) => `${j.failed} failed` }],
     });
     expect(names()).toEqual(["job-10", "job-9", "backup"]);
@@ -148,6 +147,5 @@ describe("ResourceListView", () => {
     expect(cell).toHaveClass("mono", "warn");
     expect(cell).toHaveAttribute("title", "10 failed");
     expect(screen.getByText("9").closest("td")).not.toHaveClass("warn");
-    expect(screen.getByRole("button", { name: "Actions for job-9" })).toBeInTheDocument();
   });
 });

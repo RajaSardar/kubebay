@@ -60,8 +60,6 @@ export interface ResourceListViewProps<R> {
   defaultSort?: (a: R, b: R) => number;
   /** The filter's placeholder ("Filter <label>…  /" when unset). */
   filterPlaceholder?: string;
-  /** The row menu button's name ("Row actions" when unset). */
-  menuLabel?: (name: string) => string;
   onOpen: (r: R) => void;
   /** The row menu; Delete goes through `requestDelete` to get the confirmation. */
   menuItems: (r: R, actions: { requestDelete: () => void }) => MenuItem[];
@@ -313,7 +311,7 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
                     {/* ⋮ kebab — visible only on row hover */}
                     <td className="col-row-menu" onClick={(e) => e.stopPropagation()}>
                       <IconButton
-                        label={p.menuLabel ? p.menuLabel(name) : "Row actions"}
+                        label={`Actions for ${name}`}
                         className="row-menu-btn"
                         onClick={(e) => {
                           e.stopPropagation();
