@@ -7,6 +7,7 @@ import { useSelectedNamespaces } from "../lib/namespace-store";
 import { NamespaceFilter } from "../components/NamespaceFilter";
 import { NetworkPolicyCoverageList } from "../components/NetworkPolicyCoverageList";
 import { findNetworkPolicyCoverageGaps } from "../lib/networkPolicyCoverage";
+import { ReachabilityCheck } from "../components/ReachabilityCheck";
 
 // ── Type helpers ──────────────────────────────────────────────────────────────
 
@@ -235,7 +236,7 @@ export default function NetworkPolicyPage() {
   // selection means "(all)", matching NamespaceFilter's own convention.
   const nsFilter = useSelectedNamespaces(effectiveCluster || undefined);
 
-  const [activeTab, setActiveTab] = useState<"matrix" | "policies" | "coverage">("matrix");
+  const [activeTab, setActiveTab] = useState<"matrix" | "policies" | "coverage" | "reach">("matrix");
   const [selectedCell, setSelectedCell] = useState<CellDetail | null>(null);
 
   useEffect(() => setSelectedCell(null), [nsFilter]);
@@ -249,6 +250,9 @@ export default function NetworkPolicyPage() {
     "networking.k8s.io/v1/networkpolicies",
     { mode: "full" },
   );
+
+  // Namespace labels for namespaceSelector peers; only the reachability check needs them.
+  const namespaces = useResourceStream(effectiveCluster || undefined, "v1/namespaces", { mode: "full", enabled: activeTab === "reach" });
 
   const ready = pods.synced && netpols.synced;
 
@@ -360,6 +364,7 @@ export default function NetworkPolicyPage() {
             { value: "matrix", label: "Connectivity matrix" },
             { value: "policies", label: "Policy list" },
             { value: "coverage", label: "Coverage gaps" },
+            { value: "reach", label: "Can A reach B?" },
           ]}
           value={activeTab}
           onChange={setActiveTab}
@@ -381,6 +386,14 @@ export default function NetworkPolicyPage() {
         />
       ) : activeTab === "policies" ? (
         <PolicyListView policies={filteredPolicies} />
+      ) : activeTab === "reach" ? (
+        <div className="page-body">
+          <ReachabilityCheck
+            pods={nsFilter.length === 0 ? pods.rows : pods.rows.filter((p) => nsFilter.includes(String((p.metadata as KMeta | undefined)?.namespace ?? "")))}
+            policies={netpols.rows}
+            namespaces={namespaces.rows}
+          />
+        </div>
       ) : (
         <div className="page-body">
           <NetworkPolicyCoverageList gaps={filteredCoverageGaps} />
