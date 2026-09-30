@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams, useLocation } from "react-router-dom";
-import { Badge, Button, EmptyState, IconButton, InlineBanner, NsPill, PageHeader, phaseTone, SelectAllHeader, SelectCell, SkeletonTable, SortHeader, StatusDot, Table, TableRow, TableWrap, TextField } from "@kubebay/ui";
+import { Badge, Button, EmptyState, IconButton, InlineBanner, NsPill, PageHeader, SelectAllHeader, SelectCell, SkeletonTable, SortHeader, StatusDot, Table, TableRow, TableWrap, TextField } from "@kubebay/ui";
 import { api, crdApi, metricsApi, type PrinterColumn } from "../lib/api";
 import { useQuery as useRQQuery } from "@tanstack/react-query";
 import { useCluster } from "../lib/useCluster";
@@ -269,48 +269,6 @@ export function extraColumns(
         Type: (o) => ({ v: str(rec(o).type) || "Opaque" }),
         Data: (o) => ({ v: `${Object.keys(rec(o.data)).length} keys` }),
       };
-    case "pods":
-      return {
-        // Containers column: the cell value is unused — ContainerDots renders the dots
-        Containers: (o) => {
-          const cs = (rec(o.status).containerStatuses ?? []) as Record<string, unknown>[];
-          const total = cs.length || (rec(o.spec).containers as unknown[] | undefined)?.length || 0;
-          return { v: String(total) };
-        },
-        Status: (o) => {
-          const phase = str(rec(o.status).phase) || "Unknown";
-          const tone = phaseTone(phase);
-          const dot: Cell["dot"] =
-            tone === "ok" || tone === "terminated" ? "ok" : tone === "err" ? "err" : tone === "pending" ? "pending" : undefined;
-          return { v: phase, cls: tone ? `status-${tone}` : "muted", dot };
-        },
-        Ready: (o) => {
-          const cs = (rec(o.status).containerStatuses ?? []) as Record<string, unknown>[];
-          const total = cs.length || (rec(o.spec).containers as unknown[] | undefined)?.length || 0;
-          const ready = cs.filter((c) => c.ready === true).length;
-          const phase = str(rec(o.status).phase);
-          const dot: Cell["dot"] = phase === "Running" && ready === total && total > 0 ? "ok"
-            : phase === "Succeeded" ? "ok"
-            : phase === "Failed" ? "err"
-            : phase === "Pending" ? "pending"
-            : ready > 0 ? "warn" : "err";
-          return { v: `${ready}/${total}`, dot };
-        },
-        Restarts: (o) => {
-          const cs = (rec(o.status).containerStatuses ?? []) as Record<string, unknown>[];
-          const total = cs.reduce((sum, c) => sum + (typeof c.restartCount === "number" ? c.restartCount : 0), 0);
-          return { v: String(total), dot: total > 5 ? "err" : total > 0 ? "warn" : undefined };
-        },
-        "Controlled By": (o) => {
-          const owners = (rec(o.metadata).ownerReferences ?? []) as Record<string, unknown>[];
-          if (!owners.length) return { v: "–", cls: "muted" };
-          const owner = owners[0]!;
-          return { v: str(owner.kind) || "–", cls: "cell-secondary" };
-        },
-        Node: (o) => ({ v: str(rec(o.spec).nodeName) || "–" }),
-        QoS: (o) => ({ v: str(rec(o.status).qosClass) || "–", cls: "cell-secondary" }),
-        "Pod IP": (o) => ({ v: str(rec(o.status).podIP) || "–" }),
-      };
     case "events":
       return {
         Type: (o) => {
@@ -337,57 +295,6 @@ export function ownerCell(o: Row): Cell {
   const owner = ownerOf(o);
   return owner ? { v: ownerLabel(owner), cls: "muted" } : { v: "–", cls: "muted" };
 }
-
-// ── Per-container status squares (FreeLens-style dots) ──────────────────────
-type ContainerState = "ok" | "waiting" | "err" | "terminated";
-
-function containerState(cs: Record<string, unknown>): ContainerState {
-  if (cs.ready === true) return "ok";
-  const st = cs.state as Record<string, unknown> | undefined;
-  if (!st) return "waiting";
-  if (st.terminated != null) {
-    const exitCode = (st.terminated as Record<string, unknown>).exitCode;
-    return typeof exitCode === "number" && exitCode !== 0 ? "err" : "terminated";
-  }
-  if (st.waiting != null) return "waiting";
-  return "waiting";
-}
-
-const CONTAINER_DOT_COLOR: Record<ContainerState, string> = {
-  ok: "var(--kb-status-ok)",
-  waiting: "var(--kb-status-pending)",
-  err: "var(--kb-status-err)",
-  terminated: "var(--kb-status-terminated)",
-};
-
-function ContainerDots({ o }: { o: Row }) {
-  const cs = (rec(o.status).containerStatuses ?? []) as Record<string, unknown>[];
-  const specContainers = (rec(o.spec).containers ?? []) as unknown[];
-  const total = cs.length || specContainers.length;
-  if (total === 0) return <span className="muted">–</span>;
-  return (
-    <span className="container-dots">
-      {cs.length > 0
-        ? cs.map((c, i) => (
-            <span
-              key={i}
-              className="container-dot"
-              title={`${str(c.name)}: ${containerState(c)}`}
-              style={{ background: CONTAINER_DOT_COLOR[containerState(c)] }}
-            />
-          ))
-        : Array.from({ length: total }, (_, i) => (
-            <span
-              key={i}
-              className="container-dot"
-              title="pending"
-              style={{ background: CONTAINER_DOT_COLOR["waiting"] }}
-            />
-          ))}
-    </span>
-  );
-}
-
 
 export default function ResourceTable() {
   const { kind = "" } = useParams();
@@ -748,14 +655,6 @@ export default function ResourceTable() {
                       </td>
                     )}
                     {cols.map((col) => {
-                      // Containers column for pods: render per-container dots
-                      if (col === "Containers" && def.slug === "pods") {
-                        return (
-                          <td key={col}>
-                            <ContainerDots o={o} />
-                          </td>
-                        );
-                      }
                       const cell = cellFor(def.slug, col, o);
                       return (
                         <td key={col} className="mono muted">
