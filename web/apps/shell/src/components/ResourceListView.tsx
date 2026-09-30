@@ -25,10 +25,16 @@ export interface ListColumn<R> {
   sortValue?: (r: R) => string | number;
   /** What the filter matches in this column. Unset: the filter skips it. */
   filterText?: (r: R) => string;
+  /** The cell's class ("mono muted" when unset). */
+  className?: string | ((r: R) => string);
+  /** The cell's tooltip. */
+  title?: (r: R) => string | undefined;
 }
 
 export interface ResourceListViewProps<R> {
   title: ReactNode;
+  /** Muted text after the title ("· Pods"). */
+  titleCount?: ReactNode;
   /** Plural name, "Deployments": filter, delete and empty-state wording. */
   label: string;
   rows: readonly R[];
@@ -50,6 +56,12 @@ export interface ResourceListViewProps<R> {
   columns: readonly ListColumn<R>[];
   /** Where the chosen sort is remembered ("r/deployments"). */
   sortKey: string;
+  /** Order when no column is sorted (by name when unset). */
+  defaultSort?: (a: R, b: R) => number;
+  /** The filter's placeholder ("Filter <label>…  /" when unset). */
+  filterPlaceholder?: string;
+  /** The row menu button's name ("Row actions" when unset). */
+  menuLabel?: (name: string) => string;
   onOpen: (r: R) => void;
   /** The row menu; Delete goes through `requestDelete` to get the confirmation. */
   menuItems: (r: R, actions: { requestDelete: () => void }) => MenuItem[];
@@ -115,7 +127,10 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
       },
       [nameOf, nsOf, createdOf, byCol],
     ),
-    defaultSort: useCallback((a: R, b: R) => compareValues(nameOf(a), nameOf(b)), [nameOf]),
+    defaultSort: useCallback(
+      (a: R, b: R) => (p.defaultSort ? p.defaultSort(a, b) : compareValues(nameOf(a), nameOf(b))),
+      [p.defaultSort, nameOf],
+    ),
     sortKey: p.sortKey,
     onOpen,
     onToggle: toggleRow,
@@ -137,6 +152,7 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
       <PageHeader
         level={2}
         title={p.title}
+        count={p.titleCount}
         live={p.live}
         actions={
           <>
@@ -200,7 +216,7 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
         {p.toolbar}
         <TextField
           ref={filterRef}
-          placeholder={`Filter ${noun}…  /`}
+          placeholder={p.filterPlaceholder ?? `Filter ${noun}…  /`}
           aria-label={`Filter ${noun}`}
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
@@ -285,13 +301,19 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
                       </td>
                     )}
                     {columns.map((c) => (
-                      <td key={c.id} className="mono muted">{c.cell(r)}</td>
+                      <td
+                        key={c.id}
+                        className={(typeof c.className === "function" ? c.className(r) : c.className) ?? "mono muted"}
+                        title={c.title?.(r)}
+                      >
+                        {c.cell(r)}
+                      </td>
                     ))}
                     <td className="mono muted" title={absoluteTime(created)}><LiveAge ts={created} /></td>
                     {/* ⋮ kebab — visible only on row hover */}
                     <td className="col-row-menu" onClick={(e) => e.stopPropagation()}>
                       <IconButton
-                        label="Row actions"
+                        label={p.menuLabel ? p.menuLabel(name) : "Row actions"}
                         className="row-menu-btn"
                         onClick={(e) => {
                           e.stopPropagation();

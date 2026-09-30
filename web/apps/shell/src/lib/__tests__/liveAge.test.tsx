@@ -68,14 +68,14 @@ describe("tables use the live age", () => {
   it("Pods and every resource table render Age through LiveAge, not a one-off fmtAge", async () => {
     const { readFileSync } = await import("node:fs");
     const { resolve } = await import("node:path");
-    for (const file of ["pages/Workloads.tsx", "components/ResourceListView.tsx"]) {
-      const src = readFileSync(resolve(__dirname, "../..", file), "utf8");
-      expect(src, file).toMatch(/<LiveAge\b/);
-      expect(src, file).not.toMatch(/>\{fmtAge\(/);
+    const view = readFileSync(resolve(__dirname, "../../components/ResourceListView.tsx"), "utf8");
+    expect(view).toMatch(/<LiveAge\b/);
+    expect(view).not.toMatch(/>\{fmtAge\(/);
+    // Both pages draw their Age through the list view, and never by hand.
+    for (const page of ["Workloads.tsx", "ResourceTable.tsx"]) {
+      const src = readFileSync(resolve(__dirname, "../../pages", page), "utf8");
+      expect(src, page).toMatch(/<ResourceListView\b/);
+      expect(src, page).not.toMatch(/>\{fmtAge\(/);
     }
-    // ResourceTable draws its Age through the list view, and never by hand.
-    const rt = readFileSync(resolve(__dirname, "../../pages/ResourceTable.tsx"), "utf8");
-    expect(rt).toMatch(/<ResourceListView\b/);
-    expect(rt).not.toMatch(/>\{fmtAge\(/);
   });
 });
