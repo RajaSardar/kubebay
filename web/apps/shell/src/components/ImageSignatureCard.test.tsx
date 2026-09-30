@@ -43,4 +43,10 @@ describe("ImageSignatureCard", () => {
     expect(screen.getByText(/^enforced$/i)).toBeTruthy();
     expect(screen.getByText(/shop, payments/)).toBeTruthy();
   });
+
+  it("shows the CIS and ATT&CK controls image provenance maps to", () => {
+    render(<ImageSignatureCard enginesInstalled={false} report={{ status: "none", policies: [], sigstoreNamespaces: [] }} />);
+    expect(screen.getByText("CIS 5.5.1")).toBeTruthy();
+    expect(screen.getByText("ATT&CK T1525")).toBeTruthy();
+  });
 });
