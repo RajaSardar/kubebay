@@ -59,12 +59,14 @@ export default function WorkloadsOverview() {
 
   const { kinds, synced } = useKindCounts(pods, nodes, deployments, statefulSets, effectiveCluster || undefined);
 
-  // SPOF Radar's own resources -- only opened once that tab is actually
-  // selected, same gating discipline the Pressure tab's podMetricsQ uses.
+  // Tab-gated like the Pressure tab's podMetricsQ: an unvisited tab opens no
+  // extra subscriptions. Services and EndpointSlices are shared by the SPOF
+  // Radar and Service Health tabs -- one subscription each, not two.
   const spofActive = tab === "spof";
+  const serviceHealthActive = tab === "service-health";
   const pdbs = useResourceStream(effectiveCluster || undefined, "policy/v1/poddisruptionbudgets", { mode: "full", enabled: spofActive });
-  const services = useResourceStream(effectiveCluster || undefined, "v1/services", { mode: "full", enabled: spofActive });
-  const endpointSlices = useResourceStream(effectiveCluster || undefined, "discovery.k8s.io/v1/endpointslices", { mode: "full", enabled: spofActive });
+  const services = useResourceStream(effectiveCluster || undefined, "v1/services", { mode: "full", enabled: spofActive || serviceHealthActive });
+  const endpointSlices = useResourceStream(effectiveCluster || undefined, "discovery.k8s.io/v1/endpointslices", { mode: "full", enabled: spofActive || serviceHealthActive });
   const spofFindings = useMemo(
     () =>
       computeSpofFindings({
@@ -107,11 +109,6 @@ export default function WorkloadsOverview() {
     [pressureInputs],
   );
 
-  // Backlog #27: tab-gated so an unvisited tab opens zero extra subscriptions,
-  // same convention as the Pressure tab's own podMetrics query.
-  const serviceHealthActive = tab === "service-health";
-  const services = useResourceStream(effectiveCluster || undefined, "v1/services", { mode: "full", enabled: serviceHealthActive });
-  const endpointSlices = useResourceStream(effectiveCluster || undefined, "discovery.k8s.io/v1/endpointslices", { mode: "full", enabled: serviceHealthActive });
   const serviceMismatches = useMemo(
     () => findServiceSelectorMismatches(services.rows, pods.rows, endpointSlices.rows),
     [services.rows, pods.rows, endpointSlices.rows],
