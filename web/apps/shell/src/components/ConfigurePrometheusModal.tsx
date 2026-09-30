@@ -35,7 +35,7 @@ function CopyableCommand({ command }: { command: string }) {
         onClick={copy}
         title="Copy to clipboard"
         variant="ghost"
-        size="sm"
+       
         style={{
           position: "absolute",
           top: 4,
@@ -52,11 +52,6 @@ interface ConfigurePrometheusModalProps {
   cluster: string;
   onClose: () => void;
   onSaved: () => void;
-}
-
-interface PrometheusSettings {
-  prometheusUrl?: string;
-  prometheusUrls?: Record<string, string>;
 }
 
 const ChoiceCard = ({
@@ -95,7 +90,10 @@ export default function ConfigurePrometheusModal({ cluster, onClose, onSaved }: 
   const mutation = useMutation({
     mutationFn: async () => {
       const current = await api.settingsApi.get();
-      const merged: PrometheusSettings = {
+      // Spread everything: the engine's save takes extraKubeconfigs and
+      // onlyListedKubeconfigs from the body verbatim, so omitting them wipes them.
+      const merged: api.AppSettings = {
+        ...current,
         prometheusUrl: current.prometheusUrl || "",
         prometheusUrls: { ...(current.prometheusUrls || {}), [cluster]: localUrl },
       };
@@ -129,17 +127,17 @@ export default function ConfigurePrometheusModal({ cluster, onClose, onSaved }: 
 
   return (
     <Modal label={`Configure Prometheus for ${cluster}`} onClose={onClose} placement="center">
-      <Stack gap="md">
+      <Stack gap={4}>
         {!services.synced ? (
           <Spinner />
         ) : (
           <>
             {candidates.length > 0 && (
-              <Stack gap="sm">
+              <Stack gap={2}>
                 <div style={{ fontSize: "var(--kb-text-sm)", fontWeight: "500" }}>Discovered Services</div>
                 {candidates.map((candidate, idx) => (
                   <ChoiceCard key={candidate.address} selected={selectedIdx === idx} onClick={() => handleCandidateSelect(idx)}>
-                    <Stack gap="xs">
+                    <Stack gap={1}>
                       <div>{candidate.name}</div>
                       <Badge>{candidate.namespace}</Badge>
                     </Stack>
@@ -152,7 +150,7 @@ export default function ConfigurePrometheusModal({ cluster, onClose, onSaved }: 
               Manual
             </ChoiceCard>
 
-            <Stack gap="sm">
+            <Stack gap={2}>
               <label htmlFor="prometheus-url" style={{ fontSize: "var(--kb-text-sm)", fontWeight: "500" }}>
                 URL
               </label>
@@ -168,7 +166,7 @@ export default function ConfigurePrometheusModal({ cluster, onClose, onSaved }: 
             </Stack>
 
             {selectedCandidate && (
-              <Stack gap="sm">
+              <Stack gap={2}>
                 <div style={{ fontSize: "var(--kb-text-xs)", color: "var(--kb-fg-muted)" }}>
                   Run this command to set up port forwarding:
                 </div>
@@ -178,7 +176,7 @@ export default function ConfigurePrometheusModal({ cluster, onClose, onSaved }: 
 
             {saveErr && <InlineBanner tone="err">{saveErr}</InlineBanner>}
 
-            <Row gap="sm" style={{ justifyContent: "flex-end", marginTop: "md" }}>
+            <Row gap={2} style={{ justifyContent: "flex-end", marginTop: "var(--kb-space-4)" }}>
               <Button variant="ghost" onClick={onClose}>
                 Cancel
               </Button>

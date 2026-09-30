@@ -32,6 +32,7 @@ describe("PrometheusSettings datalist (Slice 4)", () => {
     vi.mocked(api.settingsApi.get).mockResolvedValue({
       prometheusUrl: "",
       prometheusUrls: {},
+      extraKubeconfigs: [],
     });
     vi.mocked(useResourceStream).mockReturnValue({ rows: [], synced: true, connected: true });
   });
