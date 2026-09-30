@@ -4,9 +4,11 @@ import { Badge, Button, Card, PageHeader, Select, StatusDot, TextField } from "@
 import { PageLoader } from "../components/PageLoader";
 import { RbacFindingsCard } from "../components/RbacFindingsCard";
 import { ServiceAccountAutomountCard } from "../components/ServiceAccountAutomountCard";
+import { SecretExposureCard } from "../components/SecretExposureCard";
 import { rbacApi, type RBACSnapshot } from "../lib/api";
 import type { FindingQuery } from "../lib/rbacFindings";
 import { findDefaultServiceAccountAutomounts } from "../lib/serviceAccountAutomount";
+import { findSecretEnvExposures } from "../lib/secretExposure";
 import { useCluster } from "../lib/useCluster";
 import { useResourceStream } from "../lib/useResourceStream";
 import { DEFS, EXTRA_DEFS } from "../lib/resources";
@@ -99,6 +101,10 @@ export default function Rbac() {
     () => findDefaultServiceAccountAutomounts(automountPods.rows, automountSAs.rows),
     [automountPods.rows, automountSAs.rows],
   );
+
+  // Backlog #29: independent of the rbacApi.all snapshot -- pod env specs
+  // aren't part of that server-computed RBAC analysis.
+  const secretExposureFindings = useMemo(() => findSecretEnvExposures(automountPods.rows), [automountPods.rows]);
 
   function runWhoCan(override?: FindingQuery) {
     if (!data) return;
@@ -251,6 +257,8 @@ export default function Rbac() {
       <RbacFindingsCard findings={data?.findings ?? []} onQuery={applyFindingQuery} />
 
       <ServiceAccountAutomountCard findings={automountFindings} />
+
+      <SecretExposureCard findings={secretExposureFindings} />
 
       <Card>
         <div className="rbac-section-title">My access</div>
