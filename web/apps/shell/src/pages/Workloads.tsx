@@ -21,26 +21,10 @@ import { VirtualSpacer } from "../components/VirtualSpacer";
 import { useTableVirtualizer } from "../lib/useTableVirtualizer";
 import { ROW_HEIGHT, useDisplay } from "../lib/display";
 import { ownerAmongTargets, ownerLabel, ownerWarning } from "../lib/gitops";
+import { fmtBytes, fmtCpu } from "../lib/format";
 
 function rec(v: unknown): Record<string, unknown> {
   return (v ?? {}) as Record<string, unknown>;
-}
-
-export function fmtCpu(millis: number): string {
-  if (millis >= 1000) return `${(millis / 1000).toFixed(2)} core`;
-  return `${Math.max(1, Math.round(millis))}m`;
-}
-
-export function fmtBytes(bytes: number): string {
-  if (bytes <= 0) return "0";
-  const units = ["B", "Ki", "Mi", "Gi"];
-  let v = bytes;
-  let i = 0;
-  while (v >= 1024 && i < units.length - 1) {
-    v /= 1024;
-    i += 1;
-  }
-  return `${v.toFixed(v >= 100 || i === 0 ? 0 : 1)}${units[i]}`;
 }
 
 interface PodRow {
