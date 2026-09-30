@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button, Card, ChoiceCard, PageHeader, SegmentedControl, Select, Stack, TextField } from "@kubebay/ui";
 import { settingsApi } from "../lib/api";
+import { UsageHistoryCard } from "../components/UsageHistoryCard";
 import { useCluster } from "../lib/useCluster";
 import { useTheme, type ThemeName } from "../lib/theme";
 import { useDisplay, type FontSize, type FontFamily, type Density } from "../lib/display";
@@ -406,6 +407,7 @@ export default function Settings() {
           fallback={settings.data.nodeShellImageDefault ?? ""}
         />
       )}
+      {settings.isSuccess && <UsageHistoryCard clusters={settings.data.historyClusters ?? {}} />}
     </div>
   );
 }

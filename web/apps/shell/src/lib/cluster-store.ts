@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { historyApi } from "./api";
 
 const ACTIVE_CLUSTER_KEY = "kubebay.activeCluster";
 
@@ -32,6 +33,10 @@ export const useClusterStore = create<ClusterState>((set) => ({
   setActive: (active) => {
     try { sessionStorage.setItem(ACTIVE_CLUSTER_KEY, active); } catch { /* quota */ }
     set({ active });
+    // Connecting is the consent to record usage history for this cluster
+    // (backlog #36). The engine keeps an explicit Stop, and a failure here
+    // must never get in the way of connecting.
+    if (active) historyApi.enroll(active).catch(() => {});
   },
   setSelected: (selected) => set({ selected }),
 }));

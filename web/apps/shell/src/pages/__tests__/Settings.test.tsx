@@ -114,4 +114,16 @@ describe("PrometheusSettings datalist (Slice 4)", () => {
       expect(option?.value).not.toMatch(/\.svc/);
     });
   });
+
+  it("shows the Usage history card listing clusters with history consent", async () => {
+    vi.mocked(api.settingsApi.get).mockResolvedValue({
+      prometheusUrl: "",
+      prometheusUrls: {},
+      extraKubeconfigs: [],
+      historyClusters: { "kind-dev": true },
+    });
+    renderSettings();
+    expect(await screen.findByText("Usage history")).toBeInTheDocument();
+    expect(screen.getByText("kind-dev")).toBeInTheDocument();
+  });
 });
