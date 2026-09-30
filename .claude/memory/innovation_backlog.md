@@ -489,5 +489,20 @@ If the `coredns` ConfigMap isn't readable (RBAC), the Corefile checks are skippe
 
 **Effort: XS.** **OSS, not Enterprise.**
 
+### 32. Signed-image enforcement detection — status: shipped 2026-09-30
+
+From the [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszbyRLEMgqjEFVVewJ)'s Tier 1 list. Answers one question: is image signature verification actually enforced in this cluster, or can any image run? `lib/imageSignature.ts` covers the two common engines, detected from `/api/crds` like the other `detect*` helpers:
+
+- **Kyverno**: a `ClusterPolicy`/`Policy` counts if any rule has `verifyImages`. Mode comes from the per-entry `failureAction` (Kyverno 1.13+) and falls back to `spec.validationFailureAction` (either casing); Kyverno's default is audit. Images from `imageReferences`, or the legacy `image` field.
+- **Sigstore policy-controller**: a `ClusterImagePolicy` (`mode: warn` → audit, otherwise enforce). It only takes effect in namespaces labelled `policy.sigstore.dev/include=true`, so the check reads Namespaces too. Policies with no opted-in namespace enforce nothing and count as audit-only.
+
+Overall status: **Enforced** (some policy enforces) · **Audit only** (policies exist, none enforce) · **Not verified** (engine present, no signature policy) · no engine installed at all.
+
+**Placement:** a card on `pages/Rbac.tsx` with the other security-posture cards (#28, #29). Streams only for the engines present; Namespaces only when Sigstore is installed.
+
+**Not in v1:** Connaisseur, Ratify/Gatekeeper, and per-namespace coverage for Kyverno's `match`/`exclude` (a Kyverno policy is treated as cluster-wide).
+
+**Effort: XS–S.** **OSS, not Enterprise.**
+
 ### Further ideas worth a look (unscoped, one-liners)
 - **Revert unsaved YAML edits — SHIPPED 2026-09-27.** One-click "discard my in-progress edit" button in `YamlTab.tsx`, next to Reload — a local reset (no network call), unlike Reload which re-fetches from the server.

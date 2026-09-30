@@ -5,7 +5,9 @@ import { PageLoader } from "../components/PageLoader";
 import { RbacFindingsCard } from "../components/RbacFindingsCard";
 import { ServiceAccountAutomountCard } from "../components/ServiceAccountAutomountCard";
 import { SecretExposureCard } from "../components/SecretExposureCard";
-import { rbacApi, type RBACSnapshot } from "../lib/api";
+import { ImageSignatureCard } from "../components/ImageSignatureCard";
+import { crdApi, rbacApi, type RBACSnapshot } from "../lib/api";
+import { detectImageSignatureEngines, summarizeImageSignaturePolicies } from "../lib/imageSignature";
 import type { FindingQuery } from "../lib/rbacFindings";
 import { findDefaultServiceAccountAutomounts } from "../lib/serviceAccountAutomount";
 import { findSecretEnvExposures } from "../lib/secretExposure";
@@ -105,6 +107,35 @@ export default function Rbac() {
   // Backlog #29: independent of the rbacApi.all snapshot -- pod env specs
   // aren't part of that server-computed RBAC analysis.
   const secretExposureFindings = useMemo(() => findSecretEnvExposures(automountPods.rows), [automountPods.rows]);
+
+  // Backlog #32: signature-verification policies, streamed only for the engines the cluster actually has.
+  const crds = useQuery({
+    queryKey: ["crds", effectiveCluster],
+    queryFn: () => crdApi.list(effectiveCluster),
+    enabled: !!effectiveCluster,
+    staleTime: 5 * 60_000,
+    retry: false,
+  });
+  const sigEngines = useMemo(() => detectImageSignatureEngines(crds.data ?? []), [crds.data]);
+  const { kyvernoClusterPolicyGvr: kcpGvr, kyvernoPolicyGvr: kpGvr, sigstoreClusterImagePolicyGvr: cipGvr } = sigEngines;
+  const kyvernoClusterPolicies = useResourceStream(kcpGvr ? effectiveCluster || undefined : undefined, kcpGvr ?? "", { mode: "full", enabled: !!kcpGvr });
+  const kyvernoPolicies = useResourceStream(kpGvr ? effectiveCluster || undefined : undefined, kpGvr ?? "", { mode: "full", enabled: !!kpGvr });
+  const sigstorePolicies = useResourceStream(cipGvr ? effectiveCluster || undefined : undefined, cipGvr ?? "", { mode: "full", enabled: !!cipGvr });
+  const namespaces = useResourceStream(
+    sigEngines.sigstoreClusterImagePolicyGvr ? effectiveCluster || undefined : undefined,
+    "v1/namespaces",
+    { enabled: !!sigEngines.sigstoreClusterImagePolicyGvr },
+  );
+  const imageSignatureReport = useMemo(
+    () =>
+      summarizeImageSignaturePolicies({
+        kyverno: [...kyvernoClusterPolicies.rows, ...kyvernoPolicies.rows],
+        sigstore: sigstorePolicies.rows,
+        namespaces: namespaces.rows,
+      }),
+    [kyvernoClusterPolicies.rows, kyvernoPolicies.rows, sigstorePolicies.rows, namespaces.rows],
+  );
+  const sigEnginesInstalled = !!(sigEngines.kyvernoClusterPolicyGvr || sigEngines.kyvernoPolicyGvr || sigEngines.sigstoreClusterImagePolicyGvr);
 
   function runWhoCan(override?: FindingQuery) {
     if (!data) return;
@@ -259,6 +290,8 @@ export default function Rbac() {
       <ServiceAccountAutomountCard findings={automountFindings} />
 
       <SecretExposureCard findings={secretExposureFindings} />
+
+      <ImageSignatureCard report={imageSignatureReport} enginesInstalled={sigEnginesInstalled} />
 
       <Card>
         <div className="rbac-section-title">My access</div>
