@@ -62,9 +62,11 @@ export default function WorkloadsOverview() {
   // SPOF Radar's own resources -- only opened once that tab is actually
   // selected, same gating discipline the Pressure tab's podMetricsQ uses.
   const spofActive = tab === "spof";
+  const serviceHealthActive = tab === "service-health";
   const pdbs = useResourceStream(effectiveCluster || undefined, "policy/v1/poddisruptionbudgets", { mode: "full", enabled: spofActive });
-  const services = useResourceStream(effectiveCluster || undefined, "v1/services", { mode: "full", enabled: spofActive });
-  const endpointSlices = useResourceStream(effectiveCluster || undefined, "discovery.k8s.io/v1/endpointslices", { mode: "full", enabled: spofActive });
+  // services + endpointSlices shared by both SPOF Radar and Service Health tabs.
+  const services = useResourceStream(effectiveCluster || undefined, "v1/services", { mode: "full", enabled: spofActive || serviceHealthActive });
+  const endpointSlices = useResourceStream(effectiveCluster || undefined, "discovery.k8s.io/v1/endpointslices", { mode: "full", enabled: spofActive || serviceHealthActive });
   const spofFindings = useMemo(
     () =>
       computeSpofFindings({
@@ -107,11 +109,6 @@ export default function WorkloadsOverview() {
     [pressureInputs],
   );
 
-  // Backlog #27: tab-gated so an unvisited tab opens zero extra subscriptions,
-  // same convention as the Pressure tab's own podMetrics query.
-  const serviceHealthActive = tab === "service-health";
-  const services = useResourceStream(effectiveCluster || undefined, "v1/services", { mode: "full", enabled: serviceHealthActive });
-  const endpointSlices = useResourceStream(effectiveCluster || undefined, "discovery.k8s.io/v1/endpointslices", { mode: "full", enabled: serviceHealthActive });
   const serviceMismatches = useMemo(
     () => findServiceSelectorMismatches(services.rows, pods.rows, endpointSlices.rows),
     [services.rows, pods.rows, endpointSlices.rows],
