@@ -131,4 +131,23 @@ describe("ResourceListView", () => {
     renderView({ scoped: true });
     expect(screen.queryByRole("columnheader", { name: "Namespace" })).toBeNull();
   });
+
+  it("takes a page's own touches: order, header count text, filter hint, cell class and title, menu label", () => {
+    renderView({
+      title: "Workloads",
+      titleCount: "· Jobs",
+      filterPlaceholder: "Filter by name or failures…  /",
+      defaultSort: (a, b) => b.failed - a.failed,
+      menuLabel: (name) => `Actions for ${name}`,
+      columns: [{ ...failedCol, className: (j) => (j.failed > 9 ? "mono warn" : "mono"), title: (j) => `${j.failed} failed` }],
+    });
+    expect(names()).toEqual(["job-10", "job-9", "backup"]);
+    expect(screen.getByText("· Jobs")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/^Filter by name or failures…/)).toBeInTheDocument();
+    const cell = screen.getByText("10").closest("td")!;
+    expect(cell).toHaveClass("mono", "warn");
+    expect(cell).toHaveAttribute("title", "10 failed");
+    expect(screen.getByText("9").closest("td")).not.toHaveClass("warn");
+    expect(screen.getByRole("button", { name: "Actions for job-9" })).toBeInTheDocument();
+  });
 });

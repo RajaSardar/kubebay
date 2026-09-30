@@ -10,7 +10,7 @@ const src = resolve(__dirname, "..");
 const read = (p: string) => readFileSync(resolve(src, p), "utf8");
 
 describe("lists and tables load as skeletons", () => {
-  it.each(["pages/Workloads.tsx", "components/ResourceListView.tsx", "pages/Crds.tsx"])(
+  it.each(["components/ResourceListView.tsx", "pages/Crds.tsx"])(
     "%s sketches its list instead of a spinner or bare text",
     (file) => {
       const text = read(file);
@@ -19,7 +19,7 @@ describe("lists and tables load as skeletons", () => {
     },
   );
 
-  it.each(["pages/Workloads.tsx", "components/ResourceListView.tsx"])(
+  it.each(["components/ResourceListView.tsx"])(
     "%s shows the refresh bar while cached rows re-sync",
     (file) => {
       expect(read(file)).toMatch(/<TableWrap[^>]*\bbusy=\{/);
@@ -29,11 +29,14 @@ describe("lists and tables load as skeletons", () => {
   // The resource tables draw through the shared list view (docs/TABLE_UNIFICATION.md),
   // which carries the skeleton and refresh bar above; the page must use it and
   // must not fall back to a spinner.
-  it("pages/ResourceTable.tsx renders its list through ResourceListView", () => {
-    const text = read("pages/ResourceTable.tsx");
-    expect(text).toMatch(/<ResourceListView\b/);
-    expect(text).not.toMatch(/<PageLoader\b/);
-  });
+  it.each(["pages/ResourceTable.tsx", "pages/Workloads.tsx"])(
+    "%s renders its list through ResourceListView",
+    (file) => {
+      const text = read(file);
+      expect(text).toMatch(/<ResourceListView\b/);
+      expect(text).not.toMatch(/<PageLoader\b/);
+    },
+  );
 
   it("a lazily loaded page shows a skeleton, not a blank page, while its code loads", () => {
     const app = read("App.tsx");
