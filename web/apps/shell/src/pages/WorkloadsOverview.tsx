@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery as useRQQuery } from "@tanstack/react-query";
-import { Badge, Card, PageHeader, Row, SegmentedControl, Select, Skeleton } from "@kubebay/ui";
+import { Badge, Card, PageHeader, Row, SegmentedControl, Select, Skeleton, Stack } from "@kubebay/ui";
 import { useCluster } from "../lib/useCluster";
 import { useResourceStream, shouldShowSkeleton } from "../lib/useResourceStream";
 import { WorkloadTabBar } from "../components/WorkloadTabBar";
@@ -14,6 +14,8 @@ import { api } from "../lib/api";
 import { computeKindCounts } from "../lib/kindCounts";
 import { ServiceMismatchList } from "../components/ServiceMismatchList";
 import { findServiceSelectorMismatches } from "../lib/serviceSelectorMismatch";
+import { CoreDnsHealthCard } from "../components/CoreDnsHealthCard";
+import { checkCoreDns } from "../lib/coreDnsHealth";
 
 function useKindCounts(
   pods: ReturnType<typeof useResourceStream>,
@@ -67,6 +69,12 @@ export default function WorkloadsOverview() {
   // services + endpointSlices shared by both SPOF Radar and Service Health tabs.
   const services = useResourceStream(effectiveCluster || undefined, "v1/services", { mode: "full", enabled: spofActive || serviceHealthActive });
   const endpointSlices = useResourceStream(effectiveCluster || undefined, "discovery.k8s.io/v1/endpointslices", { mode: "full", enabled: spofActive || serviceHealthActive });
+  // Only kube-system's ConfigMaps: the Service Health tab reads the coredns Corefile from it.
+  const kubeSystemConfigMaps = useResourceStream(effectiveCluster || undefined, "v1/configmaps", {
+    mode: "full",
+    ns: ["kube-system"],
+    enabled: serviceHealthActive,
+  });
   const spofFindings = useMemo(
     () =>
       computeSpofFindings({
@@ -113,6 +121,10 @@ export default function WorkloadsOverview() {
     () => findServiceSelectorMismatches(services.rows, pods.rows, endpointSlices.rows),
     [services.rows, pods.rows, endpointSlices.rows],
   );
+  const coreDns = useMemo(
+    () => checkCoreDns(deployments.rows, pods.rows, kubeSystemConfigMaps.rows),
+    [deployments.rows, pods.rows, kubeSystemConfigMaps.rows],
+  );
 
   return (
     <div className="page">
@@ -145,7 +157,10 @@ export default function WorkloadsOverview() {
       ) : tab === "spof" ? (
         <SpofRadarList findings={spofFindings} />
       ) : tab === "service-health" ? (
-        <ServiceMismatchList findings={serviceMismatches} />
+        <Stack gap={4}>
+          <CoreDnsHealthCard report={coreDns} />
+          <ServiceMismatchList findings={serviceMismatches} />
+        </Stack>
       ) : shouldShowSkeleton(synced, totals.total) ? (
         <div className="cluster-grid">
           {[0, 1, 2, 3, 4, 5].map((i) => (

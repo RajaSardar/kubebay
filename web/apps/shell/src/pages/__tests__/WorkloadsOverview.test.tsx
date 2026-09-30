@@ -53,6 +53,15 @@ describe("WorkloadsOverview", () => {
     expect(enabledFor("discovery.k8s.io/v1/endpointslices")).toEqual([false]);
   });
 
+  it("streams only kube-system ConfigMaps, and only on the Service Health tab", () => {
+    renderPage();
+    expect(enabledFor("v1/configmaps")).toEqual([false]);
+    fireEvent.click(screen.getByRole("radio", { name: "Service Health" }));
+    expect(enabledFor("v1/configmaps")).toEqual([true]);
+    const cmCall = vi.mocked(useResourceStream).mock.calls.filter(([, g]) => g === "v1/configmaps").at(-1);
+    expect((cmCall?.[2] as { ns?: string[] } | undefined)?.ns).toEqual(["kube-system"]);
+  });
+
   it.each([["SPOF Radar"], ["Service Health"]])("enables the shared streams on the %s tab", (label) => {
     renderPage();
     fireEvent.click(screen.getByRole("radio", { name: label }));

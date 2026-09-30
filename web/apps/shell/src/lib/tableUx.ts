@@ -9,6 +9,17 @@ export function matchesFilter(fields: readonly string[], query: string): boolean
   return words.every((w) => hay.some((f) => f.includes(w)));
 }
 
+const naturalOrder = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
+
+/**
+ * Table sort order: numbers as numbers, text naturally, so "pod-9" sorts before
+ * "pod-10" and a count held as text ("10") sorts after "9". Case is ignored.
+ */
+export function compareValues(a: string | number, b: string | number): number {
+  if (typeof a === "number" && typeof b === "number") return a - b;
+  return naturalOrder.compare(String(a), String(b));
+}
+
 /** The row count for a table header: "12", or "3 of 340" when a filter hides some. */
 export function countLabel(shown: number, total: number): string {
   return shown === total ? String(shown) : `${shown} of ${total}`;
