@@ -533,6 +533,28 @@ From the [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszb
 A finding is tagged only where the control plainly describes it. An RBAC title the registry doesn't recognise gets no tags rather than a guessed one.
 
 **Not in v1:** NSA/CISA hardening guide references, a per-framework filter, and exporting findings grouped by control.
+### 35. Unreferenced (orphaned) Secret finder — status: shipped 2026-09-30
+
+From the [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszbyRLEMgqjEFVVewJ)'s Tier 2 list (item 16). `lib/orphanedSecrets.ts#findOrphanedSecrets` lists Secrets that nothing in their own namespace names. It checks these references:
+
+- **Pods:** secret and projected volumes, `env[].valueFrom.secretKeyRef`, `envFrom[].secretRef`, and the same fields on init and ephemeral containers, plus `imagePullSecrets`.
+- **Workload templates:** Deployment, StatefulSet and CronJob pod templates. A Deployment at zero replicas or a CronJob between runs still counts as using its Secret.
+- **ServiceAccounts:** `secrets` and `imagePullSecrets`.
+- **Ingresses:** `spec.tls[].secretName`.
+
+Skipped as managed or used outside pod specs:
+
+- Helm release records (`owner=helm`).
+- Legacy ServiceAccount tokens.
+- Anything with an ownerReference.
+- cert-manager Secrets.
+- All of `kube-system`.
+
+**Privacy:** Secrets stream in metadata mode, so Secret values never reach the shell for this. A page test pins that. Separately, metadata mode still passes the `last-applied-configuration` annotation through; that is a pre-existing issue filed as its own task.
+
+**Placement:** an "Unreferenced Secrets" card on the RBAC/security page, below "Secrets exposed via environment variables". It adds streams for Secrets (metadata), Ingresses, Deployments, StatefulSets and CronJobs, and reuses the page's existing pods and ServiceAccounts streams. The card says it doesn't check references from custom resources (Gateway certificateRefs, operator CRs), so it's a list to review, not to delete from.
+
+**Not in v1:** Gateway API `certificateRefs`, DaemonSet and Job templates, CSI `nodePublishSecretRef`, and a delete action.
 
 **Effort: S.** **OSS, not Enterprise.**
 
