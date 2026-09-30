@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useMemo, useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button, Card, ChoiceCard, PageHeader, SegmentedControl, Select, Stack, TextField } from "@kubebay/ui";
@@ -6,6 +6,8 @@ import { settingsApi } from "../lib/api";
 import { useCluster } from "../lib/useCluster";
 import { useTheme, type ThemeName } from "../lib/theme";
 import { useDisplay, type FontSize, type FontFamily, type Density } from "../lib/display";
+import { useResourceStream } from "../lib/useResourceStream";
+import { findCandidatePrometheusServices, suggestLocalURL } from "../lib/prometheusServiceDiscovery";
 
 const THEMES: { id: ThemeName; label: string; hint: string; swatch: [string, string, string] }[] = [
   // ── Apple originals ──────────────────────────────────────────────────
@@ -141,6 +143,12 @@ function PrometheusSettings({
   const perCluster = initialPerCluster ?? {};
   const stored = target === PROM_DEFAULT ? (initial ?? "") : (perCluster[target] ?? "");
 
+  const services = useResourceStream(target, "v1/services", { mode: "full", enabled: target !== PROM_DEFAULT });
+  const candidates = useMemo(
+    () => findCandidatePrometheusServices((services.rows ?? []) as Record<string, unknown>[]),
+    [services.rows],
+  );
+
   useEffect(() => {
     setUrl(stored);
     setSaved(null);
@@ -196,9 +204,17 @@ function PrometheusSettings({
           onChange={(e) => setUrl(e.target.value)}
           spellCheck={false}
           style={{ gridColumn: "span 3" }}
+          list={target !== PROM_DEFAULT && candidates.length > 0 ? "prom-candidates" : undefined}
         />
         <Button onClick={() => void save()}>Save</Button>
       </div>
+      {target !== PROM_DEFAULT && candidates.length > 0 && (
+        <datalist id="prom-candidates">
+          {candidates.map((c) => (
+            <option key={c.address} value={suggestLocalURL(c)} />
+          ))}
+        </datalist>
+      )}
       {overrides.length > 0 && (
         <ul className="small muted" style={{ margin: "8px 0 0", paddingLeft: 18 }}>
           {overrides.map(([c, u]) => (

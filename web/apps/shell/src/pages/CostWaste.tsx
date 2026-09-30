@@ -9,6 +9,8 @@ import { useCluster } from "../lib/useCluster";
 import { wasteApi } from "../lib/api";
 import { computeClusterWaste } from "../lib/waste";
 import { computeEngineRightSizingRows } from "../lib/rightsizing";
+import { SpotRiskCard } from "../components/SpotRiskCard";
+import { findSpotRiskWorkloads, isSpotNode } from "../lib/spotRisk";
 
 export default function CostWaste() {
   const { cluster: effectiveCluster } = useCluster();
@@ -18,6 +20,7 @@ export default function CostWaste() {
   const nodes = useResourceStream(effectiveCluster || undefined, "v1/nodes", { mode: "full" });
   const pods = useResourceStream(effectiveCluster || undefined, "v1/pods", { mode: "full" });
   const hpas = useResourceStream(effectiveCluster || undefined, "autoscaling/v2/horizontalpodautoscalers", { mode: "full" });
+  const pdbs = useResourceStream(effectiveCluster || undefined, "policy/v1/poddisruptionbudgets", { mode: "full" });
 
   const wasteQ = useQuery({
     queryKey: ["waste-workloads", effectiveCluster],
@@ -29,6 +32,8 @@ export default function CostWaste() {
 
   const waste = useMemo(() => computeClusterWaste(nodes.rows, pods.rows), [nodes.rows, pods.rows]);
   const usageRows = useMemo(() => computeEngineRightSizingRows(wasteQ.data ?? [], hpas.rows), [wasteQ.data, hpas.rows]);
+  const spotNodeCount = useMemo(() => nodes.rows.filter(isSpotNode).length, [nodes.rows]);
+  const spotRisk = useMemo(() => findSpotRiskWorkloads(pods.rows, nodes.rows, pdbs.rows), [pods.rows, nodes.rows, pdbs.rows]);
 
   if (!effectiveCluster) {
     return (
@@ -59,6 +64,9 @@ export default function CostWaste() {
         <WasteBreakdown waste={waste} />
         <div style={{ marginTop: 16 }}>
           <WorkloadUsageTable rows={usageRows} />
+        </div>
+        <div style={{ marginTop: 16 }}>
+          <SpotRiskCard findings={spotRisk} spotNodeCount={spotNodeCount} />
         </div>
       </div>
     </div>

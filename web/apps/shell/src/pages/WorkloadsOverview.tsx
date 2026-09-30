@@ -59,12 +59,12 @@ export default function WorkloadsOverview() {
 
   const { kinds, synced } = useKindCounts(pods, nodes, deployments, statefulSets, effectiveCluster || undefined);
 
-  // Tab-gated like the Pressure tab's podMetricsQ: an unvisited tab opens no
-  // extra subscriptions. Services and EndpointSlices are shared by the SPOF
-  // Radar and Service Health tabs -- one subscription each, not two.
+  // SPOF Radar's own resources -- only opened once that tab is actually
+  // selected, same gating discipline the Pressure tab's podMetricsQ uses.
   const spofActive = tab === "spof";
   const serviceHealthActive = tab === "service-health";
   const pdbs = useResourceStream(effectiveCluster || undefined, "policy/v1/poddisruptionbudgets", { mode: "full", enabled: spofActive });
+  // services + endpointSlices shared by both SPOF Radar and Service Health tabs.
   const services = useResourceStream(effectiveCluster || undefined, "v1/services", { mode: "full", enabled: spofActive || serviceHealthActive });
   const endpointSlices = useResourceStream(effectiveCluster || undefined, "discovery.k8s.io/v1/endpointslices", { mode: "full", enabled: spofActive || serviceHealthActive });
   const spofFindings = useMemo(

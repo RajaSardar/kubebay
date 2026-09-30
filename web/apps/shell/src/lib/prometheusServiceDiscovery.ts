@@ -54,3 +54,28 @@ export function findCandidatePrometheusServices(services: Record<string, unknown
   }
   return candidates;
 }
+
+/**
+ * Extract the port from an in-cluster DNS address and suggest a localhost
+ * port-forward URL for local Prometheus access.
+ *
+ * The candidate address is in-cluster format: http://prom.ns.svc:9090
+ * This returns the localhost equivalent: http://localhost:9090
+ */
+export function suggestLocalURL(c: PrometheusServiceCandidate): string {
+  // Parse port from address like "http://prom.ns.svc:9090" or "http://prom.ns.svc"
+  const url = new URL(c.address);
+  const port = url.port || "80";
+  return `http://localhost:${port}`;
+}
+
+/**
+ * Generate the kubectl port-forward command for a Prometheus candidate.
+ *
+ * Example: "kubectl -n monitoring port-forward svc/prometheus-server 9090:9090"
+ */
+export function portForwardCommand(c: PrometheusServiceCandidate): string {
+  const url = new URL(c.address);
+  const port = url.port || "80";
+  return `kubectl -n ${c.namespace} port-forward svc/${c.name} ${port}:${port}`;
+}
