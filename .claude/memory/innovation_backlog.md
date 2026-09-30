@@ -642,6 +642,23 @@ Verdict:
 3. **Laptop-only coverage.** Should forecasts be shown, clearly labelled "during observed hours only"? Or hidden until coverage is round-the-clock, which a laptop-only user never reaches?
 
 **Effort: M** (slice 1 is about one PR). **OSS, not Enterprise**, because it records only while the app is open.
+### 37. Fleet-wide showback by namespace — status: shipped 2026-09-30
+
+From the [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszbyRLEMgqjEFVVewJ)'s Tier 2 list (item 19). It extends the Fleet dashboard (#15 Phase 2). `lib/fleetShowback.ts#summarizeShowback` groups the per-cluster `/api/waste/workloads` data that `useFleetWaste` already polls by namespace **name**, so "payments" in prod and staging becomes one team row. Each row has:
+
+- the clusters it spans;
+- the workload count;
+- requested CPU and memory;
+- the sum of each workload's p95 usage, labelled as such because it's an upper bound on concurrent use;
+- wasted capacity.
+
+Waste goes through the same `computeEngineRightSizingRows` materiality gate as the Fleet waste total, so the two views never disagree. There are no dollar figures, as with Cost / Waste. The data covers measured workloads only (metrics-server or Prometheus), and the table says so when no cluster reports usage.
+
+**Placement:** a "Showback by namespace" `DataTable` under the per-cluster waste cards on the Fleet page. No new requests; `useFleetWaste` returns `showback` alongside `summary`.
+
+**Not in v1:** grouping by a team label instead of namespace name, CSV export, and history over time (depends on #36).
+
+**Effort: S.** **OSS, not Enterprise.** It works across the kubeconfigs on one laptop, with no shared control plane.
 
 ### Further ideas worth a look (unscoped, one-liners)
 - **Revert unsaved YAML edits — SHIPPED 2026-09-27.** One-click "discard my in-progress edit" button in `YamlTab.tsx`, next to Reload — a local reset (no network call), unlike Reload which re-fetches from the server.

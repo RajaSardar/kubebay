@@ -25,6 +25,12 @@ vi.mock("react-router-dom", async () => {
 vi.mock("../../lib/useFleetWaste", () => ({
   useFleetWaste: () => ({
     summary: { totalWastedCpuMillis: 0, totalWastedMemBytes: 0, perCluster: [] },
+    showback: [
+      {
+        ns: "payments", clusters: ["kind-a"], workloads: 1,
+        requestedCpuMillis: 1000, requestedMemBytes: 0, p95CpuMillis: 100, p95MemBytes: 0, wastedCpuMillis: 900, wastedMemBytes: 0,
+      },
+    ],
     loading: false,
   }),
 }));
@@ -75,5 +81,12 @@ describe("Fleet", () => {
     fireEvent.click(await screen.findByTestId("health-card-kind-a"));
     await waitFor(() => expect(setClusterMock).toHaveBeenCalledWith("kind-a"));
     expect(navigateMock).toHaveBeenCalledWith("/workloads");
+  });
+
+  it("shows namespace showback across the fleet", async () => {
+    vi.mocked(api.clusters).mockResolvedValue([{ id: "kind-a", context: "kind-a", server: "https://a", status: "connected" }]);
+    renderFleet();
+    expect(await screen.findByText(/Showback by namespace/)).toBeInTheDocument();
+    expect(screen.getByText("payments")).toBeInTheDocument();
   });
 });

@@ -8,6 +8,7 @@ import { useFleetWaste } from "../lib/useFleetWaste";
 import { sortClustersByHealth } from "../lib/fleetHealthOrder";
 import { formatCpuMillis, formatMemBytes } from "../lib/rightsizing";
 import { FleetClusterHealthCard, type ClusterHealthSummary } from "../components/FleetClusterHealthCard";
+import { FleetShowbackTable } from "../components/FleetShowbackTable";
 
 const STAGGER_CONCURRENCY = 3;
 const STAGGER_INTERVAL_MS = 500;
@@ -46,7 +47,7 @@ export default function Fleet() {
   }, [order, connected]);
 
   const connectedIds = useMemo(() => connected.map((c) => c.id), [connected]);
-  const { summary: waste } = useFleetWaste(connectedIds);
+  const { summary: waste, showback } = useFleetWaste(connectedIds);
 
   function openCluster(id: string, path = "/workloads") {
     setCluster(id);
@@ -140,6 +141,15 @@ export default function Fleet() {
                 </Card>
               ))}
             </div>
+          </div>
+        )}
+
+        {connected.length > 0 && (
+          <div style={{ marginTop: 16 }}>
+            <div className="muted small" style={{ marginBottom: 8 }}>
+              Showback by namespace, fleet-wide — measured workloads only, no dollar figures
+            </div>
+            <FleetShowbackTable rows={showback} />
           </div>
         )}
       </div>

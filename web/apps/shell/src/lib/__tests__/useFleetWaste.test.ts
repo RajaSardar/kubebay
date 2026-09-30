@@ -40,6 +40,8 @@ describe("useFleetWaste", () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.summary.perCluster).toHaveLength(2);
     expect(result.current.summary.totalWastedCpuMillis).toBeGreaterThan(0);
+    expect(result.current.showback).toHaveLength(1);
+    expect(result.current.showback[0]).toMatchObject({ ns: "default", clusters: ["kind-a", "kind-b"], workloads: 2 });
   });
 
   it("returns an empty summary for an empty cluster list, with no query calls", () => {
