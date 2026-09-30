@@ -10,12 +10,14 @@ import { SpofRadarList } from "../components/SpofRadarList";
 import { aggregatePressure } from "../lib/pressure";
 import { computeSpofFindings } from "../lib/spof";
 import { useLeadingThrottle } from "../lib/useLeadingThrottle";
-import { api } from "../lib/api";
+import { api, crdApi } from "../lib/api";
 import { computeKindCounts } from "../lib/kindCounts";
 import { ServiceMismatchList } from "../components/ServiceMismatchList";
 import { findServiceSelectorMismatches } from "../lib/serviceSelectorMismatch";
 import { CoreDnsHealthCard } from "../components/CoreDnsHealthCard";
 import { checkCoreDns } from "../lib/coreDnsHealth";
+import { RouteResolutionList } from "../components/RouteResolutionList";
+import { detectGatewayApi, resolveHttpRoutes, resolveIngressRoutes } from "../lib/routeResolution";
 
 function useKindCounts(
   pods: ReturnType<typeof useResourceStream>,
@@ -75,6 +77,26 @@ export default function WorkloadsOverview() {
     ns: ["kube-system"],
     enabled: serviceHealthActive,
   });
+  // Routing resolution (roadmap Tier 2 #13), also gated to the Service Health tab.
+  // Secrets stay in metadata mode: only TLS Secret names are needed.
+  const ingresses = useResourceStream(effectiveCluster || undefined, "networking.k8s.io/v1/ingresses", { mode: "full", enabled: serviceHealthActive });
+  const ingressClasses = useResourceStream(effectiveCluster || undefined, "networking.k8s.io/v1/ingressclasses", { mode: "full", enabled: serviceHealthActive });
+  const secrets = useResourceStream(effectiveCluster || undefined, "v1/secrets", { mode: "metadata", enabled: serviceHealthActive });
+  const crdsQ = useRQQuery({
+    queryKey: ["crds", effectiveCluster],
+    queryFn: () => crdApi.list(effectiveCluster),
+    enabled: !!effectiveCluster && serviceHealthActive,
+    retry: false,
+  });
+  const gatewayApi = useMemo(() => detectGatewayApi(crdsQ.data ?? []), [crdsQ.data]);
+  const httpRoutes = useResourceStream(effectiveCluster || undefined, gatewayApi.httpRouteGvr ?? "gateway.networking.k8s.io/v1/httproutes", {
+    mode: "full",
+    enabled: serviceHealthActive && !!gatewayApi.httpRouteGvr,
+  });
+  const gateways = useResourceStream(effectiveCluster || undefined, gatewayApi.gatewayGvr ?? "gateway.networking.k8s.io/v1/gateways", {
+    mode: "full",
+    enabled: serviceHealthActive && !!gatewayApi.gatewayGvr,
+  });
   const spofFindings = useMemo(
     () =>
       computeSpofFindings({
@@ -121,6 +143,21 @@ export default function WorkloadsOverview() {
     () => findServiceSelectorMismatches(services.rows, pods.rows, endpointSlices.rows),
     [services.rows, pods.rows, endpointSlices.rows],
   );
+  const routes = useMemo(
+    () => [
+      ...resolveIngressRoutes({
+        ingresses: ingresses.rows,
+        ingressClasses: ingressClasses.rows,
+        services: services.rows,
+        endpointSlices: endpointSlices.rows,
+        secrets: secrets.rows,
+      }),
+      ...(gatewayApi.httpRouteGvr
+        ? resolveHttpRoutes({ httpRoutes: httpRoutes.rows, gateways: gateways.rows, services: services.rows, endpointSlices: endpointSlices.rows })
+        : []),
+    ],
+    [ingresses.rows, ingressClasses.rows, services.rows, endpointSlices.rows, secrets.rows, gatewayApi.httpRouteGvr, httpRoutes.rows, gateways.rows],
+  );
   const coreDns = useMemo(
     () => checkCoreDns(deployments.rows, pods.rows, kubeSystemConfigMaps.rows),
     [deployments.rows, pods.rows, kubeSystemConfigMaps.rows],
@@ -160,6 +197,7 @@ export default function WorkloadsOverview() {
         <Stack gap={4}>
           <CoreDnsHealthCard report={coreDns} />
           <ServiceMismatchList findings={serviceMismatches} />
+          <RouteResolutionList routes={routes} />
         </Stack>
       ) : shouldShowSkeleton(synced, totals.total) ? (
         <div className="cluster-grid">
