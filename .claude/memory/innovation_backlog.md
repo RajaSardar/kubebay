@@ -458,6 +458,19 @@ From the [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszb
 **Effort: XS** (~half a day).
 
 **OSS, not Enterprise.** A local, agentless static check over data the app already streams.
+### 30. Spot/disruption-tolerance flagging — status: shipped 2026-09-30
+
+From the [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszbyRLEMgqjEFVVewJ)'s Tier 1 list. Flags a workload whose every running replica sits on spot/preemptible capacity and can't survive a reclaim wave: either it's single-replica, or it's multi-replica with no PodDisruptionBudget covering it.
+
+**Spot detection is label-based, across all the providers that stamp one:** `karpenter.sh/capacity-type=spot`, `eks.amazonaws.com/capacityType=SPOT`, `cloud.google.com/gke-spot=true`, `cloud.google.com/gke-preemptible=true`, `kubernetes.azure.com/scalesetpriority=spot` (`lib/spotRisk.ts#isSpotNode`). A cluster with none of these returns no findings and the card says so, rather than implying "all clear."
+
+**A single-replica spot workload is flagged even with a PDB.** A cloud spot reclaim doesn't go through the eviction API, so a PDB can't hold it off; for multi-replica workloads the PDB still matters because Karpenter/cluster-autoscaler drain ahead of a reclaim through eviction. The two reasons are kept separate for exactly that reason. PDB coverage reuses `lib/labelSelector.ts#matchesSelector`.
+
+**Skips what shouldn't count:** DaemonSet-owned pods (per-node by design, via `lib/podOwner.ts#controllerOwner`), non-Running pods, and unscheduled pods. A workload with even one replica on on-demand capacity isn't flagged. Grouped by namespace+app label, same as #26–#29.
+
+**Shipped as a card on `pages/CostWaste.tsx`**, below the usage table: spot is a cost decision, that page already streams `nodes` and `pods`, and it keeps this PR out of `WorkloadsOverview.tsx`/`Rbac.tsx`, which several open PRs already touch. One new stream (`policy/v1/poddisruptionbudgets`).
+
+**Effort: XS.** **OSS, not Enterprise.**
 
 ### Further ideas worth a look (unscoped, one-liners)
 - **Revert unsaved YAML edits — SHIPPED 2026-09-27.** One-click "discard my in-progress edit" button in `YamlTab.tsx`, next to Reload — a local reset (no network call), unlike Reload which re-fetches from the server.
