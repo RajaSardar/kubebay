@@ -1,144 +1,23 @@
 import { describe, expect, it } from "vitest";
 import { extraColumns, ownerCell } from "../ResourceTable";
 
-// ── pod columns ──────────────────────────────────────────────────────────────
+// ── no pod columns here ──────────────────────────────────────────────────────
 
-describe("extraColumns('pods') – Ready", () => {
-  const { Ready } = extraColumns("pods");
-
-  it("shows ready/total from containerStatuses", () => {
-    const cell = Ready!({
-      status: {
-        phase: "Running",
-        containerStatuses: [
-          { ready: true, restartCount: 0 },
-          { ready: true, restartCount: 0 },
-        ],
-      },
-      spec: { containers: [{}, {}] },
-    });
-    expect(cell.v).toBe("2/2");
-    expect(cell.dot).toBe("ok");
+// Pods have their own page (pages/Workloads.tsx). A second, never-routed pod
+// column set lived here (no "pods" ResourceDef exists, so /r/pods is "Unknown
+// resource") and drifted from the real one; it is gone, as is the drawer's
+// matching pod branch.
+describe("pods are not a resource-table kind", () => {
+  it("has no pod column set", () => {
+    expect(extraColumns("pods")).toEqual({});
   });
 
-  it("shows err dot when no containers are ready", () => {
-    const cell = Ready!({
-      status: {
-        phase: "Running",
-        containerStatuses: [
-          { ready: false, restartCount: 0 },
-        ],
-      },
-      spec: { containers: [{}] },
-    });
-    expect(cell.v).toBe("0/1");
-    expect(cell.dot).toBe("err");
-  });
-
-  it("shows warn dot when some containers are ready", () => {
-    const cell = Ready!({
-      status: {
-        phase: "Running",
-        containerStatuses: [
-          { ready: true, restartCount: 0 },
-          { ready: false, restartCount: 0 },
-        ],
-      },
-      spec: { containers: [{}, {}] },
-    });
-    expect(cell.v).toBe("1/2");
-    expect(cell.dot).toBe("warn");
-  });
-
-  it("shows ok dot for Succeeded phase", () => {
-    const cell = Ready!({
-      status: { phase: "Succeeded", containerStatuses: [] },
-      spec: { containers: [] },
-    });
-    expect(cell.dot).toBe("ok");
-  });
-
-  it("shows err dot for Failed phase", () => {
-    const cell = Ready!({
-      status: { phase: "Failed", containerStatuses: [] },
-      spec: { containers: [] },
-    });
-    expect(cell.dot).toBe("err");
-  });
-
-  it("falls back to spec.containers length when containerStatuses absent", () => {
-    const cell = Ready!({
-      status: { phase: "Pending" },
-      spec: { containers: [{}, {}, {}] },
-    });
-    expect(cell.v).toBe("0/3");
-  });
-});
-
-describe("extraColumns('pods') – Restarts", () => {
-  const { Restarts } = extraColumns("pods");
-
-  it("sums restartCount across all containers", () => {
-    const cell = Restarts!({
-      status: {
-        containerStatuses: [
-          { restartCount: 3 },
-          { restartCount: 2 },
-        ],
-      },
-    });
-    expect(cell.v).toBe("5");
-    expect(cell.dot).toBe("warn"); // >0 but <=5
-  });
-
-  it("shows err dot when restarts exceed 5", () => {
-    const cell = Restarts!({
-      status: {
-        containerStatuses: [{ restartCount: 7 }],
-      },
-    });
-    expect(cell.v).toBe("7");
-    expect(cell.dot).toBe("err");
-  });
-
-  it("shows no dot when restarts are zero", () => {
-    const cell = Restarts!({
-      status: {
-        containerStatuses: [{ restartCount: 0 }],
-      },
-    });
-    expect(cell.v).toBe("0");
-    expect(cell.dot).toBeUndefined();
-  });
-
-  it("handles missing containerStatuses gracefully", () => {
-    const cell = Restarts!({ status: {} });
-    expect(cell.v).toBe("0");
-    expect(cell.dot).toBeUndefined();
-  });
-});
-
-describe("extraColumns('pods') – Node and Pod IP", () => {
-  const cols = extraColumns("pods");
-
-  it("extracts nodeName", () => {
-    const cell = cols["Node"]!({ spec: { nodeName: "ip-10-0-1-2.ec2.internal" } });
-    expect(cell.v).toBe("ip-10-0-1-2.ec2.internal");
-  });
-
-  it("shows dash when nodeName absent", () => {
-    const cell = cols["Node"]!({ spec: {} });
-    expect(cell.v).toBe("–");
-  });
-
-  it("extracts podIP", () => {
-    const cell = cols["Pod IP"]!({ status: { podIP: "10.0.1.42" } });
-    expect(cell.v).toBe("10.0.1.42");
-  });
-
-  it("shows dash when podIP absent", () => {
-    const cell = cols["Pod IP"]!({ status: {} });
-    expect(cell.v).toBe("–");
+  it("the generic drawer has no pod branch", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { resolve } = await import("node:path");
+    const src = readFileSync(resolve(__dirname, "../../components/GenericDrawer.tsx"), "utf8");
+    expect(src).not.toMatch(/slug === "pods"/);
+    expect(src).not.toMatch(/\bisPod\b/);
   });
 });
 
