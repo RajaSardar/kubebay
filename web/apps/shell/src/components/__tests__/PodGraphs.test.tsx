@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { PodGraphs } from "../PodGraphs";
@@ -23,6 +23,7 @@ describe("PodGraphs with Prometheus configuration", () => {
     mockGet.mockResolvedValue({
       prometheusUrl: "",
       prometheusUrls: promUrl ? { "kind-test": promUrl } : {},
+      extraKubeconfigs: [],
     });
 
     const mockQueryRange = vi.mocked(api.promApi.queryRange);
@@ -64,13 +65,14 @@ describe("PodGraphs with Prometheus configuration", () => {
     mockGet.mockResolvedValue({
       prometheusUrl: "",
       prometheusUrls: { "kind-test": "http://localhost:9090" },
+      extraKubeconfigs: [],
     });
 
     const mockQueryRange = vi.mocked(api.promApi.queryRange);
     const err = new Error("prometheus-unreachable");
     mockQueryRange.mockRejectedValue(err);
 
-    const { container } = render(
+    render(
       <QueryClientProvider client={qc}>
         <PodGraphs cluster="kind-test" namespace="default" pod="test-pod" />
       </QueryClientProvider>,
@@ -90,6 +92,7 @@ describe("PodGraphs with Prometheus configuration", () => {
     mockGet.mockResolvedValue({
       prometheusUrl: "",
       prometheusUrls: { "kind-test": "http://localhost:9090" },
+      extraKubeconfigs: [],
     });
 
     const mockQueryRange = vi.mocked(api.promApi.queryRange);
