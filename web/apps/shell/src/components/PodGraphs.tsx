@@ -213,8 +213,8 @@ export function PodGraphs({
           <InlineBanner flush>
             Prometheus is not reachable. Start a port-forward with:
             <CopyableCommand command={pfCommand} />
-            <Row gap="sm" style={{ marginTop: "8px", alignItems: "center" }}>
-              <Button variant="ghost" size="sm" onClick={() => setShowConfigModal(true)}>
+            <Row gap={2} style={{ marginTop: "8px", alignItems: "center" }}>
+              <Button variant="ghost" onClick={() => setShowConfigModal(true)}>
                 Configure
               </Button>
               {retrying && retryCount < MAX_RETRIES && (

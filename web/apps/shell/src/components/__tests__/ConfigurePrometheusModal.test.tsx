@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import ConfigurePrometheusModal from "../ConfigurePrometheusModal";
@@ -145,8 +145,8 @@ describe("ConfigurePrometheusModal", () => {
     const mockGet = vi.mocked(api.settingsApi.get);
     const mockSave = vi.mocked(api.settingsApi.save);
 
-    mockGet.mockResolvedValue({ prometheusUrl: "http://global:9090", prometheusUrls: { "other-cluster": "http://other:9090" } });
-    mockSave.mockResolvedValue({});
+    mockGet.mockResolvedValue({ prometheusUrl: "http://global:9090", prometheusUrls: { "other-cluster": "http://other:9090" }, extraKubeconfigs: [] });
+    mockSave.mockResolvedValue({ ok: true, saved: { extraKubeconfigs: [] } });
 
     vi.mocked(useResourceStream).mockReturnValue({ rows: [], synced: true, connected: true });
     renderModal();
@@ -161,7 +161,40 @@ describe("ConfigurePrometheusModal", () => {
       expect(mockSave).toHaveBeenCalledWith({
         prometheusUrl: "http://global:9090",
         prometheusUrls: { "other-cluster": "http://other:9090", "kind-test": "http://localhost:9090" },
+        extraKubeconfigs: [],
       });
+    });
+  });
+
+  it("keeps every other stored setting when saving -- the engine replaces extraKubeconfigs/onlyListed wholesale", async () => {
+    const user = userEvent.setup();
+    const mockGet = vi.mocked(api.settingsApi.get);
+    const mockSave = vi.mocked(api.settingsApi.save);
+
+    mockGet.mockResolvedValue({
+      prometheusUrl: "",
+      prometheusUrls: {},
+      extraKubeconfigs: ["/home/me/.kube/staging.yaml"],
+      onlyListedKubeconfigs: true,
+      nodeShellImage: "alpine:3.20",
+    });
+    mockSave.mockResolvedValue({ ok: true, saved: { prometheusUrl: "", prometheusUrls: {}, extraKubeconfigs: [] } });
+
+    vi.mocked(useResourceStream).mockReturnValue({ rows: [], synced: true, connected: true });
+    renderModal();
+
+    await user.type(screen.getByRole("textbox", { name: /URL/i }), "http://localhost:9090");
+    await user.click(screen.getByRole("button", { name: /Save/ }));
+
+    await waitFor(() => {
+      expect(mockSave).toHaveBeenCalledWith(
+        expect.objectContaining({
+          extraKubeconfigs: ["/home/me/.kube/staging.yaml"],
+          onlyListedKubeconfigs: true,
+          nodeShellImage: "alpine:3.20",
+          prometheusUrls: { "kind-test": "http://localhost:9090" },
+        }),
+      );
     });
   });
 
@@ -173,8 +206,8 @@ describe("ConfigurePrometheusModal", () => {
     const mockGet = vi.mocked(api.settingsApi.get);
     const mockSave = vi.mocked(api.settingsApi.save);
 
-    mockGet.mockResolvedValue({ prometheusUrl: "", prometheusUrls: {} });
-    mockSave.mockResolvedValue({});
+    mockGet.mockResolvedValue({ prometheusUrl: "", prometheusUrls: {}, extraKubeconfigs: [] });
+    mockSave.mockResolvedValue({ ok: true, saved: { extraKubeconfigs: [] } });
 
     vi.mocked(useResourceStream).mockReturnValue({ rows: [], synced: true, connected: true });
     renderModal(onClose, onSaved);
@@ -197,7 +230,7 @@ describe("ConfigurePrometheusModal", () => {
     const mockGet = vi.mocked(api.settingsApi.get);
     const mockSave = vi.mocked(api.settingsApi.save);
 
-    mockGet.mockResolvedValue({ prometheusUrl: "", prometheusUrls: {} });
+    mockGet.mockResolvedValue({ prometheusUrl: "", prometheusUrls: {}, extraKubeconfigs: [] });
     mockSave.mockRejectedValue(new Error("Save failed"));
 
     vi.mocked(useResourceStream).mockReturnValue({ rows: [], synced: true, connected: true });
