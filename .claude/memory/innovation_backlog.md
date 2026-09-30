@@ -585,7 +585,7 @@ Verdict:
   - **`<fp>`** is a sha256 prefix of the kube-system namespace UID, falling back to context+server. Cluster IDs are sanitised context names, and a recreated `kind-kind` must not inherit the old cluster's history.
 - **Crash safety.** The open hour is checkpointed every tick, not only at shutdown. The desktop wrapper SIGKILLs the engine on Windows, gives SIGTERM only 3s elsewhere, and laptop sleep kills it too. So a crash loses at most one tick.
 - **Writer lock.** The lock holds a PID plus a heartbeat, and a stale heartbeat (older than 3 intervals) can be reclaimed. A plain `O_EXCL` lock would stay stale forever after a SIGKILL.
-- **Caps.** 14-day retention, the top 50 namespaces by requests plus an `(other)` row so totals still add up, and a 256MB total guard. That's about 2MB per cluster.
+- **Caps.** 35-day retention (decided below), the top 50 namespaces by requests plus an `(other)` row so totals still add up, and a 256MB total guard. That's about 2MB per cluster.
 - **Honesty.** Missing hours come back as `null` and are never interpolated. Every series is tagged with its source. An hour counts as well-sampled at n ≥ 30, because `tick()` walks clusters one after another with 20s timeouts, so 60 samples an hour isn't guaranteed.
   - `Coverage{ExpectedHours, ObservedHours, WellSampledHours, DistinctDays, LongestGapHours, HourOfDayObserved[24], Label}`.
   - Nothing from history feeds `waste.Snapshot`.
@@ -622,7 +622,7 @@ Verdict:
    - the sampler's recorder gets namespace totals that include bare pods
    - the recorder doesn't change the snapshot
    - the handlers require `cluster`, and nulls serialise as `null`
-2. `PromSource` (`query_range` at a 1h step with `avg_over_time`/`max_over_time`, so its shape matches local buckets), the Clear button, and an "observed N of 336 hours" chip on Cost / Waste.
+2. `PromSource` (`query_range` at a 1h step with `avg_over_time`/`max_over_time`, so its shape matches local buckets), the Clear button, and an "observed N of 840 hours" chip on Cost / Waste.
 3. The consumers, #20 and #21.
 
 **Not in v1:**
@@ -635,13 +635,37 @@ Verdict:
 - a UI setting for retention
 - dollars
 
-**Open questions for Raja (needed before slice 1):**
+**Decisions (2026-09-30).** Raja delegated the three open questions to a debate: a privacy-first side, a usefulness-first side, and a synthesis round that cross-challenged both against the code.
 
-1. **Which clusters are recorded, and is recording on by default?** The Tier B tick polls every healthy kubeconfig context, including production contexts never opened this session. Options: all of them, only clusters opened this session, or an opt-in list.
-2. **Retention.** 14 days allows only an hour-of-day baseline. A true hour-of-week anomaly baseline needs 28–35 days, about 5MB per cluster. Is 5 weeks still "weeks, not months"?
-3. **Laptop-only coverage.** Should forecasts be shown, clearly labelled "during observed hours only"? Or hidden until coverage is round-the-clock, which a laptop-only user never reaches?
+1. **Recording is consent by connecting.** A cluster is recorded only if `historyClusters[id]` is true.
+   - Connecting in the UI (`setActive`, not the picker preview) calls `POST /api/history/enroll?cluster=`. That sets the flag only if it's absent, so an explicit Stop stays sticky.
+   - Health-probed and Fleet-polled clusters the user never connected to are never written to disk.
+   - No loopback special case: one rule.
+   - Erase (`DELETE /api/history?cluster=`) moves into slice 1, so a way to delete exists before the first byte is written.
+   - Binding consent to the fingerprint is deferred. Storage is already keyed by fingerprint, so a repointed context can't mix histories.
+   - Rejected alternatives:
+     - Opt-out: it writes production namespace names for clusters the user never opened, which fails least-surprise.
+     - Opt-in via a Settings checkbox: almost nobody would get history.
+2. **Retention is a fixed 35 days** (a constant; tests inject their own). `meta.json` records `retentionDays`.
+   - A later increase can't recover pruned data, while a later cut can always be made.
+   - "Raise it once #21 shows ≥3 same-hour-of-week samples" can never trigger at 14 days, because pruning deletes the evidence first.
+   - Consent-by-connecting already shrinks the privacy surface.
+3. **Forecasts are shown, never hidden**, with an engine-computed `Coverage.Label`.
+   - `HourOfDayObserved[24]` counts well-sampled hours only (n ≥ 30), plus `WeekendObserved`.
+   - Example labels: "observed 09–18 local, weekdays only", "observed 08–12, 14–18 local", "round-the-clock".
+   - Hiding forecasts until round-the-clock coverage would hide them forever for laptop-only users, turning a coverage limit into a paywall. The honesty rule is to label, not to withhold.
 
-**Effort: M** (slice 1 is about one PR). **OSS, not Enterprise**, because it records only while the app is open.
+**Settings fixes pulled into slice 1** (found by the synthesis round):
+- `HandleSave` wipes non-pointer fields the caller omits. `historyClusters` is taken as a pointer and merged.
+- `HandleSave` calls `Load()` before taking `s.mu`, a lost-update race. It moves under the lock.
+- Enroll and recording writes go through `s.mu` directly, not through `HandleSave`.
+
+**Slice 1 split into three PRs:**
+- **1a:** the `engine/internal/history` package. Store, coverage and label, fingerprint, writer lock. Nothing is wired, so it records nothing.
+- **1b:** settings field and race fix, the enroll/recording/erase/status/series endpoints, the sampler record filter and recorder hook, and the `main.go` wiring.
+- **1c:** UI. `setActive` enrolls the cluster, and a "Usage history" card in Settings lists enrolled clusters with a Recording toggle, Clear, the storage path, and the notice "Kubebay records hourly namespace usage for clusters you connect to, only while the app is open, for 35 days."
+
+**Effort: M** (slice 1 is three small PRs). **OSS, not Enterprise**, because it records only while the app is open.
 ### 37. Fleet-wide showback by namespace — status: shipped 2026-09-30
 
 From the [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszbyRLEMgqjEFVVewJ)'s Tier 2 list (item 19). It extends the Fleet dashboard (#15 Phase 2). `lib/fleetShowback.ts#summarizeShowback` groups the per-cluster `/api/waste/workloads` data that `useFleetWaste` already polls by namespace **name**, so "payments" in prod and staging becomes one team row. Each row has:
