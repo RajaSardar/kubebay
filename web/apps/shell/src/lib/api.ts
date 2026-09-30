@@ -397,11 +397,48 @@ export interface AppSettings {
   nodeShellImage?: string;
   nodeShellImageDefault?: string;
   localShell?: LocalShellCapability;
+  /** Usage-history consent per cluster (backlog #36): true once connected, false after Stop. */
+  historyClusters?: Record<string, boolean>;
 }
 
 export const settingsApi = {
   get: () => get<AppSettings>("/api/settings"),
   save: (b: AppSettings) => send<{ ok: boolean; saved: AppSettings }>("POST", "/api/settings", b),
+};
+
+export interface HistoryCoverage {
+  retentionDays: number;
+  expectedHours: number;
+  observedHours: number;
+  wellSampledHours: number;
+  distinctDays: number;
+  longestGapHours: number;
+  first: string | null;
+  hourOfDayObserved: number[];
+  weekendObserved: boolean;
+  /** Engine-computed, e.g. "observed 09–18 local, weekdays only"; show it next to anything derived from history. */
+  label: string;
+}
+
+export interface HistoryStatus {
+  cluster: string;
+  available: boolean;
+  reason?: string;
+  recording: boolean;
+  readOnly?: boolean;
+  path?: string;
+  retentionDays?: number;
+  coverage?: HistoryCoverage;
+}
+
+const q = (cluster: string) => `cluster=${encodeURIComponent(cluster)}`;
+
+/** Local usage history (backlog #36): consent, status and erase. */
+export const historyApi = {
+  enroll: (cluster: string) => send<{ recording: boolean }>("POST", `/api/history/enroll?${q(cluster)}`),
+  setRecording: (cluster: string, on: boolean) => send<{ recording: boolean }>("PUT", `/api/history/recording?${q(cluster)}&on=${on}`),
+  erase: (cluster: string) => send<{ erased: number }>("DELETE", `/api/history?${q(cluster)}`),
+  status: (cluster: string) => get<HistoryStatus>(`/api/history/status?${q(cluster)}`),
 };
 
 export interface ArgoCDResource {
