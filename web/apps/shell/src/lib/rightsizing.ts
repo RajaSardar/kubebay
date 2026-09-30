@@ -78,7 +78,7 @@ export function formatMemBytes(bytes: number): string {
   return `${Math.round(bytes)}`;
 }
 
-const SUPPORTED_KINDS = new Set(["Deployment", "StatefulSet", "DaemonSet"]);
+export const SUPPORTED_KINDS = new Set(["Deployment", "StatefulSet", "DaemonSet"]);
 
 // Materiality gate: a dimension only counts as actionable waste once it clears
 // BOTH a relative floor (so tiny workloads with naturally noisy recommendations

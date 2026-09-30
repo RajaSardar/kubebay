@@ -11,6 +11,8 @@ import { computeClusterWaste } from "../lib/waste";
 import { computeEngineRightSizingRows } from "../lib/rightsizing";
 import { SpotRiskCard } from "../components/SpotRiskCard";
 import { findSpotRiskWorkloads, isSpotNode } from "../lib/spotRisk";
+import { EfficiencyScoreCard } from "../components/EfficiencyScoreCard";
+import { computeEfficiencyScore } from "../lib/efficiencyScore";
 
 export default function CostWaste() {
   const { cluster: effectiveCluster } = useCluster();
@@ -32,6 +34,7 @@ export default function CostWaste() {
 
   const waste = useMemo(() => computeClusterWaste(nodes.rows, pods.rows), [nodes.rows, pods.rows]);
   const usageRows = useMemo(() => computeEngineRightSizingRows(wasteQ.data ?? [], hpas.rows), [wasteQ.data, hpas.rows]);
+  const efficiency = useMemo(() => computeEfficiencyScore(waste, pods.rows, wasteQ.data), [waste, pods.rows, wasteQ.data]);
   const spotNodeCount = useMemo(() => nodes.rows.filter(isSpotNode).length, [nodes.rows]);
   const spotRisk = useMemo(() => findSpotRiskWorkloads(pods.rows, nodes.rows, pdbs.rows), [pods.rows, nodes.rows, pdbs.rows]);
 
@@ -60,6 +63,9 @@ export default function CostWaste() {
         <div className="muted small" style={{ marginBottom: 12 }}>
           Tier 0: allocatable minus requests, computed directly from the live cluster — no metrics required, so this
           is exact and never stale. No dollar figures — Kubebay doesn't guess at your pricing.
+        </div>
+        <div style={{ marginBottom: 16 }}>
+          <EfficiencyScoreCard efficiency={efficiency} />
         </div>
         <WasteBreakdown waste={waste} />
         <div style={{ marginTop: 16 }}>
