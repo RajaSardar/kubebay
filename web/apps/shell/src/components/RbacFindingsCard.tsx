@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Badge, Button, Card, Row, Stack } from "@kubebay/ui";
 import type { RBACFinding } from "../lib/api";
 import { isSystemFinding, findingQuery, type FindingQuery } from "../lib/rbacFindings";
+import { rbacFindingControls } from "../lib/controlIds";
+import { ControlTags } from "./ControlTags";
 
 /**
  * Findings from the engine's static RBAC advisor (AnalyzeRBAC) — real
@@ -53,6 +55,7 @@ export function RbacFindingsCard({
                 <Row align="center" gap={2} wrap>
                   <Badge tone={f.severity === "high" ? "err" : undefined}>{f.severity}</Badge>
                   <span className="small strong">{f.title}</span>
+                  <ControlTags controls={rbacFindingControls(f)} />
                 </Row>
                 <div className="small muted">
                   {f.subject} via <span className="mono">{f.roleRef}</span>

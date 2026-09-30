@@ -29,4 +29,9 @@ describe("NetworkPolicyCoverageList", () => {
     expect(screen.getByText(/no policy in namespace/i)).toBeTruthy();
     expect(screen.getByText(/not covered by any policy/i)).toBeTruthy();
   });
+
+  it("tags each gap with CIS 5.3.2", () => {
+    render(<NetworkPolicyCoverageList gaps={[gap()]} />);
+    expect(screen.getByText("CIS 5.3.2")).toBeTruthy();
+  });
 });

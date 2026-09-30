@@ -22,4 +22,10 @@ describe("ServiceAccountAutomountCard", () => {
     expect(screen.getByText("cart")).toBeTruthy();
     expect(screen.getByText(/3 pods?/i)).toBeTruthy();
   });
+
+  it("shows the CIS and ATT&CK controls the finding maps to", () => {
+    render(<ServiceAccountAutomountCard findings={[finding()]} />);
+    expect(screen.getByText("CIS 5.1.6")).toBeTruthy();
+    expect(screen.getByText("ATT&CK T1528")).toBeTruthy();
+  });
 });

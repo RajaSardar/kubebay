@@ -1,6 +1,8 @@
 import { Badge, Card, EmptyState, Row, Stack } from "@kubebay/ui";
 import { NsPill } from "@kubebay/ui";
 import type { CoverageGap } from "../lib/networkPolicyCoverage";
+import { ControlTags } from "./ControlTags";
+import { controlsFor } from "../lib/controlIds";
 
 const REASON_LABEL: Record<CoverageGap["reason"], string> = {
   "no-policy-in-namespace": "No policy in namespace",
@@ -30,6 +32,7 @@ export function NetworkPolicyCoverageList({ gaps }: { gaps: CoverageGap[] }) {
           <Card>
             <Row align="center" gap={2} wrap>
               <Badge tone="err">{REASON_LABEL[g.reason]}</Badge>
+              <ControlTags controls={controlsFor("netpol-gap")} />
               <NsPill>{g.namespace}</NsPill>
               <strong className="mono small">{g.appLabel}</strong>
               <span className="muted small">{g.podCount} pod{g.podCount === 1 ? "" : "s"}</span>
