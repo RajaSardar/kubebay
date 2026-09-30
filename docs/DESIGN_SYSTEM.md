@@ -59,6 +59,9 @@ https://claude.ai/artifact/J35D45QQ7X6Sgd7mwfRSnF
    `empty`). Use the primitives (`TableWrap`, `Table`, `SortHeader`,
    `SelectAllHeader`, `SelectCell`, `TableRow`, `NsPill`, `SkeletonRows`) only
    when a table needs virtualisation, column resizing or expandable rows.
+   A list of Kubernetes resources renders through the shell's
+   `ResourceListView` (see `docs/TABLE_UNIFICATION.md`), not its own table.
+   `SortHeader` is focusable and sorts on Enter or Space as well as a click.
    Name cells take `className="mono td-name"`, secondary facts `cell-secondary`,
    namespaces `NsPill`, phases `StatusPill` (with `phaseTone` for pods).
 4. **Colours come from tokens.** No hex, `rgb()` or `rgba()` literals in shell

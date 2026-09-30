@@ -123,6 +123,32 @@ describe("table primitives", () => {
     expect(screen.getByText("default")).toHaveClass("ns-pill");
   });
 
+  it("SortHeader sorts from the keyboard: focusable, Enter or Space", () => {
+    const onSort = vi.fn();
+    const outer = vi.fn();
+    render(
+      <div onKeyDown={(e) => outer(e.defaultPrevented)}>
+        <table>
+          <thead>
+            <tr>
+              <SortHeader label="Failed" onSort={onSort} />
+            </tr>
+          </thead>
+        </table>
+      </div>,
+    );
+    const th = screen.getByRole("columnheader", { name: "Failed" });
+    expect(th).toHaveAttribute("tabindex", "0");
+    fireEvent.keyDown(th, { key: "Enter" });
+    fireEvent.keyDown(th, { key: " " });
+    expect(onSort).toHaveBeenCalledTimes(2);
+    expect(onSort).toHaveBeenCalledWith("Failed");
+    // Handled here, so the table's own Enter (open the active row) stands down.
+    expect(outer).toHaveBeenCalledWith(true);
+    fireEvent.keyDown(th, { key: "a" });
+    expect(onSort).toHaveBeenCalledTimes(2);
+  });
+
   it("SkeletonRows fills a loading table", () => {
     render(
       <table>
