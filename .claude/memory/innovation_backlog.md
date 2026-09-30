@@ -709,6 +709,20 @@ From the [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszb
 - IPv6 `ipBlock`.
 
 **Effort: M.** **OSS, not Enterprise.**
+### 40. GPU capacity accounting (GPU dimension, Phase 0) — status: shipped 2026-09-30
+
+From the [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszbyRLEMgqjEFVVewJ)'s Tier 2 list (item 14, the GPU utilisation and right-sizing dimension). Phase 0 is the GPU twin of #6's Tier 0 waste accounting and needs no metrics. `lib/gpuCapacity.ts#computeGpuCapacity` compares allocatable GPUs per node with the GPUs scheduled pods ask for:
+
+- **Resources:** vendor device-plugin names (`nvidia.com/gpu`, `amd.com/gpu`, `gpu.intel.com/*`) and NVIDIA MIG slices (`nvidia.com/mig-*`, each its own resource).
+- **Per-pod count:** a container asks for its request, else its limit, since extended resources can't be overcommitted and requests default to limits. A pod's ask is max(largest init container, sum of containers), as the scheduler computes it.
+- **Finished pods** (Succeeded or Failed) hold nothing.
+- **Pending pods** asking for a GPU are listed separately as "waiting for a GPU".
+
+**Placement:** a "GPU capacity" card on Cost / Waste, shown only when the cluster has GPU nodes. It shows "N of M unclaimed" per resource, a table of claimed vs allocatable per node, and the waiting pods. It reuses the page's nodes and pods streams.
+
+**Phase 1 (not in this PR):** utilisation of *claimed* GPUs from DCGM exporter metrics (`DCGM_FI_DEV_GPU_UTIL`, framebuffer used) via the Prometheus path the Tier A recommender already uses, and GPU right-sizing suggestions (fractional/MIG, or time-slicing for underused whole-GPU claims). This needs DCGM, so it's gated on it being present.
+
+**Effort: S** for Phase 0, **M** for Phase 1. **OSS, not Enterprise.**
 
 ### Further ideas worth a look (unscoped, one-liners)
 - **Revert unsaved YAML edits — SHIPPED 2026-09-27.** One-click "discard my in-progress edit" button in `YamlTab.tsx`, next to Reload — a local reset (no network call), unlike Reload which re-fetches from the server.

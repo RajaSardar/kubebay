@@ -13,6 +13,8 @@ import { SpotRiskCard } from "../components/SpotRiskCard";
 import { findSpotRiskWorkloads, isSpotNode } from "../lib/spotRisk";
 import { EfficiencyScoreCard } from "../components/EfficiencyScoreCard";
 import { computeEfficiencyScore } from "../lib/efficiencyScore";
+import { GpuCapacityCard } from "../components/GpuCapacityCard";
+import { computeGpuCapacity } from "../lib/gpuCapacity";
 
 export default function CostWaste() {
   const { cluster: effectiveCluster } = useCluster();
@@ -35,6 +37,7 @@ export default function CostWaste() {
   const waste = useMemo(() => computeClusterWaste(nodes.rows, pods.rows), [nodes.rows, pods.rows]);
   const usageRows = useMemo(() => computeEngineRightSizingRows(wasteQ.data ?? [], hpas.rows), [wasteQ.data, hpas.rows]);
   const efficiency = useMemo(() => computeEfficiencyScore(waste, pods.rows, wasteQ.data), [waste, pods.rows, wasteQ.data]);
+  const gpu = useMemo(() => computeGpuCapacity(nodes.rows, pods.rows), [nodes.rows, pods.rows]);
   const spotNodeCount = useMemo(() => nodes.rows.filter(isSpotNode).length, [nodes.rows]);
   const spotRisk = useMemo(() => findSpotRiskWorkloads(pods.rows, nodes.rows, pdbs.rows), [pods.rows, nodes.rows, pdbs.rows]);
 
@@ -71,6 +74,11 @@ export default function CostWaste() {
         <div style={{ marginTop: 16 }}>
           <WorkloadUsageTable rows={usageRows} />
         </div>
+        {gpu.totals.length > 0 && (
+          <div style={{ marginTop: 16 }}>
+            <GpuCapacityCard gpu={gpu} />
+          </div>
+        )}
         <div style={{ marginTop: 16 }}>
           <SpotRiskCard findings={spotRisk} spotNodeCount={spotNodeCount} />
         </div>
