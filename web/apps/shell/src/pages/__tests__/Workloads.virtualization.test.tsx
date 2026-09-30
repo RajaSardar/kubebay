@@ -1,4 +1,4 @@
-import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
@@ -32,71 +32,33 @@ vi.mock("../../lib/useResourceStream", async () => {
 
 function renderPods() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  const result = render(
+  return render(
     <QueryClientProvider client={qc}>
       <MemoryRouter initialEntries={["/workloads"]}>
         <Workloads />
       </MemoryRouter>
     </QueryClientProvider>,
   );
-  // Force the scroll container and thead to have realistic measurements for the virtualizer
-  const tableWrap = result.container.querySelector("[role='region']") as HTMLElement;
-  const thead = result.container.querySelector("thead") as HTMLElement;
-  if (tableWrap) {
-    (tableWrap as any).__mockOffsetHeight = 600;
-    (tableWrap as any).__mockClientHeight = 600;
-  }
-  if (thead) {
-    (thead as any).__mockOffsetHeight = 40;
-  }
-  return result;
 }
 
 describe("Pods table virtualisation", () => {
   beforeAll(() => {
-    // jsdom has no layout: mock getBoundingClientRect to return realistic dimensions
-    const origGetBoundingClientRect = Element.prototype.getBoundingClientRect;
-    Element.prototype.getBoundingClientRect = function() {
-      const rect = origGetBoundingClientRect.call(this);
-      // THEAD should be 40px tall
-      if (this.tagName === "THEAD") return { ...rect, height: 40, top: 0 };
-      // Scroll containers (divs with overflow) should be 600px tall
-      if (this.tagName === "DIV" && (this as HTMLElement).style?.overflow) {
-        return { ...rect, height: 600, top: 0 };
-      }
-      return rect;
-    };
-    // Set offsetHeight/clientHeight for all elements
-    Object.defineProperty(HTMLElement.prototype, "offsetHeight", {
-      configurable: true,
-      get() { return (this as any).__mockOffsetHeight ?? 0; }
-    });
-    Object.defineProperty(HTMLElement.prototype, "clientHeight", {
-      configurable: true,
-      get() { return (this as any).__mockClientHeight ?? 0; }
-    });
+    // jsdom has no layout: give the scroll container a real viewport height.
+    Object.defineProperty(HTMLElement.prototype, "offsetHeight", { configurable: true, value: 600 });
+    Object.defineProperty(HTMLElement.prototype, "clientHeight", { configurable: true, value: 600 });
   });
 
-  afterEach(() => {
-    // Clean up mock properties
-    const els = document.querySelectorAll("*");
-    els.forEach((el: Element) => {
-      delete (el as any).__mockOffsetHeight;
-      delete (el as any).__mockClientHeight;
-    });
-  });
-
-  it("renders table with virtualizer structure", () => {
+  it("mounts only the rows in view, and spacer rows carry the rest of the height", () => {
     renderPods();
     const tbody = screen.getByRole("table").querySelector("tbody")!;
-    expect(tbody).toBeTruthy();
-    // In jsdom without real layout measurements, the virtualizer renders all rows.
-    // The important thing is that the structure supports virtualization when in a real browser.
     const trs = [...tbody.querySelectorAll("tr")];
-    expect(trs.length).toBeGreaterThan(0);
-    // Some rows should have data-index (real data rows) or be spacers
-    const hasDataIndex = trs.some((tr) => tr.hasAttribute("data-index"));
-    expect(hasDataIndex || trs.length > 0).toBe(true);
+    const data = trs.filter((tr) => tr.hasAttribute("data-index"));
+    const spacers = trs.filter((tr) => !tr.hasAttribute("data-index"));
+    expect(data.length).toBeGreaterThan(0);
+    expect(data.length).toBeLessThan(100);
+    expect(spacers.length).toBeGreaterThan(0);
+    for (const s of spacers) expect(s.style.height).toBeTruthy();
+    expect(tbody.style.paddingTop).toBeFalsy();
   });
 
   it("still counts every pod in the header", () => {
