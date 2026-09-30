@@ -703,12 +703,14 @@ From the [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszb
 
 **Not in v1:**
 
-- Rewriting the matrix on top of this evaluator. The matrix still approximates isolation per namespace and ignores egress and ports. Worth a follow-up.
 - Service-name targets (resolving a Service to its pods).
 - Cilium and Calico policy CRDs.
 - IPv6 `ipBlock`.
 
 **Effort: M.** **OSS, not Enterprise.**
+
+**Follow-up shipped 2026-09-30:** the connectivity matrix now uses the same evaluator (`lib/netpolMatrix.ts#matrixCell`, one representative pod per namespace/app group). Isolation is per pod, egress counts, and an Ingress policy without rules blocks instead of allowing. Cells read open, allowed (with any port restriction) or blocked (naming the isolating policies on the side that blocks), and the old "unknown" state is gone.
+
 ### 40. GPU capacity accounting (GPU dimension, Phase 0) — status: shipped 2026-09-30
 
 From the [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszbyRLEMgqjEFVVewJ)'s Tier 2 list (item 14, the GPU utilisation and right-sizing dimension). Phase 0 is the GPU twin of #6's Tier 0 waste accounting and needs no metrics. `lib/gpuCapacity.ts#computeGpuCapacity` compares allocatable GPUs per node with the GPUs scheduled pods ask for:

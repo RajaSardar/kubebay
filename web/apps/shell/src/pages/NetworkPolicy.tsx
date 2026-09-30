@@ -8,6 +8,7 @@ import { NamespaceFilter } from "../components/NamespaceFilter";
 import { NetworkPolicyCoverageList } from "../components/NetworkPolicyCoverageList";
 import { findNetworkPolicyCoverageGaps } from "../lib/networkPolicyCoverage";
 import { ReachabilityCheck } from "../components/ReachabilityCheck";
+import { matrixCell, type MatrixCell } from "../lib/netpolMatrix";
 
 // ── Type helpers ──────────────────────────────────────────────────────────────
 
@@ -66,26 +67,11 @@ interface NetworkPolicySpec {
 
 // ── Connectivity status ───────────────────────────────────────────────────────
 
-type ConnStatus = "open" | "allowed" | "isolated" | "unknown";
+type ConnStatus = MatrixCell["status"];
 
-interface CellDetail {
+interface CellDetail extends MatrixCell {
   src: string;
   dst: string;
-  status: ConnStatus;
-  policies: string[];
-}
-
-// ── Label selector matching ───────────────────────────────────────────────────
-
-function selectorMatches(sel: LabelSelector | undefined, labels: Record<string, string>): boolean {
-  if (!sel) return true; // empty selector matches all
-  if (sel.matchLabels) {
-    for (const [k, v] of Object.entries(sel.matchLabels)) {
-      if (labels[k] !== v) return false;
-    }
-  }
-  // matchExpressions: best-effort for v0.x — skip complex expressions
-  return true;
 }
 
 function podAppLabel(labels: Record<string, string> | undefined): string {
@@ -99,7 +85,8 @@ interface PodGroup {
   key: string; // "namespace/appLabel"
   namespace: string;
   appLabel: string;
-  labels: Record<string, string>;
+  /** The first pod seen for this namespace/app; the matrix evaluates policy against it. */
+  pod: Record<string, unknown>;
 }
 
 interface PolicyInfo {
@@ -108,123 +95,12 @@ interface PolicyInfo {
   spec: NetworkPolicySpec;
 }
 
-// Returns the set of namespace names that have at least one NetworkPolicy
-// restricting ingress. A policy only isolates ingress traffic if its
-// policyTypes includes "Ingress" — or has no explicit policyTypes at all,
-// which per k8s semantics defaults to affecting Ingress. An Egress-only
-// policy (policyTypes: ["Egress"]) does not isolate ingress and must not
-// count here.
-function isolatedNamespaces(policies: PolicyInfo[]): Set<string> {
-  const ns = new Set<string>();
-  for (const p of policies) {
-    const types = strArr(p.spec.policyTypes);
-    const affectsIngress = types.length === 0 || types.includes("Ingress");
-    if (affectsIngress) ns.add(p.namespace);
-  }
-  return ns;
-}
-
-// Does policy p select this pod group?
-function policySelectsPodGroup(p: PolicyInfo, group: PodGroup): boolean {
-  if (p.namespace !== group.namespace) return false;
-  const sel = p.spec.podSelector;
-  // Empty/null podSelector selects all pods in the namespace
-  if (!sel || (!sel.matchLabels && (!sel.matchExpressions || sel.matchExpressions.length === 0))) {
-    return true;
-  }
-  return selectorMatches(sel, group.labels);
-}
-
-// Check if any ingress rule allows traffic FROM srcGroup TO dstGroup
-function ingressAllows(
-  p: PolicyInfo,
-  srcGroup: PodGroup,
-  dstGroup: PodGroup,
-): boolean {
-  // The policy must select the dstGroup
-  if (!policySelectsPodGroup(p, dstGroup)) return false;
-  const policyTypes = strArr(p.spec.policyTypes);
-  const hasIngressType = policyTypes.length === 0 || policyTypes.includes("Ingress");
-  if (!hasIngressType) return false;
-
-  const ingressRules = p.spec.ingress;
-  // If ingress is defined as empty array [] — deny all
-  if (ingressRules !== undefined && !Array.isArray(ingressRules)) return false;
-  if (Array.isArray(ingressRules) && ingressRules.length === 0) return false;
-  if (!ingressRules) return true; // no ingress field = allow all (only ingress type matters)
-
-  for (const rule of ingressRules) {
-    const froms = rule.from;
-    if (!froms || froms.length === 0) return true; // allow all sources
-    for (const peer of froms) {
-      // Check podSelector within same namespace
-      if (peer.podSelector !== undefined && !peer.namespaceSelector) {
-        if (srcGroup.namespace === dstGroup.namespace) {
-          if (selectorMatches(peer.podSelector, srcGroup.labels)) return true;
-        }
-      }
-      // Check namespaceSelector only
-      if (peer.namespaceSelector !== undefined && !peer.podSelector) {
-        // Best-effort: we can't evaluate namespace labels without streaming namespaces
-        // Conservative: if namespaceSelector is empty, it matches all namespaces
-        const nsSelEmpty =
-          !peer.namespaceSelector.matchLabels &&
-          (!peer.namespaceSelector.matchExpressions || peer.namespaceSelector.matchExpressions.length === 0);
-        if (nsSelEmpty) return true;
-      }
-      // Both podSelector + namespaceSelector
-      if (peer.podSelector !== undefined && peer.namespaceSelector !== undefined) {
-        if (selectorMatches(peer.podSelector, srcGroup.labels)) return true;
-      }
-      // ipBlock — skip for pod-to-pod matrix
-    }
-  }
-  return false;
-}
-
-// Returns connectivity + which policy names are relevant
-function computeConnectivity(
-  srcGroup: PodGroup,
-  dstGroup: PodGroup,
-  policies: PolicyInfo[],
-  isolated: Set<string>,
-): CellDetail {
-  const srcNsIsolated = isolated.has(srcGroup.namespace);
-  const dstNsIsolated = isolated.has(dstGroup.namespace);
-
-  // If neither namespace has any network policies — fully open
-  if (!srcNsIsolated && !dstNsIsolated) {
-    return { src: srcGroup.key, dst: dstGroup.key, status: "open", policies: [] };
-  }
-
-  // Find policies that explicitly allow ingress from srcGroup to dstGroup
-  const matchingPolicies = policies.filter((p) => ingressAllows(p, srcGroup, dstGroup));
-
-  if (matchingPolicies.length > 0) {
-    return {
-      src: srcGroup.key,
-      dst: dstGroup.key,
-      status: "allowed",
-      policies: matchingPolicies.map((p) => `${p.namespace}/${p.name}`),
-    };
-  }
-
-  // Destination namespace is isolated (has NetworkPolicy) and nothing allows it
-  if (dstNsIsolated) {
-    return { src: srcGroup.key, dst: dstGroup.key, status: "isolated", policies: [] };
-  }
-
-  // Source is isolated but destination isn't — best-effort unknown
-  return { src: srcGroup.key, dst: dstGroup.key, status: "unknown", policies: [] };
-}
-
 // ── Cell visual ───────────────────────────────────────────────────────────────
 
 const CELL_COLORS: Record<ConnStatus, { bg: string; text: string; symbol: string }> = {
   open: { bg: "color-mix(in srgb, var(--kb-status-ok) 12%, transparent)", text: "var(--kb-status-ok)", symbol: "○" },
   allowed: { bg: "color-mix(in srgb, var(--kb-status-ok) 20%, transparent)", text: "var(--kb-status-ok)", symbol: "✓" },
-  isolated: { bg: "color-mix(in srgb, var(--kb-status-err) 15%, transparent)", text: "var(--kb-status-err)", symbol: "✗" },
-  unknown: { bg: "color-mix(in srgb, var(--kb-fg-muted) 10%, transparent)", text: "var(--kb-fg-muted)", symbol: "?" },
+  blocked: { bg: "color-mix(in srgb, var(--kb-status-err) 15%, transparent)", text: "var(--kb-status-err)", symbol: "✗" },
 };
 
 // ── NetworkPolicy page ────────────────────────────────────────────────────────
@@ -252,7 +128,10 @@ export default function NetworkPolicyPage() {
   );
 
   // Namespace labels for namespaceSelector peers; only the reachability check needs them.
-  const namespaces = useResourceStream(effectiveCluster || undefined, "v1/namespaces", { mode: "full", enabled: activeTab === "reach" });
+  const namespaces = useResourceStream(effectiveCluster || undefined, "v1/namespaces", {
+    mode: "full",
+    enabled: activeTab === "reach" || activeTab === "matrix",
+  });
 
   const ready = pods.synced && netpols.synced;
 
@@ -265,13 +144,7 @@ export default function NetworkPolicyPage() {
       const labels = meta.labels ?? {};
       const appLabel = podAppLabel(labels);
       const key = `${ns}/${appLabel}`;
-      if (!seen.has(key)) {
-        seen.set(key, { key, namespace: ns, appLabel, labels });
-      } else {
-        // Merge labels (last write wins — for matching we just need a representative set)
-        const existing = seen.get(key)!;
-        seen.set(key, { ...existing, labels: { ...existing.labels, ...labels } });
-      }
+      if (!seen.has(key)) seen.set(key, { key, namespace: ns, appLabel, pod: raw as Record<string, unknown> });
     }
     return Array.from(seen.values()).sort((a, b) =>
       a.namespace === b.namespace
@@ -289,8 +162,6 @@ export default function NetworkPolicyPage() {
     }));
   }, [netpols.rows]);
 
-  const isolated = useMemo(() => isolatedNamespaces(policies), [policies]);
-
   // Filter groups by namespace — empty selection means "(all)"
   const filteredGroups = useMemo(
     () => (nsFilter.length === 0 ? podGroups : podGroups.filter((g) => nsFilter.includes(g.namespace))),
@@ -303,12 +174,12 @@ export default function NetworkPolicyPage() {
     for (const src of filteredGroups) {
       const row = new Map<string, CellDetail>();
       for (const dst of filteredGroups) {
-        row.set(dst.key, computeConnectivity(src, dst, policies, isolated));
+        row.set(dst.key, { src: src.key, dst: dst.key, ...matrixCell(src.pod, dst.pod, netpols.rows, namespaces.rows) });
       }
       m.set(src.key, row);
     }
     return m;
-  }, [filteredGroups, policies, isolated]);
+  }, [filteredGroups, netpols.rows, namespaces.rows]);
 
   // Policy list filter — empty selection means "(all)"
   const filteredPolicies = useMemo(
@@ -539,17 +410,17 @@ function CellDetailPanel({ cell, onClose }: { cell: CellDetail; onClose: () => v
       </div>
       <div className="np-detail-body">
         {cell.status === "open" && (
-          <p className="muted small">No NetworkPolicies in either namespace — traffic is unrestricted.</p>
+          <p className="muted small">No NetworkPolicy selects either pod, so traffic is unrestricted.</p>
         )}
-        {cell.status === "isolated" && (
-          <p className="muted small">
-            Destination namespace has NetworkPolicy isolation and no policy explicitly allows this traffic.
-          </p>
-        )}
-        {cell.status === "unknown" && (
-          <p className="muted small">
-            Source namespace is isolated but destination is open — cannot determine egress rules without egress policy evaluation.
-          </p>
+        {cell.status === "blocked" && (
+          <div>
+            <p className="small" style={{ marginBottom: 6 }}>Isolated, and no rule allows this traffic:</p>
+            <div className="np-policy-chips">
+              {(cell.blockedBy ?? []).map((p) => (
+                <Badge key={p} tone="err">{p}</Badge>
+              ))}
+            </div>
+          </div>
         )}
         {cell.status === "allowed" && cell.policies.length > 0 && (
           <div>
@@ -559,6 +430,7 @@ function CellDetailPanel({ cell, onClose }: { cell: CellDetail; onClose: () => v
                 <Badge key={p} tone="ok">{p}</Badge>
               ))}
             </div>
+            {cell.allowedPorts && <p className="muted small" style={{ marginTop: 6 }}>Only on {cell.allowedPorts.join(", ")}.</p>}
           </div>
         )}
       </div>
