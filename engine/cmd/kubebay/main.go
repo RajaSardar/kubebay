@@ -93,7 +93,6 @@ func main() {
 	wasteCtx, cancelWaste := context.WithCancel(context.Background())
 	defer cancelWaste()
 	wasteSampler := waste.NewSampler(mgr, log)
-	wasteSampler.Start(wasteCtx)
 	helmMgr := httpapi.NewHelm(mgr, auditLog)
 	settingsMgr := httpapi.NewSettingsManager(mgr)
 	settingsMgr.LocalShell = localShellStatus
@@ -107,6 +106,11 @@ func main() {
 		}
 		return set.PrometheusURLFor(cluster)
 	})
+	historyAPI, closeHistory := setupHistory(log, mgr, settingsMgr, wasteSampler, *inCluster, wasteCtx)
+	defer closeHistory()
+	// Started only now, after the history recorder is set, so the sampler
+	// goroutine never races those fields.
+	wasteSampler.Start(wasteCtx)
 	wasteSampler.StartTierA(wasteCtx)
 	nodeShell := &httpapi.NodeShellManager{Clusters: mgr, Settings: settingsMgr}
 	// An operator-supplied token (in-cluster, where there is no desktop app to
@@ -161,6 +165,7 @@ func main() {
 		Settings:  settingsMgr,
 		Audit:     auditLog,
 		Waste:     wasteSampler,
+		History:   historyAPI,
 	}, token)
 
 	switch {
