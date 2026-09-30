@@ -557,6 +557,91 @@ Skipped as managed or used outside pod specs:
 **Not in v1:** Gateway API `certificateRefs`, DaemonSet and Job templates, CSI `nodePublishSecretRef`, and a delete action.
 
 **Effort: S.** **OSS, not Enterprise.**
+### 36. Local historical rollup (retention layer) — status: scoping
+
+The [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszbyRLEMgqjEFVVewJ)'s **Foundational** item. It gates trend-based headroom forecasting and the cost/usage anomaly detector (Tier 2 #20 and #21). Today the only usage history is `waste`'s in-memory ring buffer, which is lost when the engine restarts.
+
+**Design debate.** Two positions were argued, then a synthesis round cross-challenged them against the code, per CLAUDE.md:
+
+- **A, Prometheus-first:** store nothing locally when Prometheus exists.
+- **B, uniform durable store:** record everywhere, and use Prometheus to backfill it.
+
+Verdict:
+
+- **Recording.** Every cluster is recorded from the Tier B tick that already runs. That's one write path, and Prometheus URLs are often dead port-forwards after a restart (B wins).
+- **Reading.** One series comes from one source, with no stitching or backfill. A Prometheus `rate[5m]` spliced onto metrics-server point samples leaves a seam that a forecast would read as a trend. If Prometheus is unreachable the endpoint returns an error, and the client has to ask for `source=local` explicitly (A wins).
+- **Scope.** Cluster and namespace only. Workload keys churn, neither gated feature needs them, and a workload store invites feeding it back into right-sizing, which #4 forbids.
+- **Per hour, per namespace:** mean and max usage, the sample count `n`, and requests (last value in the hour; scheduling headroom is about requests). No p95 or min, since they can't be combined across hours honestly.
+  - When metrics-server is missing, usage is `null`, never 0, and requests are still recorded.
+  - Namespace sums are taken **before** `resolveWorkload`'s `continue`, so pods with no owner are counted.
+- **Storage.** `os.UserConfigDir()/kubebay/history/<fp>/`, the audit log's convention, with no fallback to TempDir: if the directory can't be created, recording is disabled.
+  - Files per cluster:
+    - daily `YYYY-MM-DD.jsonl`, one line per closed namespace-hour;
+    - `open.json`, the open hour, checkpointed every tick with tmp+rename;
+    - `meta.json`;
+    - `writer.lock`.
+  - Directories are 0700 and files 0600. A torn trailing line is skipped when reading.
+  - The standard library only; no bbolt or SQLite (not in go.mod, no CGO).
+  - **`<fp>`** is a sha256 prefix of the kube-system namespace UID, falling back to context+server. Cluster IDs are sanitised context names, and a recreated `kind-kind` must not inherit the old cluster's history.
+- **Crash safety.** The open hour is checkpointed every tick, not only at shutdown. The desktop wrapper SIGKILLs the engine on Windows, gives SIGTERM only 3s elsewhere, and laptop sleep kills it too. So a crash loses at most one tick.
+- **Writer lock.** The lock holds a PID plus a heartbeat, and a stale heartbeat (older than 3 intervals) can be reclaimed. A plain `O_EXCL` lock would stay stale forever after a SIGKILL.
+- **Caps.** 14-day retention, the top 50 namespaces by requests plus an `(other)` row so totals still add up, and a 256MB total guard. That's about 2MB per cluster.
+- **Honesty.** Missing hours come back as `null` and are never interpolated. Every series is tagged with its source. An hour counts as well-sampled at n ≥ 30, because `tick()` walks clusters one after another with 20s timeouts, so 60 samples an hour isn't guaranteed.
+  - `Coverage{ExpectedHours, ObservedHours, WellSampledHours, DistinctDays, LongestGapHours, HourOfDayObserved[24], Label}`.
+  - Nothing from history feeds `waste.Snapshot`.
+  - The recorder is off with `--in-cluster`, because an in-cluster store that keeps recording while the laptop is closed crosses the #6/#15 Enterprise line.
+- **Consumer gates (for later).** A laptop open 8 hours a day never reaches "coverage ≥0.7", and 14 days of retention can't give 3 same-hour-of-week observations. So:
+  - **Forecasting** needs at least 5 distinct days, each with at least 4 well-sampled hours, and is labelled "daily peak during observed hours".
+  - **Anomalies** use a same-hour-of-day baseline over at least 5 prior observed days, split into weekday and weekend.
+- **API.**
+  - The Go package is `engine/internal/history`:
+    - `Open(dir, Options) (*Store, error)`
+    - `Record(clusterID, at, []Obs) error`
+    - `Query(clusterID, ns, metric, from, to) (Series, error)`
+    - `Status(clusterID) (Coverage, error)`
+    - `Prune(now) error`
+    - `Close() error`
+    - `Fingerprint(ctx, cs, context, server) string`
+  - `waste.Sampler.SetRecorder(...)` is the hook, called after the sampler's lock is released.
+  - HTTP: `GET /api/history/status?cluster=` and `GET /api/history/series?cluster&ns&metric&from&to[&source=]`. `DELETE /api/history?cluster=` comes in slice 2.
+
+**Slices:**
+
+1. **Engine only: local recorder, store and read endpoints.** It ships first because every day it isn't shipped is history lost for good. The failing tests, in order:
+   - the hour closes into a bucket with exact mean, max and `n`
+   - ticks with no usage keep usage `null`
+   - missing hours come back `null`
+   - a thin hour isn't well-sampled
+   - reopening without `Close` restores the open hour
+   - a torn trailing line is skipped
+   - prune respects retention
+   - the fingerprint uses the UID, then the fallback, and is a safe filename
+   - clusters are isolated
+   - a second writer goes read-only, and a stale heartbeat is reclaimed
+   - top-N plus `(other)` sums to the total
+   - the sampler's recorder gets namespace totals that include bare pods
+   - the recorder doesn't change the snapshot
+   - the handlers require `cluster`, and nulls serialise as `null`
+2. `PromSource` (`query_range` at a 1h step with `avg_over_time`/`max_over_time`, so its shape matches local buckets), the Clear button, and an "observed N of 336 hours" chip on Cost / Waste.
+3. The consumers, #20 and #21.
+
+**Not in v1:**
+
+- workload or node scope
+- per-hour p95 or min
+- Prometheus backfill or stitching
+- bbolt or SQLite
+- gzip
+- a UI setting for retention
+- dollars
+
+**Open questions for Raja (needed before slice 1):**
+
+1. **Which clusters are recorded, and is recording on by default?** The Tier B tick polls every healthy kubeconfig context, including production contexts never opened this session. Options: all of them, only clusters opened this session, or an opt-in list.
+2. **Retention.** 14 days allows only an hour-of-day baseline. A true hour-of-week anomaly baseline needs 28–35 days, about 5MB per cluster. Is 5 weeks still "weeks, not months"?
+3. **Laptop-only coverage.** Should forecasts be shown, clearly labelled "during observed hours only"? Or hidden until coverage is round-the-clock, which a laptop-only user never reaches?
+
+**Effort: M** (slice 1 is about one PR). **OSS, not Enterprise**, because it records only while the app is open.
 
 ### Further ideas worth a look (unscoped, one-liners)
 - **Revert unsaved YAML edits — SHIPPED 2026-09-27.** One-click "discard my in-progress edit" button in `YamlTab.tsx`, next to Reload — a local reset (no network call), unlike Reload which re-fetches from the server.
