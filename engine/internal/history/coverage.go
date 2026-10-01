@@ -27,22 +27,33 @@ type Coverage struct {
 func (s *Store) coverage(fp string) Coverage {
 	now := s.o.Now().UTC()
 	from := now.Truncate(time.Hour).Add(-s.o.Retention + time.Hour)
-	cov := Coverage{RetentionDays: s.RetentionDays(), ExpectedHours: int(s.o.Retention / time.Hour)}
-	lines := s.readRange(fp, from, now.Add(time.Hour))
+	hours := map[time.Time]int{}
+	for h, byNs := range s.readRange(fp, from, now.Add(time.Hour)) {
+		if l, ok := byNs[""]; ok && l.N > 0 {
+			hours[h] = l.N
+		}
+	}
+	return coverageFromHours(hours, now, s.o.Retention, s.o.WellSampledN, s.o.Location)
+}
+
+// coverageFromHours summarises observed hours (hour start → sample count)
+// within the retention window ending at now. Shared by local and Prometheus series.
+func coverageFromHours(observed map[time.Time]int, now time.Time, retention time.Duration, wellSampledN int, loc *time.Location) Coverage {
+	from := now.UTC().Truncate(time.Hour).Add(-retention + time.Hour)
+	cov := Coverage{RetentionDays: int(retention / (24 * time.Hour)), ExpectedHours: int(retention / time.Hour)}
 	var hours []time.Time
 	days := map[string]bool{}
-	for h, byNs := range lines {
-		l, ok := byNs[""]
-		if !ok || l.N == 0 {
+	for h, n := range observed {
+		if n == 0 || h.Before(from) || h.After(now) {
 			continue
 		}
 		hours = append(hours, h)
 		cov.ObservedHours++
-		if l.N < s.o.WellSampledN {
+		if n < wellSampledN {
 			continue
 		}
 		cov.WellSampledHours++
-		local := h.In(s.o.Location)
+		local := h.In(loc)
 		cov.HourOfDayObserved[local.Hour()]++
 		days[local.Format("2006-01-02")] = true
 		if wd := local.Weekday(); wd == time.Saturday || wd == time.Sunday {
