@@ -203,16 +203,10 @@ spec:
 	// Stale edit: the editor loads, someone else changes REGION, then the user
 	// edits REGION too. The endpoint refuses with 409 instead of overwriting.
 	loaded := string(httpGetJSON(t, srv.URL+"/api/yaml?"+q.Encode()))
-	theirs, err := cs.AppsV1().Deployments("default").Get(ctx, name, metav1.GetOptions{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	for i, e := range theirs.Spec.Template.Spec.Containers[0].Env {
-		if e.Name == "REGION" {
-			theirs.Spec.Template.Spec.Containers[0].Env[i].Value = "ap-south-1"
-		}
-	}
-	if _, err := cs.AppsV1().Deployments("default").Update(ctx, theirs, metav1.UpdateOptions{FieldManager: "someone-else"}); err != nil {
+	// A strategic patch, as `kubectl set env` sends: no resourceVersion, so the
+	// deployment controller's own status writes can't make it race.
+	theirPatch := []byte(`{"spec":{"template":{"spec":{"containers":[{"name":"debugging-apis","env":[{"name":"REGION","value":"ap-south-1"}]}]}}}}`)
+	if _, err := cs.AppsV1().Deployments("default").Patch(ctx, name, types.StrategicMergePatchType, theirPatch, metav1.PatchOptions{FieldManager: "someone-else"}); err != nil {
 		t.Fatal(err)
 	}
 	stale := map[string]any{"cluster": clusterID, "gvr": "apps/v1/deployments", "ns": "default", "name": name,
