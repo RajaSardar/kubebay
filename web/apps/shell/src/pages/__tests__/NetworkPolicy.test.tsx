@@ -48,6 +48,12 @@ describe("NetworkPolicyPage", () => {
     expect(screen.getByLabelText("Source pod")).toBeInTheDocument();
   });
 
+  it("offers a live network check next to the static reachability answer", () => {
+    renderPage();
+    fireEvent.click(screen.getByRole("radio", { name: "Can A reach B?" }));
+    expect(screen.getByText("Live network check")).toBeInTheDocument();
+  });
+
   it("marks a cell blocked when the source's egress policy denies it, per pod rather than per namespace", () => {
     const rows: Record<string, unknown[]> = {
       "v1/pods": [

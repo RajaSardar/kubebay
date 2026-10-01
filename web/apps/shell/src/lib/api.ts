@@ -215,6 +215,12 @@ async function fetchObject(
   }
 }
 
+/** Short-lived network diagnostic pod (roadmap Tier 2 #23); delete it with api.deleteResource when done. */
+export const netdiagApi = {
+  start: (b: { cluster: string; namespace: string; node?: string; image?: string }) =>
+    send<{ namespace: string; pod: string }>("POST", "/api/netdiag", b),
+};
+
 export const nodeApi = {
   shellStart: (b: { cluster: string; node: string }) =>
     send<{ namespace: string; pod: string }>("POST", "/api/node-shell", b),

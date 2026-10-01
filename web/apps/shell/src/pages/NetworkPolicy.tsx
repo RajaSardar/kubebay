@@ -8,6 +8,7 @@ import { NamespaceFilter } from "../components/NamespaceFilter";
 import { NetworkPolicyCoverageList } from "../components/NetworkPolicyCoverageList";
 import { findNetworkPolicyCoverageGaps } from "../lib/networkPolicyCoverage";
 import { ReachabilityCheck } from "../components/ReachabilityCheck";
+import { NetDiagCard } from "../components/NetDiagCard";
 import { matrixCell, type MatrixCell } from "../lib/netpolMatrix";
 
 // ── Type helpers ──────────────────────────────────────────────────────────────
@@ -264,6 +265,12 @@ export default function NetworkPolicyPage() {
             policies={netpols.rows}
             namespaces={namespaces.rows}
           />
+          <div style={{ marginTop: 16 }}>
+            <NetDiagCard
+              cluster={effectiveCluster}
+              namespaces={namespaces.rows.map((n) => String((n.metadata as KMeta | undefined)?.name ?? "")).filter(Boolean).sort()}
+            />
+          </div>
         </div>
       ) : (
         <div className="page-body">
