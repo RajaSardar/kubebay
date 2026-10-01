@@ -639,7 +639,16 @@ Verdict:
        - Metrics are CPU and memory requests (the scheduling headroom) and peak usage, each measured against the streamed nodes' allocatable.
        - Outcomes: reaches allocatable in ~N days, at allocatable, flat or falling, or not within the horizon. The horizon is twice the observed span, so 5 days of data never projects beyond 10.
        - It is labelled "daily peak during observed hours" with the engine's coverage label. Below the gate it shows "needs 5 days … N so far" instead of hiding.
-     - **3b, anomaly detection (#21)** is next.
+     - **3a shipped** in #79.
+     - **3b, anomaly detection (#21).** An "Unusual usage" card on Cost / Waste, built on `lib/usageAnomaly.ts#findUsageAnomalies`.
+       - It checks each well-sampled hour of the last 24 against the same local hour on at least 5 earlier observed days of the same kind (weekday or weekend).
+       - A value counts as unusual only if it clears three bars:
+         - 3 scaled MADs from the median;
+         - a 25% relative change;
+         - an absolute floor (50m CPU, 64Mi memory).
+       - It covers CPU and memory, for both usage (mean) and requests.
+       - It shares one series fetch with the forecast, through `lib/useClusterHistorySeries.ts`.
+       - If nothing qualifies it says so, and states what it compared against.
 
 **Not in v1:**
 
