@@ -103,7 +103,7 @@ export function useSortPref(table: string) {
   return { col: state.col, asc: state.asc, toggle };
 }
 
-const TYPING = "input, textarea, select, [contenteditable='true'], .xterm, .monaco-editor";
+export const TYPING = "input, textarea, select, [contenteditable='true'], .xterm, .monaco-editor";
 
 export interface TableKeyboardOptions {
   count: number;
