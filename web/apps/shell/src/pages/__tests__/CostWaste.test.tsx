@@ -8,7 +8,10 @@ vi.mock("../../lib/useCluster", () => ({
   useCluster: () => ({ cluster: "c1", setCluster: vi.fn(), list: [{ id: "c1" }], isLoading: false }),
 }));
 
-const node = { metadata: { name: "n1" }, status: { allocatable: { cpu: "4", memory: "16Gi" } } };
+const node = {
+  metadata: { name: "n1" },
+  status: { allocatable: { cpu: "4", memory: "16Gi" }, conditions: [{ type: "Ready", status: "True" }] },
+};
 const pod = {
   metadata: { name: "p1", namespace: "a" },
   spec: { nodeName: "n1", containers: [{ name: "c", resources: { requests: { cpu: "3200m", memory: "13108Mi" } } }] },
@@ -81,5 +84,18 @@ describe("CostWaste", () => {
     expect(await screen.findByText("Headroom forecast")).toBeInTheDocument();
     // n1 has 4 cores allocatable: (4000m - 3600m) / 200m per day = 2 days.
     expect(screen.getByText("reaches allocatable in ~2 days")).toBeInTheDocument();
+  });
+
+  it("shows the read-only node consolidation view; a single busy node can't be drained", () => {
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <MemoryRouter>
+          <CostWaste />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    expect(screen.getByText("Node consolidation")).toBeInTheDocument();
+    expect(screen.getByText(/No node can be drained right now/)).toBeInTheDocument();
+    expect(screen.getByText(/no room elsewhere \(a\/p1\)/)).toBeInTheDocument();
   });
 });

@@ -766,5 +766,27 @@ From the [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszb
 
 **Effort: S** for Phase 0, **M** for Phase 1. **OSS, not Enterprise.**
 
+### 41. Read-only node consolidation view — status: shipped 2026-10-01
+
+Intelligence roadmap Tier 2 #15. It depends on SPOF Radar (#24), which the research named as the safety gate any consolidation suggestion must pass first.
+
+`lib/consolidation.ts#assessConsolidation` simulates draining each node, using streams Cost / Waste already opens plus full-mode Deployments and StatefulSets.
+- **Placement.** It is first-fit-decreasing by requests. It counts every non-terminal pod on each target, DaemonSet pods included, and honours `nodeSelector`, required node affinity (`In`/`NotIn`/`Exists`/`DoesNotExist`/`Gt`/`Lt`, plus `matchFields` on the node name) and NoSchedule/NoExecute taints against tolerations.
+- **Pods that stay put.** DaemonSet pods, mirror pods and finished pods aren't moved.
+- **Blockers:**
+  - a pod with no controller, since a drain deletes it for good
+  - a covering PDB with `disruptionsAllowed: 0`
+  - required pod (anti-)affinity or a `hostPort`, which aren't simulated and are listed instead of guessed at
+  - no room on any remaining node
+- **SPOF gate.** It reuses `findSingleReplicaNoPdb`. A node holding such a workload's pod is "drain causes downtime", never "fits elsewhere".
+- **Skipped as candidates:** NotReady, already-cordoned and control-plane nodes.
+  - Control-plane nodes still receive pods when their taints allow, as the real scheduler would.
+  - NotReady and cordoned nodes receive nothing.
+- **Two answers.** Each row is that node judged alone. The headline count drains nodes greedily, emptiest first, with moved pods staying where they landed. The per-node results aren't additive: three nodes can each be drainable alone while only one can go.
+- **UI.** A "Node consolidation" card on Cost / Waste, badged read-only. It is held until the Deployment, StatefulSet and PDB streams sync, so the gate never runs on partial data.
+- **Not done:** usage-based packing, cost estimates, and any cordon or drain action. Auto-executed consolidation is on the research's "don't build" list.
+
+**OSS.** Pure client-side derivation over streams the page already reads.
+
 ### Further ideas worth a look (unscoped, one-liners)
 - **Revert unsaved YAML edits — SHIPPED 2026-09-27.** One-click "discard my in-progress edit" button in `YamlTab.tsx`, next to Reload — a local reset (no network call), unlike Reload which re-fetches from the server.
