@@ -11,6 +11,7 @@ import { RolloutProgress } from "./RolloutProgress";
 import { AutoscalingTab } from "./AutoscalingTab";
 import { PolicyFindingsTab } from "./PolicyFindingsTab";
 import { WorkloadVulnerabilitiesTab } from "./WorkloadVulnerabilitiesTab";
+import { TimelineTab } from "./TimelineTab";
 import { RightSizingBanner } from "./RightSizingBanner";
 import type { ResourceDef } from "../lib/resources";
 import { ownerOf } from "../lib/gitops";
@@ -18,7 +19,7 @@ import { ownerOf } from "../lib/gitops";
 // ── Tab types per resource kind ──────────────────────────────────────────────
 type NodeTab = "summary" | "shell" | "yaml";
 type SvcTab = "summary" | "yaml";
-type GenTab = "summary" | "rollout" | "autoscaling" | "policy" | "vulnerabilities" | "yaml" | "events";
+type GenTab = "summary" | "rollout" | "timeline" | "autoscaling" | "policy" | "vulnerabilities" | "yaml" | "events";
 
 // KEDA ScaledObjects, HPAs, and VPAs can all target these kinds — every
 // other generic kind (ConfigMap, Secret, …) has nothing to autoscale.
@@ -149,6 +150,14 @@ function PaneContent({
   if (!isNode && !isService && genTab === "rollout") {
     if (objLoading) return <SkeletonLines lines={6} label="Loading details…" />;
     return <RolloutProgress cluster={cluster} namespace={ns} obj={obj} />;
+  }
+  if (!isNode && !isService && genTab === "timeline") {
+    if (objLoading) return <SkeletonLines lines={6} label="Loading details…" />;
+    return (
+      <div style={{ padding: 14 }}>
+        <TimelineTab cluster={cluster} ns={ns} obj={obj} />
+      </div>
+    );
   }
   if (!isNode && !isService && genTab === "autoscaling") {
     return <AutoscalingTab cluster={cluster} ns={ns} name={name} kind={def.kind} />;
@@ -381,6 +390,7 @@ export default function GenericDrawer({
   const genTabLabels: Record<GenTab, string> = {
     summary: "Summary",
     rollout: "Rollout",
+    timeline: "Timeline",
     autoscaling: "Autoscaling",
     policy: "Policy",
     vulnerabilities: "Vulnerabilities",
@@ -398,6 +408,8 @@ export default function GenericDrawer({
   const genTabs: GenTab[] = [
     "summary",
     ...(def.slug === "deployments" ? (["rollout"] as const) : []),
+    // Resource Timeline (roadmap Tier 2 #18): the pod-owning workload kinds.
+    ...(RIGHTSIZABLE_SLUGS.has(def.slug) ? (["timeline"] as const) : []),
     ...(AUTOSCALABLE_SLUGS.has(def.slug) ? (["autoscaling"] as const) : []),
     ...(def.slug !== "policyreports" && def.slug !== "clusterpolicyreports" ? (["policy"] as const) : []),
     ...(RIGHTSIZABLE_SLUGS.has(def.slug) ? (["vulnerabilities"] as const) : []),

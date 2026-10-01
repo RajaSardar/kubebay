@@ -787,6 +787,26 @@ Intelligence roadmap Tier 2 #15. It depends on SPOF Radar (#24), which the resea
 - **Not done:** usage-based packing, cost estimates, and any cordon or drain action. Auto-executed consolidation is on the research's "don't build" list.
 
 **OSS.** Pure client-side derivation over streams the page already reads.
+### 42. Resource Timeline (events + rollouts + conditions, no AI) — status: shipped 2026-10-01
+
+Intelligence roadmap Tier 2 #18. It adds a **Timeline** tab in the drawer for Deployments, StatefulSets and DaemonSets.
+
+`lib/resourceTimeline.ts#buildTimeline` merges, newest first, only the cluster's own records:
+- Events on the workload, its owned ReplicaSets and their pods, joined by owner UID rather than name prefix. Each event takes its time from `lastTimestamp`, then `eventTime`, `firstTimestamp` or creation, and shows its `×count`.
+- One rollout entry per owned ReplicaSet, carrying its `deployment.kubernetes.io/revision` and container images.
+- The workload's condition transitions. Available, Ready and similar conditions going False are warnings.
+- Container terminations from pods' `lastState.terminated`, with the reason, exit code and restart count. OOMKilled and Error are warnings.
+
+**Data.** ReplicaSets (Deployments only) and pods stream in full mode, namespace-scoped, and only while the tab is open. Events reuse the cluster-wide stream the Events tab already opens.
+
+**Retention.** The tab says plainly that Events last about an hour by default, so older history comes from revisions, conditions and last states.
+
+**Not in v1:**
+- the research's "alert" merge, since Kubebay has no Alertmanager source yet
+- a Pod-drawer timeline (the lib already handles `kind: Pod`)
+- a fleet-wide timeline
+
+**OSS.**
 
 ### Further ideas worth a look (unscoped, one-liners)
 - **Revert unsaved YAML edits — SHIPPED 2026-09-27.** One-click "discard my in-progress edit" button in `YamlTab.tsx`, next to Reload — a local reset (no network call), unlike Reload which re-fetches from the server.
