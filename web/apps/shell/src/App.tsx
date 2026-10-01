@@ -68,6 +68,8 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { ClusterConnectingOverlay } from "./components/ClusterConnectingOverlay";
 import { PageSkeleton } from "./components/PageSkeleton";
 import { usePrewarm } from "./lib/usePrewarm";
+import { useSidebar, type SidebarState } from "./lib/useSidebar";
+import { HideSidebarButton, ShowSidebarButton } from "./components/SidebarToggle";
 
 // ──── Cluster Context ────────────────────────────────────────────────────────
 // `active` and `setActive` now live in Zustand (cluster-store.ts).
@@ -315,7 +317,7 @@ export function CustomResourcesGroup() {
 
 // ──── ClusterStrip ───────────────────────────────────────────────────────────
 
-function ClusterStrip() {
+function ClusterStrip({ sidebar }: { sidebar: SidebarState }) {
   const { active } = useClusterStore();
   const { switching, setActive } = useContext(ClusterCtx);
   const clusters = useQuery({ queryKey: ["clusters"], queryFn: api.clusters, refetchInterval: 4_000 });
@@ -385,13 +387,19 @@ function ClusterStrip() {
           />
         );
       })()}
+      {/* The left nav is hidden: the rail brings it back. */}
+      {sidebar.hidden && (
+        <div className="cluster-strip-foot">
+          <ShowSidebarButton sidebar={sidebar} />
+        </div>
+      )}
     </div>
   );
 }
 
 // ──── Sidebar ────────────────────────────────────────────────────────────────
 
-function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
+function Sidebar({ onOpenPalette, sidebar }: { onOpenPalette: () => void; sidebar: SidebarState }) {
   const initialOpen = () => {
     const map: Record<string, boolean> = { Workloads: true };
     for (const g of GROUPS) if (!map[g.label]) map[g.label] = false;
@@ -407,7 +415,7 @@ function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
   const activeCluster = clusterList.find((c) => c.id === effectiveActive);
 
   return (
-    <aside className="sidebar">
+    <aside className="sidebar" id="kb-sidebar" hidden={sidebar.hidden}>
       <div className="brand">
         <KubebayMark className="brand-logo" />
         <div className="brand-info">
@@ -419,6 +427,7 @@ function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
             </span>
           )}
         </div>
+        <HideSidebarButton sidebar={sidebar} />
       </div>
 
       <NavLink to="/clusters" className="cp-back-btn" title="Switch cluster">
@@ -507,6 +516,7 @@ function AppInner() {
   const ws = useWsStatus();
   const { icons: clusterIcons } = useClusterIcons();
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const sidebar = useSidebar();
   const [switching, setSwitching] = useState(false);
   const safetyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -579,9 +589,9 @@ function AppInner() {
 
   return (
     <ClusterCtx.Provider value={{ switching, setActive }}>
-      <div className="app">
-        <ClusterStrip />
-        <Sidebar onOpenPalette={() => setPaletteOpen(true)} />
+      <div className={sidebar.hidden ? "app sidebar-hidden" : "app"}>
+        <ClusterStrip sidebar={sidebar} />
+        <Sidebar onOpenPalette={() => setPaletteOpen(true)} sidebar={sidebar} />
         <Palette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
 
         <main className="content">
