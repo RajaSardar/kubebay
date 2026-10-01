@@ -830,6 +830,31 @@ Intelligence roadmap Tier 2 #23. It is the live counterpart to #39's static "can
 - running as a specific pod's identity. Ephemeral containers would share its network namespace but can't be removed once added, so this needs its own decision.
 - node pinning in the UI (the engine already accepts `node`)
 - canned one-click checks
+### 44. NetworkPolicy visual editor + dry-run wizard — status: shipped 2026-10-01
+
+Intelligence roadmap Tier 2 #22. It adds a **Build policy** tab on the NetworkPolicy page, next to #39's "Can A reach B?".
+
+`lib/netpolBuilder.ts`:
+- **`draftToPolicy`** turns a form draft into a NetworkPolicy object.
+  - **Inputs:** namespace, name, a pod-label selector (empty means every pod), and Ingress and Egress, each "not restricted", "deny all" or "allow only…".
+  - **Peers:** pods in the same or another namespace (via `kubernetes.io/metadata.name`), a whole namespace, or a CIDR. Each can carry ports such as `8080, 53/UDP`.
+  - **DNS.** Restricting egress adds the kube-dns rule by default, the classic "my egress policy broke DNS" foot-gun.
+  - **Validation.** Bad names, labels, ports or CIDRs come back as messages, never a half-built policy.
+- **`toYaml`** is a small block-YAML emitter with every string double-quoted, used for the preview. The repo has no YAML library.
+- **`policyImpact`** evaluates every pair involving the selected pods with #39's `evaluateConnection`, before and after. It reports pods newly isolated, connections blocked, connections opened, and connections narrowed to some ports.
+  - A same-named policy is treated as **replaced**, not added. Pods the old policy selected are previewed too.
+  - Capped at 20,000 pairs, with a `truncated` note.
+
+**UI** (`components/NetpolEditor.tsx`):
+- Live YAML and impact preview.
+- **Dry run** goes through `/api/yaml/create` with `dryRun: true`, a server-side apply that runs admission, so Kyverno or Gatekeeper rejections show up here.
+- **Create** only appears once a dry run of exactly this YAML has passed. Any edit hides it again. It is an ArmedButton.
+- The create endpoint is a forced server-side apply. So a same-named policy gets a warning banner and a red **Replace policy** confirmation.
+
+**Not in v1:**
+- editing an existing policy in the form (the YAML tab still does that)
+- `matchExpressions`, `endPort` and `ipBlock.except` in the form
+- CNI-specific policy kinds
 
 **OSS.**
 

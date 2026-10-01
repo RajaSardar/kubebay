@@ -54,6 +54,13 @@ describe("NetworkPolicyPage", () => {
     expect(screen.getByText("Live network check")).toBeInTheDocument();
   });
 
+  it("has a Build policy tab with the editor, streaming namespace labels for its impact preview", () => {
+    renderPage();
+    fireEvent.click(screen.getByRole("radio", { name: "Build policy" }));
+    expect(screen.getByText("Build a NetworkPolicy")).toBeInTheDocument();
+    expect(enabledFor("v1/namespaces")).toBe(true);
+  });
+
   it("marks a cell blocked when the source's egress policy denies it, per pod rather than per namespace", () => {
     const rows: Record<string, unknown[]> = {
       "v1/pods": [
