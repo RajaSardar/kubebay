@@ -291,6 +291,7 @@ const nameOf = (r: Row) => str(rec(r.metadata).name);
 const nsOf = (r: Row) => str(rec(r.metadata).namespace);
 const createdOf = (r: Row) => str(rec(r.metadata).creationTimestamp);
 const isTerminating = (r: Row) => !!rec(r.metadata).deletionTimestamp;
+const versionOf = (r: Row) => str(rec(r.metadata).resourceVersion);
 
 export default function ResourceTable() {
   const { kind = "" } = useParams();
@@ -413,6 +414,7 @@ export default function ResourceTable() {
         nsOf={nsOf}
         createdOf={createdOf}
         isDimmed={isTerminating}
+        versionOf={versionOf}
         columns={columns}
         sortKey={`r/${kind}`}
         onOpen={onOpen}
