@@ -1,4 +1,5 @@
 import { PolicyRejectionError, type PolicyRejectionDetail } from "./policyRejection";
+import type { HistoryPoint } from "./headroomForecast";
 
 declare global {
   interface Window {
@@ -431,6 +432,14 @@ export interface HistoryStatus {
   coverage?: HistoryCoverage;
 }
 
+/** One hourly series from `GET /api/history/series`; `ns` "" is the cluster total. */
+export interface HistorySeries {
+  ns: string;
+  source: "local" | "prometheus";
+  points: HistoryPoint[];
+  coverage: HistoryCoverage;
+}
+
 const q = (cluster: string) => `cluster=${encodeURIComponent(cluster)}`;
 
 /** Local usage history (backlog #36): consent, status and erase. */
@@ -439,6 +448,9 @@ export const historyApi = {
   setRecording: (cluster: string, on: boolean) => send<{ recording: boolean }>("PUT", `/api/history/recording?${q(cluster)}&on=${on}`),
   erase: (cluster: string) => send<{ erased: number }>("DELETE", `/api/history?${q(cluster)}`),
   status: (cluster: string) => get<HistoryStatus>(`/api/history/status?${q(cluster)}`),
+  /** Cluster-total hourly series from local history; from/to are RFC 3339 and must lie within retention. */
+  series: (cluster: string, from: string, to: string) =>
+    get<HistorySeries>(`/api/history/series?${q(cluster)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
 };
 
 export interface ArgoCDResource {
