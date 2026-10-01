@@ -98,4 +98,15 @@ describe("CostWaste", () => {
     expect(screen.getByText(/No node can be drained right now/)).toBeInTheDocument();
     expect(screen.getByText(/no room elsewhere \(a\/p1\)/)).toBeInTheDocument();
   });
+
+  it("shows the unusual-usage card next to the forecast, from the same history", async () => {
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <MemoryRouter>
+          <CostWaste />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByText("Unusual usage")).toBeInTheDocument();
+  });
 });
