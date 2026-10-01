@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Row, StatusPill, type StatusTone } from "@kubebay/ui";
+import { Badge, IconButton, Row, StatusPill, type StatusTone } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { useResourceStream } from "../lib/useResourceStream";
 import PodPanel, { type SelectedPod } from "./PodPanel";
@@ -142,9 +142,15 @@ export default function Workloads() {
   const effectiveCluster = activeCluster;
 
   const nsFilter = useSelectedNamespaces(effectiveCluster || undefined);
+  // "Show pods" from a workload: /workloads?ns=…&selector=…&of=Kind/name streams
+  // just its pods. The global namespace filter is left as it was.
+  const [sp] = useSearchParams();
+  const navigate = useNavigate();
+  const scope = sp.get("selector") ? { ns: sp.get("ns") ?? "", selector: sp.get("selector")!, of: sp.get("of") ?? "" } : null;
   const { rows, synced, connected } = useResourceStream(effectiveCluster || undefined, "v1/pods", {
     mode: "full",
-    ns: nsFilter.length > 0 ? nsFilter : undefined,
+    ns: scope ? (scope.ns ? [scope.ns] : undefined) : nsFilter.length > 0 ? nsFilter : undefined,
+    labelSelector: scope?.selector,
   });
 
   const metrics = useQuery({
@@ -216,7 +222,21 @@ export default function Workloads() {
         defaultSort={byNsThenName}
         filterPlaceholder="Filter by name, namespace, node, IP or status…  /"
         onOpen={onOpen}
-        toolbar={<NamespaceFilter cluster={effectiveCluster || undefined} />}
+        toolbar={
+          scope ? (
+            <>
+              <Badge title={`Label selector: ${scope.selector}`}>
+                Pods of {scope.of.split("/")[0]} <strong>{scope.of.split("/").slice(1).join("/")}</strong>
+                {scope.ns ? ` · ${scope.ns}` : ""}
+              </Badge>
+              <IconButton label="Show all pods" onClick={() => navigate("/workloads")}>
+                ×
+              </IconButton>
+            </>
+          ) : (
+            <NamespaceFilter cluster={effectiveCluster || undefined} />
+          )
+        }
         onDelete={(t, gitopsOwner) =>
           api.deleteResource({ cluster: effectiveCluster, gvr: "v1/pods", ns: t.ns, name: t.name, gitopsOwner })
         }
