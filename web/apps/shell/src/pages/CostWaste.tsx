@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { EmptyState, PageHeader } from "@kubebay/ui";
 import { WasteBreakdown } from "../components/WasteBreakdown";
 import { HistoryCoverageChip } from "../components/HistoryCoverageChip";
+import { HeadroomForecastCard } from "../components/HeadroomForecastCard";
 import { WorkloadUsageTable } from "../components/WorkloadUsageTable";
 import { PageLoader } from "../components/PageLoader";
 import { useResourceStream, shouldShowSkeleton } from "../lib/useResourceStream";
@@ -38,6 +39,13 @@ export default function CostWaste() {
   const waste = useMemo(() => computeClusterWaste(nodes.rows, pods.rows), [nodes.rows, pods.rows]);
   const usageRows = useMemo(() => computeEngineRightSizingRows(wasteQ.data ?? [], hpas.rows), [wasteQ.data, hpas.rows]);
   const efficiency = useMemo(() => computeEfficiencyScore(waste, pods.rows, wasteQ.data), [waste, pods.rows, wasteQ.data]);
+  const capacity = useMemo(
+    () => ({
+      cpuMillis: waste.nodes.reduce((a, n) => a + n.allocatableCpuMillis, 0),
+      memBytes: waste.nodes.reduce((a, n) => a + n.allocatableMemBytes, 0),
+    }),
+    [waste],
+  );
   const gpu = useMemo(() => computeGpuCapacity(nodes.rows, pods.rows), [nodes.rows, pods.rows]);
   const spotNodeCount = useMemo(() => nodes.rows.filter(isSpotNode).length, [nodes.rows]);
   const spotRisk = useMemo(() => findSpotRiskWorkloads(pods.rows, nodes.rows, pdbs.rows), [pods.rows, nodes.rows, pdbs.rows]);
@@ -70,6 +78,9 @@ export default function CostWaste() {
         </div>
         <div style={{ marginBottom: 12 }}>
           <HistoryCoverageChip cluster={effectiveCluster} />
+        </div>
+        <div style={{ marginBottom: 16 }}>
+          <HeadroomForecastCard cluster={effectiveCluster} capacity={capacity} />
         </div>
         <div style={{ marginBottom: 16 }}>
           <EfficiencyScoreCard efficiency={efficiency} />

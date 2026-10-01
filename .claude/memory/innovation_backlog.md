@@ -557,7 +557,7 @@ Skipped as managed or used outside pod specs:
 **Not in v1:** Gateway API `certificateRefs`, DaemonSet and Job templates, CSI `nodePublishSecretRef`, and a delete action.
 
 **Effort: S.** **OSS, not Enterprise.**
-### 36. Local historical rollup (retention layer) — status: building (slice 1 shipped: #73, #74, #75; slice 2 in progress)
+### 36. Local historical rollup (retention layer) — status: building (slices 1–2 shipped: #73–#75, #77, #78; slice 3 in progress)
 
 The [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszbyRLEMgqjEFVVewJ)'s **Foundational** item. It gates trend-based headroom forecasting and the cost/usage anomaly detector (Tier 2 #20 and #21). Today the only usage history is `waste`'s in-memory ring buffer, which is lost when the engine restarts.
 
@@ -630,6 +630,16 @@ Verdict:
      - Requests stay `null`, since they would need kube-state-metrics.
      - It returns 412 when no Prometheus is configured and 502 when Prometheus is unreachable. It never falls back to local data.
 3. The consumers, #20 and #21.
+   - **Progress (2026-10-01):**
+     - Slice 2 finished: #77 (the coverage chip) and #78 (the Prometheus source) are merged.
+     - **3a, headroom forecast (#20).** A "Headroom forecast" card on Cost / Waste. `lib/headroomForecast.ts` works over the cluster-total local series for the last 35 days:
+       - Each local calendar day's peak is taken from well-sampled hours only.
+       - A day qualifies with at least 4 well-sampled hours, and the forecast needs at least 5 qualifying days per metric. Usage metrics count only days that have usage, so a cluster without metrics-server still gets the requests forecast.
+       - Ordinary least squares against the calendar-day index, so a skipped day doesn't steepen the slope.
+       - Metrics are CPU and memory requests (the scheduling headroom) and peak usage, each measured against the streamed nodes' allocatable.
+       - Outcomes: reaches allocatable in ~N days, at allocatable, flat or falling, or not within the horizon. The horizon is twice the observed span, so 5 days of data never projects beyond 10.
+       - It is labelled "daily peak during observed hours" with the engine's coverage label. Below the gate it shows "needs 5 days … N so far" instead of hiding.
+     - **3b, anomaly detection (#21)** is next.
 
 **Not in v1:**
 

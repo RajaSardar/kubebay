@@ -30,6 +30,17 @@ vi.mock("../../lib/api", async (orig) => ({
       cluster: "c1", available: true, recording: true,
       coverage: { observedHours: 12, expectedHours: 840, label: "observed 09–18 local, weekdays only" },
     })),
+    // Five weekdays, four well-sampled hours each; CPU requests' daily peak rises 200m/day to 3600m.
+    series: vi.fn(async () => ({
+      ns: "", source: "local",
+      coverage: { label: "observed 09–12 local, weekdays only" },
+      points: [1, 2, 3, 4, 5].flatMap((d, i) =>
+        [9, 10, 11, 12].map((h) => ({
+          t: new Date(2026, 8, d, h).toISOString(), n: 60, wellSampled: true,
+          cpuMean: null, cpuMax: null, memMean: null, memMax: null, reqCpuMillis: 2800 + i * 200, reqMemBytes: null,
+        })),
+      ),
+    })),
   },
 }));
 
@@ -57,5 +68,18 @@ describe("CostWaste", () => {
       </QueryClientProvider>,
     );
     expect(await screen.findByText("History: observed 12 of 840 hours")).toBeInTheDocument();
+  });
+
+  it("forecasts headroom against the streamed nodes' allocatable", async () => {
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <MemoryRouter>
+          <CostWaste />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByText("Headroom forecast")).toBeInTheDocument();
+    // n1 has 4 cores allocatable: (4000m - 3600m) / 200m per day = 2 days.
+    expect(screen.getByText("reaches allocatable in ~2 days")).toBeInTheDocument();
   });
 });
