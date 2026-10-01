@@ -11,6 +11,7 @@ import { useNodeExtras } from "../lib/useNodeExtras";
 import { evalPrinterPath } from "../lib/printerPath";
 import { ownerOf, ownerLabel } from "../lib/gitops";
 import { templateKindFor } from "../lib/resourceTemplates";
+import { podsOfWorkloadPath } from "../lib/selector";
 import { ResourceListView, type ListColumn } from "../components/ResourceListView";
 
 import GenericDrawer from "../components/GenericDrawer";
@@ -291,6 +292,8 @@ const nameOf = (r: Row) => str(rec(r.metadata).name);
 const nsOf = (r: Row) => str(rec(r.metadata).namespace);
 const createdOf = (r: Row) => str(rec(r.metadata).creationTimestamp);
 const isTerminating = (r: Row) => !!rec(r.metadata).deletionTimestamp;
+/** Kinds whose row menu offers "Show pods" (they select pods by label). */
+const HAS_PODS = new Set(["deployments", "statefulsets", "daemonsets", "replicasets", "jobs"]);
 
 export default function ResourceTable() {
   const { kind = "" } = useParams();
@@ -426,6 +429,14 @@ export default function ResourceTable() {
           return [
             { label: "View details", onClick: () => setSelected({ ns, name }) },
             { label: "Edit YAML", onClick: () => setSelected({ ns, name, tab: "yaml" }) },
+            ...(HAS_PODS.has(def.slug)
+              ? [
+                  (() => {
+                    const to = podsOfWorkloadPath(o, def.kind);
+                    return { label: "Show pods", disabled: !to, onClick: () => to && navigate(to) };
+                  })(),
+                ]
+              : []),
             ...(workloadActions(def.slug).scale ? [{ label: "Scale…", onClick: () => setRowAction({ action: "scale", obj: o }) }] : []),
             ...(workloadActions(def.slug).restart ? [{ label: "Restart…", onClick: () => setRowAction({ action: "restart", obj: o }) }] : []),
             { label: "Copy name", onClick: () => void navigator.clipboard?.writeText(name) },
