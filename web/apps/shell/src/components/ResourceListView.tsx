@@ -1,4 +1,4 @@
-import { useCallback, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { Badge, Button, ColumnChooser, EmptyState, IconButton, InlineBanner, NsPill, PageHeader, SelectAllHeader, SelectCell, SkeletonTable, SortHeader, Table, TableRow, TableWrap, TextField } from "@kubebay/ui";
 import { shouldShowSkeleton } from "../lib/useResourceStream";
 import { useColumnWidths } from "../lib/useColumnWidths";
@@ -127,6 +127,26 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
   });
 
   const keyOf = useCallback((r: R) => `${nsOf(r)}/${nameOf(r)}`, [nsOf, nameOf]);
+
+  // A selection belongs to one table and to rows that exist. Every /r/:kind
+  // table is the same mounted view, so switching kinds must clear it, or
+  // "Delete 1 selected" would hit the other kind's object of the same name.
+  // An open delete confirmation goes with it: confirming it on the new kind
+  // would delete that kind's objects.
+  const cancelDelete = useRef(bulkDelete.cancel);
+  cancelDelete.current = bulkDelete.cancel;
+  useEffect(() => {
+    clearAll();
+    cancelDelete.current();
+  }, [p.sortKey, clearAll]);
+  // Rows the stream removed leave the selection (only once synced: a re-sync
+  // briefly holds no rows and must not drop it).
+  useEffect(() => {
+    if (!p.synced || selectedKeys.size === 0) return;
+    const present = new Set(all.map(keyOf));
+    const gone = [...selectedKeys].filter((k) => !present.has(k));
+    if (gone.length > 0) deselect(gone);
+  }, [all, keyOf, p.synced, selectedKeys, deselect]);
   const byCol = useMemo(() => new Map(columns.map((c) => [c.id, c])), [columns]);
   const createdOf = p.createdOf;
 
@@ -299,7 +319,7 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
         </EmptyState>
       ) : (
         <TableWrap ref={scrollRef} busy={p.busy}>
-          <Table>
+          <Table pinLead>
             <colgroup>
               <col style={{ width: 40 }} />
               {heads.map((h, i) => <col key={h.id} style={{ width: widths[i] }} />)}
@@ -320,7 +340,8 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
                     asc={sort.asc}
                     onSort={() => sort.toggle(h.id)}
                     width={widths[i]}
-                    style={{ position: "relative" }}
+                    pinned={h.id === "Name"}
+                    style={h.id === "Name" ? undefined : { position: "relative" }}
                   >
                     <div className="col-resize-handle" {...getResizeHandleProps(h.id)} />
                   </SortHeader>
@@ -353,7 +374,7 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
                     onContextMenu={(e) => { e.preventDefault(); setCtx({ x: e.clientX, y: e.clientY, row: r }); }}
                   >
                     <SelectCell checked={isSelected} onChange={() => toggleRow(key)} label={`Select ${name}`} />
-                    <td className="mono td-name" title={name}>{name}</td>
+                    <td className="mono td-name" title={name}><span>{name}</span></td>
                     {prefs.visible.map((id) => {
                       if (id === "Namespace")
                         return (
