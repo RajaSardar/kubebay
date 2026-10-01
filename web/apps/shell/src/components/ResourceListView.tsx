@@ -260,7 +260,7 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
         </EmptyState>
       ) : (
         <TableWrap ref={scrollRef} busy={p.busy}>
-          <Table>
+          <Table pinLead>
             <colgroup>
               <col style={{ width: 40 }} />
               {heads.map((h, i) => <col key={h.id} style={{ width: widths[i] }} />)}
@@ -281,7 +281,8 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
                     asc={sort.asc}
                     onSort={() => sort.toggle(h.id)}
                     width={widths[i]}
-                    style={{ position: "relative" }}
+                    pinned={h === "Name"}
+                    style={h === "Name" ? undefined : { position: "relative" }}
                   >
                     <div className="col-resize-handle" {...getResizeHandleProps(h.id)} />
                   </SortHeader>
@@ -314,7 +315,7 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
                     onContextMenu={(e) => { e.preventDefault(); setCtx({ x: e.clientX, y: e.clientY, row: r }); }}
                   >
                     <SelectCell checked={isSelected} onChange={() => toggleRow(key)} label={`Select ${name}`} />
-                    <td className="mono td-name" title={name}>{name}</td>
+                    <td className="mono td-name" title={name}><span>{name}</span></td>
                     {!p.scoped && (
                       <td className="mono">
                         <NsPill
