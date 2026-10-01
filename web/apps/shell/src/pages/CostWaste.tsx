@@ -17,6 +17,8 @@ import { EfficiencyScoreCard } from "../components/EfficiencyScoreCard";
 import { computeEfficiencyScore } from "../lib/efficiencyScore";
 import { GpuCapacityCard } from "../components/GpuCapacityCard";
 import { computeGpuCapacity } from "../lib/gpuCapacity";
+import { ConsolidationCard } from "../components/ConsolidationCard";
+import { assessConsolidation } from "../lib/consolidation";
 
 export default function CostWaste() {
   const { cluster: effectiveCluster } = useCluster();
@@ -27,6 +29,9 @@ export default function CostWaste() {
   const pods = useResourceStream(effectiveCluster || undefined, "v1/pods", { mode: "full" });
   const hpas = useResourceStream(effectiveCluster || undefined, "autoscaling/v2/horizontalpodautoscalers", { mode: "full" });
   const pdbs = useResourceStream(effectiveCluster || undefined, "policy/v1/poddisruptionbudgets", { mode: "full" });
+  // Full mode: SPOF Radar's gate reads spec.replicas and spec.selector.
+  const deployments = useResourceStream(effectiveCluster || undefined, "apps/v1/deployments", { mode: "full" });
+  const statefulSets = useResourceStream(effectiveCluster || undefined, "apps/v1/statefulsets", { mode: "full" });
 
   const wasteQ = useQuery({
     queryKey: ["waste-workloads", effectiveCluster],
@@ -45,6 +50,17 @@ export default function CostWaste() {
       memBytes: waste.nodes.reduce((a, n) => a + n.allocatableMemBytes, 0),
     }),
     [waste],
+  );
+  const consolidation = useMemo(
+    () =>
+      assessConsolidation({
+        nodes: nodes.rows,
+        pods: pods.rows,
+        pdbs: pdbs.rows,
+        deployments: deployments.rows,
+        statefulSets: statefulSets.rows,
+      }),
+    [nodes.rows, pods.rows, pdbs.rows, deployments.rows, statefulSets.rows],
   );
   const gpu = useMemo(() => computeGpuCapacity(nodes.rows, pods.rows), [nodes.rows, pods.rows]);
   const spotNodeCount = useMemo(() => nodes.rows.filter(isSpotNode).length, [nodes.rows]);
@@ -94,6 +110,14 @@ export default function CostWaste() {
             <GpuCapacityCard gpu={gpu} />
           </div>
         )}
+        <div style={{ marginTop: 16 }}>
+          {/* The SPOF gate needs workloads and PDBs; until they sync a node would look safer than it is. */}
+          {deployments.synced && statefulSets.synced && pdbs.synced ? (
+            <ConsolidationCard result={consolidation} />
+          ) : (
+            <div className="muted small">Node consolidation: checking workloads for single points of failure…</div>
+          )}
+        </div>
         <div style={{ marginTop: 16 }}>
           <SpotRiskCard findings={spotRisk} spotNodeCount={spotNodeCount} />
         </div>
