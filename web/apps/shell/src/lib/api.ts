@@ -1,4 +1,4 @@
-import { PolicyRejectionError, type PolicyRejectionDetail } from "./policyRejection";
+import { PolicyRejectionError, StaleEditError, type PolicyRejectionDetail } from "./policyRejection";
 import type { HistoryPoint } from "./headroomForecast";
 
 declare global {
@@ -93,12 +93,15 @@ async function send<T>(method: string, path: string, body?: unknown): Promise<T>
 function throwIfPolicyRejection(res: Response, text: string): void {
   if (!res.headers.get("Content-Type")?.includes("application/json")) return;
   try {
-    const body = JSON.parse(text) as { error?: string; policyRejection?: PolicyRejectionDetail };
+    const body = JSON.parse(text) as { error?: string; policyRejection?: PolicyRejectionDetail; paths?: string[]; message?: string };
     if (body.error === "policy-rejected" && body.policyRejection) {
       throw new PolicyRejectionError(body.policyRejection);
     }
+    if (body.error === "changed-since-load" && Array.isArray(body.paths)) {
+      throw new StaleEditError(body.paths, body.message);
+    }
   } catch (e) {
-    if (e instanceof PolicyRejectionError) throw e;
+    if (e instanceof PolicyRejectionError || e instanceof StaleEditError) throw e;
     // Malformed JSON body — fall through to the plain-text error in send().
   }
 }

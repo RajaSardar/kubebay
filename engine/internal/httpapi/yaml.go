@@ -233,6 +233,42 @@ func (c *Channels) HandleApplyYAML(w http.ResponseWriter, r *http.Request) {
 	}
 	var applied interface{}
 	ri := d.Resource(schema.GroupVersionResource(g))
+
+	// An edit is diffed against what the editor loaded. If a field the user
+	// changed has also changed on the cluster since, refuse rather than
+	// silently overwrite it; other concurrent changes are left alone.
+	if req.Original != "" {
+		var live interface{ UnstructuredContent() map[string]interface{} }
+		if req.Namespace != "" {
+			live, err = ri.Namespace(req.Namespace).Get(r.Context(), req.Name, metav1.GetOptions{})
+		} else {
+			live, err = ri.Get(r.Context(), req.Name, metav1.GetOptions{})
+		}
+		if err != nil {
+			writePolicyRejectionOrError(w, err)
+			return
+		}
+		liveJSON, err := json.Marshal(live.UnstructuredContent())
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		drift, err := computeEditPatch([]byte(req.Original), liveJSON)
+		if err != nil {
+			http.Error(w, "compare with live: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if both := editOverlap(edit.ChangedPaths, drift.ChangedPaths); len(both) > 0 {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusConflict)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"error":   "changed-since-load",
+				"paths":   both,
+				"message": "these fields changed on the cluster since the editor loaded them",
+			})
+			return
+		}
+	}
 	if req.Namespace != "" {
 		applied, err = ri.Namespace(req.Namespace).Patch(r.Context(), req.Name, patchType, data, patchOpts)
 	} else {

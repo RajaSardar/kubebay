@@ -177,3 +177,26 @@ func collectPatchPaths(node map[string]interface{}, prefix string, strategic boo
 		}
 	}
 }
+
+// editOverlap returns the user's edited paths that also changed on the live
+// object since the editor loaded it: patching those would silently overwrite
+// someone else's change. Paths overlap when equal or when one contains the
+// other (a replaced list contains every path inside it).
+func editOverlap(userPaths, livePaths []string) []string {
+	clean := func(p string) string { return strings.TrimSuffix(p, " (removed)") }
+	contains := func(outer, inner string) bool {
+		return outer == inner || strings.HasPrefix(inner, outer+".") || strings.HasPrefix(inner, outer+"[")
+	}
+	var out []string
+	for _, u := range userPaths {
+		cu := clean(u)
+		for _, l := range livePaths {
+			cl := clean(l)
+			if contains(cu, cl) || contains(cl, cu) {
+				out = append(out, cu)
+				break
+			}
+		}
+	}
+	return out
+}

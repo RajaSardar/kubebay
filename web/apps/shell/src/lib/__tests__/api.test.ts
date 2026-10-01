@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { api } from "../api";
-import { PolicyRejectionError } from "../policyRejection";
+import { PolicyRejectionError, StaleEditError } from "../policyRejection";
 
 function jsonResponse(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
@@ -78,5 +78,32 @@ describe("api — policy rejection now surfaces on every mutating call, not just
     await expect(api.scale({ cluster: "kind-test", gvr: "apps/v1/deployments", ns: "default", name: "web", replicas: 3 })).rejects.toThrow(
       "connection refused",
     );
+  });
+});
+
+describe("api.applyYaml — stale edits", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("throws a StaleEditError naming the fields that changed on the cluster since load", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(jsonResponse(409, { error: "changed-since-load", paths: ["spec.replicas"], message: "these fields changed" })),
+    );
+    await expect(api.applyYaml(applyArgs)).rejects.toSatisfy((e: unknown) => {
+      expect(e).toBeInstanceOf(StaleEditError);
+      expect((e as StaleEditError).paths).toEqual(["spec.replicas"]);
+      return true;
+    });
+  });
+
+  it("keeps a plain-text 409 (an API server conflict) as an ordinary Error", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(textResponse(409, "Operation cannot be fulfilled")));
+    await expect(api.applyYaml(applyArgs)).rejects.toSatisfy((e: unknown) => {
+      expect(e).not.toBeInstanceOf(StaleEditError);
+      expect((e as Error).message).toBe("Operation cannot be fulfilled");
+      return true;
+    });
   });
 });
