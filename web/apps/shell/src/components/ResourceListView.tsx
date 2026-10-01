@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
-import { Badge, Button, EmptyState, IconButton, InlineBanner, NsPill, PageHeader, SelectAllHeader, SelectCell, SelectionBar, SkeletonTable, SortHeader, Table, TableRow, TableWrap, TextField, VisuallyHidden } from "@kubebay/ui";
+import { Badge, Button, ColumnChooser, EmptyState, IconButton, InlineBanner, NsPill, PageHeader, SelectAllHeader, SelectCell, SelectionBar, SkeletonTable, SortHeader, Table, TableRow, TableWrap, TextField, VisuallyHidden } from "@kubebay/ui";
 import { shouldShowSkeleton } from "../lib/useResourceStream";
 import { useColumnWidths } from "../lib/useColumnWidths";
+import { useColumnPrefs } from "../lib/useColumnPrefs";
 import { useRowSelection } from "../lib/useRowSelection";
 import { useBulkDelete, type DeleteTarget } from "../lib/useBulkDelete";
 import { useResourceList } from "../lib/useResourceList";
@@ -29,6 +30,8 @@ export interface ListColumn<R> {
   filterText?: (r: R) => string;
   /** The key that targets this column in the filter (`status:crash`). Needs filterText. */
   filterKey?: string;
+  /** Hidden until the user shows it from the column chooser. */
+  defaultHidden?: boolean;
   /** The cell's class ("mono muted" when unset). */
   className?: string | ((r: R) => string);
   /** The cell's tooltip. */
@@ -114,17 +117,24 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
   const [ctx, setCtx] = useState<{ x: number; y: number; row: R } | null>(null);
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
 
-  // Every shown column as {id, header}: Name, Namespace, the page's columns, Age.
-  // Widths and sort are keyed by id, so they stay with their column.
-  const heads = useMemo(
+  // Every column the user may show, hide or move (all but Name, which stays
+  // first), in the page's order, and the user's layout of them (#21).
+  const managed = useMemo(
     () => [
-      { id: "Name", header: "Name" },
       ...(p.scoped ? [] : [{ id: "Namespace", header: "Namespace" }]),
-      ...columns.map((c) => ({ id: c.id, header: c.header })),
+      ...columns.map((c) => ({ id: c.id, header: c.header, defaultHidden: c.defaultHidden })),
       { id: "Age", header: "Age" },
     ],
     [p.scoped, columns],
   );
+  const prefs = useColumnPrefs(p.sortKey, managed);
+  const visibleIds = useMemo(() => new Set(prefs.visible), [prefs.visible]);
+  // The shown columns as {id, header}: Name, then the user's order. Widths and
+  // sort are keyed by id, so they stay with their column.
+  const heads = useMemo(() => {
+    const byId = new Map(managed.map((m) => [m.id, m.header]));
+    return [{ id: "Name", header: "Name" }, ...prefs.visible.map((id) => ({ id, header: byId.get(id) ?? id }))];
+  }, [managed, prefs.visible]);
   const headers = useMemo(() => heads.map((h) => h.header), [heads]);
   const defaultWidths = useMemo(
     () => ({ Name: NAME_W, Namespace: NS_W, Age: AGE_W, ...Object.fromEntries(columns.map((c) => [c.id, c.width ?? COL_W])) }),
@@ -177,23 +187,27 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
   const match = useCallback(
     (r: R, q: string) => {
       if (parsed.current?.q !== q) parsed.current = { q, query: parseQuery(q, columnKeys) };
+      // Plain words search what is shown; key:value reaches any column.
       const fields: Record<string, string> = { name: nameOf(r), ns: nsOf(r) };
-      const text = [fields.name!, fields.ns!];
+      const text = [fields.name!];
+      if (visibleIds.has("Namespace")) text.push(fields.ns!);
       for (const c of columns) {
         if (!c.filterText) continue;
         const v = c.filterText(r);
-        text.push(v);
+        if (visibleIds.has(c.id)) text.push(v);
         if (c.filterKey) fields[c.filterKey.toLowerCase()] = v;
       }
       return matchesQuery({ text, fields, labels: labelsOf?.(r) }, parsed.current.query);
     },
-    [columns, columnKeys, nameOf, nsOf, labelsOf],
+    [columns, columnKeys, nameOf, nsOf, labelsOf, visibleIds],
   );
 
   const list = useResourceList<R>({
     rows: all,
     keyOf,
     match,
+    // A hidden column no longer orders the table.
+    sortable: useCallback((col: string) => col === "Name" || visibleIds.has(col), [visibleIds]),
     filterFields: useCallback(
       (r: R) => [nameOf(r), nsOf(r), ...columns.flatMap((c) => (c.filterText ? [c.filterText(r)] : []))],
       [nameOf, nsOf, columns],
@@ -330,6 +344,12 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
             Filtering by {understood.map((t) => `${t.neg ? "not " : ""}${t.key}: ${t.value}`).join(" · ")}
           </span>
         )}
+        <ColumnChooser
+          columns={prefs.order.map((id) => ({ id, label: managed.find((m) => m.id === id)?.header ?? id, shown: visibleIds.has(id) }))}
+          onToggle={prefs.toggle}
+          onMove={prefs.move}
+          onReset={prefs.reset}
+        />
       </div>
 
       {shouldShowSkeleton(p.synced, all.length) ? (
@@ -398,28 +418,38 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
                   >
                     <SelectCell checked={isSelected} onChange={() => toggleRow(key)} label={`Select ${name}`} />
                     <td className="mono td-name" title={name}><span>{name}</span></td>
-                    {!p.scoped && (
-                      <td className="mono">
-                        <NsPill
-                          title={`Filter by namespace: ${ns}`}
-                          onClick={() => {
-                            if (p.cluster) setNamespaces(p.cluster, [ns]);
-                          }}
+                    {prefs.visible.map((id) => {
+                      if (id === "Namespace")
+                        return (
+                          <td key={id} className="mono">
+                            <NsPill
+                              title={`Filter by namespace: ${ns}`}
+                              onClick={() => {
+                                if (p.cluster) setNamespaces(p.cluster, [ns]);
+                              }}
+                            >
+                              {ns}
+                            </NsPill>
+                          </td>
+                        );
+                      if (id === "Age")
+                        return (
+                          <td key={id} className="mono muted" title={absoluteTime(created)}>
+                            <LiveAge ts={created} />
+                          </td>
+                        );
+                      const c = byCol.get(id);
+                      if (!c) return null;
+                      return (
+                        <td
+                          key={id}
+                          className={(typeof c.className === "function" ? c.className(r) : c.className) ?? "mono muted"}
+                          title={c.title?.(r)}
                         >
-                          {ns}
-                        </NsPill>
-                      </td>
-                    )}
-                    {columns.map((c) => (
-                      <td
-                        key={c.id}
-                        className={(typeof c.className === "function" ? c.className(r) : c.className) ?? "mono muted"}
-                        title={c.title?.(r)}
-                      >
-                        {c.cell(r)}
-                      </td>
-                    ))}
-                    <td className="mono muted" title={absoluteTime(created)}><LiveAge ts={created} /></td>
+                          {c.cell(r)}
+                        </td>
+                      );
+                    })}
                     {/* ⋮ kebab — visible only on row hover */}
                     <td className="col-row-menu" onClick={(e) => e.stopPropagation()}>
                       <IconButton
