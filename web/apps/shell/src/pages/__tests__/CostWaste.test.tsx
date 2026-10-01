@@ -25,6 +25,12 @@ vi.mock("../../lib/useResourceStream", () => ({
 vi.mock("../../lib/api", async (orig) => ({
   ...(await orig<typeof import("../../lib/api")>()),
   wasteApi: { workloads: vi.fn(async () => []) },
+  historyApi: {
+    status: vi.fn(async () => ({
+      cluster: "c1", available: true, recording: true,
+      coverage: { observedHours: 12, expectedHours: 840, label: "observed 09–18 local, weekdays only" },
+    })),
+  },
 }));
 
 describe("CostWaste", () => {
@@ -40,5 +46,16 @@ describe("CostWaste", () => {
     expect(screen.getByText("Efficiency score")).toBeInTheDocument();
     expect(screen.getAllByText("100").length).toBeGreaterThan(0);
     expect(screen.getByText("Good")).toBeInTheDocument();
+  });
+
+  it("shows the cluster's usage-history coverage", async () => {
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <MemoryRouter>
+          <CostWaste />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByText("History: observed 12 of 840 hours")).toBeInTheDocument();
   });
 });
