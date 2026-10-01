@@ -291,8 +291,8 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
                     asc={sort.asc}
                     onSort={() => sort.toggle(h.id)}
                     width={widths[i]}
-                    pinned={h === "Name"}
-                    style={h === "Name" ? undefined : { position: "relative" }}
+                    pinned={h.id === "Name"}
+                    style={h.id === "Name" ? undefined : { position: "relative" }}
                   >
                     <div className="col-resize-handle" {...getResizeHandleProps(h.id)} />
                   </SortHeader>
