@@ -95,9 +95,13 @@ export const TableWrap = forwardRef<HTMLDivElement, TableWrapProps>(function Tab
   );
 });
 
-/** `table.kb-table`: sticky blurred header, hairline rows, ellipsized fixed-layout cells. */
-export function Table({ className, ...props }: TableHTMLAttributes<HTMLTableElement>) {
-  return <table className={`kb-table${className ? " " + className : ""}`} {...props} />;
+/**
+ * `table.kb-table`: sticky blurred header, hairline rows, ellipsized fixed-layout cells.
+ * `pinLead` keeps the select column and the Name column (`td.td-name`, a `SortHeader pinned`)
+ * in place while a wide table scrolls sideways.
+ */
+export function Table({ className, pinLead, ...props }: TableHTMLAttributes<HTMLTableElement> & { pinLead?: boolean }) {
+  return <table className={`kb-table${pinLead ? " kb-table-pin-lead" : ""}${className ? " " + className : ""}`} {...props} />;
 }
 
 export interface SortHeaderProps {
@@ -110,13 +114,15 @@ export interface SortHeaderProps {
   /** Extra content inside the header cell, e.g. a column-resize handle. */
   children?: ReactNode;
   style?: CSSProperties;
+  /** The Name header of a `Table pinLead`: stays in place on horizontal scroll. */
+  pinned?: boolean;
 }
 
 /** A column header with the accent sort arrow; sorts on click, or Enter/Space when focused. */
-export function SortHeader({ label, active, asc, onSort, width, children, style }: SortHeaderProps) {
+export function SortHeader({ label, active, asc, onSort, width, children, style, pinned }: SortHeaderProps) {
   return (
     <th
-      className="th-sortable"
+      className={pinned ? "th-sortable th-pin" : "th-sortable"}
       style={{ width, ...style }}
       aria-sort={active ? (asc ? "ascending" : "descending") : "none"}
       tabIndex={0}
