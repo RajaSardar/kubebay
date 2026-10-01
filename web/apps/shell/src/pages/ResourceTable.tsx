@@ -294,6 +294,7 @@ const isTerminating = (r: Row) => !!rec(r.metadata).deletionTimestamp;
 const labelsOf = (r: Row) => rec(r.metadata).labels as Record<string, string> | undefined;
 /** A column's key in the filter: "Capacity type" → capacity-type. */
 const filterKeyOf = (header: string) => header.toLowerCase().replace(/\s+/g, "-");
+const versionOf = (r: Row) => str(rec(r.metadata).resourceVersion);
 
 export default function ResourceTable() {
   const { kind = "" } = useParams();
@@ -420,6 +421,7 @@ export default function ResourceTable() {
         createdOf={createdOf}
         isDimmed={isTerminating}
         labelsOf={labelsOf}
+        versionOf={versionOf}
         columns={columns}
         sortKey={`r/${kind}`}
         onOpen={onOpen}

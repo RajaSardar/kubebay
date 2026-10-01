@@ -615,6 +615,30 @@ kbd {
   opacity: 0.7;
 }
 
+/* ── Changed row: its shown data just changed (a status, a count). It tints and
+   fades over --kb-dur-flash; under reduced motion it holds the tint still for
+   that time instead (the row loses data-changed when the time is up). Pinned
+   lead cells are opaque, so they carry the tint themselves. */
+.kb-table tbody tr[data-changed] {
+  animation: kb-row-changed var(--kb-dur-flash) var(--kb-ease);
+}
+
+.kb-table-pin-lead tbody tr[data-changed] > td.col-select,
+.kb-table-pin-lead tbody tr[data-changed] > td.td-name {
+  animation: kb-row-changed-pinned var(--kb-dur-flash) var(--kb-ease);
+}
+
+@keyframes kb-row-changed {
+  from { background-color: var(--kb-row-changed); }
+  to { background-color: transparent; }
+}
+
+/* An inset shadow paints over the opaque cell without making it see-through. */
+@keyframes kb-row-changed-pinned {
+  from { box-shadow: inset 0 0 0 100vmax var(--kb-row-changed); }
+  to { box-shadow: inset 0 0 0 100vmax transparent; }
+}
+
 .tabs {
   display: flex;
   align-items: center;
@@ -1434,6 +1458,19 @@ tr.row-clickable:active {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kb-table tbody tr[data-changed] {
+    animation: none;
+    background-color: var(--kb-row-changed);
+  }
+
+  .kb-table-pin-lead tbody tr[data-changed] > td.col-select,
+  .kb-table-pin-lead tbody tr[data-changed] > td.td-name {
+    animation: none;
+    box-shadow: inset 0 0 0 100vmax var(--kb-row-changed);
   }
 }
 
