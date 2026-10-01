@@ -1,4 +1,4 @@
-import { Badge, Card, EmptyState, Row, Stack } from "@kubebay/ui";
+import { Badge, Card, EmptyState, InlineBanner, Row, Stack } from "@kubebay/ui";
 import type { FluxObjectStatus } from "../lib/flux";
 
 /**
@@ -10,7 +10,7 @@ import type { FluxObjectStatus } from "../lib/flux";
  * whether a drift-detection event fired (drift that already happened and
  * was already corrected by the time this renders).
  */
-export function FluxSummary({ items }: { items: FluxObjectStatus[] }) {
+export function FluxSummary({ items, highlight }: { items: FluxObjectStatus[]; highlight?: string | null }) {
   if (items.length === 0) {
     return (
       <EmptyState>
@@ -19,10 +19,13 @@ export function FluxSummary({ items }: { items: FluxObjectStatus[] }) {
     );
   }
 
+  // A "Managed by" link names one object: mark it, or say it is not here.
+  const missing = !!highlight && !items.some((it) => it.name === highlight);
   return (
     <Stack gap={2}>
+      {missing && <InlineBanner tone="warn">Flux object {highlight} isn&apos;t in this cluster.</InlineBanner>}
       {items.map((it, i) => (
-        <Card key={i}>
+        <Card key={i} selected={!!highlight && it.name === highlight}>
           <Row align="center" gap={2} wrap>
             <Badge>{it.kind}</Badge>
             <span className="mono strong small">{it.name}</span>

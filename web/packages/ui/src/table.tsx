@@ -4,6 +4,7 @@ import {
   useRef,
   type CSSProperties,
   type HTMLAttributes,
+  type MouseEvent,
   type ReactNode,
   type TableHTMLAttributes,
 } from "react";
@@ -192,12 +193,14 @@ export const TableRow = forwardRef<HTMLTableRowElement, TableRowProps>(function 
   );
 });
 
-/** The clickable namespace chip in a table cell. */
+/** The namespace chip in a table cell; with onClick it is a button (Enter or Space work too). */
 export function NsPill({ children, onClick, title }: { children: ReactNode; onClick?: () => void; title?: string }) {
   return (
     <span
       className="cell-link ns-pill"
       title={title}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
       onClick={
         onClick
           ? (e) => {
@@ -206,9 +209,40 @@ export function NsPill({ children, onClick, title }: { children: ReactNode; onCl
             }
           : undefined
       }
+      onKeyDown={
+        onClick
+          ? (e) => {
+              if (e.key !== "Enter" && e.key !== " ") return;
+              e.preventDefault();
+              e.stopPropagation();
+              onClick();
+            }
+          : undefined
+      }
     >
       {children}
     </span>
+  );
+}
+
+/**
+ * A link in a table cell (to another resource, an Argo CD app): a real <a>,
+ * so it can be focused, opened in a new window and read as a link. Clicking it
+ * does not also open the row.
+ */
+export function CellLink({ href, onClick, children, title }: { href: string; onClick?: (e: MouseEvent<HTMLAnchorElement>) => void; children: ReactNode; title?: string }) {
+  return (
+    <a
+      className="cell-link"
+      href={href}
+      title={title}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick?.(e);
+      }}
+    >
+      {children}
+    </a>
   );
 }
 
