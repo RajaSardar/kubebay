@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import Rbac from "../Rbac";
 import { useResourceStream } from "../../lib/useResourceStream";
+import { rbacApi } from "../../lib/api";
 
 vi.mock("../../lib/useCluster", () => ({
   useCluster: () => ({ cluster: "c1", setCluster: vi.fn(), list: [{ id: "c1" }], isLoading: false }),
@@ -52,5 +53,20 @@ describe("Rbac", () => {
     renderPage();
     expect(await screen.findByText("Running image signatures")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Check signatures" })).toBeInTheDocument();
+  });
+
+  it("chains an exposed workload to its ServiceAccount's risky RBAC", async () => {
+    const rows: Record<string, unknown[]> = {
+      "v1/pods": [{ metadata: { name: "api-1", namespace: "shop", labels: { app: "api" } }, spec: { serviceAccountName: "api", containers: [{ name: "app" }] } }],
+      "v1/services": [{ metadata: { name: "api", namespace: "shop" }, spec: { type: "LoadBalancer", selector: { app: "api" } } }],
+    };
+    vi.mocked(useResourceStream).mockImplementation(((_c: string, gvr: string) => ({ rows: rows[gvr] ?? [], synced: true })) as typeof useResourceStream);
+    vi.mocked(rbacApi.all).mockResolvedValueOnce({
+      roles: [], clusterRoles: [], roleBindings: [], clusterRoleBindings: [],
+      findings: [{ severity: "high", title: "Can read Secrets cluster-wide", subject: "ServiceAccount shop/api", roleRef: "ClusterRole/x", why: "" }],
+    });
+    renderPage();
+    expect(await screen.findByText("Pod shop/api-1")).toBeInTheDocument();
+    expect(screen.getByText(/Mounts the shop\/api ServiceAccount token/)).toBeInTheDocument();
   });
 });
