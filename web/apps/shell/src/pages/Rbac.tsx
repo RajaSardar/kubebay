@@ -8,12 +8,15 @@ import { SecretExposureCard } from "../components/SecretExposureCard";
 import { ImageSignatureCard } from "../components/ImageSignatureCard";
 import { RunningImageSignaturesCard } from "../components/RunningImageSignaturesCard";
 import { OrphanedSecretsCard } from "../components/OrphanedSecretsCard";
+import { AttackPathsCard } from "../components/AttackPathsCard";
 import { crdApi, rbacApi, type RBACSnapshot } from "../lib/api";
 import { detectImageSignatureEngines, summarizeImageSignaturePolicies } from "../lib/imageSignature";
 import type { FindingQuery } from "../lib/rbacFindings";
 import { findDefaultServiceAccountAutomounts } from "../lib/serviceAccountAutomount";
 import { findSecretEnvExposures } from "../lib/secretExposure";
 import { findOrphanedSecrets } from "../lib/orphanedSecrets";
+import { findAttackPaths } from "../lib/attackPaths";
+import { detectTrivyOperator } from "../lib/trivyOperator";
 import { useCluster } from "../lib/useCluster";
 import { useResourceStream } from "../lib/useResourceStream";
 import { DEFS, EXTRA_DEFS } from "../lib/resources";
@@ -157,6 +160,28 @@ export default function Rbac() {
         ingresses: ingresses.rows,
       }),
     [secrets.rows, automountPods.rows, deployments.rows, statefulSets.rows, cronJobs.rows, automountSAs.rows, ingresses.rows],
+  );
+
+  // Roadmap Tier 3 #24: the findings above joined into chains from outside traffic.
+  const services = useResourceStream(effectiveCluster || undefined, "v1/services", { mode: "full" });
+  const networkPolicies = useResourceStream(effectiveCluster || undefined, "networking.k8s.io/v1/networkpolicies", { mode: "full" });
+  const trivy = useMemo(() => detectTrivyOperator(crds.data ?? []), [crds.data]);
+  const vulnReports = useResourceStream(
+    trivy.vulnerabilityReportGvr ? effectiveCluster || undefined : undefined,
+    trivy.vulnerabilityReportGvr ?? "",
+    { mode: "full", enabled: !!trivy.vulnerabilityReportGvr },
+  );
+  const attackPaths = useMemo(
+    () =>
+      findAttackPaths({
+        pods: automountPods.rows,
+        services: services.rows,
+        ingresses: ingresses.rows,
+        networkPolicies: networkPolicies.rows,
+        vulnReports: vulnReports.rows,
+        rbacFindings: data?.findings ?? [],
+      }),
+    [automountPods.rows, services.rows, ingresses.rows, networkPolicies.rows, vulnReports.rows, data?.findings],
   );
 
   function runWhoCan(override?: FindingQuery) {
@@ -306,6 +331,8 @@ export default function Rbac() {
           </div>
         )}
       </Card>
+
+      <AttackPathsCard paths={attackPaths} trivyInstalled={trivy.installed} />
 
       <RbacFindingsCard findings={data?.findings ?? []} onQuery={applyFindingQuery} />
 

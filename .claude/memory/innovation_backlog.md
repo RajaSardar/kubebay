@@ -976,5 +976,23 @@ The same object compared across clusters, matched by kind, namespace and name. K
   - Value display for ConfigMaps was kept: they aren't secret, and a key without its value doesn't tell you which side is right.
 - **Next slices.** Ignore rules (e.g. a known per-region env var), Services/Ingresses/HPAs, a cluster-pair picker for fleets larger than a handful, and an "open in cluster" link per row.
 
+### 48. Attack paths, narrow v1 (roadmap Tier 3 #24) — status: shipped 2026-10-01 (slice 1)
+Findings joined into prioritised chains instead of a flat list. Built on what already exists: Service/Ingress objects, NetworkPolicies, Trivy-Operator VulnerabilityReports (`vulnFindings.findingsForPod`) and the engine's RBAC findings (`/api/rbac/all`, subject `ServiceAccount ns/name`).
+
+- **Logic.** `lib/attackPaths.ts` (`findAttackPaths`) is pure.
+  - **Entry:** a LoadBalancer or NodePort Service selecting the pods, or an Ingress backed by a Service that selects them.
+  - **NetworkPolicy step:** the pods are ingress-isolated only if every pod is selected by an Ingress policy.
+  - **Foothold:** critical or high CVEs, de-duplicated by container and CVE.
+  - **Payoff:** RBAC findings for the pod's ServiceAccount, counted only while its token is mounted. "subject does not exist" isn't a privilege.
+  - Exposure alone is not listed. A path needs a foothold or a payoff, and "full chain" means both.
+  - Ranked full chains first, then by score: entry 1-2, +1 when not isolated, CVEs 2-3, RBAC 1-3.
+  - Pods group into their Deployment, derived from the ReplicaSet name minus `pod-template-hash`, so no ReplicaSet stream is needed.
+- **UI.** `AttackPathsCard` sits at the top of the RBAC/security page, read-only. When Trivy isn't installed it says CVEs are left out.
+- **Debate (single-agent, recorded here).**
+  - A graph visualisation was rejected for v1. A ranked table of chains answers "what do I fix first" and a graph doesn't.
+  - Using `evaluateConnection` per pod pair was rejected. The question is whether outside traffic is limited at all, not pod-to-pod reachability.
+  - Keeping partial chains was a judgement call. An exposed pod with a cluster-wide-secrets token is worth seeing even with no CVE scanner installed.
+- **Next slices.** Ingress-controller-aware isolation (is the controller's namespace allowed?), Secret reachability (which Secrets the token can read), a hostPath/privileged-pod step, and Gateway API HTTPRoutes as entries.
+
 ### Further ideas worth a look (unscoped, one-liners)
 - **Revert unsaved YAML edits — SHIPPED 2026-09-27.** One-click "discard my in-progress edit" button in `YamlTab.tsx`, next to Reload — a local reset (no network call), unlike Reload which re-fetches from the server.
