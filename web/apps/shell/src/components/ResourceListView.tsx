@@ -1,7 +1,7 @@
-import { useCallback, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { Badge, Button, EmptyState, IconButton, InlineBanner, NsPill, PageHeader, SelectAllHeader, SelectCell, SkeletonTable, SortHeader, Table, TableRow, TableWrap, TextField } from "@kubebay/ui";
 import { shouldShowSkeleton } from "../lib/useResourceStream";
-import { useResizableColumns } from "../lib/useResizableColumns";
+import { useColumnWidths } from "../lib/useColumnWidths";
 import { useRowSelection } from "../lib/useRowSelection";
 import { useBulkDelete, type DeleteTarget } from "../lib/useBulkDelete";
 import { useResourceList } from "../lib/useResourceList";
@@ -92,15 +92,24 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
   const [ctx, setCtx] = useState<{ x: number; y: number; row: R } | null>(null);
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
 
-  const headers = useMemo(
-    () => ["Name", ...(p.scoped ? [] : ["Namespace"]), ...columns.map((c) => c.header), "Age"],
+  // Every shown column as {id, header}: Name, Namespace, the page's columns, Age.
+  // Widths and sort are keyed by id, so they stay with their column.
+  const heads = useMemo(
+    () => [
+      { id: "Name", header: "Name" },
+      ...(p.scoped ? [] : [{ id: "Namespace", header: "Namespace" }]),
+      ...columns.map((c) => ({ id: c.id, header: c.header })),
+      { id: "Age", header: "Age" },
+    ],
     [p.scoped, columns],
   );
-  const initialWidths = useMemo(
-    () => [NAME_W, ...(p.scoped ? [] : [NS_W]), ...columns.map((c) => c.width ?? COL_W), AGE_W],
-    [p.scoped, columns],
+  const headers = useMemo(() => heads.map((h) => h.header), [heads]);
+  const defaultWidths = useMemo(
+    () => ({ Name: NAME_W, Namespace: NS_W, Age: AGE_W, ...Object.fromEntries(columns.map((c) => [c.id, c.width ?? COL_W])) }),
+    [columns],
   );
-  const { widths, getResizeHandleProps } = useResizableColumns(headers.length, initialWidths);
+  const { widthOf, getResizeHandleProps } = useColumnWidths(defaultWidths);
+  const widths = heads.map((h) => widthOf(h.id));
   const { selectedKeys, toggleRow, selectAll, clearAll, deselect, isAllSelected, isIndeterminate } = useRowSelection();
   const bulkDelete = useBulkDelete((t) => {
     const owner = ownerAmongTargets([t], [...p.objects]);
@@ -108,7 +117,27 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
   });
 
   const keyOf = useCallback((r: R) => `${nsOf(r)}/${nameOf(r)}`, [nsOf, nameOf]);
-  const byCol = useMemo(() => new Map(columns.map((c) => [c.header, c])), [columns]);
+
+  // A selection belongs to one table and to rows that exist. Every /r/:kind
+  // table is the same mounted view, so switching kinds must clear it, or
+  // "Delete 1 selected" would hit the other kind's object of the same name.
+  // An open delete confirmation goes with it: confirming it on the new kind
+  // would delete that kind's objects.
+  const cancelDelete = useRef(bulkDelete.cancel);
+  cancelDelete.current = bulkDelete.cancel;
+  useEffect(() => {
+    clearAll();
+    cancelDelete.current();
+  }, [p.sortKey, clearAll]);
+  // Rows the stream removed leave the selection (only once synced: a re-sync
+  // briefly holds no rows and must not drop it).
+  useEffect(() => {
+    if (!p.synced || selectedKeys.size === 0) return;
+    const present = new Set(all.map(keyOf));
+    const gone = [...selectedKeys].filter((k) => !present.has(k));
+    if (gone.length > 0) deselect(gone);
+  }, [all, keyOf, p.synced, selectedKeys, deselect]);
+  const byCol = useMemo(() => new Map(columns.map((c) => [c.id, c])), [columns]);
   const createdOf = p.createdOf;
 
   // The filter language (lib/filterQuery): plain words, ns:/name:/label:, and
@@ -270,10 +299,10 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
         </EmptyState>
       ) : (
         <TableWrap ref={scrollRef} busy={p.busy}>
-          <Table>
+          <Table pinLead>
             <colgroup>
               <col style={{ width: 40 }} />
-              {headers.map((h, i) => <col key={h} style={{ width: widths[i] }} />)}
+              {heads.map((h, i) => <col key={h.id} style={{ width: widths[i] }} />)}
               <col style={{ width: 36 }} /> {/* ⋮ column */}
             </colgroup>
             <thead ref={headerRef}>
@@ -283,17 +312,18 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
                   indeterminate={isIndeterminate(allKeys)}
                   onChange={(checked) => (checked ? selectAll(allKeys) : clearAll())}
                 />
-                {headers.map((h, i) => (
+                {heads.map((h, i) => (
                   <SortHeader
-                    key={h}
-                    label={h}
-                    active={sort.col === h}
+                    key={h.id}
+                    label={h.header}
+                    active={sort.col === h.id}
                     asc={sort.asc}
-                    onSort={() => sort.toggle(h)}
+                    onSort={() => sort.toggle(h.id)}
                     width={widths[i]}
-                    style={{ position: "relative" }}
+                    pinned={h.id === "Name"}
+                    style={h.id === "Name" ? undefined : { position: "relative" }}
                   >
-                    <div className="col-resize-handle" {...getResizeHandleProps(i)} />
+                    <div className="col-resize-handle" {...getResizeHandleProps(h.id)} />
                   </SortHeader>
                 ))}
                 <th className="col-row-menu" style={{ width: 36 }} /> {/* ⋮ header spacer */}
@@ -324,7 +354,7 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
                     onContextMenu={(e) => { e.preventDefault(); setCtx({ x: e.clientX, y: e.clientY, row: r }); }}
                   >
                     <SelectCell checked={isSelected} onChange={() => toggleRow(key)} label={`Select ${name}`} />
-                    <td className="mono td-name" title={name}>{name}</td>
+                    <td className="mono td-name" title={name}><span>{name}</span></td>
                     {!p.scoped && (
                       <td className="mono">
                         <NsPill

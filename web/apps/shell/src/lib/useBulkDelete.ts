@@ -11,6 +11,27 @@ interface Failure {
   message: string;
 }
 
+/** Deletes in flight at once: a 340-row bulk delete must not open 340 requests. */
+const MAX_PARALLEL_DELETES = 8;
+
+/** Promise.allSettled over `items`, running at most `limit` of `fn` at a time, results in order. */
+async function settleAtMost<T, U>(limit: number, items: readonly T[], fn: (t: T) => Promise<U>): Promise<PromiseSettledResult<U>[]> {
+  const out: PromiseSettledResult<U>[] = new Array(items.length);
+  let next = 0;
+  async function worker() {
+    while (next < items.length) {
+      const i = next++;
+      try {
+        out[i] = { status: "fulfilled", value: await fn(items[i]!) };
+      } catch (reason) {
+        out[i] = { status: "rejected", reason };
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return out;
+}
+
 /**
  * Drives a confirm-then-delete flow for one or many targets at once, sharing the same
  * confirm-banner shape whether it's a single row (context menu "Delete") or a bulk
@@ -38,7 +59,7 @@ export function useBulkDelete(deleteOne: (t: DeleteTarget) => Promise<unknown>) 
     setBusy(true);
     setError("");
     setRejection(null);
-    const outcomes = await Promise.allSettled(pending.map((t) => deleteOne(t)));
+    const outcomes = await settleAtMost(MAX_PARALLEL_DELETES, pending, deleteOne);
     const failures: Failure[] = [];
     const succeeded: DeleteTarget[] = [];
     let soleRejection: PolicyRejectionDetail | null = null;
