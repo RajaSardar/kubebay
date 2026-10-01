@@ -70,14 +70,15 @@ export function ownerAmongTargets(
   targets: DeleteTargetLike[],
   rows: (Record<string, unknown> | null | undefined)[],
 ): GitOpsOwner | null {
-  return firstOwned(
-    targets.map((t) =>
-      rows.find((r) => {
-        const meta = rec(r?.metadata);
-        return str(meta.name) === t.name && str(meta.namespace) === t.ns;
-      }),
-    ),
-  );
+  // One pass to index the rows, then a lookup per target: a 340-row bulk delete
+  // over 5,000 rows is 5,340 steps, not 1.7 million.
+  const byKey = new Map<string, Record<string, unknown> | null | undefined>();
+  for (const r of rows) {
+    const meta = rec(r?.metadata);
+    const k = `${str(meta.namespace)}/${str(meta.name)}`;
+    if (!byKey.has(k)) byKey.set(k, r);
+  }
+  return firstOwned(targets.map((t) => byKey.get(`${t.ns}/${t.name}`)));
 }
 
 export function ownerLabel(owner: GitOpsOwner): string {
