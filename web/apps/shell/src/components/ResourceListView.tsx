@@ -1,10 +1,11 @@
-import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { Badge, Button, EmptyState, IconButton, InlineBanner, NsPill, PageHeader, SelectAllHeader, SelectCell, SkeletonTable, SortHeader, Table, TableRow, TableWrap, TextField } from "@kubebay/ui";
 import { shouldShowSkeleton } from "../lib/useResourceStream";
 import { useColumnWidths } from "../lib/useColumnWidths";
 import { useRowSelection } from "../lib/useRowSelection";
 import { useBulkDelete, type DeleteTarget } from "../lib/useBulkDelete";
 import { useResourceList } from "../lib/useResourceList";
+import { matchesQuery, parseQuery, type Query } from "../lib/filterQuery";
 import { ROW_HEIGHT, useDisplay } from "../lib/display";
 import { ownerAmongTargets, ownerLabel, ownerWarning } from "../lib/gitops";
 import { absoluteTime, compareValues, countLabel } from "../lib/tableUx";
@@ -25,6 +26,8 @@ export interface ListColumn<R> {
   sortValue?: (r: R) => string | number;
   /** What the filter matches in this column. Unset: the filter skips it. */
   filterText?: (r: R) => string;
+  /** The key that targets this column in the filter (`status:crash`). Needs filterText. */
+  filterKey?: string;
   /** The cell's class ("mono muted" when unset). */
   className?: string | ((r: R) => string);
   /** The cell's tooltip. */
@@ -53,6 +56,8 @@ export interface ResourceListViewProps<R> {
   nsOf: (r: R) => string;
   createdOf: (r: R) => string;
   isDimmed?: (r: R) => boolean;
+  /** The object's labels, for `label:app=web` in the filter. */
+  labelsOf?: (r: R) => Readonly<Record<string, string>> | undefined;
   columns: readonly ListColumn<R>[];
   /** Where the chosen sort is remembered ("r/deployments"). */
   sortKey: string;
@@ -115,9 +120,31 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
   const byCol = useMemo(() => new Map(columns.map((c) => [c.id, c])), [columns]);
   const createdOf = p.createdOf;
 
+  // The filter language (lib/filterQuery): plain words, ns:/name:/label:, and
+  // each column's filterKey. Parsed once per filter string, not per row.
+  const columnKeys = useMemo(() => columns.flatMap((c) => (c.filterKey && c.filterText ? [c.filterKey] : [])), [columns]);
+  const parsed = useRef<{ q: string; query: Query } | null>(null);
+  const labelsOf = p.labelsOf;
+  const match = useCallback(
+    (r: R, q: string) => {
+      if (parsed.current?.q !== q) parsed.current = { q, query: parseQuery(q, columnKeys) };
+      const fields: Record<string, string> = { name: nameOf(r), ns: nsOf(r) };
+      const text = [fields.name!, fields.ns!];
+      for (const c of columns) {
+        if (!c.filterText) continue;
+        const v = c.filterText(r);
+        text.push(v);
+        if (c.filterKey) fields[c.filterKey.toLowerCase()] = v;
+      }
+      return matchesQuery({ text, fields, labels: labelsOf?.(r) }, parsed.current.query);
+    },
+    [columns, columnKeys, nameOf, nsOf, labelsOf],
+  );
+
   const list = useResourceList<R>({
     rows: all,
     keyOf,
+    match,
     filterFields: useCallback(
       (r: R) => [nameOf(r), nsOf(r), ...columns.flatMap((c) => (c.filterText ? [c.filterText(r)] : []))],
       [nameOf, nsOf, columns],
@@ -148,6 +175,8 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
   const { shown: rows, filter, setFilter, filterRef, allKeys, activeRow, sort } = list;
   const { virtualizer, items: virtualRows, topSpace, bottomSpace } = list.virtual;
   const noun = p.label.toLowerCase();
+  const hintId = useId();
+  const understood = useMemo(() => parseQuery(filter, columnKeys).tokens, [filter, columnKeys]);
 
   async function confirmDelete() {
     const succeeded = await bulkDelete.confirm();
@@ -228,7 +257,17 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           spellCheck={false}
+          aria-describedby={hintId}
+          title={`key:value with ns, name, label${columnKeys.length ? ", " + columnKeys.join(", ") : ""}; a leading - excludes`}
         />
+        <span id={hintId} hidden>
+          {`Type words, or key:value with ns, name, label${columnKeys.length ? ", " + columnKeys.join(", ") : ""}. A leading - excludes.`}
+        </span>
+        {understood.length > 0 && (
+          <span className="muted small">
+            Filtering by {understood.map((t) => `${t.neg ? "not " : ""}${t.key}: ${t.value}`).join(" · ")}
+          </span>
+        )}
       </div>
 
       {shouldShowSkeleton(p.synced, all.length) ? (

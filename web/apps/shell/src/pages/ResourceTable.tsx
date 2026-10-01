@@ -291,6 +291,9 @@ const nameOf = (r: Row) => str(rec(r.metadata).name);
 const nsOf = (r: Row) => str(rec(r.metadata).namespace);
 const createdOf = (r: Row) => str(rec(r.metadata).creationTimestamp);
 const isTerminating = (r: Row) => !!rec(r.metadata).deletionTimestamp;
+const labelsOf = (r: Row) => rec(r.metadata).labels as Record<string, string> | undefined;
+/** A column's key in the filter: "Capacity type" → capacity-type. */
+const filterKeyOf = (header: string) => header.toLowerCase().replace(/\s+/g, "-");
 
 export default function ResourceTable() {
   const { kind = "" } = useParams();
@@ -337,6 +340,7 @@ export default function ResourceTable() {
         header: col,
         sortValue: (o) => cellOf(o).v,
         filterText: (o) => String(cellOf(o).v),
+        filterKey: filterKeyOf(col),
         cell: (o) => {
           const cell = cellOf(o);
           return (
@@ -365,6 +369,7 @@ export default function ResourceTable() {
         cell: (o) => evalPrinterPath(pc.jsonPath, o) || <span className="muted">–</span>,
         sortValue: (o) => evalPrinterPath(pc.jsonPath, o),
         filterText: (o) => evalPrinterPath(pc.jsonPath, o),
+        filterKey: filterKeyOf(pc.name),
       })),
       {
         id: "Owner",
@@ -372,6 +377,7 @@ export default function ResourceTable() {
         cell: (o) => ownerCell(o).v,
         sortValue: (o) => ownerCell(o).v,
         filterText: (o) => ownerCell(o).v,
+        filterKey: "owner",
       },
     ];
   }, [def, nodeUsage, podsPerNode, printerColumns, navigate]);
@@ -413,6 +419,7 @@ export default function ResourceTable() {
         nsOf={nsOf}
         createdOf={createdOf}
         isDimmed={isTerminating}
+        labelsOf={labelsOf}
         columns={columns}
         sortKey={`r/${kind}`}
         onOpen={onOpen}
