@@ -944,7 +944,8 @@ The YAML view also strips `resourceVersion`.
 - **Shell.** `send()` turns the stale 409 into a `StaleEditError`. YamlTab shows "Not applied: these fields changed on the cluster since you opened this editor", lists the paths, and offers a "Reload current version" button.
 - **Kind test:** a concurrent change to REGION followed by an edit of REGION gives a 409, and the concurrent value survives.
 
-**Slice 3 (remaining):** `HandleCreateResource` force:true → false; optional cleanup of stale `kubebay` Apply entries.
+**Slice 3 (shipped):** `HandleCreateResource` no longer forces. Creating over an object whose fields another tool owns returns a 409 that names the object and points at its YAML tab; Helm/kubectl values survive (kind test `TestLiveCreateOverAnObjectAnotherToolManages`). The NetpolEditor "replace" banner says so. Discovery/dynamic clients for create go through `discoClient`/`dynClient` overrides for tests.
+**Remaining (optional, unscheduled):** cleanup of stale `kubebay` Apply managedFields entries left by the old force-apply path.
 
 **Slice 2 (original plan):**
 - **Stale-edit check:** 409 `changed-since-load` when a field the user edited also changed live.
