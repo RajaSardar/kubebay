@@ -55,6 +55,11 @@ describe("Rbac", () => {
     expect(screen.getByRole("button", { name: "Check signatures" })).toBeInTheDocument();
   });
 
+  it("offers the audit-log security feed", async () => {
+    renderPage();
+    expect(await screen.findByText("Audit-log security events")).toBeInTheDocument();
+  });
+
   it("chains an exposed workload to its ServiceAccount's risky RBAC", async () => {
     const rows: Record<string, unknown[]> = {
       "v1/pods": [{ metadata: { name: "api-1", namespace: "shop", labels: { app: "api" } }, spec: { serviceAccountName: "api", containers: [{ name: "app" }] } }],

@@ -446,6 +446,8 @@ func Router(d Deps, token string) http.Handler {
 		r.Post("/api/node-shell", d.NodeShell.HandleStart)
 		r.Post("/api/netdiag", d.NetDiag.HandleStart)
 		r.Get("/api/image-signatures", d.ImageSigs.Handle)
+		r.Get("/api/security/audit-events", d.Settings.HandleAuditEvents)
+		r.Put("/api/security/audit-log-path", d.Settings.HandleSetAuditLogPath)
 
 		r.Get("/api/argocd/apps", argoCDAppsHandler(d.Metrics))
 		r.Post("/api/argocd/sync", argoCDSyncHandler(d.Metrics))

@@ -9,6 +9,7 @@ import { ImageSignatureCard } from "../components/ImageSignatureCard";
 import { RunningImageSignaturesCard } from "../components/RunningImageSignaturesCard";
 import { OrphanedSecretsCard } from "../components/OrphanedSecretsCard";
 import { AttackPathsCard } from "../components/AttackPathsCard";
+import { AuditSecurityFeedCard } from "../components/AuditSecurityFeedCard";
 import { crdApi, rbacApi, type RBACSnapshot } from "../lib/api";
 import { detectImageSignatureEngines, summarizeImageSignaturePolicies } from "../lib/imageSignature";
 import type { FindingQuery } from "../lib/rbacFindings";
@@ -345,6 +346,8 @@ export default function Rbac() {
       <RunningImageSignaturesCard cluster={effectiveCluster} />
 
       <OrphanedSecretsCard secrets={orphanedSecrets} />
+
+      <AuditSecurityFeedCard cluster={effectiveCluster} />
 
       <Card>
         <div className="rbac-section-title">My access</div>

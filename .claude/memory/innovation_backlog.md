@@ -975,6 +975,33 @@ The same object compared across clusters, matched by kind, namespace and name. K
   - Diffing the full spec was rejected. Defaulted fields, controller-written annotations and per-cluster values swamp the signal. The curated field list is the point.
   - Value display for ConfigMaps was kept: they aren't secret, and a key without its value doesn't tell you which side is right.
 - **Next slices.** Ignore rules (e.g. a known per-region env var), Services/Ingresses/HPAs, a cluster-pair picker for fleets larger than a handful, and an "open in cluster" link per row.
+### 49. Audit-log security event feed (roadmap Tier 3 #26) — status: shipped 2026-10-01 (slice 1)
+A retrospective security feed with no kernel agent and no in-cluster install. The precondition the roadmap named holds: the API server's audit log must already be written and readable on this machine.
+
+- **Engine.** `internal/auditfeed` (`Classify`, `ReadTail`) parses audit.k8s.io/v1 JSON lines.
+  - Reads only the last 32 MiB and returns at most 500 events, newest first.
+  - Counts only the `ResponseComplete` stage, so each request appears once.
+  - Rules follow Falco k8saudit's categories:
+    - exec, attach and port-forward into pods;
+    - privileged containers, hostPID, hostNetwork or hostIPC pods (high);
+    - hostPath pods (medium);
+    - bindings to cluster-admin (high) and other ClusterRoleBinding changes (medium);
+    - anonymous requests that succeeded (high);
+    - Secrets read by non-`system:` users (low).
+  - Refused attempts are kept and marked denied. Request and response bodies never leave the engine.
+- **Settings and endpoints.** `AppSettings.AuditLogPaths` maps each cluster to an absolute file path.
+  - It is set only through `PUT /api/security/audit-log-path`, under the settings lock, and kept across `HandleSave`.
+  - `GET /api/security/audit-events?cluster=` returns `{configured, path, error?, events}`. An unreadable log is reported in the body.
+- **Guard.** Like the local shell (`localshell.Allowed`), the feed is off when OIDC is configured or under `--in-cluster`. It reads a host file as the engine's OS user, past each user's own RBAC. `AuditFeedBlockReason` is set by main on `SettingsManager.AuditFeedDisabled`, both endpoints return 403 with the reason (no path probing), and the card shows the reason instead of the path field.
+- **UI.** `AuditSecurityFeedCard` sits on the RBAC page.
+  - It explains the precondition and offers a path field.
+  - Once configured, it shows the path with Change and Stop reading, a severity filter, and a DataTable of time, event, who, object, detail and outcome.
+- **Debate (single-agent, recorded here).**
+  - Reading audit events through the Kubernetes API was rejected: no such API exists.
+  - A dynamic audit webhook sink was rejected: it needs API server flags and an always-on receiver, which breaks local-first.
+  - Pulling from CloudWatch, GCP or Azure log APIs directly was deferred to an Enterprise-flavoured slice, since it needs cloud credentials. A synced local file covers it now.
+  - Spike detection for Secret reads was deferred. Raw rows with a severity filter come first.
+- **Next slices.** Cloud log sources (EKS CloudWatch, GKE Cloud Logging), Secret-read spike aggregation, links from an event to the object's drawer, and rotated-file (`audit.log.1`) awareness.
 
 ### 48. Attack paths, narrow v1 (roadmap Tier 3 #24) — status: shipped 2026-10-01 (slice 1)
 Findings joined into prioritised chains instead of a flat list. Built on what already exists: Service/Ingress objects, NetworkPolicies, Trivy-Operator VulnerabilityReports (`vulnFindings.findingsForPod`) and the engine's RBAC findings (`/api/rbac/all`, subject `ServiceAccount ns/name`).

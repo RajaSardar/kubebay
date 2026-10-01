@@ -1,0 +1,82 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { AuditSecurityFeedCard } from "../AuditSecurityFeedCard";
+import { securityApi, type AuditEventsResponse } from "../../lib/api";
+
+vi.mock("../../lib/api", async (orig) => ({
+  ...(await orig<typeof import("../../lib/api")>()),
+  securityApi: { auditEvents: vi.fn(), setAuditLogPath: vi.fn() },
+}));
+
+function renderCard() {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={qc}>
+      <AuditSecurityFeedCard cluster="kind-dev" />
+    </QueryClientProvider>,
+  );
+}
+
+const configured: AuditEventsResponse = {
+  configured: true,
+  path: "/var/log/kube/audit.log",
+  events: [
+    { id: "a1", time: "2026-10-01T10:00:00Z", rule: "exec-into-pod", severity: "high", title: "Exec into pod", user: "alice", object: "pods/exec shop/api-1", allowed: true },
+    { id: "a2", time: "2026-10-01T09:00:00Z", rule: "cluster-admin-binding", severity: "high", title: "Binding to cluster-admin", user: "bob", object: "clusterrolebindings oops", detail: "grants cluster-admin to User mallory", allowed: false },
+  ],
+};
+
+beforeEach(() => {
+  vi.mocked(securityApi.auditEvents).mockReset();
+  vi.mocked(securityApi.setAuditLogPath).mockReset();
+});
+
+describe("AuditSecurityFeedCard", () => {
+  it("explains the precondition and saves a path when none is set", async () => {
+    vi.mocked(securityApi.auditEvents).mockResolvedValueOnce({ configured: false, events: [] }).mockResolvedValue(configured);
+    vi.mocked(securityApi.setAuditLogPath).mockResolvedValue({ ok: true, path: "/var/log/kube/audit.log" });
+    renderCard();
+    expect(await screen.findByText(/needs the API server's audit log/)).toBeInTheDocument();
+    fireEvent.change(await screen.findByLabelText("Audit log path"), { target: { value: "/var/log/kube/audit.log" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save path" }));
+    await waitFor(() => expect(securityApi.setAuditLogPath).toHaveBeenCalledWith("kind-dev", "/var/log/kube/audit.log"));
+    expect(await screen.findByText("Exec into pod")).toBeInTheDocument();
+  });
+
+  it("lists events newest first with who, what and whether it was allowed", async () => {
+    vi.mocked(securityApi.auditEvents).mockResolvedValue(configured);
+    renderCard();
+    expect(await screen.findByText("Exec into pod")).toBeInTheDocument();
+    expect(screen.getByText("pods/exec shop/api-1")).toBeInTheDocument();
+    expect(screen.getByText("grants cluster-admin to User mallory")).toBeInTheDocument();
+    expect(screen.getByText("allowed")).toBeInTheDocument();
+    expect(screen.getByText("denied")).toBeInTheDocument();
+    expect(screen.getByText(/\/var\/log\/kube\/audit\.log/)).toBeInTheDocument();
+  });
+
+  it("shows why a configured log couldn't be read", async () => {
+    vi.mocked(securityApi.auditEvents).mockResolvedValue({ configured: true, path: "/x.log", error: "open /x.log: permission denied", events: [] });
+    renderCard();
+    expect(await screen.findByText(/permission denied/)).toBeInTheDocument();
+  });
+
+  it("filters to one severity", async () => {
+    vi.mocked(securityApi.auditEvents).mockResolvedValue({
+      ...configured,
+      events: [...configured.events, { id: "a3", time: "t", rule: "secret-read", severity: "low", title: "Secret read by a person", user: "carol", object: "secrets shop/db", allowed: true }],
+    });
+    renderCard();
+    expect(await screen.findByText("Secret read by a person")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Severity"), { target: { value: "high" } });
+    expect(screen.queryByText("Secret read by a person")).toBeNull();
+    expect(screen.getByText("Exec into pod")).toBeInTheDocument();
+  });
+
+  it("shows why the feed is off in an OIDC or in-cluster deployment, with no path field", async () => {
+    vi.mocked(securityApi.auditEvents).mockRejectedValue(new Error("the audit feed reads a file on the engine host, so it is off when OIDC is configured"));
+    renderCard();
+    expect(await screen.findByText(/off when OIDC is configured/)).toBeInTheDocument();
+    expect(screen.queryByLabelText("Audit log path")).toBeNull();
+  });
+});
