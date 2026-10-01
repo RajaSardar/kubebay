@@ -50,6 +50,7 @@ const nameOf = (p: PodRow) => p.name;
 const nsOf = (p: PodRow) => p.namespace;
 const createdOf = (p: PodRow) => p.created;
 const isTerminating = (p: PodRow) => p.statusLabel === "Terminating";
+const versionOf = (p: PodRow) => p.rv;
 const byNsThenName = (a: PodRow, b: PodRow) => compareValues(a.namespace, b.namespace) || compareValues(a.name, b.name);
 
 type Usage = Map<string, { cpuMillis: number; memBytes: number }>;
@@ -204,6 +205,7 @@ export default function Workloads() {
         nsOf={nsOf}
         createdOf={createdOf}
         isDimmed={isTerminating}
+        versionOf={versionOf}
         columns={columns}
         sortKey="pods"
         defaultSort={byNsThenName}

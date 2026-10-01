@@ -121,6 +121,15 @@ describe.each(NATIVE)("$id theme contrast", ({ id, text }) => {
     expect(failures).toEqual([]);
   });
 
+  it("a row that just changed is visibly tinted and keeps its text readable", () => {
+    const row = over(c("kb-row-changed"), c("kb-bg-surface"));
+    check("kb-fg-default", row, "changed row", text);
+    check("kb-fg-muted", row, "changed row", text);
+    const lift = contrast(row, c("kb-bg-surface"));
+    if (lift < 1.15) failures.push(`changed row against the surface: ${lift.toFixed(2)} < 1.15`);
+    expect(failures).toEqual([]);
+  });
+
   it("skeleton blocks stand out from every ground they load on", () => {
     // .kb-skeleton fills with --kb-fg-default at N% (read from styles.css).
     const pct = Number(/\.kb-skeleton\s*\{[^}]*background:\s*color-mix\(in srgb,\s*var\(--kb-fg-default\)\s+([\d.]+)%/.exec(stylesCss)?.[1] ?? 0) / 100;

@@ -194,14 +194,24 @@ export interface TableRowProps extends HTMLAttributes<HTMLTableRowElement> {
   dimmed?: boolean;
   /** Opens something when clicked. */
   clickable?: boolean;
+  /** Its shown data just changed: a brief tint (held still under reduced motion). */
+  changed?: boolean;
 }
 
 export const TableRow = forwardRef<HTMLTableRowElement, TableRowProps>(function TableRow(
-  { selected, hovered, dimmed, clickable, className, ...props },
+  { selected, hovered, dimmed, clickable, changed, className, ...props },
   ref,
 ) {
   const cls = [clickable && "row-clickable", selected && "selected", hovered && "hovered", className].filter(Boolean).join(" ");
-  return <tr ref={ref} className={cls || undefined} data-terminating={dimmed || undefined} {...props} />;
+  return (
+    <tr
+      ref={ref}
+      className={cls || undefined}
+      data-terminating={dimmed || undefined}
+      data-changed={changed || undefined}
+      {...props}
+    />
+  );
 });
 
 /** The clickable namespace chip in a table cell. */
