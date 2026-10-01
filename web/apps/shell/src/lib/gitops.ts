@@ -70,14 +70,15 @@ export function ownerAmongTargets(
   targets: DeleteTargetLike[],
   rows: (Record<string, unknown> | null | undefined)[],
 ): GitOpsOwner | null {
-  return firstOwned(
-    targets.map((t) =>
-      rows.find((r) => {
-        const meta = rec(r?.metadata);
-        return str(meta.name) === t.name && str(meta.namespace) === t.ns;
-      }),
-    ),
-  );
+  // One pass to index the rows, then a lookup per target: a 340-row bulk delete
+  // over 5,000 rows is 5,340 steps, not 1.7 million.
+  const byKey = new Map<string, Record<string, unknown> | null | undefined>();
+  for (const r of rows) {
+    const meta = rec(r?.metadata);
+    const k = `${str(meta.namespace)}/${str(meta.name)}`;
+    if (!byKey.has(k)) byKey.set(k, r);
+  }
+  return firstOwned(targets.map((t) => byKey.get(`${t.ns}/${t.name}`)));
 }
 
 /** The page that shows a GitOps owner: the Argo CD or Flux view, at that app. */
@@ -102,3 +103,22 @@ export function ownerWarning(owner: GitOpsOwner): string {
     ? `Argo CD (${owner.name}) manages this resource and will likely revert this change on its next sync — edit the Git source instead.`
     : `Flux (${owner.name}) manages this resource and will likely revert this change on its next reconcile — edit the Git source instead.`;
 }
+
+/**
+ * The Helm release that installed this object, if any. Helm 3 writes with
+ * Update operations, and an upgrade or rollback re-renders the chart and
+ * patches live toward it, so a direct edit lasts only until the next one.
+ */
+export function helmReleaseOf(obj: Record<string, unknown> | null | undefined): string | null {
+  const meta = (obj?.metadata ?? {}) as Record<string, unknown>;
+  const annotations = (meta.annotations ?? {}) as Record<string, unknown>;
+  const labels = (meta.labels ?? {}) as Record<string, unknown>;
+  const fromAnnotation = annotations["meta.helm.sh/release-name"];
+  if (typeof fromAnnotation === "string" && fromAnnotation) return fromAnnotation;
+  if (labels["app.kubernetes.io/managed-by"] === "Helm") {
+    const instance = labels["app.kubernetes.io/instance"];
+    return typeof instance === "string" && instance ? instance : "unknown";
+  }
+  return null;
+}
+

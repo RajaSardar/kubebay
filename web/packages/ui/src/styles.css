@@ -554,6 +554,72 @@ kbd {
   opacity: 0.7;
 }
 
+/* ── Pinned lead columns (Table pinLead): the select box and Name stay put
+   while a wide table scrolls sideways. Pinned cells are opaque, so the row's
+   states are repainted on them: a solid surface with any translucent tint on
+   top, the accent bar on the first cell, and terminating rows fading their
+   contents instead of the whole row (which would let scrolled text show
+   through). */
+.kb-table-pin-lead {
+  --kb-pin-select-w: 40px;
+}
+
+.kb-table-pin-lead .col-select {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+}
+
+.kb-table-pin-lead .th-pin,
+.kb-table-pin-lead td.td-name {
+  position: sticky;
+  left: var(--kb-pin-select-w);
+  z-index: 1;
+  box-shadow: inset -1px 0 0 var(--kb-border-subtle);
+}
+
+.kb-table-pin-lead th.col-select,
+.kb-table-pin-lead .th-pin {
+  z-index: 3;
+}
+
+.kb-table-pin-lead tbody td.col-select,
+.kb-table-pin-lead tbody td.td-name {
+  background-color: var(--kb-bg-surface);
+}
+
+.kb-table-pin-lead tbody tr:hover > td.col-select,
+.kb-table-pin-lead tbody tr:hover > td.td-name {
+  background-color: var(--kb-bg-raised);
+}
+
+.kb-table-pin-lead tbody tr.selected > td.col-select,
+.kb-table-pin-lead tbody tr.selected > td.td-name {
+  background-image: linear-gradient(var(--kb-accent-subtle), var(--kb-accent-subtle));
+}
+
+.kb-table-pin-lead tbody tr.selected > td.col-select,
+.kb-table-pin-lead tbody tr:hover > td.col-select {
+  box-shadow: inset 3px 0 0 var(--kb-accent);
+}
+
+.kb-table-pin-lead tbody tr[data-terminating],
+.kb-table-pin-lead tbody tr[data-terminating]:hover {
+  opacity: 1;
+}
+
+.kb-table-pin-lead tbody tr[data-terminating] > td:not(.col-select):not(.td-name),
+.kb-table-pin-lead tbody tr[data-terminating] > td.col-select > *,
+.kb-table-pin-lead tbody tr[data-terminating] > td.td-name > * {
+  opacity: 0.5;
+}
+
+.kb-table-pin-lead tbody tr[data-terminating]:hover > td:not(.col-select):not(.td-name),
+.kb-table-pin-lead tbody tr[data-terminating]:hover > td.col-select > *,
+.kb-table-pin-lead tbody tr[data-terminating]:hover > td.td-name > * {
+  opacity: 0.7;
+}
+
 .tabs {
   display: flex;
   align-items: center;
@@ -1380,6 +1446,11 @@ tr.row-clickable:active {
    The browser drops box-shadow and author backgrounds here, so focus rings,
    the selected-row bar and status dots are restated with system colours. */
 @media (forced-colors: active) {
+  .kb-table-pin-lead tbody td.col-select,
+  .kb-table-pin-lead tbody td.td-name {
+    background: Canvas;
+  }
+
   :focus-visible {
     outline: 2px solid Highlight;
     outline-offset: 2px;

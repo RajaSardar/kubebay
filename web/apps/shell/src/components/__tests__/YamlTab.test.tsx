@@ -159,3 +159,32 @@ describe("YamlTab — structured policy rejection", () => {
     expect(await screen.findByText(/connection refused/)).toBeTruthy();
   });
 });
+
+describe("YamlTab — edits are patched, not server-side applied", () => {
+  it("sends the YAML it loaded as the original, so only edited fields are patched", async () => {
+    vi.mocked(api.applyYaml).mockResolvedValueOnce({ applied: true, dryRun: false, patchType: "strategic", changedPaths: ["data.k"] });
+    render(<YamlTab {...props} />);
+    fireEvent.click(await screen.findByTestId("editor"));
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    expect(await screen.findByText("Applied: patched 1 field.")).toBeTruthy();
+    const req = vi.mocked(api.applyYaml).mock.calls.at(-1)![0];
+    expect(req.original).toBe("kind: ConfigMap\nmetadata:\n  name: example\n");
+    expect(req.yaml).toContain("# edited");
+  });
+
+  it("says when an edit changed nothing the cluster stores", async () => {
+    vi.mocked(api.applyYaml).mockResolvedValueOnce({ applied: false, dryRun: false, noop: true, changedPaths: [] });
+    render(<YamlTab {...props} />);
+    fireEvent.click(await screen.findByTestId("editor"));
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    expect(await screen.findByText("Nothing to apply: no stored field changed.")).toBeTruthy();
+  });
+
+  it("tells the user a Helm upgrade or rollback will restore the chart's values", async () => {
+    render(<YamlTab {...props} helmRelease="api-consumers-in" />);
+    await screen.findByTestId("editor");
+    const banner = screen.getByText(/Helm release/);
+    expect(banner.textContent).toContain("api-consumers-in");
+    expect(banner.textContent).toMatch(/next helm upgrade or rollback/i);
+  });
+});
