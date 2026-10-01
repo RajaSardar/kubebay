@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Row, Select, StatusPill, type StatusTone } from "@kubebay/ui";
+import { Row, StatusPill, type StatusTone } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { useResourceStream } from "../lib/useResourceStream";
 import PodPanel, { type SelectedPod } from "./PodPanel";
@@ -129,9 +129,8 @@ function podColumns(usage: Usage): ListColumn<PodRow>[] {
 
 export default function Workloads() {
   const clusters = useQuery({ queryKey: ["clusters"], queryFn: api.clusters });
-  const { active: activeCluster, setActive: setActiveCluster } = useActiveCluster();
+  const { active: activeCluster } = useActiveCluster();
 
-  const list = clusters.data ?? [];
   // Use only the explicitly selected cluster — never fall back to list[0].
   // The fallback produced an unstable value that changed on every 4-second
   // clusters refetch, causing useResourceStream to restart and wipe rows.
@@ -210,17 +209,7 @@ export default function Workloads() {
         defaultSort={byNsThenName}
         filterPlaceholder="Filter by name, namespace, node, IP or status…  /"
         onOpen={onOpen}
-        toolbar={
-          <>
-            <Select value={effectiveCluster} onChange={(e) => setActiveCluster(e.target.value)}>
-              {list.map((c) => (
-                <option key={c.id} value={c.id}>{c.id}</option>
-              ))}
-              {list.length === 0 && <option>no clusters</option>}
-            </Select>
-            <NamespaceFilter cluster={effectiveCluster || undefined} />
-          </>
-        }
+        toolbar={<NamespaceFilter cluster={effectiveCluster || undefined} />}
         onDelete={(t, gitopsOwner) =>
           api.deleteResource({ cluster: effectiveCluster, gvr: "v1/pods", ns: t.ns, name: t.name, gitopsOwner })
         }

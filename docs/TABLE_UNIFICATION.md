@@ -73,5 +73,8 @@ Each is one PR that merges on its own and starts from a failing test.
    column. *(behaviour)*
 9. Remove the Pods toolbar cluster picker (#28). *(behaviour, approved)*
 
+All nine slices shipped on 2026-09-30 (#52–#55, #59, #68, #71, #72 and the
+slice 9 PR).
+
 Afterwards the column chooser (#21), changed-row tint (#24), filter syntax
 (#25), bulk-action bar (#26) and sticky Name (#27) each land once, in the view.
