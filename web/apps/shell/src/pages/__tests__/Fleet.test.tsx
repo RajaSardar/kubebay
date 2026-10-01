@@ -43,6 +43,10 @@ vi.mock("../../components/FleetClusterHealthCard", () => ({
   ),
 }));
 
+vi.mock("../../components/FleetConsistencyCard", () => ({
+  FleetConsistencyCard: ({ clusters }: { clusters: string[] }) => <div data-testid="consistency">{clusters.join(",")}</div>,
+}));
+
 function renderFleet() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
@@ -88,5 +92,15 @@ describe("Fleet", () => {
     renderFleet();
     expect(await screen.findByText(/Showback by namespace/)).toBeInTheDocument();
     expect(screen.getByText("payments")).toBeInTheDocument();
+  });
+
+  it("compares every connected cluster for consistency", async () => {
+    vi.mocked(api.clusters).mockResolvedValue([
+      { id: "kind-a", context: "kind-a", server: "https://a", status: "connected" },
+      { id: "kind-b", context: "kind-b", server: "https://b", status: "connected" },
+      { id: "kind-c", context: "kind-c", server: "https://c", status: "unreachable" },
+    ]);
+    renderFleet();
+    expect((await screen.findByTestId("consistency")).textContent).toBe("kind-a,kind-b");
   });
 });

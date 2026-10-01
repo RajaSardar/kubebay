@@ -90,6 +90,7 @@ describe("NetpolEditor", () => {
     fireEvent.change(screen.getByLabelText("Policy name"), { target: { value: "db-lockdown" } });
     fireEvent.change(screen.getByLabelText("Ingress"), { target: { value: "deny" } });
     expect(screen.getByText(/shop\/db-lockdown already exists; creating replaces it/)).toBeInTheDocument();
+    expect(screen.getByText(/If another tool \(Helm, kubectl, Argo CD\) manages its rules, the cluster refuses the change/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Dry run" }));
     await screen.findByText(/Dry run passed/);
     fireEvent.click(screen.getByRole("button", { name: "Replace policy" }));
