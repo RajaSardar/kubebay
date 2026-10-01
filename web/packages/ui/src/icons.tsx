@@ -229,3 +229,13 @@ export function IconLoader({ size, strokeWidth }: IconProps) {
     </svg>
   );
 }
+
+// ── Sidebar — a panel with its left column (hide / show the left nav) ────────
+export function IconSidebar({ size, strokeWidth }: IconProps) {
+  return (
+    <svg {...base(size, strokeWidth)}>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M9 4v16" />
+    </svg>
+  );
+}

@@ -82,6 +82,21 @@ body::before {
 }
 
 /* ── Cluster strip ── */
+/* The left nav hidden (⌘B or its own button): the content takes its width. */
+.app.sidebar-hidden {
+  grid-template-columns: 56px 0 minmax(0, 1fr);
+}
+
+.sidebar[hidden] {
+  display: none;
+}
+
+/* The rail's "Show sidebar" button sits at its foot while the nav is hidden. */
+.cluster-strip-foot {
+  margin-top: auto;
+  padding-top: 8px;
+}
+
 .cluster-strip {
   grid-area: cluster-strip;
   display: flex;
@@ -192,6 +207,12 @@ body::before {
   border-bottom: 1px solid var(--kb-border-subtle);
   margin: 0 -8px 8px;
   padding-left: 12px;
+}
+
+.brand .sidebar-toggle {
+  margin-left: auto;
+  margin-right: 4px;
+  flex-shrink: 0;
 }
 
 .brand-logo {
