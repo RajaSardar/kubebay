@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -30,6 +31,17 @@ func (c *Channels) dynClient(ctx context.Context, cluster string) (dynamic.Inter
 		return nil, fmt.Errorf("connect: %w", err)
 	}
 	return dynamic.NewForConfig(cfg)
+}
+
+func (c *Channels) discoClient(ctx context.Context, cluster string) (discovery.DiscoveryInterface, error) {
+	if c.discoOverride != nil {
+		return c.discoOverride(ctx, cluster)
+	}
+	cfg, err := c.Clusters.RestConfigWithIdentity(cluster, IdentityFromContext(ctx))
+	if err != nil {
+		return nil, fmt.Errorf("connect: %w", err)
+	}
+	return discovery.NewDiscoveryClientForConfig(cfg)
 }
 
 var _ = context.Background
@@ -390,24 +402,20 @@ func (c *Channels) HandleCreateResource(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	cfg, err := c.Clusters.RestConfigWithIdentity(req.Cluster, IdentityFromContext(r.Context()))
-	if err != nil {
-		http.Error(w, "connect: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-	dc, err := discovery.NewDiscoveryClientForConfig(cfg)
+	dc, err := c.discoClient(r.Context(), req.Cluster)
 	if err != nil {
 		http.Error(w, "discovery client: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	d, err := dynamic.NewForConfig(cfg)
+	d, err := c.dynClient(r.Context(), req.Cluster)
 	if err != nil {
 		http.Error(w, "dynamic client: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	force := true
-	patchOpts := metav1.PatchOptions{FieldManager: "kubebay", Force: &force}
+	// No force: if the object already exists, fields other tools (Helm,
+	// kubectl, controllers) own stay theirs and the server reports a conflict.
+	patchOpts := metav1.PatchOptions{FieldManager: "kubebay"}
 	if req.DryRun {
 		patchOpts.DryRun = []string{metav1.DryRunAll}
 	}
@@ -448,6 +456,14 @@ func (c *Channels) HandleCreateResource(w http.ResponseWriter, r *http.Request) 
 			_, err = ri.Namespace(ns).Patch(r.Context(), name, types.ApplyPatchType, data, patchOpts)
 		} else {
 			_, err = ri.Patch(r.Context(), name, types.ApplyPatchType, data, patchOpts)
+		}
+		if apierrors.IsConflict(err) {
+			who := kind + " " + name
+			if ns != "" {
+				who = kind + " " + ns + "/" + name
+			}
+			http.Error(w, fmt.Sprintf("doc %d: %s already exists and other tools manage fields you're changing (%v). Edit it from its YAML tab instead.", i+1, who, err), http.StatusConflict)
+			return
 		}
 		if err != nil {
 			if rejection := writePolicyRejectionOrError(w, err); rejection != nil {
