@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
 import { Badge, Button, EmptyState, IconButton, InlineBanner, NsPill, PageHeader, SelectAllHeader, SelectCell, SkeletonTable, SortHeader, Table, TableRow, TableWrap, TextField } from "@kubebay/ui";
 import { shouldShowSkeleton } from "../lib/useResourceStream";
-import { useResizableColumns } from "../lib/useResizableColumns";
+import { useColumnWidths } from "../lib/useColumnWidths";
 import { useRowSelection } from "../lib/useRowSelection";
 import { useBulkDelete, type DeleteTarget } from "../lib/useBulkDelete";
 import { useResourceList } from "../lib/useResourceList";
@@ -87,15 +87,24 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
   const [ctx, setCtx] = useState<{ x: number; y: number; row: R } | null>(null);
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
 
-  const headers = useMemo(
-    () => ["Name", ...(p.scoped ? [] : ["Namespace"]), ...columns.map((c) => c.header), "Age"],
+  // Every shown column as {id, header}: Name, Namespace, the page's columns, Age.
+  // Widths and sort are keyed by id, so they stay with their column.
+  const heads = useMemo(
+    () => [
+      { id: "Name", header: "Name" },
+      ...(p.scoped ? [] : [{ id: "Namespace", header: "Namespace" }]),
+      ...columns.map((c) => ({ id: c.id, header: c.header })),
+      { id: "Age", header: "Age" },
+    ],
     [p.scoped, columns],
   );
-  const initialWidths = useMemo(
-    () => [NAME_W, ...(p.scoped ? [] : [NS_W]), ...columns.map((c) => c.width ?? COL_W), AGE_W],
-    [p.scoped, columns],
+  const headers = useMemo(() => heads.map((h) => h.header), [heads]);
+  const defaultWidths = useMemo(
+    () => ({ Name: NAME_W, Namespace: NS_W, Age: AGE_W, ...Object.fromEntries(columns.map((c) => [c.id, c.width ?? COL_W])) }),
+    [columns],
   );
-  const { widths, getResizeHandleProps } = useResizableColumns(headers.length, initialWidths);
+  const { widthOf, getResizeHandleProps } = useColumnWidths(defaultWidths);
+  const widths = heads.map((h) => widthOf(h.id));
   const { selectedKeys, toggleRow, selectAll, clearAll, deselect, isAllSelected, isIndeterminate } = useRowSelection();
   const bulkDelete = useBulkDelete((t) => {
     const owner = ownerAmongTargets([t], [...p.objects]);
@@ -103,7 +112,7 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
   });
 
   const keyOf = useCallback((r: R) => `${nsOf(r)}/${nameOf(r)}`, [nsOf, nameOf]);
-  const byCol = useMemo(() => new Map(columns.map((c) => [c.header, c])), [columns]);
+  const byCol = useMemo(() => new Map(columns.map((c) => [c.id, c])), [columns]);
   const createdOf = p.createdOf;
 
   const list = useResourceList<R>({
@@ -234,7 +243,7 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
           <Table>
             <colgroup>
               <col style={{ width: 40 }} />
-              {headers.map((h, i) => <col key={h} style={{ width: widths[i] }} />)}
+              {heads.map((h, i) => <col key={h.id} style={{ width: widths[i] }} />)}
               <col style={{ width: 36 }} /> {/* ⋮ column */}
             </colgroup>
             <thead ref={headerRef}>
@@ -244,17 +253,17 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
                   indeterminate={isIndeterminate(allKeys)}
                   onChange={(checked) => (checked ? selectAll(allKeys) : clearAll())}
                 />
-                {headers.map((h, i) => (
+                {heads.map((h, i) => (
                   <SortHeader
-                    key={h}
-                    label={h}
-                    active={sort.col === h}
+                    key={h.id}
+                    label={h.header}
+                    active={sort.col === h.id}
                     asc={sort.asc}
-                    onSort={() => sort.toggle(h)}
+                    onSort={() => sort.toggle(h.id)}
                     width={widths[i]}
                     style={{ position: "relative" }}
                   >
-                    <div className="col-resize-handle" {...getResizeHandleProps(i)} />
+                    <div className="col-resize-handle" {...getResizeHandleProps(h.id)} />
                   </SortHeader>
                 ))}
                 <th className="col-row-menu" style={{ width: 36 }} /> {/* ⋮ header spacer */}
