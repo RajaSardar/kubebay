@@ -34,6 +34,7 @@ type Deps struct {
 	RBAC      *RBAC
 	Helm      *HelmManager
 	NodeShell *NodeShellManager
+	NetDiag   *NetDiagManager
 	Settings  *SettingsManager
 	Auth      *Authenticator
 	Audit     *audit.Logger
@@ -442,6 +443,7 @@ func Router(d Deps, token string) http.Handler {
 		})
 
 		r.Post("/api/node-shell", d.NodeShell.HandleStart)
+		r.Post("/api/netdiag", d.NetDiag.HandleStart)
 
 		r.Get("/api/argocd/apps", argoCDAppsHandler(d.Metrics))
 		r.Post("/api/argocd/sync", argoCDSyncHandler(d.Metrics))

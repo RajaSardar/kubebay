@@ -162,6 +162,7 @@ func main() {
 		RBAC:      rbac,
 		Helm:      helmMgr,
 		NodeShell: nodeShell,
+		NetDiag:   &httpapi.NetDiagManager{Clusters: mgr, Audit: auditLog},
 		Settings:  settingsMgr,
 		Audit:     auditLog,
 		Waste:     wasteSampler,

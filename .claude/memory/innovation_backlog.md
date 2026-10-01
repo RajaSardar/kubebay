@@ -805,6 +805,31 @@ Intelligence roadmap Tier 2 #18. It adds a **Timeline** tab in the drawer for De
 - the research's "alert" merge, since Kubebay has no Alertmanager source yet
 - a Pod-drawer timeline (the lib already handles `kind: Pod`)
 - a fleet-wide timeline
+### 43. Live connectivity diagnostic pod — status: shipped 2026-10-01
+
+Intelligence roadmap Tier 2 #23. It is the live counterpart to #39's static "can A reach B?" check, and sits right below it on the NetworkPolicy page as a "Live network check" card.
+
+**Engine.** `POST /api/netdiag {cluster, namespace, node?, image?}` (`httpapi/netdiag.go`) creates `kubebay-netdiag-<hex>`:
+- **Image.** It defaults to `nicolaka/netshoot:v0.13` for dig, curl and traceroute. `KUBEBAY_NETDIAG_IMAGE` or the request's own `image` overrides it for mirrored or air-gapped registries.
+- **Placement.** The pod goes in the chosen namespace, so the DNS search path and the NetworkPolicies that apply match that namespace.
+- **Hardening.** The node shell is privileged, host-namespaced and keeps its token; this pod is the opposite of all three:
+  - an ordinary pod-network pod with no privileges
+  - `allowPrivilegeEscalation: false` and RuntimeDefault seccomp
+  - `automountServiceAccountToken: false`
+  - only Kubebay's own two labels, never a workload's. Copied labels could make a Service route real traffic to it.
+- **Lifetime.** `activeDeadlineSeconds: 3600` plus `sleep 3600`, so an orphaned pod stops on its own.
+- **Start-up failure.** The handler deletes its own pod on ImagePull errors, CreateContainerError, early exit or timeout.
+- **Audit.** It records a `netdiag-start` entry.
+
+**UI.** `components/NetDiagCard.tsx`:
+- Pick a namespace and an optional image, then press "Start diagnostic pod". The ArmedButton asks "Create a pod in <ns>?" first.
+- A terminal opens in the pod.
+- "Stop and delete pod" removes it, and so does unmounting the card.
+
+**Not in v1:**
+- running as a specific pod's identity. Ephemeral containers would share its network namespace but can't be removed once added, so this needs its own decision.
+- node pinning in the UI (the engine already accepts `node`)
+- canned one-click checks
 
 **OSS.**
 
