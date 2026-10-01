@@ -96,3 +96,22 @@ export function ownerWarning(owner: GitOpsOwner): string {
     ? `Argo CD (${owner.name}) manages this resource and will likely revert this change on its next sync — edit the Git source instead.`
     : `Flux (${owner.name}) manages this resource and will likely revert this change on its next reconcile — edit the Git source instead.`;
 }
+
+/**
+ * The Helm release that installed this object, if any. Helm 3 writes with
+ * Update operations, and an upgrade or rollback re-renders the chart and
+ * patches live toward it, so a direct edit lasts only until the next one.
+ */
+export function helmReleaseOf(obj: Record<string, unknown> | null | undefined): string | null {
+  const meta = (obj?.metadata ?? {}) as Record<string, unknown>;
+  const annotations = (meta.annotations ?? {}) as Record<string, unknown>;
+  const labels = (meta.labels ?? {}) as Record<string, unknown>;
+  const fromAnnotation = annotations["meta.helm.sh/release-name"];
+  if (typeof fromAnnotation === "string" && fromAnnotation) return fromAnnotation;
+  if (labels["app.kubernetes.io/managed-by"] === "Helm") {
+    const instance = labels["app.kubernetes.io/instance"];
+    return typeof instance === "string" && instance ? instance : "unknown";
+  }
+  return null;
+}
+

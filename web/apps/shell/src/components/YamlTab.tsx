@@ -13,6 +13,7 @@ export function YamlTab({
   ns,
   name,
   gitopsOwner,
+  helmRelease,
   impactBanner,
   dangerousChangeCheck,
 }: {
@@ -21,6 +22,8 @@ export function YamlTab({
   ns: string;
   name: string;
   gitopsOwner?: GitOpsOwner | null;
+  /** The Helm release that installed this object (lib/gitops.ts#helmReleaseOf). */
+  helmRelease?: string | null;
   /** Optional blast-radius context (e.g. Karpenter's NodePool impact banner) shown above the editor. */
   impactBanner?: ReactNode;
   /**
@@ -96,18 +99,25 @@ export function YamlTab({
         ns,
         name,
         yaml: modified,
+        // Patch only what changed rather than re-applying the whole object.
+        original,
         dryRun,
         force: false,
       });
-      if (r.dryRun) {
-        setMsg({ ok: true, text: "Dry-run passed — server accepted the change." });
+      const n = r.changedPaths?.length ?? 0;
+      const fields = `${n} field${n === 1 ? "" : "s"}`;
+      if (r.noop) {
+        setMsg({ ok: true, text: "Nothing to apply: no stored field changed." });
+      } else if (r.dryRun) {
+        setMsg({ ok: true, text: `Dry-run passed: the server accepted changes to ${fields}.` });
         if (r.resultYaml) {
           setServerPreview(r.resultYaml);
           setShowDiff(true);
         }
       } else {
-        setMsg({ ok: true, text: "Applied via server-side apply." });
+        // Reload first: load() clears the message, which used to hide this one.
         await load();
+        setMsg({ ok: true, text: `Applied: patched ${fields}.` });
       }
     } catch (e) {
       if (e instanceof PolicyRejectionError) {
@@ -191,6 +201,11 @@ export function YamlTab({
         </Row>
       </div>
       {impactBanner}
+      {helmRelease && (
+        <InlineBanner tone="warn" flush>
+          {`Managed by Helm release ${helmRelease}. Edits apply now and only touch the fields you change, but the next helm upgrade or rollback of this release restores the chart's values. Change the release values to make an edit permanent.`}
+        </InlineBanner>
+      )}
       {gitopsOwner && (
         <InlineBanner role="alert">
           {ownerWarning(gitopsOwner)}
