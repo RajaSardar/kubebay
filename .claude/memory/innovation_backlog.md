@@ -957,5 +957,24 @@ The YAML view also strips `resourceVersion`.
 - `HandleCreateResource` force:true → false, with "exists — edit it instead".
 - An optional cleanup of stale `kubebay` Apply entries in managedFields.
 
+### 47. Fleet Consistency Diff (roadmap Tier 3 #25) — status: shipped 2026-10-01 (slice 1)
+The same object compared across clusters, matched by kind, namespace and name. Komodor sells this as a paid feature. Slice 1 follows the roadmap's "3-4 object classes first" verdict: Deployments, StatefulSets, DaemonSets and ConfigMaps.
+
+- **Logic.** `lib/fleetConsistency.ts` (`compareFleet`) is pure and client-side.
+  - Compares container and initContainer images, resource requests and limits, env values and replicas, plus ConfigMap `data`/`binaryData` keys.
+  - Ranks drift by severity: image or container-set drift is high, resources/env/ConfigMap drift is medium, and replicas are low because an HPA legitimately varies them.
+  - Skips `kube-*` namespaces and the per-cluster `kube-root-ca.crt`.
+  - Shows a secret-backed env var as `secret name/key`, never its value. Secrets themselves are not compared.
+  - Lists objects missing from a cluster only when their namespace exists there. Otherwise every cluster-specific namespace would read as drift.
+- **UI.** `FleetConsistencyCard` sits on the Fleet page, read-only and opt-in.
+  - Nothing streams until "Compare clusters" is clicked, because it opens four full streams per connected cluster, ConfigMaps included.
+  - Per-cluster collectors use the existing `useResourceStream` with `useStaggeredEnable`. There is no new engine endpoint.
+  - The output is a DataTable with one row per differing field and one column per cluster, plus an "Only in some clusters" table.
+- **Debate (single-agent, recorded here).**
+  - An engine-side diff endpoint was rejected. Streams already exist, and a new informer-backed list API is bigger than the feature.
+  - Diffing the full spec was rejected. Defaulted fields, controller-written annotations and per-cluster values swamp the signal. The curated field list is the point.
+  - Value display for ConfigMaps was kept: they aren't secret, and a key without its value doesn't tell you which side is right.
+- **Next slices.** Ignore rules (e.g. a known per-region env var), Services/Ingresses/HPAs, a cluster-pair picker for fleets larger than a handful, and an "open in cluster" link per row.
+
 ### Further ideas worth a look (unscoped, one-liners)
 - **Revert unsaved YAML edits — SHIPPED 2026-09-27.** One-click "discard my in-progress edit" button in `YamlTab.tsx`, next to Reload — a local reset (no network call), unlike Reload which re-fetches from the server.

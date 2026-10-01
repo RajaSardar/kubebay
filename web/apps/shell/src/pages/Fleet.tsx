@@ -9,6 +9,7 @@ import { sortClustersByHealth } from "../lib/fleetHealthOrder";
 import { formatCpuMillis, formatMemBytes } from "../lib/rightsizing";
 import { FleetClusterHealthCard, type ClusterHealthSummary } from "../components/FleetClusterHealthCard";
 import { FleetShowbackTable } from "../components/FleetShowbackTable";
+import { FleetConsistencyCard } from "../components/FleetConsistencyCard";
 
 const STAGGER_CONCURRENCY = 3;
 const STAGGER_INTERVAL_MS = 500;
@@ -150,6 +151,12 @@ export default function Fleet() {
               Showback by namespace, fleet-wide — measured workloads only, no dollar figures
             </div>
             <FleetShowbackTable rows={showback} />
+          </div>
+        )}
+
+        {connected.length > 0 && (
+          <div style={{ marginTop: 16 }}>
+            <FleetConsistencyCard clusters={connectedIds} />
           </div>
         )}
       </div>
