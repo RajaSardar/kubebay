@@ -16,6 +16,7 @@ import (
 	"github.com/RajaSardar/kubebay/engine/internal/clusters"
 	"github.com/RajaSardar/kubebay/engine/internal/httpapi"
 	"github.com/RajaSardar/kubebay/engine/internal/informers"
+	"github.com/RajaSardar/kubebay/engine/internal/sigcheck"
 	"github.com/RajaSardar/kubebay/engine/internal/stream"
 	"github.com/RajaSardar/kubebay/engine/internal/waste"
 
@@ -163,6 +164,7 @@ func main() {
 		Helm:      helmMgr,
 		NodeShell: nodeShell,
 		NetDiag:   &httpapi.NetDiagManager{Clusters: mgr, Audit: auditLog},
+		ImageSigs: &httpapi.ImageSignatureAPI{Clusters: mgr, Checker: &sigcheck.Checker{}},
 		Settings:  settingsMgr,
 		Audit:     auditLog,
 		Waste:     wasteSampler,
