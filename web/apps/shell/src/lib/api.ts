@@ -259,6 +259,33 @@ export const imageSigApi = {
   check: (cluster: string) => get<ImageSignatureRow[]>(`/api/image-signatures?cluster=${encodeURIComponent(cluster)}`),
 };
 
+export interface AuditSecurityEvent {
+  id: string;
+  time: string;
+  rule: string;
+  severity: "high" | "medium" | "low";
+  title: string;
+  user: string;
+  sourceIP?: string;
+  object: string;
+  detail?: string;
+  allowed: boolean;
+}
+
+export interface AuditEventsResponse {
+  configured: boolean;
+  path?: string;
+  error?: string;
+  events: AuditSecurityEvent[];
+}
+
+/** Roadmap #26: security events from a cluster's API server audit log, read locally. */
+export const securityApi = {
+  auditEvents: (cluster: string) => get<AuditEventsResponse>(`/api/security/audit-events?cluster=${encodeURIComponent(cluster)}`),
+  setAuditLogPath: (cluster: string, path: string) =>
+    send<{ ok: boolean; path: string }>("PUT", "/api/security/audit-log-path", { cluster, path }),
+};
+
 export const nodeApi = {
   shellStart: (b: { cluster: string; node: string }) =>
     send<{ namespace: string; pod: string }>("POST", "/api/node-shell", b),

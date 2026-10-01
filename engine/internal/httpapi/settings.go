@@ -29,6 +29,9 @@ type AppSettings struct {
 	// true once the user connects to a cluster, false after an explicit Stop.
 	// A cluster absent from the map is never recorded.
 	HistoryClusters map[string]bool `json:"historyClusters,omitempty"`
+	// AuditLogPaths maps a cluster to a local copy of its API server audit
+	// log (roadmap #26). Set only through /api/security/audit-log-path.
+	AuditLogPaths map[string]string `json:"auditLogPaths,omitempty"`
 }
 
 // PrometheusURLFor resolves the endpoint to query for one cluster. A
@@ -201,10 +204,12 @@ func (s *SettingsManager) HandleSave(w http.ResponseWriter, r *http.Request) {
 	nodeShellImage := ""
 	var promURLs map[string]string
 	var historyClusters map[string]bool
+	var auditLogPaths map[string]string
 	if current != nil {
 		nodeShellImage = current.NodeShellImage
 		promURLs = current.PrometheusURLs
 		historyClusters = current.HistoryClusters
+		auditLogPaths = current.AuditLogPaths
 	}
 	if incoming.HistoryClusters != nil {
 		historyClusters = *incoming.HistoryClusters
@@ -228,6 +233,7 @@ func (s *SettingsManager) HandleSave(w http.ResponseWriter, r *http.Request) {
 		OnlyListed:       incoming.OnlyListed,
 		NodeShellImage:   nodeShellImage,
 		HistoryClusters:  historyClusters,
+		AuditLogPaths:    auditLogPaths,
 	}
 	if err := s.save(next); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

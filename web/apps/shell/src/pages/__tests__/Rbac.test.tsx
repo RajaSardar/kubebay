@@ -53,4 +53,9 @@ describe("Rbac", () => {
     expect(await screen.findByText("Running image signatures")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Check signatures" })).toBeInTheDocument();
   });
+
+  it("offers the audit-log security feed", async () => {
+    renderPage();
+    expect(await screen.findByText("Audit-log security events")).toBeInTheDocument();
+  });
 });

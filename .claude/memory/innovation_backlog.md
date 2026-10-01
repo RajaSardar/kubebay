@@ -956,5 +956,32 @@ The YAML view also strips `resourceVersion`.
 - `HandleCreateResource` force:true → false, with "exists — edit it instead".
 - An optional cleanup of stale `kubebay` Apply entries in managedFields.
 
+### 49. Audit-log security event feed (roadmap Tier 3 #26) — status: shipped 2026-10-01 (slice 1)
+A retrospective security feed with no kernel agent and no in-cluster install. The precondition the roadmap named holds: the API server's audit log must already be written and readable on this machine.
+
+- **Engine.** `internal/auditfeed` (`Classify`, `ReadTail`) parses audit.k8s.io/v1 JSON lines.
+  - Reads only the last 32 MiB and returns at most 500 events, newest first.
+  - Counts only the `ResponseComplete` stage, so each request appears once.
+  - Rules follow Falco k8saudit's categories:
+    - exec, attach and port-forward into pods;
+    - privileged containers, hostPID, hostNetwork or hostIPC pods (high);
+    - hostPath pods (medium);
+    - bindings to cluster-admin (high) and other ClusterRoleBinding changes (medium);
+    - anonymous requests that succeeded (high);
+    - Secrets read by non-`system:` users (low).
+  - Refused attempts are kept and marked denied. Request and response bodies never leave the engine.
+- **Settings and endpoints.** `AppSettings.AuditLogPaths` maps each cluster to an absolute file path.
+  - It is set only through `PUT /api/security/audit-log-path`, under the settings lock, and kept across `HandleSave`.
+  - `GET /api/security/audit-events?cluster=` returns `{configured, path, error?, events}`. An unreadable log is reported in the body.
+- **UI.** `AuditSecurityFeedCard` sits on the RBAC page.
+  - It explains the precondition and offers a path field.
+  - Once configured, it shows the path with Change and Stop reading, a severity filter, and a DataTable of time, event, who, object, detail and outcome.
+- **Debate (single-agent, recorded here).**
+  - Reading audit events through the Kubernetes API was rejected: no such API exists.
+  - A dynamic audit webhook sink was rejected: it needs API server flags and an always-on receiver, which breaks local-first.
+  - Pulling from CloudWatch, GCP or Azure log APIs directly was deferred to an Enterprise-flavoured slice, since it needs cloud credentials. A synced local file covers it now.
+  - Spike detection for Secret reads was deferred. Raw rows with a severity filter come first.
+- **Next slices.** Cloud log sources (EKS CloudWatch, GKE Cloud Logging), Secret-read spike aggregation, links from an event to the object's drawer, and rotated-file (`audit.log.1`) awareness.
+
 ### Further ideas worth a look (unscoped, one-liners)
 - **Revert unsaved YAML edits — SHIPPED 2026-09-27.** One-click "discard my in-progress edit" button in `YamlTab.tsx`, next to Reload — a local reset (no network call), unlike Reload which re-fetches from the server.
