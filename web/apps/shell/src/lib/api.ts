@@ -219,6 +219,8 @@ async function fetchObject(
 export const netdiagApi = {
   start: (b: { cluster: string; namespace: string; node?: string; image?: string }) =>
     send<{ namespace: string; pod: string }>("POST", "/api/netdiag", b),
+};
+
 /** One running image digest's signature status (roadmap Tier 2 #17). */
 export interface ImageSignatureRow {
   image: string;
