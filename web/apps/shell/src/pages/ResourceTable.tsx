@@ -292,6 +292,7 @@ const nameOf = (r: Row) => str(rec(r.metadata).name);
 const nsOf = (r: Row) => str(rec(r.metadata).namespace);
 const createdOf = (r: Row) => str(rec(r.metadata).creationTimestamp);
 const isTerminating = (r: Row) => !!rec(r.metadata).deletionTimestamp;
+const versionOf = (r: Row) => str(rec(r.metadata).resourceVersion);
 /** Kinds whose row menu offers "Show pods" (they select pods by label). */
 const HAS_PODS = new Set(["deployments", "statefulsets", "daemonsets", "replicasets", "jobs"]);
 
@@ -416,6 +417,7 @@ export default function ResourceTable() {
         nsOf={nsOf}
         createdOf={createdOf}
         isDimmed={isTerminating}
+        versionOf={versionOf}
         columns={columns}
         sortKey={`r/${kind}`}
         onOpen={onOpen}
