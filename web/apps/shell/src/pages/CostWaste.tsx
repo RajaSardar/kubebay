@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { EmptyState, PageHeader } from "@kubebay/ui";
 import { WasteBreakdown } from "../components/WasteBreakdown";
+import { HistoryCoverageChip } from "../components/HistoryCoverageChip";
 import { WorkloadUsageTable } from "../components/WorkloadUsageTable";
 import { PageLoader } from "../components/PageLoader";
 import { useResourceStream, shouldShowSkeleton } from "../lib/useResourceStream";
@@ -66,6 +67,9 @@ export default function CostWaste() {
         <div className="muted small" style={{ marginBottom: 12 }}>
           Tier 0: allocatable minus requests, computed directly from the live cluster — no metrics required, so this
           is exact and never stale. No dollar figures — Kubebay doesn't guess at your pricing.
+        </div>
+        <div style={{ marginBottom: 12 }}>
+          <HistoryCoverageChip cluster={effectiveCluster} />
         </div>
         <div style={{ marginBottom: 16 }}>
           <EfficiencyScoreCard efficiency={efficiency} />
