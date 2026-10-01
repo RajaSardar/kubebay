@@ -68,6 +68,9 @@ type SettingsManager struct {
 	mu  chan struct{}
 	// Fixed at startup by main; never written again, so it needs no locking.
 	LocalShell LocalShellStatus
+	// AuditFeedDisabled, when set, is why the audit-log feed is off in this
+	// deployment (see AuditFeedBlockReason). Fixed at startup by main.
+	AuditFeedDisabled string
 }
 
 func NewSettingsManager(mgr *clusters.Manager) *SettingsManager {

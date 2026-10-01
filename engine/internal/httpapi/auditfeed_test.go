@@ -94,3 +94,34 @@ func TestAuditEventsReportsAnUnreadableLog(t *testing.T) {
 		t.Fatalf("got %d %v", code, out)
 	}
 }
+
+func TestAuditFeedOffWhenOIDCOrInCluster(t *testing.T) {
+	if AuditFeedBlockReason(false, false) != "" {
+		t.Fatal("a desktop deployment allows the feed")
+	}
+	for _, tc := range []struct {
+		name               string
+		inCluster, oidc    bool
+		wantReasonContains string
+	}{
+		{"oidc", false, true, "OIDC"},
+		{"in-cluster", true, false, "in-cluster"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			sm := settingsWithManager(t)
+			sm.AuditFeedDisabled = AuditFeedBlockReason(tc.inCluster, tc.oidc)
+			if !strings.Contains(sm.AuditFeedDisabled, tc.wantReasonContains) {
+				t.Fatalf("reason %q should mention %q", sm.AuditFeedDisabled, tc.wantReasonContains)
+			}
+			if rec := putAuditPath(t, sm, `{"cluster":"kind-dev","path":"/does/not/exist.log"}`); rec.Code != http.StatusForbidden ||
+				!strings.Contains(rec.Body.String(), "engine host") || strings.Contains(rec.Body.String(), "no such file") {
+				t.Errorf("set path: %d %q, want 403 with the reason and no path probing", rec.Code, rec.Body.String())
+			}
+			rec := httptest.NewRecorder()
+			sm.HandleAuditEvents(rec, httptest.NewRequest(http.MethodGet, "/api/security/audit-events?cluster=kind-dev", nil))
+			if rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), "engine host") {
+				t.Errorf("events: %d %q, want 403 with the reason", rec.Code, rec.Body.String())
+			}
+		})
+	}
+}

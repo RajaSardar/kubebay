@@ -72,4 +72,11 @@ describe("AuditSecurityFeedCard", () => {
     expect(screen.queryByText("Secret read by a person")).toBeNull();
     expect(screen.getByText("Exec into pod")).toBeInTheDocument();
   });
+
+  it("shows why the feed is off in an OIDC or in-cluster deployment, with no path field", async () => {
+    vi.mocked(securityApi.auditEvents).mockRejectedValue(new Error("the audit feed reads a file on the engine host, so it is off when OIDC is configured"));
+    renderCard();
+    expect(await screen.findByText(/off when OIDC is configured/)).toBeInTheDocument();
+    expect(screen.queryByLabelText("Audit log path")).toBeNull();
+  });
 });

@@ -992,6 +992,7 @@ A retrospective security feed with no kernel agent and no in-cluster install. Th
 - **Settings and endpoints.** `AppSettings.AuditLogPaths` maps each cluster to an absolute file path.
   - It is set only through `PUT /api/security/audit-log-path`, under the settings lock, and kept across `HandleSave`.
   - `GET /api/security/audit-events?cluster=` returns `{configured, path, error?, events}`. An unreadable log is reported in the body.
+- **Guard.** Like the local shell (`localshell.Allowed`), the feed is off when OIDC is configured or under `--in-cluster`. It reads a host file as the engine's OS user, past each user's own RBAC. `AuditFeedBlockReason` is set by main on `SettingsManager.AuditFeedDisabled`, both endpoints return 403 with the reason (no path probing), and the card shows the reason instead of the path field.
 - **UI.** `AuditSecurityFeedCard` sits on the RBAC page.
   - It explains the precondition and offers a path field.
   - Once configured, it shows the path with Change and Stop reading, a severity filter, and a DataTable of time, event, who, object, detail and outcome.

@@ -97,6 +97,7 @@ func main() {
 	helmMgr := httpapi.NewHelm(mgr, auditLog)
 	settingsMgr := httpapi.NewSettingsManager(mgr)
 	settingsMgr.LocalShell = localShellStatus
+	settingsMgr.AuditFeedDisabled = httpapi.AuditFeedBlockReason(*inCluster, auth.Enabled())
 	// Tier A (Prometheus) is a no-op until a cluster actually has one
 	// configured — this just wires up how to ask, per-cluster, same as
 	// promquery.go's own handlers.

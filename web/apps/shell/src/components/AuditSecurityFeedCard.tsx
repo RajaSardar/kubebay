@@ -55,6 +55,7 @@ export function AuditSecurityFeedCard({ cluster }: { cluster: string }) {
           need the policy to log at Request level for pods and RBAC objects.
         </div>
         {q.isLoading && <SkeletonLines lines={3} label="Loading audit events…" />}
+        {q.error && <InlineBanner tone="warn" flush>{q.error instanceof Error ? q.error.message : String(q.error)}</InlineBanner>}
         {data && editing && (
           <Row gap={2} align="center" wrap>
             <TextField

@@ -16,9 +16,28 @@ const (
 	auditMaxEvents = 500
 )
 
+// AuditFeedBlockReason says why the audit feed must be off, or "" when it may
+// run. It reads a file on the engine host as the engine's OS user, so like
+// the local shell (localshell.Allowed) it is refused when OIDC is configured
+// (every logged-in user would see the cluster-wide audit trail, past their own
+// RBAC) and under --in-cluster (the engine host is not the user's machine).
+func AuditFeedBlockReason(inCluster, oidcEnabled bool) string {
+	switch {
+	case oidcEnabled:
+		return "the audit feed reads a file on the engine host, so it is off when OIDC is configured: every logged-in user would see the whole cluster's audit trail"
+	case inCluster:
+		return "the audit feed reads a file on the engine host, so it is off in in-cluster mode"
+	}
+	return ""
+}
+
 // HandleSetAuditLogPath stores (or, with an empty path, clears) where one
 // cluster's API server audit log can be read on this machine.
 func (s *SettingsManager) HandleSetAuditLogPath(w http.ResponseWriter, r *http.Request) {
+	if s.AuditFeedDisabled != "" {
+		http.Error(w, s.AuditFeedDisabled, http.StatusForbidden)
+		return
+	}
 	var req struct {
 		Cluster string `json:"cluster"`
 		Path    string `json:"path"`
@@ -75,6 +94,10 @@ func (s *SettingsManager) HandleSetAuditLogPath(w http.ResponseWriter, r *http.R
 // configured audit log. An unreadable log is reported in the body, not as an
 // HTTP error, so the UI can say what's wrong next to the configured path.
 func (s *SettingsManager) HandleAuditEvents(w http.ResponseWriter, r *http.Request) {
+	if s.AuditFeedDisabled != "" {
+		http.Error(w, s.AuditFeedDisabled, http.StatusForbidden)
+		return
+	}
 	cluster := r.URL.Query().Get("cluster")
 	if cluster == "" {
 		http.Error(w, "cluster required", http.StatusBadRequest)
