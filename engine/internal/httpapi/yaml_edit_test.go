@@ -170,15 +170,69 @@ func TestApplyYAMLEditRejectsRenames(t *testing.T) {
 	}
 }
 
-func TestApplyYAMLWithoutOriginalKeepsServerSideApply(t *testing.T) {
+const resizePatch = `apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: debugging-apis-fml-in
+  namespace: debug
+spec:
+  template:
+    spec:
+      containers:
+        - name: debugging-apis
+          resources:
+            requests:
+              cpu: "250m"
+`
+
+func TestApplyYAMLStrategicModeSendsTheDocumentAsAnUpdatePatch(t *testing.T) {
+	c, got := editChannels(t)
+	body := editBody("", resizePatch, false)
+	delete(body, "original")
+	body["mode"] = "strategic"
+	body["action"] = "rightsize"
+	rr, resp := putYAML(t, c, body)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d: %s", rr.Code, rr.Body.String())
+	}
+	if got.action.PatchType != types.StrategicMergePatchType {
+		t.Errorf("patch type = %s, want strategic merge: containers merge by name and limits survive", got.action.PatchType)
+	}
+	if got.opts.FieldManager != "kubebay" || got.opts.Force != nil {
+		t.Errorf("options = %+v, want manager kubebay and no force", got.opts)
+	}
+	var sent map[string]interface{}
+	if err := json.Unmarshal(got.action.Patch, &sent); err != nil {
+		t.Fatalf("patch is not JSON: %v", err)
+	}
+	if !strings.Contains(string(got.action.Patch), `"cpu":"250m"`) || strings.Contains(string(got.action.Patch), "limits") {
+		t.Errorf("patch = %s, want only the requested cpu", got.action.Patch)
+	}
+	if resp["patchType"] != "strategic" {
+		t.Errorf("response patchType = %v", resp["patchType"])
+	}
+}
+
+func TestApplyYAMLStrategicModeRejectsCustomResources(t *testing.T) {
+	c, got := editChannels(t)
+	body := editBody("", crdYAML, false)
+	delete(body, "original")
+	body["mode"] = "strategic"
+	body["gvr"] = "example.com/v1/widgets"
+	body["ns"] = "default"
+	body["name"] = "w1"
+	rr, _ := putYAML(t, c, body)
+	if rr.Code != http.StatusBadRequest || got.called {
+		t.Errorf("status = %d, patched = %v; want 400 (the API server rejects strategic patches on custom resources)", rr.Code, got.called)
+	}
+}
+
+func TestApplyYAMLNoLongerServerSideApplies(t *testing.T) {
 	c, got := editChannels(t)
 	body := editBody("", deployYAML, false)
 	delete(body, "original")
 	rr, _ := putYAML(t, c, body)
-	if rr.Code != http.StatusOK {
-		t.Fatalf("status = %d: %s", rr.Code, rr.Body.String())
-	}
-	if got.action.PatchType != types.ApplyPatchType {
-		t.Errorf("patch type = %s, want apply for callers that send no original", got.action.PatchType)
+	if rr.Code != http.StatusBadRequest || got.called {
+		t.Errorf("status = %d, patched = %v; want 400 when neither an original nor a patch mode is sent", rr.Code, got.called)
 	}
 }

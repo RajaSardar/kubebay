@@ -50,6 +50,7 @@ const nameOf = (p: PodRow) => p.name;
 const nsOf = (p: PodRow) => p.namespace;
 const createdOf = (p: PodRow) => p.created;
 const isTerminating = (p: PodRow) => p.statusLabel === "Terminating";
+const labelsOf = (p: PodRow) => p.labels;
 const versionOf = (p: PodRow) => p.rv;
 const byNsThenName = (a: PodRow, b: PodRow) => compareValues(a.namespace, b.namespace) || compareValues(a.name, b.name);
 
@@ -71,6 +72,7 @@ function podColumns(usage: Usage): ListColumn<PodRow>[] {
       ),
       sortValue: (p) => p.statusLabel,
       filterText: (p) => p.statusLabel,
+      filterKey: "status",
     },
     {
       id: "Restarts",
@@ -89,6 +91,7 @@ function podColumns(usage: Usage): ListColumn<PodRow>[] {
       cell: (p) => p.node || "–",
       sortValue: (p) => p.node,
       filterText: (p) => p.node,
+      filterKey: "node",
     },
     {
       id: "IP",
@@ -98,6 +101,7 @@ function podColumns(usage: Usage): ListColumn<PodRow>[] {
       cell: (p) => p.podIP || "–",
       sortValue: (p) => p.podIP,
       filterText: (p) => p.podIP,
+      filterKey: "ip",
     },
     {
       id: "CPU",
@@ -205,6 +209,7 @@ export default function Workloads() {
         nsOf={nsOf}
         createdOf={createdOf}
         isDimmed={isTerminating}
+        labelsOf={labelsOf}
         versionOf={versionOf}
         columns={columns}
         sortKey="pods"

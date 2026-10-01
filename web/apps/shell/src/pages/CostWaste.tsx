@@ -4,6 +4,7 @@ import { EmptyState, PageHeader } from "@kubebay/ui";
 import { WasteBreakdown } from "../components/WasteBreakdown";
 import { HistoryCoverageChip } from "../components/HistoryCoverageChip";
 import { HeadroomForecastCard } from "../components/HeadroomForecastCard";
+import { UsageAnomalyCard } from "../components/UsageAnomalyCard";
 import { WorkloadUsageTable } from "../components/WorkloadUsageTable";
 import { PageLoader } from "../components/PageLoader";
 import { useResourceStream, shouldShowSkeleton } from "../lib/useResourceStream";
@@ -97,6 +98,9 @@ export default function CostWaste() {
         </div>
         <div style={{ marginBottom: 16 }}>
           <HeadroomForecastCard cluster={effectiveCluster} capacity={capacity} />
+        </div>
+        <div style={{ marginBottom: 16 }}>
+          <UsageAnomalyCard cluster={effectiveCluster} />
         </div>
         <div style={{ marginBottom: 16 }}>
           <EfficiencyScoreCard efficiency={efficiency} />

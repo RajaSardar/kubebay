@@ -8,6 +8,8 @@ export interface ResourceListOptions<R> {
   keyOf: (r: R) => string;
   /** The text the filter searches: every word must match one of these. */
   filterFields: (r: R) => string[];
+  /** A richer matcher (the key:value filter language); replaces filterFields when set. */
+  match?: (r: R, filter: string) => boolean;
   /** The value a column sorts by; numbers sort as numbers, text naturally. */
   sortValue: (r: R, col: string) => string | number;
   /** Order when no column is sorted. */
@@ -30,13 +32,17 @@ export interface ResourceListOptions<R> {
  * Plan: docs/TABLE_UNIFICATION.md.
  */
 export function useResourceList<R>(o: ResourceListOptions<R>) {
-  const { rows, keyOf, filterFields, sortValue, defaultSort, onOpen, onToggle } = o;
+  const { rows, keyOf, filterFields, match, sortValue, defaultSort, onOpen, onToggle } = o;
   const [filter, setFilter] = useState("");
   const filterRef = useRef<HTMLInputElement | null>(null);
   const sort = useSortPref(o.sortKey);
 
   const shown = useMemo(() => {
-    const out = filter.trim() ? rows.filter((r) => matchesFilter(filterFields(r), filter)) : [...rows];
+    const out = !filter.trim()
+      ? [...rows]
+      : match
+        ? rows.filter((r) => match(r, filter))
+        : rows.filter((r) => matchesFilter(filterFields(r), filter));
     if (sort.col) {
       const col = sort.col;
       out.sort((a, b) => (sort.asc ? compareValues(sortValue(a, col), sortValue(b, col)) : compareValues(sortValue(b, col), sortValue(a, col))));
@@ -44,7 +50,7 @@ export function useResourceList<R>(o: ResourceListOptions<R>) {
       out.sort(defaultSort);
     }
     return out;
-  }, [rows, filter, filterFields, sort.col, sort.asc, sortValue, defaultSort]);
+  }, [rows, filter, filterFields, match, sort.col, sort.asc, sortValue, defaultSort]);
 
   const allKeys = useMemo(() => shown.map(keyOf), [shown, keyOf]);
 

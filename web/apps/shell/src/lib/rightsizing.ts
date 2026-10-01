@@ -383,7 +383,7 @@ export interface ContainerPatch {
 }
 
 /**
- * Builds the minimal Server-Side-Apply document for a right-sizing patch:
+ * Builds the minimal patch document for a right-sizing change:
  * only `spec.template.spec.containers[].resources.requests` for the named
  * containers — never `limits`, and never a container/field the caller
  * didn't ask for (e.g. cpu is omitted entirely when an HPA-on-CPU conflict
@@ -413,3 +413,29 @@ export function buildResizePatchYaml(target: { kind: string; ns: string; name: s
   }
   return lines.join("\n") + "\n";
 }
+
+/**
+ * The PUT /api/yaml body for a right-sizing preview (dryRun) or apply. The
+ * document goes as a strategic merge patch, an Update under manager
+ * "kubebay": containers merge by name, limits and every other field stay as
+ * they are, and it never conflicts with the Helm/kubectl owner of requests.
+ */
+export function resizeApplyRequest(
+  cluster: string,
+  target: { kind: string; ns: string; name: string },
+  patches: ContainerPatch[],
+  dryRun: boolean,
+) {
+  return {
+    cluster,
+    gvr: gvrForWorkloadKind(target.kind),
+    ns: target.ns,
+    name: target.name,
+    yaml: buildResizePatchYaml(target, patches),
+    dryRun,
+    force: false,
+    mode: "strategic" as const,
+    action: "rightsize",
+  };
+}
+

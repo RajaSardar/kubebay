@@ -1,7 +1,6 @@
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { Badge, Card, DataTable, Row, Stack } from "@kubebay/ui";
-import { historyApi } from "../lib/api";
+import { useClusterHistorySeries } from "../lib/useClusterHistorySeries";
 import {
   FORECAST_MIN_DAYS,
   FORECAST_MIN_HOURS_PER_DAY,
@@ -16,8 +15,6 @@ const LABELS: Record<MetricForecast["metric"], string> = {
   memRequests: "Memory requests",
   memUsage: "Memory usage",
 };
-
-const HISTORY_DAYS = 35;
 
 function fmt(m: MetricForecast, v: number): string {
   return m.metric.startsWith("cpu") ? formatCpuMillis(v) : formatMemBytes(v);
@@ -44,17 +41,7 @@ function verdict(m: MetricForecast): string {
  * was observed; shown with a "needs N days" note rather than hidden.
  */
 export function HeadroomForecastCard({ cluster, capacity }: { cluster: string; capacity: { cpuMillis: number; memBytes: number } }) {
-  const q = useQuery({
-    queryKey: ["history-series", cluster],
-    queryFn: () => {
-      const to = new Date();
-      const from = new Date(to.getTime() - HISTORY_DAYS * 86_400_000);
-      return historyApi.series(cluster, from.toISOString(), to.toISOString());
-    },
-    enabled: !!cluster,
-    refetchInterval: 15 * 60_000,
-    retry: false,
-  });
+  const q = useClusterHistorySeries(cluster);
   const forecast = useMemo(() => (q.data ? forecastHeadroom(q.data.points, capacity) : null), [q.data, capacity]);
   // No history (stopped, unavailable, nothing recorded): the coverage chip already says why.
   if (!q.data || !forecast || forecast.metrics.length === 0) return null;

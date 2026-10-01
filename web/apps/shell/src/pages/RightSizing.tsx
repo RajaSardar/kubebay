@@ -22,6 +22,7 @@ import {
   memQuantityString,
   gvrForWorkloadKind,
   buildResizePatchYaml,
+  resizeApplyRequest,
   type RightSizingRow,
   type ContainerPatch,
 } from "../lib/rightsizing";
@@ -164,16 +165,7 @@ export default function RightSizing() {
       const gvr = gvrForWorkloadKind(plan.kind);
       const [original, dryRun] = await Promise.all([
         api.getYamlText(effectiveCluster, gvr, plan.ns, plan.name),
-        api.applyYaml({
-          cluster: effectiveCluster,
-          gvr,
-          ns: plan.ns,
-          name: plan.name,
-          yaml: buildResizePatchYaml(plan, plan.patches),
-          dryRun: true,
-          force: false,
-          action: "rightsize",
-        }),
+        api.applyYaml(resizeApplyRequest(effectiveCluster, plan, plan.patches, true)),
       ]);
       setPreviews((p) => ({ ...p, [key]: { status: "ready", original, resultYaml: dryRun.resultYaml ?? original } }));
     } catch (e) {
@@ -185,17 +177,7 @@ export default function RightSizing() {
     const key = planWorkloadKey(plan);
     setApplyBusy((b) => ({ ...b, [key]: true }));
     try {
-      const gvr = gvrForWorkloadKind(plan.kind);
-      await api.applyYaml({
-        cluster: effectiveCluster,
-        gvr,
-        ns: plan.ns,
-        name: plan.name,
-        yaml: buildResizePatchYaml(plan, plan.patches),
-        dryRun: false,
-        force: false,
-        action: "rightsize",
-      });
+      await api.applyYaml(resizeApplyRequest(effectiveCluster, plan, plan.patches, false));
       setPreviews((p) => ({ ...p, [key]: { status: "ready", resultYaml: p[key]?.resultYaml, original: p[key]?.resultYaml } }));
     } catch (e) {
       setPreviews((p) => ({ ...p, [key]: { status: "error", error: String(e instanceof Error ? e.message : e) } }));
