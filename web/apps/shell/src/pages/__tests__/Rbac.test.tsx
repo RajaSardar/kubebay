@@ -47,4 +47,10 @@ describe("Rbac", () => {
     renderPage();
     expect(await screen.findByText("old-creds")).toBeInTheDocument();
   });
+
+  it("offers an on-demand signature check of the images actually running", async () => {
+    renderPage();
+    expect(await screen.findByText("Running image signatures")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Check signatures" })).toBeInTheDocument();
+  });
 });

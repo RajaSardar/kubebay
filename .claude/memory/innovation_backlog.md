@@ -855,6 +855,31 @@ Intelligence roadmap Tier 2 #22. It adds a **Build policy** tab on the NetworkPo
 - editing an existing policy in the form (the YAML tab still does that)
 - `matchExpressions`, `endPort` and `ipBlock.except` in the form
 - CNI-specific policy kinds
+### 45. Running image signature status (read-only cosign check) — status: shipped 2026-10-01
+
+Intelligence roadmap Tier 2 #17. It complements #32: that card answers "is signature verification enforced?", and this one answers "do the digests actually running have a signature published?".
+
+**Engine, `internal/sigcheck`.** It takes each container's `imageID` repo digest (spec image as fallback) and checks the registry for:
+- a cosign signature tag `sha256-<hex>.sig`
+- an OCI 1.1 referrer whose `artifactType` is sigstore, cosign or signature (an SBOM referrer doesn't count)
+
+How it contacts registries:
+- **Anonymous only.** It does the bearer-token exchange from the `WWW-Authenticate` challenge, and never sends cluster pull secrets. A private registry comes back `unknown` with "registry requires credentials".
+- **Normalisation.** Docker Hub names are normalised (`registry-1.docker.io`, `library/`).
+- **Caching.** Results are cached per repo@digest for 1 hour. Unknowns aren't cached.
+
+`GET /api/image-signatures?cluster=` lists pods and dedupes by digest, with pod and namespace counts.
+- It checks up to 300 digests per pass, 6 at a time.
+- Images whose runtime reported no repo digest are `unknown` with that reason.
+
+**UI.** A "Running image signatures" card on the RBAC / security page, right under #32's card.
+- **Explicit trigger.** It runs only when "Check signatures" is clicked, because it contacts external registries.
+- **Wording.** It says plainly that a found signature is **not verified** against a key or identity; that is the admission policy's job.
+
+**Not in v1:**
+- cryptographic verification (keys, Fulcio or Rekor)
+- pull-secret authentication for private registries
+- per-workload drawer placement
 
 **OSS.**
 

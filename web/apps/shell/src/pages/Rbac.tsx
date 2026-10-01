@@ -6,6 +6,7 @@ import { RbacFindingsCard } from "../components/RbacFindingsCard";
 import { ServiceAccountAutomountCard } from "../components/ServiceAccountAutomountCard";
 import { SecretExposureCard } from "../components/SecretExposureCard";
 import { ImageSignatureCard } from "../components/ImageSignatureCard";
+import { RunningImageSignaturesCard } from "../components/RunningImageSignaturesCard";
 import { OrphanedSecretsCard } from "../components/OrphanedSecretsCard";
 import { crdApi, rbacApi, type RBACSnapshot } from "../lib/api";
 import { detectImageSignatureEngines, summarizeImageSignaturePolicies } from "../lib/imageSignature";
@@ -313,6 +314,8 @@ export default function Rbac() {
       <SecretExposureCard findings={secretExposureFindings} />
 
       <ImageSignatureCard report={imageSignatureReport} enginesInstalled={sigEnginesInstalled} />
+
+      <RunningImageSignaturesCard cluster={effectiveCluster} />
 
       <OrphanedSecretsCard secrets={orphanedSecrets} />
 
