@@ -9,6 +9,7 @@ import { NetworkPolicyCoverageList } from "../components/NetworkPolicyCoverageLi
 import { findNetworkPolicyCoverageGaps } from "../lib/networkPolicyCoverage";
 import { ReachabilityCheck } from "../components/ReachabilityCheck";
 import { NetDiagCard } from "../components/NetDiagCard";
+import { NetpolEditor } from "../components/NetpolEditor";
 import { matrixCell, type MatrixCell } from "../lib/netpolMatrix";
 
 // ── Type helpers ──────────────────────────────────────────────────────────────
@@ -113,7 +114,7 @@ export default function NetworkPolicyPage() {
   // selection means "(all)", matching NamespaceFilter's own convention.
   const nsFilter = useSelectedNamespaces(effectiveCluster || undefined);
 
-  const [activeTab, setActiveTab] = useState<"matrix" | "policies" | "coverage" | "reach">("matrix");
+  const [activeTab, setActiveTab] = useState<"matrix" | "policies" | "coverage" | "reach" | "build">("matrix");
   const [selectedCell, setSelectedCell] = useState<CellDetail | null>(null);
 
   useEffect(() => setSelectedCell(null), [nsFilter]);
@@ -128,10 +129,10 @@ export default function NetworkPolicyPage() {
     { mode: "full" },
   );
 
-  // Namespace labels for namespaceSelector peers; only the reachability check needs them.
+  // Namespace labels for namespaceSelector peers: the matrix, the reachability check and the builder's impact preview.
   const namespaces = useResourceStream(effectiveCluster || undefined, "v1/namespaces", {
     mode: "full",
-    enabled: activeTab === "reach" || activeTab === "matrix",
+    enabled: activeTab === "reach" || activeTab === "matrix" || activeTab === "build",
   });
 
   const ready = pods.synced && netpols.synced;
@@ -237,6 +238,7 @@ export default function NetworkPolicyPage() {
             { value: "policies", label: "Policy list" },
             { value: "coverage", label: "Coverage gaps" },
             { value: "reach", label: "Can A reach B?" },
+            { value: "build", label: "Build policy" },
           ]}
           value={activeTab}
           onChange={setActiveTab}
@@ -258,6 +260,10 @@ export default function NetworkPolicyPage() {
         />
       ) : activeTab === "policies" ? (
         <PolicyListView policies={filteredPolicies} />
+      ) : activeTab === "build" ? (
+        <div className="page-body">
+          <NetpolEditor cluster={effectiveCluster} pods={pods.rows} policies={netpols.rows} namespaces={namespaces.rows} />
+        </div>
       ) : activeTab === "reach" ? (
         <div className="page-body">
           <ReachabilityCheck
