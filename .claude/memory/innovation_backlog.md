@@ -883,5 +883,48 @@ How it contacts registries:
 
 **OSS.**
 
+### 46. Fix: YAML-tab edits conflicted with Helm/kubectl field managers — status: building (slice 1 in PR)
+
+**User report:** "Apply failed with 3 conflicts: conflicts with "kubectl-client-side-apply" using apps/v1: …env[name="CONFIG_USER"].value…" on a Helm-installed Deployment.
+
+**Root cause.** `HandleApplyYAML` server-side applied the **whole** edited object as manager `kubebay` with `force:false`. Any field another manager (Helm 3, `kubectl apply`) set to a different value conflicts, and the user must change exactly those fields.
+
+Two more effects of the same path:
+- Kubebay claimed Apply ownership of every field it re-sent.
+- Removing a list item (an env var) was a silent no-op that still said "Applied".
+
+The YAML view also strips `resourceVersion`.
+
+**Debate (2026-10-01, per CLAUDE.md).** Two position agents argued, then a synthesis round cross-challenged them.
+- **Position A, `kubectl edit` semantics:** diff the loaded YAML against the edit and send an Update patch.
+- **Position B, "SSA done right":** send only the changed fields as SSA, extract the owned set via structured-merge-diff, and offer a confirmed Force override.
+- **Verdict: A.**
+  - Update operations never conflict.
+  - The owners here (`kubectl-client-side-apply`, Helm 3) are Update writers themselves, so a forced SSA would only make Kubebay an *Apply* owner. That would collide with later SSA writers (Helm 4, Argo/Flux SSA).
+  - B's OpenAPI extract machinery, non-atomic two-path writes and Override dialog were rejected.
+- **Correction to A from the synthesis:** Helm 3 computes its upgrade patch from live toward the new render. So the next `helm upgrade`/`rollback` restores edited fields even when the values didn't change, and the UI says so.
+
+**Slice 1 (this PR):**
+- `PUT /api/yaml` takes an optional `original`.
+- `editpatch.go#computeEditPatch` diffs `original` against the edit, after dropping `status`, server metadata and the last-applied annotation, and rejects identity changes.
+  - **Built-in kinds:** a strategic merge patch, so a removed env var becomes `$patch: delete`.
+  - **CRDs:** a JSON merge patch.
+- The patch is sent as an Update with manager `kubebay`, no force, and dry-run supported. An empty diff is a no-op.
+- The response carries `patchType` and `changedPaths`. The audit log records field paths only, never values.
+- YamlTab sends `original` and reports "Applied: patched N fields." That also fixes the success message, which used to be wiped by the reload.
+- A Helm banner, driven by `helmReleaseOf`.
+- The legacy SSA path stays for callers without `original` (RightSizing) until slice 2.
+- **Regression test:** a kind integration test that reproduces the exact conflict and then shows the edit succeeding, Kubebay owning only the changed fields, and an env var removal working.
+
+**Slice 2:**
+- **Stale-edit check:** 409 `changed-since-load` when a field the user edited also changed live.
+- **Structured error mapping:** 409/422/403/404 instead of a raw 502.
+- **GitOps banner:** add "will revert on next sync".
+- **RightSizing:** an explicit strategic-merge resources patch that keeps `limits`, then remove SSA from `PUT /api/yaml`. Its same-manager SSA can also delete fields Kubebay alone owns.
+
+**Slice 3:**
+- `HandleCreateResource` force:true → false, with "exists — edit it instead".
+- An optional cleanup of stale `kubebay` Apply entries in managedFields.
+
 ### Further ideas worth a look (unscoped, one-liners)
 - **Revert unsaved YAML edits — SHIPPED 2026-09-27.** One-click "discard my in-progress edit" button in `YamlTab.tsx`, next to Reload — a local reset (no network call), unlike Reload which re-fetches from the server.
