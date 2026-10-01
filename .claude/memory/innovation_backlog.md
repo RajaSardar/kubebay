@@ -883,7 +883,7 @@ How it contacts registries:
 
 **OSS.**
 
-### 46. Fix: YAML-tab edits conflicted with Helm/kubectl field managers — status: building (slice 1 in PR)
+### 46. Fix: YAML-tab edits conflicted with Helm/kubectl field managers — status: building (slice 1 shipped #89; slice 2a in PR)
 
 **User report:** "Apply failed with 3 conflicts: conflicts with "kubectl-client-side-apply" using apps/v1: …env[name="CONFIG_USER"].value…" on a Helm-installed Deployment.
 
@@ -916,7 +916,19 @@ The YAML view also strips `resourceVersion`.
 - The legacy SSA path stays for callers without `original` (RightSizing) until slice 2.
 - **Regression test:** a kind integration test that reproduces the exact conflict and then shows the edit succeeding, Kubebay owning only the changed fields, and an env var removal working.
 
-**Slice 2:**
+**Slice 2a (2026-10-01).**
+- RightSizing sends its resources-only document with `mode: "strategic"`, through `lib/rightsizing.ts#resizeApplyRequest`.
+  - The document becomes a strategic merge Update patch: containers merge by name, `limits` and every other field are kept, and it can't conflict with the Helm/kubectl owner of `requests`.
+  - Strategic mode is refused for custom resources (400).
+- `PUT /api/yaml` no longer server-side applies at all. A body with neither `original` nor `mode` gets a 400, and `force` is ignored.
+- The kind test now:
+  - reproduces the conflict with a direct SSA;
+  - checks the endpoint refuses whole-object apply;
+  - proves a resize keeps `limits`.
+
+**Slice 2b (next):** the stale-edit 409 and the structured error mapping below.
+
+**Slice 2 (original plan):**
 - **Stale-edit check:** 409 `changed-since-load` when a field the user edited also changed live.
 - **Structured error mapping:** 409/422/403/404 instead of a raw 502.
 - **GitOps banner:** add "will revert on next sync".
