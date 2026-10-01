@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { YamlTab } from "../YamlTab";
 import { api } from "../../lib/api";
-import { PolicyRejectionError } from "../../lib/policyRejection";
+import { PolicyRejectionError, StaleEditError } from "../../lib/policyRejection";
 
 vi.mock("@monaco-editor/react", () => ({
   default: ({ onChange }: { onChange: (v: string) => void }) => (
@@ -188,3 +188,18 @@ describe("YamlTab — edits are patched, not server-side applied", () => {
     expect(banner.textContent).toMatch(/next helm upgrade or rollback/i);
   });
 });
+
+describe("YamlTab — stale edits", () => {
+  it("names the fields that changed on the cluster and offers a reload instead of overwriting", async () => {
+    vi.mocked(api.applyYaml).mockRejectedValueOnce(new StaleEditError(["spec.template.spec.containers[name=app].env[name=REGION].value"]));
+    render(<YamlTab {...props} />);
+    fireEvent.click(await screen.findByTestId("editor"));
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    expect(await screen.findByText(/changed on the cluster since you opened this editor/)).toBeTruthy();
+    expect(screen.getByText("spec.template.spec.containers[name=app].env[name=REGION].value")).toBeTruthy();
+    const calls = vi.mocked(api.getYamlText).mock.calls.length;
+    fireEvent.click(screen.getByRole("button", { name: "Reload current version" }));
+    expect(vi.mocked(api.getYamlText).mock.calls.length).toBe(calls + 1);
+  });
+});
+

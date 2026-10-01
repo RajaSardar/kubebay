@@ -4,7 +4,7 @@ import { Badge, Button, InlineBanner, Row, SkeletonLines, TextField } from "@kub
 import { api } from "../lib/api";
 import { useMonacoTheme } from "../lib/theme";
 import { ownerWarning, type GitOpsOwner } from "../lib/gitops";
-import { PolicyRejectionError, type PolicyRejectionDetail } from "../lib/policyRejection";
+import { PolicyRejectionError, StaleEditError, type PolicyRejectionDetail } from "../lib/policyRejection";
 import { PolicyRejectionCard } from "./PolicyRejectionCard";
 
 export function YamlTab({
@@ -44,12 +44,15 @@ export function YamlTab({
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [policyRejection, setPolicyRejection] = useState<PolicyRejectionDetail | null>(null);
   const [confirmText, setConfirmText] = useState("");
+  // Fields the user edited that someone else changed after this editor loaded.
+  const [staleFields, setStaleFields] = useState<string[] | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     setMsg(null);
     setPolicyRejection(null);
     setServerPreview(null);
+    setStaleFields(null);
     try {
       const y = await api.getYamlText(cluster, gvr, ns, name);
       setOriginal(y);
@@ -122,6 +125,8 @@ export function YamlTab({
     } catch (e) {
       if (e instanceof PolicyRejectionError) {
         setPolicyRejection(e.rejection);
+      } else if (e instanceof StaleEditError) {
+        setStaleFields(e.paths);
       } else {
         setMsg({ ok: false, text: String(e instanceof Error ? e.message : e) });
       }
@@ -231,6 +236,30 @@ export function YamlTab({
               spellCheck={false}
             />
           </Row>
+        </InlineBanner>
+      )}
+      {staleFields && (
+        <InlineBanner
+          tone="warn"
+          flush
+          role="alert"
+          actions={
+            <Button variant="ghost" onClick={() => void load()}>
+              Reload current version
+            </Button>
+          }
+        >
+          <div>
+            <strong>Not applied:</strong> these fields changed on the cluster since you opened this editor. Reload to see
+            the current values, then make your edit again.
+          </div>
+          <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
+            {staleFields.map((p) => (
+              <li key={p} className="mono small">
+                {p}
+              </li>
+            ))}
+          </ul>
         </InlineBanner>
       )}
       {policyRejection && <PolicyRejectionCard rejection={policyRejection} />}

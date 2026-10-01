@@ -20,6 +20,8 @@ import (
 	dynfake "k8s.io/client-go/dynamic/fake"
 	k8stesting "k8s.io/client-go/testing"
 
+	"sigs.k8s.io/yaml"
+
 	"github.com/RajaSardar/kubebay/engine/internal/audit"
 )
 
@@ -59,7 +61,7 @@ func (c capR) Patch(ctx context.Context, name string, pt types.PatchType, data [
 	return c.ResourceInterface.Patch(ctx, name, pt, data, opts, sub...)
 }
 
-func editChannels(t *testing.T) (*Channels, *capturedPatch) {
+func editChannels(t *testing.T, live ...runtime.Object) (*Channels, *capturedPatch) {
 	t.Helper()
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	lg, err := audit.New(slog.New(slog.NewTextHandler(io.Discard, nil)))
@@ -67,7 +69,7 @@ func editChannels(t *testing.T) (*Channels, *capturedPatch) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = lg.Close() })
-	client := dynfake.NewSimpleDynamicClient(runtime.NewScheme())
+	client := dynfake.NewSimpleDynamicClient(runtime.NewScheme(), live...)
 	got := &capturedPatch{}
 	client.PrependReactor("patch", "*", func(a k8stesting.Action) (bool, runtime.Object, error) {
 		got.action = a.(k8stesting.PatchActionImpl)
@@ -102,7 +104,7 @@ func editBody(original, modified string, dryRun bool) map[string]interface{} {
 }
 
 func TestApplyYAMLEditSendsAnUpdatePatchNotServerSideApply(t *testing.T) {
-	c, got := editChannels(t)
+	c, got := editChannels(t, liveDeployment(t))
 	edited := edit(deployYAML, "value: old-pwd", "value: s3cret-new")
 	rr, resp := putYAML(t, c, editBody(deployYAML, edited, false))
 	if rr.Code != http.StatusOK {
@@ -137,7 +139,7 @@ func TestApplyYAMLEditSendsAnUpdatePatchNotServerSideApply(t *testing.T) {
 }
 
 func TestApplyYAMLEditDryRunPassesDryRun(t *testing.T) {
-	c, got := editChannels(t)
+	c, got := editChannels(t, liveDeployment(t))
 	edited := edit(deployYAML, "value: eu-west-1", "value: us-east-1")
 	rr, resp := putYAML(t, c, editBody(deployYAML, edited, true))
 	if rr.Code != http.StatusOK {
@@ -234,5 +236,50 @@ func TestApplyYAMLNoLongerServerSideApplies(t *testing.T) {
 	rr, _ := putYAML(t, c, body)
 	if rr.Code != http.StatusBadRequest || got.called {
 		t.Errorf("status = %d, patched = %v; want 400 when neither an original nor a patch mode is sent", rr.Code, got.called)
+	}
+}
+
+// liveDeployment is deployYAML as the cluster now holds it, after edits.
+func liveDeployment(t *testing.T, pairs ...string) *unstructured.Unstructured {
+	t.Helper()
+	u := &unstructured.Unstructured{}
+	if err := yaml.Unmarshal([]byte(edit(deployYAML, pairs...)), &u.Object); err != nil {
+		t.Fatal(err)
+	}
+	return u
+}
+
+func TestApplyYAMLEditRefusesWhenAnEditedFieldChangedLive(t *testing.T) {
+	// Someone else changed CONFIG_USER after the editor loaded; the user edits it too.
+	live := liveDeployment(t, "value: old-user", "value: theirs")
+	c, got := editChannels(t, live)
+	edited := edit(deployYAML, "value: old-user", "value: mine")
+	rr, resp := putYAML(t, c, editBody(deployYAML, edited, false))
+	if rr.Code != http.StatusConflict {
+		t.Fatalf("status = %d, want 409: %s", rr.Code, rr.Body.String())
+	}
+	if got.called {
+		t.Error("no patch may be sent over a concurrent change")
+	}
+	if resp["error"] != "changed-since-load" {
+		t.Errorf("error = %v", resp["error"])
+	}
+	paths, _ := resp["paths"].([]interface{})
+	if len(paths) != 1 || paths[0] != "spec.template.spec.containers[name=debugging-apis].env[name=CONFIG_USER].value" {
+		t.Errorf("paths = %v", resp["paths"])
+	}
+}
+
+func TestApplyYAMLEditProceedsWhenOnlyOtherFieldsChangedLive(t *testing.T) {
+	// The image changed live; the user only edits an env value, so the edit is safe.
+	live := liveDeployment(t, "image: repo/debugging-apis:1.4", "image: repo/debugging-apis:1.5", "replicas: 2", "replicas: 5")
+	c, got := editChannels(t, live)
+	edited := edit(deployYAML, "value: eu-west-1", "value: us-east-1")
+	rr, _ := putYAML(t, c, editBody(deployYAML, edited, false))
+	if rr.Code != http.StatusOK || !got.called {
+		t.Fatalf("status = %d, patched = %v; want 200 and a patch", rr.Code, got.called)
+	}
+	if strings.Contains(string(got.action.Patch), "image") || strings.Contains(string(got.action.Patch), "replicas") {
+		t.Errorf("the patch must not revert the concurrent changes: %s", got.action.Patch)
 	}
 }

@@ -199,4 +199,25 @@ spec:
 	if res.Requests.Cpu().String() != "250m" || res.Limits.Cpu().String() != "500m" {
 		t.Errorf("after resize requests=%s limits=%s, want 250m and the untouched 500m", res.Requests.Cpu(), res.Limits.Cpu())
 	}
+
+	// Stale edit: the editor loads, someone else changes REGION, then the user
+	// edits REGION too. The endpoint refuses with 409 instead of overwriting.
+	loaded := string(httpGetJSON(t, srv.URL+"/api/yaml?"+q.Encode()))
+	// A strategic patch, as `kubectl set env` sends: no resourceVersion, so the
+	// deployment controller's own status writes can't make it race.
+	theirPatch := []byte(`{"spec":{"template":{"spec":{"containers":[{"name":"debugging-apis","env":[{"name":"REGION","value":"ap-south-1"}]}]}}}}`)
+	if _, err := cs.AppsV1().Deployments("default").Patch(ctx, name, types.StrategicMergePatchType, theirPatch, metav1.PatchOptions{FieldManager: "someone-else"}); err != nil {
+		t.Fatal(err)
+	}
+	stale := map[string]any{"cluster": clusterID, "gvr": "apps/v1/deployments", "ns": "default", "name": name,
+		"original": loaded, "yaml": strings.Replace(loaded, "us-east-1", "eu-central-1", 1), "dryRun": false}
+	if code, body := putJSON(t, srv.URL+"/api/yaml", stale); code != http.StatusConflict || !strings.Contains(body, "changed-since-load") {
+		t.Fatalf("stale edit: got %d %s, want 409 changed-since-load", code, body)
+	}
+	got, _ = cs.AppsV1().Deployments("default").Get(ctx, name, metav1.GetOptions{})
+	for _, e := range got.Spec.Template.Spec.Containers[0].Env {
+		if e.Name == "REGION" && e.Value != "ap-south-1" {
+			t.Errorf("REGION = %s; the concurrent change must survive", e.Value)
+		}
+	}
 }

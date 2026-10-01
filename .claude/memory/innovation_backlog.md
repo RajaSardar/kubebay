@@ -892,7 +892,7 @@ How it contacts registries:
 
 **OSS.**
 
-### 46. Fix: YAML-tab edits conflicted with Helm/kubectl field managers — status: building (slice 1 shipped #89; slice 2a in PR)
+### 46. Fix: YAML-tab edits conflicted with Helm/kubectl field managers — status: building (slices 1, 2a shipped #89, #99; slice 2b in PR)
 
 **User report:** "Apply failed with 3 conflicts: conflicts with "kubectl-client-side-apply" using apps/v1: …env[name="CONFIG_USER"].value…" on a Helm-installed Deployment.
 
@@ -935,7 +935,16 @@ The YAML view also strips `resourceVersion`.
   - checks the endpoint refuses whole-object apply;
   - proves a resize keeps `limits`.
 
-**Slice 2b (next):** the stale-edit 409 and the structured error mapping below.
+**Slice 2b (2026-10-01).**
+- **Stale-edit check.** Before patching, an edit diffs the YAML the editor loaded against the live object.
+  - If a field the user edited also changed live (equal paths, or one containing the other), it returns 409 `{error: "changed-since-load", paths}` and sends nothing.
+  - Concurrent changes to other fields are left alone.
+  - No resourceVersion precondition, because status writes would give constant false 409s.
+- **Status mapping.** `writePolicyRejectionOrError` now returns the status the API server meant: 409, 422, 403 or 404, and 502 only for non-Kubernetes errors. The body stays plain text, so every existing caller still shows the message.
+- **Shell.** `send()` turns the stale 409 into a `StaleEditError`. YamlTab shows "Not applied: these fields changed on the cluster since you opened this editor", lists the paths, and offers a "Reload current version" button.
+- **Kind test:** a concurrent change to REGION followed by an edit of REGION gives a 409, and the concurrent value survives.
+
+**Slice 3 (remaining):** `HandleCreateResource` force:true → false; optional cleanup of stale `kubebay` Apply entries.
 
 **Slice 2 (original plan):**
 - **Stale-edit check:** 409 `changed-since-load` when a field the user edited also changed live.
