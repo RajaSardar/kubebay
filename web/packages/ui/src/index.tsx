@@ -26,16 +26,19 @@ export function Card({
   className,
   style,
   id,
+  selected,
 }: {
   children: ReactNode;
   interactive?: boolean;
   className?: string;
   style?: CSSProperties;
   id?: string;
+  /** The card a link pointed at: accent edge, and aria-current for screen readers. */
+  selected?: boolean;
 }) {
-  const cls = `kb-card${interactive ? " kb-card-interactive" : ""}${className ? " " + className : ""}`;
+  const cls = `kb-card${interactive ? " kb-card-interactive" : ""}${selected ? " kb-card-selected" : ""}${className ? " " + className : ""}`;
   return (
-    <div id={id} className={cls} style={style}>
+    <div id={id} className={cls} style={style} aria-current={selected ? "true" : undefined}>
       {children}
     </div>
   );

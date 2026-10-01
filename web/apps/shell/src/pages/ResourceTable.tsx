@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams, useLocation } from "react-router-dom";
-import { EmptyState, StatusDot } from "@kubebay/ui";
+import { CellLink, EmptyState, StatusDot } from "@kubebay/ui";
 import { api, crdApi, type PrinterColumn } from "../lib/api";
 import { useQuery as useRQQuery } from "@tanstack/react-query";
 import { useCluster } from "../lib/useCluster";
@@ -9,7 +9,7 @@ import { fmtAge, lookupDef, num, str, type ResourceDef } from "../lib/resources"
 import { fmtBytes, fmtCpu } from "../lib/format";
 import { useNodeExtras } from "../lib/useNodeExtras";
 import { evalPrinterPath } from "../lib/printerPath";
-import { ownerOf, ownerLabel } from "../lib/gitops";
+import { ownerOf, ownerLabel, ownerPath } from "../lib/gitops";
 import { templateKindFor } from "../lib/resourceTemplates";
 import { ResourceListView, type ListColumn } from "../components/ResourceListView";
 
@@ -367,9 +367,26 @@ export default function ResourceTable() {
         filterText: (o) => evalPrinterPath(pc.jsonPath, o),
       })),
       {
+        // "Managed by", not "Owner": this is the GitOps app (Argo CD / Flux), not
+        // Kubernetes ownerReferences. The id stays Owner so saved sorts keep working.
         id: "Owner",
-        header: "Owner",
-        cell: (o) => ownerCell(o).v,
+        header: "Managed by",
+        cell: (o) => {
+          const owner = ownerOf(o);
+          if (!owner) return "–";
+          const to = ownerPath(owner);
+          return (
+            <CellLink
+              href={to}
+              onClick={(e) => {
+                e.preventDefault();
+                navigate(to);
+              }}
+            >
+              {ownerLabel(owner)}
+            </CellLink>
+          );
+        },
         sortValue: (o) => ownerCell(o).v,
         filterText: (o) => ownerCell(o).v,
       },

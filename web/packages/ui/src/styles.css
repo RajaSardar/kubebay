@@ -63,6 +63,11 @@
     transform var(--kb-dur) var(--kb-ease);
 }
 
+.kb-card-selected {
+  border-color: var(--kb-accent);
+  box-shadow: inset 3px 0 0 var(--kb-accent);
+}
+
 .kb-card-interactive:hover {
   border-color: var(--kb-border-strong);
   box-shadow: var(--kb-shadow-lift), var(--kb-highlight-inset);

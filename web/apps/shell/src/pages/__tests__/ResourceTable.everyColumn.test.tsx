@@ -79,7 +79,7 @@ describe("resource tables use every column they show", () => {
     renderWidgets();
     fireEvent.click(await screen.findByRole("columnheader", { name: "Phase" }));
     expect(names()).toEqual(["beta", "gamma", "alpha"]);
-    fireEvent.click(screen.getByRole("columnheader", { name: "Owner" }));
+    fireEvent.click(screen.getByRole("columnheader", { name: "Managed by" }));
     // "–" (no owner) sorts before "Argo CD: storefront"; ties keep name order.
     expect(names()[2]).toBe("beta");
   });

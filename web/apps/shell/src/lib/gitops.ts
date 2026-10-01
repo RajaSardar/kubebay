@@ -80,6 +80,13 @@ export function ownerAmongTargets(
   );
 }
 
+/** The page that shows a GitOps owner: the Argo CD or Flux view, at that app. */
+export function ownerPath(owner: GitOpsOwner): string {
+  return owner.controller === "argocd"
+    ? `/argocd?app=${encodeURIComponent(owner.name)}`
+    : `/flux?name=${encodeURIComponent(owner.name)}`;
+}
+
 export function ownerLabel(owner: GitOpsOwner): string {
   return owner.controller === "argocd" ? `Argo CD: ${owner.name}` : `Flux: ${owner.name}`;
 }

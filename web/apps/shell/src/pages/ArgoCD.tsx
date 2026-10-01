@@ -1,6 +1,7 @@
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArmedButton, Button, EmptyState, PageHeader, Row, Skeleton, Stack, StatusPill, Table, TableRow, TableWrap, type StatusTone } from "@kubebay/ui";
+import { ArmedButton, Button, EmptyState, InlineBanner, PageHeader, Row, Skeleton, Stack, StatusPill, Table, TableRow, TableWrap, type StatusTone } from "@kubebay/ui";
 import { argoCDApi, type ArgoCDApp } from "../lib/api";
 import { useCluster } from "../lib/useCluster";
 import { ArgoDriftList } from "../components/ArgoDriftList";
@@ -109,6 +110,16 @@ export default function ArgoCD() {
   const apps = data?.apps ?? [];
   const installed = data?.installed ?? true; // optimistically true until we know
 
+  // /argocd?app=<name>: a "Managed by" link from a resource table. That app's
+  // row is marked and scrolled to; if it is not here, say so.
+  const [sp] = useSearchParams();
+  const linked = sp.get("app");
+  const linkedMissing = !!linked && !!data && installed && !apps.some((a) => a.name === linked);
+  useEffect(() => {
+    if (!linked || !data) return;
+    document.querySelector('tr[aria-current="true"]')?.scrollIntoView?.({ block: "center" });
+  }, [linked, data]);
+
   return (
     <div className="page">
       <PageHeader
@@ -122,6 +133,7 @@ export default function ArgoCD() {
       />
 
       <div className="page-body" style={{ padding: "0 16px 16px" }}>
+        {linkedMissing && <InlineBanner tone="warn">Application {linked} isn&apos;t in this cluster.</InlineBanner>}
         {isLoading && (
           <Stack gap={2} style={{ paddingTop: 12 }}>
             {[0, 1, 2].map((i) => <Skeleton key={i} w="100%" h={44} r={8} />)}
@@ -179,7 +191,7 @@ export default function ArgoCD() {
                   const isOpen = expanded.has(key);
                   return (
                     <Fragment key={key}>
-                      <TableRow selected={isOpen}>
+                      <TableRow selected={isOpen || app.name === linked} aria-current={app.name === linked ? "true" : undefined}>
                         <td className="td-name" title={app.name}>
                           <div>{app.name}</div>
                           {app.namespace && <div className="muted small mono">{app.namespace}</div>}

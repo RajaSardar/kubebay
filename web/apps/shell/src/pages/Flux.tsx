@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { EmptyState, PageHeader } from "@kubebay/ui";
 import { FluxSummary } from "../components/FluxSummary";
@@ -10,6 +11,8 @@ import { detectFlux, summarizeFluxObject } from "../lib/flux";
 
 export default function Flux() {
   const { cluster: effectiveCluster } = useCluster();
+  // /flux?name=<name>: a "Managed by" link from a resource table.
+  const [sp] = useSearchParams();
 
   const crds = useQuery({
     queryKey: ["crds", effectiveCluster],
@@ -81,7 +84,7 @@ export default function Flux() {
           diff view like Argo CD's — it's the Ready condition, what each object currently manages, and whether
           drift was detected (and already fixed) recently.
         </div>
-        <FluxSummary items={items} />
+        <FluxSummary items={items} highlight={sp.get("name")} />
       </div>
     </div>
   );
