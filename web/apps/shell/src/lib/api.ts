@@ -195,6 +195,8 @@ function applyYamlRequest(b: {
    * managers (Helm, kubectl) own.
    */
   original?: string;
+  /** "strategic": the yaml is itself a strategic merge patch of the fields to change. */
+  mode?: "strategic";
 }): Promise<{
   applied: boolean;
   dryRun: boolean;

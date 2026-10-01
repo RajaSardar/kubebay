@@ -15,9 +15,15 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
+	"sigs.k8s.io/yaml"
 )
 
 func putJSON(t *testing.T, u string, body any) (int, string) {
@@ -70,6 +76,10 @@ func TestLiveYAMLEditOfKubectlManagedDeployment(t *testing.T) {
 				Spec: corev1.PodSpec{Containers: []corev1.Container{{
 					Name: "debugging-apis", Image: "registry.k8s.io/pause:3.9",
 					Env: []corev1.EnvVar{{Name: "CONFIG_USER", Value: "old-user"}, {Name: "REGION", Value: "eu-west-1"}, {Name: "KEEP", Value: "same"}},
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("100m")},
+						Limits:   corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("500m")},
+					},
 				}}},
 			},
 		},
@@ -87,9 +97,25 @@ func TestLiveYAMLEditOfKubectlManagedDeployment(t *testing.T) {
 	edited := strings.Replace(strings.Replace(original, "old-user", "new-user", 1), "eu-west-1", "us-east-1", 1)
 	base := map[string]any{"cluster": clusterID, "gvr": "apps/v1/deployments", "ns": "default", "name": name, "yaml": edited, "dryRun": false, "force": false}
 
-	// The old whole-object server-side apply reproduces the reported conflict.
-	if code, body := putJSON(t, srv.URL+"/api/yaml", base); code == http.StatusOK || !strings.Contains(strings.ToLower(body), "conflict") {
-		t.Fatalf("expected the legacy apply to conflict with kubectl-client-side-apply, got %d %s", code, body)
+	// A whole-object server-side apply of this edit, what the YAML tab used to
+	// send, reproduces the reported conflict with kubectl-client-side-apply.
+	dyn, err := dynamic.NewForConfig(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	editedJSON, err := yaml.YAMLToJSON([]byte(edited))
+	if err != nil {
+		t.Fatal(err)
+	}
+	force := false
+	_, err = dyn.Resource(schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}).Namespace("default").
+		Patch(ctx, name, types.ApplyPatchType, editedJSON, metav1.PatchOptions{FieldManager: "kubebay", Force: &force})
+	if !apierrors.IsConflict(err) {
+		t.Fatalf("expected a whole-object apply to conflict with kubectl-client-side-apply, got %v", err)
+	}
+	// The endpoint no longer offers that path at all.
+	if code, body := putJSON(t, srv.URL+"/api/yaml", base); code != http.StatusBadRequest {
+		t.Fatalf("whole-object apply via the endpoint: got %d %s, want 400", code, body)
 	}
 
 	withOriginal := map[string]any{}
@@ -146,5 +172,31 @@ func TestLiveYAMLEditOfKubectlManagedDeployment(t *testing.T) {
 		if e.Name == "KEEP" {
 			t.Errorf("KEEP should have been removed: %v", got.Spec.Template.Spec.Containers[0].Env)
 		}
+	}
+
+	// Right-sizing: a resources-only strategic patch of fields
+	// kubectl-client-side-apply owns. No conflict, and limits survive.
+	resize := fmt.Sprintf(`apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: %s
+  namespace: default
+spec:
+  template:
+    spec:
+      containers:
+        - name: debugging-apis
+          resources:
+            requests:
+              cpu: "250m"
+`, name)
+	rs := map[string]any{"cluster": clusterID, "gvr": "apps/v1/deployments", "ns": "default", "name": name, "yaml": resize, "dryRun": false, "mode": "strategic", "action": "rightsize"}
+	if code, body := putJSON(t, srv.URL+"/api/yaml", rs); code != http.StatusOK {
+		t.Fatalf("resize failed: %d %s", code, body)
+	}
+	got, _ = cs.AppsV1().Deployments("default").Get(ctx, name, metav1.GetOptions{})
+	res := got.Spec.Template.Spec.Containers[0].Resources
+	if res.Requests.Cpu().String() != "250m" || res.Limits.Cpu().String() != "500m" {
+		t.Errorf("after resize requests=%s limits=%s, want 250m and the untouched 500m", res.Requests.Cpu(), res.Limits.Cpu())
 	}
 }

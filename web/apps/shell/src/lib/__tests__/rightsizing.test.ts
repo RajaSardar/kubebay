@@ -10,6 +10,7 @@ import {
   summarizeForWorkload,
   suggestedRequestsFor,
   buildResizePatchYaml,
+  resizeApplyRequest,
   gvrForWorkloadKind,
 } from "../rightsizing";
 import type { WorkloadWaste } from "../api";
@@ -367,5 +368,23 @@ describe("suggestedRequestsFor", () => {
   it("returns null when nothing matches", () => {
     const rows = computeEngineRightSizingRows([workloadWaste()], []);
     expect(suggestedRequestsFor(rows, { ns: "default", kind: "Deployment", name: "nope", container: "app" })).toBeNull();
+  });
+});
+
+describe("resizeApplyRequest", () => {
+  it("sends the resources-only document as a strategic patch, so containers merge by name and limits are kept", () => {
+    const plan = { kind: "Deployment", ns: "shop", name: "web" };
+    const req = resizeApplyRequest("c1", plan, [{ name: "app", cpu: "250m" }], true);
+    expect(req).toMatchObject({
+      cluster: "c1",
+      gvr: "apps/v1/deployments",
+      ns: "shop",
+      name: "web",
+      dryRun: true,
+      mode: "strategic",
+      action: "rightsize",
+    });
+    expect(req.yaml).toBe(buildResizePatchYaml(plan, [{ name: "app", cpu: "250m" }]));
+    expect(req.yaml).not.toContain("limits");
   });
 });

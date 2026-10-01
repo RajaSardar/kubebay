@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/yaml"
 
 	"github.com/RajaSardar/kubebay/engine/internal/audit"
@@ -39,7 +41,8 @@ type ApplyYAMLRequest struct {
 	Name      string `json:"name"`
 	YAML      string `json:"yaml"`
 	DryRun    bool   `json:"dryRun"`
-	Force     bool   `json:"force"`
+	// Force is ignored: edits are Update patches, which never conflict.
+	Force bool `json:"force"`
 	// Action overrides the audit log's Action field (default "apply") for
 	// callers that apply through this same endpoint for a more specific
 	// purpose, e.g. "rightsize" — never changes what's actually applied.
@@ -49,6 +52,10 @@ type ApplyYAMLRequest struct {
 	// instead of a server-side apply of the whole object, which conflicted
 	// with any field another manager (Helm, kubectl) owned.
 	Original string `json:"original,omitempty"`
+	// Mode "strategic" sends YAML as a strategic merge patch of exactly the
+	// fields it names (RightSizing's resources-only document): containers
+	// merge by name and fields it leaves out, like limits, are kept.
+	Mode string `json:"mode,omitempty"`
 }
 
 // auditActionFor names the audit entry for an apply — "apply" by default, or
@@ -168,11 +175,15 @@ func (c *Channels) HandleApplyYAML(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	patchType := types.ApplyPatchType
-	patchOpts := metav1.PatchOptions{FieldManager: "kubebay", Force: &req.Force}
+	// Every write here is an Update patch under manager "kubebay": Updates never
+	// conflict with other field managers and own only the fields they change.
+	// Server-side apply of whole objects conflicted with Helm/kubectl (#46).
+	var patchType types.PatchType
+	patchOpts := metav1.PatchOptions{FieldManager: "kubebay"}
 	var data []byte
 	var edit *EditPatch
-	if req.Original != "" {
+	switch {
+	case req.Original != "":
 		p, err := computeEditPatch([]byte(req.Original), []byte(req.YAML))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -184,15 +195,32 @@ func (c *Channels) HandleApplyYAML(w http.ResponseWriter, r *http.Request) {
 		}
 		edit = &p
 		patchType, data = p.Type, p.Data
-		// An Update patch never conflicts and takes ownership of nothing it doesn't change.
-		patchOpts = metav1.PatchOptions{FieldManager: "kubebay"}
-	} else {
+	case req.Mode == "strategic":
+		apiVersion, _ := doc["apiVersion"].(string)
+		docKind, _ := doc["kind"].(string)
+		if _, err := scheme.Scheme.New(schema.FromAPIVersionAndKind(apiVersion, docKind)); err != nil {
+			http.Error(w, fmt.Sprintf("strategic patches only apply to built-in kinds, not %s %s", apiVersion, docKind), http.StatusBadRequest)
+			return
+		}
 		converted, err := yaml.YAMLToJSON([]byte(req.YAML))
 		if err != nil {
 			http.Error(w, "convert: "+err.Error(), http.StatusBadRequest)
 			return
 		}
-		data = converted
+		var tree map[string]interface{}
+		_ = json.Unmarshal(converted, &tree)
+		for _, k := range []string{"apiVersion", "kind", "metadata"} {
+			delete(tree, k) // identity is in the URL; only the fields to change are patched
+		}
+		paths := []string{}
+		collectPatchPaths(tree, "", true, &paths)
+		sort.Strings(paths)
+		data, _ = json.Marshal(tree)
+		patchType = types.StrategicMergePatchType
+		edit = &EditPatch{Type: patchType, Data: data, ChangedPaths: paths}
+	default:
+		http.Error(w, "send original (an edit) or mode=strategic (a patch); whole-object apply is no longer supported", http.StatusBadRequest)
+		return
 	}
 	if req.DryRun {
 		patchOpts.DryRun = []string{metav1.DryRunAll}
@@ -218,7 +246,7 @@ func (c *Channels) HandleApplyYAML(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		if rejection := writePolicyRejectionOrError(w, err); rejection != nil {
-			detail := fmt.Sprintf("gvr=%s kind=%s dryRun=%t force=%t%s webhook=%s: %s", req.GVR, kind, req.DryRun, req.Force, editDetail, rejection.Webhook, rejection.Message)
+			detail := fmt.Sprintf("gvr=%s kind=%s dryRun=%t%s webhook=%s: %s", req.GVR, kind, req.DryRun, editDetail, rejection.Webhook, rejection.Message)
 			if owner := gitopsOwnerFromDoc(doc); owner != "" {
 				detail += " owner=" + owner
 			}
@@ -234,7 +262,7 @@ func (c *Channels) HandleApplyYAML(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	detail := fmt.Sprintf("gvr=%s kind=%s dryRun=%t force=%t%s", req.GVR, kind, req.DryRun, req.Force, editDetail)
+	detail := fmt.Sprintf("gvr=%s kind=%s dryRun=%t%s", req.GVR, kind, req.DryRun, editDetail)
 	if owner := gitopsOwnerFromDoc(doc); owner != "" {
 		detail += " owner=" + owner
 	}
