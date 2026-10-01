@@ -7,6 +7,7 @@ import { useRowSelection } from "../lib/useRowSelection";
 import { useBulkDelete, type DeleteTarget } from "../lib/useBulkDelete";
 import { useResourceList } from "../lib/useResourceList";
 import { matchesQuery, parseQuery, type Query } from "../lib/filterQuery";
+import { useChangedRows } from "../lib/useChangedRows";
 import { ROW_HEIGHT, useDisplay } from "../lib/display";
 import { ownerAmongTargets, ownerLabel, ownerWarning } from "../lib/gitops";
 import { absoluteTime, compareValues, countLabel } from "../lib/tableUx";
@@ -61,6 +62,8 @@ export interface ResourceListViewProps<R> {
   isDimmed?: (r: R) => boolean;
   /** The object's labels, for `label:app=web` in the filter. */
   labelsOf?: (r: R) => Readonly<Record<string, string>> | undefined;
+  /** The object's resourceVersion: a row whose shown values change briefly tints. Unset: no tint. */
+  versionOf?: (r: R) => string;
   columns: readonly ListColumn<R>[];
   /** Where the chosen sort is remembered ("r/deployments"). */
   sortKey: string;
@@ -147,6 +150,13 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
     const gone = [...selectedKeys].filter((k) => !present.has(k));
     if (gone.length > 0) deselect(gone);
   }, [all, keyOf, p.synced, selectedKeys, deselect]);
+  // What a row shows, as one string: a new resourceVersion tints the row only
+  // if this changed too (a Node heartbeat changes nothing the table shows).
+  const signatureOf = useCallback(
+    (r: R) => columns.map((c) => String(c.sortValue?.(r) ?? c.filterText?.(r) ?? "")).join("\u0000"),
+    [columns],
+  );
+  const changedKeys = useChangedRows(all, keyOf, p.versionOf, signatureOf, p.synced);
   const byCol = useMemo(() => new Map(columns.map((c) => [c.id, c])), [columns]);
   const createdOf = p.createdOf;
 
@@ -368,6 +378,7 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
                     hovered={hoveredKey === key || activeRow === virtualRow.index}
                     aria-current={activeRow === virtualRow.index ? "true" : undefined}
                     dimmed={p.isDimmed?.(r) ?? false}
+                    changed={changedKeys.has(key)}
                     onClick={() => onOpen(r)}
                     onMouseEnter={() => setHoveredKey(key)}
                     onMouseLeave={() => setHoveredKey(null)}
