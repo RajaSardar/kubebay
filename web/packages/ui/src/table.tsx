@@ -22,6 +22,28 @@ export interface EmptyStateProps {
   style?: CSSProperties;
 }
 
+/** Text for screen readers only: off screen, still in the accessibility tree. */
+export function VisuallyHidden({ children, ...props }: HTMLAttributes<HTMLSpanElement>) {
+  return (
+    <span className="kb-visually-hidden" {...props}>
+      {children}
+    </span>
+  );
+}
+
+/**
+ * The bar under a table that holds what you can do with the selected rows:
+ * a named region ("Selection") with the scope on the left and actions on the right.
+ */
+export function SelectionBar({ children, actions }: { children: ReactNode; actions?: ReactNode }) {
+  return (
+    <div className="kb-selection-bar" role="region" aria-label="Selection">
+      <div className="kb-selection-bar-scope">{children}</div>
+      {actions != null && <div className="kb-selection-bar-actions">{actions}</div>}
+    </div>
+  );
+}
+
 /** The dashed "nothing here" slot shown instead of an empty table or list. */
 export function EmptyState({ title, hint, children, className, style }: EmptyStateProps) {
   return (

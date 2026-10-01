@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
-import { Badge, Button, ColumnChooser, EmptyState, IconButton, InlineBanner, NsPill, PageHeader, SelectAllHeader, SelectCell, SkeletonTable, SortHeader, Table, TableRow, TableWrap, TextField } from "@kubebay/ui";
+import { Badge, Button, ColumnChooser, EmptyState, IconButton, InlineBanner, NsPill, PageHeader, SelectAllHeader, SelectCell, SelectionBar, SkeletonTable, SortHeader, Table, TableRow, TableWrap, TextField, VisuallyHidden } from "@kubebay/ui";
 import { shouldShowSkeleton } from "../lib/useResourceStream";
 import { useColumnWidths } from "../lib/useColumnWidths";
 import { useColumnPrefs } from "../lib/useColumnPrefs";
@@ -10,7 +10,7 @@ import { matchesQuery, parseQuery, type Query } from "../lib/filterQuery";
 import { useChangedRows } from "../lib/useChangedRows";
 import { ROW_HEIGHT, useDisplay } from "../lib/display";
 import { ownerAmongTargets, ownerLabel, ownerWarning } from "../lib/gitops";
-import { absoluteTime, compareValues, countLabel } from "../lib/tableUx";
+import { absoluteTime, compareValues, countLabel, TYPING } from "../lib/tableUx";
 import { useNamespaceStore } from "../lib/namespace-store";
 import { VirtualSpacer } from "./VirtualSpacer";
 import { LiveAge } from "./LiveAge";
@@ -77,6 +77,25 @@ export interface ResourceListViewProps<R> {
   onDelete: (t: DeleteTarget, gitopsOwner?: string) => Promise<unknown>;
   /** Controls placed before the filter field (namespace filter). */
   toolbar?: ReactNode;
+}
+
+/** "api, etl, run-0, run-1, run-2 +4 more, across 3 namespaces": what a bulk delete hits. */
+function deletePreview(targets: readonly DeleteTarget[]): ReactNode {
+  const shown = targets.slice(0, 5);
+  const more = targets.length - shown.length;
+  const namespaces = new Set(targets.map((t) => t.ns).filter(Boolean));
+  return (
+    <>
+      {shown.map((t, i) => (
+        <span key={`${t.ns}/${t.name}`}>
+          {i > 0 && ", "}
+          <strong className="mono">{t.name}</strong>
+        </span>
+      ))}
+      {more > 0 && ` +${more} more`}
+      {namespaces.size > 1 ? `, across ${namespaces.size} namespaces` : namespaces.size === 1 ? ` in ${[...namespaces][0]}` : ""}
+    </>
+  );
 }
 
 const NAME_W = 240;
@@ -217,10 +236,40 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
     headerRef,
   });
   const { shown: rows, filter, setFilter, filterRef, allKeys, activeRow, sort } = list;
-  const { virtualizer, items: virtualRows, topSpace, bottomSpace } = list.virtual;
   const noun = p.label.toLowerCase();
   const hintId = useId();
   const understood = useMemo(() => parseQuery(filter, columnKeys).tokens, [filter, columnKeys]);
+
+  // What the selection covers, said plainly in the bar: rows the filter hides
+  // stay selected (and would be deleted), so the bar counts them.
+  const shownKeys = useMemo(() => new Set(allKeys), [allKeys]);
+  const hiddenSelected = useMemo(() => [...selectedKeys].filter((k) => !shownKeys.has(k)), [selectedKeys, shownKeys]);
+  const allMatching = filter.trim() !== "" && hiddenSelected.length === 0 && rows.length > 1 && selectedKeys.size === rows.length;
+  const selectionText = allMatching
+    ? `All ${rows.length} ${noun} matching “${filter.trim()}” selected`
+    : `${selectedKeys.size} selected`;
+
+  // Escape clears the selection, unless a field, menu, drawer or dialog has it.
+  const ctxOpen = ctx !== null;
+  useEffect(() => {
+    if (selectedKeys.size === 0) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== "Escape" || e.defaultPrevented || ctxOpen) return;
+      const t = e.target as HTMLElement | null;
+      if (t?.closest?.(TYPING) || t?.closest?.(".drawer, .kb-modal")) return;
+      clearAll();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selectedKeys.size, ctxOpen, clearAll]);
+
+  // The confirmation takes focus on its safe choice.
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  const confirming = bulkDelete.pending !== null;
+  useEffect(() => {
+    if (confirming) cancelRef.current?.focus();
+  }, [confirming]);
+  const { virtualizer, items: virtualRows, topSpace, bottomSpace } = list.virtual;
 
   async function confirmDelete() {
     const succeeded = await bulkDelete.confirm();
@@ -236,24 +285,6 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
         live={p.live}
         actions={
           <>
-            {selectedKeys.size > 0 && (
-              <>
-                <span className="muted small">{selectedKeys.size} selected</span>
-                <Button
-                  variant="danger"
-                  onClick={() => {
-                    bulkDelete.request(
-                      [...selectedKeys].map((key) => {
-                        const i = key.indexOf("/");
-                        return { ns: key.slice(0, i), name: key.slice(i + 1) };
-                      }),
-                    );
-                  }}
-                >
-                  Delete {selectedKeys.size} selected
-                </Button>
-              </>
-            )}
             <Badge title={rows.length === all.length ? undefined : "Shown of total"}>
               {countLabel(rows.length, all.length)}
             </Badge>
@@ -272,6 +303,7 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
             ) : (
               <>
                 Delete {bulkDelete.pending.length} selected {noun}? This can&apos;t be undone.
+                <div className="small">{deletePreview(bulkDelete.pending)}</div>
               </>
             )}
             {(() => {
@@ -280,7 +312,7 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
             })()}
           </span>
           <div className="inline-banner-actions">
-            <Button variant="ghost" disabled={bulkDelete.busy} onClick={bulkDelete.cancel}>
+            <Button ref={cancelRef} variant="ghost" disabled={bulkDelete.busy} onClick={bulkDelete.cancel}>
               Cancel
             </Button>
             <Button variant="danger" disabled={bulkDelete.busy} onClick={() => void confirmDelete()}>
@@ -439,6 +471,46 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
           </Table>
         </TableWrap>
       )}
+
+      {selectedKeys.size > 0 && (
+        <SelectionBar
+          actions={
+            <>
+              <Button variant="ghost" onClick={clearAll} title="Clear the selection (Esc)">
+                Clear
+              </Button>
+              <Button
+                variant="danger"
+                onClick={() => {
+                  bulkDelete.request(
+                    [...selectedKeys].map((key) => {
+                      const i = key.indexOf("/");
+                      return { ns: key.slice(0, i), name: key.slice(i + 1) };
+                    }),
+                  );
+                }}
+              >
+                Delete {selectedKeys.size} selected
+              </Button>
+            </>
+          }
+        >
+          <span>{selectionText}</span>
+          {hiddenSelected.length > 0 && (
+            <>
+              <span className="muted">· {hiddenSelected.length} hidden by filter</span>
+              <Button variant="ghost" onClick={() => deselect(hiddenSelected)}>
+                Deselect hidden
+              </Button>
+            </>
+          )}
+        </SelectionBar>
+      )}
+      <VisuallyHidden role="status">
+        {selectedKeys.size > 0
+          ? `Selection: ${selectionText}${hiddenSelected.length > 0 ? `, ${hiddenSelected.length} hidden by filter` : ""}`
+          : ""}
+      </VisuallyHidden>
 
       {ctx && (
         <ContextMenu
