@@ -20,6 +20,9 @@ import (
 )
 
 func (c *Channels) dynClient(ctx context.Context, cluster string) (dynamic.Interface, error) {
+	if c.dynOverride != nil {
+		return c.dynOverride(ctx, cluster)
+	}
 	cfg, err := c.Clusters.RestConfigWithIdentity(cluster, IdentityFromContext(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("connect: %w", err)
@@ -41,6 +44,11 @@ type ApplyYAMLRequest struct {
 	// callers that apply through this same endpoint for a more specific
 	// purpose, e.g. "rightsize" — never changes what's actually applied.
 	Action string `json:"action,omitempty"`
+	// Original is the YAML the editor loaded. When present, the edit is sent
+	// as an Update patch of only the changed fields (see editpatch.go)
+	// instead of a server-side apply of the whole object, which conflicted
+	// with any field another manager (Helm, kubectl) owned.
+	Original string `json:"original,omitempty"`
 }
 
 // auditActionFor names the audit entry for an apply — "apply" by default, or
@@ -160,7 +168,32 @@ func (c *Channels) HandleApplyYAML(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	patchType := types.ApplyPatchType
 	patchOpts := metav1.PatchOptions{FieldManager: "kubebay", Force: &req.Force}
+	var data []byte
+	var edit *EditPatch
+	if req.Original != "" {
+		p, err := computeEditPatch([]byte(req.Original), []byte(req.YAML))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if p.Empty() {
+			writeJSON(w, map[string]interface{}{"applied": false, "dryRun": req.DryRun, "noop": true, "changedPaths": []string{}})
+			return
+		}
+		edit = &p
+		patchType, data = p.Type, p.Data
+		// An Update patch never conflicts and takes ownership of nothing it doesn't change.
+		patchOpts = metav1.PatchOptions{FieldManager: "kubebay"}
+	} else {
+		converted, err := yaml.YAMLToJSON([]byte(req.YAML))
+		if err != nil {
+			http.Error(w, "convert: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		data = converted
+	}
 	if req.DryRun {
 		patchOpts.DryRun = []string{metav1.DryRunAll}
 	}
@@ -170,22 +203,22 @@ func (c *Channels) HandleApplyYAML(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	data, err := yaml.YAMLToJSON([]byte(req.YAML))
-	if err != nil {
-		http.Error(w, "convert: "+err.Error(), http.StatusBadRequest)
-		return
-	}
 	var applied interface{}
 	ri := d.Resource(schema.GroupVersionResource(g))
 	if req.Namespace != "" {
-		applied, err = ri.Namespace(req.Namespace).Patch(r.Context(), req.Name, types.ApplyPatchType, data, patchOpts)
+		applied, err = ri.Namespace(req.Namespace).Patch(r.Context(), req.Name, patchType, data, patchOpts)
 	} else {
-		applied, err = ri.Patch(r.Context(), req.Name, types.ApplyPatchType, data, patchOpts)
+		applied, err = ri.Patch(r.Context(), req.Name, patchType, data, patchOpts)
 	}
 	kind, _ := doc["kind"].(string)
+	// Field names only, never values: an edited field may be a password.
+	editDetail := ""
+	if edit != nil {
+		editDetail = fmt.Sprintf(" patch=%s fields=%s", patchTypeName(edit.Type), strings.Join(edit.ChangedPaths, ","))
+	}
 	if err != nil {
 		if rejection := writePolicyRejectionOrError(w, err); rejection != nil {
-			detail := fmt.Sprintf("gvr=%s kind=%s dryRun=%t force=%t webhook=%s: %s", req.GVR, kind, req.DryRun, req.Force, rejection.Webhook, rejection.Message)
+			detail := fmt.Sprintf("gvr=%s kind=%s dryRun=%t force=%t%s webhook=%s: %s", req.GVR, kind, req.DryRun, req.Force, editDetail, rejection.Webhook, rejection.Message)
 			if owner := gitopsOwnerFromDoc(doc); owner != "" {
 				detail += " owner=" + owner
 			}
@@ -201,7 +234,7 @@ func (c *Channels) HandleApplyYAML(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	detail := fmt.Sprintf("gvr=%s kind=%s dryRun=%t force=%t", req.GVR, kind, req.DryRun, req.Force)
+	detail := fmt.Sprintf("gvr=%s kind=%s dryRun=%t force=%t%s", req.GVR, kind, req.DryRun, req.Force, editDetail)
 	if owner := gitopsOwnerFromDoc(doc); owner != "" {
 		detail += " owner=" + owner
 	}
@@ -214,6 +247,10 @@ func (c *Channels) HandleApplyYAML(w http.ResponseWriter, r *http.Request) {
 		UserAgent: r.Header.Get("User-Agent"),
 	})
 	resp := map[string]interface{}{"applied": applied != nil, "dryRun": req.DryRun}
+	if edit != nil {
+		resp["patchType"] = patchTypeName(edit.Type)
+		resp["changedPaths"] = edit.ChangedPaths
+	}
 	if req.DryRun && applied != nil {
 		if u, ok := applied.(interface{ UnstructuredContent() map[string]interface{} }); ok {
 			doc := u.UnstructuredContent()
@@ -366,4 +403,15 @@ func (c *Channels) HandleCreateResource(w http.ResponseWriter, r *http.Request) 
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{"applied": applied, "total": len(docs), "dryRun": req.DryRun})
+}
+
+func patchTypeName(t types.PatchType) string {
+	switch t {
+	case types.StrategicMergePatchType:
+		return "strategic"
+	case types.MergePatchType:
+		return "merge"
+	default:
+		return "apply"
+	}
 }

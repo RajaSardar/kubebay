@@ -188,7 +188,22 @@ function applyYamlRequest(b: {
   dryRun: boolean;
   force: boolean;
   action?: string;
-}): Promise<{ applied: boolean; dryRun: boolean; resultYaml?: string }> {
+  /**
+   * The YAML as loaded into the editor. When sent, the engine patches only
+   * the fields that differ (an Update, like `kubectl edit`) instead of
+   * server-side applying the whole object, which conflicts with fields other
+   * managers (Helm, kubectl) own.
+   */
+  original?: string;
+}): Promise<{
+  applied: boolean;
+  dryRun: boolean;
+  resultYaml?: string;
+  noop?: boolean;
+  patchType?: "strategic" | "merge" | "apply";
+  /** Edited field paths; never values. */
+  changedPaths?: string[];
+}> {
   return send("PUT", "/api/yaml", b);
 }
 
