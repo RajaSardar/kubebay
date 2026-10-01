@@ -15,6 +15,8 @@ export interface PodRow {
   podIP: string;
   /** Creation time, for the age tooltip. */
   created: string;
+  /** resourceVersion: a new one with changed columns briefly tints the row. */
+  rv: string;
   /** The waiting reason's message (why it is CrashLoopBackOff), for the status tooltip. */
   statusDetail: string;
   /** Requests and limits, which the CPU and memory bars measure against. */
@@ -97,6 +99,7 @@ export function derivePod(obj: Record<string, unknown>): PodRow | null {
     node: (spec.nodeName as string) ?? "",
     podIP: (status.podIP as string) ?? "",
     created: (meta.creationTimestamp as string) ?? "",
+    rv: (meta.resourceVersion as string) ?? "",
     statusDetail: detail,
     resources: podResources(obj),
   };
