@@ -103,4 +103,10 @@ describe("Pods on the shared list view", () => {
       "View details", "Logs", "Shell", "Edit YAML", "Copy name", "Delete",
     ]);
   });
+
+  it("has no cluster picker of its own: the cluster strip switches clusters (#28)", () => {
+    const { container } = renderPods();
+    expect(container.querySelector(".toolbar select")).toBeNull();
+    expect(screen.queryByRole("option", { name: "no clusters" })).toBeNull();
+  });
 });
