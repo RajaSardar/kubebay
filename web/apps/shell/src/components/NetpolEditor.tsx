@@ -139,7 +139,8 @@ export function NetpolEditor({ cluster, pods, policies, namespaces }: { cluster:
     allowDns,
   };
   const built = draftToPolicy(draft);
-  // The create endpoint is a server-side apply, so a same-named policy is replaced.
+  // The create endpoint is a server-side apply without force: a same-named policy
+  // Kubebay created is replaced; one another tool manages is refused with a 409.
   const replaces = policies.some((p) => rec(p.metadata).namespace === ns && rec(p.metadata).name === name);
   const yaml = built.ok ? toYaml(built.policy) : "";
 
@@ -244,7 +245,7 @@ export function NetpolEditor({ cluster, pods, policies, namespaces }: { cluster:
               </Stack>
             )}
             {replaces && (
-              <InlineBanner tone="warn" flush>{`${ns}/${name} already exists; creating replaces it. The preview above shows the effect of that replacement.`}</InlineBanner>
+              <InlineBanner tone="warn" flush>{`${ns}/${name} already exists; creating replaces it. The preview above shows the effect of that replacement. If another tool (Helm, kubectl, Argo CD) manages its rules, the cluster refuses the change: edit it from its YAML tab instead.`}</InlineBanner>
             )}
             {err && <InlineBanner flush>{err}</InlineBanner>}
             {dryOkFor === yaml && <div className="small">Dry run passed: the API server accepted this policy.</div>}
