@@ -2,9 +2,12 @@ package httpapi
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"k8s.io/client-go/kubernetes"
@@ -20,6 +23,8 @@ type HistoryAPI struct {
 	Recorder    *history.Recorder
 	Settings    *SettingsManager
 	Unavailable string
+	// HTTP queries Prometheus for source=prometheus series (default: 30s timeout).
+	HTTP *http.Client
 }
 
 func clusterParam(w http.ResponseWriter, r *http.Request) (string, bool) {
@@ -109,21 +114,20 @@ func (h *HistoryAPI) HandleStatus(w http.ResponseWriter, r *http.Request) {
 
 // HandleSeries returns hourly points for one namespace (ns omitted = cluster
 // total) between from and to (RFC 3339; default the last 7 days).
+// source=local (default) reads the recorded history; source=prometheus asks
+// the cluster's configured Prometheus for the same hourly shape. One series
+// is always one source: an unreachable Prometheus is an error, never a
+// silent fallback to local data.
 func (h *HistoryAPI) HandleSeries(w http.ResponseWriter, r *http.Request) {
 	c, ok := clusterParam(w, r)
 	if !ok {
 		return
 	}
-	if h.Recorder == nil {
-		http.Error(w, "history unavailable: "+h.Unavailable, http.StatusServiceUnavailable)
-		return
-	}
-	fp, ok := h.Recorder.FingerprintFor(c)
-	if !ok {
-		http.Error(w, "no history recorded for this cluster", http.StatusNotFound)
-		return
-	}
 	q := r.URL.Query()
+	retention := history.DefaultRetention
+	if h.Recorder != nil {
+		retention = time.Duration(h.Recorder.Store().RetentionDays()) * 24 * time.Hour
+	}
 	to := time.Now()
 	if v := q.Get("to"); v != "" {
 		t, err := time.Parse(time.RFC3339, v)
@@ -142,16 +146,103 @@ func (h *HistoryAPI) HandleSeries(w http.ResponseWriter, r *http.Request) {
 		}
 		from = t
 	}
-	if !from.Before(to) || to.Sub(from) > time.Duration(h.Recorder.Store().RetentionDays())*24*time.Hour {
+	if !from.Before(to) || to.Sub(from) > retention {
 		http.Error(w, "from must be before to, within the retention window", http.StatusBadRequest)
 		return
 	}
-	ser, err := h.Recorder.Store().Query(fp, q.Get("ns"), from, to)
+
+	switch q.Get("source") {
+	case "", "local":
+		h.localSeries(w, c, q.Get("ns"), from, to)
+	case "prometheus":
+		h.promSeries(w, r, c, q.Get("ns"), from, to, retention)
+	default:
+		http.Error(w, "source must be local or prometheus", http.StatusBadRequest)
+	}
+}
+
+func (h *HistoryAPI) localSeries(w http.ResponseWriter, c, ns string, from, to time.Time) {
+	if h.Recorder == nil {
+		http.Error(w, "history unavailable: "+h.Unavailable, http.StatusServiceUnavailable)
+		return
+	}
+	fp, ok := h.Recorder.FingerprintFor(c)
+	if !ok {
+		http.Error(w, "no history recorded for this cluster", http.StatusNotFound)
+		return
+	}
+	ser, err := h.Recorder.Store().Query(fp, ns, from, to)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	writeJSON(w, ser)
+}
+
+func (h *HistoryAPI) promSeries(w http.ResponseWriter, r *http.Request, c, ns string, from, to time.Time, retention time.Duration) {
+	set, err := h.Settings.Load()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	base := set.PrometheusURLFor(c)
+	if base == "" {
+		http.Error(w, "no Prometheus configured for this cluster", http.StatusPreconditionFailed)
+		return
+	}
+	// Buckets start at each hour in [from, to); each value is evaluated at the
+	// hour's end, so query from the first bucket's end to the last bucket's end.
+	first := from.UTC().Truncate(time.Hour)
+	last := to.UTC().Add(-time.Nanosecond).Truncate(time.Hour)
+	params := map[string]string{
+		"start": strconv.FormatInt(first.Add(time.Hour).Unix(), 10),
+		"end":   strconv.FormatInt(last.Add(time.Hour).Unix(), 10),
+		"step":  "3600",
+	}
+	qs := history.PromQueries(ns)
+	results := make([]map[time.Time]float64, 4)
+	for i, item := range []struct {
+		query string
+		scale float64
+	}{{qs.CPUMean, 1000}, {qs.CPUMax, 1000}, {qs.MemMean, 1}, {qs.MemMax, 1}} {
+		params["query"] = item.query
+		u, err := buildPromURL(base, "/api/v1/query_range", params)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		m, err := h.fetchMatrix(r.Context(), u, item.scale)
+		if err != nil {
+			http.Error(w, "prometheus: "+err.Error(), http.StatusBadGateway)
+			return
+		}
+		results[i] = m
+	}
+	writeJSON(w, history.PromSeries(ns, from, to, results[0], results[1], results[2], results[3], time.Now(), retention, time.Local))
+}
+
+func (h *HistoryAPI) fetchMatrix(ctx context.Context, u string, scale float64) (map[time.Time]float64, error) {
+	client := h.HTTP
+	if client == nil {
+		client = &http.Client{Timeout: 30 * time.Second}
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 16<<20))
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("%s: %s", resp.Status, strings.TrimSpace(string(body)))
+	}
+	return history.ParseMatrix(body, scale)
 }
 
 // HistoryUsageRecorder adapts the sampler's per-tick namespace totals to the

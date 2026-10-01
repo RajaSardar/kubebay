@@ -623,6 +623,12 @@ Verdict:
    - the recorder doesn't change the snapshot
    - the handlers require `cluster`, and nulls serialise as `null`
 2. `PromSource` (`query_range` at a 1h step with `avg_over_time`/`max_over_time`, so its shape matches local buckets), the Clear button, and an "observed N of 840 hours" chip on Cost / Waste.
+   - **Progress (2026-10-01):**
+     - The Clear button shipped in slice 1c (#75).
+     - The coverage chip is #77.
+     - `GET /api/history/series?source=prometheus` is the engine's Prometheus source. It runs four `query_range` queries at a 1h step, each bucket keyed to the hour it covers. CPU is `rate()`'d; memory is not.
+     - Requests stay `null`, since they would need kube-state-metrics.
+     - It returns 412 when no Prometheus is configured and 502 when Prometheus is unreachable. It never falls back to local data.
 3. The consumers, #20 and #21.
 
 **Not in v1:**
