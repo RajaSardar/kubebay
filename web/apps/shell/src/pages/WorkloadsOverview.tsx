@@ -17,6 +17,8 @@ import { findServiceSelectorMismatches } from "../lib/serviceSelectorMismatch";
 import { CoreDnsHealthCard } from "../components/CoreDnsHealthCard";
 import { checkCoreDns } from "../lib/coreDnsHealth";
 import { RouteResolutionList } from "../components/RouteResolutionList";
+import { NeedsAttention } from "../components/NeedsAttention";
+import { findAttention } from "../lib/attention";
 import { detectGatewayApi, resolveHttpRoutes, resolveIngressRoutes } from "../lib/routeResolution";
 
 function useKindCounts(
@@ -40,6 +42,7 @@ function useKindCounts(
         jobs: jobs.rows,
       }),
       synced: pods.synced && deps.synced && stss.synced && dss.synced && jobs.synced && nodes.synced,
+      daemonSets: dss.rows,
     }),
     [pods, deps, stss, dss, jobs, nodes],
   );
@@ -61,7 +64,7 @@ export default function WorkloadsOverview() {
   const deployments = useResourceStream(effectiveCluster || undefined, "apps/v1/deployments", { mode: "full" });
   const statefulSets = useResourceStream(effectiveCluster || undefined, "apps/v1/statefulsets", { mode: "full" });
 
-  const { kinds, synced } = useKindCounts(pods, nodes, deployments, statefulSets, effectiveCluster || undefined);
+  const { kinds, synced, daemonSets } = useKindCounts(pods, nodes, deployments, statefulSets, effectiveCluster || undefined);
 
   // SPOF Radar's own resources -- only opened once that tab is actually
   // selected, same gating discipline the Pressure tab's podMetricsQ uses.
@@ -139,6 +142,16 @@ export default function WorkloadsOverview() {
     [pressureInputs],
   );
 
+  // Overview v2: what's broken and why. O(pods), so throttled like Pressure.
+  const attentionInputs = useLeadingThrottle(
+    useMemo(
+      () => ({ pods: pods.rows, deployments: deployments.rows, statefulSets: statefulSets.rows, daemonSets, nodes: nodes.rows }),
+      [pods.rows, deployments.rows, statefulSets.rows, daemonSets, nodes.rows],
+    ),
+    2000,
+  );
+  const attention = useMemo(() => ({ rows: findAttention(attentionInputs), at: Date.now() }), [attentionInputs]);
+
   const serviceMismatches = useMemo(
     () => findServiceSelectorMismatches(services.rows, pods.rows, endpointSlices.rows),
     [services.rows, pods.rows, endpointSlices.rows],
@@ -214,6 +227,8 @@ export default function WorkloadsOverview() {
           ))}
         </div>
       ) : (
+        <Stack gap={5}>
+        <NeedsAttention rows={attention.rows} checkedAt={attention.at} />
         <div className="cluster-grid">
           {kinds.map((k) => (
             <Card key={k.label} interactive className="fleet-card">
@@ -245,6 +260,7 @@ export default function WorkloadsOverview() {
             </Card>
           ))}
         </div>
+        </Stack>
       )}
       </div>
     </div>
