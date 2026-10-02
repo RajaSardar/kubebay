@@ -79,6 +79,7 @@ export default function AuditLog() {
       {!q.isError && (
         <DataTable
           loading={q.isLoading}
+          loadingLabel="Loading audit log…"
           rows={sorted}
           rowKey={(_, i) => String(i)}
           empty={
