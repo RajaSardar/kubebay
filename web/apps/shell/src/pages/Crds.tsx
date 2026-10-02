@@ -63,7 +63,7 @@ export default function Crds() {
 
   return (
     <div className="page" style={{ overflowY: "auto" }}>
-      <PageHeader title="Custom Resource Definitions" count={q.isLoading ? "Loading…" : `${totalCount} CRDs`} />
+      <PageHeader title="Custom Resource Definitions" count={!q.isLoading && `${totalCount} CRDs`} />
 
       {q.isError && (
         <InlineBanner>
