@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, type ClusterInfo } from "../lib/api";
 import { useClusterMeta } from "../lib/cluster-meta-store";
@@ -16,6 +16,8 @@ import {
   type ClusterSummary,
 } from "../lib/clusterConnections";
 import { ClusterIconPicker, autoAvatar, avatarLabelColor } from "../components/ClusterIconPicker";
+import { KubeconfigSources } from "../components/KubeconfigSources";
+import ConfigurePrometheusModal from "../components/ConfigurePrometheusModal";
 import { providerBadge, clusterDisplayName } from "../lib/clusterDistro";
 import {
   Badge,
@@ -30,6 +32,7 @@ import {
   Row,
   Skeleton,
   SkeletonRows,
+  Stack,
   StatusDot,
   StatusPill,
   Table,
@@ -93,6 +96,7 @@ interface RowMenuProps {
   onTogglePin: () => void;
   onRename: () => void;
   onChangeIcon: () => void;
+  onConfigurePrometheus: () => void;
   onRemove: () => void;
 }
 
@@ -136,6 +140,7 @@ function RowMenu({ cluster, connected, pinned, ...a }: RowMenuProps) {
             { label: "Change icon…", onClick: a.onChangeIcon },
             { label: "Copy context name", onClick: () => copy(cluster.context || cluster.id) },
             { label: "Copy server URL", onClick: () => copy(cluster.server), disabled: !cluster.server },
+            { label: "Configure Prometheus…", onClick: a.onConfigurePrometheus },
             { separator: true, label: "", onClick: () => {} },
             { label: "Remove from list…", onClick: a.onRemove, danger: true },
           ]}
@@ -163,6 +168,20 @@ export default function ClusterPicker() {
   const [errorOpen, setErrorOpen] = useState<string | null>(null);
   const [showHidden, setShowHidden] = useState(false);
   const [actionError, setActionError] = useState("");
+  const [promFor, setPromFor] = useState<string | null>(null);
+  const [sp, setSp] = useSearchParams();
+  const kubeconfigOpen = sp.get("kubeconfig") === "1";
+  function setKubeconfigOpen(open: boolean) {
+    setSp(
+      (cur) => {
+        const next = new URLSearchParams(cur);
+        if (open) next.set("kubeconfig", "1");
+        else next.delete("kubeconfig");
+        return next;
+      },
+      { replace: true },
+    );
+  }
 
   const isConnected = (c: ClusterInfo) => !!c.connected || c.id === activeId;
   const hiddenClusters = list.filter((c) => meta[c.id]?.hidden);
@@ -221,11 +240,16 @@ export default function ClusterPicker() {
                 title="Clusters"
                 count={`· ${plural(list.length, "cluster")}`}
                 actions={
-                  connected.length > 0 && (
-                    <Button variant="ghost" onClick={() => connected.forEach((c) => void disconnect(c.id))}>
-                      Disconnect all
+                  <Row gap={2} align="center">
+                    {connected.length > 0 && (
+                      <Button variant="ghost" onClick={() => connected.forEach((c) => void disconnect(c.id))}>
+                        Disconnect all
+                      </Button>
+                    )}
+                    <Button variant="ghost" onClick={() => setKubeconfigOpen(true)}>
+                      Add kubeconfig
                     </Button>
-                  )
+                  </Row>
                 }
               />
             </div>
@@ -260,9 +284,9 @@ export default function ClusterPicker() {
           {clusters.isSuccess && sorted.length === 0 ? (
             <EmptyState
               title={query ? `No clusters match "${query}".` : "No clusters found in your kubeconfig."}
-              hint={query ? "Loosen the search." : "Add a kubeconfig file in Settings, or check KUBECONFIG."}
+              hint={query ? "Loosen the search." : "Add a kubeconfig file to see its clusters, or check KUBECONFIG."}
             >
-              {!query && <Button onClick={() => navigate("/settings")}>Open Settings</Button>}
+              {!query && <Button onClick={() => setKubeconfigOpen(true)}>Add kubeconfig</Button>}
             </EmptyState>
           ) : (
             !clusters.isError && (
@@ -369,6 +393,7 @@ export default function ClusterPicker() {
                               onTogglePin={() => togglePin(c.id)}
                               onRename={() => setRenaming({ id: c.id, value: m.alias ?? "" })}
                               onChangeIcon={() => setIconPickerId(c.id)}
+                              onConfigurePrometheus={() => setPromFor(c.id)}
                               onRemove={() => setRemoving(c)}
                             />
                           </td>
@@ -445,6 +470,28 @@ export default function ClusterPicker() {
             </Row>
           </div>
         </Modal>
+      )}
+
+      {kubeconfigOpen && (
+        <Modal label="Kubeconfig sources" placement="center" size="wide" onClose={() => setKubeconfigOpen(false)}>
+          <Stack gap={3}>
+            <Row align="center" justify="between">
+              <strong>Kubeconfig sources</strong>
+              <IconButton label="Close" onClick={() => setKubeconfigOpen(false)}>
+                ×
+              </IconButton>
+            </Row>
+            <KubeconfigSources />
+          </Stack>
+        </Modal>
+      )}
+
+      {promFor && (
+        <ConfigurePrometheusModal
+          cluster={promFor}
+          onClose={() => setPromFor(null)}
+          onSaved={() => void queryClient.invalidateQueries({ queryKey: ["settings"] })}
+        />
       )}
 
       {iconPickerId && (

@@ -1729,6 +1729,10 @@ tr.row-clickable:active {
   padding: var(--kb-space-4);
 }
 
+.kb-modal.center.wide {
+  width: min(560px, calc(100vw - 2 * var(--kb-space-4)));
+}
+
 @keyframes kb-modal-fade {
   from { opacity: 0; }
   to   { opacity: 1; }

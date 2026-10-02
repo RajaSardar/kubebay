@@ -1,14 +1,11 @@
-import { useMemo, useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Button, Card, ChoiceCard, PageHeader, SegmentedControl, Select, Stack, TextField } from "@kubebay/ui";
+import { Button, Card, CellLink, ChoiceCard, PageHeader, SegmentedControl, Stack, TextField } from "@kubebay/ui";
 import { settingsApi } from "../lib/api";
 import { UsageHistoryCard } from "../components/UsageHistoryCard";
-import { useCluster } from "../lib/useCluster";
 import { useTheme, type ThemeName } from "../lib/theme";
 import { useDisplay, type FontSize, type FontFamily, type Density } from "../lib/display";
-import { useResourceStream } from "../lib/useResourceStream";
-import { findCandidatePrometheusServices, suggestLocalURL } from "../lib/prometheusServiceDiscovery";
 
 const THEMES: { id: ThemeName; label: string; hint: string; swatch: [string, string, string] }[] = [
   // ── Apple originals ──────────────────────────────────────────────────
@@ -29,149 +26,24 @@ const THEMES: { id: ThemeName; label: string; hint: string; swatch: [string, str
   { id: "catppuccin",  label: "Catppuccin",   hint: "Catppuccin Mocha",     swatch: ["#1e1e2e", "#181825", "#cba6f7"] },
 ];
 
-function KubeconfigSources() {
-  const qc = useQueryClient();
-  const settings = useQuery({ queryKey: ["settings"], queryFn: settingsApi.get });
-  const [draft, setDraft] = useState("");
-  const [msg, setMsg] = useState("");
-  const [err, setErr] = useState("");
-  const extras = settings.data?.extraKubeconfigs ?? [];
-  const active = settings.data?.activeKubeconfigs ?? [];
-  const isolated = settings.data?.onlyListedKubeconfigs ?? false;
-
-  async function persist(next: string[], onlyListed?: boolean) {
-    setErr("");
-    setMsg("");
-    try {
-      await settingsApi.save({
-        prometheusUrl: settings.data?.prometheusUrl ?? "",
-        prometheusUrls: settings.data?.prometheusUrls,
-        extraKubeconfigs: next,
-        onlyListedKubeconfigs: onlyListed ?? isolated,
-      });
-      await qc.invalidateQueries({ queryKey: ["settings"] });
-      await qc.invalidateQueries({ queryKey: ["clusters"] });
-      setMsg("Saved — clusters reloading.");
-    } catch (e) {
-      setErr(String(e instanceof Error ? e.message : e));
-    }
-  }
-
-  return (
-    <Card id="kubeconfig-sources" style={{ marginTop: 18 }}>
-      <div className="rbac-section-title">Kubeconfig sources</div>
-
-      {/* Active files being loaded */}
-      {active.length > 0 && (
-        <div style={{ marginBottom: 12 }}>
-          <p className="muted small" style={{ marginBottom: 6 }}>Active kubeconfig files (currently loaded):</p>
-          {active.map((p) => (
-            <div key={p} className="rbac-subject" style={{ marginBottom: 4 }}>
-              <span style={{ fontSize: "var(--kb-text-2xs)", fontFamily: "var(--kb-font-mono)", background: "var(--kb-status-ok-subtle)", color: "var(--kb-status-ok-fg)", padding: "1px 6px", borderRadius: "var(--kb-radius-xs)", marginRight: 8, flexShrink: 0 }}>active</span>
-              <span className="mono small" style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis" }}>{p}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Extra kubeconfig files */}
-      {extras.map((p) => (
-        <div key={p} className="rbac-subject" style={{ marginBottom: 6 }}>
-          <span className="mono small" style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis" }}>{p}</span>
-          <Button
-            variant="danger-ghost"
-            onClick={() => void persist(extras.filter((x) => x !== p))}
-          >
-            Remove
-          </Button>
-        </div>
-      ))}
-
-      <div className="rbac-subject" style={{ marginBottom: 6 }}>
-        <label className="ctl" style={{ cursor: "pointer", flex: 1 }}>
-          <input
-            type="checkbox"
-            checked={isolated}
-            onChange={(e) => void persist(extras, e.target.checked)}
-          />
-          Use only the files listed above (ignore default ~/.kube/config and KUBECONFIG)
-        </label>
-      </div>
-      {!extras.length && <p className="muted small">Default kubeconfig is loaded automatically. Add extra files below to merge additional clusters.</p>}
-      <div className="pf-form">
-        <TextField
-          placeholder="/path/to/another/kubeconfig"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          spellCheck={false}
-          style={{ gridColumn: "span 4" }}
-        />
-        <Button
-          disabled={!draft.trim()}
-          onClick={() => {
-            void persist([...extras, draft.trim()]).then(() => setDraft(""));
-          }}
-        >
-          Add file
-        </Button>
-      </div>
-      {(msg || err) && (
-        <p className={`small ${err ? "error-text" : "muted"}`} style={{ marginBottom: 0 }}>
-          {err || msg}
-        </p>
-      )}
-    </Card>
-  );
-}
-
-const PROM_DEFAULT = "";
-
-function PrometheusSettings({
-  initial,
-  initialPerCluster,
-}: {
-  initial?: string;
-  initialPerCluster?: Record<string, string>;
-}) {
-  const { list } = useCluster();
-  // "" is the fallback entry; every other value is a cluster id.
-  const [target, setTarget] = useState(PROM_DEFAULT);
-  const [url, setUrl] = useState("");
+/**
+ * The Prometheus URL for clusters without their own. A cluster's own URL is set
+ * from its details on the Clusters page, since a port-forward usually reaches
+ * one cluster's Prometheus.
+ */
+function PrometheusSettings({ initial, initialPerCluster }: { initial?: string; initialPerCluster?: Record<string, string> }) {
+  const [url, setUrl] = useState(initial ?? "");
   const [saved, setSaved] = useState<string | null>(null);
   const [err, setErr] = useState("");
   const qc = useQueryClient();
-
-  const perCluster = initialPerCluster ?? {};
-  const stored = target === PROM_DEFAULT ? (initial ?? "") : (perCluster[target] ?? "");
-
-  const services = useResourceStream(target, "v1/services", { mode: "full", enabled: target !== PROM_DEFAULT });
-  const candidates = useMemo(
-    () => findCandidatePrometheusServices((services.rows ?? []) as Record<string, unknown>[]),
-    [services.rows],
-  );
-
-  useEffect(() => {
-    setUrl(stored);
-    setSaved(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [target, stored]);
+  const overrides = Object.entries(initialPerCluster ?? {}).filter(([, v]) => v);
 
   async function save() {
     setErr("");
     try {
       const cur = await settingsApi.get();
-      const next = { ...(cur.prometheusUrls ?? {}) };
       const trimmed = url.trim();
-      if (target !== PROM_DEFAULT) {
-        if (trimmed) next[target] = trimmed;
-        else delete next[target];
-      }
-      await settingsApi.save({
-        prometheusUrl: target === PROM_DEFAULT ? trimmed : (cur.prometheusUrl ?? ""),
-        prometheusUrls: next,
-        extraKubeconfigs: cur.extraKubeconfigs,
-        onlyListedKubeconfigs: cur.onlyListedKubeconfigs,
-      });
+      await settingsApi.save({ ...cur, prometheusUrl: trimmed });
       setSaved(trimmed);
       await qc.invalidateQueries({ queryKey: ["settings"] });
     } catch (e) {
@@ -179,43 +51,23 @@ function PrometheusSettings({
     }
   }
 
-  const overrides = Object.entries(perCluster).filter(([, v]) => v);
-
   return (
     <Card style={{ marginTop: 18 }}>
       <div className="rbac-section-title">Prometheus (history graphs)</div>
       <p className="small muted" style={{ marginTop: 0 }}>
-        Set per cluster. A port-forward usually points at one cluster's Prometheus, so a
-        single shared URL would graph whichever cluster the tunnel happens to reach.
+        The default for clusters without their own URL. Each cluster&apos;s own URL is set from its ⋮ menu on the Clusters page.
       </p>
       <div className="pf-form">
-        <Select
-          value={target}
-          onChange={(e) => setTarget(e.target.value)}
-          aria-label="Prometheus target"
-        >
-          <option value={PROM_DEFAULT}>Default (clusters with no URL below)</option>
-          {list.map((c) => (
-            <option key={c.id} value={c.id}>{c.id}</option>
-          ))}
-        </Select>
         <TextField
+          aria-label="Default Prometheus URL"
           placeholder="http://localhost:9090"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           spellCheck={false}
-          style={{ gridColumn: "span 3" }}
-          list={target !== PROM_DEFAULT && candidates.length > 0 ? "prom-candidates" : undefined}
+          style={{ gridColumn: "span 4" }}
         />
-        <Button onClick={() => void save()}>Save</Button>
+        <Button aria-label="Save default Prometheus URL" onClick={() => void save()}>Save</Button>
       </div>
-      {target !== PROM_DEFAULT && candidates.length > 0 && (
-        <datalist id="prom-candidates">
-          {candidates.map((c) => (
-            <option key={c.address} value={suggestLocalURL(c)} />
-          ))}
-        </datalist>
-      )}
       {overrides.length > 0 && (
         <ul className="small muted" style={{ margin: "8px 0 0", paddingLeft: 18 }}>
           {overrides.map(([c, u]) => (
@@ -225,14 +77,32 @@ function PrometheusSettings({
       )}
       {(saved != null || err) && (
         <p className={`small ${err ? "error-text" : "muted"}`} style={{ marginBottom: 0 }}>
-          {err ||
-            (saved === ""
-              ? target === PROM_DEFAULT
-                ? "Default cleared."
-                : "Override cleared — this cluster falls back to the default."
-              : `Saved. ${target === PROM_DEFAULT ? "Clusters with no override" : target} now queries ${saved}`)}
+          {err || (saved === "" ? "Default cleared." : `Saved. Clusters without their own URL now query ${saved}`)}
         </p>
       )}
+    </Card>
+  );
+}
+
+/** Kubeconfig files are managed on the cluster list now; this points there. */
+function KubeconfigPointer() {
+  const navigate = useNavigate();
+  const to = "/clusters?kubeconfig=1";
+  return (
+    <Card id="kubeconfig-sources" style={{ marginTop: 18 }}>
+      <div className="rbac-section-title">Kubeconfig sources</div>
+      <p className="small muted" style={{ marginTop: 0 }}>
+        Kubeconfig files are added and removed on the Clusters page, next to the clusters they bring in.
+      </p>
+      <CellLink
+        href={to}
+        onClick={(e) => {
+          e.preventDefault();
+          navigate(to);
+        }}
+      >
+        Manage kubeconfig files
+      </CellLink>
     </Card>
   );
 }
@@ -394,7 +264,7 @@ export default function Settings() {
         />
       </div>
 
-      <KubeconfigSources />
+      <KubeconfigPointer />
       {settings.isSuccess && (
         <PrometheusSettings
           initial={settings.data.prometheusUrl}
