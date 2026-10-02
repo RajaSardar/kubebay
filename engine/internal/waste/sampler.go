@@ -89,6 +89,9 @@ type Sampler struct {
 
 	recordFilter func(clusterID string) bool
 	recorder     UsageRecorder
+	// gate, when set, limits polling to clusters it accepts (connected by the
+	// user or enrolled in usage history). Set before Start.
+	gate func(clusterID string) bool
 
 	mu        sync.Mutex
 	buffers   map[WorkloadKey]*ringBuffer
@@ -125,6 +128,18 @@ func (s *Sampler) SetRecorder(filter func(clusterID string) bool, rec UsageRecor
 	s.recorder = rec
 }
 
+// SetGate limits which reachable clusters are polled. Call before Start.
+func (s *Sampler) SetGate(gate func(clusterID string) bool) {
+	s.gate = gate
+}
+
+func (s *Sampler) shouldSample(c clusters.Cluster) bool {
+	if c.Status != clusters.StatusConnected {
+		return false
+	}
+	return s.gate == nil || s.gate(c.ID)
+}
+
 // StartTierA runs the Prometheus-backed overlay loop until ctx is
 // cancelled. Separate from Start/tick (Tier B) since it ticks on its own,
 // much slower cadence and is a no-op entirely until a resolver is set.
@@ -149,7 +164,7 @@ func (s *Sampler) tickTierA(ctx context.Context) {
 		return
 	}
 	for _, c := range s.mgr.List() {
-		if c.Status != clusters.StatusConnected {
+		if !s.shouldSample(c) {
 			continue
 		}
 		base := s.promResolver(c.ID)
@@ -333,7 +348,7 @@ func (s *Sampler) Start(ctx context.Context) {
 
 func (s *Sampler) tick(ctx context.Context) {
 	for _, c := range s.mgr.List() {
-		if c.Status != clusters.StatusConnected {
+		if !s.shouldSample(c) {
 			continue
 		}
 		cfg, err := s.mgr.RestConfig(c.ID)

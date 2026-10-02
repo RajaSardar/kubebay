@@ -103,8 +103,10 @@ func Router(d Deps, token string) http.Handler {
 		r.Get("/api/clusters", func(w http.ResponseWriter, _ *http.Request) {
 			writeJSON(w, d.Clusters.List())
 		})
+		r.Post("/api/clusters/{id}/connect", connectClusterHandler(d.Clusters))
+		r.Post("/api/clusters/{id}/disconnect", disconnectClusterHandler(d.Clusters, d.authEnabled()))
 		r.Get("/ws", func(w http.ResponseWriter, req *http.Request) {
-			d.Hub.Handle(w, req, poolSource{d.Pools}, wsSubprotocolFromContext(req.Context()))
+			d.Hub.Handle(w, req, poolSource{reg: d.Pools, mgr: d.Clusters}, wsSubprotocolFromContext(req.Context()))
 		})
 
 		r.Get("/api/pf", func(w http.ResponseWriter, _ *http.Request) {
@@ -579,9 +581,17 @@ func writeJSON(w http.ResponseWriter, v any) {
 
 type poolSource struct {
 	reg *informers.PoolRegistry
+	mgr *clusters.Manager
 }
 
+// Subscribe opens a stream; opening one connects the cluster, so the
+// engine's connected set is always what is actually streaming.
 func (p poolSource) Subscribe(ctx context.Context, cluster, gvr string, namespaces []string, selector, mode string) (stream.SubHandle, error) {
+	if p.mgr != nil {
+		if err := p.mgr.Connect(cluster); err != nil {
+			return nil, err
+		}
+	}
 	pool, err := p.reg.For(ctx, cluster)
 	if err != nil {
 		return nil, err

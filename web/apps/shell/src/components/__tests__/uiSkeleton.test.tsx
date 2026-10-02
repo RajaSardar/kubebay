@@ -13,6 +13,15 @@ describe("SkeletonTable", () => {
     expect(bodyRows[0]!.querySelectorAll(".kb-skeleton")).toHaveLength(3);
   });
 
+  it("shows the helm-wheel spinner and says what it is loading, above the sketched rows", () => {
+    render(<SkeletonTable headers={["Name"]} rows={2} label="Loading releases…" />);
+    const region = screen.getByRole("status", { name: "Loading releases…" });
+    const caption = region.querySelector("caption.kb-table-loading")!;
+    expect(caption).not.toBeNull();
+    expect(caption.querySelector(".kb-spinner svg")).not.toBeNull();
+    expect(caption).toHaveTextContent("Loading releases…");
+  });
+
   it("varies bar widths down the rows so it reads as data, not stripes", () => {
     const { container } = render(<SkeletonTable headers={["Name"]} rows={3} />);
     const widths = [...container.querySelectorAll("tbody .kb-skeleton")].map((s) => (s as HTMLElement).style.width);
