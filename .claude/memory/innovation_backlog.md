@@ -1021,5 +1021,17 @@ Findings joined into prioritised chains instead of a flat list. Built on what al
   - Keeping partial chains was a judgement call. An exposed pod with a cluster-wide-secrets token is worth seeing even with no CVE scanner installed.
 - **Next slices.** Ingress-controller-aware isolation (is the controller's namespace allowed?), Secret reachability (which Secrets the token can read), a hostPath/privileged-pod step, and Gateway API HTTPRoutes as entries.
 
+### 50. Helm releases filters + loader audit — status: shipped 2026-10-02
+Owner-reported gaps on the Helm page.
+- **Helm releases:** the shared `NamespaceFilter` and a search box (name, namespace, chart, app version, status), a "· N of M" count when filtered, and a "No releases match" empty state.
+- **Loading states:**
+  - "Waiting for a cluster…" uses `PageLoader`.
+  - The drawer's history, values and manifest load as `SkeletonLines`, not a word.
+  - `SkeletonTable` and `DataTable` (`loading` + new `loadingLabel`) now caption their skeleton rows with the helm-wheel `Spinner` and what is loading, so every loading list shows the icon.
+- **App-wide audit:**
+  - Ports no longer flashes "No active tunnels" while loading.
+  - Crds header, PodPanel output wait, ResizePanel and SecretValueReveal lost their bare "Loading…" text.
+  - The `loadingStates` guard now fails on any `<p>`/`<div>` "Loading…"/"Waiting for…" text, and on any loading `DataTable` without a `loadingLabel`.
+
 ### Further ideas worth a look (unscoped, one-liners)
 - **Revert unsaved YAML edits — SHIPPED 2026-09-27.** One-click "discard my in-progress edit" button in `YamlTab.tsx`, next to Reload — a local reset (no network call), unlike Reload which re-fetches from the server.
