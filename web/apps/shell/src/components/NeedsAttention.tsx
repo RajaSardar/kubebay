@@ -1,10 +1,12 @@
-import { useId, useMemo, type ReactNode } from "react";
+import { useId, useMemo, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { Badge, CellLink, DataTable, EmptyState, NsPill, Row, Stack, StatusDot, StatusPill, type Column } from "@kubebay/ui";
+import { Badge, Button, CellLink, DataTable, EmptyState, NsPill, Row, Stack, StatusDot, StatusPill, type Column } from "@kubebay/ui";
 import { LiveAge } from "./LiveAge";
 import { podsOfWorkloadPath } from "../lib/selector";
 import type { AttentionRow } from "../lib/attention";
 import type { ClusterCapacity } from "../lib/capacity";
+
+const SHOW_FIRST = 10;
 
 /** Pods page for a row: the workload's own pods, or a bare pod by name. */
 export function podsPath(r: AttentionRow): string {
@@ -107,6 +109,9 @@ export function NeedsAttention({
 }) {
   const id = useId();
   const columns = useMemo(() => makeColumns(capacity), [capacity]);
+  // A wide outage can list hundreds; the worst ten keep the rest of the page in view.
+  const [all, setAll] = useState(false);
+  const shown = all ? rows : rows.slice(0, SHOW_FIRST);
   return (
     <section aria-labelledby={id}>
       <Stack gap={2}>
@@ -116,7 +121,7 @@ export function NeedsAttention({
         </Row>
         <DataTable
           columns={columns}
-          rows={rows}
+          rows={shown}
           rowKey={(r) => r.key}
           empty={
             <EmptyState
@@ -130,6 +135,13 @@ export function NeedsAttention({
             />
           }
         />
+        {rows.length > SHOW_FIRST && (
+          <Row>
+            <Button variant="ghost" onClick={() => setAll((v) => !v)}>
+              {all ? `Show the worst ${SHOW_FIRST}` : `Show all ${rows.length}`}
+            </Button>
+          </Row>
+        )}
       </Stack>
     </section>
   );

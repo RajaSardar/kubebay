@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { NeedsAttention } from "../NeedsAttention";
 import type { AttentionRow } from "../../lib/attention";
@@ -78,6 +78,17 @@ describe("NeedsAttention", () => {
       </MemoryRouter>,
     );
     expect(within(screen.getByText("api").closest("tr")!).getByText("Cluster: CPU 25% · memory 94% requested")).toBeInTheDocument();
+  });
+
+  it("shows the worst ten, with a button for the rest", () => {
+    const many = Array.from({ length: 13 }, (_, i) => ({ ...api, key: `Deployment/shop/w${i}`, name: `w${i}` }));
+    renderIt(many);
+    const section = screen.getByRole("region", { name: /Needs attention/ });
+    expect(within(section).getAllByRole("row")).toHaveLength(11); // header + 10
+    fireEvent.click(within(section).getByRole("button", { name: "Show all 13" }));
+    expect(within(section).getAllByRole("row")).toHaveLength(14);
+    fireEvent.click(within(section).getByRole("button", { name: "Show the worst 10" }));
+    expect(within(section).getAllByRole("row")).toHaveLength(11);
   });
 
   it("is calm when nothing is broken: a check, the words, and when it last checked", () => {
