@@ -1021,7 +1021,18 @@ Findings joined into prioritised chains instead of a flat list. Built on what al
   - Keeping partial chains was a judgement call. An exposed pod with a cluster-wide-secrets token is worth seeing even with no CVE scanner installed.
 - **Next slices.** Ingress-controller-aware isolation (is the controller's namespace allowed?), Secret reachability (which Secrets the token can read), a hostPath/privileged-pod step, and Gateway API HTTPRoutes as entries.
 
-### 51. Clusters page redesign — status: building (2a engine and 2b UI in PRs)
+### 50. Helm releases filters + loader audit — status: shipped 2026-10-02
+Owner-reported gaps on the Helm page.
+- **Helm releases:** the shared `NamespaceFilter` and a search box (name, namespace, chart, app version, status), a "· N of M" count when filtered, and a "No releases match" empty state.
+- **Loading states:**
+  - "Waiting for a cluster…" uses `PageLoader`.
+  - The drawer's history, values and manifest load as `SkeletonLines`, not a word.
+  - `SkeletonTable` and `DataTable` (`loading` + new `loadingLabel`) now caption their skeleton rows with the helm-wheel `Spinner` and what is loading, so every loading list shows the icon.
+- **App-wide audit:**
+  - Ports no longer flashes "No active tunnels" while loading.
+  - Crds header, PodPanel output wait, ResizePanel and SecretValueReveal lost their bare "Loading…" text.
+  - The `loadingStates` guard now fails on any `<p>`/`<div>` "Loading…"/"Waiting for…" text, and on any loading `DataTable` without a `loadingLabel`.
+### 51. Clusters page redesign — status: building (2a engine merged #108; 2b UI in PR)
 The owner asked to audit the cluster list, remove its drawer, show which clusters are connected, add Disconnect to the row menu, and add visualisations only if they earn their place. Three experts (UX, frontend/engine correctness, SRE/data-viz) reported, then a synthesis round cross-challenged them.
 
 **Rulings:**

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Badge, IconButton, Row, StatusPill, type StatusTone } from "@kubebay/ui";
@@ -190,6 +190,19 @@ export default function Workloads() {
   );
   const onOpen = useCallback((p: PodRow) => openPod(p), [openPod]);
 
+  // ?pod=ns/name[&tab=logs] (Overview's "Show logs") opens that pod's drawer
+  // once it is in the list; it is acted on once, so closing the drawer sticks.
+  const podLink = sp.get("pod");
+  const podLinkTab = sp.get("tab");
+  const podLinkDone = useRef<string | null>(null);
+  useEffect(() => {
+    if (!podLink || podLinkDone.current === podLink) return;
+    const p = pods.find((x) => x.key === podLink);
+    if (!p) return;
+    podLinkDone.current = podLink;
+    openPod(p, podLinkTab === "logs" || podLinkTab === "shell" || podLinkTab === "yaml" ? podLinkTab : undefined);
+  }, [podLink, podLinkTab, pods, openPod]);
+
   // If no cluster is selected and we're done loading, send user to cluster picker.
   // This handles direct navigation (e.g. deep link to /workloads) without going
   // through ClusterPicker, which is the only place that sets the active cluster.
@@ -221,6 +234,7 @@ export default function Workloads() {
         sortKey="pods"
         defaultSort={byNsThenName}
         filterPlaceholder="Filter by name, namespace, node, IP or status…  /"
+        initialFilter={sp.get("q") ?? ""}
         onOpen={onOpen}
         toolbar={
           scope ? (

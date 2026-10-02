@@ -413,28 +413,6 @@ h2 {
   border-radius: 50%;
 }
 
-.loading-state {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--kb-radius-sm);
-  padding: var(--kb-space-6) var(--kb-space-5);
-  text-align: center;
-  background: var(--kb-bg-surface);
-  min-height: 200px;
-  margin-bottom: var(--kb-space-3);
-}
-
-/* Waiting for data is not the same as having none, so no dashed "you could put
-   something here" box — just the same centred, same-sized slot so the layout
-   doesn't jump when the data lands. */
-.loading-state {
-  border: 1px solid transparent;
-  color: var(--kb-fg-muted);
-}
-
 /* ── PageLoader ──────────────────────────────────────────────────────────────
    Full-content-area loader used by every page that has no data yet.
    Fills the available space, centers a spinner + message so the layout
@@ -455,14 +433,6 @@ h2 {
   font-size: var(--kb-text-sm);
   color: var(--kb-fg-muted);
   letter-spacing: 0.01em;
-}
-
-/* Same reason as .inline-banner: a rounded, bordered box dropped straight into
-   the unpadded .page ran flush to the window edge. Scoped to direct children so
-   the ones already inside a padded .page-body are not inset twice. */
-.page > .loading-state {
-  margin-left: var(--kb-gutter);
-  margin-right: var(--kb-gutter);
 }
 
 .mono {

@@ -47,7 +47,9 @@ https://claude.ai/artifact/J35D45QQ7X6Sgd7mwfRSnF
    dismissed is a `Modal`, which renders into `document.body` so a translucent
    ancestor cannot clip it.
 2. **Loading shows the shape of what is coming.** A list or table with no rows
-   yet is a `SkeletonTable` under its real headers; rows already on screen
+   yet is a `SkeletonTable` (or a `DataTable` with `loading` and a
+   `loadingLabel`) under its real headers, captioned with the helm-wheel
+   `Spinner` and what it is loading; rows already on screen
    while the stream re-syncs get `TableWrap busy`; a drawer or pane is
    `SkeletonLines`. Only a wait with no shape to sketch (detecting an
    operator, drawing a graph, connecting to a cluster) takes the `Spinner`

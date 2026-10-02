@@ -240,6 +240,15 @@ describe("DataTable", () => {
     rerender(<DataTable columns={columns} rows={[]} rowKey={(p) => p.name} loading />);
     expect(screen.getByRole("table").querySelectorAll(".kb-skeleton").length).toBeGreaterThan(0);
   });
+
+  it("DataTable shows the helm-wheel spinner with its loading label while loading", () => {
+    const { rerender } = render(<DataTable columns={columns} rows={[]} rowKey={(p) => p.name} loading loadingLabel="Loading pods…" />);
+    const caption = screen.getByRole("table").querySelector("caption.kb-table-loading")!;
+    expect(caption.querySelector(".kb-spinner svg")).not.toBeNull();
+    expect(caption).toHaveTextContent("Loading pods…");
+    rerender(<DataTable columns={columns} rows={[{ name: "a", phase: "Running", age: "1m" }]} rowKey={(p) => p.name} />);
+    expect(screen.getByRole("table").querySelector("caption")).toBeNull();
+  });
 });
 
 describe("KubebayMark", () => {

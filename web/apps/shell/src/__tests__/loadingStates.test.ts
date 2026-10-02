@@ -59,3 +59,31 @@ describe("drawers load as skeleton lines, not a word", () => {
     },
   );
 });
+
+describe("no page or component shows a bare loading word", () => {
+  // A wait shows the helm-wheel Spinner (PageLoader for a page), skeleton rows
+  // or skeleton lines, each saying what it waits for; never a plain "Loading…"
+  // or "Waiting for…" string standing alone in the markup.
+  const { readdirSync } = require("node:fs") as typeof import("node:fs");
+  const files = ["pages", "components"].flatMap((dir) =>
+    readdirSync(resolve(src, dir))
+      .filter((f: string) => f.endsWith(".tsx"))
+      .map((f: string) => `${dir}/${f}`),
+  );
+  it.each(files)("%s", (file) => {
+    const text = read(file);
+    expect(text).not.toMatch(/<(p|div)\b[^>]*>\s*(Loading|Waiting for)[^<{]*…\s*</);
+    expect(text).not.toMatch(/\?\s*"(Loading|Waiting for)[^"]*…"\s*:/);
+  });
+
+  it("every loading DataTable says what it loads", () => {
+    for (const file of files) {
+      const text = read(file);
+      const tables = text.split("<DataTable").slice(1).map((t) => t.slice(0, 2500));
+      for (const t of tables) {
+        if (/\bloading=\{/.test(t)) expect(t, file).toMatch(/\bloadingLabel=/);
+      }
+    }
+  });
+});
+

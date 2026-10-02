@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Editor from "@monaco-editor/react";
-import { ArmedButton, Badge, Button, DataTable, Drawer, EmptyState, InlineBanner, PageHeader, Row, Skeleton, StatusDot, Tabs, TextField } from "@kubebay/ui";
+import { ArmedButton, Badge, Button, DataTable, Drawer, EmptyState, InlineBanner, PageHeader, Row, SkeletonLines, StatusDot, Tabs, TextField } from "@kubebay/ui";
 import { helmApi, type HelmRelease } from "../lib/api";
 import { useCluster } from "../lib/useCluster";
 import { useMonacoTheme } from "../lib/theme";
 import { ChartsTab } from "../components/HelmCharts";
+import { NamespaceFilter } from "../components/NamespaceFilter";
+import { PageLoader } from "../components/PageLoader";
+import { useSelectedNamespaces } from "../lib/namespace-store";
 
 type DotT = "connected" | "degraded" | "unreachable" | "pending";
 interface Tone {
@@ -205,7 +208,7 @@ function ReleaseDrawer({
               </div>
             </div>
           ))}
-          {!history.data && <p className="muted small">Loading history…</p>}
+          {!history.data && <SkeletonLines lines={4} label="Loading history…" />}
         </div>
       )}
 
@@ -238,7 +241,7 @@ function ReleaseDrawer({
           </div>
           <div className="yaml-editor" style={{ height: "calc(100vh - 300px)" }}>
             {valuesQ.isLoading ? (
-              <Skeleton w={400} h={200} />
+              <SkeletonLines lines={8} label="Loading values…" />
             ) : (
               <Editor
                 value={valuesYaml}
@@ -259,9 +262,13 @@ function ReleaseDrawer({
       )}
 
       {tab === "manifest" && (
-        <pre className="log-view mono" style={{ whiteSpace: "pre-wrap", userSelect: "text" }}>
-          {manifestQ.isLoading ? "Loading…" : manifestQ.data}
-        </pre>
+        manifestQ.isLoading ? (
+          <SkeletonLines lines={8} label="Loading manifest…" />
+        ) : (
+          <pre className="log-view mono" style={{ whiteSpace: "pre-wrap", userSelect: "text" }}>
+            {manifestQ.data}
+          </pre>
+        )
       )}
     </Drawer>
   );
@@ -279,16 +286,29 @@ export default function Helm() {
     retry: false,
   });
 
-  const rows = useMemo(() => {
+  const all = useMemo(() => {
     const out = [...(releases.data ?? [])];
     out.sort((a, b) => `${a.namespace}/${a.name}`.localeCompare(`${b.namespace}/${b.name}`));
     return out;
   }, [releases.data]);
 
+  const nsFilter = useSelectedNamespaces(effectiveCluster || undefined);
+  const [search, setSearch] = useState("");
+  const rows = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return all.filter((r) => {
+      if (nsFilter.length > 0 && !nsFilter.includes(r.namespace)) return false;
+      if (!q) return true;
+      return [r.name, r.namespace, r.chart, r.appVersion ?? "", r.status].some((v) => v.toLowerCase().includes(q));
+    });
+  }, [all, nsFilter, search]);
+  const filtered = rows.length !== all.length;
+
   const [selected, setSelected] = useState<HelmRelease | null>(null);
 
   useEffect(() => {
     setSelected(null);
+    setSearch("");
   }, [effectiveCluster]);
 
   function pick(r: HelmRelease) {
@@ -311,7 +331,25 @@ export default function Helm() {
 
       {view === "releases" && (
       <>
-      <PageHeader level={2} title="Helm releases" count={!releases.isLoading && `· ${rows.length}`} />
+      <PageHeader
+        level={2}
+        title="Helm releases"
+        count={!releases.isLoading && (filtered ? `· ${rows.length} of ${all.length}` : `· ${all.length}`)}
+      />
+
+      {effectiveCluster && (
+        <Row gap={2} align="center" style={{ marginBottom: 10 }}>
+          <NamespaceFilter cluster={effectiveCluster} />
+          <TextField
+            aria-label="Filter releases"
+            placeholder="Filter releases by name, chart or status…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            spellCheck={false}
+            style={{ flex: "1 1 240px", maxWidth: 360 }}
+          />
+        </Row>
+      )}
 
       {releases.isError && (
         <InlineBanner flush>
@@ -322,20 +360,23 @@ export default function Helm() {
       )}
 
       {!effectiveCluster ? (
-        <div className="loading-state">
-          <p>Waiting for cluster…</p>
-        </div>
+        <PageLoader message="Waiting for a cluster…" />
       ) : (
         <DataTable
           loading={releases.isLoading}
+          loadingLabel="Loading Helm releases…"
           rows={rows}
           rowKey={(r) => `${r.namespace}/${r.name}`}
           onRowClick={pick}
           empty={
-            <EmptyState
-              title="No Helm releases in this cluster."
-              hint="Install one with your local helm CLI — it appears here within seconds."
-            />
+            all.length > 0 ? (
+              <EmptyState title="No releases match these filters." hint="Clear the search or pick other namespaces." />
+            ) : (
+              <EmptyState
+                title="No Helm releases in this cluster."
+                hint="Install one with your local helm CLI — it appears here within seconds."
+              />
+            )
           }
           columns={[
             { key: "name", header: "Name", className: "mono strong", render: (r) => r.name },
