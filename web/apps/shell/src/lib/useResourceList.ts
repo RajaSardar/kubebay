@@ -24,6 +24,8 @@ export interface ResourceListOptions<R> {
   estimate: number;
   scrollRef: RefObject<HTMLElement | null>;
   headerRef: RefObject<HTMLElement | null>;
+  /** The filter's text when the list first renders (a link's ?q=). */
+  initialFilter?: string;
 }
 
 /**
@@ -35,7 +37,7 @@ export interface ResourceListOptions<R> {
  */
 export function useResourceList<R>(o: ResourceListOptions<R>) {
   const { rows, keyOf, filterFields, match, sortable, sortValue, defaultSort, onOpen, onToggle } = o;
-  const [filter, setFilter] = useState("");
+  const [filter, setFilter] = useState(o.initialFilter ?? "");
   const filterRef = useRef<HTMLInputElement | null>(null);
   const sort = useSortPref(o.sortKey);
 
