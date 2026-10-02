@@ -42,7 +42,7 @@ import {
   type StatusTone,
 } from "@kubebay/ui";
 
-const APP_VERSION = "v0.5.0";
+const APP_VERSION = "v0.6.0";
 
 /** Reachability from the engine probe. The wire value "connected" means reachable. */
 const API_STATUS: Record<ClusterInfo["status"], { label: string; tone: StatusTone }> = {
