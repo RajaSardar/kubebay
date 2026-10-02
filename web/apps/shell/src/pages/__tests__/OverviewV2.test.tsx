@@ -114,4 +114,11 @@ describe("Overview v2", () => {
     expect(within(screen.getByRole("region", { name: /Pods by status/ })).getByRole("link", { name: "CrashLoopBackOff 1" })).toBeInTheDocument();
     expect(within(screen.getByRole("region", { name: /Rollouts in progress/ })).getByText("1 of 2 updated · 1 ready")).toBeInTheDocument();
   });
+
+  it("ranks namespaces below the fold", () => {
+    streams["v1/pods"] = [crashing("api-7f9-a"), { metadata: { name: "w", namespace: "pay" }, spec: { nodeName: "n1", containers: [{ name: "c" }] }, status: { phase: "Running" } }];
+    renderPage();
+    const section = screen.getByRole("region", { name: /Namespaces/ });
+    expect(within(section).getByText("1 broken · 0 warnings · 1 pods")).toBeInTheDocument();
+  });
 });

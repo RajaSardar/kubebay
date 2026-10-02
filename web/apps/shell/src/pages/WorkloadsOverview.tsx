@@ -28,6 +28,8 @@ import { RolloutsInProgress } from "../components/RolloutsInProgress";
 import { rolloutsInProgress } from "../lib/rolloutsInProgress";
 import { PodStatusBar } from "../components/PodStatusBar";
 import { podStatusSegments } from "../lib/podStatusBar";
+import { NamespacesRanked, type NamespaceRankBy } from "../components/NamespacesRanked";
+import { rankNamespaces } from "../lib/namespaceRanking";
 import { detectGatewayApi, resolveHttpRoutes, resolveIngressRoutes } from "../lib/routeResolution";
 
 function useKindCounts(
@@ -195,6 +197,12 @@ export default function WorkloadsOverview() {
       }),
     [attentionInputs, inScope],
   );
+  // Namespaces are compared across the whole cluster, whatever the scope.
+  const [rankBy, setRankBy] = useState<NamespaceRankBy>("problems");
+  const namespaces = useMemo(
+    () => rankNamespaces({ pods: attentionInputs.pods, attention: attention.rows, events: events.rows, by: rankBy }),
+    [attentionInputs.pods, attention.rows, events.rows, rankBy],
+  );
   const statusSegments = useMemo(() => podStatusSegments(attentionInputs.pods.filter(inScope)), [attentionInputs.pods, inScope]);
 
   const serviceMismatches = useMemo(
@@ -309,6 +317,7 @@ export default function WorkloadsOverview() {
           ))}
         </div>
         <CapacityLine capacity={capacity} />
+        <NamespacesRanked rows={namespaces} by={rankBy} onBy={setRankBy} />
         </Stack>
       )}
       </div>
