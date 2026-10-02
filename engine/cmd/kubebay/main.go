@@ -88,6 +88,9 @@ func main() {
 	defer closeLocalShell()
 	hub := stream.NewHub(log, chanDeps)
 	pfManager := httpapi.NewPFManager(mgr)
+	// Disconnect (or a connected context leaving the kubeconfig) stops the
+	// cluster's informers, which ends its open streams, and its port-forwards.
+	httpapi.TeardownOnDisconnect(mgr, registry, pfManager)
 	actions := &httpapi.Actions{Clusters: mgr}
 	metrics := &httpapi.Metrics{Clusters: mgr}
 	rbac := &httpapi.RBAC{Clusters: mgr}
@@ -108,6 +111,9 @@ func main() {
 		}
 		return set.PrometheusURLFor(cluster)
 	})
+	// Poll workloads only on clusters the user connected to or enrolled in
+	// usage history, never on every context that answers /version.
+	wasteSampler.SetGate(func(id string) bool { return mgr.IsConnected(id) || settingsMgr.HistoryEnabled(id) })
 	historyAPI, closeHistory := setupHistory(log, mgr, settingsMgr, wasteSampler, *inCluster, wasteCtx)
 	defer closeHistory()
 	// Started only now, after the history recorder is set, so the sampler

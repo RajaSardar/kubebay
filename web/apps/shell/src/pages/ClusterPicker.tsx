@@ -39,6 +39,7 @@ const STATUS: Record<ClusterInfo["status"], { label: string; tone: StatusTone; d
   degraded:      { label: "Degraded",     tone: "warn",       dot: "degraded" },
   unreachable:   { label: "Disconnected", tone: "pending",    dot: "pending" },
   misconfigured: { label: "Error",        tone: "err",        dot: "unreachable" },
+  checking:      { label: "Checking…",    tone: "pending",    dot: "pending" },
 };
 
 // ── Row context menu ──────────────────────────────────────────────────────────
