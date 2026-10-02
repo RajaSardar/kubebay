@@ -9,3 +9,13 @@ export function shouldRedirectToPicker(pathname: string, activeCluster: string):
   if (pathname === "/clusters") return false;
   return activeCluster.trim() === "";
 }
+
+/**
+ * The active cluster is only ever one the user chose: the URL's, else the
+ * stored one. Never "the first reachable cluster": that fallback streamed a
+ * cluster nobody picked and reconnected a cluster the moment it was
+ * disconnected.
+ */
+export function resolveActiveCluster(urlCluster: string, storedCluster: string): string {
+  return urlCluster || storedCluster;
+}

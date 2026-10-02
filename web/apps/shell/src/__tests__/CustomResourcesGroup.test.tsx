@@ -11,6 +11,7 @@ vi.mock("../lib/api", async () => {
 });
 
 const { CustomResourcesGroup } = await import("../App");
+const { useClusterStore } = await import("../lib/cluster-store");
 
 function entries(n: number, group = "example.io", prefix = "Widget") {
   return Array.from({ length: n }, (_, i) => {
@@ -29,6 +30,7 @@ function entries(n: number, group = "example.io", prefix = "Widget") {
 function renderGroup() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   qc.setQueryData(["clusters"], [{ id: "kind-dev", status: "connected" }]);
+  useClusterStore.setState({ active: "kind-dev" });
   return render(
     <QueryClientProvider client={qc}>
       <MemoryRouter>
@@ -121,4 +123,22 @@ describe("CustomResourcesGroup", () => {
     const folderNames = screen.getAllByText(/\.io/).map((el) => el.textContent?.replace("\u200b", ""));
     expect(folderNames).toEqual(["argoproj.io", "zeta.io"]);
   });
+
+  // It used to list the first reachable cluster's CRDs, whichever cluster was open.
+  it("lists the CRDs of the cluster you opened, not the first reachable one", async () => {
+    apis.mockResolvedValue(entries(1));
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    qc.setQueryData(["clusters"], [{ id: "a-reachable", status: "connected" }, { id: "opened", status: "connected" }]);
+    useClusterStore.setState({ active: "opened" });
+    render(
+      <QueryClientProvider client={qc}>
+        <MemoryRouter>
+          <CustomResourcesGroup />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    await waitFor(() => expect(apis).toHaveBeenCalledWith("opened"));
+    expect(apis).not.toHaveBeenCalledWith("a-reachable");
+  });
 });
+

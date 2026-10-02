@@ -8,17 +8,12 @@ import { historyApi } from "../api";
 describe("useClusterStore – usage history consent (backlog #36)", () => {
   beforeEach(() => {
     vi.mocked(historyApi.enroll).mockClear();
-    useClusterStore.setState({ active: "", selected: "" });
+    useClusterStore.setState({ active: "" });
   });
 
   it("connecting to a cluster enrolls it for history recording", () => {
     useClusterStore.getState().setActive("kind-dev");
     expect(historyApi.enroll).toHaveBeenCalledWith("kind-dev");
-  });
-
-  it("previewing a cluster in the picker does not", () => {
-    useClusterStore.getState().setSelected("prod");
-    expect(historyApi.enroll).not.toHaveBeenCalled();
   });
 
   it("clearing the active cluster does not enroll anything", () => {

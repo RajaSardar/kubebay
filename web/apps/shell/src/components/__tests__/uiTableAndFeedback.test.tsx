@@ -149,6 +149,23 @@ describe("table primitives", () => {
     expect(onSort).toHaveBeenCalledTimes(2);
   });
 
+  it("a clickable row is reachable by keyboard and opens with Enter", () => {
+    const onClick = vi.fn();
+    render(
+      <table>
+        <tbody>
+          <TableRow clickable onClick={onClick}>
+            <td>row</td>
+          </TableRow>
+        </tbody>
+      </table>,
+    );
+    const row = screen.getByRole("row");
+    expect(row).toHaveAttribute("tabindex", "0");
+    fireEvent.keyDown(row, { key: "Enter" });
+    expect(onClick).toHaveBeenCalledTimes(1);
+  });
+
   it("SkeletonRows fills a loading table", () => {
     render(
       <table>

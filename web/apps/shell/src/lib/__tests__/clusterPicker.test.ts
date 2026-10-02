@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { shouldRedirectToPicker } from "../clusterPickerLogic";
+import { shouldRedirectToPicker, resolveActiveCluster } from "../clusterPickerLogic";
 
 // Regression: the app was unconditionally redirecting to /clusters on every
 // mount, even when the user already had an active cluster. This caused the
@@ -34,3 +34,15 @@ describe("shouldRedirectToPicker", () => {
     expect(shouldRedirectToPicker("/", "staging")).toBe(false);
   });
 });
+
+// The app used to fall back from "no active cluster" to the first reachable
+// one and stream it, so disconnecting the active cluster reconnected at once
+// and launching streamed a cluster nobody picked.
+describe("resolveActiveCluster", () => {
+  it("is only ever a cluster the user chose", () => {
+    expect(resolveActiveCluster("", "")).toBe("");
+    expect(resolveActiveCluster("", "prod")).toBe("prod");
+    expect(resolveActiveCluster("dev", "prod")).toBe("dev");
+  });
+});
+
