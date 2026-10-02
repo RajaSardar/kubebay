@@ -51,7 +51,6 @@ const CreateResource = lazy(() => import("./pages/CreateResource"));
 const AuditLog = lazy(() => import("./pages/AuditLog"));
 const RightSizing = lazy(() => import("./pages/RightSizing"));
 const CostWaste = lazy(() => import("./pages/CostWaste"));
-const Fleet = lazy(() => import("./pages/Fleet"));
 const Karpenter = lazy(() => import("./pages/Karpenter"));
 const Keda = lazy(() => import("./pages/Keda"));
 const UpgradeReadiness = lazy(() => import("./pages/UpgradeReadiness"));
@@ -206,7 +205,6 @@ const TOOLS = [
   { to: "/rbac", label: "RBAC", icon: <IconShield /> },
   { to: "/right-sizing", label: "Right-sizing", icon: <IconLayers /> },
   { to: "/cost-waste", label: "Cost / Waste", icon: <IconDatabase /> },
-  { to: "/fleet", label: "Fleet", icon: <IconTopology /> },
   { to: "/karpenter", label: "Karpenter", icon: <IconTopology /> },
   { to: "/keda", label: "KEDA", icon: <IconLayers /> },
   { to: "/upgrade-readiness", label: "Upgrade Readiness", icon: <IconShield /> },
@@ -611,7 +609,7 @@ function AppInner() {
               <Route path="/rbac" element={<Rbac />} />
               <Route path="/right-sizing" element={<RightSizing />} />
               <Route path="/cost-waste" element={<CostWaste />} />
-              <Route path="/fleet" element={<Fleet />} />
+              <Route path="/fleet" element={<Navigate to="/clusters" replace />} />
               <Route path="/karpenter" element={<Karpenter />} />
               <Route path="/keda" element={<Keda />} />
               <Route path="/upgrade-readiness" element={<UpgradeReadiness />} />
