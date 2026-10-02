@@ -4,6 +4,7 @@ import {
   useRef,
   type CSSProperties,
   type HTMLAttributes,
+  type KeyboardEvent,
   type MouseEvent,
   type ReactNode,
   type TableHTMLAttributes,
@@ -204,6 +205,19 @@ export const TableRow = forwardRef<HTMLTableRowElement, TableRowProps>(function 
   ref,
 ) {
   const cls = [clickable && "row-clickable", selected && "selected", hovered && "hovered", className].filter(Boolean).join(" ");
+  // A clickable row is a control: reachable with Tab and opened with Enter.
+  const keyboard = clickable && props.onClick
+    ? {
+        tabIndex: props.tabIndex ?? 0,
+        onKeyDown: (e: KeyboardEvent<HTMLTableRowElement>) => {
+          props.onKeyDown?.(e);
+          if (!e.defaultPrevented && e.key === "Enter" && e.target === e.currentTarget) {
+            e.preventDefault();
+            e.currentTarget.click();
+          }
+        },
+      }
+    : {};
   return (
     <tr
       ref={ref}
@@ -211,6 +225,7 @@ export const TableRow = forwardRef<HTMLTableRowElement, TableRowProps>(function 
       data-terminating={dimmed || undefined}
       data-changed={changed || undefined}
       {...props}
+      {...keyboard}
     />
   );
 });

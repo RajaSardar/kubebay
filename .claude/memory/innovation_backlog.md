@@ -1021,7 +1021,7 @@ Findings joined into prioritised chains instead of a flat list. Built on what al
   - Keeping partial chains was a judgement call. An exposed pod with a cluster-wide-secrets token is worth seeing even with no CVE scanner installed.
 - **Next slices.** Ingress-controller-aware isolation (is the controller's namespace allowed?), Secret reachability (which Secrets the token can read), a hostPath/privileged-pod step, and Gateway API HTTPRoutes as entries.
 
-### 51. Clusters page redesign — status: building (2a engine shipped in PR; 2b UI next)
+### 51. Clusters page redesign — status: building (2a engine and 2b UI in PRs)
 The owner asked to audit the cluster list, remove its drawer, show which clusters are connected, add Disconnect to the row menu, and add visualisations only if they earn their place. Three experts (UX, frontend/engine correctness, SRE/data-viz) reported, then a synthesis round cross-challenged them.
 
 **Rulings:**
@@ -1045,6 +1045,20 @@ The owner asked to audit the cluster list, remove its drawer, show which cluster
 - `POST /api/clusters/{id}/connect` and `/disconnect`. Disconnect is desktop-only; it returns 403 when OIDC is on.
 - `PFManager.StopCluster`, wired with `TeardownOnDisconnect`.
 - `waste.Sampler.SetGate`.
+
+**2b (UI):** `ClusterPicker` rebuilt with no drawer.
+- **Layout:** header summary ("N connected · N reachable · …") and a "Disconnect all" button. Columns are Name (with a provider badge), Session (Active / Connected / Error / —), API (Reachable / Unreachable / Config error / Checking…, with error and "checked Ns ago" in the tooltip), Version ("(stale)" when unreachable), a Pods health mini-bar and Nodes (connected rows only).
+- **Opening:** a row click or Enter opens the cluster. A config-error row expands its error instead.
+- **⋮ menu:** Open, Connect in background / Disconnect, Pin, Rename… (inline), Change icon…, Copy context, Copy server URL, Remove from list… (confirm `Modal`).
+- **Disconnect:** drops the background subscriptions and cached rows, removes that cluster's queries, calls the engine, and clears it as the active cluster.
+- **States:** an error banner with Retry, an empty state linking to Settings, and real engine health in the status bar.
+- **Removed:** `ClusterDetailDrawer`, the store's `selected` field, the dead History/Favorites sidebar, and raw buttons.
+- **Supporting changes:**
+  - `clusterConnections` is observable (`subscribeConnections`, version, `connectionError`, `clusterSummary`).
+  - `sortClusters` no longer reorders by last use.
+  - Search also matches context and server.
+  - `TableRow` is keyboard-reachable when clickable.
+- **"First reachable cluster" fallbacks removed:** App, ClusterStrip, Sidebar, the Custom Resources group and the palette's live pods now all use the opened cluster. Guarded by `activeCluster.test.ts`.
 
 **Follow-ups:**
 - rename the wire status `connected` to `reachable`;
