@@ -21,6 +21,9 @@ import { NeedsAttention } from "../components/NeedsAttention";
 import { findAttention } from "../lib/attention";
 import { CapacityLine } from "../components/CapacityLine";
 import { clusterCapacity } from "../lib/capacity";
+import { HealthVerdictLine } from "../components/HealthVerdictLine";
+import { healthVerdict, warningTrend } from "../lib/verdict";
+import { useSelectedNamespaces } from "../lib/namespace-store";
 import { detectGatewayApi, resolveHttpRoutes, resolveIngressRoutes } from "../lib/routeResolution";
 
 function useKindCounts(
@@ -65,6 +68,13 @@ export default function WorkloadsOverview() {
   // instead of opening a second subscription for the same GVR+mode.
   const deployments = useResourceStream(effectiveCluster || undefined, "apps/v1/deployments", { mode: "full" });
   const statefulSets = useResourceStream(effectiveCluster || undefined, "apps/v1/statefulsets", { mode: "full" });
+
+  // Overview v2's verdict reads the last hour of warnings for its direction.
+  const events = useResourceStream(effectiveCluster || undefined, "v1/events", { mode: "full", enabled: tab === "overview" });
+  // Your namespaces (the namespace filter's pick) are judged first; one click shows the rest.
+  const selectedNs = useSelectedNamespaces(effectiveCluster || undefined);
+  const [showAllNs, setShowAllNs] = useState(false);
+  const scope = useMemo(() => (showAllNs ? [] : selectedNs), [showAllNs, selectedNs]);
 
   const { kinds, synced, daemonSets } = useKindCounts(pods, nodes, deployments, statefulSets, effectiveCluster || undefined);
 
@@ -158,6 +168,15 @@ export default function WorkloadsOverview() {
     () => clusterCapacity({ pods: pressureInputs.pods, nodes: pressureInputs.nodes, usage: pressureInputs.usage }),
     [pressureInputs],
   );
+  const verdict = useMemo(
+    () => healthVerdict({ attention: attention.rows, pods: attentionInputs.pods, capacity, scope }),
+    [attention.rows, attentionInputs.pods, capacity, scope],
+  );
+  const attentionShown = useMemo(
+    () => (scope.length ? attention.rows.filter((r) => scope.includes(r.namespace)) : attention.rows),
+    [attention.rows, scope],
+  );
+  const trend = useMemo(() => warningTrend(events.rows), [events.rows]);
 
   const serviceMismatches = useMemo(
     () => findServiceSelectorMismatches(services.rows, pods.rows, endpointSlices.rows),
@@ -235,7 +254,8 @@ export default function WorkloadsOverview() {
         </div>
       ) : (
         <Stack gap={5}>
-        <NeedsAttention rows={attention.rows} checkedAt={attention.at} capacity={capacity} />
+        <HealthVerdictLine verdict={verdict} trend={trend} scope={selectedNs} showingAll={showAllNs} onToggleScope={() => setShowAllNs((v) => !v)} />
+        <NeedsAttention rows={attentionShown} checkedAt={attention.at} capacity={capacity} />
         <div className="cluster-grid">
           {kinds.map((k) => (
             <Card key={k.label} interactive className="fleet-card">

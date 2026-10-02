@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import WorkloadsOverview from "../WorkloadsOverview";
@@ -10,6 +10,7 @@ import WorkloadsOverview from "../WorkloadsOverview";
 const now = new Date().toISOString();
 type Obj = Record<string, unknown>;
 let streams: Record<string, Obj[]> = {};
+let selectedNs: string[] = [];
 
 vi.mock("../../lib/useCluster", () => ({
   useCluster: () => ({ cluster: "c1", setCluster: vi.fn(), list: [{ id: "c1" }], isLoading: false }),
@@ -17,6 +18,10 @@ vi.mock("../../lib/useCluster", () => ({
 vi.mock("../../lib/api", async (orig) => ({
   ...(await orig<typeof import("../../lib/api")>()),
   crdApi: { list: vi.fn(async () => []) },
+}));
+vi.mock("../../lib/namespace-store", async (orig) => ({
+  ...(await orig<typeof import("../../lib/namespace-store")>()),
+  useSelectedNamespaces: () => selectedNs,
 }));
 vi.mock("../../lib/useResourceStream", () => ({
   useResourceStream: (_c: string, gvr: string) => ({ rows: streams[gvr] ?? [], synced: true }),
@@ -44,6 +49,7 @@ function renderPage() {
 
 describe("Overview v2", () => {
   beforeEach(() => {
+    selectedNs = [];
     streams = {
       "v1/pods": [crashing("api-7f9-a")],
       "apps/v1/deployments": [{ metadata: { name: "api", namespace: "shop" }, spec: { replicas: 2, selector: { matchLabels: { app: "api" } } }, status: { readyReplicas: 1 } }],
@@ -77,5 +83,22 @@ describe("Overview v2", () => {
     renderPage();
     const section = screen.getByRole("region", { name: "Capacity" });
     expect(within(section).getByText("CPU 25% · memory 25% requested of allocatable")).toBeInTheDocument();
+  });
+
+  it("opens with the verdict: word, count with denominator, worst workload", () => {
+    renderPage();
+    const region = screen.getByRole("region", { name: "Cluster health" });
+    expect(within(region).getByText("Failing")).toBeInTheDocument();
+    expect(within(region).getByText("1 of 1 pods need attention · shop/api: Keeps crashing on start")).toBeInTheDocument();
+  });
+
+  it("judges your namespaces and offers the rest with one click", () => {
+    selectedNs = ["pay"];
+    renderPage();
+    const region = screen.getByRole("region", { name: "Cluster health" });
+    expect(within(region).getByText("Healthy")).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: /Needs attention/ })).getByText("Nothing needs attention")).toBeInTheDocument();
+    fireEvent.click(within(region).getByRole("button", { name: "+1 outside your namespaces" }));
+    expect(within(screen.getByRole("region", { name: /Needs attention/ })).getByText("api")).toBeInTheDocument();
   });
 });
