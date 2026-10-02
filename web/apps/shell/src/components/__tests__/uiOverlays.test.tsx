@@ -159,3 +159,10 @@ describe("Modal", () => {
     expect(css).toMatch(/\.kb-modal\.center\s*\{[^}]*position:\s*fixed/);
   });
 });
+
+describe("Modal size", () => {
+  it("wide gives a centred dialog room for a form with paths (560px instead of 360px)", () => {
+    render(<Modal label="Wide" placement="center" size="wide" onClose={() => {}}><p>x</p></Modal>);
+    expect(screen.getByRole("dialog", { name: "Wide" })).toHaveClass("kb-modal", "center", "wide");
+  });
+});

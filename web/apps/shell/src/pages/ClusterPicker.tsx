@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { api } from "../lib/api";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { api, settingsApi } from "../lib/api";
 import type { ClusterInfo } from "../lib/api";
 import { useClusterMeta } from "../lib/cluster-meta-store";
 import { useClusterIcons } from "../lib/useClusterIcons";
@@ -10,9 +10,11 @@ import { sortClusters, filterClusters } from "../lib/clusterSort";
 import { connectCluster as bgConnect } from "../lib/clusterConnections";
 import { ClusterIconPicker, autoAvatar, avatarLabelColor } from "../components/ClusterIconPicker";
 import { ClusterDetailDrawer } from "../components/ClusterDetailDrawer";
+import { KubeconfigSources } from "../components/KubeconfigSources";
+import ConfigurePrometheusModal from "../components/ConfigurePrometheusModal";
 import { providerBadge, clusterDisplayName } from "../lib/clusterDistro";
 import { useResizableColumns } from "../lib/useResizableColumns";
-import { Badge, ContextMenu, EmptyState, IconButton, KubebayMark, SkeletonRows, StatusDot, StatusPill, Table, TableRow, TableWrap, TextField, type StatusTone } from "@kubebay/ui";
+import { Badge, Button, ContextMenu, EmptyState, Modal, Row, Stack, IconButton, KubebayMark, SkeletonRows, StatusDot, StatusPill, Table, TableRow, TableWrap, TextField, type StatusTone } from "@kubebay/ui";
 
 const APP_VERSION = "v0.2.0";
 
@@ -102,6 +104,19 @@ export default function ClusterPicker() {
   const list = clusters.data ?? [];
 
   const [query, setQuery] = useState("");
+  // Kubeconfig files are managed here, next to the clusters they bring in;
+  // Settings links to /clusters?kubeconfig=1.
+  const [sp, setSp] = useSearchParams();
+  const kubeconfigOpen = sp.get("kubeconfig") === "1";
+  const setKubeconfigOpen = (open: boolean) => {
+    const next = new URLSearchParams(sp);
+    if (open) next.set("kubeconfig", "1");
+    else next.delete("kubeconfig");
+    setSp(next, { replace: true });
+  };
+  const settings = useQuery({ queryKey: ["settings"], queryFn: settingsApi.get });
+  const qc = useQueryClient();
+  const [promFor, setPromFor] = useState<string | null>(null);
   const [iconPickerId, setIconPickerId] = useState<string | null>(null);
 
   const { widths, getResizeHandleProps } = useResizableColumns(
@@ -173,6 +188,11 @@ export default function ClusterPicker() {
             Cluster Catalog
             <span className="catalog-titlebar-count">· {list.length} cluster{list.length !== 1 ? "s" : ""}</span>
           </span>
+          <span style={{ marginLeft: "auto" }}>
+            <Button variant="ghost" onClick={() => setKubeconfigOpen(true)}>
+              Add kubeconfig
+            </Button>
+          </span>
         </div>
 
         {/* Search */}
@@ -191,7 +211,7 @@ export default function ClusterPicker() {
           {clusters.isSuccess && sorted.length === 0 ? (
             <EmptyState
               title={query ? `No clusters match "${query}".` : "No clusters found in kubeconfig."}
-              hint={query ? "Loosen the search." : "Add a kubeconfig source in Settings."}
+              hint={query ? "Loosen the search." : "Add a kubeconfig file to see its clusters."}
             />
           ) : (
           <TableWrap>
@@ -295,6 +315,8 @@ export default function ClusterPicker() {
                 onChangeIcon={() => setIconPickerId(drawerCluster.id)}
                 onTogglePin={() => togglePin(drawerCluster.id)}
                 onRemove={() => { hide(drawerCluster.id); closeDrawer(); }}
+                prometheus={{ url: settings.data?.prometheusUrls?.[drawerCluster.id], fallback: settings.data?.prometheusUrl }}
+                onConfigurePrometheus={() => setPromFor(drawerCluster.id)}
               />
             );
           })()}
@@ -330,6 +352,25 @@ export default function ClusterPicker() {
           <span className="catalog-statusbar-version">{APP_VERSION}</span>
         </div>
       </div>
+
+      {kubeconfigOpen && (
+        <Modal label="Kubeconfig sources" placement="center" size="wide" onClose={() => setKubeconfigOpen(false)}>
+          <Stack gap={3}>
+            <Row align="center" justify="between">
+              <strong>Kubeconfig sources</strong>
+              <IconButton label="Close" onClick={() => setKubeconfigOpen(false)}>×</IconButton>
+            </Row>
+            <KubeconfigSources />
+          </Stack>
+        </Modal>
+      )}
+      {promFor && (
+        <ConfigurePrometheusModal
+          cluster={promFor}
+          onClose={() => setPromFor(null)}
+          onSaved={() => void qc.invalidateQueries({ queryKey: ["settings"] })}
+        />
+      )}
 
       {/* Icon picker overlay */}
       {iconPickerId && (() => {

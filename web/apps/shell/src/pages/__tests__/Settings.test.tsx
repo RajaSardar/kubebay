@@ -23,7 +23,7 @@ vi.mock("../../lib/display", () => ({
 
 const { useResourceStream } = await import("../../lib/useResourceStream");
 
-describe("PrometheusSettings datalist (Slice 4)", () => {
+describe("Settings: app-wide settings only", () => {
   let qc: QueryClient;
 
   beforeEach(() => {
@@ -47,72 +47,23 @@ describe("PrometheusSettings datalist (Slice 4)", () => {
     );
   }
 
-  it("shows no datalist when Default target is selected", async () => {
+  it("sets only the default Prometheus URL; each cluster's own URL lives in its details", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.settingsApi.save).mockResolvedValue(undefined as never);
     renderSettings();
-    await waitFor(() => {
-      expect(screen.getByRole("combobox", { name: /Prometheus target/i })).toBeTruthy();
-    });
-    // Default option selected — no datalist options for Prometheus candidates
-    const datalist = document.getElementById("prom-candidates");
-    expect(datalist).toBeNull();
+    expect(await screen.findByText(/Each cluster's own URL is set in its details on the Clusters page/)).toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: /Prometheus target/i })).not.toBeInTheDocument();
+    const field = screen.getByRole("textbox", { name: "Default Prometheus URL" });
+    await user.type(field, "http://localhost:9090");
+    await user.click(screen.getByRole("button", { name: "Save default Prometheus URL" }));
+    await waitFor(() => expect(api.settingsApi.save).toHaveBeenCalledWith(expect.objectContaining({ prometheusUrl: "http://localhost:9090" })));
   });
 
-  it("shows datalist options when a cluster is selected and services contain a Prometheus svc", async () => {
-    const user = userEvent.setup();
-    const promService = {
-      metadata: { name: "prometheus-server", namespace: "monitoring", labels: {} },
-      spec: { ports: [{ port: 9090 }] },
-    };
-
-    vi.mocked(useResourceStream).mockReturnValue({
-      rows: [promService],
-      synced: true,
-      connected: true,
-    });
-
+  it("points to the Clusters page for kubeconfig files instead of managing them here", async () => {
     renderSettings();
-
-    await waitFor(() => {
-      expect(screen.getByRole("combobox", { name: /Prometheus target/i })).toBeTruthy();
-    });
-
-    // Select the cluster
-    const select = screen.getByRole("combobox", { name: /Prometheus target/i });
-    await user.selectOptions(select, "kind-test");
-
-    await waitFor(() => {
-      const datalist = document.getElementById("prom-candidates");
-      expect(datalist).toBeTruthy();
-      expect(datalist!.querySelectorAll("option").length).toBeGreaterThan(0);
-    });
-  });
-
-  it("datalist option value is the localhost URL (not in-cluster DNS)", async () => {
-    const user = userEvent.setup();
-    const promService = {
-      metadata: { name: "prometheus-server", namespace: "monitoring", labels: {} },
-      spec: { ports: [{ port: 9090 }] },
-    };
-
-    vi.mocked(useResourceStream).mockReturnValue({
-      rows: [promService],
-      synced: true,
-      connected: true,
-    });
-
-    renderSettings();
-
-    await waitFor(() => screen.getByRole("combobox", { name: /Prometheus target/i }));
-
-    const select = screen.getByRole("combobox", { name: /Prometheus target/i });
-    await user.selectOptions(select, "kind-test");
-
-    await waitFor(() => {
-      const datalist = document.getElementById("prom-candidates");
-      const option = datalist?.querySelector("option");
-      expect(option?.value).toBe("http://localhost:9090");
-      expect(option?.value).not.toMatch(/\.svc/);
-    });
+    const link = await screen.findByRole("link", { name: "Manage kubeconfig files" });
+    expect(link).toHaveAttribute("href", "/clusters?kubeconfig=1");
+    expect(screen.queryByRole("button", { name: "Add file" })).not.toBeInTheDocument();
   });
 
   it("shows the Usage history card listing clusters with history consent", async () => {

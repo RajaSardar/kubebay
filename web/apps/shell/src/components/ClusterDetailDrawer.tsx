@@ -1,6 +1,6 @@
 import { avatarLabelColor } from "./ClusterIconPicker";
-import { useState, useRef, useEffect } from "react";
-import { Badge, Button, IconButton, StatusDot } from "@kubebay/ui";
+import { useState, useRef, useEffect, useId } from "react";
+import { Badge, Button, IconButton, Stack, StatusDot } from "@kubebay/ui";
 import type { ClusterInfo } from "../lib/api";
 import type { ClusterMeta } from "../lib/cluster-meta-store";
 import { detectDistro } from "../lib/clusterDistro";
@@ -16,12 +16,18 @@ interface Props {
   onChangeIcon: () => void;
   onTogglePin: () => void;
   onRemove: () => void;
+  /** This cluster's own Prometheus URL, and the default it falls back to. */
+  prometheus?: { url?: string; fallback?: string };
+  /** Opens the Prometheus set-up for this cluster; the section shows only with it. */
+  onConfigurePrometheus?: () => void;
 }
 
 export function ClusterDetailDrawer({
   cluster, meta, icon, isActive,
   onConnect, onClose, onRename, onChangeIcon, onTogglePin, onRemove,
+  prometheus, onConfigurePrometheus,
 }: Props) {
+  const settingsId = useId();
   const [editingName, setEditingName] = useState(false);
   const [draftAlias, setDraftAlias] = useState(meta.alias ?? "");
   const [confirming, setConfirming] = useState(false);
@@ -155,6 +161,28 @@ export function ClusterDetailDrawer({
             {meta.pinned ? "★ Unpin" : "☆ Pin to top"}
           </Button>
         </div>
+
+        {/* This cluster's own settings */}
+        {onConfigurePrometheus && (
+          <section aria-labelledby={settingsId}>
+            <Stack gap={2}>
+              <strong id={settingsId} className="small">Settings for this cluster</strong>
+              <dl className="cluster-drawer-meta">
+                <dt>Prometheus</dt>
+                <dd className="mono small" title={prometheus?.url || prometheus?.fallback || undefined}>
+                  {prometheus?.url
+                    ? prometheus.url
+                    : prometheus?.fallback
+                      ? `Default · ${prometheus.fallback}`
+                      : "Not set"}
+                </dd>
+              </dl>
+              <Button variant="ghost" onClick={onConfigurePrometheus}>
+                Configure Prometheus
+              </Button>
+            </Stack>
+          </section>
+        )}
 
         {/* Danger zone */}
         <div className="cluster-drawer-danger-zone">
