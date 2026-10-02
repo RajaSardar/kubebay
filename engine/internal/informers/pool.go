@@ -52,6 +52,8 @@ type Pool struct {
 	md      metadata.Interface
 	mu      sync.Mutex
 	entries map[poolKey]*entry
+	closed  bool
+	done    chan struct{}
 }
 
 type Subscription struct {
@@ -95,7 +97,7 @@ func New(restCfg *rest.Config) (*Pool, error) {
 	if err != nil {
 		return nil, err
 	}
-	p := &Pool{dyn: dyn, md: md, entries: map[poolKey]*entry{}}
+	p := &Pool{dyn: dyn, md: md, entries: map[poolKey]*entry{}, done: make(chan struct{})}
 	go p.sweeper()
 	return p, nil
 }
@@ -121,6 +123,7 @@ func (p *Pool) Subscribe(ctx context.Context, gvrStr string, namespaces []string
 	for _, ns := range nsList {
 		e, err := p.entryFor(poolKey{gvr: gvr, namespace: ns, selector: selector, mode: mode})
 		if err != nil {
+			p.unsubscribe(sub)
 			return nil, err
 		}
 		e.mu.Lock()
@@ -138,6 +141,40 @@ func (p *Pool) Subscribe(ctx context.Context, gvrStr string, namespaces []string
 		p.unsubscribe(sub)
 	}()
 	return sub, nil
+}
+
+// Close stops every informer in the pool and ends every open subscription,
+// whose Deltas channel then closes. A closed pool refuses new subscriptions.
+func (p *Pool) Close() {
+	p.mu.Lock()
+	if p.closed {
+		p.mu.Unlock()
+		return
+	}
+	p.closed = true
+	close(p.done)
+	entries := p.entries
+	p.entries = map[poolKey]*entry{}
+	p.mu.Unlock()
+	for _, e := range entries {
+		e.mu.RLock()
+		subs := make([]*Subscription, 0, len(e.subs))
+		for s := range e.subs {
+			subs = append(subs, s)
+		}
+		e.mu.RUnlock()
+		for _, s := range subs {
+			p.unsubscribe(s)
+		}
+		close(e.stop)
+	}
+}
+
+// Closed reports whether Close was called.
+func (p *Pool) Closed() bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.closed
 }
 
 func (p *Pool) unsubscribe(sub *Subscription) {
@@ -158,6 +195,9 @@ func (p *Pool) unsubscribe(sub *Subscription) {
 func (p *Pool) entryFor(key poolKey) (*entry, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	if p.closed {
+		return nil, fmt.Errorf("cluster disconnected")
+	}
 	if e, ok := p.entries[key]; ok {
 		return e, nil
 	}
@@ -292,7 +332,12 @@ func (e *entry) deliverSnapshot(sub *Subscription) {
 func (p *Pool) sweeper() {
 	t := time.NewTicker(sweepEvery)
 	defer t.Stop()
-	for range t.C {
+	for {
+		select {
+		case <-p.done:
+			return
+		case <-t.C:
+		}
 		now := time.Now()
 		p.mu.Lock()
 		for k, e := range p.entries {

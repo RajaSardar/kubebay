@@ -1021,5 +1021,41 @@ Findings joined into prioritised chains instead of a flat list. Built on what al
   - Keeping partial chains was a judgement call. An exposed pod with a cluster-wide-secrets token is worth seeing even with no CVE scanner installed.
 - **Next slices.** Ingress-controller-aware isolation (is the controller's namespace allowed?), Secret reachability (which Secrets the token can read), a hostPath/privileged-pod step, and Gateway API HTTPRoutes as entries.
 
+### 51. Clusters page redesign — status: building (2a engine shipped in PR; 2b UI next)
+The owner asked to audit the cluster list, remove its drawer, show which clusters are connected, add Disconnect to the row menu, and add visualisations only if they earn their place. Three experts (UX, frontend/engine correctness, SRE/data-viz) reported, then a synthesis round cross-challenged them.
+
+**Rulings:**
+- **No latency badge.** Each probe builds a new clientset and runs exec-credential plugins, so the number would measure token fetching. Show `checkedAt` freshness instead.
+- **Disconnect needs engine teardown.** Informers outlive their last subscriber by 5 minutes, and pools never died. Also, `App.tsx` falls back from a missing active cluster to the first reachable one, which instantly reconnects; fix that in 2b.
+- **Sampler gate.** Sample only clusters that are connected or enrolled in usage history. History keeps filling, and unopened production contexts get no LIST traffic.
+- **One table, two status columns.** Session and API, with a stable order, instead of moving rows between sections.
+- **Pod mini-bar on connected rows only** (zero new traffic). The sparkline and headroom bar wait for follow-ups.
+
+**2a (engine):**
+- `clusters.Manager`:
+  - a connected set: `Connect`, `Disconnect`, `IsConnected`, `OnDisconnect`;
+  - `Cluster.connected` and `checkedAt`;
+  - a `checking` status until the first probe;
+  - probe results kept across kubeconfig reloads;
+  - sorted, stable order;
+  - a race-free probe (writes under the lock), and an immediate probe after a load.
+- `PoolRegistry.Close(id)` / `Pool.Close` stop every informer and subscription for the cluster, including impersonated pools, and stop the sweeper.
+- When the engine closes a stream, the hub sends a `cluster disconnected` error frame.
+- Opening a stream connects the cluster.
+- `POST /api/clusters/{id}/connect` and `/disconnect`. Disconnect is desktop-only; it returns 403 when OIDC is on.
+- `PFManager.StopCluster`, wired with `TeardownOnDisconnect`.
+- `waste.Sampler.SetGate`.
+
+**Follow-ups:**
+- rename the wire status `connected` to `reachable`;
+- batched `/api/history/summary` plus a 7-day sparkline;
+- allocatable and node count in the sampler, plus a headroom bar;
+- OIDC identity in `PoolRegistry.For`;
+- rebuild pools when credentials change;
+- `sanitizeID` collisions;
+- watcher misses the explicit kubeconfig path;
+- multi-window disconnect;
+- a "Last connected" column.
+
 ### Further ideas worth a look (unscoped, one-liners)
 - **Revert unsaved YAML edits — SHIPPED 2026-09-27.** One-click "discard my in-progress edit" button in `YamlTab.tsx`, next to Reload — a local reset (no network call), unlike Reload which re-fetches from the server.
