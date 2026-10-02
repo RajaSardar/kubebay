@@ -26,7 +26,7 @@ vi.mock("../../lib/useResourceStream", () => ({
 function crashing(name: string): Obj {
   return {
     metadata: { name, namespace: "shop", creationTimestamp: now, labels: { "pod-template-hash": "7f9" }, ownerReferences: [{ kind: "ReplicaSet", name: "api-7f9", controller: true }] },
-    spec: { containers: [{ name: "api" }], nodeName: "n1" },
+    spec: { containers: [{ name: "api", resources: { requests: { cpu: "1", memory: "2Gi" } } }], nodeName: "n1" },
     status: { phase: "Running", containerStatuses: [{ name: "api", ready: false, restartCount: 4, state: { waiting: { reason: "CrashLoopBackOff" } } }] },
   };
 }
@@ -47,7 +47,7 @@ describe("Overview v2", () => {
     streams = {
       "v1/pods": [crashing("api-7f9-a")],
       "apps/v1/deployments": [{ metadata: { name: "api", namespace: "shop" }, spec: { replicas: 2, selector: { matchLabels: { app: "api" } } }, status: { readyReplicas: 1 } }],
-      "v1/nodes": [{ metadata: { name: "n1" }, status: { conditions: [{ type: "Ready", status: "True" }] } }],
+      "v1/nodes": [{ metadata: { name: "n1" }, spec: {}, status: { allocatable: { cpu: "4", memory: "8Gi" }, conditions: [{ type: "Ready", status: "True" }] } }],
     };
   });
 
@@ -71,5 +71,11 @@ describe("Overview v2", () => {
     streams["apps/v1/deployments"] = [];
     renderPage();
     expect(within(screen.getByRole("region", { name: /Needs attention/ })).getByText("Nothing needs attention")).toBeInTheDocument();
+  });
+
+  it("ends with how much of the cluster is requested", () => {
+    renderPage();
+    const section = screen.getByRole("region", { name: "Capacity" });
+    expect(within(section).getByText("CPU 25% · memory 25% requested of allocatable")).toBeInTheDocument();
   });
 });

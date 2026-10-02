@@ -67,6 +67,19 @@ describe("NeedsAttention", () => {
     expect(within(quota).getByText("MinimumReplicasUnavailable")).toBeInTheDocument();
   });
 
+  it("says how full the cluster is on a row that can't find room", () => {
+    render(
+      <MemoryRouter>
+        <NeedsAttention
+          rows={[{ ...api, code: "Unschedulable", plain: "Can't find room to start", restarts: 0 }]}
+          checkedAt={NOW}
+          capacity={{ cpu: { requested: 1, allocatable: 4, pct: 25, over: false }, memory: { requested: 3, allocatable: 4, pct: 94, over: true } }}
+        />
+      </MemoryRouter>,
+    );
+    expect(within(screen.getByText("api").closest("tr")!).getByText("Cluster: CPU 25% · memory 94% requested")).toBeInTheDocument();
+  });
+
   it("is calm when nothing is broken: a check, the words, and when it last checked", () => {
     renderIt([], Date.parse("2026-10-02T09:15:30"));
     const section = screen.getByRole("region", { name: /Needs attention/ });

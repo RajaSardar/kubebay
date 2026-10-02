@@ -19,6 +19,8 @@ import { checkCoreDns } from "../lib/coreDnsHealth";
 import { RouteResolutionList } from "../components/RouteResolutionList";
 import { NeedsAttention } from "../components/NeedsAttention";
 import { findAttention } from "../lib/attention";
+import { CapacityLine } from "../components/CapacityLine";
+import { clusterCapacity } from "../lib/capacity";
 import { detectGatewayApi, resolveHttpRoutes, resolveIngressRoutes } from "../lib/routeResolution";
 
 function useKindCounts(
@@ -126,7 +128,8 @@ export default function WorkloadsOverview() {
   const podMetricsQ = useRQQuery({
     queryKey: ["podmetrics", effectiveCluster],
     queryFn: () => api.podMetrics(effectiveCluster),
-    enabled: !!effectiveCluster && tab === "pressure",
+    // Pressure needs it; the Overview's capacity line adds a "used" layer with it.
+    enabled: !!effectiveCluster && (tab === "pressure" || tab === "overview"),
     refetchInterval: 15_000,
     retry: false,
   });
@@ -151,6 +154,10 @@ export default function WorkloadsOverview() {
     2000,
   );
   const attention = useMemo(() => ({ rows: findAttention(attentionInputs), at: Date.now() }), [attentionInputs]);
+  const capacity = useMemo(
+    () => clusterCapacity({ pods: pressureInputs.pods, nodes: pressureInputs.nodes, usage: pressureInputs.usage }),
+    [pressureInputs],
+  );
 
   const serviceMismatches = useMemo(
     () => findServiceSelectorMismatches(services.rows, pods.rows, endpointSlices.rows),
@@ -228,7 +235,7 @@ export default function WorkloadsOverview() {
         </div>
       ) : (
         <Stack gap={5}>
-        <NeedsAttention rows={attention.rows} checkedAt={attention.at} />
+        <NeedsAttention rows={attention.rows} checkedAt={attention.at} capacity={capacity} />
         <div className="cluster-grid">
           {kinds.map((k) => (
             <Card key={k.label} interactive className="fleet-card">
@@ -260,6 +267,7 @@ export default function WorkloadsOverview() {
             </Card>
           ))}
         </div>
+        <CapacityLine capacity={capacity} />
         </Stack>
       )}
       </div>
