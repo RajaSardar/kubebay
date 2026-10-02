@@ -1,14 +1,18 @@
 import { create } from "zustand";
 
-export type FontSize = "xs" | "sm" | "md" | "lg";
+export type FontSize = "sm" | "md" | "lg" | "xl";
 export type FontFamily = "system" | "mono" | "jetbrains";
 export type Density = "compact" | "default" | "relaxed";
 
-const FONT_SIZE_VALUES: Record<FontSize, string> = {
-  xs: "11px",
-  sm: "12px",
-  md: "13px",
-  lg: "14px",
+// Every font size in the app is one of the --kb-text-* tokens, so a size
+// setting sets them all: whole pixels only (half pixels render fuzzy). M is
+// the default and matches Lens and Freelens: 14px body, 12px small print.
+const TEXT_STEPS = ["2xs", "xs", "sm", "md", "lg", "xl", "2xl"] as const;
+export const TYPE_SCALE: Record<FontSize, readonly number[]> = {
+  sm: [10, 11, 12, 13, 15, 18, 28],
+  md: [11, 12, 13, 14, 16, 20, 30],
+  lg: [12, 13, 14, 15, 17, 21, 32],
+  xl: [13, 14, 15, 16, 18, 22, 34],
 };
 
 const FONT_FAMILY_VALUES: Record<FontFamily, string> = {
@@ -34,10 +38,18 @@ export const ROW_HEIGHT: Record<Density, number> = {
   relaxed: 51,
 };
 
+// Table text follows the font size: a step below body when compact, a step above when relaxed.
 const TABLE_FONT_SIZE_VALUES: Record<Density, string> = {
-  compact: "12px",
-  default: "13px",
-  relaxed: "14px",
+  compact: "var(--kb-text-sm)",
+  default: "var(--kb-text-md)",
+  relaxed: "var(--kb-text-lg)",
+};
+
+// Monospace runs wide, so names, IPs and ages sit a step below the table's text.
+const TABLE_MONO_FONT_SIZE_VALUES: Record<Density, string> = {
+  compact: "var(--kb-text-xs)",
+  default: "var(--kb-text-sm)",
+  relaxed: "var(--kb-text-md)",
 };
 
 interface DisplayState {
@@ -51,14 +63,22 @@ interface DisplayState {
 
 function applyDisplay(s: Pick<DisplayState, "fontSize" | "fontFamily" | "density">) {
   const root = document.documentElement;
-  root.style.setProperty("font-size", FONT_SIZE_VALUES[s.fontSize]);
+  TYPE_SCALE[s.fontSize].forEach((px, i) => root.style.setProperty(`--kb-text-${TEXT_STEPS[i]}`, `${px}px`));
   root.style.setProperty("--kb-font", FONT_FAMILY_VALUES[s.fontFamily]);
   root.style.setProperty("--kb-row-padding", ROW_PADDING_VALUES[s.density]);
   root.style.setProperty("--kb-table-font-size", TABLE_FONT_SIZE_VALUES[s.density]);
+  root.style.setProperty("--kb-table-mono-font-size", TABLE_MONO_FONT_SIZE_VALUES[s.density]);
+}
+
+/** A saved size, including the old XS–L scale (xs was the smallest, so it reads as S). */
+function savedFontSize(): FontSize {
+  const v = localStorage.getItem("kb.fontSize");
+  if (v === "xs") return "sm";
+  return v === "sm" || v === "md" || v === "lg" || v === "xl" ? v : "md";
 }
 
 const stored = {
-  fontSize: (localStorage.getItem("kb.fontSize") as FontSize | null) ?? "md",
+  fontSize: savedFontSize(),
   fontFamily: (localStorage.getItem("kb.fontFamily") as FontFamily | null) ?? "system",
   density: (localStorage.getItem("kb.density") as Density | null) ?? "default",
 };

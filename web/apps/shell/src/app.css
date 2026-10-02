@@ -465,11 +465,6 @@ h2 {
   margin-right: var(--kb-gutter);
 }
 
-.mono {
-  font-family: var(--kb-font-mono);
-  font-size: var(--kb-text-sm);
-}
-
 .strong {
   font-weight: 600;
 }
