@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery as useRQQuery } from "@tanstack/react-query";
 import { Badge, Card, PageHeader, Row, SegmentedControl, Select, Skeleton, Stack } from "@kubebay/ui";
@@ -24,6 +24,10 @@ import { clusterCapacity } from "../lib/capacity";
 import { HealthVerdictLine } from "../components/HealthVerdictLine";
 import { healthVerdict, warningTrend } from "../lib/verdict";
 import { useSelectedNamespaces } from "../lib/namespace-store";
+import { RolloutsInProgress } from "../components/RolloutsInProgress";
+import { rolloutsInProgress } from "../lib/rolloutsInProgress";
+import { PodStatusBar } from "../components/PodStatusBar";
+import { podStatusSegments } from "../lib/podStatusBar";
 import { detectGatewayApi, resolveHttpRoutes, resolveIngressRoutes } from "../lib/routeResolution";
 
 function useKindCounts(
@@ -177,6 +181,21 @@ export default function WorkloadsOverview() {
     [attention.rows, scope],
   );
   const trend = useMemo(() => warningTrend(events.rows), [events.rows]);
+  const inScope = useCallback((o: Record<string, unknown>) => {
+    if (!scope.length) return true;
+    const ns = (o.metadata as Record<string, unknown> | undefined)?.namespace;
+    return typeof ns === "string" && scope.includes(ns);
+  }, [scope]);
+  const rollouts = useMemo(
+    () =>
+      rolloutsInProgress({
+        deployments: attentionInputs.deployments.filter(inScope),
+        statefulSets: attentionInputs.statefulSets.filter(inScope),
+        daemonSets: attentionInputs.daemonSets.filter(inScope),
+      }),
+    [attentionInputs, inScope],
+  );
+  const statusSegments = useMemo(() => podStatusSegments(attentionInputs.pods.filter(inScope)), [attentionInputs.pods, inScope]);
 
   const serviceMismatches = useMemo(
     () => findServiceSelectorMismatches(services.rows, pods.rows, endpointSlices.rows),
@@ -256,6 +275,8 @@ export default function WorkloadsOverview() {
         <Stack gap={5}>
         <HealthVerdictLine verdict={verdict} trend={trend} scope={selectedNs} showingAll={showAllNs} onToggleScope={() => setShowAllNs((v) => !v)} />
         <NeedsAttention rows={attentionShown} checkedAt={attention.at} capacity={capacity} />
+        <RolloutsInProgress rows={rollouts} />
+        <PodStatusBar segments={statusSegments} />
         <div className="cluster-grid">
           {kinds.map((k) => (
             <Card key={k.label} interactive className="fleet-card">

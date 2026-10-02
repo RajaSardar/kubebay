@@ -101,4 +101,17 @@ describe("Overview v2", () => {
     fireEvent.click(within(region).getByRole("button", { name: "+1 outside your namespaces" }));
     expect(within(screen.getByRole("region", { name: /Needs attention/ })).getByText("api")).toBeInTheDocument();
   });
+
+  it("shows pods by status, and a rollout while one is running", () => {
+    streams["apps/v1/deployments"] = [
+      {
+        metadata: { name: "api", namespace: "shop", generation: 2 },
+        spec: { replicas: 2, selector: { matchLabels: { app: "api" } } },
+        status: { observedGeneration: 2, readyReplicas: 1, updatedReplicas: 1, conditions: [{ type: "Progressing", status: "True", reason: "ReplicaSetUpdated" }] },
+      },
+    ];
+    renderPage();
+    expect(within(screen.getByRole("region", { name: /Pods by status/ })).getByRole("link", { name: "CrashLoopBackOff 1" })).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: /Rollouts in progress/ })).getByText("1 of 2 updated · 1 ready")).toBeInTheDocument();
+  });
 });
