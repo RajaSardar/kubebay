@@ -65,7 +65,7 @@ describe("theme tokens", () => {
       if (!m) throw new Error(`rule ${sel} not found`);
       return m[1]!;
     };
-    for (const sel of [".catalog-nav-item.active", ".catalog-engine-dot"]) {
+    for (const sel of [".cluster-podbar-ok", ".cluster-podbar-pending", ".cluster-podbar-err"]) {
       expect({ sel, literal: /#[0-9a-f]{3,8}\b|rgba?\(/i.test(rule(sel)) }).toEqual({ sel, literal: false });
     }
   });

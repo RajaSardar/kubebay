@@ -47,11 +47,11 @@ describe("Settings: app-wide settings only", () => {
     );
   }
 
-  it("sets only the default Prometheus URL; each cluster's own URL lives in its details", async () => {
+  it("sets only the default Prometheus URL; each cluster's own URL lives in its row menu", async () => {
     const user = userEvent.setup();
     vi.mocked(api.settingsApi.save).mockResolvedValue(undefined as never);
     renderSettings();
-    expect(await screen.findByText(/Each cluster's own URL is set in its details on the Clusters page/)).toBeInTheDocument();
+    expect(await screen.findByText(/Each cluster's own URL is set from its ⋮ menu on the Clusters page/)).toBeInTheDocument();
     expect(screen.queryByRole("combobox", { name: /Prometheus target/i })).not.toBeInTheDocument();
     const field = screen.getByRole("textbox", { name: "Default Prometheus URL" });
     await user.type(field, "http://localhost:9090");

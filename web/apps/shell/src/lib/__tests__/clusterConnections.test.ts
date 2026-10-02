@@ -15,12 +15,17 @@ vi.mock("../streamCache", () => ({
 }));
 
 import * as ws from "../ws";
+import * as cache from "../streamCache";
 import {
   connectCluster,
   disconnectCluster,
   getConnectedClusters,
   isClusterConnected,
   resetConnections,
+  subscribeConnections,
+  getConnectionsVersion,
+  connectionError,
+  clusterSummary,
 } from "../clusterConnections";
 
 const CORE_GVR_COUNT = 7;
@@ -81,3 +86,59 @@ describe("clusterConnections", () => {
     expect(isClusterConnected("cluster-b")).toBe(true);
   });
 });
+
+describe("clusterConnections is observable", () => {
+  it("notifies subscribers on connect and disconnect", () => {
+    const seen = vi.fn();
+    const off = subscribeConnections(seen);
+    const v0 = getConnectionsVersion();
+    connectCluster("c1");
+    disconnectCluster("c1");
+    expect(seen).toHaveBeenCalledTimes(2);
+    expect(getConnectionsVersion()).not.toBe(v0);
+    off();
+  });
+
+  it("disconnect drops the cluster's cached rows", () => {
+    connectCluster("c1");
+    disconnectCluster("c1");
+    expect(cache.clearStreamCacheForCluster).toHaveBeenCalledWith("c1");
+  });
+
+  it("a failed subscription is reported, not shown as streaming forever", () => {
+    connectCluster("c1");
+    const handlers = vi.mocked(ws.attach).mock.calls.at(-1)![0];
+    const podsSub = vi.mocked(ws.subscribe).mock.calls.find(([s]) => s.gvr === "v1/pods")![0];
+    handlers.onError?.(podsSub.id, "cluster disconnected");
+    expect(connectionError("c1")).toBe("cluster disconnected");
+  });
+
+  it("summarises pods into healthy / pending / failing and counts nodes", () => {
+    connectCluster("c1");
+    const handlers = vi.mocked(ws.attach).mock.calls.at(-1)![0];
+    const subOf = (gvr: string) => vi.mocked(ws.subscribe).mock.calls.find(([s]) => s.gvr === gvr)![0].id;
+    const pod = (name: string, phase: string, waiting?: string) => ({
+      op: "a" as const,
+      key: `default/${name}`,
+      obj: {
+        metadata: { name, namespace: "default" },
+        spec: { containers: [{ name: "c" }] },
+        status: {
+          phase,
+          containerStatuses: [
+            waiting
+              ? { name: "c", ready: false, restartCount: 3, state: { waiting: { reason: waiting } } }
+              : { name: "c", ready: phase === "Running", restartCount: 0, state: {} },
+          ],
+        },
+      },
+    });
+    handlers.onItems?.(subOf("v1/pods"), [pod("a", "Running"), pod("b", "Pending"), pod("c", "Running", "CrashLoopBackOff"), pod("d", "Succeeded")]);
+    handlers.onSync?.(subOf("v1/pods"));
+    handlers.onItems?.(subOf("v1/nodes"), [{ op: "a", key: "n1", obj: { metadata: { name: "n1" } } }, { op: "a", key: "n2", obj: { metadata: { name: "n2" } } }]);
+    handlers.onSync?.(subOf("v1/nodes"));
+    expect(clusterSummary("c1")).toEqual({ synced: true, pods: { healthy: 2, pending: 1, failing: 1, total: 4 }, nodes: 2 });
+    expect(clusterSummary("nope")).toBeNull();
+  });
+});
+

@@ -6,8 +6,8 @@ import ClusterPicker from "../ClusterPicker";
 import * as api from "../../lib/api";
 
 // Kubeconfig files are managed where the clusters are: the cluster list has
-// "Add kubeconfig", and each cluster's own settings (its Prometheus URL) sit
-// in that cluster's details.
+// "Add kubeconfig", and each cluster's own settings (its Prometheus URL) are
+// reached from that cluster's row menu.
 
 vi.mock("../../lib/api");
 vi.mock("../../components/ConfigurePrometheusModal", () => ({
@@ -61,17 +61,17 @@ describe("kubeconfig on the cluster list", () => {
   it("offers it when no clusters were found", async () => {
     vi.mocked(api.api.clusters).mockResolvedValue([]);
     renderAt("/clusters");
-    expect(await screen.findByText("No clusters found in kubeconfig.")).toBeInTheDocument();
-    expect(screen.getByText("Add a kubeconfig file to see its clusters.")).toBeInTheDocument();
+    expect(await screen.findByText("No clusters found in your kubeconfig.")).toBeInTheDocument();
+    expect(screen.getByText("Add a kubeconfig file to see its clusters, or check KUBECONFIG.")).toBeInTheDocument();
+    const buttons = screen.getAllByRole("button", { name: "Add kubeconfig" });
+    fireEvent.click(buttons[buttons.length - 1]!);
+    expect(screen.getByRole("dialog", { name: "Kubeconfig sources" })).toBeInTheDocument();
   });
 
-  it("each cluster's details show its Prometheus URL and configure it there", async () => {
-    vi.mocked(api.settingsApi.get).mockResolvedValue({ prometheusUrl: "http://default:9090", prometheusUrls: { "kind-shop": "http://localhost:9091" }, extraKubeconfigs: [] });
+  it("configures a cluster's own Prometheus URL from its row menu", async () => {
     renderAt("/clusters");
-    fireEvent.click((await screen.findAllByText("kind-shop"))[0]!.closest("tr")!);
-    const settings = await screen.findByRole("region", { name: "Settings for this cluster" });
-    expect(await within(settings).findByText("http://localhost:9091")).toBeInTheDocument();
-    fireEvent.click(within(settings).getByRole("button", { name: "Configure Prometheus" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Actions for kind-shop" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Configure Prometheus…" }));
     expect(screen.getByRole("dialog", { name: "Configure Prometheus for kind-shop" })).toBeInTheDocument();
   });
 });

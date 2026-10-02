@@ -50,7 +50,12 @@ export interface ClusterInfo {
   id: string;
   context: string;
   server: string;
-  status: "connected" | "unreachable" | "degraded" | "misconfigured";
+  /** Reachability from the engine's /version probe ("connected" means reachable). */
+  status: "connected" | "unreachable" | "degraded" | "misconfigured" | "checking";
+  /** The user connected to this cluster this run (streams open), not reachability. */
+  connected?: boolean;
+  /** When the reachability probe last finished. */
+  checkedAt?: string;
   version?: string;
   error?: string;
 }
@@ -126,6 +131,10 @@ export interface PodUsage {
 export const api = {
   health: () => get<{ ok: boolean }>("/api/healthz"),
   clusters: () => get<ClusterInfo[]>("/api/clusters"),
+  /** Mark a cluster connected without opening it (opening a stream also connects). */
+  connectCluster: (id: string) => send<ClusterInfo>("POST", `/api/clusters/${encodeURIComponent(id)}/connect`),
+  /** Stop a cluster's informers, streams and port-forwards. */
+  disconnectCluster: (id: string) => send<{ ok: boolean }>("POST", `/api/clusters/${encodeURIComponent(id)}/disconnect`),
   podMetrics: (cluster: string, ns = "*") =>
     get<PodUsage[]>(`/api/metrics/pods?cluster=${encodeURIComponent(cluster)}&ns=${encodeURIComponent(ns)}`),
 

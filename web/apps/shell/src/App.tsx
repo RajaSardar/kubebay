@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { APIResourceEntry, ClusterInfo } from "./lib/api";
 import { NavLink, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { useClusterStore } from "./lib/cluster-store";
-import { shouldRedirectToPicker } from "./lib/clusterPickerLogic";
+import { resolveActiveCluster, shouldRedirectToPicker } from "./lib/clusterPickerLogic";
 import { Button, DisclosureButton, EmptyState, Kbd, KubebayMark, navItemClass, Spinner, StatusDot } from "@kubebay/ui";
 import {
   IconArgoCD,
@@ -51,7 +51,6 @@ const CreateResource = lazy(() => import("./pages/CreateResource"));
 const AuditLog = lazy(() => import("./pages/AuditLog"));
 const RightSizing = lazy(() => import("./pages/RightSizing"));
 const CostWaste = lazy(() => import("./pages/CostWaste"));
-const Fleet = lazy(() => import("./pages/Fleet"));
 const Karpenter = lazy(() => import("./pages/Karpenter"));
 const Keda = lazy(() => import("./pages/Keda"));
 const UpgradeReadiness = lazy(() => import("./pages/UpgradeReadiness"));
@@ -206,7 +205,6 @@ const TOOLS = [
   { to: "/rbac", label: "RBAC", icon: <IconShield /> },
   { to: "/right-sizing", label: "Right-sizing", icon: <IconLayers /> },
   { to: "/cost-waste", label: "Cost / Waste", icon: <IconDatabase /> },
-  { to: "/fleet", label: "Fleet", icon: <IconTopology /> },
   { to: "/karpenter", label: "Karpenter", icon: <IconTopology /> },
   { to: "/keda", label: "KEDA", icon: <IconLayers /> },
   { to: "/upgrade-readiness", label: "Upgrade Readiness", icon: <IconShield /> },
@@ -267,9 +265,7 @@ function CrdGroupFolder({ group, entries }: { group: string; entries: APIResourc
 }
 
 export function CustomResourcesGroup() {
-  const queryClient = useQueryClient();
-  const clusterListCRG = queryClient.getQueryData<ClusterInfo[]>(["clusters"]) ?? [];
-  const cluster = clusterListCRG.find((c) => c.status === "connected")?.id ?? "";
+  const cluster = useClusterStore((s) => s.active);
   const disc = useQuery({
     queryKey: ["apis", cluster],
     queryFn: () => discoveryApi.apis(cluster),
@@ -322,7 +318,7 @@ function ClusterStrip({ sidebar }: { sidebar: SidebarState }) {
   const { switching, setActive } = useContext(ClusterCtx);
   const clusters = useQuery({ queryKey: ["clusters"], queryFn: api.clusters, refetchInterval: 4_000 });
   const list = clusters.data ?? [];
-  const effectiveActive = active || list.find((c) => c.status === "connected")?.id || "";
+  const effectiveActive = active;
   // Re-render when clusters list changes so connected state stays fresh.
   const connectedClusters = list.map((c) => c.id).filter(isClusterConnected);
   const { icons, setIcon, resetIcon } = useClusterIcons();
@@ -410,9 +406,7 @@ function Sidebar({ onOpenPalette, sidebar }: { onOpenPalette: () => void; sideba
   const { active } = useClusterStore();
   const queryClient = useQueryClient();
   const clusterList = queryClient.getQueryData<ClusterInfo[]>(["clusters"]) ?? [];
-  const usableClusters = clusterList.filter((c) => c.status !== "misconfigured");
-  const effectiveActive = active || usableClusters.find((c) => c.status === "connected")?.id || usableClusters[0]?.id || "";
-  const activeCluster = clusterList.find((c) => c.id === effectiveActive);
+  const activeCluster = clusterList.find((c) => c.id === active);
 
   return (
     <aside className="sidebar" id="kb-sidebar" hidden={sidebar.hidden}>
@@ -520,12 +514,13 @@ function AppInner() {
   const [switching, setSwitching] = useState(false);
   const safetyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [active, setActiveState] = useState<string>(
-    () => new URLSearchParams(window.location.search).get("cluster") ?? "",
+  const [active, setActiveState] = useState<string>(() =>
+    resolveActiveCluster(new URLSearchParams(window.location.search).get("cluster") ?? "", useClusterStore.getState().active),
   );
 
   const list = clusters.data ?? [];
-  const effectiveActive = active || list.find((c) => c.status === "connected")?.id || list[0]?.id || "";
+  // Only ever a cluster the user chose: no fallback to the first reachable one.
+  const effectiveActive = active;
 
   // Pre-warm backend informers for the most-visited GVRs so first renders are
   // instant — same technique as FreeLens's persistent KubeObjectStore subscriptions.
@@ -611,7 +606,7 @@ function AppInner() {
               <Route path="/rbac" element={<Rbac />} />
               <Route path="/right-sizing" element={<RightSizing />} />
               <Route path="/cost-waste" element={<CostWaste />} />
-              <Route path="/fleet" element={<Fleet />} />
+              <Route path="/fleet" element={<Navigate to="/clusters" replace />} />
               <Route path="/karpenter" element={<Karpenter />} />
               <Route path="/keda" element={<Keda />} />
               <Route path="/upgrade-readiness" element={<UpgradeReadiness />} />

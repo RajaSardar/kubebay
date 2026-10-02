@@ -3,6 +3,7 @@ package informers
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 
 	"k8s.io/client-go/rest"
@@ -50,4 +51,21 @@ func (r *PoolRegistry) ForUser(ctx context.Context, clusterID string, ident *clu
 	}
 	r.pools[key] = p
 	return p, nil
+}
+
+// Close tears down every pool built for clusterID, including impersonated
+// ones ("id|user"). The next For/ForUser builds a fresh pool.
+func (r *PoolRegistry) Close(clusterID string) {
+	r.mu.Lock()
+	var closing []*Pool
+	for key, p := range r.pools {
+		if key == clusterID || strings.HasPrefix(key, clusterID+"\u007c") {
+			closing = append(closing, p)
+			delete(r.pools, key)
+		}
+	}
+	r.mu.Unlock()
+	for _, p := range closing {
+		p.Close()
+	}
 }

@@ -412,6 +412,11 @@ func (h *Hub) start(parent context.Context, frame *ClientFrame, src SubSource, w
 				synced = true
 			case batch, ok := <-handle.Deltas():
 				if !ok {
+					// Closed by the engine (the cluster was disconnected), not by
+					// the client unsubscribing: say so, or the rows look live.
+					if subCtx.Err() == nil {
+						_ = writer.sendControl(ControlFrame{Type: TypeError, ID: frame.ID, Message: "cluster disconnected"})
+					}
 					return
 				}
 				typ := TypeDelta

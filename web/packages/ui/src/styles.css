@@ -484,7 +484,19 @@ kbd {
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 0; /* forces ellipsis inside table-layout:fixed cells */
+}
+
+/* Identifiers (names, IPs, versions) in the mono family, a step below body
+   text since monospace runs wide. */
+.mono {
+  font-family: var(--kb-font-mono);
   font-size: var(--kb-text-sm);
+}
+
+/* In a table they follow the density, still a step below its text. */
+.kb-table td.mono,
+.kb-table td .mono {
+  font-size: var(--kb-table-mono-font-size, var(--kb-text-sm));
 }
 
 /* ── Column resize handle ── */
@@ -1493,6 +1505,21 @@ tr.row-clickable:active {
 }
 
 /* ── Loading states: skeleton lines and the table refresh bar ── */
+/* The line above a loading table's skeleton rows: spinner plus what is loading. */
+.kb-table-loading {
+  caption-side: top;
+  text-align: left;
+  padding: var(--kb-space-2) var(--kb-space-3);
+  color: var(--kb-fg-muted);
+  font-size: var(--kb-text-sm);
+}
+
+.kb-table-loading-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--kb-space-2);
+}
+
 .kb-skeleton-lines {
   display: flex;
   flex-direction: column;

@@ -17,6 +17,8 @@ import (
 	metricsv "k8s.io/metrics/pkg/client/clientset/versioned"
 	metricsv1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
 	fakemetrics "k8s.io/metrics/pkg/client/clientset/versioned/fake"
+
+	"github.com/RajaSardar/kubebay/engine/internal/clusters"
 )
 
 // newFakeMetricsClient builds a fake metrics clientset that actually returns
@@ -184,5 +186,26 @@ func TestSnapshot_ScopedByCluster(t *testing.T) {
 	}
 	if rows := s.Snapshot("cluster-a"); len(rows) != 1 {
 		t.Errorf("Snapshot for cluster-a should have 1 row, got %d", len(rows))
+	}
+}
+
+// The sampler LISTs pods on a cluster every minute. Only clusters the user
+// connected to, or enrolled in usage history, may be polled; a production
+// context that merely answers /version must not be.
+func TestSamplerOnlyPollsConnectedOrEnrolledClusters(t *testing.T) {
+	s := &Sampler{}
+	reach := clusters.Cluster{ID: "prod", Status: clusters.StatusConnected}
+	if !s.shouldSample(reach) {
+		t.Error("with no gate set the sampler keeps its old behaviour")
+	}
+	s.SetGate(func(id string) bool { return id == "dev" })
+	if s.shouldSample(reach) {
+		t.Error("a reachable cluster the gate rejects must not be sampled")
+	}
+	if !s.shouldSample(clusters.Cluster{ID: "dev", Status: clusters.StatusConnected}) {
+		t.Error("a gated-in reachable cluster is sampled")
+	}
+	if s.shouldSample(clusters.Cluster{ID: "dev", Status: clusters.StatusUnreachable}) {
+		t.Error("an unreachable cluster is never sampled")
 	}
 }

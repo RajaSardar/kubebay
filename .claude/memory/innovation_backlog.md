@@ -203,7 +203,7 @@ Independently verified by direct source inspection (not just an expert's claim) 
 **Risks:** (1) per-region `AccessDenied`/throttling must degrade gracefully, not abort the whole scan — EKS's list/describe throttle is modest and concurrent multi-region scanning can trip it; bound concurrency and rely on the CLI's/SDK's own backoff. (2) SSO/session expiry: a user with an expired `aws sso login` session will get a cryptic CLI/SDK error on scan — must be caught and shown as "run `aws sso login`", not surfaced raw. (3) multi-account: the backlog's own framing ("juggling multiple AWS accounts") implies a profile picker (`~/.aws/config` named profiles), which isn't in the one-liner and adds a small but real UI surface — see open questions. (4) scope discipline: ship UI copy that says "AWS EKS" specifically, not generic "cloud cluster," since AKS/GKE are out of v1 per the existing framing and Kubebay has no Azure/GCP SDK story at all yet.
 **Open questions for Raja:** (a) CLI-subprocess vs in-process AWS SDK for v1 — this spec recommends CLI-subprocess for the smaller trust-boundary delta, confirm that's the right trade given it requires `aws` CLI present; (b) should discovery ever run automatically (e.g. on picker load) or stay strictly user-triggered via a "Scan AWS" button — this spec assumes the latter to avoid surprise API calls/IAM prompts on every launch; (c) default/configurable region list — auto-detect from `~/.aws/config` profiles, or require the user to type regions into Settings; (d) whether a profile picker (multi-account) is in scope for v1 or a fast-follow; (e) priority — this is a genuinely new integration surface (first cloud SDK/CLI dependency, first new file-write capability) rather than an incremental extension of an existing page, so it's worth asking whether it should jump ahead of, e.g., #4/#6's remaining phases.
 
-### 15. Fleet / multi-cluster dashboard — status: shipped 2026-09-28 (Phase 0+1+2; Phase 3 stays named and deferred)
+### 15. Fleet / multi-cluster dashboard — status: removed 2026-10-02 (owner: "unnecessary"; was shipped 2026-09-28)
 **Verified: the engine already keys everything per-cluster; nothing here needs a new engine primitive for v1/v2.** `engine/internal/informers/pool_registry.go`'s `PoolRegistry.For(ctx, clusterID)` lazily creates one informer `Pool` per cluster ID (plus per-identity when impersonation is on) and caches it in a map — it was never a "one active cluster" registry, it already supports N simultaneously-open pools. `httpapi/server.go`'s `poolSource.Subscribe` resolves that pool per-subscription from the `cluster` field the client sends, and `web/apps/shell/src/lib/useResourceStream.ts` already sends an explicit `cluster` string on every `subscribe()` call, with its own comment explaining that the multiplexed `/ws` connection "broadcasts every frame to every attached listener" and each hook filters by its own subscription id. In other words: opening live full-mode subscriptions against several different clusters at once, over the one already-open WebSocket, is a pattern this codebase already relies on (`NamespaceFilter`'s own `v1/namespaces` stream runs alongside a table's main stream today) — it has just never been pointed at more than one cluster ID from the same page.
 **Where it's genuinely not free: `WorkloadsOverview.tsx` and `internal/waste`'s HTTP handler are both hard-wired to exactly one cluster.** `pages/WorkloadsOverview.tsx`'s `useKindCounts` takes `effectiveCluster` from `useCluster()` (a single global "active cluster," `App.tsx`'s `useActiveCluster`) and opens six `mode:"full"` streams (`v1/pods`, `v1/nodes`, `apps/v1/{deployments,statefulsets,daemonsets}`, `batch/v1/jobs`) against just that one. A fleet version can't reuse the component; it needs the same counting logic fanned out per cluster. Separately, `engine/internal/httpapi/waste.go`'s `wasteWorkloadsHandler` requires `?cluster=<id>` and calls `Snapshotter.Snapshot(cluster)` — single-cluster only, confirmed by reading it, not assumed. A fleet-wide waste rollup is exactly the `for` loop over `api.clusters()` calling this existing endpoint per cluster that #6's designer predicted — now confirmed by code, not just argued.
 **Two different "fleet view" shapes exist in the wild, and they are not the same feature — say which one this scopes.** (1) A cluster-level health rollup: cards, one per cluster, "N/M pods healthy, node X down" — cheap, a fan-out of counting logic Kubebay already has. (2) A true cross-cluster resource table: one merged table (e.g. all Pods across every cluster) with a Cluster column, so "which pod anywhere is CrashLooping" is one screen, one scroll. Verified via `ResourceTable.tsx`: it is built around exactly one `effectiveCluster` for the whole page — the single stream subscription, `useBulkDelete`, `NamespaceFilter`, and the `cluster` prop handed to `GenericDrawer` all come from that one value (`GenericDrawer` itself is already a plain `cluster: string` prop, not a `useCluster()` call internally, which helps — but the page around it is not). Shape (2) means multiple concurrent per-cluster stream subscriptions merged into one row set with a per-row cluster tag, threading that tag through row selection/bulk-delete/drawer-open instead of one page-level cluster — real framework surgery to `ResourceTable`/`useBulkDelete`, not a new page. **This entry scopes shape (1) only; shape (2) is named and deliberately deferred, not silently dropped.**
@@ -957,7 +957,7 @@ The YAML view also strips `resourceVersion`.
 - `HandleCreateResource` force:true → false, with "exists — edit it instead".
 - An optional cleanup of stale `kubebay` Apply entries in managedFields.
 
-### 47. Fleet Consistency Diff (roadmap Tier 3 #25) — status: shipped 2026-10-01 (slice 1)
+### 47. Fleet Consistency Diff (roadmap Tier 3 #25) — status: removed 2026-10-02 with the Fleet page (was shipped 2026-10-01, slice 1)
 The same object compared across clusters, matched by kind, namespace and name. Komodor sells this as a paid feature. Slice 1 follows the roadmap's "3-4 object classes first" verdict: Deployments, StatefulSets, DaemonSets and ConfigMaps.
 
 - **Logic.** `lib/fleetConsistency.ts` (`compareFleet`) is pure and client-side.
@@ -1020,6 +1020,76 @@ Findings joined into prioritised chains instead of a flat list. Built on what al
   - Using `evaluateConnection` per pod pair was rejected. The question is whether outside traffic is limited at all, not pod-to-pod reachability.
   - Keeping partial chains was a judgement call. An exposed pod with a cluster-wide-secrets token is worth seeing even with no CVE scanner installed.
 - **Next slices.** Ingress-controller-aware isolation (is the controller's namespace allowed?), Secret reachability (which Secrets the token can read), a hostPath/privileged-pod step, and Gateway API HTTPRoutes as entries.
+
+### 50. Helm releases filters + loader audit — status: shipped 2026-10-02
+Owner-reported gaps on the Helm page.
+- **Helm releases:** the shared `NamespaceFilter` and a search box (name, namespace, chart, app version, status), a "· N of M" count when filtered, and a "No releases match" empty state.
+- **Loading states:**
+  - "Waiting for a cluster…" uses `PageLoader`.
+  - The drawer's history, values and manifest load as `SkeletonLines`, not a word.
+  - `SkeletonTable` and `DataTable` (`loading` + new `loadingLabel`) now caption their skeleton rows with the helm-wheel `Spinner` and what is loading, so every loading list shows the icon.
+- **App-wide audit:**
+  - Ports no longer flashes "No active tunnels" while loading.
+  - Crds header, PodPanel output wait, ResizePanel and SecretValueReveal lost their bare "Loading…" text.
+  - The `loadingStates` guard now fails on any `<p>`/`<div>` "Loading…"/"Waiting for…" text, and on any loading `DataTable` without a `loadingLabel`.
+### 51. Clusters page redesign — status: building (2a engine merged #108; 2b UI in PR)
+The owner asked to audit the cluster list, remove its drawer, show which clusters are connected, add Disconnect to the row menu, and add visualisations only if they earn their place. Three experts (UX, frontend/engine correctness, SRE/data-viz) reported, then a synthesis round cross-challenged them.
+
+**Rulings:**
+- **No latency badge.** Each probe builds a new clientset and runs exec-credential plugins, so the number would measure token fetching. Show `checkedAt` freshness instead.
+- **Disconnect needs engine teardown.** Informers outlive their last subscriber by 5 minutes, and pools never died. Also, `App.tsx` falls back from a missing active cluster to the first reachable one, which instantly reconnects; fix that in 2b.
+- **Sampler gate.** Sample only clusters that are connected or enrolled in usage history. History keeps filling, and unopened production contexts get no LIST traffic.
+- **One table, two status columns.** Session and API, with a stable order, instead of moving rows between sections.
+- **Pod mini-bar on connected rows only** (zero new traffic). The sparkline and headroom bar wait for follow-ups.
+
+**2a (engine):**
+- `clusters.Manager`:
+  - a connected set: `Connect`, `Disconnect`, `IsConnected`, `OnDisconnect`;
+  - `Cluster.connected` and `checkedAt`;
+  - a `checking` status until the first probe;
+  - probe results kept across kubeconfig reloads;
+  - sorted, stable order;
+  - a race-free probe (writes under the lock), and an immediate probe after a load.
+- `PoolRegistry.Close(id)` / `Pool.Close` stop every informer and subscription for the cluster, including impersonated pools, and stop the sweeper.
+- When the engine closes a stream, the hub sends a `cluster disconnected` error frame.
+- Opening a stream connects the cluster.
+- `POST /api/clusters/{id}/connect` and `/disconnect`. Disconnect is desktop-only; it returns 403 when OIDC is on.
+- `PFManager.StopCluster`, wired with `TeardownOnDisconnect`.
+- `waste.Sampler.SetGate`.
+
+**2b (UI):** `ClusterPicker` rebuilt with no drawer.
+- **Layout:** header summary ("N connected · N reachable · …") and a "Disconnect all" button. Columns are Name (with a provider badge), Session (Active / Connected / Error / —), API (Reachable / Unreachable / Config error / Checking…, with error and "checked Ns ago" in the tooltip), Version ("(stale)" when unreachable), a Pods health mini-bar and Nodes (connected rows only).
+- **Opening:** a row click or Enter opens the cluster. A config-error row expands its error instead.
+- **⋮ menu:** Open, Connect in background / Disconnect, Pin, Rename… (inline), Change icon…, Copy context, Copy server URL, Remove from list… (confirm `Modal`).
+- **Disconnect:** drops the background subscriptions and cached rows, removes that cluster's queries, calls the engine, and clears it as the active cluster.
+- **States:** an error banner with Retry, an empty state linking to Settings, and real engine health in the status bar.
+- **Removed:** `ClusterDetailDrawer`, the store's `selected` field, the dead History/Favorites sidebar, and raw buttons.
+- **Supporting changes:**
+  - `clusterConnections` is observable (`subscribeConnections`, version, `connectionError`, `clusterSummary`).
+  - `sortClusters` no longer reorders by last use.
+  - Search also matches context and server.
+  - `TableRow` is keyboard-reachable when clickable.
+- **"First reachable cluster" fallbacks removed:** App, ClusterStrip, Sidebar, the Custom Resources group and the palette's live pods now all use the opened cluster. Guarded by `activeCluster.test.ts`.
+
+**Follow-ups:**
+- rename the wire status `connected` to `reachable`;
+- batched `/api/history/summary` plus a 7-day sparkline;
+- allocatable and node count in the sampler, plus a headroom bar;
+- OIDC identity in `PoolRegistry.For`;
+- rebuild pools when credentials change;
+- `sanitizeID` collisions;
+- watcher misses the explicit kubeconfig path;
+- multi-window disconnect;
+- a "Last connected" column.
+### 52. Remove the Fleet view — status: shipped 2026-10-02
+The owner judged the Fleet page unnecessary.
+- **Removed:**
+  - the nav entry, `pages/Fleet.tsx` and its cards (cluster health, showback, consistency diff);
+  - the libs `fleetWaste`, `fleetShowback`, `fleetHealthOrder` and `fleetConsistency`, plus `useFleetWaste`;
+  - the stagger helpers only Fleet used, and all their tests.
+- **Bookmarks:** an old `/fleet` link now redirects to `/clusters`. The clusters page (#51) shows which clusters are connected, with pod health per connected cluster, so the useful part of Fleet's health cards lives there without streaming every reachable cluster.
+- **Kept:** `/api/waste/workloads` (Cost/Waste uses it) and `kindCounts` (WorkloadsOverview).
+- **Guard:** `noFleet.test.ts`.
 
 ### Further ideas worth a look (unscoped, one-liners)
 - **Revert unsaved YAML edits — SHIPPED 2026-09-27.** One-click "discard my in-progress edit" button in `YamlTab.tsx`, next to Reload — a local reset (no network call), unlike Reload which re-fetches from the server.

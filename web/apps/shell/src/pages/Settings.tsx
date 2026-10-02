@@ -55,7 +55,7 @@ function PrometheusSettings({ initial, initialPerCluster }: { initial?: string; 
     <Card style={{ marginTop: 18 }}>
       <div className="rbac-section-title">Prometheus (history graphs)</div>
       <p className="small muted" style={{ marginTop: 0 }}>
-        The default for clusters without their own URL. Each cluster&apos;s own URL is set in its details on the Clusters page.
+        The default for clusters without their own URL. Each cluster&apos;s own URL is set from its ⋮ menu on the Clusters page.
       </p>
       <div className="pf-form">
         <TextField
@@ -235,10 +235,10 @@ export default function Settings() {
           label="Font size"
           value={fontSize}
           options={[
-            { id: "xs", label: "XS (11px)" },
-            { id: "sm", label: "S (12px)" },
-            { id: "md", label: "M (13px)" },
-            { id: "lg", label: "L (14px)" },
+            { id: "sm", label: "S (13px)" },
+            { id: "md", label: "M (14px)" },
+            { id: "lg", label: "L (15px)" },
+            { id: "xl", label: "XL (16px)" },
           ]}
           onChange={setFontSize}
         />

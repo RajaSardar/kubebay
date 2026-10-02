@@ -1,73 +1,122 @@
-import { useState } from "react";
+import { useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, settingsApi } from "../lib/api";
-import type { ClusterInfo } from "../lib/api";
+import { api, type ClusterInfo } from "../lib/api";
 import { useClusterMeta } from "../lib/cluster-meta-store";
 import { useClusterIcons } from "../lib/useClusterIcons";
 import { useClusterStore } from "../lib/cluster-store";
 import { sortClusters, filterClusters } from "../lib/clusterSort";
-import { connectCluster as bgConnect } from "../lib/clusterConnections";
+import {
+  clusterSummary,
+  connectCluster as bgConnect,
+  connectionError,
+  disconnectCluster as bgDisconnect,
+  getConnectionsVersion,
+  subscribeConnections,
+  type ClusterSummary,
+} from "../lib/clusterConnections";
 import { ClusterIconPicker, autoAvatar, avatarLabelColor } from "../components/ClusterIconPicker";
-import { ClusterDetailDrawer } from "../components/ClusterDetailDrawer";
 import { KubeconfigSources } from "../components/KubeconfigSources";
 import ConfigurePrometheusModal from "../components/ConfigurePrometheusModal";
 import { providerBadge, clusterDisplayName } from "../lib/clusterDistro";
-import { useResizableColumns } from "../lib/useResizableColumns";
-import { Badge, Button, ContextMenu, EmptyState, Modal, Row, Stack, IconButton, KubebayMark, SkeletonRows, StatusDot, StatusPill, Table, TableRow, TableWrap, TextField, type StatusTone } from "@kubebay/ui";
+import {
+  Badge,
+  Button,
+  ContextMenu,
+  EmptyState,
+  IconButton,
+  InlineBanner,
+  KubebayMark,
+  Modal,
+  PageHeader,
+  Row,
+  Skeleton,
+  SkeletonRows,
+  Stack,
+  StatusDot,
+  StatusPill,
+  Table,
+  TableRow,
+  TableWrap,
+  TextField,
+  type StatusTone,
+} from "@kubebay/ui";
 
 const APP_VERSION = "v0.2.0";
+const HEADERS = ["Name", "Session", "API", "Version", "Pods", "Nodes"] as const;
 
-// Column definitions — index matches useResizableColumns
-const COLS = [
-  { key: "name",     label: "Name",     init: 210 },
-  { key: "context",  label: "Context",  init: 175 },
-  { key: "server",   label: "Server",   init: 210 },
-  { key: "provider", label: "Provider", init: 120 },
-  { key: "status",   label: "Status",   init: 120 },
-  { key: "version",  label: "Version",  init: 90  },
-] as const;
-
-// ── Provider / status cells ───────────────────────────────────────────────────
-
-function ProviderBadge({ id }: { id: string }) {
-  const { label } = providerBadge(id);
-  if (label === "–") return <span className="cell-secondary">–</span>;
-  return <Badge>{label}</Badge>;
-}
-
-const STATUS: Record<ClusterInfo["status"], { label: string; tone: StatusTone; dot: string }> = {
-  connected:     { label: "Healthy",      tone: "ok",         dot: "connected" },
-  degraded:      { label: "Degraded",     tone: "warn",       dot: "degraded" },
-  unreachable:   { label: "Disconnected", tone: "pending",    dot: "pending" },
-  misconfigured: { label: "Error",        tone: "err",        dot: "unreachable" },
+/** Reachability from the engine probe. The wire value "connected" means reachable. */
+const API_STATUS: Record<ClusterInfo["status"], { label: string; tone: StatusTone }> = {
+  connected: { label: "Reachable", tone: "ok" },
+  degraded: { label: "Degraded", tone: "warn" },
+  unreachable: { label: "Unreachable", tone: "err" },
+  misconfigured: { label: "Config error", tone: "err" },
+  checking: { label: "Checking…", tone: "pending" },
 };
 
-// ── Row context menu ──────────────────────────────────────────────────────────
+function plural(n: number, one: string, many = `${one}s`) {
+  return `${n} ${n === 1 ? one : many}`;
+}
+
+function checkedAgo(iso?: string): string {
+  if (!iso) return "";
+  const s = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 1000));
+  return s < 60 ? `checked ${s}s ago` : `checked ${Math.round(s / 60)}m ago`;
+}
+
+/** Re-render whenever background connections or their (throttled) data change. */
+function useConnectionsVersion(): number {
+  return useSyncExternalStore(subscribeConnections, getConnectionsVersion);
+}
+
+/** Stacked healthy / pending / failing bar for a connected cluster's pods. */
+function PodHealthBar({ summary }: { summary: ClusterSummary }) {
+  const { healthy, pending, failing, total } = summary.pods;
+  const label = `${plural(total, "pod")}: ${healthy} healthy, ${pending} pending, ${failing} failing`;
+  const pct = (n: number) => (total === 0 ? 0 : (n / total) * 100);
+  return (
+    <Row gap={2} align="center">
+      <span className="cluster-podbar" role="img" aria-label={label} title={label}>
+        <span className="cluster-podbar-ok" style={{ width: `${pct(healthy)}%` }} />
+        <span className="cluster-podbar-pending" style={{ width: `${pct(pending)}%` }} />
+        <span className="cluster-podbar-err" style={{ width: `${pct(failing)}%` }} />
+      </span>
+      <span className="mono cell-secondary">{total}</span>
+    </Row>
+  );
+}
 
 interface RowMenuProps {
   cluster: ClusterInfo;
+  connected: boolean;
   pinned: boolean;
-  onOpenDetails: () => void;
-  onConnect: () => void;
-  onHide: () => void;
+  onOpen: () => void;
+  onConnectInBackground: () => void;
+  onDisconnect: () => void;
   onTogglePin: () => void;
+  onRename: () => void;
+  onChangeIcon: () => void;
+  onConfigurePrometheus: () => void;
+  onRemove: () => void;
 }
 
-function RowMenu({ cluster, pinned, onOpenDetails, onConnect, onHide, onTogglePin }: RowMenuProps) {
+function RowMenu({ cluster, connected, pinned, ...a }: RowMenuProps) {
   const [at, setAt] = useState<{ x: number; y: number } | null>(null);
+  // The menu closes on an outside mousedown, which the ⋮ button is; without
+  // this its own click would reopen the menu it just closed.
+  const closedAt = useRef(0);
   const broken = cluster.status === "misconfigured";
-
+  const copy = (text: string) => void navigator.clipboard?.writeText(text);
   return (
     <div className="catalog-row-menu">
       <IconButton
-        label="Row actions"
-        className="row-menu-btn"
+        label={`Actions for ${cluster.id}`}
         aria-haspopup="menu"
         onClick={(e) => {
           e.stopPropagation();
+          if (Date.now() - closedAt.current < 250) return;
           const r = e.currentTarget.getBoundingClientRect();
-          setAt((cur) => (cur ? null : { x: r.right - 180, y: r.bottom + 4 }));
+          setAt((cur) => (cur ? null : { x: r.right - 200, y: r.bottom + 4 }));
         }}
       >
         ⋮
@@ -76,13 +125,24 @@ function RowMenu({ cluster, pinned, onOpenDetails, onConnect, onHide, onTogglePi
         <ContextMenu
           x={at.x}
           y={at.y}
-          onClose={() => setAt(null)}
+          onClose={() => {
+            closedAt.current = Date.now();
+            setAt(null);
+          }}
           items={[
-            { label: "View details", onClick: onOpenDetails },
-            { label: "Connect", onClick: onConnect, disabled: broken },
-            { label: pinned ? "Unpin" : "Pin to top", onClick: onTogglePin },
+            { label: "Open", onClick: a.onOpen, disabled: broken },
+            connected
+              ? { label: "Disconnect", onClick: a.onDisconnect }
+              : { label: "Connect in background", onClick: a.onConnectInBackground, disabled: broken },
             { separator: true, label: "", onClick: () => {} },
-            { label: "Remove from list", onClick: onHide, danger: true },
+            { label: pinned ? "Unpin" : "Pin to top", onClick: a.onTogglePin },
+            { label: "Rename…", onClick: a.onRename },
+            { label: "Change icon…", onClick: a.onChangeIcon },
+            { label: "Copy context name", onClick: () => copy(cluster.context || cluster.id) },
+            { label: "Copy server URL", onClick: () => copy(cluster.server), disabled: !cluster.server },
+            { label: "Configure Prometheus…", onClick: a.onConfigurePrometheus },
+            { separator: true, label: "", onClick: () => {} },
+            { label: "Remove from list…", onClick: a.onRemove, danger: true },
           ]}
         />
       )}
@@ -90,301 +150,359 @@ function RowMenu({ cluster, pinned, onOpenDetails, onConnect, onHide, onTogglePi
   );
 }
 
-
-// ── Main ClusterPicker ────────────────────────────────────────────────────────
-
 export default function ClusterPicker() {
   const navigate = useNavigate();
-  const { setActive, setSelected } = useClusterStore();
+  const queryClient = useQueryClient();
   const activeId = useClusterStore((s) => s.active);
-  const selectedId = useClusterStore((s) => s.selected);
   const { meta, setAlias, togglePin, hide, show } = useClusterMeta();
   const { icons, setIcon, resetIcon } = useClusterIcons();
   const clusters = useQuery({ queryKey: ["clusters"], queryFn: api.clusters, refetchInterval: 4_000 });
-  const list = clusters.data ?? [];
+  const health = useQuery({ queryKey: ["health"], queryFn: api.health, refetchInterval: 10_000, retry: false });
+  useConnectionsVersion();
 
+  const list = useMemo(() => clusters.data ?? [], [clusters.data]);
   const [query, setQuery] = useState("");
-  // Kubeconfig files are managed here, next to the clusters they bring in;
-  // Settings links to /clusters?kubeconfig=1.
+  const [iconPickerId, setIconPickerId] = useState<string | null>(null);
+  const [renaming, setRenaming] = useState<{ id: string; value: string } | null>(null);
+  const [removing, setRemoving] = useState<ClusterInfo | null>(null);
+  const [errorOpen, setErrorOpen] = useState<string | null>(null);
+  const [showHidden, setShowHidden] = useState(false);
+  const [actionError, setActionError] = useState("");
+  const [promFor, setPromFor] = useState<string | null>(null);
   const [sp, setSp] = useSearchParams();
   const kubeconfigOpen = sp.get("kubeconfig") === "1";
-  const setKubeconfigOpen = (open: boolean) => {
-    const next = new URLSearchParams(sp);
-    if (open) next.set("kubeconfig", "1");
-    else next.delete("kubeconfig");
-    setSp(next, { replace: true });
-  };
-  const settings = useQuery({ queryKey: ["settings"], queryFn: settingsApi.get });
-  const qc = useQueryClient();
-  const [promFor, setPromFor] = useState<string | null>(null);
-  const [iconPickerId, setIconPickerId] = useState<string | null>(null);
-
-  const { widths, getResizeHandleProps } = useResizableColumns(
-    COLS.length,
-    COLS.map((c) => c.init)
-  );
-
-  const hiddenClusters = list.filter((c) => meta[c.id]?.hidden);
-  const visible = filterClusters(list, meta, query);
-  const sorted = sortClusters(visible, meta);
-  const connectedCount = list.filter((c) => c.status === "connected").length;
-  const drawerCluster = selectedId ? list.find((c) => c.id === selectedId) ?? null : null;
-
-  function connectCluster(id: string) {
-    bgConnect(id); // start background stream immediately
-    setActive(id);
-    setSelected(id);
-    useClusterMeta.getState().touchLastUsed(id);
-    const sp = new URLSearchParams();
-    sp.set("cluster", id);
-    navigate({ pathname: "/", search: sp.toString() });
+  function setKubeconfigOpen(open: boolean) {
+    setSp(
+      (cur) => {
+        const next = new URLSearchParams(cur);
+        if (open) next.set("kubeconfig", "1");
+        else next.delete("kubeconfig");
+        return next;
+      },
+      { replace: true },
+    );
   }
 
-  function openDetails(id: string) { setSelected(id); }
-  function closeDrawer() { setSelected(""); }
+  const isConnected = (c: ClusterInfo) => !!c.connected || c.id === activeId;
+  const hiddenClusters = list.filter((c) => meta[c.id]?.hidden);
+  const sorted = sortClusters(filterClusters(list, meta, query), meta);
+  const connected = list.filter(isConnected);
+  const count = (s: ClusterInfo["status"]) => list.filter((c) => c.status === s).length;
+  const summary = [
+    `${connected.length} connected`,
+    `${count("connected")} reachable`,
+    count("unreachable") > 0 && `${count("unreachable")} unreachable`,
+    count("misconfigured") > 0 && `${count("misconfigured")} config error${count("misconfigured") === 1 ? "" : "s"}`,
+    count("checking") > 0 && `${count("checking")} checking`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  function open(c: ClusterInfo) {
+    if (c.status === "misconfigured") {
+      setErrorOpen((cur) => (cur === c.id ? null : c.id));
+      return;
+    }
+    bgConnect(c.id);
+    useClusterStore.getState().setActive(c.id);
+    useClusterMeta.getState().touchLastUsed(c.id);
+    void queryClient.invalidateQueries({ queryKey: [c.id] });
+    navigate({ pathname: "/", search: `cluster=${encodeURIComponent(c.id)}` });
+  }
+
+  async function disconnect(id: string) {
+    setActionError("");
+    bgDisconnect(id);
+    if (useClusterStore.getState().active === id) useClusterStore.getState().setActive("");
+    queryClient.removeQueries({ predicate: (q) => q.queryKey.includes(id) });
+    try {
+      await api.disconnectCluster(id);
+    } catch (e) {
+      setActionError(`Disconnect ${id}: ${e instanceof Error ? e.message : String(e)}`);
+    }
+    await queryClient.invalidateQueries({ queryKey: ["clusters"] });
+  }
+
+  function saveRename() {
+    if (!renaming) return;
+    setAlias(renaming.id, renaming.value.trim());
+    setRenaming(null);
+  }
 
   return (
     <div className="catalog-root">
-
-      {/* ── Left sidebar ── */}
-      <aside className="catalog-sidebar">
-        <div className="catalog-sidebar-header">
-          <KubebayMark className="catalog-sidebar-logo" />
-          <span className="catalog-sidebar-title">Kubebay</span>
-        </div>
-
-        <nav className="catalog-sidebar-nav">
-          <div className="catalog-nav-item active">
-            <svg className="catalog-nav-icon" viewBox="0 0 16 16" fill="none" aria-hidden>
-              <rect x="1" y="1" width="6" height="6" rx="1.5" fill="currentColor" opacity=".9" />
-              <rect x="9" y="1" width="6" height="6" rx="1.5" fill="currentColor" opacity=".9" />
-              <rect x="1" y="9" width="6" height="6" rx="1.5" fill="currentColor" opacity=".9" />
-              <rect x="9" y="9" width="6" height="6" rx="1.5" fill="currentColor" opacity=".9" />
-            </svg>
-            Clusters
-          </div>
-          <div className="catalog-nav-item">
-            <svg className="catalog-nav-icon" viewBox="0 0 16 16" fill="none" aria-hidden>
-              <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.4" />
-              <path d="M8 5v3.5l2.2 1.3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            History
-          </div>
-          <div className="catalog-nav-item">
-            <svg className="catalog-nav-icon" viewBox="0 0 16 16" fill="none" aria-hidden>
-              <path d="M8 2.5l1.5 3.1 3.5.5-2.5 2.4.6 3.5L8 10.5l-3.1 1.5.6-3.5L3 6.1l3.5-.5z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
-            </svg>
-            Favorites
-          </div>
-        </nav>
-      </aside>
-
-      {/* ── Main area ── */}
       <div className="catalog-main">
-
-        {/* Title bar */}
-        <div className="catalog-titlebar">
-          <span className="catalog-titlebar-text">
-            Cluster Catalog
-            <span className="catalog-titlebar-count">· {list.length} cluster{list.length !== 1 ? "s" : ""}</span>
-          </span>
-          <span style={{ marginLeft: "auto" }}>
-            <Button variant="ghost" onClick={() => setKubeconfigOpen(true)}>
-              Add kubeconfig
-            </Button>
-          </span>
+        <div className="catalog-header">
+          <Row gap={3} align="center">
+            <KubebayMark className="catalog-header-logo" />
+            <div className="catalog-header-title">
+              <PageHeader
+                title="Clusters"
+                count={`· ${plural(list.length, "cluster")}`}
+                actions={
+                  <Row gap={2} align="center">
+                    {connected.length > 0 && (
+                      <Button variant="ghost" onClick={() => connected.forEach((c) => void disconnect(c.id))}>
+                        Disconnect all
+                      </Button>
+                    )}
+                    <Button variant="ghost" onClick={() => setKubeconfigOpen(true)}>
+                      Add kubeconfig
+                    </Button>
+                  </Row>
+                }
+              />
+            </div>
+          </Row>
+          {clusters.isSuccess && list.length > 0 && <div className="muted small">{summary}</div>}
         </div>
 
-        {/* Search */}
         <div className="toolbar">
           <TextField
             type="search"
-            placeholder="Search clusters…"
+            placeholder="Search by name, context or server…"
             aria-label="Search clusters"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
         </div>
 
-        {/* Content row: table + optional drawer */}
+        {clusters.isError && (
+          <InlineBanner
+            actions={
+              <Button variant="ghost" onClick={() => void clusters.refetch()}>
+                Retry
+              </Button>
+            }
+          >
+            {`Couldn't load clusters from the engine: ${clusters.error instanceof Error ? clusters.error.message : "unknown error"}`}
+          </InlineBanner>
+        )}
+        {actionError && <InlineBanner>{actionError}</InlineBanner>}
+
         <div className="catalog-content-row">
           {clusters.isSuccess && sorted.length === 0 ? (
             <EmptyState
-              title={query ? `No clusters match "${query}".` : "No clusters found in kubeconfig."}
-              hint={query ? "Loosen the search." : "Add a kubeconfig file to see its clusters."}
-            />
+              title={query ? `No clusters match "${query}".` : "No clusters found in your kubeconfig."}
+              hint={query ? "Loosen the search." : "Add a kubeconfig file to see its clusters, or check KUBECONFIG."}
+            >
+              {!query && <Button onClick={() => setKubeconfigOpen(true)}>Add kubeconfig</Button>}
+            </EmptyState>
           ) : (
-          <TableWrap>
-            <Table>
-              <colgroup>
-                {COLS.map((col, i) => (
-                  <col key={col.key} style={{ width: widths[i] }} />
-                ))}
-                <col style={{ width: 36 }} />
-              </colgroup>
-              <thead>
-                <tr>
-                  {COLS.map((col, i) => (
-                    <th key={col.key} style={{ position: "relative" }}>
-                      {col.label}
-                      <div className="col-resize-handle" {...getResizeHandleProps(i)} />
-                    </th>
-                  ))}
-                  <th className="col-row-menu" />
-                </tr>
-              </thead>
-              <tbody>
-                {clusters.isLoading && <SkeletonRows columns={COLS.length + 1} rows={3} />}
-                {sorted.map((c) => {
-                  const m = meta[c.id] ?? {};
-                  const auto = autoAvatar(c.id);
-                  const icon = icons[c.id] ?? auto;
-                  const displayName = clusterDisplayName(c.id, c.context, m.alias);
-                  const broken = c.status === "misconfigured";
-                  const isActive = c.id === activeId;
-                  const st = STATUS[c.status] ?? STATUS.unreachable;
-
-                  return (
-                    <TableRow
-                      key={c.id}
-                      clickable
-                      selected={c.id === selectedId}
-                      dimmed={broken}
-                      onClick={() => openDetails(c.id)}
-                      onDoubleClick={() => !broken && connectCluster(c.id)}
-                      title={broken ? c.error ?? "Misconfigured" : undefined}
-                    >
-                      {/* Name */}
-                      <td className="td-name" title={c.id}>
-                        <span className="catalog-name-cell">
-                          <StatusDot status={st.dot} />
-                          <span
-                            className="catalog-row-icon"
-                            style={{ background: icon.imageUrl ? "transparent" : icon.bg, color: avatarLabelColor(icon.bg) }}
-                            title="Click to change icon"
-                            onClick={(e) => { e.stopPropagation(); if (!broken) setIconPickerId(c.id); }}
-                          >
-                            {icon.imageUrl
-                              ? <img src={icon.imageUrl} alt="" className="catalog-row-icon-img" />
-                              : icon.label}
-                          </span>
-                          {displayName}
-                          {m.pinned && <span className="catalog-pin-dot" title="Pinned">★</span>}
-                          {isActive && <Badge tone="ok">connected</Badge>}
-                        </span>
-                      </td>
-                      <td className="mono cell-secondary" title={c.context}>{c.context || c.id}</td>
-                      <td className="mono cell-secondary" title={c.server}>{c.server || "–"}</td>
-                      {/* Provider — use context (original format) not id (sanitized) */}
-                      <td><ProviderBadge id={c.context || c.id} /></td>
-                      <td><StatusPill tone={st.tone}>{st.label}</StatusPill></td>
-                      <td className="mono cell-secondary">{c.version ?? "–"}</td>
-                      {/* ⋮ menu */}
-                      <td className="col-row-menu" onClick={(e) => e.stopPropagation()}>
-                        <RowMenu
-                          cluster={c}
-                          pinned={!!m.pinned}
-                          onOpenDetails={() => openDetails(c.id)}
-                          onConnect={() => !broken && connectCluster(c.id)}
-                          onHide={() => hide(c.id)}
-                          onTogglePin={() => togglePin(c.id)}
-                        />
-                      </td>
-                    </TableRow>
-                  );
-                })}
-              </tbody>
-            </Table>
-          </TableWrap>
+            !clusters.isError && (
+              <TableWrap>
+                <Table>
+                  <thead>
+                    <tr>
+                      {HEADERS.map((h) => (
+                        <th key={h}>{h}</th>
+                      ))}
+                      <th className="col-row-menu" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {clusters.isLoading && <SkeletonRows columns={HEADERS.length + 1} rows={3} />}
+                    {sorted.flatMap((c) => {
+                      const m = meta[c.id] ?? {};
+                      const icon = icons[c.id] ?? autoAvatar(c.id);
+                      const broken = c.status === "misconfigured";
+                      const unreachable = c.status === "unreachable";
+                      const isActive = c.id === activeId;
+                      const conn = isConnected(c);
+                      const st = API_STATUS[c.status] ?? API_STATUS.unreachable;
+                      const sum = conn ? clusterSummary(c.id) : null;
+                      const streamErr = conn ? connectionError(c.id) : "";
+                      const provider = providerBadge(c.context || c.id).label;
+                      const name = clusterDisplayName(c.id, c.context, m.alias);
+                      const rows = [
+                        <TableRow key={c.id} clickable onClick={() => open(c)} title={c.context}>
+                          <td className="td-name">
+                            <span className="catalog-name-cell">
+                              <IconButton
+                                label={`Change icon for ${c.id}`}
+                                className="catalog-row-icon"
+                                style={{ background: icon.imageUrl ? "transparent" : icon.bg, color: avatarLabelColor(icon.bg) }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setIconPickerId(c.id);
+                                }}
+                              >
+                                {icon.imageUrl ? <img src={icon.imageUrl} alt="" className="catalog-row-icon-img" /> : icon.label}
+                              </IconButton>
+                              {renaming?.id === c.id ? (
+                                <TextField
+                                  aria-label={`Display name for ${c.id}`}
+                                  value={renaming.value}
+                                  autoFocus
+                                  onClick={(e) => e.stopPropagation()}
+                                  onChange={(e) => setRenaming({ id: c.id, value: e.target.value })}
+                                  onKeyDown={(e) => {
+                                    e.stopPropagation();
+                                    if (e.key === "Enter") saveRename();
+                                    if (e.key === "Escape") setRenaming(null);
+                                  }}
+                                  onBlur={saveRename}
+                                />
+                              ) : (
+                                <span className="mono" data-cluster-name>
+                                  {name}
+                                </span>
+                              )}
+                              {m.pinned && (
+                                <span className="catalog-pin-dot" title="Pinned">
+                                  ★
+                                </span>
+                              )}
+                              {provider !== "–" && <Badge>{provider}</Badge>}
+                            </span>
+                          </td>
+                          <td>
+                            {isActive ? (
+                              <Row gap={2} align="center">
+                                <StatusDot status="connected" />
+                                <span>Active</span>
+                              </Row>
+                            ) : conn ? (
+                              <Row gap={2} align="center">
+                                <StatusDot status={streamErr ? "unreachable" : "connected"} />
+                                <span title={streamErr || undefined}>{streamErr ? "Error" : "Connected"}</span>
+                              </Row>
+                            ) : (
+                              <span className="cell-secondary">—</span>
+                            )}
+                          </td>
+                          <td title={[c.error, checkedAgo(c.checkedAt)].filter(Boolean).join(" · ") || undefined}>
+                            <StatusPill tone={st.tone}>{st.label}</StatusPill>
+                          </td>
+                          <td className="mono cell-secondary">{c.version ? `${c.version}${unreachable ? " (stale)" : ""}` : "–"}</td>
+                          <td>
+                            {sum ? sum.synced ? <PodHealthBar summary={sum} /> : <Skeleton w={60} /> : <span className="cell-secondary">—</span>}
+                          </td>
+                          <td className="mono cell-secondary">{sum ? sum.synced ? sum.nodes : <Skeleton w={20} /> : "—"}</td>
+                          <td className="col-row-menu" onClick={(e) => e.stopPropagation()}>
+                            <RowMenu
+                              cluster={c}
+                              connected={conn}
+                              pinned={!!m.pinned}
+                              onOpen={() => open(c)}
+                              onConnectInBackground={() => {
+                                bgConnect(c.id);
+                                void api.connectCluster(c.id).then(() => queryClient.invalidateQueries({ queryKey: ["clusters"] }));
+                              }}
+                              onDisconnect={() => void disconnect(c.id)}
+                              onTogglePin={() => togglePin(c.id)}
+                              onRename={() => setRenaming({ id: c.id, value: m.alias ?? "" })}
+                              onChangeIcon={() => setIconPickerId(c.id)}
+                              onConfigurePrometheus={() => setPromFor(c.id)}
+                              onRemove={() => setRemoving(c)}
+                            />
+                          </td>
+                        </TableRow>,
+                      ];
+                      if (broken && errorOpen === c.id) {
+                        rows.push(
+                          <tr key={`${c.id}-error`}>
+                            <td colSpan={HEADERS.length + 1}>
+                              <InlineBanner flush>{c.error || "This context could not be used."}</InlineBanner>
+                            </td>
+                          </tr>,
+                        );
+                      }
+                      return rows;
+                    })}
+                  </tbody>
+                </Table>
+              </TableWrap>
+            )
           )}
-
-          {/* Detail drawer */}
-          {drawerCluster && (() => {
-            const m = meta[drawerCluster.id] ?? {};
-            const auto = autoAvatar(drawerCluster.id);
-            const icon = icons[drawerCluster.id] ?? auto;
-            return (
-              <ClusterDetailDrawer
-                cluster={drawerCluster}
-                meta={m}
-                icon={icon}
-                isActive={drawerCluster.id === activeId}
-                onConnect={() => connectCluster(drawerCluster.id)}
-                onClose={closeDrawer}
-                onRename={(alias) => setAlias(drawerCluster.id, alias)}
-                onChangeIcon={() => setIconPickerId(drawerCluster.id)}
-                onTogglePin={() => togglePin(drawerCluster.id)}
-                onRemove={() => { hide(drawerCluster.id); closeDrawer(); }}
-                prometheus={{ url: settings.data?.prometheusUrls?.[drawerCluster.id], fallback: settings.data?.prometheusUrl }}
-                onConfigurePrometheus={() => setPromFor(drawerCluster.id)}
-              />
-            );
-          })()}
         </div>
 
-        {/* Hidden clusters */}
         {hiddenClusters.length > 0 && (
-          <details className="catalog-hidden-section">
-            <summary className="muted small">
-              {hiddenClusters.length} hidden cluster{hiddenClusters.length !== 1 ? "s" : ""}
-            </summary>
-            <div className="catalog-hidden-list">
-              {hiddenClusters.map((c) => (
-                <div key={c.id} className="catalog-hidden-row">
-                  <span className="muted small">{meta[c.id]?.alias || c.context || c.id}</span>
-                  <button className="cp-show-btn small" onClick={() => show(c.id)}>Show</button>
-                </div>
-              ))}
-            </div>
-          </details>
+          <div className="catalog-hidden-section">
+            <Button variant="ghost" aria-expanded={showHidden} onClick={() => setShowHidden((o) => !o)}>
+              {plural(hiddenClusters.length, "hidden cluster")}
+            </Button>
+            {showHidden && (
+              <div className="catalog-hidden-list">
+                {hiddenClusters.map((c) => (
+                  <div key={c.id} className="catalog-hidden-row">
+                    <span className="muted small">{meta[c.id]?.alias || c.context || c.id}</span>
+                    <Button variant="ghost" aria-label={`Show ${c.id}`} onClick={() => show(c.id)}>
+                      Show
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         )}
 
-        {/* Bottom status bar */}
         <div className="catalog-statusbar">
           <span className="catalog-statusbar-engine">
-            <span className="catalog-engine-dot" />
-            Engine running
+            <StatusDot status={health.data?.ok ? "connected" : health.isLoading ? "pending" : "unreachable"} />
+            {health.data?.ok ? "Engine running" : health.isLoading ? "Checking engine…" : "Engine not responding"}
           </span>
-          <span className="catalog-statusbar-sep" aria-hidden="true">—</span>
-          <span className="catalog-statusbar-clusters">
-            {connectedCount} / {list.length} cluster{list.length !== 1 ? "s" : ""} connected
+          <span className="catalog-statusbar-sep" aria-hidden="true">
+            —
           </span>
+          <span className="catalog-statusbar-clusters">{`${connected.length} of ${plural(list.length, "cluster")} connected`}</span>
           <span className="catalog-statusbar-version">{APP_VERSION}</span>
         </div>
       </div>
+
+      {removing && (
+        <Modal label={`Remove ${removing.id}`} placement="center" onClose={() => setRemoving(null)}>
+          <div className="catalog-confirm">
+            <p>{`Remove ${removing.id} from the list? It stays in your kubeconfig; show it again from the hidden clusters.`}</p>
+            <Row gap={2} justify="end">
+              <Button variant="ghost" onClick={() => setRemoving(null)}>
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                onClick={() => {
+                  hide(removing.id);
+                  setRemoving(null);
+                }}
+              >
+                Remove
+              </Button>
+            </Row>
+          </div>
+        </Modal>
+      )}
 
       {kubeconfigOpen && (
         <Modal label="Kubeconfig sources" placement="center" size="wide" onClose={() => setKubeconfigOpen(false)}>
           <Stack gap={3}>
             <Row align="center" justify="between">
               <strong>Kubeconfig sources</strong>
-              <IconButton label="Close" onClick={() => setKubeconfigOpen(false)}>×</IconButton>
+              <IconButton label="Close" onClick={() => setKubeconfigOpen(false)}>
+                ×
+              </IconButton>
             </Row>
             <KubeconfigSources />
           </Stack>
         </Modal>
       )}
+
       {promFor && (
         <ConfigurePrometheusModal
           cluster={promFor}
           onClose={() => setPromFor(null)}
-          onSaved={() => void qc.invalidateQueries({ queryKey: ["settings"] })}
+          onSaved={() => void queryClient.invalidateQueries({ queryKey: ["settings"] })}
         />
       )}
 
-      {/* Icon picker overlay */}
-      {iconPickerId && (() => {
-        const auto = autoAvatar(iconPickerId);
-        return (
-          <ClusterIconPicker
-            clusterId={iconPickerId}
-            current={icons[iconPickerId] ?? auto}
-            onSave={(ic) => setIcon(iconPickerId, ic)}
-            onReset={() => resetIcon(iconPickerId)}
-            onClose={() => setIconPickerId(null)}
-          />
-        );
-      })()}
+      {iconPickerId && (
+        <ClusterIconPicker
+          clusterId={iconPickerId}
+          current={icons[iconPickerId] ?? autoAvatar(iconPickerId)}
+          onSave={(ic) => setIcon(iconPickerId, ic)}
+          onReset={() => resetIcon(iconPickerId)}
+          onClose={() => setIconPickerId(null)}
+        />
+      )}
     </div>
   );
 }

@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -34,6 +35,9 @@ const (
 	// ...).  It is listed so the user can see why, but it has no rest.Config
 	// and can never be selected or connected to.
 	StatusMisconfigured Status = "misconfigured"
+	// StatusChecking is a context that has not been probed yet: neither
+	// reachable nor unreachable is known, so the UI must not claim either.
+	StatusChecking Status = "checking"
 )
 
 type Cluster struct {
@@ -43,6 +47,10 @@ type Cluster struct {
 	Status  Status `json:"status"`
 	Version string `json:"version,omitempty"`
 	Error   string `json:"error,omitempty"`
+	// CheckedAt is when the reachability probe last finished.
+	CheckedAt *time.Time `json:"checkedAt,omitempty"`
+	// Connected is the user's session state (streams open), not reachability.
+	Connected bool `json:"connected"`
 }
 
 type entry struct {
@@ -90,9 +98,24 @@ type Manager struct {
 	extraPaths []string
 	isolated   bool
 	firstLoad  bool
+
+	// connected holds the clusters the user has connected to this run.
+	// Reachability (Status) is probed for every context; connection is the
+	// user's choice, and Disconnect tears down what it opened.
+	connected       map[string]bool
+	disconnectHooks []func(id string)
+	// kick asks the health loop to probe now (after a load) instead of
+	// waiting out its interval.
+	kick chan struct{}
 }
 
 func NewManager(log *slog.Logger, kubeconfigPath string) (*Manager, error) {
+	return newManager(log, kubeconfigPath, true)
+}
+
+// newManager is NewManager without the file watcher and health loop when
+// loops is false, so tests drive probes themselves.
+func newManager(log *slog.Logger, kubeconfigPath string, loops bool) (*Manager, error) {
 	// KUBEBAY_KUBECONFIG is a prod-safety override: when set it is the ONLY
 	// kubeconfig the engine will ever load, regardless of --kubeconfig flag,
 	// KUBECONFIG env, or the default ~/.kube/config.  This prevents dev/test
@@ -102,7 +125,14 @@ func NewManager(log *slog.Logger, kubeconfigPath string) (*Manager, error) {
 		kubeconfigPath = override
 	}
 
-	m := &Manager{log: log, entries: map[string]*entry{}, kubeconfig: kubeconfigPath, firstLoad: true}
+	m := &Manager{
+		log:        log,
+		entries:    map[string]*entry{},
+		kubeconfig: kubeconfigPath,
+		firstLoad:  true,
+		connected:  map[string]bool{},
+		kick:       make(chan struct{}, 1),
+	}
 	w, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, err
@@ -127,8 +157,10 @@ func NewManager(log *slog.Logger, kubeconfigPath string) (*Manager, error) {
 	if err := m.Load(); err != nil {
 		return nil, err
 	}
-	go m.watchFiles()
-	go m.healthLoop()
+	if loops {
+		go m.watchFiles()
+		go m.healthLoop()
+	}
 	return m, nil
 }
 
@@ -230,9 +262,19 @@ func (m *Manager) Load() error {
 		return fmt.Errorf("load kubeconfig: %w", err)
 	}
 
+	names := make([]string, 0, len(raw.Contexts))
+	for name := range raw.Contexts {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	m.mu.RLock()
+	prev := m.entries
+	m.mu.RUnlock()
+
 	newEntries := map[string]*entry{}
 	var order []string
-	for name := range raw.Contexts {
+	for _, name := range names {
 		cc := clientcmd.NewNonInteractiveClientConfig(*raw, name, &clientcmd.ConfigOverrides{}, rules)
 		cfg, cfgErr := cc.ClientConfig()
 		if cfgErr != nil {
@@ -246,11 +288,19 @@ func (m *Manager) Load() error {
 		}
 		id := sanitizeID(name)
 		order = append(order, id)
-		status := StatusUnreachable
+		status := StatusChecking
 		errStr := ""
+		version := ""
+		var checkedAt *time.Time
 		if cfgErr != nil {
 			status = StatusMisconfigured
 			errStr = cfgErr.Error()
+		} else if old, ok := prev[id]; ok && old.cfg != nil && old.cluster.Server == server {
+			// Same context, same server: keep what the last probe found rather
+			// than flashing every cluster back to unknown on each kubeconfig save.
+			m.mu.RLock()
+			status, version, errStr, checkedAt = old.cluster.Status, old.cluster.Version, old.cluster.Error, old.cluster.CheckedAt
+			m.mu.RUnlock()
 		}
 		newEntries[id] = &entry{
 			cfg: cfg,
@@ -266,11 +316,13 @@ func (m *Manager) Load() error {
 			// kubeconfig instead of this one).
 			kubeconfigPath: strings.Join(rules.GetLoadingPrecedence(), string(os.PathListSeparator)),
 			cluster: &Cluster{
-				ID:      id,
-				Context: name,
-				Server:  server,
-				Status:  status,
-				Error:   errStr,
+				ID:        id,
+				Context:   name,
+				Server:    server,
+				Status:    status,
+				Version:   version,
+				Error:     errStr,
+				CheckedAt: checkedAt,
 			},
 		}
 	}
@@ -279,19 +331,36 @@ func (m *Manager) Load() error {
 	old := m.entries
 	m.entries = newEntries
 	m.order = order
+	first := m.firstLoad
+	m.firstLoad = false
+	var removedConnected []string
+	for id := range old {
+		if _, ok := newEntries[id]; ok {
+			continue
+		}
+		if !first {
+			m.log.Info("cluster removed", "cluster", id)
+		}
+		if m.connected[id] {
+			delete(m.connected, id)
+			removedConnected = append(removedConnected, id)
+		}
+	}
+	hooks := append([]func(string){}, m.disconnectHooks...)
 	m.mu.Unlock()
 
-	if !m.firstLoad {
-		for id := range old {
-			if _, ok := newEntries[id]; !ok {
-				m.log.Info("cluster removed", "cluster", id)
-			}
+	for _, id := range removedConnected {
+		for _, h := range hooks {
+			h(id)
 		}
 	}
 	for _, f := range rules.Precedence {
 		_ = m.watcher.Add(f)
 	}
-	m.firstLoad = false
+	select {
+	case m.kick <- struct{}{}:
+	default:
+	}
 	return nil
 }
 
@@ -334,63 +403,136 @@ func (m *Manager) watchFiles() {
 	}
 }
 
-func (m *Manager) healthOnce(e *entry) {
-	if e.cfg == nil {
-		return // misconfigured: nothing to probe, keep the load-time reason
+// probe checks one cluster's API server and records the result. The network
+// call runs without the lock; only the write is locked, because List copies
+// the cluster under the read lock.
+func (m *Manager) probe(id string) {
+	m.mu.RLock()
+	e, ok := m.entries[id]
+	var cfg *rest.Config
+	if ok {
+		cfg = e.cfg
 	}
-	cfgCopy := *e.cfg
+	m.mu.RUnlock()
+	if cfg == nil {
+		return // unknown or misconfigured: nothing to probe, keep the load-time reason
+	}
+	cfgCopy := *cfg
 	cfgCopy.Timeout = 5 * time.Second
 	client, err := kubernetes.NewForConfig(&cfgCopy)
 	if err != nil {
-		e.cluster.Status = StatusUnreachable
-		e.cluster.Error = err.Error()
+		m.record(id, StatusUnreachable, "", err.Error())
 		return
 	}
 	v, err := client.Discovery().ServerVersion()
 	if err != nil {
-		e.cluster.Status = StatusUnreachable
-		e.cluster.Error = err.Error()
+		m.record(id, StatusUnreachable, "", err.Error())
 		return
 	}
-	e.cluster.Status = StatusConnected
-	e.cluster.Version = v.GitVersion
-	e.cluster.Error = ""
+	m.record(id, StatusConnected, v.GitVersion, "")
+}
+
+// record stores a probe result on the current entry for id, if it still exists.
+func (m *Manager) record(id string, status Status, version, errStr string) {
+	now := time.Now()
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	e, ok := m.entries[id]
+	if !ok || e.cfg == nil {
+		return
+	}
+	e.cluster.Status = status
+	if version != "" {
+		e.cluster.Version = version
+	}
+	e.cluster.Error = errStr
+	e.cluster.CheckedAt = &now
 }
 
 func (m *Manager) healthLoop() {
 	for {
 		m.mu.RLock()
-		list := make([]*entry, 0, len(m.entries))
-		for _, e := range m.entries {
+		ids := make([]string, 0, len(m.entries))
+		for id, e := range m.entries {
 			if e.cfg == nil {
 				continue // misconfigured: nothing to probe, keep the load-time reason
 			}
-			list = append(list, e)
+			ids = append(ids, id)
 		}
 		m.mu.RUnlock()
 		var wg sync.WaitGroup
-		for _, e := range list {
+		for _, id := range ids {
 			wg.Add(1)
-			go func(e *entry) {
+			go func(id string) {
 				defer wg.Done()
 				// Hard cap per-cluster health check so a hung exec credential
 				// plugin (e.g. aws/gke token fetcher) can't block the loop.
 				done := make(chan struct{}, 1)
 				go func() {
-					m.healthOnce(e)
+					m.probe(id)
 					done <- struct{}{}
 				}()
 				select {
 				case <-done:
 				case <-time.After(12 * time.Second):
-					e.cluster.Status = StatusUnreachable
-					e.cluster.Error = "health check timed out (exec credential plugin may be slow or missing)"
+					m.record(id, StatusUnreachable, "", "health check timed out (exec credential plugin may be slow or missing)")
 				}
-			}(e)
+			}(id)
 		}
 		wg.Wait()
-		time.Sleep(30 * time.Second)
+		select {
+		case <-time.After(30 * time.Second):
+		case <-m.kick:
+		}
 	}
+}
+
+// Connect marks a cluster as connected by the user. Idempotent.
+func (m *Manager) Connect(id string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	e, ok := m.entries[id]
+	if !ok {
+		return fmt.Errorf("unknown cluster %q", id)
+	}
+	if e.cfg == nil {
+		return fmt.Errorf("cluster %q is misconfigured: %s", id, e.cluster.Error)
+	}
+	m.connected[id] = true
+	return nil
+}
+
+// Disconnect clears a cluster's connected state and runs the disconnect
+// hooks (stop its informers and port-forwards) even if it was not marked
+// connected, so a stray stream can always be torn down.
+func (m *Manager) Disconnect(id string) error {
+	m.mu.Lock()
+	if _, ok := m.entries[id]; !ok {
+		m.mu.Unlock()
+		return fmt.Errorf("unknown cluster %q", id)
+	}
+	delete(m.connected, id)
+	hooks := append([]func(string){}, m.disconnectHooks...)
+	m.mu.Unlock()
+	for _, h := range hooks {
+		h(id)
+	}
+	return nil
+}
+
+// IsConnected reports whether the user connected to id this run.
+func (m *Manager) IsConnected(id string) bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.connected[id]
+}
+
+// OnDisconnect registers teardown run after a cluster is disconnected or
+// removed from the kubeconfig while connected.
+func (m *Manager) OnDisconnect(fn func(id string)) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.disconnectHooks = append(m.disconnectHooks, fn)
 }
 
 func (m *Manager) LoadInCluster() error {
@@ -406,7 +548,7 @@ func (m *Manager) LoadInCluster() error {
 				ID:      "in-cluster",
 				Context: "in-cluster",
 				Server:  "(in-cluster)",
-				Status:  StatusUnreachable,
+				Status:  StatusChecking,
 			},
 		},
 	}
@@ -414,12 +556,7 @@ func (m *Manager) LoadInCluster() error {
 	m.mu.Unlock()
 	go func() {
 		time.Sleep(time.Second)
-		m.mu.RLock()
-		e := m.entries["in-cluster"]
-		m.mu.RUnlock()
-		if e != nil {
-			m.healthOnce(e)
-		}
+		m.probe("in-cluster")
 	}()
 	return nil
 }
@@ -462,6 +599,7 @@ func (m *Manager) List() []Cluster {
 	for _, id := range m.order {
 		if e, ok := m.entries[id]; ok {
 			c := *e.cluster
+			c.Connected = m.connected[id]
 			out = append(out, c)
 		}
 	}
