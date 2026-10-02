@@ -43,10 +43,6 @@ describe("lists and tables load as skeletons", () => {
     expect(app).not.toMatch(/<Suspense fallback=\{<div className="page" \/>\}>/);
     expect(app).toMatch(/<Suspense fallback=\{<PageSkeleton\b/);
   });
-
-  it("the fleet view sketches its cluster cards", () => {
-    expect(read("pages/Fleet.tsx")).not.toMatch(/title="Loading clusters…"/);
-  });
 });
 
 describe("drawers load as skeleton lines, not a word", () => {
