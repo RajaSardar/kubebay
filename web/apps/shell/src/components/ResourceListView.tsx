@@ -71,6 +71,8 @@ export interface ResourceListViewProps<R> {
   defaultSort?: (a: R, b: R) => number;
   /** The filter's placeholder ("Filter <label>…  /" when unset). */
   filterPlaceholder?: string;
+  /** The filter's text when the list first renders (a link's ?q=). */
+  initialFilter?: string;
   onOpen: (r: R) => void;
   /** The row menu; Delete goes through `requestDelete` to get the confirmation. */
   menuItems: (r: R, actions: { requestDelete: () => void }) => MenuItem[];
@@ -204,6 +206,7 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
 
   const list = useResourceList<R>({
     rows: all,
+    initialFilter: p.initialFilter,
     keyOf,
     match,
     // A hidden column no longer orders the table.
