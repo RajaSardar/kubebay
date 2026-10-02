@@ -50,7 +50,12 @@ export interface ClusterInfo {
   id: string;
   context: string;
   server: string;
-  status: "connected" | "unreachable" | "degraded" | "misconfigured";
+  /** Reachability from the engine's /version probe ("connected" means reachable). */
+  status: "connected" | "unreachable" | "degraded" | "misconfigured" | "checking";
+  /** The user connected to this cluster this run (streams open), not reachability. */
+  connected?: boolean;
+  /** When the reachability probe last finished. */
+  checkedAt?: string;
   version?: string;
   error?: string;
 }

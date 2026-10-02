@@ -74,42 +74,43 @@ export default function Ports() {
         {err && <div className="error-text small" style={{ marginTop: 8 }}>{err}</div>}
       </Card>
 
-      {(forwards.data ?? []).length === 0 ? (
-        <EmptyState>
-          <p>No active tunnels.</p>
-          <p className="muted small">Tunnels bind to 127.0.0.1 only and die with the engine.</p>
-        </EmptyState>
-      ) : (
-        <DataTable
-          rows={forwards.data ?? []}
-          rowKey={(f) => f.id}
-          columns={[
-            {
-              key: "local",
-              header: "Local",
-              render: (f) => (
-                <a className="mono strong pf-link" href={`http://127.0.0.1:${f.localPort}`} target="_blank" rel="noreferrer">
-                  127.0.0.1:{f.localPort}
-                </a>
-              ),
-            },
-            { key: "target", header: "Target", className: "mono muted", render: (f) => `${f.namespace}/${f.pod}:${f.podPort}` },
-            { key: "cluster", header: "Cluster", className: "mono muted", render: (f) => f.cluster },
-            { key: "started", header: "Started", className: "mono muted", render: (f) => new Date(f.startedAt).toLocaleTimeString() },
-            {
-              key: "actions",
-              header: "",
-              render: (f) => (
-                <Row justify="end">
-                  <Button variant="danger" onClick={() => void stop(f.id)}>
-                    Stop
-                  </Button>
-                </Row>
-              ),
-            },
-          ]}
-        />
-      )}
+      <DataTable
+        loading={forwards.isLoading}
+        loadingLabel="Loading port forwards…"
+        empty={
+          <EmptyState>
+            <p>No active tunnels.</p>
+            <p className="muted small">Tunnels bind to 127.0.0.1 only and die with the engine.</p>
+          </EmptyState>
+        }
+        rows={forwards.data ?? []}
+        rowKey={(f) => f.id}
+        columns={[
+          {
+            key: "local",
+            header: "Local",
+            render: (f) => (
+              <a className="mono strong pf-link" href={`http://127.0.0.1:${f.localPort}`} target="_blank" rel="noreferrer">
+                127.0.0.1:{f.localPort}
+              </a>
+            ),
+          },
+          { key: "target", header: "Target", className: "mono muted", render: (f) => `${f.namespace}/${f.pod}:${f.podPort}` },
+          { key: "cluster", header: "Cluster", className: "mono muted", render: (f) => f.cluster },
+          { key: "started", header: "Started", className: "mono muted", render: (f) => new Date(f.startedAt).toLocaleTimeString() },
+          {
+            key: "actions",
+            header: "",
+            render: (f) => (
+              <Row justify="end">
+                <Button variant="danger" onClick={() => void stop(f.id)}>
+                  Stop
+                </Button>
+              </Row>
+            ),
+          },
+        ]}
+      />
     </div>
   );
 }

@@ -9,6 +9,7 @@ import {
   type TableHTMLAttributes,
 } from "react";
 import { Skeleton } from "./index";
+import { Spinner } from "./spinner";
 
 // ── Feedback ──────────────────────────────────────────────────────────────────
 
@@ -306,11 +307,24 @@ export interface SkeletonTableProps {
   label?: string;
 }
 
+/** The loading line above a table's skeleton rows: the helm-wheel spinner and what is loading. */
+function TableLoadingCaption({ label }: { label: string }) {
+  return (
+    <caption className="kb-table-loading">
+      <span className="kb-table-loading-inner">
+        <Spinner label={null} size={14} />
+        <span>{label}</span>
+      </span>
+    </caption>
+  );
+}
+
 /** A whole table's placeholder: its header over skeleton rows. Use it for every list that is still loading. */
 export function SkeletonTable({ headers, rows = 8, leadingBlank, widths, label = "Loading…" }: SkeletonTableProps) {
   return (
     <TableWrap role="status" aria-label={label} aria-busy="true">
       <Table>
+        <TableLoadingCaption label={label} />
         <thead>
           <tr>
             {leadingBlank && <th style={{ width: 40 }} />}
@@ -374,6 +388,8 @@ export interface DataTableProps<T> {
   empty?: ReactNode;
   /** Show skeleton rows instead of data. */
   loading?: boolean;
+  /** What is loading, shown beside the spinner ("Loading releases…"). */
+  loadingLabel?: string;
   /** Wrap in TableWrap (default). Set false inside a Card or drawer that scrolls itself. */
   wrap?: boolean;
   style?: CSSProperties;
@@ -391,6 +407,7 @@ export function DataTable<T>({
   isDimmed,
   empty,
   loading,
+  loadingLabel = "Loading…",
   wrap = true,
   style,
 }: DataTableProps<T>) {
@@ -399,6 +416,7 @@ export function DataTable<T>({
   const selectedCount = selection ? keys.filter((k) => selection.selected.has(k)).length : 0;
   const table = (
     <Table style={style}>
+      {loading && <TableLoadingCaption label={loadingLabel} />}
       <thead>
         <tr>
           {selection && (

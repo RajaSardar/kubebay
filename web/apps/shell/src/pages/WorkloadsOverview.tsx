@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery as useRQQuery } from "@tanstack/react-query";
 import { Badge, Card, PageHeader, Row, SegmentedControl, Select, Skeleton, Stack } from "@kubebay/ui";
@@ -17,6 +17,19 @@ import { findServiceSelectorMismatches } from "../lib/serviceSelectorMismatch";
 import { CoreDnsHealthCard } from "../components/CoreDnsHealthCard";
 import { checkCoreDns } from "../lib/coreDnsHealth";
 import { RouteResolutionList } from "../components/RouteResolutionList";
+import { NeedsAttention } from "../components/NeedsAttention";
+import { findAttention } from "../lib/attention";
+import { CapacityLine } from "../components/CapacityLine";
+import { clusterCapacity } from "../lib/capacity";
+import { HealthVerdictLine } from "../components/HealthVerdictLine";
+import { healthVerdict, warningTrend } from "../lib/verdict";
+import { useSelectedNamespaces } from "../lib/namespace-store";
+import { RolloutsInProgress } from "../components/RolloutsInProgress";
+import { rolloutsInProgress } from "../lib/rolloutsInProgress";
+import { PodStatusBar } from "../components/PodStatusBar";
+import { podStatusSegments } from "../lib/podStatusBar";
+import { NamespacesRanked, type NamespaceRankBy } from "../components/NamespacesRanked";
+import { rankNamespaces } from "../lib/namespaceRanking";
 import { detectGatewayApi, resolveHttpRoutes, resolveIngressRoutes } from "../lib/routeResolution";
 
 function useKindCounts(
@@ -40,6 +53,7 @@ function useKindCounts(
         jobs: jobs.rows,
       }),
       synced: pods.synced && deps.synced && stss.synced && dss.synced && jobs.synced && nodes.synced,
+      daemonSets: dss.rows,
     }),
     [pods, deps, stss, dss, jobs, nodes],
   );
@@ -61,7 +75,14 @@ export default function WorkloadsOverview() {
   const deployments = useResourceStream(effectiveCluster || undefined, "apps/v1/deployments", { mode: "full" });
   const statefulSets = useResourceStream(effectiveCluster || undefined, "apps/v1/statefulsets", { mode: "full" });
 
-  const { kinds, synced } = useKindCounts(pods, nodes, deployments, statefulSets, effectiveCluster || undefined);
+  // Overview v2's verdict reads the last hour of warnings for its direction.
+  const events = useResourceStream(effectiveCluster || undefined, "v1/events", { mode: "full", enabled: tab === "overview" });
+  // Your namespaces (the namespace filter's pick) are judged first; one click shows the rest.
+  const selectedNs = useSelectedNamespaces(effectiveCluster || undefined);
+  const [showAllNs, setShowAllNs] = useState(false);
+  const scope = useMemo(() => (showAllNs ? [] : selectedNs), [showAllNs, selectedNs]);
+
+  const { kinds, synced, daemonSets } = useKindCounts(pods, nodes, deployments, statefulSets, effectiveCluster || undefined);
 
   // SPOF Radar's own resources -- only opened once that tab is actually
   // selected, same gating discipline the Pressure tab's podMetricsQ uses.
@@ -123,7 +144,8 @@ export default function WorkloadsOverview() {
   const podMetricsQ = useRQQuery({
     queryKey: ["podmetrics", effectiveCluster],
     queryFn: () => api.podMetrics(effectiveCluster),
-    enabled: !!effectiveCluster && tab === "pressure",
+    // Pressure needs it; the Overview's capacity line adds a "used" layer with it.
+    enabled: !!effectiveCluster && (tab === "pressure" || tab === "overview"),
     refetchInterval: 15_000,
     retry: false,
   });
@@ -138,6 +160,50 @@ export default function WorkloadsOverview() {
     () => aggregatePressure(pressureInputs.pods, pressureInputs.nodes, pressureInputs.usage),
     [pressureInputs],
   );
+
+  // Overview v2: what's broken and why. O(pods), so throttled like Pressure.
+  const attentionInputs = useLeadingThrottle(
+    useMemo(
+      () => ({ pods: pods.rows, deployments: deployments.rows, statefulSets: statefulSets.rows, daemonSets, nodes: nodes.rows }),
+      [pods.rows, deployments.rows, statefulSets.rows, daemonSets, nodes.rows],
+    ),
+    2000,
+  );
+  const attention = useMemo(() => ({ rows: findAttention(attentionInputs), at: Date.now() }), [attentionInputs]);
+  const capacity = useMemo(
+    () => clusterCapacity({ pods: pressureInputs.pods, nodes: pressureInputs.nodes, usage: pressureInputs.usage }),
+    [pressureInputs],
+  );
+  const verdict = useMemo(
+    () => healthVerdict({ attention: attention.rows, pods: attentionInputs.pods, capacity, scope }),
+    [attention.rows, attentionInputs.pods, capacity, scope],
+  );
+  const attentionShown = useMemo(
+    () => (scope.length ? attention.rows.filter((r) => scope.includes(r.namespace)) : attention.rows),
+    [attention.rows, scope],
+  );
+  const trend = useMemo(() => warningTrend(events.rows), [events.rows]);
+  const inScope = useCallback((o: Record<string, unknown>) => {
+    if (!scope.length) return true;
+    const ns = (o.metadata as Record<string, unknown> | undefined)?.namespace;
+    return typeof ns === "string" && scope.includes(ns);
+  }, [scope]);
+  const rollouts = useMemo(
+    () =>
+      rolloutsInProgress({
+        deployments: attentionInputs.deployments.filter(inScope),
+        statefulSets: attentionInputs.statefulSets.filter(inScope),
+        daemonSets: attentionInputs.daemonSets.filter(inScope),
+      }),
+    [attentionInputs, inScope],
+  );
+  // Namespaces are compared across the whole cluster, whatever the scope.
+  const [rankBy, setRankBy] = useState<NamespaceRankBy>("problems");
+  const namespaces = useMemo(
+    () => rankNamespaces({ pods: attentionInputs.pods, attention: attention.rows, events: events.rows, by: rankBy }),
+    [attentionInputs.pods, attention.rows, events.rows, rankBy],
+  );
+  const statusSegments = useMemo(() => podStatusSegments(attentionInputs.pods.filter(inScope)), [attentionInputs.pods, inScope]);
 
   const serviceMismatches = useMemo(
     () => findServiceSelectorMismatches(services.rows, pods.rows, endpointSlices.rows),
@@ -214,6 +280,11 @@ export default function WorkloadsOverview() {
           ))}
         </div>
       ) : (
+        <Stack gap={5}>
+        <HealthVerdictLine verdict={verdict} trend={trend} scope={selectedNs} showingAll={showAllNs} onToggleScope={() => setShowAllNs((v) => !v)} />
+        <NeedsAttention rows={attentionShown} checkedAt={attention.at} capacity={capacity} />
+        <RolloutsInProgress rows={rollouts} />
+        <PodStatusBar segments={statusSegments} />
         <div className="cluster-grid">
           {kinds.map((k) => (
             <Card key={k.label} interactive className="fleet-card">
@@ -245,6 +316,9 @@ export default function WorkloadsOverview() {
             </Card>
           ))}
         </div>
+        <CapacityLine capacity={capacity} />
+        <NamespacesRanked rows={namespaces} by={rankBy} onBy={setRankBy} />
+        </Stack>
       )}
       </div>
     </div>
