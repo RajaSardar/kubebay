@@ -11,14 +11,16 @@
 
   /* Type scale — every font-size in the app resolves to one of these seven
      steps. Integer px only: half-pixel sizes render with fuzzy glyph metrics
-     and were the main source of "not quite aligned" text across pages. */
-  --kb-text-2xs: 10px;
-  --kb-text-xs:  11px;
-  --kb-text-sm:  12px;
-  --kb-text-md:  13px;
-  --kb-text-lg:  15px;
-  --kb-text-xl:  18px;
-  --kb-text-2xl: 28px;
+     and were the main source of "not quite aligned" text across pages.
+     These are the default (M, a 14px body as in Lens and Freelens); Settings →
+     Font size sets all seven to S, M, L or XL (TYPE_SCALE in display.ts). */
+  --kb-text-2xs: 11px;
+  --kb-text-xs:  12px;
+  --kb-text-sm:  13px;
+  --kb-text-md:  14px;
+  --kb-text-lg:  16px;
+  --kb-text-xl:  20px;
+  --kb-text-2xl: 30px;
   /* Glyph size for an icon or monogram inside a control or avatar, not text. */
   --kb-text-icon: 22px;
 

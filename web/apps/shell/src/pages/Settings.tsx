@@ -365,10 +365,10 @@ export default function Settings() {
           label="Font size"
           value={fontSize}
           options={[
-            { id: "xs", label: "XS (11px)" },
-            { id: "sm", label: "S (12px)" },
-            { id: "md", label: "M (13px)" },
-            { id: "lg", label: "L (14px)" },
+            { id: "sm", label: "S (13px)" },
+            { id: "md", label: "M (14px)" },
+            { id: "lg", label: "L (15px)" },
+            { id: "xl", label: "XL (16px)" },
           ]}
           onChange={setFontSize}
         />
