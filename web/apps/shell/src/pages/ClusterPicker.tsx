@@ -47,9 +47,9 @@ import {
 const APP_VERSION = "v0.6.0";
 const HEADERS = ["Name", "Session", "API", "Version", "Pods", "Nodes", "CPU · 7 days", "Requests"] as const;
 
-/** Reachability from the engine probe. The wire value "connected" means reachable. */
+/** Reachability from the engine probe, separate from the user's session. */
 const API_STATUS: Record<ClusterInfo["status"], { label: string; tone: StatusTone }> = {
-  connected: { label: "Reachable", tone: "ok" },
+  reachable: { label: "Reachable", tone: "ok" },
   degraded: { label: "Degraded", tone: "warn" },
   unreachable: { label: "Unreachable", tone: "err" },
   misconfigured: { label: "Config error", tone: "err" },
@@ -230,7 +230,7 @@ export default function ClusterPicker() {
   const count = (s: ClusterInfo["status"]) => list.filter((c) => c.status === s).length;
   const summary = [
     `${connected.length} connected`,
-    `${count("connected")} reachable`,
+    `${count("reachable")} reachable`,
     count("unreachable") > 0 && `${count("unreachable")} unreachable`,
     count("misconfigured") > 0 && `${count("misconfigured")} config error${count("misconfigured") === 1 ? "" : "s"}`,
     count("checking") > 0 && `${count("checking")} checking`,

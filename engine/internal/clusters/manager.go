@@ -30,7 +30,9 @@ type Identity struct {
 type Status string
 
 const (
-	StatusConnected   Status = "connected"
+	// StatusReachable is the /version probe succeeding. It says nothing about
+	// whether the user connected (Cluster.Connected).
+	StatusReachable   Status = "reachable"
 	StatusUnreachable Status = "unreachable"
 	// StatusMisconfigured marks a context that exists in the kubeconfig but
 	// whose client config could not be built (bad auth provider, missing file,
@@ -527,7 +529,7 @@ func (m *Manager) probe(id string) {
 		m.record(id, StatusUnreachable, "", err.Error())
 		return
 	}
-	m.record(id, StatusConnected, v.GitVersion, "")
+	m.record(id, StatusReachable, v.GitVersion, "")
 }
 
 // record stores a probe result on the current entry for id, if it still exists.

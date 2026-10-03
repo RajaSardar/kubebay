@@ -71,8 +71,8 @@ export function resolveActiveCluster(
 
 describe("resolveActiveCluster", () => {
   const list = [
-    { id: "prod", status: "connected" },
-    { id: "staging", status: "connected" },
+    { id: "prod", status: "reachable" },
+    { id: "staging", status: "reachable" },
   ];
 
   it("returns the active cluster when set", () => {
@@ -88,17 +88,17 @@ describe("resolveActiveCluster", () => {
 
   it("stays stable regardless of list contents or ordering", () => {
     const shuffled = [
-      { id: "staging", status: "connected" },
-      { id: "prod", status: "connected" },
+      { id: "staging", status: "reachable" },
+      { id: "prod", status: "reachable" },
     ];
     expect(resolveActiveCluster("prod", list)).toBe("prod");
     expect(resolveActiveCluster("prod", shuffled)).toBe("prod");
   });
 
   it("stays stable when cluster status changes between refetches", () => {
-    const refetch1 = [{ id: "prod", status: "connected" }];
+    const refetch1 = [{ id: "prod", status: "reachable" }];
     const refetch2 = [{ id: "prod", status: "reconnecting" }]; // momentary
-    const refetch3 = [{ id: "prod", status: "connected" }];
+    const refetch3 = [{ id: "prod", status: "reachable" }];
     expect(resolveActiveCluster("prod", refetch1)).toBe("prod");
     expect(resolveActiveCluster("prod", refetch2)).toBe("prod"); // was "" before fix
     expect(resolveActiveCluster("prod", refetch3)).toBe("prod");

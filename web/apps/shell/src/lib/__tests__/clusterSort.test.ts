@@ -3,7 +3,7 @@ import { sortClusters, filterClusters } from "../clusterSort";
 import type { ClusterInfo } from "../api";
 import type { ClusterMeta } from "../cluster-meta-store";
 
-const mkCluster = (id: string, status: ClusterInfo["status"] = "connected"): ClusterInfo => ({
+const mkCluster = (id: string, status: ClusterInfo["status"] = "reachable"): ClusterInfo => ({
   id,
   context: id,
   server: `https://${id}.example.com`,
@@ -87,7 +87,7 @@ describe("filterClusters", () => {
 
 describe("filterClusters matches what the user sees", () => {
   it("finds a cluster by its context (an EKS ARN with ':' and '/') and by server URL", () => {
-    const c = { id: "arn-aws-eks-eu-west-1-123-cluster-prod", context: "arn:aws:eks:eu-west-1:123:cluster/prod", server: "https://ABC.gr7.eu-west-1.eks.amazonaws.com", status: "connected" as const };
+    const c = { id: "arn-aws-eks-eu-west-1-123-cluster-prod", context: "arn:aws:eks:eu-west-1:123:cluster/prod", server: "https://ABC.gr7.eu-west-1.eks.amazonaws.com", status: "reachable" as const };
     expect(filterClusters([c], {}, "cluster/prod")).toHaveLength(1);
     expect(filterClusters([c], {}, "eks.amazonaws")).toHaveLength(1);
     expect(filterClusters([c], {}, "staging")).toHaveLength(0);

@@ -363,7 +363,7 @@ function ClusterStrip({ sidebar }: { sidebar: SidebarState }) {
                 width: 9,
                 height: 9,
                 borderRadius: "50%",
-                background: c.status === "connected" ? "var(--kb-status-ok)" : broken ? "var(--kb-fg-subtle)" : "var(--kb-status-err)",
+                background: c.status === "reachable" ? "var(--kb-status-ok)" : broken ? "var(--kb-fg-subtle)" : "var(--kb-status-err)",
                 border: "2px solid var(--kb-bg-sidebar)",
               }} />
             </button>
@@ -417,7 +417,7 @@ function Sidebar({ onOpenPalette, sidebar }: { onOpenPalette: () => void; sideba
           <span className="brand-name">Kubebay</span>
           {activeCluster && (
             <span className="brand-cluster" title={activeCluster.id}>
-              <StatusDot status={activeCluster.status === "connected" ? "connected" : activeCluster.status === "unreachable" ? "unreachable" : "pending"} />
+              <StatusDot status={activeCluster.status === "reachable" ? "connected" : activeCluster.status === "unreachable" ? "unreachable" : "pending"} />
               <span className="brand-cluster-name">{activeCluster.id}</span>
             </span>
           )}
@@ -557,7 +557,7 @@ function AppInner() {
   // Dismiss the switching overlay once the cluster is reachable + stream is up
   useEffect(() => {
     if (!switching) return;
-    if (activeCluster?.status === "connected" && ws.connected) {
+    if (activeCluster?.status === "reachable" && ws.connected) {
       const t = setTimeout(() => setSwitching(false), 400);
       return () => clearTimeout(t);
     }

@@ -29,7 +29,7 @@ function entries(n: number, group = "example.io", prefix = "Widget") {
 
 function renderGroup() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  qc.setQueryData(["clusters"], [{ id: "kind-dev", status: "connected" }]);
+  qc.setQueryData(["clusters"], [{ id: "kind-dev", status: "reachable" }]);
   useClusterStore.setState({ active: "kind-dev" });
   return render(
     <QueryClientProvider client={qc}>
@@ -128,7 +128,7 @@ describe("CustomResourcesGroup", () => {
   it("lists the CRDs of the cluster you opened, not the first reachable one", async () => {
     apis.mockResolvedValue(entries(1));
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    qc.setQueryData(["clusters"], [{ id: "a-reachable", status: "connected" }, { id: "opened", status: "connected" }]);
+    qc.setQueryData(["clusters"], [{ id: "a-reachable", status: "reachable" }, { id: "opened", status: "reachable" }]);
     useClusterStore.setState({ active: "opened" });
     render(
       <QueryClientProvider client={qc}>

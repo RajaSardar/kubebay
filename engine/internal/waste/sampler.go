@@ -142,7 +142,7 @@ func (s *Sampler) SetGate(gate func(clusterID string) bool) {
 }
 
 func (s *Sampler) shouldSample(c clusters.Cluster) bool {
-	if c.Status != clusters.StatusConnected {
+	if c.Status != clusters.StatusReachable {
 		return false
 	}
 	return s.gate == nil || s.gate(c.ID)

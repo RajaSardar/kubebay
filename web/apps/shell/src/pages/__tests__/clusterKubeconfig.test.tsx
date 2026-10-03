@@ -18,7 +18,7 @@ vi.mock("../../components/ConfigurePrometheusModal", () => ({
   ),
 }));
 
-const kind = { id: "kind-shop", context: "kind-shop", server: "https://127.0.0.1:6443", status: "connected" } as api.ClusterInfo;
+const kind = { id: "kind-shop", context: "kind-shop", server: "https://127.0.0.1:6443", status: "reachable" } as api.ClusterInfo;
 
 
 function renderAt(path: string) {

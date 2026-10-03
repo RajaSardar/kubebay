@@ -316,7 +316,7 @@ func firstClusterID(t *testing.T, body []byte) string {
 		t.Fatalf("parse clusters: %v", err)
 	}
 	for _, c := range list {
-		if c.Status == "connected" {
+		if c.Status == "reachable" {
 			return c.ID
 		}
 	}

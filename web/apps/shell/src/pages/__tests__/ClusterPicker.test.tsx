@@ -34,8 +34,8 @@ vi.mock("../../lib/clusterConnections", () => ({
   clusterSummary: (id: string) => summaries[id] ?? null,
 }));
 
-const dev: ClusterInfo = { id: "kind-dev", context: "kind-dev", server: "https://127.0.0.1:6443", status: "connected", version: "v1.31.0", connected: true };
-const stage: ClusterInfo = { id: "stage", context: "arn:aws:eks:eu-west-1:123:cluster/stage", server: "https://ABC.eks.amazonaws.com", status: "connected", version: "v1.30.2" };
+const dev: ClusterInfo = { id: "kind-dev", context: "kind-dev", server: "https://127.0.0.1:6443", status: "reachable", version: "v1.31.0", connected: true };
+const stage: ClusterInfo = { id: "stage", context: "arn:aws:eks:eu-west-1:123:cluster/stage", server: "https://ABC.eks.amazonaws.com", status: "reachable", version: "v1.30.2" };
 const down: ClusterInfo = { id: "lab", context: "lab", server: "https://10.0.0.9:6443", status: "unreachable", error: "dial tcp 10.0.0.9:6443: i/o timeout" };
 const broken: ClusterInfo = { id: "broken", context: "broken", server: "", status: "misconfigured", error: "exec plugin: aws not found" };
 const fresh: ClusterInfo = { id: "new", context: "new", server: "https://x", status: "checking" };

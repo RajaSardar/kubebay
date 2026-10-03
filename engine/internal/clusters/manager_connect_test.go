@@ -1,10 +1,14 @@
 package clusters
 
 import (
+	"encoding/json"
 	"io"
 	"log/slog"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 )
@@ -177,5 +181,32 @@ func TestConnectedSurvivesReloadButNotRemoval(t *testing.T) {
 	}
 	if !m.IsConnected("alpha") {
 		t.Error("a reload must not drop a connection")
+	}
+}
+
+// "connected" on the wire meant reachable, which read as the user's session
+// on the clusters page. The probe's answer is now called what it is.
+func TestAProbedClusterIsReachableNotConnected(t *testing.T) {
+	api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"major":"1","minor":"31","gitVersion":"v1.31.0"}`))
+	}))
+	defer api.Close()
+	path := filepath.Join(t.TempDir(), "kubeconfig")
+	kc := strings.Replace(connectKubeconfig, "https://127.0.0.1:1", api.URL, 1)
+	if err := os.WriteFile(path, []byte(kc), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	m, err := newManager(slog.New(slog.NewTextHandler(io.Discard, nil)), path, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.probe("alpha")
+	c := byID(m.List(), "alpha")
+	if c.Status != StatusReachable || c.Version != "v1.31.0" {
+		t.Fatalf("after a good probe: %+v", c)
+	}
+	b, _ := json.Marshal(c)
+	if !strings.Contains(string(b), `"status":"reachable"`) || !strings.Contains(string(b), `"connected":false`) {
+		t.Errorf("wire form = %s: reachability and the session are separate fields", b)
 	}
 }
