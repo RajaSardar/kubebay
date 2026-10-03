@@ -18,13 +18,17 @@ The transcript is in the "Overview Arena" artifact.
 2. **Needs attention** (the focal point; `lib/attention.ts`, `components/NeedsAttention.tsx`). One row per broken workload, worst first:
    - what broke in plain words, with the Kubernetes term kept beside it;
    - ready of desired, restarts, when it started;
-   - Show pods and Show logs.
+   - Show pods and Show logs;
+   - the worst pod's last log line, from the run that crashed when it has restarted, for the top five rows only (`lib/lastLogLine.ts`), so a wide outage does not open a log stream per pod. It renders nothing when there is no line (an image that never pulled).
    Node trouble and Unschedulable show up as the reason in the row they hurt, not as a node grid. When nothing is broken it is a calm empty state with the time of the last check.
 3. **Rollouts in progress.** Shown only while something is rolling out. A stalled rollout turns red and says why.
 4. **Pod status bar.** One zero-based stacked bar, each segment labelled with its count and word; a segment opens Pods filtered by status (`/workloads?q=status:…`).
 5. The existing per-kind cards.
 6. **Capacity line.** One line of text: requested of allocatable for CPU and memory, from pod specs and node status, so it needs no metrics-server. It expands into bars, with a used layer when metrics-server is present.
 7. **Namespaces ranked**, below the fold: by broken pods plus warnings, with requests as a sort option.
+8. **In the workload drawer** (Summary tab of a Deployment, StatefulSet or DaemonSet): the workload's warnings over the last hour, which is as long as events live, as twelve zero-based 5-minute bars with the answer in words: "new, first 4 min ago", "started 30 min ago" or "going on all hour" (`lib/workloadWarnings.ts`, `components/WarningSparkline.tsx`). It counts warnings on the workload, on the pods its selector picks and, for a Deployment, on its ReplicaSets, and spreads a repeated event's count over the time it repeated. It renders nothing when there were none.
+
+Not built yet: the 7-day chip. Recorded history holds CPU and memory per namespace, not warnings or broken pods, so there is nothing yet to say whether a workload's trouble is chronic over a week.
 
 ## Ruled out
 
