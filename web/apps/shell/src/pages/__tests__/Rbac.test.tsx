@@ -23,6 +23,9 @@ vi.mock("../../lib/api", async (orig) => ({
   rbacApi: {
     all: vi.fn(async () => ({ roles: [], clusterRoles: [], roleBindings: [], clusterRoleBindings: [], findings: [] })),
   },
+  crdApi: {
+    list: vi.fn(async () => [{ group: "gateway.networking.k8s.io", resource: "httproutes", gvr: "gateway.networking.k8s.io/v1/httproutes", kind: "HTTPRoute", version: "v1", scope: "Namespaced" }]),
+  },
 }));
 
 function renderPage() {
@@ -73,5 +76,16 @@ describe("Rbac", () => {
     renderPage();
     expect(await screen.findByText("Pod shop/api-1")).toBeInTheDocument();
     expect(screen.getByText(/Mounts the shop\/api ServiceAccount token/)).toBeInTheDocument();
+  });
+
+  it("feeds attack paths the Gateway API routes and namespace labels", async () => {
+    renderPage();
+    await screen.findByText("Attack paths");
+    await vi.waitFor(() => {
+      const calls = vi.mocked(useResourceStream).mock.calls;
+      const enabled = (gvr: string) => calls.some(([, g, o]) => g === gvr && (o as { enabled?: boolean } | undefined)?.enabled !== false);
+      expect(enabled("gateway.networking.k8s.io/v1/httproutes")).toBe(true);
+      expect(enabled("v1/namespaces")).toBe(true);
+    });
   });
 });
