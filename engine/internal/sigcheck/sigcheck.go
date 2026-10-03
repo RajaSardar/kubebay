@@ -1,14 +1,16 @@
 // Package sigcheck answers, read-only, whether a running image digest has a
 // signature published next to it in its registry (Intelligence roadmap
 // Tier 2 #17). It looks for a cosign signature tag (sha256-<hex>.sig) and
-// for sigstore/cosign artifacts in the OCI 1.1 referrers API. It does not
-// verify signatures: that needs the signer's key or Fulcio identity, which
-// is the admission controller's job (#32). Registries are contacted
-// anonymously; private registries come back "unknown".
+// for sigstore/cosign artifacts in the OCI 1.1 referrers API. A tag
+// signature is verified against public keys taken from the cluster's own
+// admission policies when given; keyless (Fulcio) identities are left to the
+// admission controller. Registries are contacted anonymously unless the
+// caller passes the pod's pull-secret credentials for that registry.
 package sigcheck
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -38,6 +40,10 @@ type Result struct {
 	// Method is how a signature was found: "cosign tag" or "OCI referrer".
 	Method string `json:"method,omitempty"`
 	Reason string `json:"reason,omitempty"`
+	// Verification and VerifiedBy describe checking the signature against
+	// policy keys; empty when no signature was found.
+	Verification Verification `json:"verification,omitempty"`
+	VerifiedBy   string       `json:"verifiedBy,omitempty"`
 }
 
 const dockerHub = "registry-1.docker.io"
@@ -99,7 +105,13 @@ func (c *Checker) client() *http.Client {
 }
 
 func (c *Checker) Check(ctx context.Context, ref Ref) Result {
-	key := ref.Registry + "/" + ref.Repo + "@" + ref.Digest
+	return c.CheckWith(ctx, ref, Options{})
+}
+
+// CheckWith is Check with policy keys to verify against and, optionally,
+// credentials for this image's registry.
+func (c *Checker) CheckWith(ctx context.Context, ref Ref, opts Options) Result {
+	key := cacheKey(ref, opts)
 	ttl := c.TTL
 	if ttl == 0 {
 		ttl = time.Hour
@@ -111,7 +123,7 @@ func (c *Checker) Check(ctx context.Context, ref Ref) Result {
 	}
 	c.mu.Unlock()
 
-	res := c.check(ctx, ref)
+	res := c.check(ctx, ref, opts)
 	if res.Status != StatusUnknown {
 		c.mu.Lock()
 		if c.cache == nil {
@@ -127,9 +139,15 @@ type session struct {
 	c     *Checker
 	base  string
 	token string
+	creds *Credentials
+	basic bool
 }
 
-var errCredentials = fmt.Errorf("registry requires credentials; Kubebay only checks anonymously")
+var errCredentials = fmt.Errorf("registry requires credentials: allow the check to use the pods' image pull secrets")
+
+func basicAuth(c *Credentials) string {
+	return "Basic " + base64.StdEncoding.EncodeToString([]byte(c.Username+":"+c.Password))
+}
 
 // get performs one request, doing the anonymous bearer-token exchange once on 401.
 func (s *session) get(ctx context.Context, path, accept string) (int, []byte, error) {
@@ -141,6 +159,8 @@ func (s *session) get(ctx context.Context, path, accept string) (int, []byte, er
 		req.Header.Set("Accept", accept)
 		if s.token != "" {
 			req.Header.Set("Authorization", "Bearer "+s.token)
+		} else if s.basic {
+			req.Header.Set("Authorization", basicAuth(s.creds))
 		}
 		resp, err := s.c.client().Do(req)
 		if err != nil {
@@ -148,8 +168,13 @@ func (s *session) get(ctx context.Context, path, accept string) (int, []byte, er
 		}
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 		resp.Body.Close()
-		if resp.StatusCode == http.StatusUnauthorized && attempt == 0 && s.token == "" {
-			tok, err := s.c.anonToken(ctx, resp.Header.Get("WWW-Authenticate"))
+		if resp.StatusCode == http.StatusUnauthorized && attempt == 0 && s.token == "" && !s.basic {
+			challenge := resp.Header.Get("WWW-Authenticate")
+			if strings.HasPrefix(strings.ToLower(challenge), "basic") && s.creds != nil {
+				s.basic = true
+				continue
+			}
+			tok, err := s.c.token(ctx, challenge, s.creds)
 			if err != nil {
 				return 0, nil, err
 			}
@@ -164,7 +189,9 @@ func (s *session) get(ctx context.Context, path, accept string) (int, []byte, er
 	return 0, nil, errCredentials
 }
 
-func (c *Checker) anonToken(ctx context.Context, challenge string) (string, error) {
+// token exchanges a Bearer challenge for a pull token: anonymously, or with
+// the registry's credentials, which go only to an https token service.
+func (c *Checker) token(ctx context.Context, challenge string, creds *Credentials) (string, error) {
 	if !strings.HasPrefix(strings.ToLower(challenge), "bearer ") {
 		return "", errCredentials
 	}
@@ -188,6 +215,9 @@ func (c *Checker) anonToken(ctx context.Context, challenge string) (string, erro
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, params["realm"]+"?"+q.Encode(), nil)
 	if err != nil {
 		return "", err
+	}
+	if creds != nil && (req.URL.Scheme == "https" || c.Scheme == "http") {
+		req.Header.Set("Authorization", basicAuth(creds))
 	}
 	resp, err := c.client().Do(req)
 	if err != nil {
@@ -215,20 +245,21 @@ func (c *Checker) anonToken(ctx context.Context, challenge string) (string, erro
 
 const manifestAccept = "application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json, application/vnd.oci.image.index.v1+json"
 
-func (c *Checker) check(ctx context.Context, ref Ref) Result {
+func (c *Checker) check(ctx context.Context, ref Ref, opts Options) Result {
 	scheme := c.Scheme
 	if scheme == "" {
 		scheme = "https"
 	}
-	s := &session{c: c, base: scheme + "://" + ref.Registry + "/v2/" + ref.Repo}
+	s := &session{c: c, base: scheme + "://" + ref.Registry + "/v2/" + ref.Repo, creds: opts.Creds}
 	hex := strings.TrimPrefix(ref.Digest, "sha256:")
 
-	code, _, err := s.get(ctx, "/manifests/sha256-"+hex+".sig", manifestAccept)
+	code, manifest, err := s.get(ctx, "/manifests/sha256-"+hex+".sig", manifestAccept)
 	if err != nil {
 		return Result{Status: StatusUnknown, Reason: err.Error()}
 	}
 	if code == http.StatusOK {
-		return Result{Status: StatusSigned, Method: "cosign tag"}
+		v, by, why := verifyTag(ctx, s, ref, manifest, opts.Keys)
+		return Result{Status: StatusSigned, Method: "cosign tag", Verification: v, VerifiedBy: by, Reason: why}
 	}
 
 	code, body, err := s.get(ctx, "/referrers/"+ref.Digest, "application/vnd.oci.image.index.v1+json")
@@ -245,7 +276,7 @@ func (c *Checker) check(ctx context.Context, ref Ref) Result {
 			for _, m := range idx.Manifests {
 				a := strings.ToLower(m.ArtifactType)
 				if strings.Contains(a, "sigstore") || strings.Contains(a, "cosign") || strings.Contains(a, "signature") {
-					return Result{Status: StatusSigned, Method: "OCI referrer"}
+					return Result{Status: StatusSigned, Method: "OCI referrer", Verification: VerifiedNoKey, Reason: "only cosign tag signatures are verified here"}
 				}
 			}
 		}

@@ -259,13 +259,18 @@ export interface ImageSignatureRow {
   status: "signed" | "unsigned" | "unknown";
   method?: string;
   reason?: string;
+  /** A found signature checked against the cluster's own policy keys. */
+  verification?: "verified" | "failed" | "keyless" | "no-key";
+  verifiedBy?: string;
   pods: number;
   namespaces: string[];
 }
 
 /** Contacts each running image's registry anonymously; only call on an explicit user action. */
 export const imageSigApi = {
-  check: (cluster: string) => get<ImageSignatureRow[]>(`/api/image-signatures?cluster=${encodeURIComponent(cluster)}`),
+  /** pullSecrets: authenticate to private registries with each pod's own image pull secrets. */
+  check: (cluster: string, pullSecrets = false) =>
+    get<ImageSignatureRow[]>(`/api/image-signatures?cluster=${encodeURIComponent(cluster)}${pullSecrets ? "&pullSecrets=1" : ""}`),
 };
 
 export interface AuditSecurityEvent {
