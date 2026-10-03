@@ -1007,7 +1007,13 @@ A retrospective security feed with no kernel agent and no in-cluster install. Th
     - A lone read stays a normal row with its object.
   - **Object links.** Events carry `ref` (resource/namespace/name). Pods open their drawer on the Pods page, and kinds in `DEFS` open their detail page.
   - **Rotated files.** When the live file leaves byte budget, rotations next to it are read newest first: `audit.log.1`, `audit.log-<date>`, the API server's `audit-<time>.log`, and gzipped copies.
-- **Next.** EKS CloudWatch and GKE Cloud Logging sources through the local `aws` / `gcloud` CLIs.
+- **Slice 3 (building): cloud sources.** These run the user's own `aws` / `gcloud` CLIs with their current credentials. That's opt-in per cluster and stays off under OIDC or in-cluster, like the file feed.
+  - **EKS:** `aws logs filter-log-events` on `/aws/eks/<cluster>/cluster`, streams `kube-apiserver-audit*`.
+  - **GKE:** `gcloud logging read`. Cloud Audit Log entries map onto audit Events: methodName gives the verb, resourceName gives the object, and the gRPC status gives allowed or denied.
+  - **Server-side filters:** a CloudWatch filter pattern and a GKE methodName regex, so the 5000-entry cap is spent on candidates.
+  - **Window:** the last 2 hours, re-polled every 2 minutes.
+  - **Validation:** every value is checked against the provider's naming rules, so nothing can become a CLI flag or escape the logging filter.
+  - **Storage:** a cluster has a file path or a cloud source, never both.
 
 ### 48. Attack paths, narrow v1 (roadmap Tier 3 #24) — status: shipped 2026-10-01 (slice 1)
 Findings joined into prioritised chains instead of a flat list. Built on what already exists: Service/Ingress objects, NetworkPolicies, Trivy-Operator VulnerabilityReports (`vulnFindings.findingsForPod`) and the engine's RBAC findings (`/api/rbac/all`, subject `ServiceAccount ns/name`).

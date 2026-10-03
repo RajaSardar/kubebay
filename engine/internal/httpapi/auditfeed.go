@@ -1,11 +1,15 @@
 package httpapi
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/RajaSardar/kubebay/engine/internal/auditfeed"
 )
@@ -75,6 +79,8 @@ func (s *SettingsManager) HandleSetAuditLogPath(w http.ResponseWriter, r *http.R
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	// A file replaces any cloud source; clearing stops reading either.
+	delete(set.AuditSources, req.Cluster)
 	if path == "" {
 		delete(set.AuditLogPaths, req.Cluster)
 	} else {
@@ -108,6 +114,21 @@ func (s *SettingsManager) HandleAuditEvents(w http.ResponseWriter, r *http.Reque
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	if src, ok := set.AuditSources[cluster]; ok {
+		run := s.AuditRunner
+		if run == nil {
+			run = execRunner
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), auditCloudTimeout)
+		defer cancel()
+		events, err := auditfeed.ReadCloud(ctx, run, src, auditCloudWindow, auditMaxEvents, time.Now())
+		out := map[string]any{"configured": true, "source": src.Kind, "path": describeSource(src), "cloud": src, "events": events}
+		if err != nil {
+			out["error"], out["events"] = err.Error(), []auditfeed.SecurityEvent{}
+		}
+		writeJSON(w, out)
+		return
+	}
 	path := set.AuditLogPaths[cluster]
 	if path == "" {
 		writeJSON(w, map[string]any{"configured": false, "events": []auditfeed.SecurityEvent{}})
@@ -115,8 +136,97 @@ func (s *SettingsManager) HandleAuditEvents(w http.ResponseWriter, r *http.Reque
 	}
 	events, err := auditfeed.ReadTail(path, auditTailBytes, auditMaxEvents)
 	if err != nil {
-		writeJSON(w, map[string]any{"configured": true, "path": path, "error": err.Error(), "events": []auditfeed.SecurityEvent{}})
+		writeJSON(w, map[string]any{"configured": true, "source": "file", "path": path, "error": err.Error(), "events": []auditfeed.SecurityEvent{}})
 		return
 	}
-	writeJSON(w, map[string]any{"configured": true, "path": path, "events": events})
+	writeJSON(w, map[string]any{"configured": true, "source": "file", "path": path, "events": events})
+}
+
+const (
+	// auditCloudWindow is how far back a cloud source is read.
+	auditCloudWindow  = 2 * time.Hour
+	auditCloudTimeout = 60 * time.Second
+)
+
+func describeSource(src auditfeed.CloudSource) string {
+	switch src.Kind {
+	case "eks":
+		d := "CloudWatch /aws/eks/" + src.Cluster + "/cluster"
+		if src.Region != "" {
+			d += " (" + src.Region + ")"
+		}
+		return d
+	case "gke":
+		return "Cloud Logging " + src.Project + "/" + src.Location + "/" + src.Cluster
+	}
+	return src.Kind
+}
+
+// execRunner runs the user's own aws/gcloud with the engine's environment
+// (the desktop app forwards the login shell's PATH and cloud profile vars).
+func execRunner(ctx context.Context, name string, args ...string) ([]byte, error) {
+	if _, err := exec.LookPath(name); err != nil {
+		return nil, fmt.Errorf("%s CLI not found on PATH: install it, or point the feed at a synced log file", name)
+	}
+	out, err := exec.CommandContext(ctx, name, args...).Output()
+	if err != nil {
+		var ee *exec.ExitError
+		if errors.As(err, &ee) {
+			msg := strings.TrimSpace(string(ee.Stderr))
+			if len(msg) > 500 {
+				msg = msg[:500]
+			}
+			return nil, fmt.Errorf("%s: %s", err, msg)
+		}
+		return nil, err
+	}
+	return out, nil
+}
+
+// HandleSetAuditSource stores (or, with a null source, clears) a cloud audit
+// source for one cluster. It replaces any file path.
+func (s *SettingsManager) HandleSetAuditSource(w http.ResponseWriter, r *http.Request) {
+	if s.AuditFeedDisabled != "" {
+		http.Error(w, s.AuditFeedDisabled, http.StatusForbidden)
+		return
+	}
+	var req struct {
+		Cluster string                 `json:"cluster"`
+		Source  *auditfeed.CloudSource `json:"source"`
+	}
+	if err := decodeBody(r, &req); err != nil {
+		http.Error(w, "bad body: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	if req.Cluster == "" {
+		http.Error(w, "cluster required", http.StatusBadRequest)
+		return
+	}
+	if req.Source != nil {
+		if err := req.Source.Validate(); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+	s.mu <- struct{}{}
+	defer func() { <-s.mu }()
+	set, err := s.Load()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	delete(set.AuditLogPaths, req.Cluster)
+	if req.Source == nil {
+		delete(set.AuditSources, req.Cluster)
+	} else {
+		if set.AuditSources == nil {
+			set.AuditSources = map[string]auditfeed.CloudSource{}
+		}
+		set.AuditSources[req.Cluster] = *req.Source
+	}
+	if err := s.save(set); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, map[string]any{"ok": true})
 }

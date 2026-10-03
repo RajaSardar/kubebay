@@ -7,7 +7,7 @@ import { securityApi, type AuditEventsResponse } from "../../lib/api";
 
 vi.mock("../../lib/api", async (orig) => ({
   ...(await orig<typeof import("../../lib/api")>()),
-  securityApi: { auditEvents: vi.fn(), setAuditLogPath: vi.fn() },
+  securityApi: { auditEvents: vi.fn(), setAuditLogPath: vi.fn(), setAuditSource: vi.fn() },
 }));
 
 function renderCard() {
@@ -33,6 +33,7 @@ const configured: AuditEventsResponse = {
 beforeEach(() => {
   vi.mocked(securityApi.auditEvents).mockReset();
   vi.mocked(securityApi.setAuditLogPath).mockReset();
+  vi.mocked(securityApi.setAuditSource).mockReset().mockResolvedValue({ ok: true });
 });
 
 describe("AuditSecurityFeedCard", () => {
@@ -115,5 +116,46 @@ describe("AuditSecurityFeedCard", () => {
     expect(await screen.findByText("Burst of Secret reads by a person")).toBeInTheDocument();
     expect(screen.getByText("×25")).toBeInTheDocument();
     expect(screen.getByText("since 2026-10-01T10:00:00Z")).toBeInTheDocument();
+  });
+
+  it("reads an EKS cluster's audit log from CloudWatch through the aws CLI", async () => {
+    vi.mocked(securityApi.auditEvents).mockResolvedValue({ configured: false, events: [] });
+    renderCard();
+    fireEvent.change(await screen.findByLabelText("Audit log source"), { target: { value: "eks" } });
+    expect(screen.getByText(/control plane audit logging/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("EKS cluster name"), { target: { value: "prod" } });
+    fireEvent.change(screen.getByLabelText("AWS region"), { target: { value: "eu-west-1" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save source" }));
+    await waitFor(() => expect(securityApi.setAuditSource).toHaveBeenCalledWith("kind-dev", { kind: "eks", cluster: "prod", region: "eu-west-1" }));
+    expect(securityApi.setAuditLogPath).not.toHaveBeenCalled();
+  });
+
+  it("reads a GKE cluster's Cloud Audit Logs through gcloud", async () => {
+    vi.mocked(securityApi.auditEvents).mockResolvedValue({ configured: false, events: [] });
+    renderCard();
+    fireEvent.change(await screen.findByLabelText("Audit log source"), { target: { value: "gke" } });
+    expect(screen.getByText(/Data Access logs/)).toBeInTheDocument();
+    const save = screen.getByRole("button", { name: "Save source" });
+    expect(save).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("Google Cloud project"), { target: { value: "my-proj" } });
+    fireEvent.change(screen.getByLabelText("GKE location"), { target: { value: "europe-west1" } });
+    fireEvent.change(screen.getByLabelText("GKE cluster name"), { target: { value: "prod" } });
+    fireEvent.click(save);
+    await waitFor(() => expect(securityApi.setAuditSource).toHaveBeenCalledWith("kind-dev", { kind: "gke", project: "my-proj", location: "europe-west1", cluster: "prod" }));
+  });
+
+  it("opens Change on the cloud source it is reading", async () => {
+    vi.mocked(securityApi.auditEvents).mockResolvedValue({
+      configured: true,
+      source: "eks",
+      path: "CloudWatch /aws/eks/prod/cluster (eu-west-1)",
+      cloud: { kind: "eks", cluster: "prod", region: "eu-west-1" },
+      events: [],
+    });
+    renderCard();
+    expect(await screen.findByText("CloudWatch /aws/eks/prod/cluster (eu-west-1)")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Change" }));
+    expect(screen.getByLabelText("Audit log source")).toHaveValue("eks");
+    expect(screen.getByLabelText("EKS cluster name")).toHaveValue("prod");
   });
 });

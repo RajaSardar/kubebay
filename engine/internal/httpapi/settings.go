@@ -1,6 +1,8 @@
 package httpapi
 
 import (
+	"github.com/RajaSardar/kubebay/engine/internal/auditfeed"
+
 	"context"
 	"crypto/rand"
 	"encoding/json"
@@ -32,6 +34,10 @@ type AppSettings struct {
 	// AuditLogPaths maps a cluster to a local copy of its API server audit
 	// log (roadmap #26). Set only through /api/security/audit-log-path.
 	AuditLogPaths map[string]string `json:"auditLogPaths,omitempty"`
+	// AuditSources maps a cluster to a managed control plane's audit log,
+	// read through the provider CLI. Set only through /api/security/audit-source;
+	// a cluster has a file path or a cloud source, never both.
+	AuditSources map[string]auditfeed.CloudSource `json:"auditSources,omitempty"`
 }
 
 // PrometheusURLFor resolves the endpoint to query for one cluster. A
@@ -71,6 +77,8 @@ type SettingsManager struct {
 	// AuditFeedDisabled, when set, is why the audit-log feed is off in this
 	// deployment (see AuditFeedBlockReason). Fixed at startup by main.
 	AuditFeedDisabled string
+	// AuditRunner runs aws/gcloud for cloud audit sources (nil = os/exec).
+	AuditRunner auditfeed.Runner
 }
 
 func NewSettingsManager(mgr *clusters.Manager) *SettingsManager {
@@ -208,11 +216,13 @@ func (s *SettingsManager) HandleSave(w http.ResponseWriter, r *http.Request) {
 	var promURLs map[string]string
 	var historyClusters map[string]bool
 	var auditLogPaths map[string]string
+	var auditSources map[string]auditfeed.CloudSource
 	if current != nil {
 		nodeShellImage = current.NodeShellImage
 		promURLs = current.PrometheusURLs
 		historyClusters = current.HistoryClusters
 		auditLogPaths = current.AuditLogPaths
+		auditSources = current.AuditSources
 	}
 	if incoming.HistoryClusters != nil {
 		historyClusters = *incoming.HistoryClusters
@@ -237,6 +247,7 @@ func (s *SettingsManager) HandleSave(w http.ResponseWriter, r *http.Request) {
 		NodeShellImage:   nodeShellImage,
 		HistoryClusters:  historyClusters,
 		AuditLogPaths:    auditLogPaths,
+		AuditSources:     auditSources,
 	}
 	if err := s.save(next); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
