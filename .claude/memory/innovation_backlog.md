@@ -1091,5 +1091,18 @@ The owner judged the Fleet page unnecessary.
 - **Kept:** `/api/waste/workloads` (Cost/Waste uses it) and `kindCounts` (WorkloadsOverview).
 - **Guard:** `noFleet.test.ts`.
 
+### 54. Engine fixes from the clusters-page audit — status: building
+These are the issues the #51 experts found in the engine and left for later.
+- **OIDC identity in streams (security):** `PoolRegistry.For` read the identity from `context.Background()`, so in OIDC mode every stream ran with the engine's own credentials. The fix:
+  - It now reads the identity from the subscribe context, which descends from the WebSocket request the auth middleware stamped.
+  - Pools are keyed by `id|user|sorted groups`, so a membership change gets a new impersonation.
+  - Port-forward had the same gap and now uses `restConfigFor`.
+  - Known gap: `/api/pf` lists and stops forwards across users.
+- **Still to do:**
+  - Rebuild pools when a context's credentials change on reload.
+  - Deterministic disambiguation when two contexts sanitise to the same ID.
+  - Watch an explicit `--kubeconfig` / `KUBEBAY_KUBECONFIG` file.
+  - Rename the wire status `connected` to `reachable`.
+
 ### Further ideas worth a look (unscoped, one-liners)
 - **Revert unsaved YAML edits — SHIPPED 2026-09-27.** One-click "discard my in-progress edit" button in `YamlTab.tsx`, next to Reload — a local reset (no network call), unlike Reload which re-fetches from the server.
