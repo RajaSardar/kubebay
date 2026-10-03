@@ -43,6 +43,7 @@ import {
 } from "@kubebay/ui";
 
 const APP_VERSION = "v0.6.0";
+const HEADERS = ["Name", "Session", "API", "Version", "Pods", "Nodes"] as const;
 
 /** Reachability from the engine probe. The wire value "connected" means reachable. */
 const API_STATUS: Record<ClusterInfo["status"], { label: string; tone: StatusTone }> = {
