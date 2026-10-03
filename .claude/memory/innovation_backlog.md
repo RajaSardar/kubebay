@@ -899,6 +899,17 @@ How it contacts registries:
 - pull-secret authentication for private registries
 - per-workload drawer placement
 
+**Slice 2 (building): key verification and private registries.**
+- **Key-based verification.**
+  - A cosign tag signature is checked against the public keys in the cluster's Kyverno verifyImages attestors (and the older `key` field) and Sigstore ClusterImagePolicy key authorities.
+  - Only the keys whose image patterns cover the image are tried.
+  - Each simple-signing layer's blob must hash to its digest and name the running digest, and the signature must verify. ECDSA, RSA (PKCS#1 v1.5 or PSS) and Ed25519 are supported, stdlib only.
+  - Results: verified (by which policy), failed, keyless (Fulcio and Rekor are left to the admission controller), or no policy key.
+- **Opt-in private-registry auth.** "Registries: use the pods' pull secrets" reads each pod's and its ServiceAccount's imagePullSecrets with the user's identity.
+  - Each credential goes only to its own registry, or to the token service that registry names, over https.
+  - Credentials are never returned, logged or cached. Cache keys only record whether auth was used.
+- **Still not in:** keyless identity verification, OCI 1.1 bundle verification, and per-workload drawer placement.
+
 **OSS.**
 
 ### 46. Fix: YAML-tab edits conflicted with Helm/kubectl field managers — status: building (slices 1, 2a shipped #89, #99; slice 2b in PR)

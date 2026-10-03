@@ -31,11 +31,11 @@ func TestImageSignatureReportDedupesByDigestAndCountsPods(t *testing.T) {
 		sigPod("shop", "local", "my-app:dev", "sha256:deadbeef"),
 	}
 	var calls int32
-	check := func(_ context.Context, r sigcheck.Ref) sigcheck.Result {
+	check := func(_ context.Context, r sigcheck.Ref, _ string, _ *sigcheck.Credentials) sigcheck.Result {
 		atomic.AddInt32(&calls, 1)
 		return sigcheck.Result{Status: sigcheck.StatusSigned, Method: "cosign tag"}
 	}
-	got := imageSignatureReport(context.Background(), pods, check, 10)
+	got := imageSignatureReport(context.Background(), pods, check, nil, 10)
 	if calls != 1 {
 		t.Errorf("registry checks = %d, want 1 (one unique digest)", calls)
 	}
@@ -57,10 +57,10 @@ func TestImageSignatureReportStopsAtLimit(t *testing.T) {
 		sigPod("a", "p1", "ghcr.io/org/one:1", "ghcr.io/org/one@"+sigDigest),
 		sigPod("a", "p2", "ghcr.io/org/two:1", "ghcr.io/org/two@"+sigDigest),
 	}
-	check := func(context.Context, sigcheck.Ref) sigcheck.Result {
+	check := func(context.Context, sigcheck.Ref, string, *sigcheck.Credentials) sigcheck.Result {
 		return sigcheck.Result{Status: sigcheck.StatusUnsigned}
 	}
-	got := imageSignatureReport(context.Background(), pods, check, 1)
+	got := imageSignatureReport(context.Background(), pods, check, nil, 1)
 	unchecked := 0
 	for _, r := range got {
 		if r.Status == sigcheck.StatusUnknown && r.Reason == "not checked: too many images in one pass" {
