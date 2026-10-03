@@ -1,7 +1,10 @@
 import { useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, type ClusterInfo } from "../lib/api";
+import { api, historyApi, type ClusterHistorySummary, type ClusterInfo } from "../lib/api";
+import { announceDisconnect } from "../lib/clusterChannel";
+import { headroom, lastOpenedLabel, sparkline } from "../lib/clusterUsage";
+import { dropClusterLocally } from "../lib/useRemoteDisconnects";
 import { useClusterMeta } from "../lib/cluster-meta-store";
 import { useClusterIcons } from "../lib/useClusterIcons";
 import { useClusterStore } from "../lib/cluster-store";
@@ -10,7 +13,6 @@ import {
   clusterSummary,
   connectCluster as bgConnect,
   connectionError,
-  disconnectCluster as bgDisconnect,
   getConnectionsVersion,
   subscribeConnections,
   type ClusterSummary,
@@ -43,6 +45,7 @@ import {
 } from "@kubebay/ui";
 
 const APP_VERSION = "v0.6.0";
+const HEADERS = ["Name", "Session", "API", "Version", "Pods", "Nodes", "CPU · 7 days", "Requests"] as const;
 
 /** Reachability from the engine probe. The wire value "connected" means reachable. */
 const API_STATUS: Record<ClusterInfo["status"], { label: string; tone: StatusTone }> = {
@@ -81,6 +84,42 @@ function PodHealthBar({ summary }: { summary: ClusterSummary }) {
         <span className="cluster-podbar-err" style={{ width: `${pct(failing)}%` }} />
       </span>
       <span className="mono cell-secondary">{total}</span>
+    </Row>
+  );
+}
+
+const SPARK_W = 72;
+const SPARK_H = 18;
+
+/** A week of hourly CPU peaks, scaled to allocatable when it is known. */
+function UsageSparkline({ summary }: { summary: ClusterHistorySummary }) {
+  const s = sparkline(summary, SPARK_W, SPARK_H);
+  if (!s) return <span className="cell-secondary">—</span>;
+  return (
+    <svg className="cluster-spark" role="img" aria-label={s.label} width={SPARK_W} height={SPARK_H} viewBox={`0 0 ${SPARK_W} ${SPARK_H}`}>
+      <title>{s.label}</title>
+      <path d={s.path} />
+    </svg>
+  );
+}
+
+const HEADROOM_FILL: Record<string, string> = { ok: "cluster-headroom-ok", warn: "cluster-headroom-warn", err: "cluster-headroom-err" };
+
+/** How much of allocatable the pods' requests claim, CPU over memory. */
+function HeadroomBar({ summary }: { summary: ClusterHistorySummary }) {
+  const h = headroom(summary);
+  if (!h) return <span className="cell-secondary">—</span>;
+  const w = (pct: number) => `${Math.min(100, pct)}%`;
+  return (
+    <Row gap={2} align="center">
+      <span className="cluster-headroom" role="img" aria-label={h.label} title={h.label}>
+        {[h.cpuPct, h.memPct].map((pct, i) => (
+          <span key={i} className="cluster-headroom-track">
+            <span className={HEADROOM_FILL[h.tone]} style={{ width: w(pct) }} />
+          </span>
+        ))}
+      </span>
+      <span className="mono cell-secondary">{`${Math.max(h.cpuPct, h.memPct)}%`}</span>
     </Row>
   );
 }
@@ -157,6 +196,8 @@ export default function ClusterPicker() {
   const { icons, setIcon, resetIcon } = useClusterIcons();
   const clusters = useQuery({ queryKey: ["clusters"], queryFn: api.clusters, refetchInterval: 4_000 });
   const health = useQuery({ queryKey: ["health"], queryFn: api.health, refetchInterval: 10_000, retry: false });
+  // Hourly data in 4-hour buckets: nothing changes fast enough to poll harder.
+  const usage = useQuery({ queryKey: ["history-summary"], queryFn: () => historyApi.summary(7), staleTime: 5 * 60_000, refetchInterval: 15 * 60_000, retry: false });
   useConnectionsVersion();
 
   const list = useMemo(() => clusters.data ?? [], [clusters.data]);
@@ -211,9 +252,8 @@ export default function ClusterPicker() {
 
   async function disconnect(id: string) {
     setActionError("");
-    bgDisconnect(id);
-    if (useClusterStore.getState().active === id) useClusterStore.getState().setActive("");
-    queryClient.removeQueries({ predicate: (q) => q.queryKey.includes(id) });
+    dropClusterLocally(id, queryClient);
+    announceDisconnect(id);
     try {
       await api.disconnectCluster(id);
     } catch (e) {
@@ -313,6 +353,8 @@ export default function ClusterPicker() {
                       const streamErr = conn ? connectionError(c.id) : "";
                       const provider = providerBadge(c.context || c.id).label;
                       const name = clusterDisplayName(c.id, c.context, m.alias);
+                      const recorded = usage.data?.clusters?.[c.id];
+                      const opened = lastOpenedLabel(m.lastUsed);
                       const rows = [
                         <TableRow key={c.id} clickable onClick={() => open(c)} title={c.context}>
                           <td className="td-name">
@@ -367,7 +409,7 @@ export default function ClusterPicker() {
                                 <span title={streamErr || undefined}>{streamErr ? "Error" : "Connected"}</span>
                               </Row>
                             ) : (
-                              <span className="cell-secondary">—</span>
+                              <span className="cell-secondary">{opened || "—"}</span>
                             )}
                           </td>
                           <td title={[c.error, checkedAgo(c.checkedAt)].filter(Boolean).join(" · ") || undefined}>
@@ -378,6 +420,8 @@ export default function ClusterPicker() {
                             {sum ? sum.synced ? <PodHealthBar summary={sum} /> : <Skeleton w={60} /> : <span className="cell-secondary">—</span>}
                           </td>
                           <td className="mono cell-secondary">{sum ? sum.synced ? sum.nodes : <Skeleton w={20} /> : "—"}</td>
+                          <td>{recorded ? <UsageSparkline summary={recorded} /> : <span className="cell-secondary">—</span>}</td>
+                          <td>{recorded ? <HeadroomBar summary={recorded} /> : <span className="cell-secondary">—</span>}</td>
                           <td className="col-row-menu" onClick={(e) => e.stopPropagation()}>
                             <RowMenu
                               cluster={c}
