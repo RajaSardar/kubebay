@@ -450,6 +450,7 @@ func Router(d Deps, token string) http.Handler {
 		r.Get("/api/image-signatures", d.ImageSigs.Handle)
 		r.Get("/api/security/audit-events", d.Settings.HandleAuditEvents)
 		r.Put("/api/security/audit-log-path", d.Settings.HandleSetAuditLogPath)
+		r.Put("/api/security/audit-source", d.Settings.HandleSetAuditSource)
 
 		r.Get("/api/argocd/apps", argoCDAppsHandler(d.Metrics))
 		r.Post("/api/argocd/sync", argoCDSyncHandler(d.Metrics))

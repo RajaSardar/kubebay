@@ -292,8 +292,16 @@ export interface AuditObjectRef {
   name?: string;
 }
 
+/** A managed control plane's audit log, read through the user's own aws or gcloud CLI. */
+export type AuditCloudSource =
+  | { kind: "eks"; cluster: string; region?: string; profile?: string }
+  | { kind: "gke"; project: string; location: string; cluster: string };
+
 export interface AuditEventsResponse {
   configured: boolean;
+  source?: "file" | "eks" | "gke";
+  cloud?: AuditCloudSource;
+  /** The file path, or a description of the cloud source. */
   path?: string;
   error?: string;
   events: AuditSecurityEvent[];
@@ -304,6 +312,8 @@ export const securityApi = {
   auditEvents: (cluster: string) => get<AuditEventsResponse>(`/api/security/audit-events?cluster=${encodeURIComponent(cluster)}`),
   setAuditLogPath: (cluster: string, path: string) =>
     send<{ ok: boolean; path: string }>("PUT", "/api/security/audit-log-path", { cluster, path }),
+  setAuditSource: (cluster: string, source: AuditCloudSource | null) =>
+    send<{ ok: boolean }>("PUT", "/api/security/audit-source", { cluster, source }),
 };
 
 export const nodeApi = {
