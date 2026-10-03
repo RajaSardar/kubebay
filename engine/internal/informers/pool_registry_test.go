@@ -61,3 +61,55 @@ func TestCloseTearsDownEveryPoolForACluster(t *testing.T) {
 		t.Error("a closed pool must refuse new subscriptions")
 	}
 }
+
+type recordingConfigs struct{ seen []*clusters.Identity }
+
+func (r *recordingConfigs) RestConfig(string) (*rest.Config, error) {
+	return &rest.Config{Host: "https://127.0.0.1:1"}, nil
+}
+
+func (r *recordingConfigs) RestConfigWithIdentity(_ string, ident *clusters.Identity) (*rest.Config, error) {
+	r.seen = append(r.seen, ident)
+	return &rest.Config{Host: "https://127.0.0.1:1"}, nil
+}
+
+// OIDC mode: a stream opened by a logged-in user must impersonate that user,
+// never run with the engine's own (usually broader) credentials.
+func TestForImpersonatesTheIdentityOnTheContext(t *testing.T) {
+	src := &recordingConfigs{}
+	reg := NewPoolRegistry(src)
+	alice := &clusters.Identity{Name: "alice", Groups: []string{"dev"}}
+
+	pa, err := reg.For(clusters.WithIdentity(context.Background(), alice), "c1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(src.seen) != 1 || src.seen[0] == nil || src.seen[0].Name != "alice" {
+		t.Fatalf("config resolved for %+v, want alice", src.seen)
+	}
+	own, _ := reg.For(context.Background(), "c1")
+	if own == pa {
+		t.Fatal("the engine's own pool must not be shared with an impersonated user")
+	}
+	if again, _ := reg.For(clusters.WithIdentity(context.Background(), alice), "c1"); again != pa {
+		t.Error("the same user must reuse their pool")
+	}
+}
+
+func TestPoolsAreKeyedByGroupsToo(t *testing.T) {
+	reg := NewPoolRegistry(&recordingConfigs{})
+	ctx := context.Background()
+	dev, _ := reg.ForUser(ctx, "c1", &clusters.Identity{Name: "alice", Groups: []string{"dev"}})
+	admin, _ := reg.ForUser(ctx, "c1", &clusters.Identity{Name: "alice", Groups: []string{"dev", "admins"}})
+	if dev == admin {
+		t.Error("a changed group membership must not reuse the pool impersonating the old groups")
+	}
+	same, _ := reg.ForUser(ctx, "c1", &clusters.Identity{Name: "alice", Groups: []string{"admins", "dev"}})
+	if same != admin {
+		t.Error("group order must not matter")
+	}
+	reg.Close("c1")
+	if !dev.Closed() || !admin.Closed() {
+		t.Error("Close must still reach every impersonated pool")
+	}
+}
