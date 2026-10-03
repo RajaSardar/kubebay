@@ -143,6 +143,15 @@ function podProblem(pod: Obj, nodes: Map<string, Obj>, now: number): PodProblem 
   return null;
 }
 
+/**
+ * Whether a pod needs attention, judged from the pod alone (no node trouble).
+ * The engine records the same rule per hour for the drawer's 7-day chip; both
+ * sides run the fixtures in __fixtures__/podBroken.json.
+ */
+export function podBroken(pod: Obj, now = Date.now()): boolean {
+  return podProblem(pod, new Map(), now) !== null;
+}
+
 /** The workload a pod belongs to: a ReplicaSet's pods belong to its Deployment. */
 function ownerOf(pod: Obj): { kind: string; name: string } {
   const meta = rec(pod.metadata);
