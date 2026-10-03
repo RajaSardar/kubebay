@@ -142,3 +142,10 @@ func ObjectRV(obj map[string]any) string {
 	rv, _ := meta["resourceVersion"].(string)
 	return rv
 }
+
+// Why the engine ended a subscription, sent as the error frame's message.
+// The web client matches ReasonCredentialsChanged exactly and resubscribes.
+const (
+	ReasonDisconnected       = "cluster disconnected"
+	ReasonCredentialsChanged = "cluster credentials changed"
+)

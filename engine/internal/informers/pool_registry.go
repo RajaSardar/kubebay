@@ -10,6 +10,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	"github.com/RajaSardar/kubebay/engine/internal/clusters"
+	"github.com/RajaSardar/kubebay/engine/internal/stream"
 )
 
 type ClusterConfigSource interface {
@@ -64,8 +65,16 @@ func (r *PoolRegistry) ForUser(_ context.Context, clusterID string, ident *clust
 }
 
 // Close tears down every pool built for clusterID, including impersonated
-// ones ("id|user"). The next For/ForUser builds a fresh pool.
-func (r *PoolRegistry) Close(clusterID string) {
+// ones ("id|user|groups"). The next For/ForUser builds a fresh pool.
+func (r *PoolRegistry) Close(clusterID string) { r.closeWith(clusterID, stream.ReasonDisconnected) }
+
+// Retire is Close after the cluster's credentials changed: subscribers are
+// told to resubscribe, and get a pool built from the new config.
+func (r *PoolRegistry) Retire(clusterID string) {
+	r.closeWith(clusterID, stream.ReasonCredentialsChanged)
+}
+
+func (r *PoolRegistry) closeWith(clusterID, reason string) {
 	r.mu.Lock()
 	var closing []*Pool
 	for key, p := range r.pools {
@@ -76,6 +85,6 @@ func (r *PoolRegistry) Close(clusterID string) {
 	}
 	r.mu.Unlock()
 	for _, p := range closing {
-		p.Close()
+		p.CloseWithReason(reason)
 	}
 }

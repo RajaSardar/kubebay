@@ -29,7 +29,9 @@ const (
 	defaultMaxNamespaces = 50
 	defaultMaxTotalBytes = 256 << 20
 	defaultWellSampledN  = 30
-	defaultHeartbeat     = 60 * time.Second
+	// defaultMaxHealthLines bounds a bad hour on a big cluster to ~22 KB.
+	defaultMaxHealthLines = 200
+	defaultHeartbeat      = 60 * time.Second
 
 	// OtherNamespace holds every namespace beyond the cap, so totals still add up.
 	OtherNamespace = "(other)"
@@ -51,6 +53,9 @@ type Obs struct {
 	HasUsage     bool // false when metrics-server gave nothing: usage stays null
 	ReqCPUMillis int64
 	ReqMemBytes  int64
+	// Broken lists the workloads that were broken this tick, as
+	// "namespace/Kind/name". Only the cluster total (Ns "") carries it.
+	Broken []string
 	// Capacity, on the cluster total only; Nodes 0 means unknown this tick.
 	AllocCPUMillis int64
 	AllocMemBytes  int64
@@ -69,6 +74,8 @@ type Options struct {
 	MaxNamespaces int
 	MaxTotalBytes int64
 	WellSampledN  int
+	// MaxHealthLines caps the broken workloads kept per hour, worst first.
+	MaxHealthLines int
 	// Heartbeat is the expected write cadence; a lock older than 3 heartbeats is stale.
 	Heartbeat time.Duration
 	Now       func() time.Time
@@ -116,6 +123,8 @@ type acc struct {
 type openHour struct {
 	Hour time.Time       `json:"hour"`
 	ByNs map[string]*acc `json:"byNs"`
+	// Health counts, per broken workload, the ticks it was broken this hour.
+	Health map[string]int `json:"health,omitempty"`
 }
 
 // line is one closed namespace-hour in a day file.
@@ -165,6 +174,9 @@ func Open(dir string, o Options) (*Store, error) {
 	}
 	if o.WellSampledN <= 0 {
 		o.WellSampledN = defaultWellSampledN
+	}
+	if o.MaxHealthLines <= 0 {
+		o.MaxHealthLines = defaultMaxHealthLines
 	}
 	if o.Heartbeat <= 0 {
 		o.Heartbeat = defaultHeartbeat
@@ -296,6 +308,17 @@ func (s *Store) Record(fp string, meta Meta, at time.Time, obs []Obs) error {
 			a.MemMax = max(a.MemMax, o.MemBytes)
 		}
 	}
+	for _, o := range obs {
+		if o.Ns != "" {
+			continue
+		}
+		for _, w := range o.Broken {
+			if c.open.Health == nil {
+				c.open.Health = map[string]int{}
+			}
+			c.open.Health[w]++
+		}
+	}
 	b, _ := json.Marshal(c.open)
 	if err := writeAtomic(filepath.Join(cdir, openFile), b); err != nil {
 		return err
@@ -364,7 +387,10 @@ func (s *Store) flush(cdir string, oh *openHour) error {
 		b, _ := json.Marshal(toLine(oh.Hour, ns, oh.ByNs[ns]))
 		_, _ = w.Write(append(b, '\n'))
 	}
-	return w.Flush()
+	if err := w.Flush(); err != nil {
+		return err
+	}
+	return s.flushHealth(cdir, oh)
 }
 
 func toLine(h time.Time, ns string, a *acc) line {

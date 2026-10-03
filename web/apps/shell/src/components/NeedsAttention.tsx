@@ -5,8 +5,14 @@ import { LiveAge } from "./LiveAge";
 import { podsOfWorkloadPath } from "../lib/selector";
 import type { AttentionRow } from "../lib/attention";
 import type { ClusterCapacity } from "../lib/capacity";
+import { usePodLogs } from "../lib/usePodLogs";
+import { lastLogLine } from "../lib/lastLogLine";
 
 const SHOW_FIRST = 10;
+// The last log line is fetched for this many rows only, so a wide outage
+// does not open a log stream per broken pod.
+const LOG_LINE_ROWS = 5;
+const LOG_TAIL = 20;
 
 /** Pods page for a row: the workload's own pods, or a bare pod by name. */
 export function podsPath(r: AttentionRow): string {
@@ -37,7 +43,29 @@ function Link({ to, children }: { to: string; children: ReactNode }) {
   );
 }
 
-function makeColumns(capacity: ClusterCapacity | null | undefined): Column<AttentionRow>[] {
+/**
+ * Why it keeps failing, in its own words: the last line the worst pod logged,
+ * from the run that crashed when it has restarted. Renders nothing until a
+ * line arrives, or when there is none (an image that never pulled).
+ */
+function LastLogLine({ cluster, row }: { cluster: string | undefined; row: AttentionRow }) {
+  const podKey = row.pods[0];
+  const [namespace, pod] = podKey ? podKey.split("/") : [];
+  const { lines } = usePodLogs(
+    cluster && namespace && pod
+      ? { cluster, namespace, pod, tail: LOG_TAIL, follow: false, previous: row.restarts > 0 }
+      : null,
+  );
+  const line = lastLogLine(lines);
+  if (!line || !podKey) return null;
+  return (
+    <span className="muted small mono" title={`Last log line of ${podKey}`}>
+      {line}
+    </span>
+  );
+}
+
+function makeColumns(capacity: ClusterCapacity | null | undefined, cluster: string | undefined): Column<AttentionRow>[] {
   return [
     {
       key: "name",
@@ -55,7 +83,7 @@ function makeColumns(capacity: ClusterCapacity | null | undefined): Column<Atten
     {
       key: "problem",
       header: "Problem",
-      render: (r) => (
+      render: (r, i) => (
         <Stack gap={0}>
           <span>
             <StatusPill tone={r.severity}>{r.plain}</StatusPill>
@@ -64,6 +92,7 @@ function makeColumns(capacity: ClusterCapacity | null | undefined): Column<Atten
           {r.code === "Unschedulable" && capacity && (
             <span className="muted small">{`Cluster: CPU ${capacity.cpu.pct}% · memory ${capacity.memory.pct}% requested`}</span>
           )}
+          {i < LOG_LINE_ROWS && <LastLogLine cluster={cluster} row={r} />}
         </Stack>
       ),
       title: (r) => r.detail || undefined,
@@ -101,14 +130,17 @@ export function NeedsAttention({
   rows,
   checkedAt,
   capacity,
+  cluster,
 }: {
   rows: AttentionRow[];
   checkedAt: number;
+  /** The cluster the rows are from; without it no log lines are fetched. */
+  cluster?: string;
   /** Shown on rows that can't find room, so the cause sits beside the symptom. */
   capacity?: ClusterCapacity | null;
 }) {
   const id = useId();
-  const columns = useMemo(() => makeColumns(capacity), [capacity]);
+  const columns = useMemo(() => makeColumns(capacity, cluster), [capacity, cluster]);
   // A wide outage can list hundreds; the worst ten keep the rest of the page in view.
   const [all, setAll] = useState(false);
   const shown = all ? rows : rows.slice(0, SHOW_FIRST);

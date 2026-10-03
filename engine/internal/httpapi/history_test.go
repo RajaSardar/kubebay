@@ -215,6 +215,42 @@ func TestHistoryAPI_UnavailableStoreStillTakesConsent(t *testing.T) {
 	}
 }
 
+// The drawer's 7-day chip asks how many recorded hours a workload was broken in.
+func TestHistoryHealth_BrokenOverRecordedHours(t *testing.T) {
+	f := newHistoryFixture(t)
+	rec := HistoryUsageRecorder(f.api.Recorder, func(id string) history.Meta { return history.Meta{ClusterID: id, Context: id} }, nil)
+	now := time.Now()
+	rec(context.Background(), "kind-dev", fake.NewSimpleClientset(), now, []waste.NsUsage{
+		{Ns: "", ReqCPUMillis: 100, Broken: []string{"shop/Deployment/api"}},
+		{Ns: "shop", ReqCPUMillis: 100},
+	})
+	var h history.WorkloadHealth
+	res := do(f.api.HandleHealth, http.MethodGet, "/x?cluster=kind-dev&ns=shop&kind=Deployment&name=api")
+	if res.Code != http.StatusOK {
+		t.Fatalf("health: %d %s", res.Code, res.Body)
+	}
+	_ = json.Unmarshal(res.Body.Bytes(), &h)
+	if h != (history.WorkloadHealth{RecordedHours: 1, BrokenHours: 1, RecordedDays: 1, BrokenDays: 1}) {
+		t.Fatalf("api: %+v", h)
+	}
+	_ = json.Unmarshal(do(f.api.HandleHealth, http.MethodGet, "/x?cluster=kind-dev&ns=shop&kind=Deployment&name=web").Body.Bytes(), &h)
+	if h.RecordedHours != 1 || h.BrokenHours != 0 {
+		t.Fatalf("web, clean: %+v", h)
+	}
+	// Hours before the workload existed don't count for it.
+	since := now.Add(2 * time.Hour).UTC().Format(time.RFC3339)
+	_ = json.Unmarshal(do(f.api.HandleHealth, http.MethodGet, "/x?cluster=kind-dev&ns=shop&kind=Deployment&name=api&since="+since).Body.Bytes(), &h)
+	if h.RecordedHours != 0 {
+		t.Fatalf("created later: %+v", h)
+	}
+	if res := do(f.api.HandleHealth, http.MethodGet, "/x?cluster=kind-dev&ns=shop&kind=Deployment"); res.Code != http.StatusBadRequest {
+		t.Fatalf("missing name: %d", res.Code)
+	}
+	if res := do(f.api.HandleHealth, http.MethodGet, "/x?cluster=other&ns=shop&kind=Deployment&name=api"); res.Code != http.StatusNotFound {
+		t.Fatalf("never recorded: %d", res.Code)
+	}
+}
+
 func TestHistorySummary_AllRecordedClustersInOneCall(t *testing.T) {
 	f := newHistoryFixture(t)
 	rec := HistoryUsageRecorder(f.api.Recorder, func(id string) history.Meta { return history.Meta{ClusterID: id, Context: id} }, nil)

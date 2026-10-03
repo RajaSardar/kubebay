@@ -1028,7 +1028,18 @@ Findings joined into prioritised chains instead of a flat list. Built on what al
   - A graph visualisation was rejected for v1. A ranked table of chains answers "what do I fix first" and a graph doesn't.
   - Using `evaluateConnection` per pod pair was rejected. The question is whether outside traffic is limited at all, not pod-to-pod reachability.
   - Keeping partial chains was a judgement call. An exposed pod with a cluster-wide-secrets token is worth seeing even with no CVE scanner installed.
-- **Next slices.** Ingress-controller-aware isolation (is the controller's namespace allowed?), Secret reachability (which Secrets the token can read), a hostPath/privileged-pod step, and Gateway API HTTPRoutes as entries.
+- **Slice 2 (building).** These are the four planned next slices.
+  - **Isolation that means it.** A policy counts as restricting only when its rules leave the traffic source out.
+    - For LoadBalancer/NodePort, the source is outside the cluster: an empty `from` or any `ipBlock` admits it.
+    - For an Ingress, the source is the controller pods, found by the common controllers' labels and matched by pod/namespace selector or `ipBlock` against the pod IP.
+    - For a Gateway, the source is its proxy pods: Istio/kgateway `gateway-name` labels and Envoy Gateway `owning-gateway` labels.
+    - An unfound controller is reported as unchecked, not as isolated.
+  - **Gateway API.** HTTPRoute backends are entries, named with their parent Gateway and hostnames.
+  - **Node breakout.** A privileged container, init containers included, or a hostPath volume is a payoff.
+  - **Secret reachability.** Resolved from the RBAC snapshot: Roles and ClusterRoles through bindings, plus the groups every ServiceAccount is in.
+    - Cluster-wide access reads as "every namespace". A RoleBinding gives a namespace, or `ns/name` with resourceNames.
+    - Cluster-wide Secrets and node breakout score as severe.
+  - Known simplification: ports in NetworkPolicy rules are ignored, which errs towards "admits".
 
 ### 50. Helm releases filters + loader audit — status: shipped 2026-10-02
 Owner-reported gaps on the Helm page.
@@ -1125,6 +1136,17 @@ These are the issues the #51 experts found in the engine and left for later.
   - Deterministic disambiguation when two contexts sanitise to the same ID.
   - Watch an explicit `--kubeconfig` / `KUBEBAY_KUBECONFIG` file.
   - Rename the wire status `connected` to `reachable`.
+
+### 55. Cluster manager reload fixes — status: building
+Three of the #54 engine issues from the clusters-page audit, in one PR.
+- **Credentials change on reload:**
+  - `Load` compares each context's client config (host, token, TLS, exec/auth provider, impersonation).
+  - On a change, `OnConfigChange` fires and `PoolRegistry.Retire` closes that cluster's pools with `stream.ReasonCredentialsChanged`.
+  - The hub passes the reason on, and the web client answers that one reason with a `resync`, so tables rebuild on the new credentials instead of freezing.
+  - The old probe result isn't carried over.
+- **ID collisions:** contexts that sanitise to one ID get `-2`, `-3` in sorted-name order. A name that is already safe keeps itself.
+- **Watcher:** watches the parent directories of every loading-precedence file, which includes an explicit `--kubeconfig` / `KUBEBAY_KUBECONFIG`, and filters events by name. Atomic saves are seen.
+- **Still to do:** rename the wire status `connected` to `reachable`.
 
 ### Further ideas worth a look (unscoped, one-liners)
 - **Revert unsaved YAML edits — SHIPPED 2026-09-27.** One-click "discard my in-progress edit" button in `YamlTab.tsx`, next to Reload — a local reset (no network call), unlike Reload which re-fetches from the server.

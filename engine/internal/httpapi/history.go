@@ -192,6 +192,52 @@ func (h *HistoryAPI) HandleSummary(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, out)
 }
 
+// HandleHealth reports how many recorded hours one workload was broken in
+// over the last 7 days (the workload drawer's 7-day chip). since (RFC 3339,
+// the workload's creation) leaves out the hours before it existed.
+func (h *HistoryAPI) HandleHealth(w http.ResponseWriter, r *http.Request) {
+	c, ok := clusterParam(w, r)
+	if !ok {
+		return
+	}
+	q := r.URL.Query()
+	ns, kind, name := q.Get("ns"), q.Get("kind"), q.Get("name")
+	if ns == "" || kind == "" || name == "" {
+		http.Error(w, "ns, kind and name required", http.StatusBadRequest)
+		return
+	}
+	if h.Recorder == nil {
+		http.Error(w, "history unavailable: "+h.Unavailable, http.StatusServiceUnavailable)
+		return
+	}
+	fp, ok := h.Recorder.FingerprintFor(c)
+	if !ok {
+		http.Error(w, "no history recorded for this cluster", http.StatusNotFound)
+		return
+	}
+	to := time.Now()
+	from := to.Add(-7 * 24 * time.Hour)
+	if v := q.Get("since"); v != "" {
+		t, err := time.Parse(time.RFC3339, v)
+		if err != nil {
+			http.Error(w, "bad since", http.StatusBadRequest)
+			return
+		}
+		if t.After(from) {
+			from = t
+		}
+	}
+	var out history.WorkloadHealth
+	if from.Before(to) {
+		var err error
+		if out, err = h.Recorder.Store().Health(fp, ns+"/"+kind+"/"+name, from, to); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+	writeJSON(w, out)
+}
+
 func (h *HistoryAPI) localSeries(w http.ResponseWriter, c, ns string, from, to time.Time) {
 	if h.Recorder == nil {
 		http.Error(w, "history unavailable: "+h.Unavailable, http.StatusServiceUnavailable)
@@ -282,7 +328,7 @@ func HistoryUsageRecorder(rec *history.Recorder, metaFor func(clusterID string) 
 	return func(ctx context.Context, clusterID string, cs kubernetes.Interface, at time.Time, usage []waste.NsUsage) {
 		obs := make([]history.Obs, 0, len(usage))
 		for _, u := range usage {
-			obs = append(obs, history.Obs{Ns: u.Ns, CPUMillis: u.CPUMillis, MemBytes: u.MemBytes, HasUsage: u.HasUsage, ReqCPUMillis: u.ReqCPUMillis, ReqMemBytes: u.ReqMemBytes, AllocCPUMillis: u.AllocCPUMillis, AllocMemBytes: u.AllocMemBytes, Nodes: u.Nodes})
+			obs = append(obs, history.Obs{Ns: u.Ns, CPUMillis: u.CPUMillis, MemBytes: u.MemBytes, HasUsage: u.HasUsage, ReqCPUMillis: u.ReqCPUMillis, ReqMemBytes: u.ReqMemBytes, AllocCPUMillis: u.AllocCPUMillis, AllocMemBytes: u.AllocMemBytes, Nodes: u.Nodes, Broken: u.Broken})
 		}
 		if err := rec.Record(ctx, metaFor(clusterID), cs, at, obs); err != nil && log != nil {
 			log.Warn("history: record failed", "cluster", clusterID, "err", err)

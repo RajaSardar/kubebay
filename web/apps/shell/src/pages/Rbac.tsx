@@ -18,6 +18,7 @@ import { findSecretEnvExposures } from "../lib/secretExposure";
 import { findOrphanedSecrets } from "../lib/orphanedSecrets";
 import { findAttackPaths } from "../lib/attackPaths";
 import { detectTrivyOperator } from "../lib/trivyOperator";
+import { detectGatewayApi } from "../lib/routeResolution";
 import { useCluster } from "../lib/useCluster";
 import { useResourceStream } from "../lib/useResourceStream";
 import { DEFS, EXTRA_DEFS } from "../lib/resources";
@@ -172,6 +173,12 @@ export default function Rbac() {
   const services = useResourceStream(effectiveCluster || undefined, "v1/services", { mode: "full" });
   const networkPolicies = useResourceStream(effectiveCluster || undefined, "networking.k8s.io/v1/networkpolicies", { mode: "full" });
   const trivy = useMemo(() => detectTrivyOperator(crds.data ?? []), [crds.data]);
+  const gatewayApi = useMemo(() => detectGatewayApi(crds.data ?? []), [crds.data]);
+  const httpRoutes = useResourceStream(
+    gatewayApi.httpRouteGvr ? effectiveCluster || undefined : undefined,
+    gatewayApi.httpRouteGvr ?? "",
+    { mode: "full", enabled: !!gatewayApi.httpRouteGvr },
+  );
   const vulnReports = useResourceStream(
     trivy.vulnerabilityReportGvr ? effectiveCluster || undefined : undefined,
     trivy.vulnerabilityReportGvr ?? "",
@@ -186,8 +193,11 @@ export default function Rbac() {
         networkPolicies: networkPolicies.rows,
         vulnReports: vulnReports.rows,
         rbacFindings: data?.findings ?? [],
+        namespaces: namespaces.rows,
+        httpRoutes: httpRoutes.rows,
+        ...(data ? { rbac: data } : {}),
       }),
-    [automountPods.rows, services.rows, ingresses.rows, networkPolicies.rows, vulnReports.rows, data?.findings],
+    [automountPods.rows, services.rows, ingresses.rows, networkPolicies.rows, vulnReports.rows, data, namespaces.rows, httpRoutes.rows],
   );
 
   function runWhoCan(override?: FindingQuery) {

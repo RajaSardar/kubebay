@@ -15,21 +15,22 @@ export function AttackPathsCard({ paths, trivyInstalled }: { paths: AttackPath[]
           <Badge>read-only</Badge>
           {paths.length > 0 && (
             <span className="small">
-              {`${paths.length} path${paths.length === 1 ? "" : "s"} start${paths.length === 1 ? "s" : ""} outside the cluster; ${full} reach${full === 1 ? "es" : ""} both a vulnerable image and a privileged token.`}
+              {`${paths.length} path${paths.length === 1 ? "" : "s"} start${paths.length === 1 ? "s" : ""} outside the cluster; ${full} reach${full === 1 ? "es" : ""} both a vulnerable image and a payoff.`}
             </span>
           )}
         </Row>
         <div className="muted small">
-          Each row starts at a LoadBalancer or NodePort Service or an Ingress, then checks NetworkPolicy, critical and
-          high CVEs in the pods&apos; images, and RBAC findings for the ServiceAccount token they mount. Exposure alone
-          isn&apos;t listed.
+          Each row starts at a LoadBalancer or NodePort Service, an Ingress or a Gateway API HTTPRoute, then checks
+          whether NetworkPolicy keeps that traffic out, critical and high CVEs in the pods&apos; images (the foothold),
+          and the payoff: containers that can break out to the node, RBAC findings for the mounted ServiceAccount
+          token, and the Secrets the token can read. Exposure alone isn&apos;t listed.
           {!trivyInstalled && " Trivy Operator isn't installed, so image CVEs are left out of these chains."}
         </div>
         <DataTable
           wrap={false}
           rows={paths}
           rowKey={(p) => `${p.workload.ns}/${p.workload.kind}/${p.workload.name}/${p.serviceAccount}`}
-          empty={<div className="muted small">No workload reachable from outside the cluster has a vulnerable image or a privileged token.</div>}
+          empty={<div className="muted small">No workload reachable from outside the cluster has a vulnerable image or a payoff.</div>}
           columns={[
             { key: "workload", header: "Workload", className: "mono small", render: (p) => `${p.workload.kind} ${p.workload.ns}/${p.workload.name}` },
             {

@@ -93,6 +93,9 @@ const STABLE_MS = 5_000;
 const PING_INTERVAL_MS = 20_000;
 // Cap on frames held while the socket is not open.
 const MAX_QUEUED_FRAMES = 256;
+// Must match stream.ReasonCredentialsChanged in engine/internal/stream/protocol.go.
+// The engine rebuilt the cluster's informers with new kubeconfig credentials.
+const REASON_CREDENTIALS_CHANGED = "cluster credentials changed";
 
 class MultiplexedStream {
   private ws: WebSocket | null = null;
@@ -148,9 +151,15 @@ class MultiplexedStream {
         case "sync":
           this.dispatch((h) => h.onSync?.(f.id ?? ""));
           break;
-        case "error":
+        case "error": {
+          const spec = f.id ? this.subs.get(f.id) : undefined;
+          if (spec && f.message === REASON_CREDENTIALS_CHANGED) {
+            this.sendSub(spec, "resync");
+            break;
+          }
           this.dispatch((h) => h.onError?.(f.id ?? "", f.message ?? "unknown error"));
           break;
+        }
         case "ack":
           this.dispatch((h) => h.onAck?.(f.id ?? "", f.message));
           break;
@@ -254,10 +263,10 @@ class MultiplexedStream {
     this.queue.push(payload);
   }
 
-  private sendSub(spec: SubSpec) {
+  private sendSub(spec: SubSpec, type: "sub" | "resync" = "sub") {
     this.ws?.send(
       JSON.stringify({
-        type: "sub",
+        type,
         id: spec.id,
         cluster: spec.cluster,
         gvr: spec.gvr,

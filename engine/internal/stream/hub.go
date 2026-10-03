@@ -415,7 +415,11 @@ func (h *Hub) start(parent context.Context, frame *ClientFrame, src SubSource, w
 					// Closed by the engine (the cluster was disconnected), not by
 					// the client unsubscribing: say so, or the rows look live.
 					if subCtx.Err() == nil {
-						_ = writer.sendControl(ControlFrame{Type: TypeError, ID: frame.ID, Message: "cluster disconnected"})
+						msg := ReasonDisconnected
+						if r, ok := handle.(interface{ CloseReason() string }); ok && r.CloseReason() != "" {
+							msg = r.CloseReason()
+						}
+						_ = writer.sendControl(ControlFrame{Type: TypeError, ID: frame.ID, Message: msg})
 					}
 					return
 				}

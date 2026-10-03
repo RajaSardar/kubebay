@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"sort"
 	"sync"
 	"time"
 
@@ -58,6 +59,9 @@ type NsUsage struct {
 	HasUsage     bool // false when metrics-server returned nothing this tick
 	ReqCPUMillis int64
 	ReqMemBytes  int64
+	// Broken names the workloads with a broken pod this tick (podBroken), as
+	// "namespace/Kind/name", once each. Only the cluster total (Ns "") has it.
+	Broken []string
 	// Capacity, set on the cluster total only; zero when the node list failed.
 	AllocCPUMillis int64
 	AllocMemBytes  int64
@@ -413,6 +417,7 @@ func (s *Sampler) sampleCluster(ctx context.Context, clusterID string, cs kubern
 	tickRequested := map[WorkloadKey]reqTotals{}
 	tickUsage := map[WorkloadKey]podUsage{}
 	tickHasUsage := map[WorkloadKey]bool{}
+	broken := map[string]bool{}
 
 	for _, pod := range pods.Items {
 		// Namespace totals come first, before owner resolution drops bare pods.
@@ -425,6 +430,9 @@ func (s *Sampler) sampleCluster(ctx context.Context, clusterID string, cs kubern
 			continue
 		}
 		key := WorkloadKey{Cluster: clusterID, Ns: pod.Namespace, Kind: kind, Name: name}
+		if record && podBroken(pod, now) {
+			broken[pod.Namespace+"/"+kind+"/"+name] = true
+		}
 
 		var reqCPU, reqMem int64
 		for _, c := range pod.Spec.Containers {
@@ -471,6 +479,10 @@ func (s *Sampler) sampleCluster(ctx context.Context, clusterID string, cs kubern
 			usage[0].ReqMemBytes += u.ReqMemBytes
 			usage = append(usage, *u)
 		}
+		for w := range broken {
+			usage[0].Broken = append(usage[0].Broken, w)
+		}
+		sort.Strings(usage[0].Broken)
 		// Capacity feeds the clusters page headroom bar. A forbidden node list
 		// (namespace-scoped RBAC) leaves it unknown rather than failing the tick.
 		if nodes, err := cs.CoreV1().Nodes().List(tctx, metav1.ListOptions{}); err == nil {

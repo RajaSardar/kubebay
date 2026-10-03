@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -63,11 +64,19 @@ type Subscription struct {
 	subs      []*entry
 	done      chan struct{}
 	closeOnce sync.Once
+	reason    atomic.Value // string: why the engine ended it, "" if the client did
 }
 
 func (s *Subscription) ID() string                   { return s.id }
 func (s *Subscription) Snapshot() <-chan []stream.Op { return s.Snap }
 func (s *Subscription) Deltas() <-chan []stream.Op   { return s.Coal.Out() }
+
+// CloseReason says why the engine ended the subscription; "" when the
+// client unsubscribed.
+func (s *Subscription) CloseReason() string {
+	r, _ := s.reason.Load().(string)
+	return r
+}
 
 func ParseGVR(s string) (schema.GroupVersionResource, error) {
 	parts := strings.Split(s, "/")
@@ -145,7 +154,10 @@ func (p *Pool) Subscribe(ctx context.Context, gvrStr string, namespaces []string
 
 // Close stops every informer in the pool and ends every open subscription,
 // whose Deltas channel then closes. A closed pool refuses new subscriptions.
-func (p *Pool) Close() {
+func (p *Pool) Close() { p.CloseWithReason(stream.ReasonDisconnected) }
+
+// CloseWithReason is Close, telling subscribers why.
+func (p *Pool) CloseWithReason(reason string) {
 	p.mu.Lock()
 	if p.closed {
 		p.mu.Unlock()
@@ -164,7 +176,7 @@ func (p *Pool) Close() {
 		}
 		e.mu.RUnlock()
 		for _, s := range subs {
-			p.unsubscribe(s)
+			p.end(s, reason)
 		}
 		close(e.stop)
 	}
@@ -177,8 +189,11 @@ func (p *Pool) Closed() bool {
 	return p.closed
 }
 
-func (p *Pool) unsubscribe(sub *Subscription) {
+func (p *Pool) unsubscribe(sub *Subscription) { p.end(sub, "") }
+
+func (p *Pool) end(sub *Subscription, reason string) {
 	sub.closeOnce.Do(func() {
+		sub.reason.Store(reason)
 		for _, e := range sub.subs {
 			e.mu.Lock()
 			delete(e.subs, sub)

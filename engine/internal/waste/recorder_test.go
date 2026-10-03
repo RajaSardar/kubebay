@@ -163,3 +163,34 @@ func TestSampleCluster_NodeListFailureStillRecordsUsage(t *testing.T) {
 		t.Fatalf("a forbidden node list leaves capacity unknown, usage intact: %+v", tot)
 	}
 }
+
+// The drawer's 7-day chip: each tick, the cluster total names the workloads
+// that are broken (podBroken), once each; namespace lines carry none.
+func TestSampleCluster_RecorderGetsBrokenWorkloadsOnTheTotal(t *testing.T) {
+	crashing := func(name string) corev1.Pod {
+		p := deploymentOwnedPod("shop", name, "rs-uid-1", "100m", "128Mi")
+		p.Status.ContainerStatuses = []corev1.ContainerStatus{{Name: "app", State: corev1.ContainerState{Waiting: &corev1.ContainerStateWaiting{Reason: "CrashLoopBackOff"}}}}
+		return p
+	}
+	a, b := crashing("app-1"), crashing("app-2")
+	rs := replicaSet("shop", "app-rs", "rs-uid-1", "dep-uid-1")
+	healthy := deploymentOwnedPod("shop", "web-1", "rs-uid-2", "100m", "128Mi")
+	healthy.Status.ContainerStatuses = []corev1.ContainerStatus{{Name: "app", Ready: true}}
+	rs2 := replicaSet("shop", "web-rs", "rs-uid-2", "dep-uid-2")
+	rs2.OwnerReferences[0].Name = "web"
+	cs := fake.NewSimpleClientset(&a, &b, &rs, &healthy, &rs2)
+
+	got, filter, rec := captureRecorder(map[string]bool{"kind-dev": true})
+	s := NewSampler(nil, discardLogger())
+	s.SetRecorder(filter, rec)
+	if err := s.sampleCluster(context.Background(), "kind-dev", cs, newFakeMetricsClient()); err != nil {
+		t.Fatal(err)
+	}
+	u := byNs((*got)[0].usage)
+	if want := []string{"shop/Deployment/app"}; len(u[""].Broken) != 1 || u[""].Broken[0] != want[0] {
+		t.Fatalf("cluster total Broken = %v, want %v", u[""].Broken, want)
+	}
+	if len(u["shop"].Broken) != 0 {
+		t.Fatalf("namespace lines carry no broken list: %v", u["shop"].Broken)
+	}
+}
