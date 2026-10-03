@@ -2177,3 +2177,44 @@ h2 {
   border-bottom-color: var(--kb-accent);
   font-weight: 600;
 }
+
+/* A week of CPU peaks for a cluster with recorded history. */
+.cluster-spark {
+  display: block;
+}
+
+.cluster-spark path {
+  fill: none;
+  stroke: var(--kb-accent);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+/* Requests against allocatable: CPU on top, memory below. */
+.cluster-headroom {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 60px;
+}
+
+.cluster-headroom-track {
+  display: flex;
+  height: 3px;
+  border-radius: var(--kb-radius-sm);
+  overflow: hidden;
+  background: var(--kb-bg-hover);
+}
+
+.cluster-headroom-ok {
+  background: var(--kb-status-ok);
+}
+
+.cluster-headroom-warn {
+  background: var(--kb-status-warn);
+}
+
+.cluster-headroom-err {
+  background: var(--kb-status-err);
+}

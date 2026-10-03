@@ -2,9 +2,6 @@ package history
 
 import (
 	"context"
-	"encoding/json"
-	"os"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -60,32 +57,6 @@ func (r *Recorder) Erase(clusterID string) (int, error) {
 }
 
 func (s *Store) latestFingerprint(clusterID string) (string, bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	dirs, err := os.ReadDir(s.dir)
-	if err != nil {
-		return "", false
-	}
-	best, bestHour := "", time.Time{}
-	for _, d := range dirs {
-		if !d.IsDir() {
-			continue
-		}
-		b, err := os.ReadFile(filepath.Join(s.dir, d.Name(), metaFile))
-		if err != nil {
-			continue
-		}
-		var m Meta
-		if json.Unmarshal(b, &m) != nil || m.ClusterID != clusterID {
-			continue
-		}
-		var hour time.Time
-		if c := s.load(d.Name()); c.open != nil {
-			hour = c.open.Hour
-		}
-		if best == "" || hour.After(bestHour) {
-			best, bestHour = d.Name(), hour
-		}
-	}
-	return best, best != ""
+	fp, ok := s.fingerprintsOnDisk()[clusterID]
+	return fp, ok
 }
