@@ -282,7 +282,7 @@ export default function WorkloadsOverview() {
       ) : (
         <Stack gap={5}>
         <HealthVerdictLine verdict={verdict} trend={trend} scope={selectedNs} showingAll={showAllNs} onToggleScope={() => setShowAllNs((v) => !v)} />
-        <NeedsAttention rows={attentionShown} checkedAt={attention.at} capacity={capacity} />
+        <NeedsAttention rows={attentionShown} checkedAt={attention.at} capacity={capacity} cluster={effectiveCluster} />
         <RolloutsInProgress rows={rollouts} />
         <PodStatusBar segments={statusSegments} />
         <div className="cluster-grid">
