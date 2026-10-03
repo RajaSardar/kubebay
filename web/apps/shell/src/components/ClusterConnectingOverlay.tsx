@@ -51,8 +51,8 @@ export function ClusterConnectingOverlay({
     else if (wsRetry > 0) currentStep = 1;
     else currentStep = 0;
   } else {
-    if (clusterStatus === "connected" && wsConnected) currentStep = 2;
-    else if (clusterStatus === "connected") currentStep = 1;
+    if (clusterStatus === "reachable" && wsConnected) currentStep = 2;
+    else if (clusterStatus === "reachable") currentStep = 1;
     else currentStep = 0;
   }
 
@@ -68,9 +68,9 @@ export function ClusterConnectingOverlay({
       statusMsg = "Connection lost — reconnecting…";
     }
   } else {
-    if (clusterStatus === "connected" && wsConnected) {
+    if (clusterStatus === "reachable" && wsConnected) {
       statusMsg = clusterVersion ? `Connected · ${clusterVersion}` : "Connected";
-    } else if (clusterStatus === "connected") {
+    } else if (clusterStatus === "reachable") {
       statusMsg = "API reachable · opening live stream…";
     } else if (clusterError) {
       statusMsg = clusterError;
@@ -81,7 +81,7 @@ export function ClusterConnectingOverlay({
   }
 
   // Still waiting: not failed, and not yet fully connected.
-  const waiting = isReconnect ? !wsConnected : !isError && !(clusterStatus === "connected" && wsConnected);
+  const waiting = isReconnect ? !wsConnected : !isError && !(clusterStatus === "reachable" && wsConnected);
 
   return (
     <div className="conn-overlay">

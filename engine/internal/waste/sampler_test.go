@@ -194,7 +194,7 @@ func TestSnapshot_ScopedByCluster(t *testing.T) {
 // context that merely answers /version must not be.
 func TestSamplerOnlyPollsConnectedOrEnrolledClusters(t *testing.T) {
 	s := &Sampler{}
-	reach := clusters.Cluster{ID: "prod", Status: clusters.StatusConnected}
+	reach := clusters.Cluster{ID: "prod", Status: clusters.StatusReachable}
 	if !s.shouldSample(reach) {
 		t.Error("with no gate set the sampler keeps its old behaviour")
 	}
@@ -202,7 +202,7 @@ func TestSamplerOnlyPollsConnectedOrEnrolledClusters(t *testing.T) {
 	if s.shouldSample(reach) {
 		t.Error("a reachable cluster the gate rejects must not be sampled")
 	}
-	if !s.shouldSample(clusters.Cluster{ID: "dev", Status: clusters.StatusConnected}) {
+	if !s.shouldSample(clusters.Cluster{ID: "dev", Status: clusters.StatusReachable}) {
 		t.Error("a gated-in reachable cluster is sampled")
 	}
 	if s.shouldSample(clusters.Cluster{ID: "dev", Status: clusters.StatusUnreachable}) {

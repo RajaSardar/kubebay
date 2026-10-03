@@ -15,6 +15,6 @@ const files = ["App.tsx", ...["pages", "components", "lib"].flatMap((d) =>
 describe("no view falls back to the first reachable cluster", () => {
   it.each(files)("%s", (file) => {
     const text = readFileSync(resolve(src, file), "utf8");
-    expect(text).not.toMatch(/\.find\(\(c\) => c\.status === "connected"\)/);
+    expect(text).not.toMatch(/\.find\(\(c\) => c\.status === "(connected|reachable)"\)/);
   });
 });
