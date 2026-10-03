@@ -502,6 +502,15 @@ Overall status: **Enforced** (some policy enforces) · **Audit only** (policies 
 
 **Not in v1:** Connaisseur, Ratify/Gatekeeper, and per-namespace coverage for Kyverno's `match`/`exclude` (a Kyverno policy is treated as cluster-wide).
 
+**Slice 2 (building): where it applies.**
+- **Per-namespace coverage.** Every namespace gets the strongest mode that covers it.
+  - **Kyverno:** each verifyImages rule's `match`/`exclude` is evaluated: `any`, `all` or legacy `resources`; namespace globs; `namespaceSelector`; pod and workload kinds only. An exclude by user or role doesn't exclude a namespace. A namespaced Policy covers only its own namespace.
+  - **Sigstore:** opted-in namespaces only.
+  - **Ratify:** Gatekeeper `RatifyVerification` constraints (`deny` means enforce, `dryrun`/`warn` mean audit), scoped by `spec.match` namespaces, excludedNamespaces and namespaceSelector.
+  - **Connaisseur:** detected from its validating webhook, scoped by the webhook's `namespaceSelector`. Its rules live in a ConfigMap, so only presence and scope are shown.
+- **Status.** A new **Partly enforced** when some application namespaces aren't enforced. System namespaces (`kube-*`, the engines' own) are listed but never make it partial.
+- **Card.** "Enforced in N of M namespaces", plus the namespaces where unsigned images can run.
+
 **Effort: XS–S.** **OSS, not Enterprise.**
 ### 33. Local cluster efficiency score — status: shipped 2026-09-30
 
