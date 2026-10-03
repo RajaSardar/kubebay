@@ -217,3 +217,40 @@ describe("a listener attached after the socket opened", () => {
     expect(onStatus).not.toHaveBeenCalled();
   });
 });
+
+describe("engine-ended subscriptions", () => {
+  const spec = { id: "pods-1", cluster: "kind", gvr: "v1/pods", ns: ["default"], mode: "metadata" as const };
+  const errorFrame = (id: string, message: string) => JSON.stringify({ type: "error", id, message });
+
+  it("resyncs a stream the engine ended because the cluster's credentials changed", async () => {
+    const { mod, socket } = await freshWs();
+    const onError = vi.fn();
+    mod.attach({ onError });
+    socket().accept();
+    mod.subscribe(spec);
+    socket().sent = [];
+
+    socket().onmessage?.({ data: errorFrame("pods-1", "cluster credentials changed") });
+
+    expect(socket().sent.map((p) => JSON.parse(p as string))).toEqual([
+      { type: "resync", id: "pods-1", cluster: "kind", gvr: "v1/pods", ns: ["default"], mode: "metadata" },
+    ]);
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("still reports a disconnect, and does not resync a stream nobody holds", async () => {
+    const { mod, socket } = await freshWs();
+    const onError = vi.fn();
+    mod.attach({ onError });
+    socket().accept();
+    mod.subscribe(spec);
+    socket().sent = [];
+
+    socket().onmessage?.({ data: errorFrame("pods-1", "cluster disconnected") });
+    socket().onmessage?.({ data: errorFrame("gone-1", "cluster credentials changed") });
+
+    expect(socket().sent).toHaveLength(0);
+    expect(onError).toHaveBeenCalledWith("pods-1", "cluster disconnected");
+    expect(onError).toHaveBeenCalledWith("gone-1", "cluster credentials changed");
+  });
+});
