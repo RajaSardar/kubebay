@@ -1001,7 +1001,13 @@ A retrospective security feed with no kernel agent and no in-cluster install. Th
   - A dynamic audit webhook sink was rejected: it needs API server flags and an always-on receiver, which breaks local-first.
   - Pulling from CloudWatch, GCP or Azure log APIs directly was deferred to an Enterprise-flavoured slice, since it needs cloud credentials. A synced local file covers it now.
   - Spike detection for Secret reads was deferred. Raw rows with a severity filter come first.
-- **Next slices.** Cloud log sources (EKS CloudWatch, GKE Cloud Logging), Secret-read spike aggregation, links from an event to the object's drawer, and rotated-file (`audit.log.1`) awareness.
+- **Slice 2 (building).**
+  - **Secret-read grouping.** Each person's reads that follow within 10 minutes of each other, split by allowed or denied, fold into one row: count, first time, and the Secrets read (up to 5 listed).
+    - 20 or more reads is a medium "Burst of Secret reads by a person".
+    - A lone read stays a normal row with its object.
+  - **Object links.** Events carry `ref` (resource/namespace/name). Pods open their drawer on the Pods page, and kinds in `DEFS` open their detail page.
+  - **Rotated files.** When the live file leaves byte budget, rotations next to it are read newest first: `audit.log.1`, `audit.log-<date>`, the API server's `audit-<time>.log`, and gzipped copies.
+- **Next.** EKS CloudWatch and GKE Cloud Logging sources through the local `aws` / `gcloud` CLIs.
 
 ### 48. Attack paths, narrow v1 (roadmap Tier 3 #24) — status: shipped 2026-10-01 (slice 1)
 Findings joined into prioritised chains instead of a flat list. Built on what already exists: Service/Ingress objects, NetworkPolicies, Trivy-Operator VulnerabilityReports (`vulnFindings.findingsForPod`) and the engine's RBAC findings (`/api/rbac/all`, subject `ServiceAccount ns/name`).

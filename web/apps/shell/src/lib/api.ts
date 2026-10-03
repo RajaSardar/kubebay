@@ -279,6 +279,17 @@ export interface AuditSecurityEvent {
   object: string;
   detail?: string;
   allowed: boolean;
+  /** The object acted on; absent on a grouped row spanning several. */
+  ref?: AuditObjectRef;
+  /** Set on a row grouping several Secret reads by one person. */
+  count?: number;
+  firstTime?: string;
+}
+
+export interface AuditObjectRef {
+  resource: string;
+  namespace?: string;
+  name?: string;
 }
 
 export interface AuditEventsResponse {

@@ -1,7 +1,9 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import { Badge, Button, Card, DataTable, InlineBanner, Row, Select, SkeletonLines, Stack, TextField, type BadgeTone } from "@kubebay/ui";
 import { securityApi, type AuditSecurityEvent } from "../lib/api";
+import { auditObjectHref } from "../lib/auditLinks";
 
 const TONE: Record<AuditSecurityEvent["severity"], BadgeTone | undefined> = { high: "err", medium: "warn", low: undefined };
 
@@ -49,7 +51,8 @@ export function AuditSecurityFeedCard({ cluster }: { cluster: string }) {
         </Row>
         <div className="muted small">
           Exec and attach into pods, privileged or host-namespace pods, hostPath mounts, cluster-admin and other
-          ClusterRoleBinding changes, anonymous requests that succeeded, and people reading Secrets. This needs the API
+          ClusterRoleBinding changes, anonymous requests that succeeded, and people reading Secrets (one person&apos;s
+          reads close together show as one row). Rotated log files next to the configured one are read too. This needs the API
           server&apos;s audit log: audit logging must already be on, with the log file readable on this machine (a kind
           node mount, a kubeadm control plane, or a copy synced from your provider). Privileged-pod and binding details
           need the policy to log at Request level for pods and RBAC objects.
@@ -105,7 +108,17 @@ export function AuditSecurityFeedCard({ cluster }: { cluster: string }) {
             rowKey={(e, i) => `${e.id}:${i}`}
             empty={<div className="muted small">No security events in the newest part of the log.</div>}
             columns={[
-              { key: "time", header: "Time", className: "mono small", render: (e) => e.time },
+              {
+                key: "time",
+                header: "Time",
+                className: "mono small",
+                render: (e) => (
+                  <Stack gap={1}>
+                    <span>{e.time}</span>
+                    {e.firstTime && <span className="muted">{`since ${e.firstTime}`}</span>}
+                  </Stack>
+                ),
+              },
               {
                 key: "event",
                 header: "Event",
@@ -113,11 +126,20 @@ export function AuditSecurityFeedCard({ cluster }: { cluster: string }) {
                   <Row gap={2} align="center">
                     <Badge tone={TONE[e.severity]}>{e.severity}</Badge>
                     <span>{e.title}</span>
+                    {e.count && e.count > 1 ? <Badge>{`×${e.count}`}</Badge> : null}
                   </Row>
                 ),
               },
               { key: "who", header: "Who", className: "mono small", render: (e) => (e.sourceIP ? `${e.user} (${e.sourceIP})` : e.user) },
-              { key: "object", header: "Object", className: "mono small", render: (e) => e.object },
+              {
+                key: "object",
+                header: "Object",
+                className: "mono small",
+                render: (e) => {
+                  const href = auditObjectHref(e.ref);
+                  return href ? <Link to={href}>{e.object}</Link> : e.object;
+                },
+              },
               { key: "detail", header: "Detail", className: "small", render: (e) => e.detail ?? "" },
               {
                 key: "outcome",

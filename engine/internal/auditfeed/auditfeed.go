@@ -9,11 +9,15 @@ package auditfeed
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"sort"
 	"strings"
+	"time"
 )
 
 // Event is the subset of audit.k8s.io/v1 Event the rules read.
@@ -52,6 +56,18 @@ type SecurityEvent struct {
 	Object   string `json:"object"`
 	Detail   string `json:"detail,omitempty"`
 	Allowed  bool   `json:"allowed"`
+	// Ref is the object acted on, for linking to it; nil for a grouped row
+	// spanning several objects or a request with no object.
+	Ref *ObjectRef `json:"ref,omitempty"`
+	// Count and FirstTime are set on a row that groups several Secret reads.
+	Count     int    `json:"count,omitempty"`
+	FirstTime string `json:"firstTime,omitempty"`
+}
+
+type ObjectRef struct {
+	Resource  string `json:"resource"`
+	Namespace string `json:"namespace,omitempty"`
+	Name      string `json:"name,omitempty"`
 }
 
 func parseLine(b []byte) (Event, error) {
@@ -193,6 +209,7 @@ func Classify(ev Event) (SecurityEvent, bool) {
 	}
 	o := ev.ObjectRef
 	out.Object = objectLabel(ev)
+	out.Ref = &ObjectRef{Resource: o.Resource, Namespace: o.Namespace, Name: o.Name}
 	set := func(rule, severity, title string) (SecurityEvent, bool) {
 		out.Rule, out.Severity, out.Title = rule, severity, title
 		return out, true
@@ -240,40 +257,46 @@ func Classify(ev Event) (SecurityEvent, bool) {
 }
 
 // ReadTail reads at most maxBytes from the end of an audit log (JSON lines)
-// and returns up to limit security events, newest first. Lines that don't
-// parse (a rotation's partial line, other log formats) are skipped.
+// and returns up to limit security events, newest first. When the live file
+// leaves budget, its rotations (audit.log.1, audit-<time>.log, .gz or not)
+// are read too, newest first. Lines that don't parse (a rotation's partial
+// line, other log formats) are skipped. Secret reads by one person close
+// together come back as one row.
 func ReadTail(path string, maxBytes int64, limit int) ([]SecurityEvent, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	st, err := f.Stat()
+	st, err := os.Stat(path)
 	if err != nil {
 		return nil, err
 	}
 	if st.IsDir() {
 		return nil, fmt.Errorf("%s is a directory, not an audit log file", path)
 	}
-	offset := st.Size() - maxBytes
-	if offset < 0 {
-		offset = 0
-	}
-	if _, err := f.Seek(offset, io.SeekStart); err != nil {
-		return nil, err
-	}
-	buf, err := io.ReadAll(io.LimitReader(f, maxBytes))
+	buf, err := tailFile(path, maxBytes)
 	if err != nil {
 		return nil, err
 	}
-	if offset > 0 {
-		// Starting mid-file: the first line is a fragment.
-		if i := bytes.IndexByte(buf, '\n'); i >= 0 {
-			buf = buf[i+1:]
-		} else {
-			buf = nil
+	events := classifyAll(buf)
+	budget := maxBytes - min(st.Size(), maxBytes)
+	for _, rp := range rotatedFiles(path) {
+		if budget <= 0 {
+			break
 		}
+		b, err := tailFile(rp, budget)
+		if err != nil {
+			continue
+		}
+		budget -= int64(len(b))
+		events = append(events, classifyAll(b)...)
 	}
+	sort.SliceStable(events, func(i, j int) bool { return parseTime(events[i].Time).Before(parseTime(events[j].Time)) })
+	events = groupSecretReads(events)
+	out := make([]SecurityEvent, 0, min(len(events), limit))
+	for i := len(events) - 1; i >= 0 && len(out) < limit; i-- {
+		out = append(out, events[i])
+	}
+	return out, nil
+}
+
+func classifyAll(buf []byte) []SecurityEvent {
 	var events []SecurityEvent
 	for _, line := range bytes.Split(buf, []byte{'\n'}) {
 		line = bytes.TrimSpace(line)
@@ -288,9 +311,206 @@ func ReadTail(path string, maxBytes int64, limit int) ([]SecurityEvent, error) {
 			events = append(events, se)
 		}
 	}
-	out := make([]SecurityEvent, 0, min(len(events), limit))
-	for i := len(events) - 1; i >= 0 && len(out) < limit; i-- {
-		out = append(out, events[i])
+	return events
+}
+
+// tailFile returns the last maxBytes of a file, decompressing .gz, with a
+// leading partial line dropped when it starts mid-file.
+func tailFile(path string, maxBytes int64) ([]byte, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
 	}
-	return out, nil
+	defer f.Close()
+	var buf []byte
+	cut := false
+	if strings.HasSuffix(path, ".gz") {
+		zr, err := gzip.NewReader(f)
+		if err != nil {
+			return nil, err
+		}
+		defer zr.Close()
+		// Keep only the newest maxBytes of the decompressed stream.
+		chunk := make([]byte, 64<<10)
+		for {
+			n, rerr := zr.Read(chunk)
+			buf = append(buf, chunk[:n]...)
+			if over := int64(len(buf)) - maxBytes; over > 0 {
+				buf = append(buf[:0], buf[over:]...)
+				cut = true
+			}
+			if rerr == io.EOF {
+				break
+			}
+			if rerr != nil {
+				return nil, rerr
+			}
+		}
+	} else {
+		st, err := f.Stat()
+		if err != nil {
+			return nil, err
+		}
+		offset := max(st.Size()-maxBytes, 0)
+		if _, err := f.Seek(offset, io.SeekStart); err != nil {
+			return nil, err
+		}
+		if buf, err = io.ReadAll(io.LimitReader(f, maxBytes)); err != nil {
+			return nil, err
+		}
+		cut = offset > 0
+	}
+	if cut {
+		if i := bytes.IndexByte(buf, '\n'); i >= 0 {
+			buf = buf[i+1:]
+		} else {
+			buf = nil
+		}
+	}
+	return buf, nil
+}
+
+// rotatedFiles lists the rotations of path, newest first: logrotate's
+// audit.log.1 and audit.log-20261001, and the API server's own
+// audit-2026-10-01T09-00-00.000.log, each possibly gzipped.
+func rotatedFiles(path string) []string {
+	dir, base := filepath.Split(path)
+	ext := filepath.Ext(base)
+	stem := strings.TrimSuffix(base, ext)
+	entries, err := os.ReadDir(filepath.Clean(dir))
+	if err != nil {
+		return nil
+	}
+	type cand struct {
+		path string
+		mod  time.Time
+	}
+	var out []cand
+	for _, e := range entries {
+		name := strings.TrimSuffix(e.Name(), ".gz")
+		if e.IsDir() || e.Name() == base {
+			continue
+		}
+		rotated := strings.HasPrefix(name, base+".") || strings.HasPrefix(name, base+"-") ||
+			(ext != "" && strings.HasPrefix(name, stem+"-") && strings.HasSuffix(name, ext))
+		if !rotated {
+			continue
+		}
+		info, err := e.Info()
+		if err != nil {
+			continue
+		}
+		out = append(out, cand{filepath.Join(dir, e.Name()), info.ModTime()})
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		if !out[i].mod.Equal(out[j].mod) {
+			return out[i].mod.After(out[j].mod)
+		}
+		return out[i].path > out[j].path
+	})
+	paths := make([]string, len(out))
+	for i, c := range out {
+		paths[i] = c.path
+	}
+	return paths
+}
+
+func parseTime(s string) time.Time {
+	t, _ := time.Parse(time.RFC3339Nano, s)
+	return t
+}
+
+const (
+	// secretReadGap ends a group: reads further apart are separate rows.
+	secretReadGap = 10 * time.Minute
+	// secretReadBurst reads in one group make it a burst worth flagging.
+	secretReadBurst  = 20
+	maxListedSecrets = 5
+)
+
+// groupSecretReads folds each person's Secret reads that follow within
+// secretReadGap of each other into one row, so a scripted sweep reads as one
+// burst rather than hundreds of rows. events must be oldest first.
+func groupSecretReads(events []SecurityEvent) []SecurityEvent {
+	type group struct{ members []SecurityEvent }
+	var groups []*group
+	open := map[string]*group{}
+	var out []SecurityEvent
+	for _, e := range events {
+		if e.Rule != "secret-read" {
+			out = append(out, e)
+			continue
+		}
+		key := fmt.Sprintf("%s|%v", e.User, e.Allowed)
+		g := open[key]
+		if g != nil {
+			last := parseTime(g.members[len(g.members)-1].Time)
+			at := parseTime(e.Time)
+			if last.IsZero() || at.IsZero() || at.Sub(last) > secretReadGap {
+				g = nil
+			}
+		}
+		if g == nil {
+			g = &group{}
+			groups = append(groups, g)
+			open[key] = g
+		}
+		g.members = append(g.members, e)
+	}
+	for _, g := range groups {
+		out = append(out, mergeSecretReads(g.members))
+	}
+	sort.SliceStable(out, func(i, j int) bool { return parseTime(out[i].Time).Before(parseTime(out[j].Time)) })
+	return out
+}
+
+func mergeSecretReads(m []SecurityEvent) SecurityEvent {
+	if len(m) == 1 {
+		return m[0]
+	}
+	row := m[len(m)-1]
+	row.Count, row.FirstTime = len(m), m[0].Time
+	seen := map[string]bool{}
+	var names []string
+	namespaces := map[string]bool{}
+	for _, e := range m {
+		if e.Ref == nil {
+			continue
+		}
+		namespaces[e.Ref.Namespace] = true
+		key := e.Ref.Name
+		if e.Ref.Namespace != "" {
+			key = e.Ref.Namespace + "/" + e.Ref.Name
+		}
+		if !seen[key] {
+			seen[key] = true
+			names = append(names, key)
+		}
+	}
+	sort.Strings(names)
+	if len(names) != 1 {
+		row.Ref = nil
+		row.Object = "secrets"
+		if len(namespaces) == 1 {
+			for ns := range namespaces {
+				if ns != "" {
+					row.Object = "secrets " + ns + "/*"
+				}
+			}
+		}
+	}
+	listed := names
+	more := ""
+	if len(listed) > maxListedSecrets {
+		listed, more = listed[:maxListedSecrets], fmt.Sprintf(" and %d more", len(names)-maxListedSecrets)
+	}
+	noun := "Secrets"
+	if len(names) == 1 {
+		noun = "Secret"
+	}
+	row.Detail = fmt.Sprintf("%d reads of %d %s: %s%s", len(m), len(names), noun, strings.Join(listed, ", "), more)
+	if len(m) >= secretReadBurst {
+		row.Severity, row.Title = "medium", "Burst of Secret reads by a person"
+	}
+	return row
 }
