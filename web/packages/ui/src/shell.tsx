@@ -9,6 +9,7 @@ import {
   type ReactNode,
   type SelectHTMLAttributes,
 } from "react";
+import { createPortal } from "react-dom";
 
 // ── Icon button ───────────────────────────────────────────────────────────────
 
@@ -291,7 +292,12 @@ export interface MenuItem {
   separator?: boolean;
 }
 
-/** Row menu at a viewport point; closes on Escape, outside click, or after an item runs. */
+/**
+ * Row menu at a viewport point; closes on Escape, outside click, or after an item runs.
+ * It renders into document.body: inside a pressed table row (tr.row-clickable:active
+ * scales it) a fixed menu would be placed against the row and jump under the pointer
+ * between press and release, so the click would miss its item.
+ */
 export function ContextMenu({
   x,
   y,
@@ -324,7 +330,7 @@ export function ContextMenu({
   const clampedX = Math.min(x, window.innerWidth - 200);
   const clampedY = Math.min(y, window.innerHeight - items.length * 32);
 
-  return (
+  return createPortal(
     <div ref={ref} className="ctx-menu" role="menu" style={{ left: clampedX, top: clampedY }}>
       {items.map((item, i) => {
         if (item.separator) {
@@ -348,6 +354,7 @@ export function ContextMenu({
           </button>
         );
       })}
-    </div>
+    </div>,
+    document.body,
   );
 }
