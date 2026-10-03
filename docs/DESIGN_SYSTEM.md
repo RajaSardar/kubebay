@@ -20,7 +20,7 @@ https://claude.ai/artifact/J35D45QQ7X6Sgd7mwfRSnF
 | Layout | `web/packages/ui/src/layout.tsx` | `Row`, `Stack` (`gap` on the `--kb-space-*` scale, `align`, `justify`, `wrap`, `as`) |
 | Tables and feedback | `web/packages/ui/src/table.tsx` | `DataTable`, `TableWrap` (`busy` refresh bar), `Table`, `SortHeader`, `SelectAllHeader`, `SelectCell`, `TableRow`, `NsPill`, `SkeletonRows`, `SkeletonTable`, `SkeletonLines`, `EmptyState`, `InlineBanner` |
 | Loading | `web/packages/ui/src/spinner.tsx`, `icons.tsx` | `Spinner` (the helm `IconLoader` turning, `role="status"`) |
-| Overlays | `web/packages/ui/src/overlays.tsx` | `Drawer` (with `embedded` for the full-page view), `Modal` |
+| Overlays | `web/packages/ui/src/overlays.tsx` | `Drawer` (with `embedded` for the full-page view), `Modal` (`placement="center"` for a confirm or one-field form) |
 | Brand mark | `web/packages/ui/src/brand.tsx` | `KubebayMark`; the gradient is `--kb-brand-cyan` → `--kb-brand-green`, also used by the favicons, app icons and the website's `KubebayMark.astro` |
 | Website | `website/src/styles/global.css` | imports `tokens.css` (Dusk); its `--bg`, `--text`, `--accent`… are aliases for `--kb-*` tokens |
 | Desktop window | `web/apps/shell/src/lib/nativeWindow.ts`, `desktop/src-tauri/src/window_theme.rs` | the native window's colour and title bar follow the theme |
@@ -47,7 +47,9 @@ https://claude.ai/artifact/J35D45QQ7X6Sgd7mwfRSnF
    dismissed is a `Modal`, which renders into `document.body` so a translucent
    ancestor cannot clip it.
 2. **Loading shows the shape of what is coming.** A list or table with no rows
-   yet is a `SkeletonTable` under its real headers; rows already on screen
+   yet is a `SkeletonTable` (or a `DataTable` with `loading` and a
+   `loadingLabel`) under its real headers, captioned with the helm-wheel
+   `Spinner` and what it is loading; rows already on screen
    while the stream re-syncs get `TableWrap busy`; a drawer or pane is
    `SkeletonLines`. Only a wait with no shape to sketch (detecting an
    operator, drawing a graph, connecting to a cluster) takes the `Spinner`
@@ -59,6 +61,9 @@ https://claude.ai/artifact/J35D45QQ7X6Sgd7mwfRSnF
    `empty`). Use the primitives (`TableWrap`, `Table`, `SortHeader`,
    `SelectAllHeader`, `SelectCell`, `TableRow`, `NsPill`, `SkeletonRows`) only
    when a table needs virtualisation, column resizing or expandable rows.
+   A list of Kubernetes resources renders through the shell's
+   `ResourceListView` (see `docs/TABLE_UNIFICATION.md`), not its own table.
+   `SortHeader` is focusable and sorts on Enter or Space as well as a click.
    Name cells take `className="mono td-name"`, secondary facts `cell-secondary`,
    namespaces `NsPill`, phases `StatusPill` (with `phaseTone` for pods).
 4. **Colours come from tokens.** No hex, `rgb()` or `rgba()` literals in shell

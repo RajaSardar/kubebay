@@ -63,6 +63,11 @@
     transform var(--kb-dur) var(--kb-ease);
 }
 
+.kb-card-selected {
+  border-color: var(--kb-accent);
+  box-shadow: inset 3px 0 0 var(--kb-accent);
+}
+
 .kb-card-interactive:hover {
   border-color: var(--kb-border-strong);
   box-shadow: var(--kb-shadow-lift), var(--kb-highlight-inset);
@@ -479,7 +484,19 @@ kbd {
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 0; /* forces ellipsis inside table-layout:fixed cells */
+}
+
+/* Identifiers (names, IPs, versions) in the mono family, a step below body
+   text since monospace runs wide. */
+.mono {
+  font-family: var(--kb-font-mono);
   font-size: var(--kb-text-sm);
+}
+
+/* In a table they follow the density, still a step below its text. */
+.kb-table td.mono,
+.kb-table td .mono {
+  font-size: var(--kb-table-mono-font-size, var(--kb-text-sm));
 }
 
 /* ── Column resize handle ── */
@@ -547,6 +564,189 @@ kbd {
 
 .kb-table tbody tr[data-terminating]:hover {
   opacity: 0.7;
+}
+
+/* ── Pinned lead columns (Table pinLead): the select box and Name stay put
+   while a wide table scrolls sideways. Pinned cells are opaque, so the row's
+   states are repainted on them: a solid surface with any translucent tint on
+   top, the accent bar on the first cell, and terminating rows fading their
+   contents instead of the whole row (which would let scrolled text show
+   through). */
+.kb-table-pin-lead {
+  --kb-pin-select-w: 40px;
+}
+
+.kb-table-pin-lead .col-select {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+}
+
+.kb-table-pin-lead .th-pin,
+.kb-table-pin-lead td.td-name {
+  position: sticky;
+  left: var(--kb-pin-select-w);
+  z-index: 1;
+  box-shadow: inset -1px 0 0 var(--kb-border-subtle);
+}
+
+.kb-table-pin-lead th.col-select,
+.kb-table-pin-lead .th-pin {
+  z-index: 3;
+}
+
+.kb-table-pin-lead tbody td.col-select,
+.kb-table-pin-lead tbody td.td-name {
+  background-color: var(--kb-bg-surface);
+}
+
+.kb-table-pin-lead tbody tr:hover > td.col-select,
+.kb-table-pin-lead tbody tr:hover > td.td-name {
+  background-color: var(--kb-bg-raised);
+}
+
+.kb-table-pin-lead tbody tr.selected > td.col-select,
+.kb-table-pin-lead tbody tr.selected > td.td-name {
+  background-image: linear-gradient(var(--kb-accent-subtle), var(--kb-accent-subtle));
+}
+
+.kb-table-pin-lead tbody tr.selected > td.col-select,
+.kb-table-pin-lead tbody tr:hover > td.col-select {
+  box-shadow: inset 3px 0 0 var(--kb-accent);
+}
+
+.kb-table-pin-lead tbody tr[data-terminating],
+.kb-table-pin-lead tbody tr[data-terminating]:hover {
+  opacity: 1;
+}
+
+.kb-table-pin-lead tbody tr[data-terminating] > td:not(.col-select):not(.td-name),
+.kb-table-pin-lead tbody tr[data-terminating] > td.col-select > *,
+.kb-table-pin-lead tbody tr[data-terminating] > td.td-name > * {
+  opacity: 0.5;
+}
+
+.kb-table-pin-lead tbody tr[data-terminating]:hover > td:not(.col-select):not(.td-name),
+.kb-table-pin-lead tbody tr[data-terminating]:hover > td.col-select > *,
+.kb-table-pin-lead tbody tr[data-terminating]:hover > td.td-name > * {
+  opacity: 0.7;
+}
+
+/* ── Changed row: its shown data just changed (a status, a count). It tints and
+   fades over --kb-dur-flash; under reduced motion it holds the tint still for
+   that time instead (the row loses data-changed when the time is up). Pinned
+   lead cells are opaque, so they carry the tint themselves. */
+.kb-table tbody tr[data-changed] {
+  animation: kb-row-changed var(--kb-dur-flash) var(--kb-ease);
+}
+
+.kb-table-pin-lead tbody tr[data-changed] > td.col-select,
+.kb-table-pin-lead tbody tr[data-changed] > td.td-name {
+  animation: kb-row-changed-pinned var(--kb-dur-flash) var(--kb-ease);
+}
+
+@keyframes kb-row-changed {
+  from { background-color: var(--kb-row-changed); }
+  to { background-color: transparent; }
+}
+
+/* An inset shadow paints over the opaque cell without making it see-through. */
+@keyframes kb-row-changed-pinned {
+  from { box-shadow: inset 0 0 0 100vmax var(--kb-row-changed); }
+  to { box-shadow: inset 0 0 0 100vmax transparent; }
+}
+
+/* ── Column chooser (#21): a button and a small panel under it ── */
+.kb-column-chooser {
+  position: relative;
+  margin-left: auto;
+}
+
+.kb-column-chooser-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + var(--kb-space-1));
+  z-index: var(--kb-z-dropdown);
+  min-width: 240px;
+  max-height: 60vh;
+  overflow: auto;
+  padding: var(--kb-space-2);
+  background: var(--kb-bg-raised);
+  border: 1px solid var(--kb-border-subtle);
+  border-radius: var(--kb-radius);
+  box-shadow: var(--kb-shadow-lift);
+}
+
+.kb-column-chooser-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.kb-column-chooser-item {
+  display: flex;
+  align-items: center;
+  gap: var(--kb-space-1);
+}
+
+.kb-column-chooser-label {
+  display: flex;
+  align-items: center;
+  gap: var(--kb-space-2);
+  flex: 1;
+  min-width: 0;
+  padding: var(--kb-space-1) 0;
+  font-size: var(--kb-text-sm);
+  color: var(--kb-fg-default);
+  cursor: pointer;
+}
+
+.kb-column-chooser-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--kb-space-2);
+  padding-top: var(--kb-space-2);
+  border-top: 1px solid var(--kb-border-subtle);
+}
+
+/* ── Screen-reader-only text ── */
+.kb-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── Selection bar: under the table, never over a row ── */
+.kb-selection-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--kb-space-3);
+  padding: var(--kb-space-2) var(--kb-gutter);
+  border-top: 1px solid var(--kb-border-subtle);
+  background: var(--kb-bg-raised);
+  font-size: var(--kb-text-sm);
+  color: var(--kb-fg-default);
+}
+
+.kb-selection-bar-scope {
+  display: flex;
+  align-items: center;
+  gap: var(--kb-space-2);
+  min-width: 0;
+}
+
+.kb-selection-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--kb-space-2);
+  flex-shrink: 0;
 }
 
 .tabs {
@@ -910,6 +1110,11 @@ kbd {
 
 .th-sortable:hover {
   color: var(--kb-fg-default);
+}
+
+.th-sortable:focus-visible {
+  outline: none;
+  box-shadow: inset var(--kb-focus-ring);
 }
 
 .sort-indicator {
@@ -1300,6 +1505,21 @@ tr.row-clickable:active {
 }
 
 /* ── Loading states: skeleton lines and the table refresh bar ── */
+/* The line above a loading table's skeleton rows: spinner plus what is loading. */
+.kb-table-loading {
+  caption-side: top;
+  text-align: left;
+  padding: var(--kb-space-2) var(--kb-space-3);
+  color: var(--kb-fg-muted);
+  font-size: var(--kb-text-sm);
+}
+
+.kb-table-loading-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--kb-space-2);
+}
+
 .kb-skeleton-lines {
   display: flex;
   flex-direction: column;
@@ -1366,10 +1586,28 @@ tr.row-clickable:active {
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .kb-table tbody tr[data-changed] {
+    animation: none;
+    background-color: var(--kb-row-changed);
+  }
+
+  .kb-table-pin-lead tbody tr[data-changed] > td.col-select,
+  .kb-table-pin-lead tbody tr[data-changed] > td.td-name {
+    animation: none;
+    box-shadow: inset 0 0 0 100vmax var(--kb-row-changed);
+  }
+}
+
 /* ── Forced colours (Windows High Contrast) ──
    The browser drops box-shadow and author backgrounds here, so focus rings,
    the selected-row bar and status dots are restated with system colours. */
 @media (forced-colors: active) {
+  .kb-table-pin-lead tbody td.col-select,
+  .kb-table-pin-lead tbody td.td-name {
+    background: Canvas;
+  }
+
   :focus-visible {
     outline: 2px solid Highlight;
     outline-offset: 2px;
@@ -1479,6 +1717,20 @@ tr.row-clickable:active {
   border-radius: var(--kb-radius);
   box-shadow: var(--kb-shadow-menu);
   outline: none;
+}
+
+/* A small confirm card or one-field form, near the top-centre of the window. */
+.kb-modal.center {
+  position: fixed;
+  left: 50%;
+  top: 22%;
+  transform: translateX(-50%);
+  width: min(360px, calc(100vw - 2 * var(--kb-space-4)));
+  padding: var(--kb-space-4);
+}
+
+.kb-modal.center.wide {
+  width: min(560px, calc(100vw - 2 * var(--kb-space-4)));
 }
 
 @keyframes kb-modal-fade {

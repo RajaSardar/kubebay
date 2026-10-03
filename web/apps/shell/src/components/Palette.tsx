@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Kbd, StatusDot } from "@kubebay/ui";
-import { api, type ClusterInfo } from "../lib/api";
+import { api } from "../lib/api";
 import { useResourceStream } from "../lib/useResourceStream";
+import { useClusterStore } from "../lib/cluster-store";
 import { DEFS, EXTRA_DEFS } from "../lib/resources";
 
 // ──── Nav items (static routes) ──────────────────────────────────────────────
@@ -169,10 +170,7 @@ function deriveLivePod(obj: Record<string, unknown>, cluster: string): LivePod |
 }
 
 function useLivePods(): { pods: LivePod[]; connected: boolean; loading: boolean } {
-  const queryClient = useQueryClient();
-  const clusterList = queryClient.getQueryData<ClusterInfo[]>(["clusters"]) ?? [];
-  const activeCluster = clusterList.find((c) => c.status === "connected");
-  const cluster = activeCluster?.id;
+  const cluster = useClusterStore((s) => s.active) || undefined;
 
   const stream = useResourceStream(cluster, "v1/pods", { mode: "full", enabled: !!cluster });
 

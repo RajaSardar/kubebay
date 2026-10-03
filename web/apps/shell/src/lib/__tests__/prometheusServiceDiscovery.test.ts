@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { findCandidatePrometheusServices } from "../prometheusServiceDiscovery";
+import { findCandidatePrometheusServices, suggestLocalURL, portForwardCommand } from "../prometheusServiceDiscovery";
 
 function service(opts: {
   name: string;
@@ -50,5 +50,46 @@ describe("findCandidatePrometheusServices", () => {
       service({ name: "prometheus", ns: "team-a" }),
     ]);
     expect(candidates).toHaveLength(2);
+  });
+});
+
+describe("suggestLocalURL", () => {
+  it("extracts port from in-cluster DNS address and suggests localhost URL", () => {
+    const candidate = { namespace: "monitoring", name: "prometheus-server", address: "http://prometheus-server.monitoring.svc:9090" };
+    expect(suggestLocalURL(candidate)).toBe("http://localhost:9090");
+  });
+
+  it("handles different port numbers", () => {
+    const candidate = { namespace: "obs", name: "prometheus", address: "http://prometheus.obs.svc:8080" };
+    expect(suggestLocalURL(candidate)).toBe("http://localhost:8080");
+  });
+
+  it("handles addresses without explicit port (defaults to 80)", () => {
+    const candidate = { namespace: "monitoring", name: "prom", address: "http://prom.monitoring.svc" };
+    expect(suggestLocalURL(candidate)).toBe("http://localhost:80");
+  });
+
+  it("never returns an in-cluster DNS address", () => {
+    const candidate = { namespace: "monitoring", name: "prometheus", address: "http://prometheus.monitoring.svc:9090" };
+    const url = suggestLocalURL(candidate);
+    expect(url).not.toContain(".svc");
+    expect(url).toBe("http://localhost:9090");
+  });
+});
+
+describe("portForwardCommand", () => {
+  it("generates kubectl port-forward command from candidate", () => {
+    const candidate = { namespace: "monitoring", name: "prometheus-server", address: "http://prometheus-server.monitoring.svc:9090" };
+    expect(portForwardCommand(candidate)).toBe("kubectl -n monitoring port-forward svc/prometheus-server 9090:9090");
+  });
+
+  it("handles different namespaces and names", () => {
+    const candidate = { namespace: "obs", name: "prom", address: "http://prom.obs.svc:8080" };
+    expect(portForwardCommand(candidate)).toBe("kubectl -n obs port-forward svc/prom 8080:8080");
+  });
+
+  it("extracts port correctly from various port numbers", () => {
+    const candidate = { namespace: "kube-system", name: "metrics", address: "http://metrics.kube-system.svc:5000" };
+    expect(portForwardCommand(candidate)).toBe("kubectl -n kube-system port-forward svc/metrics 5000:5000");
   });
 });

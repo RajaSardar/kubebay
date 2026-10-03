@@ -4,7 +4,7 @@ import { Badge, Button, InlineBanner, Row, SkeletonLines, TextField } from "@kub
 import { api } from "../lib/api";
 import { useMonacoTheme } from "../lib/theme";
 import { ownerWarning, type GitOpsOwner } from "../lib/gitops";
-import { PolicyRejectionError, type PolicyRejectionDetail } from "../lib/policyRejection";
+import { PolicyRejectionError, StaleEditError, type PolicyRejectionDetail } from "../lib/policyRejection";
 import { PolicyRejectionCard } from "./PolicyRejectionCard";
 
 export function YamlTab({
@@ -13,6 +13,7 @@ export function YamlTab({
   ns,
   name,
   gitopsOwner,
+  helmRelease,
   impactBanner,
   dangerousChangeCheck,
 }: {
@@ -21,6 +22,8 @@ export function YamlTab({
   ns: string;
   name: string;
   gitopsOwner?: GitOpsOwner | null;
+  /** The Helm release that installed this object (lib/gitops.ts#helmReleaseOf). */
+  helmRelease?: string | null;
   /** Optional blast-radius context (e.g. Karpenter's NodePool impact banner) shown above the editor. */
   impactBanner?: ReactNode;
   /**
@@ -41,12 +44,15 @@ export function YamlTab({
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [policyRejection, setPolicyRejection] = useState<PolicyRejectionDetail | null>(null);
   const [confirmText, setConfirmText] = useState("");
+  // Fields the user edited that someone else changed after this editor loaded.
+  const [staleFields, setStaleFields] = useState<string[] | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     setMsg(null);
     setPolicyRejection(null);
     setServerPreview(null);
+    setStaleFields(null);
     try {
       const y = await api.getYamlText(cluster, gvr, ns, name);
       setOriginal(y);
@@ -96,22 +102,31 @@ export function YamlTab({
         ns,
         name,
         yaml: modified,
+        // Patch only what changed rather than re-applying the whole object.
+        original,
         dryRun,
         force: false,
       });
-      if (r.dryRun) {
-        setMsg({ ok: true, text: "Dry-run passed — server accepted the change." });
+      const n = r.changedPaths?.length ?? 0;
+      const fields = `${n} field${n === 1 ? "" : "s"}`;
+      if (r.noop) {
+        setMsg({ ok: true, text: "Nothing to apply: no stored field changed." });
+      } else if (r.dryRun) {
+        setMsg({ ok: true, text: `Dry-run passed: the server accepted changes to ${fields}.` });
         if (r.resultYaml) {
           setServerPreview(r.resultYaml);
           setShowDiff(true);
         }
       } else {
-        setMsg({ ok: true, text: "Applied via server-side apply." });
+        // Reload first: load() clears the message, which used to hide this one.
         await load();
+        setMsg({ ok: true, text: `Applied: patched ${fields}.` });
       }
     } catch (e) {
       if (e instanceof PolicyRejectionError) {
         setPolicyRejection(e.rejection);
+      } else if (e instanceof StaleEditError) {
+        setStaleFields(e.paths);
       } else {
         setMsg({ ok: false, text: String(e instanceof Error ? e.message : e) });
       }
@@ -191,6 +206,11 @@ export function YamlTab({
         </Row>
       </div>
       {impactBanner}
+      {helmRelease && (
+        <InlineBanner tone="warn" flush>
+          {`Managed by Helm release ${helmRelease}. Edits apply now and only touch the fields you change, but the next helm upgrade or rollback of this release restores the chart's values. Change the release values to make an edit permanent.`}
+        </InlineBanner>
+      )}
       {gitopsOwner && (
         <InlineBanner role="alert">
           {ownerWarning(gitopsOwner)}
@@ -216,6 +236,30 @@ export function YamlTab({
               spellCheck={false}
             />
           </Row>
+        </InlineBanner>
+      )}
+      {staleFields && (
+        <InlineBanner
+          tone="warn"
+          flush
+          role="alert"
+          actions={
+            <Button variant="ghost" onClick={() => void load()}>
+              Reload current version
+            </Button>
+          }
+        >
+          <div>
+            <strong>Not applied:</strong> these fields changed on the cluster since you opened this editor. Reload to see
+            the current values, then make your edit again.
+          </div>
+          <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
+            {staleFields.map((p) => (
+              <li key={p} className="mono small">
+                {p}
+              </li>
+            ))}
+          </ul>
         </InlineBanner>
       )}
       {policyRejection && <PolicyRejectionCard rejection={policyRejection} />}

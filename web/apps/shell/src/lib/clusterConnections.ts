@@ -9,7 +9,8 @@
  */
 
 import { subscribe, unsubscribe, attach, type Op } from "./ws";
-import { getStreamCache, setStreamCache } from "./streamCache";
+import { clearStreamCacheForCluster, getStreamCache, setStreamCache } from "./streamCache";
+import { derivePod } from "./pods";
 
 // The 7 GVRs always subscribed in the background for every connected cluster.
 const CORE_GVRS: Array<{ gvr: string; mode: "metadata" | "full" }> = [
@@ -41,9 +42,74 @@ interface ClusterConn {
   subToSpec: Map<string, string>;
   // Map from specKey → resync buffer (while re-listing)
   resync: Map<string, Map<string, Record<string, unknown>> | null>;
+  // The engine refused or ended a subscription ("cluster disconnected").
+  error: string;
 }
 
 const connections = new Map<string, ClusterConn>();
+
+// ── Observability: React reads connections through useSyncExternalStore. ──
+const listeners = new Set<() => void>();
+let version = 0;
+let dataTimer: ReturnType<typeof setTimeout> | null = null;
+
+function notify() {
+  version++;
+  for (const l of listeners) l();
+}
+
+// Row data changes many times a second; listeners hear about it at most 1 Hz.
+function notifyData() {
+  if (dataTimer) return;
+  dataTimer = setTimeout(() => {
+    dataTimer = null;
+    notify();
+  }, 1000);
+}
+
+/** Subscribe to connection and data changes; returns the unsubscribe. */
+export function subscribeConnections(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+/** Changes whenever a connection, error or (throttled) row data changes. */
+export function getConnectionsVersion(): number {
+  return version;
+}
+
+/** The engine's reason a cluster's streams stopped, or "". */
+export function connectionError(cluster: string): string {
+  return connections.get(cluster)?.error ?? "";
+}
+
+export interface ClusterSummary {
+  synced: boolean;
+  pods: { healthy: number; pending: number; failing: number; total: number };
+  nodes: number;
+}
+
+/** Pod health and node count from a connected cluster's background streams. */
+export function clusterSummary(cluster: string): ClusterSummary | null {
+  const conn = connections.get(cluster);
+  if (!conn) return null;
+  const podsKey = specKey(cluster, "v1/pods", "full");
+  const nodesKey = specKey(cluster, "v1/nodes", "metadata");
+  const pods = { healthy: 0, pending: 0, failing: 0, total: 0 };
+  for (const obj of conn.stores.get(podsKey)?.values() ?? []) {
+    const row = derivePod(obj);
+    if (!row) continue;
+    pods.total++;
+    if (row.status === "running" || row.status === "succeeded") pods.healthy++;
+    else if (row.status === "pending") pods.pending++;
+    else pods.failing++;
+  }
+  return {
+    synced: !!conn.synced.get(podsKey) && !!conn.synced.get(nodesKey),
+    pods,
+    nodes: conn.stores.get(nodesKey)?.size ?? 0,
+  };
+}
 
 // Single shared WS listener that dispatches to all active connections.
 let detach: (() => void) | null = null;
@@ -75,6 +141,7 @@ function ensureListener() {
         const target = conn.resync.get(key) ?? conn.stores.get(key) ?? new Map();
         applyOps(ops, target);
         if (!conn.stores.has(key)) conn.stores.set(key, target);
+        notifyData();
       }
     },
     onDelta: (id, ops) => {
@@ -86,6 +153,7 @@ function ensureListener() {
         conn.stores.set(key, store);
         // Write through to cache so components see live deltas
         setStreamCache(key, Array.from(store.entries()), conn.synced.get(key) ?? false);
+        notifyData();
       }
     },
     onSync: (id) => {
@@ -100,6 +168,14 @@ function ensureListener() {
         conn.synced.set(key, true);
         const store = conn.stores.get(key) ?? new Map();
         setStreamCache(key, Array.from(store.entries()), true);
+        notifyData();
+      }
+    },
+    onError: (id, message) => {
+      for (const conn of connections.values()) {
+        if (!conn.subToSpec.has(id)) continue;
+        conn.error = message;
+        notify();
       }
     },
   });
@@ -128,6 +204,7 @@ export function connectCluster(cluster: string): void {
     synced: new Map(),
     subToSpec: new Map(),
     resync: new Map(),
+    error: "",
   };
 
   for (const { gvr, mode } of CORE_GVRS) {
@@ -149,6 +226,7 @@ export function connectCluster(cluster: string): void {
   }
 
   connections.set(cluster, conn);
+  notify();
 }
 
 /** Stop background subscriptions for a cluster. */
@@ -161,12 +239,14 @@ export function disconnectCluster(cluster: string): void {
   }
 
   connections.delete(cluster);
+  clearStreamCacheForCluster(cluster);
 
   // If no more connections, detach the shared listener
   if (connections.size === 0 && detach) {
     detach();
     detach = null;
   }
+  notify();
 }
 
 /** Returns a snapshot of all currently-connected cluster IDs. */

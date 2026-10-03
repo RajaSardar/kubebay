@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Button, chartColor, EmptyState, InlineBanner, SkeletonLines } from "@kubebay/ui";
+import { Button, chartColor, EmptyState, InlineBanner, Row, SkeletonLines } from "@kubebay/ui";
 import { LineChart } from "./LineChart";
+import ConfigurePrometheusModal from "./ConfigurePrometheusModal";
 import { promApi } from "../lib/api";
 
 const RANGES = [
@@ -78,6 +79,7 @@ export function PodGraphs({
   });
   const promUrl = settings.data?.prometheusUrls?.[cluster] ?? settings.data?.prometheusUrl ?? "";
   const [rangeIdx, setRangeIdx] = useState(1);
+  const [showConfigModal, setShowConfigModal] = useState(false);
   const range = RANGES[rangeIdx]!;
 
   const to = Date.now();
@@ -165,10 +167,28 @@ export function PodGraphs({
 
   if (!promUrl)
     return (
-      <EmptyState style={{ margin: "var(--kb-gutter)" }}>
-        <p>History graphs need Prometheus.</p>
-        <p className="muted small">Set the server URL in Settings &rarr; Prometheus.</p>
-      </EmptyState>
+      <>
+        <EmptyState style={{ margin: "var(--kb-gutter)" }}>
+          <p>History graphs need Prometheus.</p>
+          <p className="muted small">Set the server URL in Settings &rarr; Prometheus.</p>
+          <Button variant="ghost" onClick={() => setShowConfigModal(true)}>
+            Configure Prometheus
+          </Button>
+        </EmptyState>
+        {showConfigModal && (
+          <ConfigurePrometheusModal
+            cluster={cluster}
+            onClose={() => setShowConfigModal(false)}
+            onSaved={() => {
+              setShowConfigModal(false);
+              setRetryCount(0);
+              queryClient.invalidateQueries({ queryKey: ["settings"] });
+              queryClient.invalidateQueries({ queryKey: ["prom-cpu", cluster] });
+              queryClient.invalidateQueries({ queryKey: ["prom-mem", cluster] });
+            }}
+          />
+        )}
+      </>
     );
 
   const pfCommand = "kubectl -n monitoring port-forward svc/<prometheus-server> 19090:80";
@@ -189,38 +209,54 @@ export function PodGraphs({
       </div>
 
       {isUnreachable && (
-        <InlineBanner flush>
-          Prometheus is not reachable. Start a port-forward with:
-          <CopyableCommand command={pfCommand} />
-          {retrying && retryCount < MAX_RETRIES && (
-            <p className="muted small" style={{ margin: "8px 0 0" }}>
-              Retrying automatically... ({retryCount + 1}/{MAX_RETRIES})
-            </p>
+        <>
+          <InlineBanner flush>
+            Prometheus is not reachable. Start a port-forward with:
+            <CopyableCommand command={pfCommand} />
+            <Row gap={2} style={{ marginTop: "8px", alignItems: "center" }}>
+              <Button variant="ghost" onClick={() => setShowConfigModal(true)}>
+                Configure
+              </Button>
+              {retrying && retryCount < MAX_RETRIES && (
+                <p className="muted small" style={{ margin: 0 }}>
+                  Retrying automatically... ({retryCount + 1}/{MAX_RETRIES})
+                </p>
+              )}
+              {retryCount >= MAX_RETRIES && (
+                <p className="muted small" style={{ margin: 0 }}>
+                  Auto-retry exhausted ({MAX_RETRIES} attempts).{" "}
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setRetryCount(0);
+                      queryClient.invalidateQueries({ queryKey: ["prom-cpu"] });
+                      queryClient.invalidateQueries({ queryKey: ["prom-mem"] });
+                    }}
+                    style={{
+                      textDecoration: "underline",
+                      padding: 0,
+                    }}
+                  >
+                    Retry again
+                  </Button>
+                </p>
+              )}
+            </Row>
+          </InlineBanner>
+          {showConfigModal && (
+            <ConfigurePrometheusModal
+              cluster={cluster}
+              onClose={() => setShowConfigModal(false)}
+              onSaved={() => {
+                setShowConfigModal(false);
+                setRetryCount(0);
+                queryClient.invalidateQueries({ queryKey: ["settings"] });
+                queryClient.invalidateQueries({ queryKey: ["prom-cpu", cluster] });
+                queryClient.invalidateQueries({ queryKey: ["prom-mem", cluster] });
+              }}
+            />
           )}
-          {retryCount >= MAX_RETRIES && (
-            <p className="muted small" style={{ margin: "8px 0 0" }}>
-              Auto-retry exhausted ({MAX_RETRIES} attempts).{" "}
-              <button
-                onClick={() => {
-                  setRetryCount(0);
-                  queryClient.invalidateQueries({ queryKey: ["prom-cpu"] });
-                  queryClient.invalidateQueries({ queryKey: ["prom-mem"] });
-                }}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  color: "var(--kb-accent)",
-                  cursor: "pointer",
-                  textDecoration: "underline",
-                  padding: 0,
-                  fontSize: "inherit",
-                }}
-              >
-                Retry again
-              </button>
-            </p>
-          )}
-        </InlineBanner>
+        </>
       )}
 
       {anyErr && !isUnreachable && (
@@ -234,6 +270,20 @@ export function PodGraphs({
           <p className="subtle small" style={{ margin: "14px 0 6px" }}>Memory working set per container</p>
           <LineChart series={memSeries} fromMs={from} toMs={to} format={fmtMemB} />
         </>
+      )}
+
+      {showConfigModal && !isUnreachable && (
+        <ConfigurePrometheusModal
+          cluster={cluster}
+          onClose={() => setShowConfigModal(false)}
+          onSaved={() => {
+            setShowConfigModal(false);
+            setRetryCount(0);
+            queryClient.invalidateQueries({ queryKey: ["settings"] });
+            queryClient.invalidateQueries({ queryKey: ["prom-cpu", cluster] });
+            queryClient.invalidateQueries({ queryKey: ["prom-mem", cluster] });
+          }}
+        />
       )}
     </div>
   );

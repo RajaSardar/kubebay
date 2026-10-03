@@ -49,6 +49,22 @@ type podUsage struct {
 // one function-typed field).
 type PrometheusURLResolver func(cluster string) string
 
+// NsUsage is one tick's totals for one namespace ("" is the cluster
+// total), counted over every running pod, bare pods included.
+type NsUsage struct {
+	Ns           string
+	CPUMillis    int64
+	MemBytes     int64
+	HasUsage     bool // false when metrics-server returned nothing this tick
+	ReqCPUMillis int64
+	ReqMemBytes  int64
+}
+
+// UsageRecorder receives a cluster's namespace totals after each Tier B
+// tick. It's how the history store (backlog #36) is fed without the waste
+// package depending on it, and without a second poller.
+type UsageRecorder func(ctx context.Context, clusterID string, cs kubernetes.Interface, at time.Time, usage []NsUsage)
+
 type tierAEntry struct {
 	CPUP95Millis int64
 	MemP95Bytes  int64
@@ -70,6 +86,12 @@ type Sampler struct {
 	promResolver PrometheusURLResolver
 	promInterval time.Duration
 	httpClient   *http.Client
+
+	recordFilter func(clusterID string) bool
+	recorder     UsageRecorder
+	// gate, when set, limits polling to clusters it accepts (connected by the
+	// user or enrolled in usage history). Set before Start.
+	gate func(clusterID string) bool
 
 	mu        sync.Mutex
 	buffers   map[WorkloadKey]*ringBuffer
@@ -98,6 +120,26 @@ func (s *Sampler) SetPrometheusResolver(r PrometheusURLResolver) {
 	s.promResolver = r
 }
 
+// SetRecorder feeds rec each tick, but only for clusters filter accepts:
+// history is recorded for clusters the user connected to, never for every
+// context the health loop happens to reach. Call before Start.
+func (s *Sampler) SetRecorder(filter func(clusterID string) bool, rec UsageRecorder) {
+	s.recordFilter = filter
+	s.recorder = rec
+}
+
+// SetGate limits which reachable clusters are polled. Call before Start.
+func (s *Sampler) SetGate(gate func(clusterID string) bool) {
+	s.gate = gate
+}
+
+func (s *Sampler) shouldSample(c clusters.Cluster) bool {
+	if c.Status != clusters.StatusConnected {
+		return false
+	}
+	return s.gate == nil || s.gate(c.ID)
+}
+
 // StartTierA runs the Prometheus-backed overlay loop until ctx is
 // cancelled. Separate from Start/tick (Tier B) since it ticks on its own,
 // much slower cadence and is a no-op entirely until a resolver is set.
@@ -122,7 +164,7 @@ func (s *Sampler) tickTierA(ctx context.Context) {
 		return
 	}
 	for _, c := range s.mgr.List() {
-		if c.Status != clusters.StatusConnected {
+		if !s.shouldSample(c) {
 			continue
 		}
 		base := s.promResolver(c.ID)
@@ -306,7 +348,7 @@ func (s *Sampler) Start(ctx context.Context) {
 
 func (s *Sampler) tick(ctx context.Context) {
 	for _, c := range s.mgr.List() {
-		if c.Status != clusters.StatusConnected {
+		if !s.shouldSample(c) {
 			continue
 		}
 		cfg, err := s.mgr.RestConfig(c.ID)
@@ -346,7 +388,9 @@ func (s *Sampler) sampleCluster(ctx context.Context, clusterID string, cs kubern
 	}
 
 	metricsByPod := map[string]podUsage{}
-	if pmList, merr := mc.MetricsV1beta1().PodMetricses(metav1.NamespaceAll).List(tctx, metav1.ListOptions{}); merr == nil {
+	pmList, merr := mc.MetricsV1beta1().PodMetricses(metav1.NamespaceAll).List(tctx, metav1.ListOptions{})
+	metricsOK := merr == nil
+	if metricsOK {
 		for _, pm := range pmList.Items {
 			var cpu, mem int64
 			for _, c := range pm.Containers {
@@ -360,11 +404,17 @@ func (s *Sampler) sampleCluster(ctx context.Context, clusterID string, cs kubern
 	// to the tick — requests still update, usage samples just don't this round.
 
 	now := time.Now()
+	record := s.recorder != nil && s.recordFilter != nil && s.recordFilter(clusterID)
+	nsTotals := map[string]*NsUsage{}
 	tickRequested := map[WorkloadKey]reqTotals{}
 	tickUsage := map[WorkloadKey]podUsage{}
 	tickHasUsage := map[WorkloadKey]bool{}
 
 	for _, pod := range pods.Items {
+		// Namespace totals come first, before owner resolution drops bare pods.
+		if record && pod.Status.Phase != corev1.PodSucceeded && pod.Status.Phase != corev1.PodFailed {
+			addNsTotals(nsTotals, pod, metricsByPod, metricsOK)
+		}
 		owner := controllerOwner(pod.OwnerReferences)
 		kind, name, ok := resolveWorkload(podRef{Owner: owner}, rsOwners)
 		if !ok {
@@ -408,7 +458,34 @@ func (s *Sampler) sampleCluster(ctx context.Context, clusterID string, cs kubern
 	}
 	s.mu.Unlock()
 
+	if record {
+		usage := []NsUsage{{Ns: "", HasUsage: metricsOK}}
+		for _, u := range nsTotals {
+			usage[0].CPUMillis += u.CPUMillis
+			usage[0].MemBytes += u.MemBytes
+			usage[0].ReqCPUMillis += u.ReqCPUMillis
+			usage[0].ReqMemBytes += u.ReqMemBytes
+			usage = append(usage, *u)
+		}
+		s.recorder(ctx, clusterID, cs, now, usage)
+	}
 	return nil
+}
+
+func addNsTotals(totals map[string]*NsUsage, pod corev1.Pod, metricsByPod map[string]podUsage, metricsOK bool) {
+	t := totals[pod.Namespace]
+	if t == nil {
+		t = &NsUsage{Ns: pod.Namespace, HasUsage: metricsOK}
+		totals[pod.Namespace] = t
+	}
+	for _, c := range pod.Spec.Containers {
+		t.ReqCPUMillis += c.Resources.Requests.Cpu().MilliValue()
+		t.ReqMemBytes += c.Resources.Requests.Memory().Value()
+	}
+	if u, ok := metricsByPod[pod.Namespace+"/"+pod.Name]; ok {
+		t.CPUMillis += u.CPUMillis
+		t.MemBytes += u.MemBytes
+	}
 }
 
 func controllerOwner(refs []metav1.OwnerReference) *ownerRef {

@@ -5,14 +5,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/yaml"
 
 	"github.com/RajaSardar/kubebay/engine/internal/audit"
@@ -20,11 +23,25 @@ import (
 )
 
 func (c *Channels) dynClient(ctx context.Context, cluster string) (dynamic.Interface, error) {
+	if c.dynOverride != nil {
+		return c.dynOverride(ctx, cluster)
+	}
 	cfg, err := c.Clusters.RestConfigWithIdentity(cluster, IdentityFromContext(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("connect: %w", err)
 	}
 	return dynamic.NewForConfig(cfg)
+}
+
+func (c *Channels) discoClient(ctx context.Context, cluster string) (discovery.DiscoveryInterface, error) {
+	if c.discoOverride != nil {
+		return c.discoOverride(ctx, cluster)
+	}
+	cfg, err := c.Clusters.RestConfigWithIdentity(cluster, IdentityFromContext(ctx))
+	if err != nil {
+		return nil, fmt.Errorf("connect: %w", err)
+	}
+	return discovery.NewDiscoveryClientForConfig(cfg)
 }
 
 var _ = context.Background
@@ -36,11 +53,21 @@ type ApplyYAMLRequest struct {
 	Name      string `json:"name"`
 	YAML      string `json:"yaml"`
 	DryRun    bool   `json:"dryRun"`
-	Force     bool   `json:"force"`
+	// Force is ignored: edits are Update patches, which never conflict.
+	Force bool `json:"force"`
 	// Action overrides the audit log's Action field (default "apply") for
 	// callers that apply through this same endpoint for a more specific
 	// purpose, e.g. "rightsize" — never changes what's actually applied.
 	Action string `json:"action,omitempty"`
+	// Original is the YAML the editor loaded. When present, the edit is sent
+	// as an Update patch of only the changed fields (see editpatch.go)
+	// instead of a server-side apply of the whole object, which conflicted
+	// with any field another manager (Helm, kubectl) owned.
+	Original string `json:"original,omitempty"`
+	// Mode "strategic" sends YAML as a strategic merge patch of exactly the
+	// fields it names (RightSizing's resources-only document): containers
+	// merge by name and fields it leaves out, like limits, are kept.
+	Mode string `json:"mode,omitempty"`
 }
 
 // auditActionFor names the audit entry for an apply — "apply" by default, or
@@ -160,7 +187,53 @@ func (c *Channels) HandleApplyYAML(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	patchOpts := metav1.PatchOptions{FieldManager: "kubebay", Force: &req.Force}
+	// Every write here is an Update patch under manager "kubebay": Updates never
+	// conflict with other field managers and own only the fields they change.
+	// Server-side apply of whole objects conflicted with Helm/kubectl (#46).
+	var patchType types.PatchType
+	patchOpts := metav1.PatchOptions{FieldManager: "kubebay"}
+	var data []byte
+	var edit *EditPatch
+	switch {
+	case req.Original != "":
+		p, err := computeEditPatch([]byte(req.Original), []byte(req.YAML))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if p.Empty() {
+			writeJSON(w, map[string]interface{}{"applied": false, "dryRun": req.DryRun, "noop": true, "changedPaths": []string{}})
+			return
+		}
+		edit = &p
+		patchType, data = p.Type, p.Data
+	case req.Mode == "strategic":
+		apiVersion, _ := doc["apiVersion"].(string)
+		docKind, _ := doc["kind"].(string)
+		if _, err := scheme.Scheme.New(schema.FromAPIVersionAndKind(apiVersion, docKind)); err != nil {
+			http.Error(w, fmt.Sprintf("strategic patches only apply to built-in kinds, not %s %s", apiVersion, docKind), http.StatusBadRequest)
+			return
+		}
+		converted, err := yaml.YAMLToJSON([]byte(req.YAML))
+		if err != nil {
+			http.Error(w, "convert: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		var tree map[string]interface{}
+		_ = json.Unmarshal(converted, &tree)
+		for _, k := range []string{"apiVersion", "kind", "metadata"} {
+			delete(tree, k) // identity is in the URL; only the fields to change are patched
+		}
+		paths := []string{}
+		collectPatchPaths(tree, "", true, &paths)
+		sort.Strings(paths)
+		data, _ = json.Marshal(tree)
+		patchType = types.StrategicMergePatchType
+		edit = &EditPatch{Type: patchType, Data: data, ChangedPaths: paths}
+	default:
+		http.Error(w, "send original (an edit) or mode=strategic (a patch); whole-object apply is no longer supported", http.StatusBadRequest)
+		return
+	}
 	if req.DryRun {
 		patchOpts.DryRun = []string{metav1.DryRunAll}
 	}
@@ -170,22 +243,58 @@ func (c *Channels) HandleApplyYAML(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	data, err := yaml.YAMLToJSON([]byte(req.YAML))
-	if err != nil {
-		http.Error(w, "convert: "+err.Error(), http.StatusBadRequest)
-		return
-	}
 	var applied interface{}
 	ri := d.Resource(schema.GroupVersionResource(g))
+
+	// An edit is diffed against what the editor loaded. If a field the user
+	// changed has also changed on the cluster since, refuse rather than
+	// silently overwrite it; other concurrent changes are left alone.
+	if req.Original != "" {
+		var live interface{ UnstructuredContent() map[string]interface{} }
+		if req.Namespace != "" {
+			live, err = ri.Namespace(req.Namespace).Get(r.Context(), req.Name, metav1.GetOptions{})
+		} else {
+			live, err = ri.Get(r.Context(), req.Name, metav1.GetOptions{})
+		}
+		if err != nil {
+			writePolicyRejectionOrError(w, err)
+			return
+		}
+		liveJSON, err := json.Marshal(live.UnstructuredContent())
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		drift, err := computeEditPatch([]byte(req.Original), liveJSON)
+		if err != nil {
+			http.Error(w, "compare with live: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if both := editOverlap(edit.ChangedPaths, drift.ChangedPaths); len(both) > 0 {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusConflict)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"error":   "changed-since-load",
+				"paths":   both,
+				"message": "these fields changed on the cluster since the editor loaded them",
+			})
+			return
+		}
+	}
 	if req.Namespace != "" {
-		applied, err = ri.Namespace(req.Namespace).Patch(r.Context(), req.Name, types.ApplyPatchType, data, patchOpts)
+		applied, err = ri.Namespace(req.Namespace).Patch(r.Context(), req.Name, patchType, data, patchOpts)
 	} else {
-		applied, err = ri.Patch(r.Context(), req.Name, types.ApplyPatchType, data, patchOpts)
+		applied, err = ri.Patch(r.Context(), req.Name, patchType, data, patchOpts)
 	}
 	kind, _ := doc["kind"].(string)
+	// Field names only, never values: an edited field may be a password.
+	editDetail := ""
+	if edit != nil {
+		editDetail = fmt.Sprintf(" patch=%s fields=%s", patchTypeName(edit.Type), strings.Join(edit.ChangedPaths, ","))
+	}
 	if err != nil {
 		if rejection := writePolicyRejectionOrError(w, err); rejection != nil {
-			detail := fmt.Sprintf("gvr=%s kind=%s dryRun=%t force=%t webhook=%s: %s", req.GVR, kind, req.DryRun, req.Force, rejection.Webhook, rejection.Message)
+			detail := fmt.Sprintf("gvr=%s kind=%s dryRun=%t%s webhook=%s: %s", req.GVR, kind, req.DryRun, editDetail, rejection.Webhook, rejection.Message)
 			if owner := gitopsOwnerFromDoc(doc); owner != "" {
 				detail += " owner=" + owner
 			}
@@ -201,7 +310,7 @@ func (c *Channels) HandleApplyYAML(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	detail := fmt.Sprintf("gvr=%s kind=%s dryRun=%t force=%t", req.GVR, kind, req.DryRun, req.Force)
+	detail := fmt.Sprintf("gvr=%s kind=%s dryRun=%t%s", req.GVR, kind, req.DryRun, editDetail)
 	if owner := gitopsOwnerFromDoc(doc); owner != "" {
 		detail += " owner=" + owner
 	}
@@ -214,6 +323,10 @@ func (c *Channels) HandleApplyYAML(w http.ResponseWriter, r *http.Request) {
 		UserAgent: r.Header.Get("User-Agent"),
 	})
 	resp := map[string]interface{}{"applied": applied != nil, "dryRun": req.DryRun}
+	if edit != nil {
+		resp["patchType"] = patchTypeName(edit.Type)
+		resp["changedPaths"] = edit.ChangedPaths
+	}
 	if req.DryRun && applied != nil {
 		if u, ok := applied.(interface{ UnstructuredContent() map[string]interface{} }); ok {
 			doc := u.UnstructuredContent()
@@ -289,24 +402,20 @@ func (c *Channels) HandleCreateResource(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	cfg, err := c.Clusters.RestConfigWithIdentity(req.Cluster, IdentityFromContext(r.Context()))
-	if err != nil {
-		http.Error(w, "connect: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-	dc, err := discovery.NewDiscoveryClientForConfig(cfg)
+	dc, err := c.discoClient(r.Context(), req.Cluster)
 	if err != nil {
 		http.Error(w, "discovery client: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	d, err := dynamic.NewForConfig(cfg)
+	d, err := c.dynClient(r.Context(), req.Cluster)
 	if err != nil {
 		http.Error(w, "dynamic client: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	force := true
-	patchOpts := metav1.PatchOptions{FieldManager: "kubebay", Force: &force}
+	// No force: if the object already exists, fields other tools (Helm,
+	// kubectl, controllers) own stay theirs and the server reports a conflict.
+	patchOpts := metav1.PatchOptions{FieldManager: "kubebay"}
 	if req.DryRun {
 		patchOpts.DryRun = []string{metav1.DryRunAll}
 	}
@@ -348,6 +457,14 @@ func (c *Channels) HandleCreateResource(w http.ResponseWriter, r *http.Request) 
 		} else {
 			_, err = ri.Patch(r.Context(), name, types.ApplyPatchType, data, patchOpts)
 		}
+		if apierrors.IsConflict(err) {
+			who := kind + " " + name
+			if ns != "" {
+				who = kind + " " + ns + "/" + name
+			}
+			http.Error(w, fmt.Sprintf("doc %d: %s already exists and other tools manage fields you're changing (%v). Edit it from its YAML tab instead.", i+1, who, err), http.StatusConflict)
+			return
+		}
 		if err != nil {
 			if rejection := writePolicyRejectionOrError(w, err); rejection != nil {
 				c.Audit.Record(audit.Entry{
@@ -366,4 +483,15 @@ func (c *Channels) HandleCreateResource(w http.ResponseWriter, r *http.Request) 
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{"applied": applied, "total": len(docs), "dryRun": req.DryRun})
+}
+
+func patchTypeName(t types.PatchType) string {
+	switch t {
+	case types.StrategicMergePatchType:
+		return "strategic"
+	case types.MergePatchType:
+		return "merge"
+	default:
+		return "apply"
+	}
 }

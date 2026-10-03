@@ -4,10 +4,13 @@ import {
   useRef,
   type CSSProperties,
   type HTMLAttributes,
+  type KeyboardEvent,
+  type MouseEvent,
   type ReactNode,
   type TableHTMLAttributes,
 } from "react";
 import { Skeleton } from "./index";
+import { Spinner } from "./spinner";
 
 // ── Feedback ──────────────────────────────────────────────────────────────────
 
@@ -19,6 +22,28 @@ export interface EmptyStateProps {
   children?: ReactNode;
   className?: string;
   style?: CSSProperties;
+}
+
+/** Text for screen readers only: off screen, still in the accessibility tree. */
+export function VisuallyHidden({ children, ...props }: HTMLAttributes<HTMLSpanElement>) {
+  return (
+    <span className="kb-visually-hidden" {...props}>
+      {children}
+    </span>
+  );
+}
+
+/**
+ * The bar under a table that holds what you can do with the selected rows:
+ * a named region ("Selection") with the scope on the left and actions on the right.
+ */
+export function SelectionBar({ children, actions }: { children: ReactNode; actions?: ReactNode }) {
+  return (
+    <div className="kb-selection-bar" role="region" aria-label="Selection">
+      <div className="kb-selection-bar-scope">{children}</div>
+      {actions != null && <div className="kb-selection-bar-actions">{actions}</div>}
+    </div>
+  );
 }
 
 /** The dashed "nothing here" slot shown instead of an empty table or list. */
@@ -73,9 +98,13 @@ export const TableWrap = forwardRef<HTMLDivElement, TableWrapProps>(function Tab
   );
 });
 
-/** `table.kb-table`: sticky blurred header, hairline rows, ellipsized fixed-layout cells. */
-export function Table({ className, ...props }: TableHTMLAttributes<HTMLTableElement>) {
-  return <table className={`kb-table${className ? " " + className : ""}`} {...props} />;
+/**
+ * `table.kb-table`: sticky blurred header, hairline rows, ellipsized fixed-layout cells.
+ * `pinLead` keeps the select column and the Name column (`td.td-name`, a `SortHeader pinned`)
+ * in place while a wide table scrolls sideways.
+ */
+export function Table({ className, pinLead, ...props }: TableHTMLAttributes<HTMLTableElement> & { pinLead?: boolean }) {
+  return <table className={`kb-table${pinLead ? " kb-table-pin-lead" : ""}${className ? " " + className : ""}`} {...props} />;
 }
 
 export interface SortHeaderProps {
@@ -88,16 +117,25 @@ export interface SortHeaderProps {
   /** Extra content inside the header cell, e.g. a column-resize handle. */
   children?: ReactNode;
   style?: CSSProperties;
+  /** The Name header of a `Table pinLead`: stays in place on horizontal scroll. */
+  pinned?: boolean;
 }
 
-/** A clickable column header with the accent sort arrow. */
-export function SortHeader({ label, active, asc, onSort, width, children, style }: SortHeaderProps) {
+/** A column header with the accent sort arrow; sorts on click, or Enter/Space when focused. */
+export function SortHeader({ label, active, asc, onSort, width, children, style, pinned }: SortHeaderProps) {
   return (
     <th
-      className="th-sortable"
+      className={pinned ? "th-sortable th-pin" : "th-sortable"}
       style={{ width, ...style }}
       aria-sort={active ? (asc ? "ascending" : "descending") : "none"}
+      tabIndex={0}
       onClick={() => onSort?.(label)}
+      onKeyDown={(e) => {
+        if (e.key !== "Enter" && e.key !== " ") return;
+        // Handled: a table's own Enter (open the active row) stands down.
+        e.preventDefault();
+        onSort?.(label);
+      }}
     >
       {label}
       {active && <span className="sort-indicator">{asc ? "↑" : "↓"}</span>}
@@ -159,22 +197,48 @@ export interface TableRowProps extends HTMLAttributes<HTMLTableRowElement> {
   dimmed?: boolean;
   /** Opens something when clicked. */
   clickable?: boolean;
+  /** Its shown data just changed: a brief tint (held still under reduced motion). */
+  changed?: boolean;
 }
 
 export const TableRow = forwardRef<HTMLTableRowElement, TableRowProps>(function TableRow(
-  { selected, hovered, dimmed, clickable, className, ...props },
+  { selected, hovered, dimmed, clickable, changed, className, ...props },
   ref,
 ) {
   const cls = [clickable && "row-clickable", selected && "selected", hovered && "hovered", className].filter(Boolean).join(" ");
-  return <tr ref={ref} className={cls || undefined} data-terminating={dimmed || undefined} {...props} />;
+  // A clickable row is a control: reachable with Tab and opened with Enter.
+  const keyboard = clickable && props.onClick
+    ? {
+        tabIndex: props.tabIndex ?? 0,
+        onKeyDown: (e: KeyboardEvent<HTMLTableRowElement>) => {
+          props.onKeyDown?.(e);
+          if (!e.defaultPrevented && e.key === "Enter" && e.target === e.currentTarget) {
+            e.preventDefault();
+            e.currentTarget.click();
+          }
+        },
+      }
+    : {};
+  return (
+    <tr
+      ref={ref}
+      className={cls || undefined}
+      data-terminating={dimmed || undefined}
+      data-changed={changed || undefined}
+      {...props}
+      {...keyboard}
+    />
+  );
 });
 
-/** The clickable namespace chip in a table cell. */
+/** The namespace chip in a table cell; with onClick it is a button (Enter or Space work too). */
 export function NsPill({ children, onClick, title }: { children: ReactNode; onClick?: () => void; title?: string }) {
   return (
     <span
       className="cell-link ns-pill"
       title={title}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
       onClick={
         onClick
           ? (e) => {
@@ -183,9 +247,40 @@ export function NsPill({ children, onClick, title }: { children: ReactNode; onCl
             }
           : undefined
       }
+      onKeyDown={
+        onClick
+          ? (e) => {
+              if (e.key !== "Enter" && e.key !== " ") return;
+              e.preventDefault();
+              e.stopPropagation();
+              onClick();
+            }
+          : undefined
+      }
     >
       {children}
     </span>
+  );
+}
+
+/**
+ * A link in a table cell (to another resource, an Argo CD app): a real <a>,
+ * so it can be focused, opened in a new window and read as a link. Clicking it
+ * does not also open the row.
+ */
+export function CellLink({ href, onClick, children, title }: { href: string; onClick?: (e: MouseEvent<HTMLAnchorElement>) => void; children: ReactNode; title?: string }) {
+  return (
+    <a
+      className="cell-link"
+      href={href}
+      title={title}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick?.(e);
+      }}
+    >
+      {children}
+    </a>
   );
 }
 
@@ -227,11 +322,24 @@ export interface SkeletonTableProps {
   label?: string;
 }
 
+/** The loading line above a table's skeleton rows: the helm-wheel spinner and what is loading. */
+function TableLoadingCaption({ label }: { label: string }) {
+  return (
+    <caption className="kb-table-loading">
+      <span className="kb-table-loading-inner">
+        <Spinner label={null} size={14} />
+        <span>{label}</span>
+      </span>
+    </caption>
+  );
+}
+
 /** A whole table's placeholder: its header over skeleton rows. Use it for every list that is still loading. */
 export function SkeletonTable({ headers, rows = 8, leadingBlank, widths, label = "Loading…" }: SkeletonTableProps) {
   return (
     <TableWrap role="status" aria-label={label} aria-busy="true">
       <Table>
+        <TableLoadingCaption label={label} />
         <thead>
           <tr>
             {leadingBlank && <th style={{ width: 40 }} />}
@@ -295,6 +403,8 @@ export interface DataTableProps<T> {
   empty?: ReactNode;
   /** Show skeleton rows instead of data. */
   loading?: boolean;
+  /** What is loading, shown beside the spinner ("Loading releases…"). */
+  loadingLabel?: string;
   /** Wrap in TableWrap (default). Set false inside a Card or drawer that scrolls itself. */
   wrap?: boolean;
   style?: CSSProperties;
@@ -312,6 +422,7 @@ export function DataTable<T>({
   isDimmed,
   empty,
   loading,
+  loadingLabel = "Loading…",
   wrap = true,
   style,
 }: DataTableProps<T>) {
@@ -320,6 +431,7 @@ export function DataTable<T>({
   const selectedCount = selection ? keys.filter((k) => selection.selected.has(k)).length : 0;
   const table = (
     <Table style={style}>
+      {loading && <TableLoadingCaption label={loadingLabel} />}
       <thead>
         <tr>
           {selection && (

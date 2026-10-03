@@ -203,7 +203,7 @@ Independently verified by direct source inspection (not just an expert's claim) 
 **Risks:** (1) per-region `AccessDenied`/throttling must degrade gracefully, not abort the whole scan — EKS's list/describe throttle is modest and concurrent multi-region scanning can trip it; bound concurrency and rely on the CLI's/SDK's own backoff. (2) SSO/session expiry: a user with an expired `aws sso login` session will get a cryptic CLI/SDK error on scan — must be caught and shown as "run `aws sso login`", not surfaced raw. (3) multi-account: the backlog's own framing ("juggling multiple AWS accounts") implies a profile picker (`~/.aws/config` named profiles), which isn't in the one-liner and adds a small but real UI surface — see open questions. (4) scope discipline: ship UI copy that says "AWS EKS" specifically, not generic "cloud cluster," since AKS/GKE are out of v1 per the existing framing and Kubebay has no Azure/GCP SDK story at all yet.
 **Open questions for Raja:** (a) CLI-subprocess vs in-process AWS SDK for v1 — this spec recommends CLI-subprocess for the smaller trust-boundary delta, confirm that's the right trade given it requires `aws` CLI present; (b) should discovery ever run automatically (e.g. on picker load) or stay strictly user-triggered via a "Scan AWS" button — this spec assumes the latter to avoid surprise API calls/IAM prompts on every launch; (c) default/configurable region list — auto-detect from `~/.aws/config` profiles, or require the user to type regions into Settings; (d) whether a profile picker (multi-account) is in scope for v1 or a fast-follow; (e) priority — this is a genuinely new integration surface (first cloud SDK/CLI dependency, first new file-write capability) rather than an incremental extension of an existing page, so it's worth asking whether it should jump ahead of, e.g., #4/#6's remaining phases.
 
-### 15. Fleet / multi-cluster dashboard — status: shipped 2026-09-28 (Phase 0+1+2; Phase 3 stays named and deferred)
+### 15. Fleet / multi-cluster dashboard — status: removed 2026-10-02 (owner: "unnecessary"; was shipped 2026-09-28)
 **Verified: the engine already keys everything per-cluster; nothing here needs a new engine primitive for v1/v2.** `engine/internal/informers/pool_registry.go`'s `PoolRegistry.For(ctx, clusterID)` lazily creates one informer `Pool` per cluster ID (plus per-identity when impersonation is on) and caches it in a map — it was never a "one active cluster" registry, it already supports N simultaneously-open pools. `httpapi/server.go`'s `poolSource.Subscribe` resolves that pool per-subscription from the `cluster` field the client sends, and `web/apps/shell/src/lib/useResourceStream.ts` already sends an explicit `cluster` string on every `subscribe()` call, with its own comment explaining that the multiplexed `/ws` connection "broadcasts every frame to every attached listener" and each hook filters by its own subscription id. In other words: opening live full-mode subscriptions against several different clusters at once, over the one already-open WebSocket, is a pattern this codebase already relies on (`NamespaceFilter`'s own `v1/namespaces` stream runs alongside a table's main stream today) — it has just never been pointed at more than one cluster ID from the same page.
 **Where it's genuinely not free: `WorkloadsOverview.tsx` and `internal/waste`'s HTTP handler are both hard-wired to exactly one cluster.** `pages/WorkloadsOverview.tsx`'s `useKindCounts` takes `effectiveCluster` from `useCluster()` (a single global "active cluster," `App.tsx`'s `useActiveCluster`) and opens six `mode:"full"` streams (`v1/pods`, `v1/nodes`, `apps/v1/{deployments,statefulsets,daemonsets}`, `batch/v1/jobs`) against just that one. A fleet version can't reuse the component; it needs the same counting logic fanned out per cluster. Separately, `engine/internal/httpapi/waste.go`'s `wasteWorkloadsHandler` requires `?cluster=<id>` and calls `Snapshotter.Snapshot(cluster)` — single-cluster only, confirmed by reading it, not assumed. A fleet-wide waste rollup is exactly the `for` loop over `api.clusters()` calling this existing endpoint per cluster that #6's designer predicted — now confirmed by code, not just argued.
 **Two different "fleet view" shapes exist in the wild, and they are not the same feature — say which one this scopes.** (1) A cluster-level health rollup: cards, one per cluster, "N/M pods healthy, node X down" — cheap, a fan-out of counting logic Kubebay already has. (2) A true cross-cluster resource table: one merged table (e.g. all Pods across every cluster) with a Cluster column, so "which pod anywhere is CrashLooping" is one screen, one scroll. Verified via `ResourceTable.tsx`: it is built around exactly one `effectiveCluster` for the whole page — the single stream subscription, `useBulkDelete`, `NamespaceFilter`, and the `cluster` prop handed to `GenericDrawer` all come from that one value (`GenericDrawer` itself is already a plain `cluster: string` prop, not a `useCluster()` call internally, which helps — but the page around it is not). Shape (2) means multiple concurrent per-cluster stream subscriptions merged into one row set with a per-row cluster tag, threading that tag through row selection/bulk-delete/drawer-open instead of one page-level cluster — real framework surgery to `ResourceTable`/`useBulkDelete`, not a new page. **This entry scopes shape (1) only; shape (2) is named and deliberately deferred, not silently dropped.**
@@ -221,7 +221,7 @@ Independently verified by direct source inspection (not just an expert's claim) 
 
 **Phase 0+1+2 shipped 2026-09-28, zero new engine routes as scoped.** `lib/kindCounts.ts#computeKindCounts` was extracted from `WorkloadsOverview.tsx`'s `useKindCounts` (behavior-preserving refactor, its own commit) so the per-kind health math is a pure, cluster-parameterized function. `pages/Fleet.tsx` (new top-level nav entry, same slot as Cost/Waste per this entry's own note) renders three sections: non-connected clusters in a "needs attention" block (Phase 0, from the same `api.clusters()` poll `ClusterPicker.tsx` already runs); connected clusters as `components/FleetClusterHealthCard.tsx` instances sorted worst-first via `lib/fleetHealthOrder.ts#sortClustersByHealth` (Phase 1); and a fleet-wide waste rollup via `lib/useFleetWaste.ts` (Phase 2, `useQueries` — not a fixed `useQuery` list — against the existing `/api/waste/workloads` endpoint, since the cluster count is variable). Addressed Risk (1) concretely: `lib/staggerDelay.ts`/`lib/useStaggeredEnable.ts` group connected clusters into waves of 3, 500ms apart, so a fleet of many clusters never opens every full-mode subscription in the same tick — each `FleetClusterHealthCard` also owns its own skeleton/synced state (Risk 2), so one slow or remote cluster's cold resync never blocks the others. Phase 2 reuses `computeEngineRightSizingRows`' own materiality gate rather than re-deriving waste, so a workload only counts fleet-wide if it would also be a real opportunity on the single-cluster Right-sizing page — directly the "for loop over the per-cluster computation" this entry itself predicted. **Phase 3 (the Aptakube-shape merged cross-cluster resource table) remains explicitly out of scope** — this entry named it as real `ResourceTable`/`useBulkDelete` framework surgery, independently sized, and nothing in this pass touched that framework. Open question (a) above — whether Phase 3 is actually the real ask — is still open.
 
-### 16. SBOM / vulnerability scan surfacing — status: building (Phase 0+1 shipped 2026-09-28)
+### 16. SBOM / vulnerability scan surfacing — status: shipped 2026-09-29 (Phase 0+1+2, all three)
 **Two backends, not one — and they are not the same shape.** Trivy-Operator installs a controller that runs scans as Kubernetes Jobs and writes results as CRDs (`aquasecurity.github.io/v1alpha1`, kind `VulnerabilityReport`, namespaced, plus a cluster-scoped `ClusterVulnerabilityReport`) — this is exactly the #2/#3/#12 shape (detect CRD via `/api/crds` → `useResourceStream` the CRD's GVR → pure lib decoder → dumb component) and should be built first. Grype has **no CRD at all**: it's a CLI/library that emits JSON/SARIF/CycloneDX, normally consumed by a CI pipeline or `grype -o sarif`, with no in-cluster controller or object to stream — surfacing Grype findings in Kubebay would mean an upload/paste path or an engine-side artifact store, a genuinely different (and separately-scoped) feature, not a variant of the CRD path. Scope this entry to Trivy-Operator; treat Grype support as an open question below, not assumed in-scope.
 **Kubebay's posture stays the same as #2/#3: detect and surface, never install.** Worth stating explicitly because Lens's own paid Security Center actually *does* ship an "Install Trivy Operator" flow — Kubebay should not copy that. The Helm-layer blockers already documented under #2 (no `helm repo add`, no OCI registry client, no dry-run in the Helm apply path) apply identically here; installing a scanner plus its RBAC plus its Job/CronJob schedule is exactly the "ships broken, no diagnosis tools" risk #2/#3 already ruled out. If Trivy-Operator isn't installed, `/api/crds` simply won't list the CRD and every surface below must degrade to an empty state, never a broken subscription.
 **The join, grounded in the real CRD, not guessed.** Verified against Trivy-Operator's own docs: a `VulnerabilityReport` is named `<workload-kind>-<workload-name>-<container-name>` and carries labels `trivy-operator.resource.kind`, `trivy-operator.resource.name`, `trivy-operator.resource.namespace`, and `trivy-operator.container.name` — plus an `ownerReferences` entry pointing at the scanned workload's **immediate** controller (a Pod's owning ReplicaSet/StatefulSet/DaemonSet, or the bare Pod itself if it has no controller). That's one hop shallower than `lib/podOwner.ts#resolveWorkloadOwner`, which #4's right-sizing feature already built to resolve *two* hops up to a Deployment — the vulnerability join needs only `controllerOwner()`, the private one-hop helper already inside `podOwner.ts`. Export it (or duplicate the ~8 lines) rather than reusing `resolveWorkloadOwner` itself, which would silently drop bare-Pod and StatefulSet/DaemonSet-owned reports by over-walking toward a nonexistent Deployment. Per-container matching then joins on `trivy-operator.container.name` against the pod's own `spec.containers[].name` list already rendered in `PodSummary.tsx`.
@@ -239,6 +239,8 @@ Independently verified by direct source inspection (not just an expert's claim) 
 **Open questions for Raja.** (a) Trivy-Operator-only for v1, or also a manual SARIF/JSON upload path for Grype (or CI-produced Trivy JSON) users who don't run the in-cluster operator — this spec recommends deferring that, since it's a different architecture (file ingestion, not a stream), not a small addition. (b) Should Phase 2's workload-level aggregation (Deployment/StatefulSet/DaemonSet) ship in the same pass as Phase 1's Pod tab, or wait for real demand — this spec sequences it second because Pods are where the one-liner's own scope ("a Pod's detail view") points. (c) Default severity filter (Critical+High only, vs. also showing Medium) — a real UX call, not an engineering one. (d) Priority relative to #13's deferred AI-triage half and #15's Fleet dashboard, given this is smaller than either.
 
 **Phase 0+1 shipped 2026-09-28.** Phase 0: `vulnerabilityreports`/`clustervulnerabilityreports` registered in `lib/resources.ts#EXTRA_DEFS` verbatim on the `policyreports`/`clusterpolicyreports` pattern, plus nav lines under the existing Admission group — a free raw findings table, zero engine changes. Phase 1: `lib/trivyOperator.ts#detectTrivyOperator` mirrors Karpenter/KEDA's CRD-detection shape exactly (GVR read from discovery, degrades to an empty tab rather than a broken subscription when Trivy-Operator isn't installed). `lib/vulnFindings.ts#findingsForPod` joins by the real Trivy-Operator labels (`trivy-operator.resource.{kind,name,namespace}`, `trivy-operator.container.name`) as this entry specified, sorts Critical→High→Medium→Low→Unknown, and carries each report's own scan timestamp through to the UI so a stale finding is never mistaken for a live one. `lib/podOwner.ts#controllerOwner` — previously private — is now exported for exactly the reason this entry called out: the one-hop join Trivy-Operator needs would silently break under `resolveWorkloadOwner`'s two-hop Deployment resolution for bare-Pod/StatefulSet/DaemonSet owners. `components/PodVulnerabilitiesTab.tsx` subscribes scoped to the pod's own namespace plus an owner labelSelector (never a cluster-wide full-mode stream) and defaults to Critical+High with a "show all N" disclosure. Wired into `PodPanel.tsx`'s own bespoke tab union exactly as this entry predicted (Pods don't share `GenericDrawer`'s `genTabs` registry). Phase 2 (workload-level aggregation via `genTabs`) remains open per question (b) above.
+
+**Phase 2 shipped 2026-09-29, closing this entry.** Answers question (b) above: shipped as its own pass rather than bundled with Phase 1, on real demand (Raja asked for it directly from the pending backlog list) rather than speculatively. `lib/vulnFindings.ts#ownerNamesForWorkload(kind, name, ns, replicaSets)` resolves the Trivy-Operator `resource.kind`/`resource.name` pair(s) a workload's own reports are labeled with — the real wrinkle this entry's own "join" section flagged: a Deployment is never the labeled owner itself (its pods are owned by its ReplicaSet(s), and a rollout in flight can have *two* live ReplicaSets simultaneously, old and new), so this walks that one hop using the namespace's live ReplicaSets and `podOwner.ts#controllerOwner` (Phase 1's own export); StatefulSet/DaemonSet return their own name directly with zero extra hop, matching Trivy-Operator's label with no indirection. `lib/vulnFindings.ts#findingsForWorkload` is a sibling to Phase 1's `findingsForPod` (kept untouched, all its existing tests and callers unchanged) rather than a generalization of it — matching multiple owner names at once (the two-ReplicaSets-mid-rollout case) and not filtering by container, since a workload-level rollup wants every container across every pod, not one pod's own list. `components/WorkloadVulnerabilitiesTab.tsx` reuses Phase 1's exported `VulnFindingsSummary` for rendering (no duplicate UI component) and follows this entry's own scoping discipline: namespace + `resource.kind`-scoped subscription (never cluster-wide full-mode), narrowed further to the workload's own resolved owner names client-side — necessary because a single-value label selector can't express "either of these two ReplicaSet names." Wired into `GenericDrawer.tsx`'s real `genTabs` registry exactly as this entry predicted, gated on the same `RIGHTSIZABLE_SLUGS` set (`deployments`/`statefulsets`/`daemonsets`) right-sizing already uses — a direct reuse rather than a new constant, since Trivy-Operator's own resource.kind label can only ever resolve to a ReplicaSet/StatefulSet/DaemonSet, the identical three kinds. **#16 is now fully shipped — all three phases.**
 
 ### 17. Admission-webhook debugger — status: shipped 2026-09-28
 **Verified: #12's structured admission-rejection work covers exactly one of eight mutating paths.** `parsePolicyRejection()` (`engine/internal/httpapi/policyrejection.go`) is a pure `error -> *PolicyRejection` function, not tied to any endpoint — but it's only ever invoked once, at `yaml.go:186` inside `HandleApplyYAML` (`PUT /api/yaml`, the path `YamlTab.tsx`'s Apply/Dry-run flow — and, through it, `NodePoolEditor.tsx` — uses). Every other mutating handler in `engine/internal/httpapi/server.go` (`/api/action/scale`, `/api/action/restart`, `/api/action/delete`, `/api/action/resize-pod`, `/api/action/cordon`, `/api/action/drain`) and `HandleCreateResource` (`POST /api/yaml/create`, used by `pages/CreateResource.tsx` and `components/KedaWizard.tsx`) just does `http.Error(w, err.Error(), http.StatusBadGateway)` on failure — a flat 502 with the k8s client's raw error string. That string still contains the apiserver's own `admission webhook "X" denied the request: ...` text verbatim (never fully invisible), but none of it is parsed into the structured `{engine, webhook, message, causes}` shape.
@@ -332,6 +334,762 @@ Independently verified by direct source inspection (not just an expert's claim) 
 **Known unverified risk, stated plainly:** whether the pinned default image (`registry.k8s.io/e2e-test-images/busybox:1.29-2`) actually ships an `nsenter` applet couldn't be confirmed against a live cluster this session. Mainline BusyBox's default applet set does include `nsenter`, and the identical alpine-plus-nsenter pattern is what both Freelens and the standalone `kubectl-node-shell` krew plugin rely on, which is reasonable but not verified evidence here. If it turns out to be missing, `ExecTerm`'s fallback ladder will surface a clear "not found" error rather than a silently-wrong shell (a strict improvement over today's silent-wrong-filesystem failure mode either way), and the existing `NodeShellImage` setting/`KUBEBAY_NODE_SHELL_IMAGE` env override (added for air-gapped clusters) is already the escape hatch to point at a known-good image. Worth a real-cluster smoke test before calling this fully closed.
 
 **OSS, not Enterprise.** A bug fix to an existing debugging feature, same size and shape as ordinary OSS work elsewhere in this file.
+
+### 23. One-click Trivy-Operator install, plus fixing the same install-vs-detection gap VPA had — status: shipped 2026-09-29 — **third deliberate exception to "detect, never install," and the second time this exact detection bug has been found**
+
+**The third named exception, for the same concrete reason as #20's VPA install.** #16 established "detect and surface, never install" for Trivy-Operator explicitly, citing Lens's paid "Install Trivy Operator" flow as the thing not to copy. Raja asked directly for an enable option here too. Verified before building, not assumed: Trivy-Operator's official chart is distributed via a plain HTTPS chart repo (`https://aquasecurity.github.io/helm-charts/`, chart ref `aqua/trivy-operator`) — confirmed by fetching the chart's own README, not from memory — so the KEDA-style "no OCI registry client" blocker never applies here, exactly the same shape as VPA's chart. The two Helm-layer blockers (`helm repo add`, dry-run) were already closed building #20 — this needed **zero engine changes**, pure reuse.
+
+**Scoped the install the same way #20 scoped VPA's:** the chart's `values.yaml` independently toggles five scanners (vulnerability, config-audit, exposed-secret, infra-assessment, RBAC-assessment) plus cluster-compliance — Kubebay only surfaces `VulnerabilityReport`/`ClusterVulnerabilityReport` (per #16), so the install disables everything except `operator.vulnerabilityScannerEnabled`. Installing all six by default would run real scan Jobs cluster-wide for findings nothing in Kubebay's UI shows.
+
+**A second instance of the exact bug #21 found and fixed for VPA — found immediately when asked to add the install option, because adding "enable if not present" forces the question "how do we know it's already present."** `PodVulnerabilitiesTab.tsx` and `WorkloadVulnerabilitiesTab.tsx` both already computed `detectTrivyOperator(crds)` (Phase 1's own detection), but neither ever branched on `.installed` — both rendered the identical generic "No vulnerability findings" empty state whether Trivy-Operator was absent entirely or installed-and-clean. Same root shape as #21: a detection value computed but never actually used to distinguish "not installed" from "installed, nothing found." Fixed by branching both tabs: CRD absent → `<InstallTrivyOperator>`; CRD present → the existing `VulnFindingsSummary` (now correctly implying "installed and clean" rather than "unknown why nothing's here"). `VulnFindingsSummary` gained an `emptyLabel` prop (default "this pod") so the workload tab's message reads "this workload," not the pod-specific wording it was silently inheriting.
+
+**Effort: XS** (~half a day) — `InstallTrivyOperator.tsx` is a structural clone of `InstallVpaRecommender.tsx` (same preview → dry-run → typed-confirm → install flow, zero new engine work), and the detection-gap fix is a small branch in two already-existing components.
+
+**OSS, not Enterprise.** A scoped controller install plus a bug fix, same size and shape as #20/#21.
+
+**Pattern worth naming explicitly for next time:** both #21 and this entry found the identical bug independently — a `detectX(crds)` computed and used only to gate a stream's `enabled` flag, never to branch the empty-state UI itself. Worth a quick audit of every other `detect*` call in the codebase (Karpenter, KEDA, Argo, Flux) to confirm none of them have the same latent gap before a user finds a third instance.
+
+### 24. SPOF Radar — single-point-of-failure detector — status: shipped 2026-09-29 (Phases 0+1)
+
+Sourced from the "Kubebay Intelligence" research pass (five parallel research tracks + a synthesis/debate round, 2026-09-29): flags Deployments/StatefulSets with `replicas: 1` and no covering PodDisruptionBudget, pods with no topology-spread/anti-affinity clustered onto too few nodes, and Services whose current `EndpointSlice` has exactly one Ready backend — all computed from objects Kubebay's own informers already stream (Deployments, StatefulSets, PDBs, Pods, Nodes, EndpointSlices), no new resource kind and no engine changes. Two research tracks converged on this independently without coordinating, which the synthesis treated as the strongest confidence signal across the whole pass: the resource/capacity track wants it as a safety gate the node-consolidation recommender must check before suggesting anything disruptive; the whitespace-scan track wants it as its own standalone panel, citing JupyterHub's `zero-to-jupyterhub-k8s` issue #1934 (a single-replica workload with a PDB blocking node drains), the LFN CNTI certification suite's issue #2691 (codifying "every multi-replica workload must allow eviction" as a pass/fail check), and Popeye's (~6.3k GitHub stars) own `poddisruptionbudgets` linter, already wired into k9s via `spinach.yml` — proven CLI-level demand for exactly this check, just never shipped inside a visual IDE. Neither Lens nor Freelens surfaces this natively.
+
+**Real prior art already in this codebase, not a cold start.** #3's Karpenter safe-editing work (`lib/labelSelector.ts#matchesSelector`) already implements real Kubernetes LabelSelector semantics (`matchLabels` + `matchExpressions`: In/NotIn/Exists/DoesNotExist) specifically to answer "does this PDB's selector actually cover this pod, or does it just happen to live in the same namespace" — exactly the join SPOF Radar's own PDB-coverage check needs. `lib/karpenterImpact.ts#computeNodePoolImpact` is a second precedent for joining Pods/PDBs/Nodes into a blast-radius figure. Reuse both rather than rebuilding PDB-coverage matching from scratch.
+
+**Effort: S–M** per the research (matches this file's own read of the code: a pure client-side join over already-shipped LabelSelector matching, one new pure `lib/` module, one new dumb list component — the same shape as #5's RBAC-smell detector or #16's vulnerability findings).
+
+**Open questions for Raja, to resolve during scoping:** (a) standalone nav page vs. a `GenericDrawer` tab vs. both (the two research tracks that converged on this wanted it for different consumption modes — a user-facing panel and an internal recommender gate — which may argue for a shared `lib/` detector feeding two different UI surfaces, not one); (b) exact single-Ready-backend Service check needs a real EndpointSlice read, not just Service/Pod — confirm during scoping which resource stream that requires and whether it's already open elsewhere in the app; (c) whether this ships before or alongside the node-consolidation recommender it's meant to gate (research roadmap item #15), given #15 isn't scoped yet either.
+
+**OSS, not Enterprise.** A local, agentless static-analysis detector over resources Kubebay already reads — same size and shape as the RBAC-smell detector (#5) and the SBOM/vulnerability findings work (#16/#22/#23), not a control plane or a third-party-controller wizard.
+
+**Scoping pass, 2026-09-29.**
+
+**EndpointSlice stream: already registered, and its `mode` question is fully resolved — verified against `lib/resources.ts`, `pool.go`, and `useResourceStream.ts`.** `DEFS.endpointslices` (`discovery.k8s.io/v1/endpointslices`) already has a working nav leaf and generic `/r/endpointslices` table page (`App.tsx:134`, `ResourceTable.tsx:236-243`) — confirms the entry's "no new resource kind" claim outright. One real wrinkle found while checking: `DEFS`'s `mode` field defaults to `"metadata"` when not explicitly overridden (`lib/resources.ts:32`), and `endpointslices` (like `poddisruptionbudgets`, `endpoints`, `services`) carries no `{mode:"full"}` override; the engine's `ModeMetadata` path (`informers/pool.go`) drives client-go's `metadatainformer`, which yields `metav1.PartialObjectMetadata` — TypeMeta+ObjectMeta only, nothing else. That means the live `/r/endpointslices` table's own "EndPoints" column (`rec(o).endpoints` at `ResourceTable.tsx:239`) is almost certainly always reading `undefined` today and rendering "0"/warn for every row — a real, pre-existing, unrelated bug worth a one-line fix (`{mode:"full"}` on that one `DEFS` entry) regardless of whether SPOF Radar ships. It doesn't block SPOF Radar itself: `useResourceStream`'s own `mode` option is set independently per call site, not inherited from `DEFS` — confirmed via `Karpenter.tsx:32-34`, which already streams PDBs with an explicit `{mode:"full"}` despite `DEFS.poddisruptionbudgets` itself defaulting to metadata. So SPOF Radar's own EndpointSlice read is simply `useResourceStream(cluster, "discovery.k8s.io/v1/endpointslices", {mode:"full"})` at its own call site, the same pattern Karpenter already established — zero engine or `DEFS` changes required. **Resolves open question (b):** yes, a real EndpointSlice read is required (a Service object alone carries no per-backend Ready state), the stream already exists, and the join key is each slice's `kubernetes.io/service-name` label — sum `.endpoints[].conditions.ready` across every slice sharing that label, per Service.
+
+**PDB-coverage and clustering checks: reuse confirmed, not reinvented.** `lib/labelSelector.ts#matchesSelector` and `lib/karpenterImpact.ts#computeNodePoolImpact` are exactly the join precedent the idea cites — `computeNodePoolImpact` already builds a per-namespace `pdbsByNs` map and calls `matchesSelector(pod.metadata.labels, pdb.spec.selector)` for its own PDB-protected-pod count; SPOF Radar's PDB-coverage check is the mirror image (does *any* PDB cover this `replicas: 1` workload's pods) and should call `matchesSelector` directly rather than re-deriving selector semantics. The clustering check (topology-spread/anti-affinity absent, pods concentrated on too few nodes) needs pod→workload grouping, for which `lib/podOwner.ts#controllerOwner` (exported in #16 Phase 1 for exactly this kind of one-hop join) is the right primitive: walk each Pod's owner to its ReplicaSet/StatefulSet/DaemonSet, group by that, read `pod.spec.topologySpreadConstraints`/`pod.spec.affinity.podAntiAffinity` (absent = flag candidate) and compare `new Set(pods.map(nodeName)).size` against replica count. All three checks run entirely on streams already open elsewhere in the app (`v1/pods`, `v1/nodes`, `apps/v1/deployments`, `apps/v1/statefulsets`, `policy/v1/poddisruptionbudgets`, `discovery.k8s.io/v1/endpointslices`) — no engine change, confirmed by reading the actual call sites, not assumed.
+
+**Architecture fit.** One new pure module, `lib/spofRadar.ts`, exporting three independent finding functions (`findUnprotectedSingleReplicaWorkloads`, `findUnspreadClusteredWorkloads`, `findSingleBackendServices`) plus a `SpofFinding{severity, kind, name, ns, why, evidence}` shape mirroring `lib/rbacFindings.ts`'s own `Finding` shape from the shipped RBAC-smell detector — same size and shape, unit-testable against fixture JSON per this repo's TDD rule, no Zustand store needed since it's all derived data, nothing persisted. One new dumb component, `components/SpofFindingsList.tsx`, following `RbacFindingsCard.tsx`'s severity-sorted layout. **Resolves open question (a):** the strongest-fit UI home, verified against the actual nav tree and not guessed, is a new tab on `pages/WorkloadsOverview.tsx` (`/workloads-overview`) — that page already carries exactly this shape of precedent from #1's Pressure tab (a tab-gated stream, `enabled: tab === "pressure"`, plus a dumb render component), not a new top-level nav entry. Because the three detector functions live in a standalone `lib/` module with no UI coupling, the (not-yet-scoped) node-consolidation recommender can import and call them directly as its own pre-flight safety gate without depending on this tab existing — satisfying both research tracks' consumption modes from one implementation, exactly as this entry's own open question (a) speculated might be the right shape.
+
+**Sharpening open question (c).** There is no "node-consolidation recommender" entry anywhere in this backlog file today — the entry's own reference to "research roadmap item #15" doesn't match this file's actual #15 (Fleet/multi-cluster dashboard, already shipped), so it's a numbering collision from a different research document, not a real dependency to sequence against. Practically: nothing in this file currently blocks or is blocked by SPOF Radar, so it should ship standalone rather than waiting. If/when a node-consolidation recommender is added as its own idea entry, it should be scoped to consume `lib/spofRadar.ts`'s exports rather than re-deriving PDB/topology safety checks a second time.
+
+**Prior art, confirmed rather than assumed.** Popeye's `poddisruptionbudgets` linter and its k9s `spinach.yml` wiring are real, public, and OSS-only (CLI, never a visual IDE surface) — the entry's "proven CLI-level demand, never shipped inside a visual IDE" framing holds up. Neither Lens nor Freelens ships a comparable check in their resource views today; Kubebay would be the first desktop IDE to surface it, not reinventing something that already has an established GUI pattern to borrow.
+
+**Phased plan.**
+- *Phase 0 (S, ~1-2d):* `lib/spofRadar.ts#findUnprotectedSingleReplicaWorkloads` (Deployments+StatefulSets+PDBs, via `matchesSelector`), fixture-based unit tests written first per this repo's TDD rule. No UI yet — validates the join against real selector/PDB shapes before any visual work starts.
+- *Phase 1 (S, ~2-3d):* `findUnspreadClusteredWorkloads` (Pods+Nodes, via `controllerOwner`) and `findSingleBackendServices` (Services+EndpointSlices via the `kubernetes.io/service-name` label join, full-mode stream at the call site), same fixture-test discipline. `components/SpofFindingsList.tsx` wired into a new tab on `WorkloadsOverview.tsx`, tab-gated streams per the Pressure-tab pattern (`enabled: tab === "spof"`).
+- *Phase 2 (optional, XS, ~1d, defer until actually needed):* export a single `runSpofRadar(...)` aggregator from `lib/spofRadar.ts` for the future node-consolidation recommender to import as a pre-apply gate — pure plumbing, no new UI, only worth doing once that recommender is itself being scoped.
+
+**Effort: S** (tightened from the original S–M). Now that the EndpointSlice mode question is fully resolved (zero `DEFS`/engine changes needed, confirmed by reading `pool.go` and `useResourceStream.ts` directly) and the UI home is a tab on an existing page rather than new nav surface, this is roughly 4-6 days across Phases 0+1 — the same size as #16's vulnerability findings work, which is the closest real precedent in this codebase for a multi-source findings-list feature.
+
+**Open questions for Raja:** (a) resolved above — ship as a `WorkloadsOverview.tsx` tab, not a standalone nav page; only remaining sub-question is the tab's label ("Reliability"? "SPOF"? something friendlier for a non-SRE audience?). (b) resolved above — EndpointSlice full-mode read at the call site, zero engine/`DEFS` work required. (c) sharpened above — no real blocking dependency exists in this file today; ship standalone. (d) new, surfaced during this pass: severity/allowlist tuning — a StatefulSet with `replicas: 1` is a legitimate, intentional pattern for plenty of real workloads (single-writer databases, leader-election singletons), so a naive "flag every replicas:1 without a PDB" rule risks being noisy from day one; worth a default dismiss/allowlist mechanism up front, the same lesson the RBAC-smell detector's "hide `system:*`" toggle already learned the hard way. (e) separately, flag to Raja that the likely pre-existing `/r/endpointslices` "EndPoints" column bug (metadata-mode stripping the field it reads) is worth a standalone one-line fix regardless of whether SPOF Radar itself is prioritized.
+
+**Phases 0+1 shipped 2026-09-29, plus (e)'s bug fix landed alongside it.** Built directly from this scoping pass with minor naming differences (kept for brevity, not a deviation in approach): `lib/spof.ts` (not `spofRadar.ts`) exports `findSingleReplicaNoPdb`, `findClusteredReplicas`, and `findSingleReadyBackend` — the same three checks this scope names, using the exact reuse this pass called for (`lib/labelSelector.ts#matchesSelector` for PDB coverage; a direct pod-label match rather than `controllerOwner` for the clustering check's pod→workload grouping, since a workload's own `spec.template.metadata.labels` is already a stricter, more direct match than walking pod ownership — no ReplicaSet hop needed since `apps/v1/deployments`/`statefulsets` are already the two kinds this check covers). `components/SpofRadarList.tsx` (not `SpofFindingsList.tsx`) is the dumb render half, filter-button pattern mirroring `KedaInventory.tsx`. Landed as a third tab on `pages/WorkloadsOverview.tsx` exactly as (a) resolved — labeled "SPOF Radar" (kept the idea's own name rather than "Reliability", since it's specific and the app already introduces plenty of domain jargon elsewhere), tab-gated PDB/Service/EndpointSlice streams (`enabled: tab === "spof"`) reusing the already-lifted `pods`/`nodes`/`deployments`/`statefulSets` streams the Overview and Pressure tabs also share — zero duplicate subscriptions for data other tabs already had open. (b)'s EndpointSlice read needed no new `DEFS`/engine work, confirmed. (e)'s bug fixed alongside, with its own regression test (`resources.test.ts`): `DEFS.endpointslices` now carries `{mode:"full"}`, so the generic `/r/endpointslices` table's "EndPoints" column reads real data instead of always-undefined. (d)'s allowlist/dismiss-noise concern is **deliberately deferred, not dropped** — v1 ships all three checks as flat findings with no per-finding dismiss state; revisit if real usage shows the single-replica-without-PDB check is too noisy in practice (a StatefulSet with `replicas: 1` by design is a real, common pattern this check doesn't yet special-case). Phase 2's aggregator export stays deferred exactly as this scope recommended, since no node-consolidation recommender exists yet to consume it.
+### 25. Upgrade Readiness Panel — API-deprecation advisory — status: shipped 2026-09-29 — from the Kubebay Intelligence research pass, "build first" pick #2
+
+Sourced from the same research pass as #24 ([roadmap doc](https://claude.ai/artifact/U1yQszbyRLEMgqjEFVVewJ)): flag API versions this cluster's own server version will deprecate or remove within 1-2 minor releases, mirroring what `pluto`/`kubepug` do for a live cluster, entirely locally.
+
+**Honest scoping limitation, found before building anything and worth stating plainly.** Kubebay only ever fetches a known kind (Deployment, Ingress, etc.) via the one apiVersion its `resources.ts#DEFS` entry is pinned to (e.g. Deployments always via `apps/v1/deployments`) — the live GET always normalizes to the version requested, so Kubebay can never see "this specific object was actually last-applied via `extensions/v1beta1`" the way `managedFields`/`kubectl.kubernetes.io/last-applied-configuration` could. The engine's own `yaml.go#stripNoisyFields` explicitly deletes `managedFields` before any object reaches the frontend, and nothing else surfaces it. Getting true per-object fidelity would need new engine work (stop stripping `managedFields` on a dedicated endpoint). **Not built that way.** Instead this ships the same fidelity `pluto`'s own live-cluster check actually uses: a discovery-table lookup, not object inspection — does this cluster's API server still *serve* a soon-to-be-removed apiVersion at all. That's still a real, non-hallucinated signal (if the server has already fully removed a version, nothing could possibly still be using it; if it's still served, something plausibly is) and needed exactly one small, targeted engine addition.
+
+**One new engine endpoint, `GET /api/apiversions`.** The existing `/api/apis` (`HandleDiscovery`) calls `ServerPreferredResources()`, which by definition returns only *one* (the preferred) version per group — useless for this, since it would never show `policy/v1beta1` is still being served alongside `policy/v1`. Added `HandleAPIVersions` (`discovery.go`) calling `Discovery().ServerGroups()` instead, which lists every version each group actually advertises, flattened by a pure `groupVersionsFromServerGroups([]metav1.APIGroup) []string` helper — unit-tested directly with hand-built `metav1.APIGroup` fixtures, no client mocking, per CLAUDE.md's Go-testing rule (mirrors the `buildNodeShellPod` precedent from the node-shell fix: extract the pure transform, leave the thin HTTP wiring itself untested like its `HandleDiscovery` sibling already is). Registered at `server.go` next to `/api/apis`.
+
+**Frontend: a small bundled deprecation table, not a bundled binary.** `lib/upgradeReadiness.ts#DEPRECATED_APIS` is a static array (Kind, group, version, removedInMinor, replacementVersion) sourced from the official Kubernetes API deprecation guide, covering the two removal waves most likely to actually matter (v1.22: Ingress/CRD/webhook-config `v1beta1`; v1.25: PDB/CronJob/HPA/EndpointSlice `v1beta1`/`v2beta1`) plus HPA `v2beta2` (v1.26) and flowcontrol `v1beta1` (v1.29) — explicitly not exhaustive, flagged here the same way #21's node-shell image risk was flagged, as a known best-effort table worth widening once this ships and gets real use rather than a blocker to shipping. `computeUpgradeReadiness(serverVersion, servedGroupVersions)` parses the connected cluster's `GitVersion` (already streamed today via `Cluster.Version`/`ClusterInfo.version`, surfaced through `useCluster().list` — no new plumbing needed there either) down to its minor version, cross-references against the table, and only flags an entry when the server is within 2 minors of the removal **and** `/api/apiversions` confirms that exact group/version is still actually served.
+
+**UI: new standalone page, not a `WorkloadsOverview` tab — deliberately different shape from #24.** Unlike SPOF Radar's findings, an apiVersion removal isn't tied to one object to link to — it's a cluster-wide fact about the server itself, same category as KEDA/Karpenter's own cluster-wide pages. `pages/UpgradeReadiness.tsx` mirrors `Keda.tsx`'s single-cluster-page shape (cluster-select gate → loading → empty/found state) rather than `Fleet.tsx`'s multi-cluster shape, since the check is inherently per-cluster. `components/UpgradeReadinessPanel.tsx` is the dumb render half — a plain advisory list (`Stack as="ul"`, no `ResourceLink`, since there's no object to link to), Badge-toned by urgency (`err`/"Overdue" once a removal's minor has already passed the server's, `warn`/"N minors away" otherwise). Registered at `/upgrade-readiness` in `App.tsx`'s nav + routes.
+
+**Effort: S** (~1-2 days) — one small, focused Go discovery-handler addition plus a pure frontend module and dumb list component, the same size and shape as #24's own Phase 0.
+
+**OSS, not Enterprise.** A local, agentless advisory over one small new discovery call already the same shape as `/api/apis` — no control plane, no bundled scanner binary, no third-party wizard.
+### 26. NetworkPolicy Coverage Gap Detector — status: shipped 2026-09-29 — from the Kubebay Intelligence research pass, "build first" pick #3
+
+Third and last of the research pass's ([roadmap doc](https://claude.ai/artifact/U1yQszbyRLEMgqjEFVVewJ)) three "build first" picks, alongside #24 (SPOF Radar) and #25 (Upgrade Readiness Panel). Flags workloads with zero NetworkPolicy protection — a common, real gap (a namespace that simply never got a default-deny policy leaves every pod in it fully open to ingress/egress from anything).
+
+**Deliberately distinct from the existing `pages/NetworkPolicy.tsx` connectivity matrix, not a duplicate of it.** That page already computes and renders an "open" cell for any pod-group pair with no applicable policy — the underlying signal already exists. But it's buried in an N×N grid a user has to read row-by-row to notice; nothing on that page produces a flat, scannable "here's what's exposed" list, the same gap #24/#25 both filled for their own domains (SPOF Radar turned a similar "have to notice it yourself" signal into a findings list; this does the same for NetworkPolicy coverage specifically).
+
+**Two gap reasons, not one, found by reading the matrix's own logic first.** `isolatedNamespaces`/`policySelectsPodGroup` in `NetworkPolicy.tsx` already distinguish "namespace has zero policies at all" from "namespace has policies but they don't select this particular pod group" — the second case is the sharper, more interesting finding (a namespace that looks protected at a glance because *some* policies exist, but a specific workload's labels slip through all of them). `lib/networkPolicyCoverage.ts#findNetworkPolicyCoverageGaps` surfaces both explicitly as `"no-policy-in-namespace"` vs. `"not-selected-by-any-policy"`, rather than collapsing them into one generic "open" label the way the matrix's cell coloring does.
+
+**Reused `lib/labelSelector.ts#matchesSelector` instead of the page's own simplified matcher — a real accuracy improvement, not just reuse for its own sake.** `NetworkPolicy.tsx`'s own inline `selectorMatches` explicitly skips `matchExpressions` ("best-effort for v0.x"). This detector uses the same real `matchesSelector` #24 and #18's Karpenter safe-editing work already established (full `matchLabels` + `matchExpressions`: In/NotIn/Exists/DoesNotExist), so it won't miss a `matchExpressions`-only NetworkPolicy the way the existing matrix page still does — flagged here as a small, separate, worthwhile follow-up for the matrix page itself, out of scope for this entry.
+
+**Grouped by namespace+app label, not per-pod.** Reuses `NetworkPolicy.tsx#podAppLabel`'s own grouping convention (`app` / `app.kubernetes.io/name` / `k8s-app` label, falling back to `"(unlabelled)"`) rather than per-pod findings (which would flood the list with N identical rows for an N-replica Deployment) or `lib/podOwner.ts#controllerOwner` (which would need a ReplicaSet stream this page doesn't already carry) — matches the grouping the connectivity matrix already uses for the exact same feature area, so the two views describe pod groups identically.
+
+**Shipped as a third tab on the existing page, not a new nav entry.** `pages/NetworkPolicy.tsx`'s `SegmentedControl` gained a third `"coverage"` option next to `"matrix"`/`"policies"`; `components/NetworkPolicyCoverageList.tsx` is the dumb render half (Card/Badge list, `Stack as="ul"`, same shape as #24/#25's own list components). Gaps are computed cluster-wide from the page's own already-open `pods`/`netpols` streams (zero new subscriptions), then filtered by the page's existing namespace-selection store, consistent with how `filteredPolicies` already works.
+
+**Effort: XS** (~half a day) — one pure `lib/` function reusing an already-shipped selector matcher, one dumb list component, and a three-line addition to an existing page's tab set. Smaller than #24/#25 since no new engine work and no new resource stream were needed — `NetworkPolicy.tsx` already had both `pods` and `networkpolicies` open.
+
+**OSS, not Enterprise.** A local, agentless static-analysis detector over data one existing page already streams — same size and shape as #5's RBAC-smell detector, not a control plane or policy-authoring wizard (that's Tier 2's separately-listed "NetworkPolicy visual editor + dry-run wizard," out of scope here).
+### 27. Service/Endpoints selector-mismatch detector — status: shipped 2026-09-29 — first Tier 1 item after the three "build first" picks (#24/#25/#26)
+
+From the same [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszbyRLEMgqjEFVVewJ)'s Tier 1 list. Flags a Service that routes nowhere: either its selector matches zero pods in its own namespace (almost always a label typo, or a workload that was renamed/removed but the Service wasn't), or it matches pods but every one of its current EndpointSlice backends is not-Ready (a health problem, not a config one). Extremely common, extremely silent — nothing about a broken Service surfaces itself; a client just gets connection refused/timeout with no indication why.
+
+**Deliberately complements, not duplicates, #24's SPOF Radar.** `lib/spof.ts#findSingleReadyBackend` (from #24, not yet merged when this was built) only flags a Service with *exactly one* Ready backend — it never covers zero. This detector's `"zero-ready-endpoints"` reason is the more severe case that check structurally can't produce (`readyCount === 1` in its own condition), and `"no-matching-pods"` is a different failure mode entirely (a selector problem, not a scale-down-to-danger problem). Verified by reading `#24`'s actual shipped `findSingleReadyBackend` logic directly, not assumed.
+
+**Reuses `lib/labelSelector.ts#matchesSelector` for the pod-matching half** — the same real LabelSelector engine (`matchLabels` + `matchExpressions`) #18's Karpenter work, #24's SPOF Radar, and #26's NetworkPolicy Coverage Gap Detector all already reuse for their own selector-matching needs. A Service's own `spec.selector` is always a flat `matchLabels`-only map per the Service API (no `matchExpressions` support in Service selectors, unlike NetworkPolicy/PDB selectors) — `matchesSelector` handles that correctly since an absent `matchExpressions` array is simply skipped.
+
+**Explicit exclusions, both real and deliberate:** a Service with no `spec.selector` at all is skipped outright — that's a legitimate, common pattern (manually-managed `Endpoints`/`EndpointSlice` objects, most often hand-wired to an external database or a service outside the cluster) and flagging it would be pure noise. `type: ExternalName` Services are skipped too — they have no selector concept whatsoever (they're a DNS CNAME, not a backend-routing object).
+
+**Shipped as a new "Service Health" tab on `WorkloadsOverview.tsx`**, not `NetworkPolicy.tsx` (which doesn't stream Service or EndpointSlice objects at all today — it derives pod-groups from pod labels directly, never touching real Service objects) and not a new nav page (no page dedicated to Services exists beyond the generic `/r/services` table). `WorkloadsOverview.tsx` was the better fit both because it's already becoming this app's "cluster health findings" hub (Pressure tab, and #24's SPOF tab once merged) and because it already streams `pods` at the top level — this tab only needed two more tab-gated streams (`services`, `endpointSlices`, both `enabled: tab === "service-health"`). `components/ServiceMismatchList.tsx` is the dumb render half, `ResourceLink`-backed (a Service is a real, linkable object, unlike #25's apiVersion findings) — same Card/Badge list shape as #24/#25/#26's own components.
+
+**Effort: XS** (~half a day) — one pure `lib/` function reusing an already-shipped selector matcher, one dumb list component, and a new tab on an existing page. No engine work, no new resource kind.
+
+**OSS, not Enterprise.** A local, agentless static-analysis detector over data the app already streams — same size and shape as every other Tier 1 detector shipped this pass.
+### 28. ServiceAccount token over-mount detector — status: shipped 2026-09-29
+
+From the same [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszbyRLEMgqjEFVVewJ)'s Tier 1 list, following #27. Flags a pod running under the `default` ServiceAccount with its API token still automounted — CIS Kubernetes Benchmark 5.1.5 ("ensure that default service accounts are not actively used") / 5.1.6 ("ensure that Service Account Tokens are only mounted where necessary"), the same category of check Popeye and kube-bench already run. The `default` SA is almost never intended for API access; a compromised container in one of these pods gets a live, if low-privilege, cluster credential it didn't need.
+
+**Resolution order matches the API server's own semantics exactly, verified against real K8s docs rather than assumed:** a pod-level `spec.automountServiceAccountToken` always wins when set; if unset, the `ServiceAccount` object's own top-level `automountServiceAccountToken` field decides; if both are unset, the cluster default is `true` (mounted). `lib/serviceAccountAutomount.ts#findDefaultServiceAccountAutomounts` implements exactly this three-level fallback, and only ever considers pods actually resolved to the literal `default` SA (an empty `serviceAccountName`/`serviceAccount` field resolves to `"default"`, same as the API server) — a pod on any other, explicitly-named ServiceAccount is out of scope for this check, even if that SA also leaves automount enabled, since the well-established security concern here is specifically about the *default* SA's broad, implicit reach, not automount in general.
+
+**Grouped by namespace+app label**, reusing the exact same convention `lib/networkPolicyCoverage.ts` (#26) established for this session's other pod-grouping detectors, rather than a per-pod finding that would flood the list with N identical rows for an N-replica Deployment.
+
+**Shipped as a new Card section on `pages/Rbac.tsx`, not a tab.** Unlike #24/#26/#27's tab-based homes, this page's own existing convention is stacking independent security-check `Card`s vertically (the "Who can…" query, `RbacFindingsCard`, "My access") rather than tabs — `ServiceAccountAutomountCard` follows that same shape, sitting directly below `RbacFindingsCard` since both are RBAC/security-posture findings. Streams its own `pods`/`serviceaccounts` (`{mode:"full"}`) independently of the page's existing `rbacApi.all` snapshot query, since pod specs and ServiceAccount objects were never part of that server-side RBAC-binding analysis and adding them there would have meant real engine work for no benefit over a client-side join.
+
+**Effort: XS** (~half a day) — one pure `lib/` function with no new selector-matching logic needed (this is direct field comparison, not LabelSelector matching), one dumb card component, and two new always-on streams on an existing page.
+
+**OSS, not Enterprise.** A local, agentless static-analysis detector over data the app already has access to — same size and shape as the RBAC-smell detector (#5) this page already ships.
+### 29. Secret exposure surface detector — status: shipped 2026-09-30
+
+From the [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszbyRLEMgqjEFVVewJ)'s Tier 1 list, following #28. Flags a pod group that exposes one or more Secrets via environment variables (`env[].valueFrom.secretKeyRef` or `envFrom[].secretRef`) rather than a mounted volume — a well-established Kubernetes hardening guideline (NSA/CISA Kubernetes Hardening Guide; the official Kubernetes "Good practices for Kubernetes Secrets" page): env-var secrets leak into `kubectl exec … env`, child-process environments, `/proc/<pid>/environ`, and are far more likely to end up in crash dumps or accidental debug logging than a value an app has to deliberately read from a file.
+
+**Scoped deliberately narrow: "how is it exposed," not "what's in it."** `lib/secretExposure.ts#findSecretEnvExposures` only inspects which Secrets a pod's own spec *references* and *how* — it never fetches a Secret object, never reads a value, never decodes base64. That keeps the feature itself from becoming a new secret-exposure surface inside Kubebay (reading every Secret's data client-side just to lint it would be a strictly worse security posture than the problem it detects). Scans both `containers` and `initContainers`, since a migration init-container pulling a DB password via `envFrom` is an extremely common version of exactly this pattern.
+
+**Zero new data source.** Pod `env`/`envFrom` specs are already on every full-mode Pod object; no Secret stream, no engine work.
+
+**Grouped by namespace+app label**, same convention as #26/#28, with each finding carrying the deduplicated set of Secret names exposed across all containers in the group.
+
+**Shipped as a new Card on `pages/Rbac.tsx`**, directly below `RbacFindingsCard` — same reasoning as #28's `ServiceAccountAutomountCard`: that page's own established convention is stacking independent security-posture cards, not tabs. (#28 and #29 were built on separate branches off the same `main`, both inserting a card at the same spot — whichever merges second hits a trivial, expected conflict: keep both cards.)
+
+**Effort: XS** (~half a day).
+
+**OSS, not Enterprise.** A local, agentless static check over data the app already streams.
+### 30. Spot/disruption-tolerance flagging — status: shipped 2026-09-30
+
+From the [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszbyRLEMgqjEFVVewJ)'s Tier 1 list. Flags a workload whose every running replica sits on spot/preemptible capacity and can't survive a reclaim wave: either it's single-replica, or it's multi-replica with no PodDisruptionBudget covering it.
+
+**Spot detection is label-based, across all the providers that stamp one:** `karpenter.sh/capacity-type=spot`, `eks.amazonaws.com/capacityType=SPOT`, `cloud.google.com/gke-spot=true`, `cloud.google.com/gke-preemptible=true`, `kubernetes.azure.com/scalesetpriority=spot` (`lib/spotRisk.ts#isSpotNode`). A cluster with none of these returns no findings and the card says so, rather than implying "all clear."
+
+**A single-replica spot workload is flagged even with a PDB.** A cloud spot reclaim doesn't go through the eviction API, so a PDB can't hold it off; for multi-replica workloads the PDB still matters because Karpenter/cluster-autoscaler drain ahead of a reclaim through eviction. The two reasons are kept separate for exactly that reason. PDB coverage reuses `lib/labelSelector.ts#matchesSelector`.
+
+**Skips what shouldn't count:** DaemonSet-owned pods (per-node by design, via `lib/podOwner.ts#controllerOwner`), non-Running pods, and unscheduled pods. A workload with even one replica on on-demand capacity isn't flagged. Grouped by namespace+app label, same as #26–#29.
+
+**Shipped as a card on `pages/CostWaste.tsx`**, below the usage table: spot is a cost decision, that page already streams `nodes` and `pods`, and it keeps this PR out of `WorkloadsOverview.tsx`/`Rbac.tsx`, which several open PRs already touch. One new stream (`policy/v1/poddisruptionbudgets`).
+
+**Effort: XS.** **OSS, not Enterprise.**
+
+### 31. CoreDNS config/health check — status: shipped 2026-09-30
+
+From the [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszbyRLEMgqjEFVVewJ)'s Tier 1 list. Cluster DNS is one Deployment every workload depends on, and its common failure modes are all visible from objects Kubebay already reads. `lib/coreDnsHealth.ts#checkCoreDns` finds the DNS Deployment by the `k8s-app=kube-dns` label in `kube-system` (covers both CoreDNS and legacy kube-dns) and flags:
+
+- **Single replica**: every lookup in the cluster depends on one pod.
+- **Replicas not ready**: `readyReplicas` below `replicas` (a missing `readyReplicas` counts as 0).
+- **All replicas on one node**: one node failure takes out cluster DNS.
+- **Corefile missing a standard plugin** from the upstream default: `loop` (a forwarding loop otherwise crash-loops every pod), `health` (liveness probe target), `ready` (readiness), `cache`. Matched as a directive at the start of a line, so `# loop` comments and `loopback` don't count.
+
+If the `coredns` ConfigMap isn't readable (RBAC), the Corefile checks are skipped and the card says so, rather than reporting missing plugins. No DNS Deployment found → the card says so; nothing is flagged.
+
+**Placement:** a "Cluster DNS" card at the top of `WorkloadsOverview`'s Service Health tab (#27): broken DNS and Services routing nowhere are the same "why can't my app reach X" question. Reuses the page's lifted `deployments`/`pods` streams; one new stream, `v1/configmaps` scoped to `ns: ["kube-system"]` and gated to that tab.
+
+**Not in v1:** judging `forward` targets (a hardcoded public resolver is sometimes deliberate) and NodeLocal DNSCache detection.
+
+**Effort: XS.** **OSS, not Enterprise.**
+
+### 32. Signed-image enforcement detection — status: shipped 2026-09-30
+
+From the [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszbyRLEMgqjEFVVewJ)'s Tier 1 list. Answers one question: is image signature verification actually enforced in this cluster, or can any image run? `lib/imageSignature.ts` covers the two common engines, detected from `/api/crds` like the other `detect*` helpers:
+
+- **Kyverno**: a `ClusterPolicy`/`Policy` counts if any rule has `verifyImages`. Mode comes from the per-entry `failureAction` (Kyverno 1.13+) and falls back to `spec.validationFailureAction` (either casing); Kyverno's default is audit. Images from `imageReferences`, or the legacy `image` field.
+- **Sigstore policy-controller**: a `ClusterImagePolicy` (`mode: warn` → audit, otherwise enforce). It only takes effect in namespaces labelled `policy.sigstore.dev/include=true`, so the check reads Namespaces too. Policies with no opted-in namespace enforce nothing and count as audit-only.
+
+Overall status: **Enforced** (some policy enforces) · **Audit only** (policies exist, none enforce) · **Not verified** (engine present, no signature policy) · no engine installed at all.
+
+**Placement:** a card on `pages/Rbac.tsx` with the other security-posture cards (#28, #29). Streams only for the engines present; Namespaces only when Sigstore is installed.
+
+**Not in v1:** Connaisseur, Ratify/Gatekeeper, and per-namespace coverage for Kyverno's `match`/`exclude` (a Kyverno policy is treated as cluster-wide).
+
+**Effort: XS–S.** **OSS, not Enterprise.**
+### 33. Local cluster efficiency score — status: shipped 2026-09-30
+
+From the [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszbyRLEMgqjEFVVewJ)'s Tier 1 list (item 5). One 0–100 number at the top of Cost / Waste, blended only from numbers that page already computes, so there's no new data source and no cross-customer benchmark. `lib/efficiencyScore.ts#computeEfficiencyScore` has three parts:
+
+- **Provisioning (weight 0.5)**: requests vs allocatable, from `computeClusterWaste` (#6 Phase 0), CPU and memory averaged. Requests at or above 80% of allocatable earn full marks; the rest is burst headroom, so a packed cluster isn't pushed toward 100%.
+- **Request coverage (0.2)**: the share of scheduled containers that set requests at all (the same unrequested list `WasteBreakdown` shows).
+- **Workload sizing (0.3)**: the share of measured Deployments/StatefulSets/DaemonSets that pass `computeEngineRightSizingRows`' materiality gate, so the score and the Right-sizing list never disagree. It needs usage data (metrics-server or Prometheus); without it the part is dropped and the other weights renormalized, and the card says so rather than guessing.
+
+Grades: 75+ good, 50+ fair, below that poor. A cluster with no allocatable capacity gets no score.
+
+**Not in v1:** score history over time (depends on the Foundational local historical rollup) and fleet-wide scores on the Fleet page.
+### 34. Framework control-ID tags on existing findings — status: shipped 2026-09-30
+
+From the [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszbyRLEMgqjEFVVewJ)'s Tier 1 list (item 11, the settled compliance debate): labels on findings Kubebay already surfaces, with no new detector and no pass/fail compliance verdict. `lib/controlIds.ts` is one registry of CIS Kubernetes Benchmark v1.9 (Policies chapter) and MITRE ATT&CK (Containers matrix) references. `ControlTags` renders them as info badges, with the control's full name in the tooltip:
+
+- RBAC advisor findings, matched on the engine's titles (`rbacadvisor.go`):
+  - cluster-admin binding → CIS 5.1.1;
+  - admin-equivalent wildcards → 5.1.1 + 5.1.3;
+  - other wildcards → 5.1.3;
+  - escalation verbs → 5.1.8;
+  - cluster-wide Secret read → 5.1.2 + T1552.007;
+  - cluster-wide pod exec → T1609.
+- Default ServiceAccount token automount (#28) → CIS 5.1.5, 5.1.6, and T1528.
+- Secrets in env vars (#29) → CIS 5.4.1.
+- NetworkPolicy coverage gaps (#26) → CIS 5.3.2.
+- Unverified images (#32) → CIS 5.5.1 + T1525, shown on `ImageSignatureCard`.
+
+A finding is tagged only where the control plainly describes it. An RBAC title the registry doesn't recognise gets no tags rather than a guessed one.
+
+**Not in v1:** NSA/CISA hardening guide references, a per-framework filter, and exporting findings grouped by control.
+### 35. Unreferenced (orphaned) Secret finder — status: shipped 2026-09-30
+
+From the [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszbyRLEMgqjEFVVewJ)'s Tier 2 list (item 16). `lib/orphanedSecrets.ts#findOrphanedSecrets` lists Secrets that nothing in their own namespace names. It checks these references:
+
+- **Pods:** secret and projected volumes, `env[].valueFrom.secretKeyRef`, `envFrom[].secretRef`, and the same fields on init and ephemeral containers, plus `imagePullSecrets`.
+- **Workload templates:** Deployment, StatefulSet and CronJob pod templates. A Deployment at zero replicas or a CronJob between runs still counts as using its Secret.
+- **ServiceAccounts:** `secrets` and `imagePullSecrets`.
+- **Ingresses:** `spec.tls[].secretName`.
+
+Skipped as managed or used outside pod specs:
+
+- Helm release records (`owner=helm`).
+- Legacy ServiceAccount tokens.
+- Anything with an ownerReference.
+- cert-manager Secrets.
+- All of `kube-system`.
+
+**Privacy:** Secrets stream in metadata mode, so Secret values never reach the shell for this. A page test pins that. Separately, metadata mode still passes the `last-applied-configuration` annotation through; that is a pre-existing issue filed as its own task.
+
+**Placement:** an "Unreferenced Secrets" card on the RBAC/security page, below "Secrets exposed via environment variables". It adds streams for Secrets (metadata), Ingresses, Deployments, StatefulSets and CronJobs, and reuses the page's existing pods and ServiceAccounts streams. The card says it doesn't check references from custom resources (Gateway certificateRefs, operator CRs), so it's a list to review, not to delete from.
+
+**Not in v1:** Gateway API `certificateRefs`, DaemonSet and Job templates, CSI `nodePublishSecretRef`, and a delete action.
+
+**Effort: S.** **OSS, not Enterprise.**
+### 36. Local historical rollup (retention layer) — status: building (slices 1–2 shipped: #73–#75, #77, #78; slice 3 in progress)
+
+The [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszbyRLEMgqjEFVVewJ)'s **Foundational** item. It gates trend-based headroom forecasting and the cost/usage anomaly detector (Tier 2 #20 and #21). Today the only usage history is `waste`'s in-memory ring buffer, which is lost when the engine restarts.
+
+**Design debate.** Two positions were argued, then a synthesis round cross-challenged them against the code, per CLAUDE.md:
+
+- **A, Prometheus-first:** store nothing locally when Prometheus exists.
+- **B, uniform durable store:** record everywhere, and use Prometheus to backfill it.
+
+Verdict:
+
+- **Recording.** Every cluster is recorded from the Tier B tick that already runs. That's one write path, and Prometheus URLs are often dead port-forwards after a restart (B wins).
+- **Reading.** One series comes from one source, with no stitching or backfill. A Prometheus `rate[5m]` spliced onto metrics-server point samples leaves a seam that a forecast would read as a trend. If Prometheus is unreachable the endpoint returns an error, and the client has to ask for `source=local` explicitly (A wins).
+- **Scope.** Cluster and namespace only. Workload keys churn, neither gated feature needs them, and a workload store invites feeding it back into right-sizing, which #4 forbids.
+- **Per hour, per namespace:** mean and max usage, the sample count `n`, and requests (last value in the hour; scheduling headroom is about requests). No p95 or min, since they can't be combined across hours honestly.
+  - When metrics-server is missing, usage is `null`, never 0, and requests are still recorded.
+  - Namespace sums are taken **before** `resolveWorkload`'s `continue`, so pods with no owner are counted.
+- **Storage.** `os.UserConfigDir()/kubebay/history/<fp>/`, the audit log's convention, with no fallback to TempDir: if the directory can't be created, recording is disabled.
+  - Files per cluster:
+    - daily `YYYY-MM-DD.jsonl`, one line per closed namespace-hour;
+    - `open.json`, the open hour, checkpointed every tick with tmp+rename;
+    - `meta.json`;
+    - `writer.lock`.
+  - Directories are 0700 and files 0600. A torn trailing line is skipped when reading.
+  - The standard library only; no bbolt or SQLite (not in go.mod, no CGO).
+  - **`<fp>`** is a sha256 prefix of the kube-system namespace UID, falling back to context+server. Cluster IDs are sanitised context names, and a recreated `kind-kind` must not inherit the old cluster's history.
+- **Crash safety.** The open hour is checkpointed every tick, not only at shutdown. The desktop wrapper SIGKILLs the engine on Windows, gives SIGTERM only 3s elsewhere, and laptop sleep kills it too. So a crash loses at most one tick.
+- **Writer lock.** The lock holds a PID plus a heartbeat, and a stale heartbeat (older than 3 intervals) can be reclaimed. A plain `O_EXCL` lock would stay stale forever after a SIGKILL.
+- **Caps.** 35-day retention (decided below), the top 50 namespaces by requests plus an `(other)` row so totals still add up, and a 256MB total guard. That's about 2MB per cluster.
+- **Honesty.** Missing hours come back as `null` and are never interpolated. Every series is tagged with its source. An hour counts as well-sampled at n ≥ 30, because `tick()` walks clusters one after another with 20s timeouts, so 60 samples an hour isn't guaranteed.
+  - `Coverage{ExpectedHours, ObservedHours, WellSampledHours, DistinctDays, LongestGapHours, HourOfDayObserved[24], Label}`.
+  - Nothing from history feeds `waste.Snapshot`.
+  - The recorder is off with `--in-cluster`, because an in-cluster store that keeps recording while the laptop is closed crosses the #6/#15 Enterprise line.
+- **Consumer gates (for later).** A laptop open 8 hours a day never reaches "coverage ≥0.7", and 14 days of retention can't give 3 same-hour-of-week observations. So:
+  - **Forecasting** needs at least 5 distinct days, each with at least 4 well-sampled hours, and is labelled "daily peak during observed hours".
+  - **Anomalies** use a same-hour-of-day baseline over at least 5 prior observed days, split into weekday and weekend.
+- **API.**
+  - The Go package is `engine/internal/history`:
+    - `Open(dir, Options) (*Store, error)`
+    - `Record(clusterID, at, []Obs) error`
+    - `Query(clusterID, ns, metric, from, to) (Series, error)`
+    - `Status(clusterID) (Coverage, error)`
+    - `Prune(now) error`
+    - `Close() error`
+    - `Fingerprint(ctx, cs, context, server) string`
+  - `waste.Sampler.SetRecorder(...)` is the hook, called after the sampler's lock is released.
+  - HTTP: `GET /api/history/status?cluster=` and `GET /api/history/series?cluster&ns&metric&from&to[&source=]`. `DELETE /api/history?cluster=` comes in slice 2.
+
+**Slices:**
+
+1. **Engine only: local recorder, store and read endpoints.** It ships first because every day it isn't shipped is history lost for good. The failing tests, in order:
+   - the hour closes into a bucket with exact mean, max and `n`
+   - ticks with no usage keep usage `null`
+   - missing hours come back `null`
+   - a thin hour isn't well-sampled
+   - reopening without `Close` restores the open hour
+   - a torn trailing line is skipped
+   - prune respects retention
+   - the fingerprint uses the UID, then the fallback, and is a safe filename
+   - clusters are isolated
+   - a second writer goes read-only, and a stale heartbeat is reclaimed
+   - top-N plus `(other)` sums to the total
+   - the sampler's recorder gets namespace totals that include bare pods
+   - the recorder doesn't change the snapshot
+   - the handlers require `cluster`, and nulls serialise as `null`
+2. `PromSource` (`query_range` at a 1h step with `avg_over_time`/`max_over_time`, so its shape matches local buckets), the Clear button, and an "observed N of 840 hours" chip on Cost / Waste.
+   - **Progress (2026-10-01):**
+     - The Clear button shipped in slice 1c (#75).
+     - The coverage chip is #77.
+     - `GET /api/history/series?source=prometheus` is the engine's Prometheus source. It runs four `query_range` queries at a 1h step, each bucket keyed to the hour it covers. CPU is `rate()`'d; memory is not.
+     - Requests stay `null`, since they would need kube-state-metrics.
+     - It returns 412 when no Prometheus is configured and 502 when Prometheus is unreachable. It never falls back to local data.
+3. The consumers, #20 and #21.
+   - **Progress (2026-10-01):**
+     - Slice 2 finished: #77 (the coverage chip) and #78 (the Prometheus source) are merged.
+     - **3a, headroom forecast (#20).** A "Headroom forecast" card on Cost / Waste. `lib/headroomForecast.ts` works over the cluster-total local series for the last 35 days:
+       - Each local calendar day's peak is taken from well-sampled hours only.
+       - A day qualifies with at least 4 well-sampled hours, and the forecast needs at least 5 qualifying days per metric. Usage metrics count only days that have usage, so a cluster without metrics-server still gets the requests forecast.
+       - Ordinary least squares against the calendar-day index, so a skipped day doesn't steepen the slope.
+       - Metrics are CPU and memory requests (the scheduling headroom) and peak usage, each measured against the streamed nodes' allocatable.
+       - Outcomes: reaches allocatable in ~N days, at allocatable, flat or falling, or not within the horizon. The horizon is twice the observed span, so 5 days of data never projects beyond 10.
+       - It is labelled "daily peak during observed hours" with the engine's coverage label. Below the gate it shows "needs 5 days … N so far" instead of hiding.
+     - **3a shipped** in #79.
+     - **3b, anomaly detection (#21).** An "Unusual usage" card on Cost / Waste, built on `lib/usageAnomaly.ts#findUsageAnomalies`.
+       - It checks each well-sampled hour of the last 24 against the same local hour on at least 5 earlier observed days of the same kind (weekday or weekend).
+       - A value counts as unusual only if it clears three bars:
+         - 3 scaled MADs from the median;
+         - a 25% relative change;
+         - an absolute floor (50m CPU, 64Mi memory).
+       - It covers CPU and memory, for both usage (mean) and requests.
+       - It shares one series fetch with the forecast, through `lib/useClusterHistorySeries.ts`.
+       - If nothing qualifies it says so, and states what it compared against.
+
+**Not in v1:**
+
+- workload or node scope
+- per-hour p95 or min
+- Prometheus backfill or stitching
+- bbolt or SQLite
+- gzip
+- a UI setting for retention
+- dollars
+
+**Decisions (2026-09-30).** Raja delegated the three open questions to a debate: a privacy-first side, a usefulness-first side, and a synthesis round that cross-challenged both against the code.
+
+1. **Recording is consent by connecting.** A cluster is recorded only if `historyClusters[id]` is true.
+   - Connecting in the UI (`setActive`, not the picker preview) calls `POST /api/history/enroll?cluster=`. That sets the flag only if it's absent, so an explicit Stop stays sticky.
+   - Health-probed and Fleet-polled clusters the user never connected to are never written to disk.
+   - No loopback special case: one rule.
+   - Erase (`DELETE /api/history?cluster=`) moves into slice 1, so a way to delete exists before the first byte is written.
+   - Binding consent to the fingerprint is deferred. Storage is already keyed by fingerprint, so a repointed context can't mix histories.
+   - Rejected alternatives:
+     - Opt-out: it writes production namespace names for clusters the user never opened, which fails least-surprise.
+     - Opt-in via a Settings checkbox: almost nobody would get history.
+2. **Retention is a fixed 35 days** (a constant; tests inject their own). `meta.json` records `retentionDays`.
+   - A later increase can't recover pruned data, while a later cut can always be made.
+   - "Raise it once #21 shows ≥3 same-hour-of-week samples" can never trigger at 14 days, because pruning deletes the evidence first.
+   - Consent-by-connecting already shrinks the privacy surface.
+3. **Forecasts are shown, never hidden**, with an engine-computed `Coverage.Label`.
+   - `HourOfDayObserved[24]` counts well-sampled hours only (n ≥ 30), plus `WeekendObserved`.
+   - Example labels: "observed 09–18 local, weekdays only", "observed 08–12, 14–18 local", "round-the-clock".
+   - Hiding forecasts until round-the-clock coverage would hide them forever for laptop-only users, turning a coverage limit into a paywall. The honesty rule is to label, not to withhold.
+
+**Settings fixes pulled into slice 1** (found by the synthesis round):
+- `HandleSave` wipes non-pointer fields the caller omits. `historyClusters` is taken as a pointer and merged.
+- `HandleSave` calls `Load()` before taking `s.mu`, a lost-update race. It moves under the lock.
+- Enroll and recording writes go through `s.mu` directly, not through `HandleSave`.
+
+**Slice 1 split into three PRs:**
+- **1a:** the `engine/internal/history` package. Store, coverage and label, fingerprint, writer lock. Nothing is wired, so it records nothing.
+- **1b:** settings field and race fix, the enroll/recording/erase/status/series endpoints, the sampler record filter and recorder hook, and the `main.go` wiring.
+- **1c:** UI. `setActive` enrolls the cluster, and a "Usage history" card in Settings lists enrolled clusters with a Recording toggle, Clear, the storage path, and the notice "Kubebay records hourly namespace usage for clusters you connect to, only while the app is open, for 35 days."
+
+**Effort: M** (slice 1 is three small PRs). **OSS, not Enterprise**, because it records only while the app is open.
+### 37. Fleet-wide showback by namespace — status: shipped 2026-09-30
+
+From the [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszbyRLEMgqjEFVVewJ)'s Tier 2 list (item 19). It extends the Fleet dashboard (#15 Phase 2). `lib/fleetShowback.ts#summarizeShowback` groups the per-cluster `/api/waste/workloads` data that `useFleetWaste` already polls by namespace **name**, so "payments" in prod and staging becomes one team row. Each row has:
+
+- the clusters it spans;
+- the workload count;
+- requested CPU and memory;
+- the sum of each workload's p95 usage, labelled as such because it's an upper bound on concurrent use;
+- wasted capacity.
+
+Waste goes through the same `computeEngineRightSizingRows` materiality gate as the Fleet waste total, so the two views never disagree. There are no dollar figures, as with Cost / Waste. The data covers measured workloads only (metrics-server or Prometheus), and the table says so when no cluster reports usage.
+
+**Placement:** a "Showback by namespace" `DataTable` under the per-cluster waste cards on the Fleet page. No new requests; `useFleetWaste` returns `showback` alongside `summary`.
+
+**Not in v1:** grouping by a team label instead of namespace name, CSV export, and history over time (depends on #36).
+
+**Effort: S.** **OSS, not Enterprise.** It works across the kubeconfigs on one laptop, with no shared control plane.
+### 38. Ingress / Gateway API routing resolution — status: shipped 2026-09-30
+
+From the [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszbyRLEMgqjEFVVewJ)'s Tier 2 list (item 13). `lib/routeResolution.ts` answers "why doesn't my hostname reach my app": it follows each route to Service → port → ready endpoints and names the first hop that breaks.
+
+- **`resolveIngressRoutes`** checks each Ingress rule path and the default backend:
+  - the Service is missing;
+  - the port doesn't exist on the Service (by number or by name);
+  - the Service has no ready endpoints (skipped when there's no EndpointSlice data, as in #27).
+
+  At the Ingress level it flags an `ingressClassName` with no IngressClass object, no class set and no default class, and a TLS Secret missing from the Ingress's namespace. The legacy `kubernetes.io/ingress.class` annotation counts as a class.
+- **`resolveHttpRoutes`** runs only when the Gateway API CRDs are installed (`detectGatewayApi`):
+  - a parent Gateway that doesn't exist (its namespace defaults to the route's);
+  - Service backendRefs, checked the same way as Ingress backends;
+  - any `Accepted` or `ResolvedRefs` condition the controller set to `False`, shown as-is. This covers the ReferenceGrant cases the resolver doesn't model.
+
+**Placement:** an "Ingress & Gateway routing" card on the Service Health tab, below CoreDNS (#31) and Service selector mismatches (#27), since all three answer the same reachability question. It lists broken routes with each failing hop named, plus a count of routes that resolve cleanly. It reuses the tab's Services and EndpointSlices streams and adds Ingresses, IngressClasses and Secrets, all gated to that tab. Secrets are in metadata mode; only TLS Secret names are needed, and a page test pins that. HTTPRoutes and Gateways stream only when their CRDs exist.
+
+**Not in v1:**
+
+- GRPCRoute, TLSRoute and TCPRoute
+- ReferenceGrant evaluation
+- Gateway listener hostname and port matching
+- controller-specific annotations such as nginx rewrite targets
+- following LoadBalancer status
+
+**Effort: M** (v1 about S). **OSS, not Enterprise.**
+### 39. NetworkPolicy reachability check ("can pod A reach pod B?") — status: shipped 2026-09-30
+
+From the [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszbyRLEMgqjEFVVewJ)'s Tier 2 list (item 12, the NetworkPolicy connectivity analyzer). `lib/netpolEval.ts#evaluateConnection` evaluates one source pod → destination pod (optionally on a port and protocol) under standard Kubernetes NetworkPolicy semantics, which the existing connectivity matrix only approximates:
+
+- **Isolation is per pod and per direction.** A pod is isolated once any policy in its namespace selects it with that policy type. `policyTypes` defaults to Ingress, plus Egress when the policy has an `egress` section. An empty `ingress`/`egress` list denies everything.
+- **Both sides must allow the traffic:** the source's egress and the destination's ingress.
+- **Peers:**
+  - `podSelector` alone matches the policy's own namespace only.
+  - `namespaceSelector` is evaluated against real namespace labels, including the automatic `kubernetes.io/metadata.name`.
+  - A peer with both selectors must match both.
+  - `ipBlock` is checked against the pod IP (IPv4), with `except`.
+  - `matchExpressions` are honoured, via the shared `labelSelector` helper.
+- **Ports:** matched by number, by `endPort` range, or by the destination pod's named container port, and by protocol. With no port given, a port-restricted allow is reported as "only on TCP/8080".
+
+**Placement:** a fourth "Can A reach B?" tab on the NetworkPolicy page. You pick a source pod, a destination pod, an optional port and a protocol, and it shows an Allowed/Blocked verdict with an egress line and an ingress line naming the isolating and allowing policies. It respects the page's namespace filter. The `v1/namespaces` stream is gated to that tab. The card says the verdict comes from NetworkPolicy objects only: the CNI has to enforce them, and CNI-specific CRDs aren't included.
+
+**Not in v1:**
+
+- Service-name targets (resolving a Service to its pods).
+- Cilium and Calico policy CRDs.
+- IPv6 `ipBlock`.
+
+**Effort: M.** **OSS, not Enterprise.**
+
+**Follow-up shipped 2026-09-30:** the connectivity matrix now uses the same evaluator (`lib/netpolMatrix.ts#matrixCell`, one representative pod per namespace/app group). Isolation is per pod, egress counts, and an Ingress policy without rules blocks instead of allowing. Cells read open, allowed (with any port restriction) or blocked (naming the isolating policies on the side that blocks), and the old "unknown" state is gone.
+
+### 40. GPU capacity accounting (GPU dimension, Phase 0) — status: shipped 2026-09-30
+
+From the [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszbyRLEMgqjEFVVewJ)'s Tier 2 list (item 14, the GPU utilisation and right-sizing dimension). Phase 0 is the GPU twin of #6's Tier 0 waste accounting and needs no metrics. `lib/gpuCapacity.ts#computeGpuCapacity` compares allocatable GPUs per node with the GPUs scheduled pods ask for:
+
+- **Resources:** vendor device-plugin names (`nvidia.com/gpu`, `amd.com/gpu`, `gpu.intel.com/*`) and NVIDIA MIG slices (`nvidia.com/mig-*`, each its own resource).
+- **Per-pod count:** a container asks for its request, else its limit, since extended resources can't be overcommitted and requests default to limits. A pod's ask is max(largest init container, sum of containers), as the scheduler computes it.
+- **Finished pods** (Succeeded or Failed) hold nothing.
+- **Pending pods** asking for a GPU are listed separately as "waiting for a GPU".
+
+**Placement:** a "GPU capacity" card on Cost / Waste, shown only when the cluster has GPU nodes. It shows "N of M unclaimed" per resource, a table of claimed vs allocatable per node, and the waiting pods. It reuses the page's nodes and pods streams.
+
+**Phase 1 (not in this PR):** utilisation of *claimed* GPUs from DCGM exporter metrics (`DCGM_FI_DEV_GPU_UTIL`, framebuffer used) via the Prometheus path the Tier A recommender already uses, and GPU right-sizing suggestions (fractional/MIG, or time-slicing for underused whole-GPU claims). This needs DCGM, so it's gated on it being present.
+
+**Effort: S** for Phase 0, **M** for Phase 1. **OSS, not Enterprise.**
+
+### 41. Read-only node consolidation view — status: shipped 2026-10-01
+
+Intelligence roadmap Tier 2 #15. It depends on SPOF Radar (#24), which the research named as the safety gate any consolidation suggestion must pass first.
+
+`lib/consolidation.ts#assessConsolidation` simulates draining each node, using streams Cost / Waste already opens plus full-mode Deployments and StatefulSets.
+- **Placement.** It is first-fit-decreasing by requests. It counts every non-terminal pod on each target, DaemonSet pods included, and honours `nodeSelector`, required node affinity (`In`/`NotIn`/`Exists`/`DoesNotExist`/`Gt`/`Lt`, plus `matchFields` on the node name) and NoSchedule/NoExecute taints against tolerations.
+- **Pods that stay put.** DaemonSet pods, mirror pods and finished pods aren't moved.
+- **Blockers:**
+  - a pod with no controller, since a drain deletes it for good
+  - a covering PDB with `disruptionsAllowed: 0`
+  - required pod (anti-)affinity or a `hostPort`, which aren't simulated and are listed instead of guessed at
+  - no room on any remaining node
+- **SPOF gate.** It reuses `findSingleReplicaNoPdb`. A node holding such a workload's pod is "drain causes downtime", never "fits elsewhere".
+- **Skipped as candidates:** NotReady, already-cordoned and control-plane nodes.
+  - Control-plane nodes still receive pods when their taints allow, as the real scheduler would.
+  - NotReady and cordoned nodes receive nothing.
+- **Two answers.** Each row is that node judged alone. The headline count drains nodes greedily, emptiest first, with moved pods staying where they landed. The per-node results aren't additive: three nodes can each be drainable alone while only one can go.
+- **UI.** A "Node consolidation" card on Cost / Waste, badged read-only. It is held until the Deployment, StatefulSet and PDB streams sync, so the gate never runs on partial data.
+- **Not done:** usage-based packing, cost estimates, and any cordon or drain action. Auto-executed consolidation is on the research's "don't build" list.
+
+**OSS.** Pure client-side derivation over streams the page already reads.
+### 42. Resource Timeline (events + rollouts + conditions, no AI) — status: shipped 2026-10-01
+
+Intelligence roadmap Tier 2 #18. It adds a **Timeline** tab in the drawer for Deployments, StatefulSets and DaemonSets.
+
+`lib/resourceTimeline.ts#buildTimeline` merges, newest first, only the cluster's own records:
+- Events on the workload, its owned ReplicaSets and their pods, joined by owner UID rather than name prefix. Each event takes its time from `lastTimestamp`, then `eventTime`, `firstTimestamp` or creation, and shows its `×count`.
+- One rollout entry per owned ReplicaSet, carrying its `deployment.kubernetes.io/revision` and container images.
+- The workload's condition transitions. Available, Ready and similar conditions going False are warnings.
+- Container terminations from pods' `lastState.terminated`, with the reason, exit code and restart count. OOMKilled and Error are warnings.
+
+**Data.** ReplicaSets (Deployments only) and pods stream in full mode, namespace-scoped, and only while the tab is open. Events reuse the cluster-wide stream the Events tab already opens.
+
+**Retention.** The tab says plainly that Events last about an hour by default, so older history comes from revisions, conditions and last states.
+
+**Not in v1:**
+- the research's "alert" merge, since Kubebay has no Alertmanager source yet
+- a Pod-drawer timeline (the lib already handles `kind: Pod`)
+- a fleet-wide timeline
+### 43. Live connectivity diagnostic pod — status: shipped 2026-10-01
+
+Intelligence roadmap Tier 2 #23. It is the live counterpart to #39's static "can A reach B?" check, and sits right below it on the NetworkPolicy page as a "Live network check" card.
+
+**Engine.** `POST /api/netdiag {cluster, namespace, node?, image?}` (`httpapi/netdiag.go`) creates `kubebay-netdiag-<hex>`:
+- **Image.** It defaults to `nicolaka/netshoot:v0.13` for dig, curl and traceroute. `KUBEBAY_NETDIAG_IMAGE` or the request's own `image` overrides it for mirrored or air-gapped registries.
+- **Placement.** The pod goes in the chosen namespace, so the DNS search path and the NetworkPolicies that apply match that namespace.
+- **Hardening.** The node shell is privileged, host-namespaced and keeps its token; this pod is the opposite of all three:
+  - an ordinary pod-network pod with no privileges
+  - `allowPrivilegeEscalation: false` and RuntimeDefault seccomp
+  - `automountServiceAccountToken: false`
+  - only Kubebay's own two labels, never a workload's. Copied labels could make a Service route real traffic to it.
+- **Lifetime.** `activeDeadlineSeconds: 3600` plus `sleep 3600`, so an orphaned pod stops on its own.
+- **Start-up failure.** The handler deletes its own pod on ImagePull errors, CreateContainerError, early exit or timeout.
+- **Audit.** It records a `netdiag-start` entry.
+
+**UI.** `components/NetDiagCard.tsx`:
+- Pick a namespace and an optional image, then press "Start diagnostic pod". The ArmedButton asks "Create a pod in <ns>?" first.
+- A terminal opens in the pod.
+- "Stop and delete pod" removes it, and so does unmounting the card.
+
+**Not in v1:**
+- running as a specific pod's identity. Ephemeral containers would share its network namespace but can't be removed once added, so this needs its own decision.
+- node pinning in the UI (the engine already accepts `node`)
+- canned one-click checks
+### 44. NetworkPolicy visual editor + dry-run wizard — status: shipped 2026-10-01
+
+Intelligence roadmap Tier 2 #22. It adds a **Build policy** tab on the NetworkPolicy page, next to #39's "Can A reach B?".
+
+`lib/netpolBuilder.ts`:
+- **`draftToPolicy`** turns a form draft into a NetworkPolicy object.
+  - **Inputs:** namespace, name, a pod-label selector (empty means every pod), and Ingress and Egress, each "not restricted", "deny all" or "allow only…".
+  - **Peers:** pods in the same or another namespace (via `kubernetes.io/metadata.name`), a whole namespace, or a CIDR. Each can carry ports such as `8080, 53/UDP`.
+  - **DNS.** Restricting egress adds the kube-dns rule by default, the classic "my egress policy broke DNS" foot-gun.
+  - **Validation.** Bad names, labels, ports or CIDRs come back as messages, never a half-built policy.
+- **`toYaml`** is a small block-YAML emitter with every string double-quoted, used for the preview. The repo has no YAML library.
+- **`policyImpact`** evaluates every pair involving the selected pods with #39's `evaluateConnection`, before and after. It reports pods newly isolated, connections blocked, connections opened, and connections narrowed to some ports.
+  - A same-named policy is treated as **replaced**, not added. Pods the old policy selected are previewed too.
+  - Capped at 20,000 pairs, with a `truncated` note.
+
+**UI** (`components/NetpolEditor.tsx`):
+- Live YAML and impact preview.
+- **Dry run** goes through `/api/yaml/create` with `dryRun: true`, a server-side apply that runs admission, so Kyverno or Gatekeeper rejections show up here.
+- **Create** only appears once a dry run of exactly this YAML has passed. Any edit hides it again. It is an ArmedButton.
+- The create endpoint is a forced server-side apply. So a same-named policy gets a warning banner and a red **Replace policy** confirmation.
+
+**Not in v1:**
+- editing an existing policy in the form (the YAML tab still does that)
+- `matchExpressions`, `endPort` and `ipBlock.except` in the form
+- CNI-specific policy kinds
+### 45. Running image signature status (read-only cosign check) — status: shipped 2026-10-01
+
+Intelligence roadmap Tier 2 #17. It complements #32: that card answers "is signature verification enforced?", and this one answers "do the digests actually running have a signature published?".
+
+**Engine, `internal/sigcheck`.** It takes each container's `imageID` repo digest (spec image as fallback) and checks the registry for:
+- a cosign signature tag `sha256-<hex>.sig`
+- an OCI 1.1 referrer whose `artifactType` is sigstore, cosign or signature (an SBOM referrer doesn't count)
+
+How it contacts registries:
+- **Anonymous only.** It does the bearer-token exchange from the `WWW-Authenticate` challenge, and never sends cluster pull secrets. A private registry comes back `unknown` with "registry requires credentials".
+- **Normalisation.** Docker Hub names are normalised (`registry-1.docker.io`, `library/`).
+- **Caching.** Results are cached per repo@digest for 1 hour. Unknowns aren't cached.
+
+`GET /api/image-signatures?cluster=` lists pods and dedupes by digest, with pod and namespace counts.
+- It checks up to 300 digests per pass, 6 at a time.
+- Images whose runtime reported no repo digest are `unknown` with that reason.
+
+**UI.** A "Running image signatures" card on the RBAC / security page, right under #32's card.
+- **Explicit trigger.** It runs only when "Check signatures" is clicked, because it contacts external registries.
+- **Wording.** It says plainly that a found signature is **not verified** against a key or identity; that is the admission policy's job.
+
+**Not in v1:**
+- cryptographic verification (keys, Fulcio or Rekor)
+- pull-secret authentication for private registries
+- per-workload drawer placement
+
+**OSS.**
+
+### 46. Fix: YAML-tab edits conflicted with Helm/kubectl field managers — status: building (slices 1, 2a shipped #89, #99; slice 2b in PR)
+
+**User report:** "Apply failed with 3 conflicts: conflicts with "kubectl-client-side-apply" using apps/v1: …env[name="CONFIG_USER"].value…" on a Helm-installed Deployment.
+
+**Root cause.** `HandleApplyYAML` server-side applied the **whole** edited object as manager `kubebay` with `force:false`. Any field another manager (Helm 3, `kubectl apply`) set to a different value conflicts, and the user must change exactly those fields.
+
+Two more effects of the same path:
+- Kubebay claimed Apply ownership of every field it re-sent.
+- Removing a list item (an env var) was a silent no-op that still said "Applied".
+
+The YAML view also strips `resourceVersion`.
+
+**Debate (2026-10-01, per CLAUDE.md).** Two position agents argued, then a synthesis round cross-challenged them.
+- **Position A, `kubectl edit` semantics:** diff the loaded YAML against the edit and send an Update patch.
+- **Position B, "SSA done right":** send only the changed fields as SSA, extract the owned set via structured-merge-diff, and offer a confirmed Force override.
+- **Verdict: A.**
+  - Update operations never conflict.
+  - The owners here (`kubectl-client-side-apply`, Helm 3) are Update writers themselves, so a forced SSA would only make Kubebay an *Apply* owner. That would collide with later SSA writers (Helm 4, Argo/Flux SSA).
+  - B's OpenAPI extract machinery, non-atomic two-path writes and Override dialog were rejected.
+- **Correction to A from the synthesis:** Helm 3 computes its upgrade patch from live toward the new render. So the next `helm upgrade`/`rollback` restores edited fields even when the values didn't change, and the UI says so.
+
+**Slice 1 (this PR):**
+- `PUT /api/yaml` takes an optional `original`.
+- `editpatch.go#computeEditPatch` diffs `original` against the edit, after dropping `status`, server metadata and the last-applied annotation, and rejects identity changes.
+  - **Built-in kinds:** a strategic merge patch, so a removed env var becomes `$patch: delete`.
+  - **CRDs:** a JSON merge patch.
+- The patch is sent as an Update with manager `kubebay`, no force, and dry-run supported. An empty diff is a no-op.
+- The response carries `patchType` and `changedPaths`. The audit log records field paths only, never values.
+- YamlTab sends `original` and reports "Applied: patched N fields." That also fixes the success message, which used to be wiped by the reload.
+- A Helm banner, driven by `helmReleaseOf`.
+- The legacy SSA path stays for callers without `original` (RightSizing) until slice 2.
+- **Regression test:** a kind integration test that reproduces the exact conflict and then shows the edit succeeding, Kubebay owning only the changed fields, and an env var removal working.
+
+**Slice 2a (2026-10-01).**
+- RightSizing sends its resources-only document with `mode: "strategic"`, through `lib/rightsizing.ts#resizeApplyRequest`.
+  - The document becomes a strategic merge Update patch: containers merge by name, `limits` and every other field are kept, and it can't conflict with the Helm/kubectl owner of `requests`.
+  - Strategic mode is refused for custom resources (400).
+- `PUT /api/yaml` no longer server-side applies at all. A body with neither `original` nor `mode` gets a 400, and `force` is ignored.
+- The kind test now:
+  - reproduces the conflict with a direct SSA;
+  - checks the endpoint refuses whole-object apply;
+  - proves a resize keeps `limits`.
+
+**Slice 2b (2026-10-01).**
+- **Stale-edit check.** Before patching, an edit diffs the YAML the editor loaded against the live object.
+  - If a field the user edited also changed live (equal paths, or one containing the other), it returns 409 `{error: "changed-since-load", paths}` and sends nothing.
+  - Concurrent changes to other fields are left alone.
+  - No resourceVersion precondition, because status writes would give constant false 409s.
+- **Status mapping.** `writePolicyRejectionOrError` now returns the status the API server meant: 409, 422, 403 or 404, and 502 only for non-Kubernetes errors. The body stays plain text, so every existing caller still shows the message.
+- **Shell.** `send()` turns the stale 409 into a `StaleEditError`. YamlTab shows "Not applied: these fields changed on the cluster since you opened this editor", lists the paths, and offers a "Reload current version" button.
+- **Kind test:** a concurrent change to REGION followed by an edit of REGION gives a 409, and the concurrent value survives.
+
+**Slice 3 (shipped):** `HandleCreateResource` no longer forces. Creating over an object whose fields another tool owns returns a 409 that names the object and points at its YAML tab; Helm/kubectl values survive (kind test `TestLiveCreateOverAnObjectAnotherToolManages`). The NetpolEditor "replace" banner says so. Discovery/dynamic clients for create go through `discoClient`/`dynClient` overrides for tests.
+**Remaining (optional, unscheduled):** cleanup of stale `kubebay` Apply managedFields entries left by the old force-apply path.
+
+**Slice 2 (original plan):**
+- **Stale-edit check:** 409 `changed-since-load` when a field the user edited also changed live.
+- **Structured error mapping:** 409/422/403/404 instead of a raw 502.
+- **GitOps banner:** add "will revert on next sync".
+- **RightSizing:** an explicit strategic-merge resources patch that keeps `limits`, then remove SSA from `PUT /api/yaml`. Its same-manager SSA can also delete fields Kubebay alone owns.
+
+**Slice 3:**
+- `HandleCreateResource` force:true → false, with "exists — edit it instead".
+- An optional cleanup of stale `kubebay` Apply entries in managedFields.
+
+### 47. Fleet Consistency Diff (roadmap Tier 3 #25) — status: removed 2026-10-02 with the Fleet page (was shipped 2026-10-01, slice 1)
+The same object compared across clusters, matched by kind, namespace and name. Komodor sells this as a paid feature. Slice 1 follows the roadmap's "3-4 object classes first" verdict: Deployments, StatefulSets, DaemonSets and ConfigMaps.
+
+- **Logic.** `lib/fleetConsistency.ts` (`compareFleet`) is pure and client-side.
+  - Compares container and initContainer images, resource requests and limits, env values and replicas, plus ConfigMap `data`/`binaryData` keys.
+  - Ranks drift by severity: image or container-set drift is high, resources/env/ConfigMap drift is medium, and replicas are low because an HPA legitimately varies them.
+  - Skips `kube-*` namespaces and the per-cluster `kube-root-ca.crt`.
+  - Shows a secret-backed env var as `secret name/key`, never its value. Secrets themselves are not compared.
+  - Lists objects missing from a cluster only when their namespace exists there. Otherwise every cluster-specific namespace would read as drift.
+- **UI.** `FleetConsistencyCard` sits on the Fleet page, read-only and opt-in.
+  - Nothing streams until "Compare clusters" is clicked, because it opens four full streams per connected cluster, ConfigMaps included.
+  - Per-cluster collectors use the existing `useResourceStream` with `useStaggeredEnable`. There is no new engine endpoint.
+  - The output is a DataTable with one row per differing field and one column per cluster, plus an "Only in some clusters" table.
+- **Debate (single-agent, recorded here).**
+  - An engine-side diff endpoint was rejected. Streams already exist, and a new informer-backed list API is bigger than the feature.
+  - Diffing the full spec was rejected. Defaulted fields, controller-written annotations and per-cluster values swamp the signal. The curated field list is the point.
+  - Value display for ConfigMaps was kept: they aren't secret, and a key without its value doesn't tell you which side is right.
+- **Next slices.** Ignore rules (e.g. a known per-region env var), Services/Ingresses/HPAs, a cluster-pair picker for fleets larger than a handful, and an "open in cluster" link per row.
+### 49. Audit-log security event feed (roadmap Tier 3 #26) — status: shipped 2026-10-01 (slice 1)
+A retrospective security feed with no kernel agent and no in-cluster install. The precondition the roadmap named holds: the API server's audit log must already be written and readable on this machine.
+
+- **Engine.** `internal/auditfeed` (`Classify`, `ReadTail`) parses audit.k8s.io/v1 JSON lines.
+  - Reads only the last 32 MiB and returns at most 500 events, newest first.
+  - Counts only the `ResponseComplete` stage, so each request appears once.
+  - Rules follow Falco k8saudit's categories:
+    - exec, attach and port-forward into pods;
+    - privileged containers, hostPID, hostNetwork or hostIPC pods (high);
+    - hostPath pods (medium);
+    - bindings to cluster-admin (high) and other ClusterRoleBinding changes (medium);
+    - anonymous requests that succeeded (high);
+    - Secrets read by non-`system:` users (low).
+  - Refused attempts are kept and marked denied. Request and response bodies never leave the engine.
+- **Settings and endpoints.** `AppSettings.AuditLogPaths` maps each cluster to an absolute file path.
+  - It is set only through `PUT /api/security/audit-log-path`, under the settings lock, and kept across `HandleSave`.
+  - `GET /api/security/audit-events?cluster=` returns `{configured, path, error?, events}`. An unreadable log is reported in the body.
+- **Guard.** Like the local shell (`localshell.Allowed`), the feed is off when OIDC is configured or under `--in-cluster`. It reads a host file as the engine's OS user, past each user's own RBAC. `AuditFeedBlockReason` is set by main on `SettingsManager.AuditFeedDisabled`, both endpoints return 403 with the reason (no path probing), and the card shows the reason instead of the path field.
+- **UI.** `AuditSecurityFeedCard` sits on the RBAC page.
+  - It explains the precondition and offers a path field.
+  - Once configured, it shows the path with Change and Stop reading, a severity filter, and a DataTable of time, event, who, object, detail and outcome.
+- **Debate (single-agent, recorded here).**
+  - Reading audit events through the Kubernetes API was rejected: no such API exists.
+  - A dynamic audit webhook sink was rejected: it needs API server flags and an always-on receiver, which breaks local-first.
+  - Pulling from CloudWatch, GCP or Azure log APIs directly was deferred to an Enterprise-flavoured slice, since it needs cloud credentials. A synced local file covers it now.
+  - Spike detection for Secret reads was deferred. Raw rows with a severity filter come first.
+- **Next slices.** Cloud log sources (EKS CloudWatch, GKE Cloud Logging), Secret-read spike aggregation, links from an event to the object's drawer, and rotated-file (`audit.log.1`) awareness.
+
+### 48. Attack paths, narrow v1 (roadmap Tier 3 #24) — status: shipped 2026-10-01 (slice 1)
+Findings joined into prioritised chains instead of a flat list. Built on what already exists: Service/Ingress objects, NetworkPolicies, Trivy-Operator VulnerabilityReports (`vulnFindings.findingsForPod`) and the engine's RBAC findings (`/api/rbac/all`, subject `ServiceAccount ns/name`).
+
+- **Logic.** `lib/attackPaths.ts` (`findAttackPaths`) is pure.
+  - **Entry:** a LoadBalancer or NodePort Service selecting the pods, or an Ingress backed by a Service that selects them.
+  - **NetworkPolicy step:** the pods are ingress-isolated only if every pod is selected by an Ingress policy.
+  - **Foothold:** critical or high CVEs, de-duplicated by container and CVE.
+  - **Payoff:** RBAC findings for the pod's ServiceAccount, counted only while its token is mounted. "subject does not exist" isn't a privilege.
+  - Exposure alone is not listed. A path needs a foothold or a payoff, and "full chain" means both.
+  - Ranked full chains first, then by score: entry 1-2, +1 when not isolated, CVEs 2-3, RBAC 1-3.
+  - Pods group into their Deployment, derived from the ReplicaSet name minus `pod-template-hash`, so no ReplicaSet stream is needed.
+- **UI.** `AttackPathsCard` sits at the top of the RBAC/security page, read-only. When Trivy isn't installed it says CVEs are left out.
+- **Debate (single-agent, recorded here).**
+  - A graph visualisation was rejected for v1. A ranked table of chains answers "what do I fix first" and a graph doesn't.
+  - Using `evaluateConnection` per pod pair was rejected. The question is whether outside traffic is limited at all, not pod-to-pod reachability.
+  - Keeping partial chains was a judgement call. An exposed pod with a cluster-wide-secrets token is worth seeing even with no CVE scanner installed.
+- **Next slices.** Ingress-controller-aware isolation (is the controller's namespace allowed?), Secret reachability (which Secrets the token can read), a hostPath/privileged-pod step, and Gateway API HTTPRoutes as entries.
+
+### 50. Helm releases filters + loader audit — status: shipped 2026-10-02
+Owner-reported gaps on the Helm page.
+- **Helm releases:** the shared `NamespaceFilter` and a search box (name, namespace, chart, app version, status), a "· N of M" count when filtered, and a "No releases match" empty state.
+- **Loading states:**
+  - "Waiting for a cluster…" uses `PageLoader`.
+  - The drawer's history, values and manifest load as `SkeletonLines`, not a word.
+  - `SkeletonTable` and `DataTable` (`loading` + new `loadingLabel`) now caption their skeleton rows with the helm-wheel `Spinner` and what is loading, so every loading list shows the icon.
+- **App-wide audit:**
+  - Ports no longer flashes "No active tunnels" while loading.
+  - Crds header, PodPanel output wait, ResizePanel and SecretValueReveal lost their bare "Loading…" text.
+  - The `loadingStates` guard now fails on any `<p>`/`<div>` "Loading…"/"Waiting for…" text, and on any loading `DataTable` without a `loadingLabel`.
+### 51. Clusters page redesign — status: building (2a engine merged #108; 2b UI in PR)
+The owner asked to audit the cluster list, remove its drawer, show which clusters are connected, add Disconnect to the row menu, and add visualisations only if they earn their place. Three experts (UX, frontend/engine correctness, SRE/data-viz) reported, then a synthesis round cross-challenged them.
+
+**Rulings:**
+- **No latency badge.** Each probe builds a new clientset and runs exec-credential plugins, so the number would measure token fetching. Show `checkedAt` freshness instead.
+- **Disconnect needs engine teardown.** Informers outlive their last subscriber by 5 minutes, and pools never died. Also, `App.tsx` falls back from a missing active cluster to the first reachable one, which instantly reconnects; fix that in 2b.
+- **Sampler gate.** Sample only clusters that are connected or enrolled in usage history. History keeps filling, and unopened production contexts get no LIST traffic.
+- **One table, two status columns.** Session and API, with a stable order, instead of moving rows between sections.
+- **Pod mini-bar on connected rows only** (zero new traffic). The sparkline and headroom bar wait for follow-ups.
+
+**2a (engine):**
+- `clusters.Manager`:
+  - a connected set: `Connect`, `Disconnect`, `IsConnected`, `OnDisconnect`;
+  - `Cluster.connected` and `checkedAt`;
+  - a `checking` status until the first probe;
+  - probe results kept across kubeconfig reloads;
+  - sorted, stable order;
+  - a race-free probe (writes under the lock), and an immediate probe after a load.
+- `PoolRegistry.Close(id)` / `Pool.Close` stop every informer and subscription for the cluster, including impersonated pools, and stop the sweeper.
+- When the engine closes a stream, the hub sends a `cluster disconnected` error frame.
+- Opening a stream connects the cluster.
+- `POST /api/clusters/{id}/connect` and `/disconnect`. Disconnect is desktop-only; it returns 403 when OIDC is on.
+- `PFManager.StopCluster`, wired with `TeardownOnDisconnect`.
+- `waste.Sampler.SetGate`.
+
+**2b (UI):** `ClusterPicker` rebuilt with no drawer.
+- **Layout:** header summary ("N connected · N reachable · …") and a "Disconnect all" button. Columns are Name (with a provider badge), Session (Active / Connected / Error / —), API (Reachable / Unreachable / Config error / Checking…, with error and "checked Ns ago" in the tooltip), Version ("(stale)" when unreachable), a Pods health mini-bar and Nodes (connected rows only).
+- **Opening:** a row click or Enter opens the cluster. A config-error row expands its error instead.
+- **⋮ menu:** Open, Connect in background / Disconnect, Pin, Rename… (inline), Change icon…, Copy context, Copy server URL, Remove from list… (confirm `Modal`).
+- **Disconnect:** drops the background subscriptions and cached rows, removes that cluster's queries, calls the engine, and clears it as the active cluster.
+- **States:** an error banner with Retry, an empty state linking to Settings, and real engine health in the status bar.
+- **Removed:** `ClusterDetailDrawer`, the store's `selected` field, the dead History/Favorites sidebar, and raw buttons.
+- **Supporting changes:**
+  - `clusterConnections` is observable (`subscribeConnections`, version, `connectionError`, `clusterSummary`).
+  - `sortClusters` no longer reorders by last use.
+  - Search also matches context and server.
+  - `TableRow` is keyboard-reachable when clickable.
+- **"First reachable cluster" fallbacks removed:** App, ClusterStrip, Sidebar, the Custom Resources group and the palette's live pods now all use the opened cluster. Guarded by `activeCluster.test.ts`.
+
+**Follow-ups:**
+- rename the wire status `connected` to `reachable`;
+- batched `/api/history/summary` plus a 7-day sparkline;
+- allocatable and node count in the sampler, plus a headroom bar;
+- OIDC identity in `PoolRegistry.For`;
+- rebuild pools when credentials change;
+- `sanitizeID` collisions;
+- watcher misses the explicit kubeconfig path;
+- multi-window disconnect;
+- a "Last connected" column.
+### 52. Remove the Fleet view — status: shipped 2026-10-02
+The owner judged the Fleet page unnecessary.
+- **Removed:**
+  - the nav entry, `pages/Fleet.tsx` and its cards (cluster health, showback, consistency diff);
+  - the libs `fleetWaste`, `fleetShowback`, `fleetHealthOrder` and `fleetConsistency`, plus `useFleetWaste`;
+  - the stagger helpers only Fleet used, and all their tests.
+- **Bookmarks:** an old `/fleet` link now redirects to `/clusters`. The clusters page (#51) shows which clusters are connected, with pod health per connected cluster, so the useful part of Fleet's health cards lives there without streaming every reachable cluster.
+- **Kept:** `/api/waste/workloads` (Cost/Waste uses it) and `kindCounts` (WorkloadsOverview).
+- **Guard:** `noFleet.test.ts`.
 
 ### Further ideas worth a look (unscoped, one-liners)
 - **Revert unsaved YAML edits — SHIPPED 2026-09-27.** One-click "discard my in-progress edit" button in `YamlTab.tsx`, next to Reload — a local reset (no network call), unlike Reload which re-fetches from the server.

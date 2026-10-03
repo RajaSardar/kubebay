@@ -6,6 +6,8 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/RajaSardar/kubebay/engine/internal/audit"
@@ -16,6 +18,11 @@ import (
 type Channels struct {
 	Clusters *clusters.Manager
 	Audit    *audit.Logger
+
+	// dynOverride replaces the dynamic client in tests.
+	dynOverride func(ctx context.Context, cluster string) (dynamic.Interface, error)
+	// discoOverride replaces the discovery client in tests.
+	discoOverride func(ctx context.Context, cluster string) (discovery.DiscoveryInterface, error)
 }
 
 func (c *Channels) clientset(ctx context.Context, cluster string) (*kubernetes.Clientset, error) {

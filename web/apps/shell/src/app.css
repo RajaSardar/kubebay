@@ -82,6 +82,21 @@ body::before {
 }
 
 /* ── Cluster strip ── */
+/* The left nav hidden (⌘B or its own button): the content takes its width. */
+.app.sidebar-hidden {
+  grid-template-columns: 56px 0 minmax(0, 1fr);
+}
+
+.sidebar[hidden] {
+  display: none;
+}
+
+/* The rail's "Show sidebar" button sits at its foot while the nav is hidden. */
+.cluster-strip-foot {
+  margin-top: auto;
+  padding-top: 8px;
+}
+
 .cluster-strip {
   grid-area: cluster-strip;
   display: flex;
@@ -192,6 +207,12 @@ body::before {
   border-bottom: 1px solid var(--kb-border-subtle);
   margin: 0 -8px 8px;
   padding-left: 12px;
+}
+
+.brand .sidebar-toggle {
+  margin-left: auto;
+  margin-right: 4px;
+  flex-shrink: 0;
 }
 
 .brand-logo {
@@ -392,28 +413,6 @@ h2 {
   border-radius: 50%;
 }
 
-.loading-state {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--kb-radius-sm);
-  padding: var(--kb-space-6) var(--kb-space-5);
-  text-align: center;
-  background: var(--kb-bg-surface);
-  min-height: 200px;
-  margin-bottom: var(--kb-space-3);
-}
-
-/* Waiting for data is not the same as having none, so no dashed "you could put
-   something here" box — just the same centred, same-sized slot so the layout
-   doesn't jump when the data lands. */
-.loading-state {
-  border: 1px solid transparent;
-  color: var(--kb-fg-muted);
-}
-
 /* ── PageLoader ──────────────────────────────────────────────────────────────
    Full-content-area loader used by every page that has no data yet.
    Fills the available space, centers a spinner + message so the layout
@@ -434,19 +433,6 @@ h2 {
   font-size: var(--kb-text-sm);
   color: var(--kb-fg-muted);
   letter-spacing: 0.01em;
-}
-
-/* Same reason as .inline-banner: a rounded, bordered box dropped straight into
-   the unpadded .page ran flush to the window edge. Scoped to direct children so
-   the ones already inside a padded .page-body are not inset twice. */
-.page > .loading-state {
-  margin-left: var(--kb-gutter);
-  margin-right: var(--kb-gutter);
-}
-
-.mono {
-  font-family: var(--kb-font-mono);
-  font-size: var(--kb-text-sm);
 }
 
 .strong {
@@ -1237,6 +1223,12 @@ h2 {
 }
 
 /* ──── Cluster icon picker ──── */
+.workload-action-title {
+  font-size: var(--kb-text-md);
+  font-weight: 600;
+  color: var(--kb-fg-default);
+}
+
 .icon-picker {
   position: fixed;
   left: 56px;
@@ -1941,21 +1933,6 @@ h2 {
   font-size: var(--kb-text-sm);
 }
 
-/* "Show" on a hidden cluster in the cluster picker */
-.cp-show-btn {
-  padding: 3px 10px;
-  border-radius: var(--kb-radius-sm);
-  border: 1px solid var(--kb-border-subtle);
-  background: var(--kb-bg-surface);
-  color: var(--kb-fg-default);
-  cursor: pointer;
-  font-size: var(--kb-text-xs);
-  transition: background var(--kb-dur-fast);
-}
-.cp-show-btn:hover {
-  background: var(--kb-bg-hover);
-}
-
 /* "Back to clusters" link at the top of the sidebar */
 .cp-back-btn {
   display: flex;
@@ -1990,77 +1967,55 @@ h2 {
   position: relative;
 }
 
-/* ── Left sidebar ── */
-.catalog-sidebar {
-  width: 172px;
-  flex-shrink: 0;
+/* Header: brand mark, page title and the connection summary under it. */
+.catalog-header {
   display: flex;
   flex-direction: column;
-  background: var(--kb-bg-sidebar);
-  border-right: 1px solid var(--kb-border-subtle);
-  overflow-y: auto;
-  overscroll-behavior-y: contain;
-}
-
-.catalog-sidebar-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 14px 14px 12px;
+  gap: var(--kb-space-1);
+  padding: var(--kb-space-3) var(--kb-gutter) var(--kb-space-2);
   border-bottom: 1px solid var(--kb-border-subtle);
+  flex-shrink: 0;
 }
 
-.catalog-sidebar-logo {
-  width: 26px;
-  height: 26px;
+.catalog-header-logo {
+  width: 28px;
+  height: 28px;
   flex-shrink: 0;
   border-radius: var(--kb-radius-sm);
 }
 
-.catalog-sidebar-title {
-  font-weight: 600;
-  font-size: var(--kb-text-sm);
-  color: var(--kb-fg-default);
+.catalog-header-title {
+  flex: 1;
+  min-width: 0;
 }
 
-.catalog-sidebar-nav {
+/* Pod health of a connected cluster: healthy / pending / failing shares. */
+.cluster-podbar {
+  display: inline-flex;
+  width: 60px;
+  height: 6px;
+  border-radius: var(--kb-radius-sm);
+  overflow: hidden;
+  background: var(--kb-bg-hover);
+}
+
+.cluster-podbar-ok {
+  background: var(--kb-status-ok);
+}
+
+.cluster-podbar-pending {
+  background: var(--kb-status-pending);
+}
+
+.cluster-podbar-err {
+  background: var(--kb-status-err);
+}
+
+.catalog-confirm {
   display: flex;
   flex-direction: column;
-  padding: 10px 8px;
-  gap: 2px;
-}
-
-.catalog-nav-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 10px;
-  border-radius: var(--kb-radius);
-  font-size: var(--kb-text-sm);
-  color: var(--kb-fg-subtle);
-  cursor: pointer;
-  text-decoration: none;
-  transition: background var(--kb-dur), color var(--kb-dur);
-  user-select: none;
-}
-
-.catalog-nav-item:hover {
-  background: var(--kb-bg-hover);
-  color: var(--kb-fg-default);
-}
-
-.catalog-nav-item.active {
-  background: var(--kb-accent-subtle);
-  color: var(--kb-accent);
-  font-weight: 500;
-  box-shadow: inset 2px 0 0 var(--kb-accent);
-}
-
-.catalog-nav-icon {
-  width: 15px;
-  height: 15px;
-  flex-shrink: 0;
-  color: currentColor;
+  gap: var(--kb-space-3);
+  padding: var(--kb-space-4);
 }
 
 /* ── Main area ── */
@@ -2069,27 +2024,6 @@ h2 {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-}
-
-/* Title bar */
-.catalog-titlebar {
-  display: flex;
-  align-items: center;
-  padding: 11px 20px 10px;
-  border-bottom: 1px solid var(--kb-border-subtle);
-  flex-shrink: 0;
-}
-
-.catalog-titlebar-text {
-  font-size: var(--kb-text-md);
-  font-weight: 600;
-  color: var(--kb-fg-default);
-}
-
-.catalog-titlebar-count {
-  font-weight: 400;
-  color: var(--kb-fg-subtle);
-  margin-left: 6px;
 }
 
 /* Content row: table + optional detail drawer */
@@ -2190,15 +2124,6 @@ h2 {
   color: var(--kb-fg-subtle);
 }
 
-.catalog-engine-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--kb-status-ok);
-  box-shadow: 0 0 5px color-mix(in srgb, var(--kb-status-ok) 50%, transparent);
-  flex-shrink: 0;
-}
-
 .catalog-statusbar-sep {
   color: var(--kb-border-subtle);
 }
@@ -2213,217 +2138,6 @@ h2 {
   font-weight: 600;
   font-family: var(--kb-font-mono, monospace);
   font-size: var(--kb-text-xs);
-}
-
-/* ── Cluster detail drawer ──────────────────────────────────────────────────── */
-
-.cluster-drawer {
-  width: 300px;
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  border-left: 1px solid var(--kb-border-subtle);
-  background: var(--kb-bg-surface);
-  overflow-y: auto;
-  overscroll-behavior-y: contain;
-}
-
-.cluster-drawer-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px 10px;
-  border-bottom: 1px solid var(--kb-border-subtle);
-  flex-shrink: 0;
-}
-
-.cluster-drawer-header-title {
-  font-size: var(--kb-text-xs);
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  opacity: 0.55;
-}
-
-.cluster-drawer-body {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  padding: 20px 16px;
-}
-
-/* Large icon */
-.cluster-drawer-icon-wrap {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-}
-
-.cluster-drawer-icon {
-  width: 64px;
-  height: 64px;
-  border-radius: var(--kb-radius-lg);
-  font-size: var(--kb-text-icon);
-  font-weight: 700;
-  font-family: inherit;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  border: none;
-  transition: filter var(--kb-dur), transform var(--kb-dur);
-}
-.cluster-drawer-icon:hover {
-  filter: brightness(1.18);
-  transform: scale(1.04);
-}
-
-.cluster-drawer-icon-hint {
-  font-size: var(--kb-text-2xs);
-  opacity: 0.45;
-  letter-spacing: 0.02em;
-}
-
-/* Name row */
-.cluster-drawer-name-row {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.cluster-drawer-name {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 3px 6px;
-  border-radius: var(--kb-radius-sm);
-  transition: background var(--kb-dur);
-  font-size: var(--kb-text-lg);
-  font-weight: 600;
-  color: var(--kb-fg-default);
-  font-family: inherit;
-  max-width: 100%;
-}
-.cluster-drawer-name:hover {
-  background: var(--kb-bg-hover);
-}
-
-.cluster-drawer-name-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 200px;
-}
-
-.cluster-drawer-edit-icon {
-  opacity: 0.4;
-  flex-shrink: 0;
-  transition: opacity var(--kb-dur);
-}
-.cluster-drawer-name:hover .cluster-drawer-edit-icon {
-  opacity: 0.7;
-}
-
-.cluster-drawer-name-input {
-  font-size: var(--kb-text-lg);
-  font-weight: 600;
-  background: var(--kb-bg-hover);
-  border: 1px solid var(--kb-accent);
-  border-radius: var(--kb-radius-sm);
-  padding: 4px 8px;
-  color: var(--kb-fg-default);
-  width: 100%;
-  outline: none;
-}
-
-/* Metadata dl */
-.cluster-drawer-meta {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  column-gap: 12px;
-  row-gap: 8px;
-  margin: 0;
-}
-
-.cluster-drawer-meta dt {
-  font-size: var(--kb-text-xs);
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  opacity: 0.45;
-  white-space: nowrap;
-  padding-top: 1px;
-}
-
-.cluster-drawer-meta dd {
-  margin: 0;
-  font-size: var(--kb-text-sm);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-}
-
-.cluster-drawer-server {
-  word-break: break-all;
-  white-space: normal;
-  line-height: 1.4;
-}
-
-/* Action buttons */
-.cluster-drawer-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.cluster-drawer-btn {
-  width: 100%;
-  justify-content: center;
-}
-
-/* Danger zone */
-.cluster-drawer-danger-zone {
-  border-top: 1px solid var(--kb-border-subtle);
-  padding-top: 14px;
-}
-
-.cluster-drawer-remove-btn {
-  background: none;
-  border: none;
-  color: var(--kb-status-err);
-  font-size: var(--kb-text-sm);
-  cursor: pointer;
-  padding: 4px 2px;
-  font-family: inherit;
-  opacity: 0.7;
-  transition: opacity var(--kb-dur);
-}
-.cluster-drawer-remove-btn:hover {
-  opacity: 1;
-}
-
-.cluster-drawer-confirm {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.cluster-drawer-confirm p {
-  margin: 0;
-  line-height: 1.5;
-}
-
-.cluster-drawer-confirm-btns {
-  display: flex;
-  gap: 8px;
-  margin-top: 4px;
 }
 
 /* ══ Workload tab bar ═══════════════════════════════════════════════════════ */

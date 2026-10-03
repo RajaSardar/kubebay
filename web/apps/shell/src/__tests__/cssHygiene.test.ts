@@ -196,12 +196,10 @@ describe("overlays and buttons go through @kubebay/ui", () => {
   // @kubebay/ui component.
   const RAW_BUTTONS: Record<string, number> = {
     "App.tsx": 3,
-    "components/ClusterDetailDrawer.tsx": 3,
     "components/ClusterIconPicker.tsx": 2,
     "components/NamespaceFilter.tsx": 4,
     "components/Palette.tsx": 2,
     "components/PodGraphs.tsx": 2,
-    "pages/ClusterPicker.tsx": 1,
     "pages/Crds.tsx": 1,
     "pages/ResourceDetail.tsx": 1,
     "pages/ResourceTable.tsx": 1,

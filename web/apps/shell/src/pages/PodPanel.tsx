@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Badge, Button, InlineBanner, Select, StatusDot, Tabs, TextField, Drawer } from "@kubebay/ui";
+import { Badge, Button, InlineBanner, Row, Select, Spinner, StatusDot, Tabs, TextField, Drawer } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { usePodLogs, type PodLogsSpec } from "../lib/usePodLogs";
 import { ExecTerm, YamlTab } from "../components/heavy";
@@ -246,7 +246,14 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
           <div className="log-view" ref={viewRef}>
             {shown.length === 0 && status !== "idle" && (
               <div className="muted small" style={{ padding: 8 }}>
-                {status === "streaming" ? "Waiting for output…" : "No output."}
+                {status === "streaming" ? (
+                  <Row gap={2} align="center">
+                    <Spinner label={null} size={14} />
+                    <span>Waiting for output…</span>
+                  </Row>
+                ) : (
+                  "No output."
+                )}
               </div>
             )}
             {shown.map((l, i) => (

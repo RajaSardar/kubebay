@@ -54,13 +54,15 @@ func buildTestServer(t *testing.T) (*httptest.Server, *clusters.Manager) {
 	if err != nil {
 		t.Fatalf("auth: %v", err)
 	}
+	pf := httpapi.NewPFManager(mgr)
+	httpapi.TeardownOnDisconnect(mgr, registry, pf)
 	handler := httpapi.Router(httpapi.Deps{
 		Log:       log,
 		Clusters:  mgr,
 		Pools:     registry,
 		Hub:       hub,
 		Channels:  channels,
-		PF:        httpapi.NewPFManager(mgr),
+		PF:        pf,
 		Actions:   &httpapi.Actions{Clusters: mgr},
 		Metrics:   &httpapi.Metrics{Clusters: mgr},
 		RBAC:      &httpapi.RBAC{Clusters: mgr},

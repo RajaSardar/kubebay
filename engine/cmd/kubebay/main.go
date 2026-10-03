@@ -16,6 +16,7 @@ import (
 	"github.com/RajaSardar/kubebay/engine/internal/clusters"
 	"github.com/RajaSardar/kubebay/engine/internal/httpapi"
 	"github.com/RajaSardar/kubebay/engine/internal/informers"
+	"github.com/RajaSardar/kubebay/engine/internal/sigcheck"
 	"github.com/RajaSardar/kubebay/engine/internal/stream"
 	"github.com/RajaSardar/kubebay/engine/internal/waste"
 
@@ -87,16 +88,19 @@ func main() {
 	defer closeLocalShell()
 	hub := stream.NewHub(log, chanDeps)
 	pfManager := httpapi.NewPFManager(mgr)
+	// Disconnect (or a connected context leaving the kubeconfig) stops the
+	// cluster's informers, which ends its open streams, and its port-forwards.
+	httpapi.TeardownOnDisconnect(mgr, registry, pfManager)
 	actions := &httpapi.Actions{Clusters: mgr}
 	metrics := &httpapi.Metrics{Clusters: mgr}
 	rbac := &httpapi.RBAC{Clusters: mgr}
 	wasteCtx, cancelWaste := context.WithCancel(context.Background())
 	defer cancelWaste()
 	wasteSampler := waste.NewSampler(mgr, log)
-	wasteSampler.Start(wasteCtx)
 	helmMgr := httpapi.NewHelm(mgr, auditLog)
 	settingsMgr := httpapi.NewSettingsManager(mgr)
 	settingsMgr.LocalShell = localShellStatus
+	settingsMgr.AuditFeedDisabled = httpapi.AuditFeedBlockReason(*inCluster, auth.Enabled())
 	// Tier A (Prometheus) is a no-op until a cluster actually has one
 	// configured — this just wires up how to ask, per-cluster, same as
 	// promquery.go's own handlers.
@@ -107,6 +111,14 @@ func main() {
 		}
 		return set.PrometheusURLFor(cluster)
 	})
+	// Poll workloads only on clusters the user connected to or enrolled in
+	// usage history, never on every context that answers /version.
+	wasteSampler.SetGate(func(id string) bool { return mgr.IsConnected(id) || settingsMgr.HistoryEnabled(id) })
+	historyAPI, closeHistory := setupHistory(log, mgr, settingsMgr, wasteSampler, *inCluster, wasteCtx)
+	defer closeHistory()
+	// Started only now, after the history recorder is set, so the sampler
+	// goroutine never races those fields.
+	wasteSampler.Start(wasteCtx)
 	wasteSampler.StartTierA(wasteCtx)
 	nodeShell := &httpapi.NodeShellManager{Clusters: mgr, Settings: settingsMgr}
 	// An operator-supplied token (in-cluster, where there is no desktop app to
@@ -158,9 +170,12 @@ func main() {
 		RBAC:      rbac,
 		Helm:      helmMgr,
 		NodeShell: nodeShell,
+		NetDiag:   &httpapi.NetDiagManager{Clusters: mgr, Audit: auditLog},
+		ImageSigs: &httpapi.ImageSignatureAPI{Clusters: mgr, Checker: &sigcheck.Checker{}},
 		Settings:  settingsMgr,
 		Audit:     auditLog,
 		Waste:     wasteSampler,
+		History:   historyAPI,
 	}, token)
 
 	switch {

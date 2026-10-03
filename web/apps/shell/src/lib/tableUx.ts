@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState, type RefObject } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore, type RefObject } from "react";
+import { fmtAge } from "./resources";
 
 /** A row passes when every word of the query appears in one of its fields, ignoring case. */
 export function matchesFilter(fields: readonly string[], query: string): boolean {
@@ -6,6 +7,17 @@ export function matchesFilter(fields: readonly string[], query: string): boolean
   if (words.length === 0) return true;
   const hay = fields.map((f) => f.toLowerCase());
   return words.every((w) => hay.some((f) => f.includes(w)));
+}
+
+const naturalOrder = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
+
+/**
+ * Table sort order: numbers as numbers, text naturally, so "pod-9" sorts before
+ * "pod-10" and a count held as text ("10") sorts after "9". Case is ignored.
+ */
+export function compareValues(a: string | number, b: string | number): number {
+  if (typeof a === "number" && typeof b === "number") return a - b;
+  return naturalOrder.compare(String(a), String(b));
 }
 
 /** The row count for a table header: "12", or "3 of 340" when a filter hides some. */
@@ -19,6 +31,42 @@ export function absoluteTime(ts: string | undefined): string {
   const d = new Date(ts);
   if (Number.isNaN(d.getTime())) return "";
   return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "medium" });
+}
+
+// One clock for every Age cell on screen: a single 1s timer while any cell is
+// mounted. Each cell reads its label from the clock and React re-renders it
+// only when the label changes, so 5,000 rows showing "3d" cost nothing.
+const clock = { now: Date.now(), timer: undefined as ReturnType<typeof setInterval> | undefined, listeners: new Set<() => void>() };
+
+function subscribeClock(listener: () => void) {
+  clock.listeners.add(listener);
+  if (!clock.timer) {
+    clock.now = Date.now();
+    clock.timer = setInterval(() => {
+      clock.now = Date.now();
+      clock.listeners.forEach((l) => l());
+    }, 1000);
+  }
+  return () => {
+    clock.listeners.delete(listener);
+    if (clock.listeners.size === 0 && clock.timer) {
+      clearInterval(clock.timer);
+      clock.timer = undefined;
+    }
+  };
+}
+
+function clockNow() {
+  // With no timer running the clock is idle; read a fresh time, but hold it
+  // within the second so repeated reads in one render agree.
+  if (!clock.timer && Date.now() - clock.now >= 1000) clock.now = Date.now();
+  return clock.now;
+}
+
+/** A relative age ("5s", "3m", "2h", "4d") that keeps counting while the row's data stays the same. */
+export function useAgeLabel(ts: string | undefined): string {
+  const created = ts ? Date.parse(ts) : NaN;
+  return useSyncExternalStore(subscribeClock, () => (Number.isNaN(created) ? "" : fmtAge(Math.max(0, clockNow() - created))));
 }
 
 const SORT_KEY = (table: string) => `kb.sort.${table}`;
@@ -55,7 +103,7 @@ export function useSortPref(table: string) {
   return { col: state.col, asc: state.asc, toggle };
 }
 
-const TYPING = "input, textarea, select, [contenteditable='true'], .xterm, .monaco-editor";
+export const TYPING = "input, textarea, select, [contenteditable='true'], .xterm, .monaco-editor";
 
 export interface TableKeyboardOptions {
   count: number;

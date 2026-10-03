@@ -139,6 +139,21 @@ func (p *PFManager) Stop(id string) bool {
 	return true
 }
 
+// StopCluster stops every port-forward into a cluster (on disconnect).
+func (p *PFManager) StopCluster(cluster string) {
+	p.mu.Lock()
+	var ids []string
+	for id, e := range p.m {
+		if e.fw.Cluster == cluster {
+			ids = append(ids, id)
+		}
+	}
+	p.mu.Unlock()
+	for _, id := range ids {
+		p.Stop(id)
+	}
+}
+
 func (p *PFManager) List() []PortForward {
 	p.mu.Lock()
 	defer p.mu.Unlock()

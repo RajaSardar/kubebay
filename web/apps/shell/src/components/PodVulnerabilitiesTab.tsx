@@ -6,6 +6,7 @@ import { useResourceStream } from "../lib/useResourceStream";
 import { detectTrivyOperator } from "../lib/trivyOperator";
 import { controllerOwner } from "../lib/podOwner";
 import { findingsForPod, severityCounts, type VulnFinding } from "../lib/vulnFindings";
+import { InstallTrivyOperator } from "./InstallTrivyOperator";
 
 const SEVERITY_TONE: Record<string, "err" | "ok" | undefined> = {
   CRITICAL: "err",
@@ -20,12 +21,12 @@ const SEVERITY_TONE: Record<string, "err" | "ok" | undefined> = {
  * Trivy-Operator scans on a schedule, not on every pod start, so a freshly
  * rolled pod can show a report for an older image instance.
  */
-export function VulnFindingsSummary({ findings }: { findings: VulnFinding[] }) {
+export function VulnFindingsSummary({ findings, emptyLabel = "this pod" }: { findings: VulnFinding[]; emptyLabel?: string }) {
   const [showAll, setShowAll] = useState(false);
 
   if (findings.length === 0) {
     return (
-      <EmptyState style={{ padding: 14 }} title="No vulnerability findings for this pod." />
+      <EmptyState style={{ padding: 14 }} title={`No vulnerability findings for ${emptyLabel}.`} />
     );
   }
 
@@ -118,6 +119,19 @@ export function PodVulnerabilitiesTab({
     () => findingsForPod(reports.rows, { ns, ownerKind: owner.kind, ownerName: owner.name, containers }),
     [reports.rows, ns, owner, containers],
   );
+
+  // Distinguishes "Trivy-Operator not installed" from "installed, clean scan"
+  // -- the exact gap backlog #21's VPA-detection fix closed for the
+  // Right-sizing page. Before this, both cases rendered the identical
+  // generic "No vulnerability findings" empty state.
+  if (!crds.isLoading && !detection.installed) {
+    return (
+      <EmptyState style={{ padding: 14 }}>
+        <p>Trivy-Operator not detected on this cluster.</p>
+        <InstallTrivyOperator cluster={cluster} />
+      </EmptyState>
+    );
+  }
 
   return <VulnFindingsSummary findings={findings} />;
 }

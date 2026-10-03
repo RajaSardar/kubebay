@@ -25,6 +25,13 @@ type AppSettings struct {
 	ExtraKubeconfigs []string          `json:"extraKubeconfigs,omitempty"`
 	OnlyListed       bool              `json:"onlyListedKubeconfigs,omitempty"`
 	NodeShellImage   string            `json:"nodeShellImage,omitempty"`
+	// HistoryClusters is consent to record usage history (backlog #36):
+	// true once the user connects to a cluster, false after an explicit Stop.
+	// A cluster absent from the map is never recorded.
+	HistoryClusters map[string]bool `json:"historyClusters,omitempty"`
+	// AuditLogPaths maps a cluster to a local copy of its API server audit
+	// log (roadmap #26). Set only through /api/security/audit-log-path.
+	AuditLogPaths map[string]string `json:"auditLogPaths,omitempty"`
 }
 
 // PrometheusURLFor resolves the endpoint to query for one cluster. A
@@ -61,6 +68,9 @@ type SettingsManager struct {
 	mu  chan struct{}
 	// Fixed at startup by main; never written again, so it needs no locking.
 	LocalShell LocalShellStatus
+	// AuditFeedDisabled, when set, is why the audit-log feed is off in this
+	// deployment (see AuditFeedBlockReason). Fixed at startup by main.
+	AuditFeedDisabled string
 }
 
 func NewSettingsManager(mgr *clusters.Manager) *SettingsManager {
@@ -149,6 +159,7 @@ func (s *SettingsManager) HandleGet(w http.ResponseWriter, r *http.Request) {
 		"activeKubeconfigs":     s.mgr.ActiveKubeconfigs(),
 		"nodeShellImage":        set.NodeShellImage,
 		"nodeShellImageDefault": DefaultNodeShellImage,
+		"historyClusters":       set.HistoryClusters,
 		"localShell":            s.LocalShell,
 	})
 }
@@ -160,14 +171,19 @@ func (s *SettingsManager) HandleSave(w http.ResponseWriter, r *http.Request) {
 		OnlyListed       bool     `json:"onlyListedKubeconfigs"`
 		// Pointers so an omitted field keeps the stored value: callers that
 		// only save Prometheus settings must not wipe the node-shell image.
-		NodeShellImage *string            `json:"nodeShellImage"`
-		PrometheusURLs *map[string]string `json:"prometheusUrls"`
+		NodeShellImage  *string            `json:"nodeShellImage"`
+		PrometheusURLs  *map[string]string `json:"prometheusUrls"`
+		HistoryClusters *map[string]bool   `json:"historyClusters"`
 	}
 	if err := decodeBody(r, &incoming); err != nil {
 		http.Error(w, "bad body: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
+	// Load under the lock: loading first let a concurrent writer's change
+	// (an enroll, another save) be overwritten by this save's stale copy.
+	s.mu <- struct{}{}
+	defer func() { <-s.mu }()
 	current, _ := s.Load()
 	validated := make([]string, 0, len(incoming.ExtraKubeconfigs))
 	for _, p := range incoming.ExtraKubeconfigs {
@@ -190,9 +206,16 @@ func (s *SettingsManager) HandleSave(w http.ResponseWriter, r *http.Request) {
 
 	nodeShellImage := ""
 	var promURLs map[string]string
+	var historyClusters map[string]bool
+	var auditLogPaths map[string]string
 	if current != nil {
 		nodeShellImage = current.NodeShellImage
 		promURLs = current.PrometheusURLs
+		historyClusters = current.HistoryClusters
+		auditLogPaths = current.AuditLogPaths
+	}
+	if incoming.HistoryClusters != nil {
+		historyClusters = *incoming.HistoryClusters
 	}
 	if incoming.NodeShellImage != nil {
 		nodeShellImage = strings.TrimSpace(*incoming.NodeShellImage)
@@ -212,9 +235,9 @@ func (s *SettingsManager) HandleSave(w http.ResponseWriter, r *http.Request) {
 		ExtraKubeconfigs: validated,
 		OnlyListed:       incoming.OnlyListed,
 		NodeShellImage:   nodeShellImage,
+		HistoryClusters:  historyClusters,
+		AuditLogPaths:    auditLogPaths,
 	}
-	s.mu <- struct{}{}
-	defer func() { <-s.mu }()
 	if err := s.save(next); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -225,6 +248,47 @@ func (s *SettingsManager) HandleSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, map[string]any{"ok": true, "saved": next})
+}
+
+// EnrollHistory records consent when the user connects to a cluster. It
+// only adds a missing entry, so an explicit Stop survives reconnecting.
+// Returns whether the cluster is now recorded.
+func (s *SettingsManager) EnrollHistory(cluster string) (bool, error) {
+	s.mu <- struct{}{}
+	defer func() { <-s.mu }()
+	set, err := s.Load()
+	if err != nil {
+		return false, err
+	}
+	if on, ok := set.HistoryClusters[cluster]; ok {
+		return on, nil
+	}
+	if set.HistoryClusters == nil {
+		set.HistoryClusters = map[string]bool{}
+	}
+	set.HistoryClusters[cluster] = true
+	return true, s.save(set)
+}
+
+// SetHistoryRecording is the explicit Recording toggle.
+func (s *SettingsManager) SetHistoryRecording(cluster string, on bool) error {
+	s.mu <- struct{}{}
+	defer func() { <-s.mu }()
+	set, err := s.Load()
+	if err != nil {
+		return err
+	}
+	if set.HistoryClusters == nil {
+		set.HistoryClusters = map[string]bool{}
+	}
+	set.HistoryClusters[cluster] = on
+	return s.save(set)
+}
+
+// HistoryEnabled is the sampler's per-tick record filter.
+func (s *SettingsManager) HistoryEnabled(cluster string) bool {
+	set, err := s.Load()
+	return err == nil && set.HistoryClusters[cluster]
 }
 
 func normalizePromURL(u string) string {

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Badge, Button, InlineBanner, Row, TextField } from "@kubebay/ui";
+import { Badge, Button, InlineBanner, Row, SkeletonLines, TextField } from "@kubebay/ui";
 import { api, wasteApi } from "../lib/api";
 import { useResourceStream } from "../lib/useResourceStream";
 import { resolveWorkloadOwner } from "../lib/podOwner";
@@ -148,7 +148,7 @@ export function ResizePanel({
   return (
     <div style={{ padding: 14 }}>
       <div className="rbac-section-title">Resize container "{container}"</div>
-      {live.isLoading && <div className="muted small" style={{ marginBottom: 8 }}>Loading current resources…</div>}
+      {live.isLoading && <SkeletonLines lines={2} label="Loading current resources…" />}
       {live.isError && <InlineBanner flush style={{ marginBottom: 10 }}>Could not load current resources.</InlineBanner>}
       {suggestion && (
         <InlineBanner role="status" style={{ marginBottom: 10 }}>

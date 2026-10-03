@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { YamlTab } from "../YamlTab";
 import { api } from "../../lib/api";
-import { PolicyRejectionError } from "../../lib/policyRejection";
+import { PolicyRejectionError, StaleEditError } from "../../lib/policyRejection";
 
 vi.mock("@monaco-editor/react", () => ({
   default: ({ onChange }: { onChange: (v: string) => void }) => (
@@ -159,3 +159,47 @@ describe("YamlTab — structured policy rejection", () => {
     expect(await screen.findByText(/connection refused/)).toBeTruthy();
   });
 });
+
+describe("YamlTab — edits are patched, not server-side applied", () => {
+  it("sends the YAML it loaded as the original, so only edited fields are patched", async () => {
+    vi.mocked(api.applyYaml).mockResolvedValueOnce({ applied: true, dryRun: false, patchType: "strategic", changedPaths: ["data.k"] });
+    render(<YamlTab {...props} />);
+    fireEvent.click(await screen.findByTestId("editor"));
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    expect(await screen.findByText("Applied: patched 1 field.")).toBeTruthy();
+    const req = vi.mocked(api.applyYaml).mock.calls.at(-1)![0];
+    expect(req.original).toBe("kind: ConfigMap\nmetadata:\n  name: example\n");
+    expect(req.yaml).toContain("# edited");
+  });
+
+  it("says when an edit changed nothing the cluster stores", async () => {
+    vi.mocked(api.applyYaml).mockResolvedValueOnce({ applied: false, dryRun: false, noop: true, changedPaths: [] });
+    render(<YamlTab {...props} />);
+    fireEvent.click(await screen.findByTestId("editor"));
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    expect(await screen.findByText("Nothing to apply: no stored field changed.")).toBeTruthy();
+  });
+
+  it("tells the user a Helm upgrade or rollback will restore the chart's values", async () => {
+    render(<YamlTab {...props} helmRelease="api-consumers-in" />);
+    await screen.findByTestId("editor");
+    const banner = screen.getByText(/Helm release/);
+    expect(banner.textContent).toContain("api-consumers-in");
+    expect(banner.textContent).toMatch(/next helm upgrade or rollback/i);
+  });
+});
+
+describe("YamlTab — stale edits", () => {
+  it("names the fields that changed on the cluster and offers a reload instead of overwriting", async () => {
+    vi.mocked(api.applyYaml).mockRejectedValueOnce(new StaleEditError(["spec.template.spec.containers[name=app].env[name=REGION].value"]));
+    render(<YamlTab {...props} />);
+    fireEvent.click(await screen.findByTestId("editor"));
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    expect(await screen.findByText(/changed on the cluster since you opened this editor/)).toBeTruthy();
+    expect(screen.getByText("spec.template.spec.containers[name=app].env[name=REGION].value")).toBeTruthy();
+    const calls = vi.mocked(api.getYamlText).mock.calls.length;
+    fireEvent.click(screen.getByRole("button", { name: "Reload current version" }));
+    expect(vi.mocked(api.getYamlText).mock.calls.length).toBe(calls + 1);
+  });
+});
+

@@ -1,11 +1,25 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Badge, Button, Card, PageHeader, Select, StatusDot, TextField } from "@kubebay/ui";
 import { PageLoader } from "../components/PageLoader";
 import { RbacFindingsCard } from "../components/RbacFindingsCard";
-import { rbacApi, type RBACSnapshot } from "../lib/api";
+import { ServiceAccountAutomountCard } from "../components/ServiceAccountAutomountCard";
+import { SecretExposureCard } from "../components/SecretExposureCard";
+import { ImageSignatureCard } from "../components/ImageSignatureCard";
+import { RunningImageSignaturesCard } from "../components/RunningImageSignaturesCard";
+import { OrphanedSecretsCard } from "../components/OrphanedSecretsCard";
+import { AttackPathsCard } from "../components/AttackPathsCard";
+import { AuditSecurityFeedCard } from "../components/AuditSecurityFeedCard";
+import { crdApi, rbacApi, type RBACSnapshot } from "../lib/api";
+import { detectImageSignatureEngines, summarizeImageSignaturePolicies } from "../lib/imageSignature";
 import type { FindingQuery } from "../lib/rbacFindings";
+import { findDefaultServiceAccountAutomounts } from "../lib/serviceAccountAutomount";
+import { findSecretEnvExposures } from "../lib/secretExposure";
+import { findOrphanedSecrets } from "../lib/orphanedSecrets";
+import { findAttackPaths } from "../lib/attackPaths";
+import { detectTrivyOperator } from "../lib/trivyOperator";
 import { useCluster } from "../lib/useCluster";
+import { useResourceStream } from "../lib/useResourceStream";
 import { DEFS, EXTRA_DEFS } from "../lib/resources";
 
 type Rule = RBACSnapshot["roles"][number]["rules"][number];
@@ -85,6 +99,91 @@ export default function Rbac() {
   const [searched, setSearched] = useState(false);
 
   const data = snap.data;
+
+  // Backlog #28: independent of the rbacApi.all snapshot above -- pod specs
+  // and ServiceAccount objects aren't part of that server-computed RBAC
+  // analysis, so this streams them directly, same pattern every other
+  // client-side detector this session uses.
+  const automountPods = useResourceStream(effectiveCluster || undefined, "v1/pods", { mode: "full" });
+  const automountSAs = useResourceStream(effectiveCluster || undefined, "v1/serviceaccounts", { mode: "full" });
+  const automountFindings = useMemo(
+    () => findDefaultServiceAccountAutomounts(automountPods.rows, automountSAs.rows),
+    [automountPods.rows, automountSAs.rows],
+  );
+
+  // Backlog #29: independent of the rbacApi.all snapshot -- pod env specs
+  // aren't part of that server-computed RBAC analysis.
+  const secretExposureFindings = useMemo(() => findSecretEnvExposures(automountPods.rows), [automountPods.rows]);
+
+  // Backlog #32: signature-verification policies, streamed only for the engines the cluster actually has.
+  const crds = useQuery({
+    queryKey: ["crds", effectiveCluster],
+    queryFn: () => crdApi.list(effectiveCluster),
+    enabled: !!effectiveCluster,
+    staleTime: 5 * 60_000,
+    retry: false,
+  });
+  const sigEngines = useMemo(() => detectImageSignatureEngines(crds.data ?? []), [crds.data]);
+  const { kyvernoClusterPolicyGvr: kcpGvr, kyvernoPolicyGvr: kpGvr, sigstoreClusterImagePolicyGvr: cipGvr } = sigEngines;
+  const kyvernoClusterPolicies = useResourceStream(kcpGvr ? effectiveCluster || undefined : undefined, kcpGvr ?? "", { mode: "full", enabled: !!kcpGvr });
+  const kyvernoPolicies = useResourceStream(kpGvr ? effectiveCluster || undefined : undefined, kpGvr ?? "", { mode: "full", enabled: !!kpGvr });
+  const sigstorePolicies = useResourceStream(cipGvr ? effectiveCluster || undefined : undefined, cipGvr ?? "", { mode: "full", enabled: !!cipGvr });
+  const namespaces = useResourceStream(
+    sigEngines.sigstoreClusterImagePolicyGvr ? effectiveCluster || undefined : undefined,
+    "v1/namespaces",
+    { enabled: !!sigEngines.sigstoreClusterImagePolicyGvr },
+  );
+  const imageSignatureReport = useMemo(
+    () =>
+      summarizeImageSignaturePolicies({
+        kyverno: [...kyvernoClusterPolicies.rows, ...kyvernoPolicies.rows],
+        sigstore: sigstorePolicies.rows,
+        namespaces: namespaces.rows,
+      }),
+    [kyvernoClusterPolicies.rows, kyvernoPolicies.rows, sigstorePolicies.rows, namespaces.rows],
+  );
+  const sigEnginesInstalled = !!(sigEngines.kyvernoClusterPolicyGvr || sigEngines.kyvernoPolicyGvr || sigEngines.sigstoreClusterImagePolicyGvr);
+
+  // Backlog #35: unreferenced Secret finder. Secrets stay in metadata mode —
+  // the finder needs names/labels/annotations only, not values.
+  const secrets = useResourceStream(effectiveCluster || undefined, "v1/secrets", { mode: "metadata" });
+  const ingresses = useResourceStream(effectiveCluster || undefined, "networking.k8s.io/v1/ingresses", { mode: "full" });
+  const deployments = useResourceStream(effectiveCluster || undefined, "apps/v1/deployments", { mode: "full" });
+  const statefulSets = useResourceStream(effectiveCluster || undefined, "apps/v1/statefulsets", { mode: "full" });
+  const cronJobs = useResourceStream(effectiveCluster || undefined, "batch/v1/cronjobs", { mode: "full" });
+  const orphanedSecrets = useMemo(
+    () =>
+      findOrphanedSecrets({
+        secrets: secrets.rows,
+        pods: automountPods.rows,
+        workloads: [...deployments.rows, ...statefulSets.rows, ...cronJobs.rows],
+        serviceAccounts: automountSAs.rows,
+        ingresses: ingresses.rows,
+      }),
+    [secrets.rows, automountPods.rows, deployments.rows, statefulSets.rows, cronJobs.rows, automountSAs.rows, ingresses.rows],
+  );
+
+  // Roadmap Tier 3 #24: the findings above joined into chains from outside traffic.
+  const services = useResourceStream(effectiveCluster || undefined, "v1/services", { mode: "full" });
+  const networkPolicies = useResourceStream(effectiveCluster || undefined, "networking.k8s.io/v1/networkpolicies", { mode: "full" });
+  const trivy = useMemo(() => detectTrivyOperator(crds.data ?? []), [crds.data]);
+  const vulnReports = useResourceStream(
+    trivy.vulnerabilityReportGvr ? effectiveCluster || undefined : undefined,
+    trivy.vulnerabilityReportGvr ?? "",
+    { mode: "full", enabled: !!trivy.vulnerabilityReportGvr },
+  );
+  const attackPaths = useMemo(
+    () =>
+      findAttackPaths({
+        pods: automountPods.rows,
+        services: services.rows,
+        ingresses: ingresses.rows,
+        networkPolicies: networkPolicies.rows,
+        vulnReports: vulnReports.rows,
+        rbacFindings: data?.findings ?? [],
+      }),
+    [automountPods.rows, services.rows, ingresses.rows, networkPolicies.rows, vulnReports.rows, data?.findings],
+  );
 
   function runWhoCan(override?: FindingQuery) {
     if (!data) return;
@@ -234,7 +333,21 @@ export default function Rbac() {
         )}
       </Card>
 
+      <AttackPathsCard paths={attackPaths} trivyInstalled={trivy.installed} />
+
       <RbacFindingsCard findings={data?.findings ?? []} onQuery={applyFindingQuery} />
+
+      <ServiceAccountAutomountCard findings={automountFindings} />
+
+      <SecretExposureCard findings={secretExposureFindings} />
+
+      <ImageSignatureCard report={imageSignatureReport} enginesInstalled={sigEnginesInstalled} />
+
+      <RunningImageSignaturesCard cluster={effectiveCluster} />
+
+      <OrphanedSecretsCard secrets={orphanedSecrets} />
+
+      <AuditSecurityFeedCard cluster={effectiveCluster} />
 
       <Card>
         <div className="rbac-section-title">My access</div>

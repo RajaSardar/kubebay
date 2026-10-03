@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Badge, Button, Drawer, IconButton, InlineBanner, Select, SkeletonLines, Stack, StatusDot, Tabs, TextField } from "@kubebay/ui";
+import { Badge, Button, Drawer, IconButton, InlineBanner, SkeletonLines, StatusDot, Tabs, TextField } from "@kubebay/ui";
 import { api, nodeApi } from "../lib/api";
 import { ExecTerm, YamlTab } from "./heavy";
 import { EventsDrawer } from "./EventsDrawer";
@@ -10,15 +10,16 @@ import { MetadataSummary } from "./MetadataSummary";
 import { RolloutProgress } from "./RolloutProgress";
 import { AutoscalingTab } from "./AutoscalingTab";
 import { PolicyFindingsTab } from "./PolicyFindingsTab";
+import { WorkloadVulnerabilitiesTab } from "./WorkloadVulnerabilitiesTab";
+import { TimelineTab } from "./TimelineTab";
 import { RightSizingBanner } from "./RightSizingBanner";
 import type { ResourceDef } from "../lib/resources";
-import { ownerOf } from "../lib/gitops";
+import { helmReleaseOf, ownerOf } from "../lib/gitops";
 
 // ── Tab types per resource kind ──────────────────────────────────────────────
 type NodeTab = "summary" | "shell" | "yaml";
 type SvcTab = "summary" | "yaml";
-type PodTab = "yaml" | "events" | "terminal";
-type GenTab = "summary" | "rollout" | "autoscaling" | "policy" | "yaml" | "events";
+type GenTab = "summary" | "rollout" | "timeline" | "autoscaling" | "policy" | "vulnerabilities" | "yaml" | "events";
 
 // KEDA ScaledObjects, HPAs, and VPAs can all target these kinds — every
 // other generic kind (ConfigMap, Secret, …) has nothing to autoscale.
@@ -66,10 +67,8 @@ function SplitDivider({
 function PaneContent({
   isNode,
   isService,
-  isPod,
   nodeTab,
   svcTab,
-  podTab,
   genTab,
   cluster,
   def,
@@ -81,15 +80,11 @@ function PaneContent({
   shellErr,
   creating,
   onStartShell,
-  podContainer,
-  onSetPodContainer,
 }: {
   isNode: boolean;
   isService: boolean;
-  isPod: boolean;
   nodeTab: NodeTab;
   svcTab: SvcTab;
-  podTab: PodTab;
   genTab: GenTab;
   cluster: string;
   def: ResourceDef;
@@ -101,8 +96,6 @@ function PaneContent({
   shellErr: string;
   creating: boolean;
   onStartShell: () => void;
-  podContainer: string;
-  onSetPodContainer: (c: string) => void;
 }) {
   // def.kind is the declared Kind; for a CRD route it is only guessed from the
   // plural, so prefer the Kind the live object reports once it has loaded.
@@ -141,36 +134,7 @@ function PaneContent({
       </div>
     );
   }
-  if (isPod && podTab === "terminal") {
-    const containers = parsePodContainers(obj);
-    const effectiveContainer = podContainer || containers[0] || "";
-    return (
-      <Stack className="term-wrap" style={{ height: "100%" }}>
-        {containers.length > 1 && (
-          <div style={{ padding: "4px 8px", borderBottom: "1px solid var(--kb-border-subtle)", flexShrink: 0 }}>
-            <Select
-              value={effectiveContainer}
-              onChange={(e) => onSetPodContainer(e.target.value)}
-              style={{ fontSize: "var(--kb-text-xs)", height: 24 }}
-            >
-              {containers.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </Select>
-          </div>
-        )}
-        <ExecTerm key={`${cluster}/${ns}/${name}/${effectiveContainer}`} cluster={cluster} namespace={ns} pod={name} container={effectiveContainer} />
-      </Stack>
-    );
-  }
-  if (isPod && podTab === "events") {
-    return (
-      <div style={{ padding: 14 }}>
-        <EventsDrawer cluster={cluster} namespace={ns} name={name} kind={eventKind} />
-      </div>
-    );
-  }
-  if (!isNode && !isService && !isPod && genTab === "summary") {
+  if (!isNode && !isService && genTab === "summary") {
     if (objLoading) return <SkeletonLines lines={6} label="Loading details…" />;
     return (
       <div>
@@ -183,24 +147,35 @@ function PaneContent({
       </div>
     );
   }
-  if (!isNode && !isService && !isPod && genTab === "rollout") {
+  if (!isNode && !isService && genTab === "rollout") {
     if (objLoading) return <SkeletonLines lines={6} label="Loading details…" />;
     return <RolloutProgress cluster={cluster} namespace={ns} obj={obj} />;
   }
-  if (!isNode && !isService && !isPod && genTab === "autoscaling") {
-    return <AutoscalingTab cluster={cluster} ns={ns} name={name} kind={def.kind} />;
-  }
-  if (!isNode && !isService && !isPod && genTab === "policy") {
-    return <PolicyFindingsTab cluster={cluster} ns={ns} name={name} kind={def.kind} />;
-  }
-  if ((isNode && nodeTab === "yaml") || (isService && svcTab === "yaml") || (isPod && podTab === "yaml") || (!isNode && !isService && !isPod && genTab === "yaml")) {
+  if (!isNode && !isService && genTab === "timeline") {
+    if (objLoading) return <SkeletonLines lines={6} label="Loading details…" />;
     return (
-      <div className="yaml-wrap">
-        <YamlTab cluster={cluster} gvr={def.gvr} ns={ns} name={name} gitopsOwner={ownerOf(obj)} />
+      <div style={{ padding: 14 }}>
+        <TimelineTab cluster={cluster} ns={ns} obj={obj} />
       </div>
     );
   }
-  if (!isNode && !isService && !isPod && genTab === "events") {
+  if (!isNode && !isService && genTab === "autoscaling") {
+    return <AutoscalingTab cluster={cluster} ns={ns} name={name} kind={def.kind} />;
+  }
+  if (!isNode && !isService && genTab === "policy") {
+    return <PolicyFindingsTab cluster={cluster} ns={ns} name={name} kind={def.kind} />;
+  }
+  if (!isNode && !isService && genTab === "vulnerabilities") {
+    return <WorkloadVulnerabilitiesTab cluster={cluster} ns={ns} name={name} kind={def.kind} />;
+  }
+  if ((isNode && nodeTab === "yaml") || (isService && svcTab === "yaml") || (!isNode && !isService && genTab === "yaml")) {
+    return (
+      <div className="yaml-wrap">
+        <YamlTab cluster={cluster} gvr={def.gvr} ns={ns} name={name} gitopsOwner={ownerOf(obj)} helmRelease={helmReleaseOf(obj)} />
+      </div>
+    );
+  }
+  if (!isNode && !isService && genTab === "events") {
     return (
       <div style={{ padding: 14 }}>
         <EventsDrawer cluster={cluster} namespace={ns} name={name} kind={eventKind} />
@@ -208,13 +183,6 @@ function PaneContent({
     );
   }
   return null;
-}
-
-function parsePodContainers(obj: Record<string, unknown> | null): string[] {
-  if (!obj) return [];
-  const spec = (obj.spec ?? {}) as Record<string, unknown>;
-  const containers = (spec.containers ?? []) as Array<Record<string, unknown>>;
-  return containers.map((c) => c.name as string).filter(Boolean);
 }
 
 // ── Mini tab bar for a pane ───────────────────────────────────────────────────
@@ -257,7 +225,6 @@ export default function GenericDrawer({
 
   const isNode = def.slug === "nodes";
   const isService = def.slug === "services";
-  const isPod = def.slug === "pods";
 
   // Per-kind split persistence key
   const splitKey = `kb.split.${def.slug}`;
@@ -265,8 +232,6 @@ export default function GenericDrawer({
   // ── Single-pane tab state ────────────────────────────────────────────────
   const [nodeTab, setNodeTab] = useState<NodeTab>(initialTab ?? "summary");
   const [svcTab, setSvcTab] = useState<SvcTab>(initialTab ?? "summary");
-  const [podTab, setPodTab] = useState<PodTab>("yaml");
-  const [podContainer, setPodContainer] = useState("");
   const [genTab, setGenTab] = useState<GenTab>(initialTab ?? "summary");
 
   // ── Split-pane state ─────────────────────────────────────────────────────
@@ -283,8 +248,6 @@ export default function GenericDrawer({
   const [rightNodeTab, setRightNodeTab] = useState<NodeTab>("yaml");
   const [leftSvcTab, setLeftSvcTab] = useState<SvcTab>("summary");
   const [rightSvcTab, setRightSvcTab] = useState<SvcTab>("yaml");
-  const [leftPodTab, setLeftPodTab] = useState<PodTab>("yaml");
-  const [rightPodTab, setRightPodTab] = useState<PodTab>("terminal");
   const [leftGenTab, setLeftGenTab] = useState<GenTab>("events");
   const [rightGenTab, setRightGenTab] = useState<GenTab>("yaml");
 
@@ -389,16 +352,14 @@ export default function GenericDrawer({
   }, [splitKey]);
 
   useEffect(() => {
-    // Fetched for every kind: Node/Service/Pod use it for their bespoke summary, and generic
+    // Fetched for every kind: Node/Service use it for their bespoke summary, and generic
     // kinds use it for the Summary tab (MetadataSummary) added alongside YAML + Events.
     setObjLoading(true);
     api.getObject(cluster, def.gvr, ns, name)
       .then((o) => setObj(o))
       .catch(() => setObj(null))
       .finally(() => setObjLoading(false));
-    // Reset container selection when pod changes
-    if (isPod) setPodContainer("");
-  }, [cluster, def.gvr, ns, name, isPod]);
+  }, [cluster, def.gvr, ns, name]);
 
   async function doDelete() {
     if (input !== name) {
@@ -426,18 +387,32 @@ export default function GenericDrawer({
   // ── Tab label maps ───────────────────────────────────────────────────────
   const nodeTabLabels: Record<NodeTab, string> = { summary: "Summary", shell: "Terminal", yaml: "YAML" };
   const svcTabLabels: Record<SvcTab, string> = { summary: "Summary", yaml: "YAML" };
-  const podTabLabels: Record<PodTab, string> = { yaml: "YAML", events: "Events", terminal: "Terminal" };
-  const genTabLabels: Record<GenTab, string> = { summary: "Summary", rollout: "Rollout", autoscaling: "Autoscaling", policy: "Policy", yaml: "YAML", events: "Events" };
+  const genTabLabels: Record<GenTab, string> = {
+    summary: "Summary",
+    rollout: "Rollout",
+    timeline: "Timeline",
+    autoscaling: "Autoscaling",
+    policy: "Policy",
+    vulnerabilities: "Vulnerabilities",
+    yaml: "YAML",
+    events: "Events",
+  };
   // Rollout progress only makes sense for Deployments (old-RS-vs-new-RS
   // replica counts); Autoscaling only for kinds an HPA/VPA/ScaledObject can
   // target. Policy findings apply to any resource except a PolicyReport
-  // itself (findings about findings would be circular). Every other
-  // generic kind keeps the plain three tabs.
+  // itself (findings about findings would be circular). Vulnerabilities
+  // (backlog #16 Phase 2) only for the same three kinds right-sizing covers —
+  // Trivy-Operator's own resource.kind label only ever resolves to a
+  // ReplicaSet/StatefulSet/DaemonSet, matching RIGHTSIZABLE_SLUGS exactly.
+  // Every other generic kind keeps the plain three tabs.
   const genTabs: GenTab[] = [
     "summary",
     ...(def.slug === "deployments" ? (["rollout"] as const) : []),
+    // Resource Timeline (roadmap Tier 2 #18): the pod-owning workload kinds.
+    ...(RIGHTSIZABLE_SLUGS.has(def.slug) ? (["timeline"] as const) : []),
     ...(AUTOSCALABLE_SLUGS.has(def.slug) ? (["autoscaling"] as const) : []),
     ...(def.slug !== "policyreports" && def.slug !== "clusterpolicyreports" ? (["policy"] as const) : []),
+    ...(RIGHTSIZABLE_SLUGS.has(def.slug) ? (["vulnerabilities"] as const) : []),
     "yaml",
     "events",
   ];
@@ -446,7 +421,6 @@ export default function GenericDrawer({
   const sharedContentProps = {
     isNode,
     isService,
-    isPod,
     cluster,
     def,
     ns,
@@ -457,8 +431,6 @@ export default function GenericDrawer({
     shellErr,
     creating,
     onStartShell: () => void startShell(),
-    podContainer,
-    onSetPodContainer: setPodContainer,
   };
 
   return (
@@ -547,10 +519,7 @@ export default function GenericDrawer({
       {!split && isService && (
         <Tabs tabs={["summary", "yaml"] as const} active={svcTab} labels={svcTabLabels} onChange={setSvcTab} />
       )}
-      {!split && isPod && (
-        <Tabs tabs={["yaml", "events", "terminal"] as const} active={podTab} labels={podTabLabels} onChange={setPodTab} />
-      )}
-      {!split && !isNode && !isService && !isPod && (
+      {!split && !isNode && !isService && (
         <Tabs tabs={genTabs} active={genTab} labels={genTabLabels} onChange={setGenTab} />
       )}
 
@@ -576,15 +545,7 @@ export default function GenericDrawer({
                 onChange={setLeftSvcTab}
               />
             )}
-            {isPod && (
-              <PaneTabs
-                tabs={["yaml", "events", "terminal"] as const}
-                active={leftPodTab}
-                labels={podTabLabels}
-                onChange={setLeftPodTab}
-              />
-            )}
-            {!isNode && !isService && !isPod && (
+            {!isNode && !isService && (
               <PaneTabs
                 tabs={genTabs}
                 active={leftGenTab}
@@ -597,7 +558,6 @@ export default function GenericDrawer({
                 {...sharedContentProps}
                 nodeTab={leftNodeTab}
                 svcTab={leftSvcTab}
-                podTab={leftPodTab}
                 genTab={leftGenTab}
               />
             </div>
@@ -624,15 +584,7 @@ export default function GenericDrawer({
                 onChange={setRightSvcTab}
               />
             )}
-            {isPod && (
-              <PaneTabs
-                tabs={["yaml", "events", "terminal"] as const}
-                active={rightPodTab}
-                labels={podTabLabels}
-                onChange={setRightPodTab}
-              />
-            )}
-            {!isNode && !isService && !isPod && (
+            {!isNode && !isService && (
               <PaneTabs
                 tabs={genTabs}
                 active={rightGenTab}
@@ -645,7 +597,6 @@ export default function GenericDrawer({
                 {...sharedContentProps}
                 nodeTab={rightNodeTab}
                 svcTab={rightSvcTab}
-                podTab={rightPodTab}
                 genTab={rightGenTab}
               />
             </div>
@@ -657,7 +608,6 @@ export default function GenericDrawer({
           {...sharedContentProps}
           nodeTab={nodeTab}
           svcTab={svcTab}
-          podTab={podTab}
           genTab={genTab}
         />
       )}

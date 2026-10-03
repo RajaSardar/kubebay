@@ -123,6 +123,49 @@ describe("table primitives", () => {
     expect(screen.getByText("default")).toHaveClass("ns-pill");
   });
 
+  it("SortHeader sorts from the keyboard: focusable, Enter or Space", () => {
+    const onSort = vi.fn();
+    const outer = vi.fn();
+    render(
+      <div onKeyDown={(e) => outer(e.defaultPrevented)}>
+        <table>
+          <thead>
+            <tr>
+              <SortHeader label="Failed" onSort={onSort} />
+            </tr>
+          </thead>
+        </table>
+      </div>,
+    );
+    const th = screen.getByRole("columnheader", { name: "Failed" });
+    expect(th).toHaveAttribute("tabindex", "0");
+    fireEvent.keyDown(th, { key: "Enter" });
+    fireEvent.keyDown(th, { key: " " });
+    expect(onSort).toHaveBeenCalledTimes(2);
+    expect(onSort).toHaveBeenCalledWith("Failed");
+    // Handled here, so the table's own Enter (open the active row) stands down.
+    expect(outer).toHaveBeenCalledWith(true);
+    fireEvent.keyDown(th, { key: "a" });
+    expect(onSort).toHaveBeenCalledTimes(2);
+  });
+
+  it("a clickable row is reachable by keyboard and opens with Enter", () => {
+    const onClick = vi.fn();
+    render(
+      <table>
+        <tbody>
+          <TableRow clickable onClick={onClick}>
+            <td>row</td>
+          </TableRow>
+        </tbody>
+      </table>,
+    );
+    const row = screen.getByRole("row");
+    expect(row).toHaveAttribute("tabindex", "0");
+    fireEvent.keyDown(row, { key: "Enter" });
+    expect(onClick).toHaveBeenCalledTimes(1);
+  });
+
   it("SkeletonRows fills a loading table", () => {
     render(
       <table>
@@ -196,6 +239,15 @@ describe("DataTable", () => {
     expect(screen.getByText("No pods.")).toBeInTheDocument();
     rerender(<DataTable columns={columns} rows={[]} rowKey={(p) => p.name} loading />);
     expect(screen.getByRole("table").querySelectorAll(".kb-skeleton").length).toBeGreaterThan(0);
+  });
+
+  it("DataTable shows the helm-wheel spinner with its loading label while loading", () => {
+    const { rerender } = render(<DataTable columns={columns} rows={[]} rowKey={(p) => p.name} loading loadingLabel="Loading pods…" />);
+    const caption = screen.getByRole("table").querySelector("caption.kb-table-loading")!;
+    expect(caption.querySelector(".kb-spinner svg")).not.toBeNull();
+    expect(caption).toHaveTextContent("Loading pods…");
+    rerender(<DataTable columns={columns} rows={[{ name: "a", phase: "Running", age: "1m" }]} rowKey={(p) => p.name} />);
+    expect(screen.getByRole("table").querySelector("caption")).toBeNull();
   });
 });
 

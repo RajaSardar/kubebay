@@ -27,23 +27,12 @@ describe("sortClusters", () => {
     expect(result[1]!.id).toBe("a");
   });
 
-  it("among pinned, sorts by lastUsed desc", () => {
-    const list = [mkCluster("old"), mkCluster("new")];
-    const meta: Record<string, ClusterMeta> = {
-      old: { pinned: true, lastUsed: 1000 },
-      new: { pinned: true, lastUsed: 9000 },
-    };
-    const result = sortClusters(list, meta);
-    expect(result[0]!.id).toBe("new");
-  });
-
-  it("among unpinned, sorts by lastUsed desc before alpha", () => {
+  // Rows must not jump when you open one: order is pinned first, then by
+  // name, and never by last use.
+  it("ignores lastUsed so the order stays put after opening a cluster", () => {
     const list = [mkCluster("a"), mkCluster("b"), mkCluster("c")];
     const meta: Record<string, ClusterMeta> = { c: { lastUsed: 5000 } };
-    const result = sortClusters(list, meta);
-    expect(result[0]!.id).toBe("c"); // recently used first
-    expect(result[1]!.id).toBe("a"); // then alpha
-    expect(result[2]!.id).toBe("b");
+    expect(sortClusters(list, meta).map((c) => c.id)).toEqual(["a", "b", "c"]);
   });
 
   it("pinned comes before recently-used unpinned", () => {
@@ -95,3 +84,13 @@ describe("filterClusters", () => {
     expect(filterClusters(list, meta, "prod")).toHaveLength(0);
   });
 });
+
+describe("filterClusters matches what the user sees", () => {
+  it("finds a cluster by its context (an EKS ARN with ':' and '/') and by server URL", () => {
+    const c = { id: "arn-aws-eks-eu-west-1-123-cluster-prod", context: "arn:aws:eks:eu-west-1:123:cluster/prod", server: "https://ABC.gr7.eu-west-1.eks.amazonaws.com", status: "connected" as const };
+    expect(filterClusters([c], {}, "cluster/prod")).toHaveLength(1);
+    expect(filterClusters([c], {}, "eks.amazonaws")).toHaveLength(1);
+    expect(filterClusters([c], {}, "staging")).toHaveLength(0);
+  });
+});
+

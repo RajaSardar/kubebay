@@ -60,4 +60,9 @@ describe("RbacFindingsCard", () => {
     const titles = screen.getAllByText(/one$/).map((el) => el.textContent);
     expect(titles).toEqual(["High one", "Medium one"]);
   });
+
+  it("tags each finding with its framework control IDs", () => {
+    render(<RbacFindingsCard findings={[finding({ title: "Cluster-wide pod exec access" })]} onQuery={vi.fn()} />);
+    expect(screen.getByText("ATT&CK T1609")).toBeInTheDocument();
+  });
 });

@@ -1,14 +1,12 @@
 import { create } from "zustand";
+import { historyApi } from "./api";
 
 const ACTIVE_CLUSTER_KEY = "kubebay.activeCluster";
 
 interface ClusterState {
   /** The cluster actively connected to (persisted, drives navigation). */
   active: string;
-  /** The row highlighted in the catalog (ephemeral preview, no navigation). */
-  selected: string;
   setActive: (id: string) => void;
-  setSelected: (id: string) => void;
 }
 
 // URL param takes precedence (macOS window-restore preserves the full URL).
@@ -28,10 +26,12 @@ try { localStorage.removeItem(ACTIVE_CLUSTER_KEY); } catch { /* ignore */ }
 
 export const useClusterStore = create<ClusterState>((set) => ({
   active: urlCluster || storedCluster,
-  selected: "",
   setActive: (active) => {
     try { sessionStorage.setItem(ACTIVE_CLUSTER_KEY, active); } catch { /* quota */ }
     set({ active });
+    // Connecting is the consent to record usage history for this cluster
+    // (backlog #36). The engine keeps an explicit Stop, and a failure here
+    // must never get in the way of connecting.
+    if (active) historyApi.enroll(active).catch(() => {});
   },
-  setSelected: (selected) => set({ selected }),
 }));

@@ -1,38 +1,24 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams, useLocation } from "react-router-dom";
-import { Badge, Button, EmptyState, IconButton, InlineBanner, NsPill, PageHeader, phaseTone, SelectAllHeader, SelectCell, SkeletonTable, SortHeader, StatusDot, Table, TableRow, TableWrap, TextField } from "@kubebay/ui";
-import { api, crdApi, metricsApi, type PrinterColumn } from "../lib/api";
+import { CellLink, EmptyState, StatusDot } from "@kubebay/ui";
+import { api, crdApi, type PrinterColumn } from "../lib/api";
 import { useQuery as useRQQuery } from "@tanstack/react-query";
-import { useVirtualizer } from "@tanstack/react-virtual";
 import { useCluster } from "../lib/useCluster";
-import { useResourceStream, shouldShowSkeleton } from "../lib/useResourceStream";
-import { ageOf, fmtAge, lookupDef, num, str, type ResourceDef } from "../lib/resources";
-import { fmtBytes, fmtCpu } from "./Workloads";
-import { useResizableColumns } from "../lib/useResizableColumns";
-import { useRowSelection } from "../lib/useRowSelection";
-import { useBulkDelete } from "../lib/useBulkDelete";
-import { useDisplay, type Density } from "../lib/display";
+import { useResourceStream } from "../lib/useResourceStream";
+import { fmtAge, lookupDef, num, str, type ResourceDef } from "../lib/resources";
+import { fmtBytes, fmtCpu } from "../lib/format";
+import { useNodeExtras } from "../lib/useNodeExtras";
 import { evalPrinterPath } from "../lib/printerPath";
-import { ownerOf, ownerLabel, ownerAmongTargets, ownerWarning } from "../lib/gitops";
-import { absoluteTime, countLabel, matchesFilter, useSortPref, useTableKeyboard } from "../lib/tableUx";
+import { ownerOf, ownerLabel, ownerPath } from "../lib/gitops";
 import { templateKindFor } from "../lib/resourceTemplates";
-
-// Row height (px) per density level — must stay in sync with ROW_PADDING_VALUES in display.ts
-// compact: 4+4px pad + ~20px line + 1px border = 29px
-// default: 8+8px pad + ~20px line + 1px border = 37px
-// relaxed: 12+12px pad + ~20px line + 1px border = 45px
-const ROW_HEIGHT: Record<Density, number> = {
-  compact: 29,
-  default: 37,
-  relaxed: 45,
-};
+import { podsOfWorkloadPath } from "../lib/selector";
+import { ResourceListView, type ListColumn } from "../components/ResourceListView";
 
 import GenericDrawer from "../components/GenericDrawer";
-import { ContextMenu } from "../components/ContextMenu";
+import { WorkloadActionDialog, workloadActions } from "../components/WorkloadActionDialog";
 import { StarButton } from "../components/Favorites";
 import { NamespaceFilter } from "../components/NamespaceFilter";
-import { PolicyRejectionCard } from "../components/PolicyRejectionCard";
-import { useNamespaceStore, useSelectedNamespaces } from "../lib/namespace-store";
+import { useSelectedNamespaces } from "../lib/namespace-store";
 import { WorkloadTabBar, isWorkloadRoute } from "../components/WorkloadTabBar";
 
 type Row = Record<string, unknown>;
@@ -275,48 +261,6 @@ export function extraColumns(
         Type: (o) => ({ v: str(rec(o).type) || "Opaque" }),
         Data: (o) => ({ v: `${Object.keys(rec(o.data)).length} keys` }),
       };
-    case "pods":
-      return {
-        // Containers column: the cell value is unused — ContainerDots renders the dots
-        Containers: (o) => {
-          const cs = (rec(o.status).containerStatuses ?? []) as Record<string, unknown>[];
-          const total = cs.length || (rec(o.spec).containers as unknown[] | undefined)?.length || 0;
-          return { v: String(total) };
-        },
-        Status: (o) => {
-          const phase = str(rec(o.status).phase) || "Unknown";
-          const tone = phaseTone(phase);
-          const dot: Cell["dot"] =
-            tone === "ok" || tone === "terminated" ? "ok" : tone === "err" ? "err" : tone === "pending" ? "pending" : undefined;
-          return { v: phase, cls: tone ? `status-${tone}` : "muted", dot };
-        },
-        Ready: (o) => {
-          const cs = (rec(o.status).containerStatuses ?? []) as Record<string, unknown>[];
-          const total = cs.length || (rec(o.spec).containers as unknown[] | undefined)?.length || 0;
-          const ready = cs.filter((c) => c.ready === true).length;
-          const phase = str(rec(o.status).phase);
-          const dot: Cell["dot"] = phase === "Running" && ready === total && total > 0 ? "ok"
-            : phase === "Succeeded" ? "ok"
-            : phase === "Failed" ? "err"
-            : phase === "Pending" ? "pending"
-            : ready > 0 ? "warn" : "err";
-          return { v: `${ready}/${total}`, dot };
-        },
-        Restarts: (o) => {
-          const cs = (rec(o.status).containerStatuses ?? []) as Record<string, unknown>[];
-          const total = cs.reduce((sum, c) => sum + (typeof c.restartCount === "number" ? c.restartCount : 0), 0);
-          return { v: String(total), dot: total > 5 ? "err" : total > 0 ? "warn" : undefined };
-        },
-        "Controlled By": (o) => {
-          const owners = (rec(o.metadata).ownerReferences ?? []) as Record<string, unknown>[];
-          if (!owners.length) return { v: "–", cls: "muted" };
-          const owner = owners[0]!;
-          return { v: str(owner.kind) || "–", cls: "cell-secondary" };
-        },
-        Node: (o) => ({ v: str(rec(o.spec).nodeName) || "–" }),
-        QoS: (o) => ({ v: str(rec(o.status).qosClass) || "–", cls: "cell-secondary" }),
-        "Pod IP": (o) => ({ v: str(rec(o.status).podIP) || "–" }),
-      };
     case "events":
       return {
         Type: (o) => {
@@ -344,56 +288,16 @@ export function ownerCell(o: Row): Cell {
   return owner ? { v: ownerLabel(owner), cls: "muted" } : { v: "–", cls: "muted" };
 }
 
-// ── Per-container status squares (FreeLens-style dots) ──────────────────────
-type ContainerState = "ok" | "waiting" | "err" | "terminated";
-
-function containerState(cs: Record<string, unknown>): ContainerState {
-  if (cs.ready === true) return "ok";
-  const st = cs.state as Record<string, unknown> | undefined;
-  if (!st) return "waiting";
-  if (st.terminated != null) {
-    const exitCode = (st.terminated as Record<string, unknown>).exitCode;
-    return typeof exitCode === "number" && exitCode !== 0 ? "err" : "terminated";
-  }
-  if (st.waiting != null) return "waiting";
-  return "waiting";
-}
-
-const CONTAINER_DOT_COLOR: Record<ContainerState, string> = {
-  ok: "var(--kb-status-ok)",
-  waiting: "var(--kb-status-pending)",
-  err: "var(--kb-status-err)",
-  terminated: "var(--kb-status-terminated)",
-};
-
-function ContainerDots({ o }: { o: Row }) {
-  const cs = (rec(o.status).containerStatuses ?? []) as Record<string, unknown>[];
-  const specContainers = (rec(o.spec).containers ?? []) as unknown[];
-  const total = cs.length || specContainers.length;
-  if (total === 0) return <span className="muted">–</span>;
-  return (
-    <span className="container-dots">
-      {cs.length > 0
-        ? cs.map((c, i) => (
-            <span
-              key={i}
-              className="container-dot"
-              title={`${str(c.name)}: ${containerState(c)}`}
-              style={{ background: CONTAINER_DOT_COLOR[containerState(c)] }}
-            />
-          ))
-        : Array.from({ length: total }, (_, i) => (
-            <span
-              key={i}
-              className="container-dot"
-              title="pending"
-              style={{ background: CONTAINER_DOT_COLOR["waiting"] }}
-            />
-          ))}
-    </span>
-  );
-}
-
+const nameOf = (r: Row) => str(rec(r.metadata).name);
+const nsOf = (r: Row) => str(rec(r.metadata).namespace);
+const createdOf = (r: Row) => str(rec(r.metadata).creationTimestamp);
+const isTerminating = (r: Row) => !!rec(r.metadata).deletionTimestamp;
+const labelsOf = (r: Row) => rec(r.metadata).labels as Record<string, string> | undefined;
+/** A column's key in the filter: "Capacity type" → capacity-type. */
+const filterKeyOf = (header: string) => header.toLowerCase().replace(/\s+/g, "-");
+const versionOf = (r: Row) => str(rec(r.metadata).resourceVersion);
+/** Kinds whose row menu offers "Show pods" (they select pods by label). */
+const HAS_PODS = new Set(["deployments", "statefulsets", "daemonsets", "replicasets", "jobs"]);
 
 export default function ResourceTable() {
   const { kind = "" } = useParams();
@@ -403,51 +307,17 @@ export default function ResourceTable() {
 
   const location = useLocation();
   const { cluster: effectiveCluster } = useCluster();
-  const { density } = useDisplay();
-  const scrollRef = useRef<HTMLDivElement>(null);
 
   const nsFilter = useSelectedNamespaces(effectiveCluster || undefined);
-  const { setNamespaces } = useNamespaceStore();
-  const [search, setSearch] = useState("");
-  const filterRef = useRef<HTMLInputElement>(null);
-  const sort = useSortPref(`r/${kind}`);
-  const sortCol = sort.col;
-  const sortAsc = sort.asc;
   const [selected, setSelected] = useState<{ ns: string; name: string; tab?: "yaml" } | null>(null);
-  const [ctx, setCtx] = useState<{ x: number; y: number; ns: string; name: string } | null>(null);
-  const [hoveredRowKey, setHoveredRowKey] = useState<string | null>(null);
+  const [rowAction, setRowAction] = useState<{ action: "scale" | "restart"; obj: Row } | null>(null);
 
   const stream = useResourceStream(effectiveCluster || undefined, def?.gvr ?? "v1/configmaps", {
     mode: def?.mode,
     ns: def && !def.scoped && nsFilter.length > 0 ? nsFilter : undefined,
   });
 
-  const nodeUsageQ = useRQQuery({
-    queryKey: ["nodemetrics", effectiveCluster],
-    queryFn: () => metricsApi.nodes(effectiveCluster),
-    enabled: !!effectiveCluster && def?.slug === "nodes",
-    refetchInterval: 15_000,
-    retry: false,
-  });
-  const nodeUsage = useMemo(() => {
-    const m = new Map<string, { cpuMillis: number; memBytes: number }>();
-    for (const u of nodeUsageQ.data ?? []) m.set(u.name, u);
-    return m;
-  }, [nodeUsageQ.data]);
-
-  const nodePods = useResourceStream(
-    effectiveCluster || undefined,
-    "v1/pods",
-    { mode: "full", enabled: def?.slug === "nodes" },
-  );
-  const podsPerNode = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const r of nodePods.rows as Record<string, unknown>[]) {
-      const nodeName = str(rec(rec(r.spec).nodeName));
-      if (nodeName) m.set(nodeName, (m.get(nodeName) ?? 0) + 1);
-    }
-    return m;
-  }, [nodePods.rows]);
+  const { nodeUsage, podsPerNode } = useNodeExtras(effectiveCluster, def?.slug === "nodes");
 
   // Fetch CRD metadata (printer columns) for ext-- resources
   const isCRD = kind.startsWith("ext--");
@@ -464,112 +334,76 @@ export default function ResourceTable() {
     return match?.columns ?? [];
   }, [isCRD, crdListQ.data, def]);
 
-  const cols = useMemo(
-    () => Object.keys(def ? extraColumns(def.slug, { nodeUsage, podsPerNode }) : {}),
-    [def, nodeUsage, podsPerNode],
-  );
+  // The kind's columns, then CRD printer columns, then Owner. The filter
+  // matches, and headers sort by, every one of them.
+  const columns = useMemo<ListColumn<Row>[]>(() => {
+    const extra = def ? extraColumns(def.slug, { nodeUsage, podsPerNode }) : {};
+    return [
+      ...Object.entries(extra).map(([col, cellOf]): ListColumn<Row> => ({
+        id: col,
+        header: col,
+        sortValue: (o) => cellOf(o).v,
+        filterText: (o) => String(cellOf(o).v),
+        filterKey: filterKeyOf(col),
+        cell: (o) => {
+          const cell = cellOf(o);
+          return (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
+              {cell.dot ? healthDot(cell.dot) : null}
+              {cell.to ? (
+                <span
+                  className="cell-link"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/detail/${cell.to!.kind}/${cell.to!.ns || "_"}/${cell.to!.name}`);
+                  }}
+                >
+                  {cell.v}
+                </span>
+              ) : (
+                <span className={cell.cls ?? ""}>{cell.v}</span>
+              )}
+            </span>
+          );
+        },
+      })),
+      ...printerColumns.map((pc): ListColumn<Row> => ({
+        id: pc.name,
+        header: pc.name,
+        cell: (o) => evalPrinterPath(pc.jsonPath, o) || <span className="muted">–</span>,
+        sortValue: (o) => evalPrinterPath(pc.jsonPath, o),
+        filterText: (o) => evalPrinterPath(pc.jsonPath, o),
+        filterKey: filterKeyOf(pc.name),
+      })),
+      {
+        // "Managed by", not "Owner": this is the GitOps app (Argo CD / Flux), not
+        // Kubernetes ownerReferences. The id stays Owner so saved sorts keep working.
+        id: "Owner",
+        header: "Managed by",
+        cell: (o) => {
+          const owner = ownerOf(o);
+          if (!owner) return "–";
+          const to = ownerPath(owner);
+          return (
+            <CellLink
+              href={to}
+              onClick={(e) => {
+                e.preventDefault();
+                navigate(to);
+              }}
+            >
+              {ownerLabel(owner)}
+            </CellLink>
+          );
+        },
+        sortValue: (o) => ownerCell(o).v,
+        filterText: (o) => ownerCell(o).v,
+        filterKey: "owner",
+      },
+    ];
+  }, [def, nodeUsage, podsPerNode, printerColumns, navigate]);
 
-  function cellFor(slug: string, col: string, o: Row): Cell {
-    return extraColumns(slug, { nodeUsage, podsPerNode })[col]?.(o) ?? { v: "" };
-  }
-
-  const headers = useMemo(
-    () => ["Name", ...(def?.scoped ? [] : ["Namespace"]), ...cols, ...printerColumns.map((c) => c.name), "Owner", "Age"],
-    [def, cols, printerColumns],
-  );
-
-  // Column widths: Name=240, Namespace=120, extra cols=110, Age=75
-  const initialWidths = useMemo(
-    () => headers.map((h) => h === "Name" ? 240 : h === "Namespace" ? 120 : h === "Age" ? 75 : 110),
-    [headers],
-  );
-  const { widths, getResizeHandleProps } = useResizableColumns(headers.length, initialWidths);
-  const { selectedKeys, toggleRow, selectAll, clearAll, deselect, isAllSelected, isIndeterminate } = useRowSelection();
-  const bulkDelete = useBulkDelete((t) => {
-    const owner = ownerAmongTargets([t], rows);
-    return api.deleteResource({
-      cluster: effectiveCluster,
-      gvr: def?.gvr ?? "",
-      ns: t.ns,
-      name: t.name,
-      gitopsOwner: owner ? ownerLabel(owner) : undefined,
-    });
-  });
-
-  const rows = useMemo(() => {
-    let out = [...stream.rows];
-    if (search.trim()) {
-      // Name, namespace and every column the table shows, so "crash" or a node
-      // name finds rows as well as a name does.
-      out = out.filter((r) => {
-        const meta = rec(r.metadata);
-        return matchesFilter(
-          [str(meta.name), str(meta.namespace), ...cols.map((c) => String(cellFor(def?.slug ?? "", c, r).v))],
-          search,
-        );
-      });
-    }
-    if (sortCol) {
-      out.sort((a, b) => {
-        let av: string | number, bv: string | number;
-        if (sortCol === "Name") {
-          av = str(rec(a.metadata).name);
-          bv = str(rec(b.metadata).name);
-        } else if (sortCol === "Namespace") {
-          av = str(rec(a.metadata).namespace);
-          bv = str(rec(b.metadata).namespace);
-        } else if (sortCol === "Age") {
-          av = ageOf(a);
-          bv = ageOf(b);
-        } else {
-          const cellA = cellFor(def?.slug ?? "", sortCol, a);
-          const cellB = cellFor(def?.slug ?? "", sortCol, b);
-          av = cellA.v;
-          bv = cellB.v;
-        }
-        if (typeof av === "number" && typeof bv === "number") return sortAsc ? av - bv : bv - av;
-        return sortAsc ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
-      });
-    } else {
-      out.sort((a, b) => str(rec(a.metadata).name).localeCompare(str(rec(b.metadata).name)));
-    }
-    return out;
-  }, [stream.rows, search, sortCol, sortAsc, def, cols]);
-
-  const allKeys = useMemo(
-    () => rows.map((o) => {
-      const meta = rec(o.metadata);
-      return `${str(meta.namespace)}/${str(meta.name)}`;
-    }),
-    [rows],
-  );
-
-  const rowVirtualizer = useVirtualizer({
-    count: rows.length,
-    getScrollElement: () => scrollRef.current,
-    estimateSize: () => ROW_HEIGHT[density],
-    overscan: 5,
-  });
-
-  const openRow = useCallback((i: number) => {
-    const meta = rec(rows[i]?.metadata);
-    if (rows[i]) setSelected({ ns: str(meta.namespace), name: str(meta.name) });
-  }, [rows]);
-  const toggleRowAt = useCallback((i: number) => {
-    const key = allKeys[i];
-    if (key) toggleRow(key);
-  }, [allKeys, toggleRow]);
-  const clearSearch = useCallback(() => setSearch(""), []);
-  const { active: activeRow } = useTableKeyboard({
-    count: rows.length,
-    onOpen: openRow,
-    onToggle: toggleRowAt,
-    filterRef,
-    onClearFilter: clearSearch,
-  });
-  useEffect(() => {
-    if (activeRow >= 0) rowVirtualizer.scrollToIndex(activeRow, { align: "auto" });
-  }, [activeRow, rowVirtualizer]);
+  const onOpen = useCallback((r: Row) => setSelected({ ns: nsOf(r), name: nameOf(r) }), []);
 
   if (!def) {
     return (
@@ -581,276 +415,70 @@ export default function ResourceTable() {
     );
   }
 
-  const toggleSort = sort.toggle;
   const createKind = templateKindFor(def.slug);
-
-  async function confirmDelete() {
-    const succeeded = await bulkDelete.confirm();
-    deselect(succeeded.map((t) => `${t.ns}/${t.name}`));
-  }
 
   return (
     <div className="page">
       {isWorkloadRoute(location.pathname) && <WorkloadTabBar />}
-      <PageHeader
-        level={2}
+      <ResourceListView<Row>
         title={
           <>
             {def.label}
             <StarButton path={`/r/${kind}`} />
           </>
         }
+        label={def.label}
+        rows={stream.rows}
+        objects={stream.rows}
+        synced={stream.synced}
+        busy={!stream.synced}
         live={stream.synced}
-        actions={
-          <>
-            {selectedKeys.size > 0 && (
-              <>
-                <span className="muted small">{selectedKeys.size} selected</span>
-                <Button
-                  variant="danger"
-                  onClick={() => {
-                    bulkDelete.request(
-                      [...selectedKeys].map((key) => {
-                        const i = key.indexOf("/");
-                        return { ns: key.slice(0, i), name: key.slice(i + 1) };
-                      }),
-                    );
-                  }}
-                >
-                  Delete {selectedKeys.size} selected
-                </Button>
-              </>
-            )}
-            <Badge title={rows.length === stream.rows.length ? undefined : "Shown of total"}>
-              {countLabel(rows.length, stream.rows.length)}
-            </Badge>
-          </>
+        cluster={effectiveCluster}
+        scoped={def.scoped}
+        nsFiltered={nsFilter.length > 0}
+        nameOf={nameOf}
+        nsOf={nsOf}
+        createdOf={createdOf}
+        isDimmed={isTerminating}
+        labelsOf={labelsOf}
+        versionOf={versionOf}
+        columns={columns}
+        sortKey={`r/${kind}`}
+        onOpen={onOpen}
+        toolbar={!def.scoped && <NamespaceFilter cluster={effectiveCluster || undefined} />}
+        onDelete={(t, gitopsOwner) =>
+          api.deleteResource({ cluster: effectiveCluster, gvr: def.gvr, ns: t.ns, name: t.name, gitopsOwner })
         }
+        menuItems={(o, { requestDelete }) => {
+          const ns = nsOf(o);
+          const name = nameOf(o);
+          return [
+            { label: "View details", onClick: () => setSelected({ ns, name }) },
+            { label: "Edit YAML", onClick: () => setSelected({ ns, name, tab: "yaml" }) },
+            ...(HAS_PODS.has(def.slug)
+              ? [
+                  (() => {
+                    const to = podsOfWorkloadPath(o, def.kind);
+                    return { label: "Show pods", disabled: !to, onClick: () => to && navigate(to) };
+                  })(),
+                ]
+              : []),
+            ...(workloadActions(def.slug).scale ? [{ label: "Scale…", onClick: () => setRowAction({ action: "scale", obj: o }) }] : []),
+            ...(workloadActions(def.slug).restart ? [{ label: "Restart…", onClick: () => setRowAction({ action: "restart", obj: o }) }] : []),
+            { label: "Copy name", onClick: () => void navigator.clipboard?.writeText(name) },
+            { separator: true, label: "", onClick: () => {} },
+            { label: "Delete", danger: true, onClick: requestDelete },
+          ];
+        }}
       />
 
-      {bulkDelete.pending && (
-        <InlineBanner>
-          <span>
-            {bulkDelete.pending.length === 1 ? (
-              <>
-                Delete <strong className="mono">{bulkDelete.pending[0]!.name}</strong>
-                {bulkDelete.pending[0]!.ns ? ` in ${bulkDelete.pending[0]!.ns}` : ""}? This can&apos;t be undone.
-              </>
-            ) : (
-              <>
-                Delete {bulkDelete.pending.length} selected {def.label.toLowerCase()}? This can&apos;t be undone.
-              </>
-            )}
-            {(() => {
-              const owner = ownerAmongTargets(bulkDelete.pending, rows);
-              return owner && <div className="small">{ownerWarning(owner)}</div>;
-            })()}
-          </span>
-          <div className="inline-banner-actions">
-            <Button variant="ghost" disabled={bulkDelete.busy} onClick={bulkDelete.cancel}>
-              Cancel
-            </Button>
-            <Button variant="danger" disabled={bulkDelete.busy} onClick={() => void confirmDelete()}>
-              {bulkDelete.busy ? "Deleting…" : "Delete"}
-            </Button>
-          </div>
-        </InlineBanner>
-      )}
-      {bulkDelete.rejection && <PolicyRejectionCard flush={false} rejection={bulkDelete.rejection} />}
-      {!bulkDelete.rejection && bulkDelete.error && <InlineBanner>{bulkDelete.error}</InlineBanner>}
-
-      <div className="toolbar">
-        {!def.scoped && (
-          <NamespaceFilter cluster={effectiveCluster || undefined} />
-        )}
-        <TextField
-          ref={filterRef}
-          placeholder={`Filter ${def.label.toLowerCase()}…  /`}
-          aria-label={`Filter ${def.label.toLowerCase()}`}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          spellCheck={false}
-        />
-      </div>
-
-      {shouldShowSkeleton(stream.synced, stream.rows.length) ? (
-        <SkeletonTable headers={headers} widths={widths} rows={10} leadingBlank label={`Loading ${def.label.toLowerCase()}…`} />
-      ) : rows.length === 0 ? (
-        <EmptyState>
-          <p>No {def.label.toLowerCase()} match.</p>
-          <p className="muted small">{search || nsFilter.length ? "Loosen the filters." : `Nothing in this ${def.scoped ? "cluster" : "namespace"} yet.`}</p>
-        </EmptyState>
-      ) : (
-        <TableWrap ref={scrollRef} busy={!stream.synced}>
-          <Table>
-            <colgroup>
-              <col style={{ width: 40 }} />
-              {headers.map((h, i) => <col key={h} style={{ width: widths[i] }} />)}
-              <col style={{ width: 36 }} /> {/* ⋮ column */}
-            </colgroup>
-            <thead>
-              <tr>
-                {/* Select-all checkbox */}
-                <SelectAllHeader
-                  checked={isAllSelected(allKeys)}
-                  indeterminate={isIndeterminate(allKeys)}
-                  onChange={(checked) => (checked ? selectAll(allKeys) : clearAll())}
-                />
-                {headers.map((h, i) => (
-                  <SortHeader
-                    key={h}
-                    label={h}
-                    active={sortCol === h}
-                    asc={sortAsc}
-                    onSort={() => toggleSort(h)}
-                    width={widths[i]}
-                    style={{ position: "relative" }}
-                  >
-                    <div className="col-resize-handle" {...getResizeHandleProps(i)} />
-                  </SortHeader>
-                ))}
-                <th className="col-row-menu" style={{ width: 36 }} /> {/* ⋮ header spacer */}
-              </tr>
-            </thead>
-            <tbody>
-              {/*
-                Space for rows above/below the virtualized window must be real
-                <tr> elements, not padding on <tbody>: browsers ignore
-                padding/margin on table row groups and rows (only cells honor
-                it), so a `<tbody style={{ paddingTop, paddingBottom }}>` never
-                actually grows the container's scrollable area. That silently
-                caps how far the list can scroll to roughly the handful of
-                mounted rows, which is exactly the "only a few rows show and
-                scrolling doesn't reveal the rest" bug — an inline `height` on
-                a spacer <tr>, unlike padding, IS honored by table layout.
-              */}
-              {(() => {
-                const top = rowVirtualizer.getVirtualItems()[0]?.start ?? 0;
-                return top > 0 ? (
-                  <tr aria-hidden style={{ height: top }}>
-                    <td style={{ padding: 0, border: "none" }} colSpan={headers.length + 2} />
-                  </tr>
-                ) : null;
-              })()}
-              {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                const o = rows[virtualRow.index]!;
-                const meta = rec(o.metadata);
-                const name = str(meta.name);
-                const ns = str(meta.namespace);
-                const key = `${ns}/${name}`;
-                const isSelected = selectedKeys.has(key);
-                const isTerminating = !!rec(o.metadata).deletionTimestamp;
-                return (
-                  <TableRow
-                    key={key}
-                    data-index={virtualRow.index}
-                    ref={rowVirtualizer.measureElement}
-                    clickable
-                    selected={isSelected}
-                    hovered={hoveredRowKey === key || activeRow === virtualRow.index}
-                    aria-current={activeRow === virtualRow.index ? "true" : undefined}
-                    dimmed={isTerminating}
-                    onClick={() => setSelected({ ns, name })}
-                    onMouseEnter={() => setHoveredRowKey(key)}
-                    onMouseLeave={() => setHoveredRowKey(null)}
-                    onContextMenu={(e) => { e.preventDefault(); setCtx({ x: e.clientX, y: e.clientY, ns, name }); }}
-                  >
-                    <SelectCell checked={isSelected} onChange={() => toggleRow(key)} label={`Select ${name}`} />
-                    <td className="mono td-name" title={name}>{name}</td>
-                    {!def.scoped && (
-                      <td className="mono">
-                        <NsPill
-                          title={`Filter by namespace: ${ns}`}
-                          onClick={() => {
-                            if (effectiveCluster) setNamespaces(effectiveCluster, [ns]);
-                          }}
-                        >
-                          {ns}
-                        </NsPill>
-                      </td>
-                    )}
-                    {cols.map((col) => {
-                      // Containers column for pods: render per-container dots
-                      if (col === "Containers" && def.slug === "pods") {
-                        return (
-                          <td key={col}>
-                            <ContainerDots o={o} />
-                          </td>
-                        );
-                      }
-                      const cell = cellFor(def.slug, col, o);
-                      return (
-                        <td key={col} className="mono muted">
-                          <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
-                            {cell.dot ? healthDot(cell.dot) : null}
-                            {cell.to ? (
-                              <span
-                                className="cell-link"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  navigate(`/detail/${cell.to!.kind}/${cell.to!.ns || "_"}/${cell.to!.name}`);
-                                }}
-                              >
-                                {cell.v}
-                              </span>
-                            ) : (
-                              <span className={cell.cls ?? ""}>{cell.v}</span>
-                            )}
-                          </span>
-                        </td>
-                      );
-                    })}
-                    {printerColumns.map((col) => (
-                      <td key={col.name} className="mono muted">
-                        {evalPrinterPath(col.jsonPath, o) || <span className="muted">–</span>}
-                      </td>
-                    ))}
-                    <td className="mono muted">{ownerCell(o).v}</td>
-                    <td className="mono muted" title={absoluteTime(str(meta.creationTimestamp))}>{fmtAge(ageOf(o))}</td>
-                    {/* ⋮ kebab — visible only on row hover */}
-                    <td className="col-row-menu" onClick={(e) => e.stopPropagation()}>
-                      <IconButton
-                        label="Row actions"
-                        className="row-menu-btn"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setCtx({ x: e.clientX, y: e.clientY, ns, name });
-                        }}
-                      >
-                        ⋮
-                      </IconButton>
-                    </td>
-                  </TableRow>
-                );
-              })}
-              {(() => {
-                const bottom =
-                  rowVirtualizer.getTotalSize() - (rowVirtualizer.getVirtualItems().at(-1)?.end ?? 0);
-                return bottom > 0 ? (
-                  <tr aria-hidden style={{ height: bottom }}>
-                    <td style={{ padding: 0, border: "none" }} colSpan={headers.length + 2} />
-                  </tr>
-                ) : null;
-              })()}
-            </tbody>
-          </Table>
-        </TableWrap>
-      )}
-
-      {ctx && (
-        <ContextMenu
-          x={ctx.x}
-          y={ctx.y}
-          onClose={() => setCtx(null)}
-          items={[
-            { label: "View details", onClick: () => setSelected({ ns: ctx.ns, name: ctx.name }) },
-            { label: "Edit YAML", onClick: () => setSelected({ ns: ctx.ns, name: ctx.name, tab: "yaml" }) },
-            { label: "Copy name", onClick: () => void navigator.clipboard?.writeText(ctx.name) },
-            { separator: true, label: "", onClick: () => {} },
-            { label: "Delete", danger: true, onClick: () => {
-              bulkDelete.request([{ ns: ctx.ns, name: ctx.name }]);
-            }},
-          ]}
+      {rowAction && (
+        <WorkloadActionDialog
+          action={rowAction.action}
+          slug={def.slug}
+          cluster={effectiveCluster}
+          obj={rowAction.obj}
+          onClose={() => setRowAction(null)}
         />
       )}
 

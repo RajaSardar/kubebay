@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button } from "@kubebay/ui";
+import { Button, Spinner } from "@kubebay/ui";
 import { secretApi } from "../lib/api";
 
 // Masked env-var value backed by a `secretKeyRef`. Never fetches or decodes
@@ -38,7 +38,7 @@ export function SecretValueReveal({
     <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
       <span className="mono small muted">{`secret(${name})[${secretKey}]`}</span>
       <Button variant="ghost" disabled={state.status === "loading"} onClick={() => void reveal()}>
-        {state.status === "loading" ? "Loading…" : "Show"}
+        {state.status === "loading" ? <Spinner label="Loading secret value…" size={12} /> : "Show"}
       </Button>
       {state.status === "error" && <span className="error-text small">{state.error}</span>}
     </span>

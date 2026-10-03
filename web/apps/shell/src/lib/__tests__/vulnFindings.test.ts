@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { findingsForPod, severityCounts, type VulnFinding } from "../vulnFindings";
+import { findingsForPod, findingsForWorkload, ownerNamesForWorkload, severityCounts, type VulnFinding } from "../vulnFindings";
 
 function report(opts: {
   name: string;
@@ -90,6 +90,59 @@ describe("findingsForPod", () => {
     ];
     const findings = findingsForPod(reports, { ns: "team-a", ownerKind: "ReplicaSet", ownerName: "web-abc", containers: ["nginx"] });
     expect(findings[0]!.updatedAt).toBe("2026-09-01T00:00:00Z");
+  });
+});
+
+function replicaSet(name: string, ns: string, ownerName: string) {
+  return { metadata: { name, namespace: ns, ownerReferences: [{ kind: "Deployment", name: ownerName, controller: true }] } };
+}
+
+describe("ownerNamesForWorkload", () => {
+  it("resolves a Deployment to its owned ReplicaSet(s), not its own name", () => {
+    const rs = [replicaSet("web-abc", "team-a", "web"), replicaSet("web-def", "team-a", "web")];
+    const result = ownerNamesForWorkload("Deployment", "web", "team-a", rs);
+    expect(result.ownerKind).toBe("ReplicaSet");
+    expect(result.ownerNames.sort()).toEqual(["web-abc", "web-def"]);
+  });
+
+  it("ignores a ReplicaSet owned by a different Deployment", () => {
+    const rs = [replicaSet("other-abc", "team-a", "other")];
+    const result = ownerNamesForWorkload("Deployment", "web", "team-a", rs);
+    expect(result.ownerNames).toEqual([]);
+  });
+
+  it("ignores a same-named Deployment's ReplicaSet in a different namespace", () => {
+    const rs = [replicaSet("web-abc", "team-b", "web")];
+    const result = ownerNamesForWorkload("Deployment", "web", "team-a", rs);
+    expect(result.ownerNames).toEqual([]);
+  });
+
+  it("resolves a StatefulSet/DaemonSet directly -- they are their own pods' owner, no ReplicaSet hop", () => {
+    expect(ownerNamesForWorkload("StatefulSet", "db", "team-a", [])).toEqual({ ownerKind: "StatefulSet", ownerNames: ["db"] });
+    expect(ownerNamesForWorkload("DaemonSet", "agent", "team-a", [])).toEqual({ ownerKind: "DaemonSet", ownerNames: ["agent"] });
+  });
+});
+
+describe("findingsForWorkload", () => {
+  it("aggregates findings across multiple owner names -- a Deployment mid-rollout with two ReplicaSets", () => {
+    const reports = [
+      report({ name: "web-abc-nginx", ns: "team-a", ownerKind: "ReplicaSet", ownerName: "web-abc", container: "nginx", vulns: [{ id: "CVE-1", severity: "HIGH" }] }),
+      report({ name: "web-def-nginx", ns: "team-a", ownerKind: "ReplicaSet", ownerName: "web-def", container: "nginx", vulns: [{ id: "CVE-2", severity: "CRITICAL" }] }),
+    ];
+    const findings = findingsForWorkload(reports, { ns: "team-a", ownerKind: "ReplicaSet", ownerNames: ["web-abc", "web-def"] });
+    expect(findings.map((f) => f.id)).toEqual(["CVE-2", "CVE-1"]);
+  });
+
+  it("does not match a report for an owner name outside the workload's set", () => {
+    const reports = [report({ name: "other-nginx", ns: "team-a", ownerKind: "ReplicaSet", ownerName: "other", container: "nginx", vulns: [{ id: "CVE-1", severity: "LOW" }] })];
+    const findings = findingsForWorkload(reports, { ns: "team-a", ownerKind: "ReplicaSet", ownerNames: ["web-abc"] });
+    expect(findings).toEqual([]);
+  });
+
+  it("matches a StatefulSet's own reports directly by name", () => {
+    const reports = [report({ name: "db-0-postgres", ns: "team-a", ownerKind: "StatefulSet", ownerName: "db", container: "postgres", vulns: [{ id: "CVE-3", severity: "MEDIUM" }] })];
+    const findings = findingsForWorkload(reports, { ns: "team-a", ownerKind: "StatefulSet", ownerNames: ["db"] });
+    expect(findings).toHaveLength(1);
   });
 });
 

@@ -1,4 +1,5 @@
-import { PolicyRejectionError, type PolicyRejectionDetail } from "./policyRejection";
+import { PolicyRejectionError, StaleEditError, type PolicyRejectionDetail } from "./policyRejection";
+import type { HistoryPoint } from "./headroomForecast";
 
 declare global {
   interface Window {
@@ -49,7 +50,12 @@ export interface ClusterInfo {
   id: string;
   context: string;
   server: string;
-  status: "connected" | "unreachable" | "degraded" | "misconfigured";
+  /** Reachability from the engine's /version probe ("connected" means reachable). */
+  status: "connected" | "unreachable" | "degraded" | "misconfigured" | "checking";
+  /** The user connected to this cluster this run (streams open), not reachability. */
+  connected?: boolean;
+  /** When the reachability probe last finished. */
+  checkedAt?: string;
   version?: string;
   error?: string;
 }
@@ -92,12 +98,15 @@ async function send<T>(method: string, path: string, body?: unknown): Promise<T>
 function throwIfPolicyRejection(res: Response, text: string): void {
   if (!res.headers.get("Content-Type")?.includes("application/json")) return;
   try {
-    const body = JSON.parse(text) as { error?: string; policyRejection?: PolicyRejectionDetail };
+    const body = JSON.parse(text) as { error?: string; policyRejection?: PolicyRejectionDetail; paths?: string[]; message?: string };
     if (body.error === "policy-rejected" && body.policyRejection) {
       throw new PolicyRejectionError(body.policyRejection);
     }
+    if (body.error === "changed-since-load" && Array.isArray(body.paths)) {
+      throw new StaleEditError(body.paths, body.message);
+    }
   } catch (e) {
-    if (e instanceof PolicyRejectionError) throw e;
+    if (e instanceof PolicyRejectionError || e instanceof StaleEditError) throw e;
     // Malformed JSON body — fall through to the plain-text error in send().
   }
 }
@@ -122,6 +131,10 @@ export interface PodUsage {
 export const api = {
   health: () => get<{ ok: boolean }>("/api/healthz"),
   clusters: () => get<ClusterInfo[]>("/api/clusters"),
+  /** Mark a cluster connected without opening it (opening a stream also connects). */
+  connectCluster: (id: string) => send<ClusterInfo>("POST", `/api/clusters/${encodeURIComponent(id)}/connect`),
+  /** Stop a cluster's informers, streams and port-forwards. */
+  disconnectCluster: (id: string) => send<{ ok: boolean }>("POST", `/api/clusters/${encodeURIComponent(id)}/disconnect`),
   podMetrics: (cluster: string, ns = "*") =>
     get<PodUsage[]>(`/api/metrics/pods?cluster=${encodeURIComponent(cluster)}&ns=${encodeURIComponent(ns)}`),
 
@@ -187,7 +200,24 @@ function applyYamlRequest(b: {
   dryRun: boolean;
   force: boolean;
   action?: string;
-}): Promise<{ applied: boolean; dryRun: boolean; resultYaml?: string }> {
+  /**
+   * The YAML as loaded into the editor. When sent, the engine patches only
+   * the fields that differ (an Update, like `kubectl edit`) instead of
+   * server-side applying the whole object, which conflicts with fields other
+   * managers (Helm, kubectl) own.
+   */
+  original?: string;
+  /** "strategic": the yaml is itself a strategic merge patch of the fields to change. */
+  mode?: "strategic";
+}): Promise<{
+  applied: boolean;
+  dryRun: boolean;
+  resultYaml?: string;
+  noop?: boolean;
+  patchType?: "strategic" | "merge" | "apply";
+  /** Edited field paths; never values. */
+  changedPaths?: string[];
+}> {
   return send("PUT", "/api/yaml", b);
 }
 
@@ -213,6 +243,57 @@ async function fetchObject(
     clearTimeout(timer);
   }
 }
+
+/** Short-lived network diagnostic pod (roadmap Tier 2 #23); delete it with api.deleteResource when done. */
+export const netdiagApi = {
+  start: (b: { cluster: string; namespace: string; node?: string; image?: string }) =>
+    send<{ namespace: string; pod: string }>("POST", "/api/netdiag", b),
+};
+
+/** One running image digest's signature status (roadmap Tier 2 #17). */
+export interface ImageSignatureRow {
+  image: string;
+  registry?: string;
+  repo?: string;
+  digest?: string;
+  status: "signed" | "unsigned" | "unknown";
+  method?: string;
+  reason?: string;
+  pods: number;
+  namespaces: string[];
+}
+
+/** Contacts each running image's registry anonymously; only call on an explicit user action. */
+export const imageSigApi = {
+  check: (cluster: string) => get<ImageSignatureRow[]>(`/api/image-signatures?cluster=${encodeURIComponent(cluster)}`),
+};
+
+export interface AuditSecurityEvent {
+  id: string;
+  time: string;
+  rule: string;
+  severity: "high" | "medium" | "low";
+  title: string;
+  user: string;
+  sourceIP?: string;
+  object: string;
+  detail?: string;
+  allowed: boolean;
+}
+
+export interface AuditEventsResponse {
+  configured: boolean;
+  path?: string;
+  error?: string;
+  events: AuditSecurityEvent[];
+}
+
+/** Roadmap #26: security events from a cluster's API server audit log, read locally. */
+export const securityApi = {
+  auditEvents: (cluster: string) => get<AuditEventsResponse>(`/api/security/audit-events?cluster=${encodeURIComponent(cluster)}`),
+  setAuditLogPath: (cluster: string, path: string) =>
+    send<{ ok: boolean; path: string }>("PUT", "/api/security/audit-log-path", { cluster, path }),
+};
 
 export const nodeApi = {
   shellStart: (b: { cluster: string; node: string }) =>
@@ -318,6 +399,10 @@ export interface APIResourceEntry {
 
 export const discoveryApi = {
   apis: (cluster: string) => get<APIResourceEntry[]>(`/api/apis?cluster=${encodeURIComponent(cluster)}`),
+  // Every apiVersion the server currently serves (not just the preferred one
+  // per group) -- backlog #25's Upgrade Readiness Panel needs this to tell
+  // whether a soon-to-be-removed version is still actually being served.
+  apiVersions: (cluster: string) => get<string[]>(`/api/apiversions?cluster=${encodeURIComponent(cluster)}`),
 };
 
 export interface PrinterColumn {
@@ -393,11 +478,59 @@ export interface AppSettings {
   nodeShellImage?: string;
   nodeShellImageDefault?: string;
   localShell?: LocalShellCapability;
+  /** Usage-history consent per cluster (backlog #36): true once connected, false after Stop. */
+  historyClusters?: Record<string, boolean>;
 }
 
 export const settingsApi = {
   get: () => get<AppSettings>("/api/settings"),
   save: (b: AppSettings) => send<{ ok: boolean; saved: AppSettings }>("POST", "/api/settings", b),
+};
+
+export interface HistoryCoverage {
+  retentionDays: number;
+  expectedHours: number;
+  observedHours: number;
+  wellSampledHours: number;
+  distinctDays: number;
+  longestGapHours: number;
+  first: string | null;
+  hourOfDayObserved: number[];
+  weekendObserved: boolean;
+  /** Engine-computed, e.g. "observed 09–18 local, weekdays only"; show it next to anything derived from history. */
+  label: string;
+}
+
+export interface HistoryStatus {
+  cluster: string;
+  available: boolean;
+  reason?: string;
+  recording: boolean;
+  readOnly?: boolean;
+  path?: string;
+  retentionDays?: number;
+  coverage?: HistoryCoverage;
+}
+
+/** One hourly series from `GET /api/history/series`; `ns` "" is the cluster total. */
+export interface HistorySeries {
+  ns: string;
+  source: "local" | "prometheus";
+  points: HistoryPoint[];
+  coverage: HistoryCoverage;
+}
+
+const q = (cluster: string) => `cluster=${encodeURIComponent(cluster)}`;
+
+/** Local usage history (backlog #36): consent, status and erase. */
+export const historyApi = {
+  enroll: (cluster: string) => send<{ recording: boolean }>("POST", `/api/history/enroll?${q(cluster)}`),
+  setRecording: (cluster: string, on: boolean) => send<{ recording: boolean }>("PUT", `/api/history/recording?${q(cluster)}&on=${on}`),
+  erase: (cluster: string) => send<{ erased: number }>("DELETE", `/api/history?${q(cluster)}`),
+  status: (cluster: string) => get<HistoryStatus>(`/api/history/status?${q(cluster)}`),
+  /** Cluster-total hourly series from local history; from/to are RFC 3339 and must lie within retention. */
+  series: (cluster: string, from: string, to: string) =>
+    get<HistorySeries>(`/api/history/series?${q(cluster)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
 };
 
 export interface ArgoCDResource {
