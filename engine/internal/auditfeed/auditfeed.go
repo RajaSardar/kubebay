@@ -15,6 +15,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -330,21 +331,8 @@ func tailFile(path string, maxBytes int64) ([]byte, error) {
 			return nil, err
 		}
 		defer zr.Close()
-		// Keep only the newest maxBytes of the decompressed stream.
-		chunk := make([]byte, 64<<10)
-		for {
-			n, rerr := zr.Read(chunk)
-			buf = append(buf, chunk[:n]...)
-			if over := int64(len(buf)) - maxBytes; over > 0 {
-				buf = append(buf[:0], buf[over:]...)
-				cut = true
-			}
-			if rerr == io.EOF {
-				break
-			}
-			if rerr != nil {
-				return nil, rerr
-			}
+		if buf, cut, _, err = keepTail(zr, maxBytes); err != nil {
+			return nil, err
 		}
 	} else {
 		st, err := f.Stat()
@@ -368,6 +356,58 @@ func tailFile(path string, maxBytes int64) ([]byte, error) {
 		}
 	}
 	return buf, nil
+}
+
+// keepTail reads r to the end and returns its newest maxBytes, whether
+// anything was dropped, and how many bytes were copied again after being
+// read. Up to maxBytes it simply appends; past that it writes into a ring of
+// exactly maxBytes, so every input byte is copied once and the window is
+// reassembled once at the end. (Trimming the front on every chunk re-copied
+// the whole window per 64 KiB: seconds per poll on a 100 MiB rotation.)
+func keepTail(r io.Reader, maxBytes int64) (buf []byte, cut bool, moved int64, err error) {
+	if maxBytes <= 0 {
+		_, err = io.Copy(io.Discard, r)
+		return nil, err == nil, 0, err
+	}
+	limit := int(maxBytes)
+	ring := make([]byte, 0, min(limit, 1<<20))
+	pos := 0 // next write position once the ring is full
+	chunk := make([]byte, 64<<10)
+	for {
+		n, rerr := r.Read(chunk)
+		data := chunk[:n]
+		for len(data) > 0 {
+			if len(ring) < limit {
+				if len(ring) == cap(ring) {
+					// Double up to the budget: append's 1.25x steps for large
+					// slices cost several extra copies of the window.
+					grown := make([]byte, len(ring), min(limit, 2*cap(ring)))
+					copy(grown, ring)
+					ring = grown
+				}
+				take := min(cap(ring)-len(ring), len(data))
+				ring = append(ring, data[:take]...)
+				data = data[take:]
+				continue
+			}
+			k := copy(ring[pos:], data)
+			pos, data, cut = (pos+k)%limit, data[k:], true
+		}
+		if rerr == io.EOF {
+			break
+		}
+		if rerr != nil {
+			return nil, false, moved, rerr
+		}
+	}
+	if pos == 0 {
+		return ring, cut, moved, nil
+	}
+	// Rotate in place so the oldest byte (at pos) comes first: three reversals.
+	slices.Reverse(ring[:pos])
+	slices.Reverse(ring[pos:])
+	slices.Reverse(ring)
+	return ring, cut, int64(limit), nil
 }
 
 // rotatedFiles lists the rotations of path, newest first: logrotate's
