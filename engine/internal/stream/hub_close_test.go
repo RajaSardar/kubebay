@@ -74,3 +74,51 @@ func TestHubReportsAStreamTheEngineClosed(t *testing.T) {
 		t.Errorf("after the engine closed the stream got %+v, want an error frame for s1 saying it was disconnected", f)
 	}
 }
+
+type reasonHandle struct {
+	*closingHandle
+	reason string
+}
+
+func (h reasonHandle) CloseReason() string { return h.reason }
+
+type reasonSource struct{ handle reasonHandle }
+
+func (s reasonSource) Subscribe(context.Context, string, string, []string, string, string) (SubHandle, error) {
+	return s.handle, nil
+}
+
+func TestHubPassesOnWhyTheEngineClosedAStream(t *testing.T) {
+	handle := reasonHandle{&closingHandle{snap: make(chan []Op), deltas: make(chan []Op)}, ReasonCredentialsChanged}
+	hub := NewHub(slog.New(slog.NewTextHandler(io.Discard, nil)), nil)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hub.Handle(w, r, reasonSource{handle}, "")
+	}))
+	defer srv.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	c, _, err := websocket.Dial(ctx, "ws"+strings.TrimPrefix(srv.URL, "http"), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close(websocket.StatusNormalClosure, "")
+	sub, _ := json.Marshal(ClientFrame{Type: TypeSub, ID: "s1", Cluster: "c1", GVR: "v1/pods"})
+	_ = c.Write(ctx, websocket.MessageText, sub)
+	var f ControlFrame
+	for f.Type != TypeAck {
+		_, b, err := c.Read(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = json.Unmarshal(b, &f)
+	}
+	close(handle.deltas)
+	_, b, err := c.Read(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = json.Unmarshal(b, &f)
+	if f.Type != TypeError || f.ID != "s1" || f.Message != ReasonCredentialsChanged {
+		t.Errorf("got %+v, want an error frame for s1 carrying %q", f, ReasonCredentialsChanged)
+	}
+}

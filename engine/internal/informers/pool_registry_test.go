@@ -8,6 +8,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	"github.com/RajaSardar/kubebay/engine/internal/clusters"
+	"github.com/RajaSardar/kubebay/engine/internal/stream"
 )
 
 type fakeConfigs struct{}
@@ -59,5 +60,35 @@ func TestCloseTearsDownEveryPoolForACluster(t *testing.T) {
 	}
 	if _, err := own.Subscribe(ctx, "v1/pods", nil, "", ModeMetadata); err == nil {
 		t.Error("a closed pool must refuse new subscriptions")
+	}
+}
+
+// New credentials: the pool is rebuilt and open streams are told to
+// resubscribe, rather than being reported as a disconnect.
+func TestRetireClosesPoolsWithAResubscribeReason(t *testing.T) {
+	reg := NewPoolRegistry(fakeConfigs{})
+	ctx := context.Background()
+	old, _ := reg.ForUser(ctx, "c1", nil)
+	sub, err := old.Subscribe(ctx, "v1/pods", nil, "", ModeMetadata)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reg.Retire("c1")
+	for range sub.Deltas() {
+	}
+	if sub.CloseReason() != stream.ReasonCredentialsChanged {
+		t.Errorf("close reason = %q, want %q", sub.CloseReason(), stream.ReasonCredentialsChanged)
+	}
+	if fresh, _ := reg.ForUser(ctx, "c1", nil); fresh == old || fresh.Closed() {
+		t.Error("the next subscribe must get a fresh pool built from the new config")
+	}
+
+	other, _ := reg.ForUser(ctx, "c1", nil)
+	s2, _ := other.Subscribe(ctx, "v1/pods", nil, "", ModeMetadata)
+	reg.Close("c1")
+	for range s2.Deltas() {
+	}
+	if s2.CloseReason() != stream.ReasonDisconnected {
+		t.Errorf("a disconnect's reason = %q, want %q", s2.CloseReason(), stream.ReasonDisconnected)
 	}
 }

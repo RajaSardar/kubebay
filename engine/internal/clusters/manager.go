@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 	"sync"
@@ -16,6 +17,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
 const settingsDirName = ".kubebay"
@@ -104,6 +106,13 @@ type Manager struct {
 	// user's choice, and Disconnect tears down what it opened.
 	connected       map[string]bool
 	disconnectHooks []func(id string)
+	// configHooks run after a reload for clusters whose server or credentials
+	// changed, so cached clients built from the old config can be rebuilt.
+	configHooks []func(id string)
+	// watched holds the kubeconfig files the watcher reacts to. Their parent
+	// directories are what is watched, so an atomic save (write a temp file,
+	// rename it over the original) is still seen.
+	watched map[string]bool
 	// kick asks the health loop to probe now (after a load) instead of
 	// waiting out its interval.
 	kick chan struct{}
@@ -272,8 +281,10 @@ func (m *Manager) Load() error {
 	prev := m.entries
 	m.mu.RUnlock()
 
+	ids := assignIDs(names)
 	newEntries := map[string]*entry{}
 	var order []string
+	var changed []string
 	for _, name := range names {
 		cc := clientcmd.NewNonInteractiveClientConfig(*raw, name, &clientcmd.ConfigOverrides{}, rules)
 		cfg, cfgErr := cc.ClientConfig()
@@ -286,8 +297,11 @@ func (m *Manager) Load() error {
 				server = cl.Server
 			}
 		}
-		id := sanitizeID(name)
+		id := ids[name]
 		order = append(order, id)
+		if old, ok := prev[id]; ok && old.cfg != nil && !sameClientConfig(old.cfg, cfg) {
+			changed = append(changed, id)
+		}
 		status := StatusChecking
 		errStr := ""
 		version := ""
@@ -295,8 +309,8 @@ func (m *Manager) Load() error {
 		if cfgErr != nil {
 			status = StatusMisconfigured
 			errStr = cfgErr.Error()
-		} else if old, ok := prev[id]; ok && old.cfg != nil && old.cluster.Server == server {
-			// Same context, same server: keep what the last probe found rather
+		} else if old, ok := prev[id]; ok && old.cfg != nil && old.cluster.Server == server && sameClientConfig(old.cfg, cfg) {
+			// Same context, server and credentials: keep what the last probe found rather
 			// than flashing every cluster back to unknown on each kubeconfig save.
 			m.mu.RLock()
 			status, version, errStr, checkedAt = old.cluster.Status, old.cluster.Version, old.cluster.Error, old.cluster.CheckedAt
@@ -347,6 +361,7 @@ func (m *Manager) Load() error {
 		}
 	}
 	hooks := append([]func(string){}, m.disconnectHooks...)
+	cfgHooks := append([]func(string){}, m.configHooks...)
 	m.mu.Unlock()
 
 	for _, id := range removedConnected {
@@ -354,14 +369,97 @@ func (m *Manager) Load() error {
 			h(id)
 		}
 	}
-	for _, f := range rules.Precedence {
-		_ = m.watcher.Add(f)
+	for _, id := range changed {
+		for _, h := range cfgHooks {
+			h(id)
+		}
 	}
+	m.watch(rules.GetLoadingPrecedence())
 	select {
 	case m.kick <- struct{}{}:
 	default:
 	}
 	return nil
+}
+
+// assignIDs maps each context name to a URL-safe cluster ID. A name that is
+// already safe keeps itself; one that sanitises onto a taken ID gets the next
+// free "-2", "-3"… suffix in sorted-name order, so the mapping is stable.
+func assignIDs(sortedNames []string) map[string]string {
+	out := make(map[string]string, len(sortedNames))
+	taken := map[string]bool{}
+	for _, n := range sortedNames {
+		if sanitizeID(n) == n {
+			out[n], taken[n] = n, true
+		}
+	}
+	for _, n := range sortedNames {
+		if _, ok := out[n]; ok {
+			continue
+		}
+		base := sanitizeID(n)
+		id := base
+		for i := 2; taken[id]; i++ {
+			id = fmt.Sprintf("%s-%d", base, i)
+		}
+		out[n], taken[id] = id, true
+	}
+	return out
+}
+
+// sameClientConfig reports whether two configs reach the same server as the
+// same user. Anything else (a rotated token, a new exec plugin, a moved
+// endpoint) means clients built from a are stale.
+func sameClientConfig(a, b *rest.Config) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	type identity struct {
+		Host, APIPath, BearerToken, BearerTokenFile, Username, Password string
+		TLS                                                             rest.TLSClientConfig
+		Exec                                                            *clientcmdapi.ExecConfig
+		Auth                                                            *clientcmdapi.AuthProviderConfig
+		Impersonate                                                     rest.ImpersonationConfig
+	}
+	of := func(c *rest.Config) identity {
+		return identity{c.Host, c.APIPath, c.BearerToken, c.BearerTokenFile, c.Username, c.Password, c.TLSClientConfig, c.ExecProvider, c.AuthProvider, c.Impersonate}
+	}
+	return reflect.DeepEqual(of(a), of(b))
+}
+
+// OnConfigChange registers fn to run after a reload changed a cluster's
+// server or credentials.
+func (m *Manager) OnConfigChange(fn func(id string)) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.configHooks = append(m.configHooks, fn)
+}
+
+// watch makes the watcher cover files: their directories are added (a file
+// watch is lost when an editor renames a new copy over it) and events are
+// filtered to these names.
+func (m *Manager) watch(files []string) {
+	if m.watcher == nil {
+		return
+	}
+	set := make(map[string]bool, len(files))
+	for _, f := range files {
+		if f == "" {
+			continue
+		}
+		f = filepath.Clean(f)
+		set[f] = true
+		_ = m.watcher.Add(filepath.Dir(f))
+	}
+	m.mu.Lock()
+	m.watched = set
+	m.mu.Unlock()
+}
+
+func (m *Manager) isWatched(name string) bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.watched[filepath.Clean(name)]
 }
 
 func sanitizeID(name string) string {
@@ -386,7 +484,7 @@ func (m *Manager) watchFiles() {
 			if !ok {
 				return
 			}
-			if ev.Op&(fsnotify.Write|fsnotify.Create|fsnotify.Remove|fsnotify.Rename) != 0 {
+			if ev.Op&(fsnotify.Write|fsnotify.Create|fsnotify.Remove|fsnotify.Rename) != 0 && m.isWatched(ev.Name) {
 				debounce.Reset(500 * time.Millisecond)
 			}
 		case <-debounce.C:

@@ -1091,5 +1091,18 @@ The owner judged the Fleet page unnecessary.
 - **Kept:** `/api/waste/workloads` (Cost/Waste uses it) and `kindCounts` (WorkloadsOverview).
 - **Guard:** `noFleet.test.ts`.
 
+### 54. Engine fixes from the clusters-page audit — status: building
+These are the issues the #51 experts found in the engine and left for later. Each lands as its own PR.
+- **Credentials change on reload:**
+  - `Load` compares each context's client config (host, token, TLS, exec/auth provider, impersonation).
+  - On a change, `OnConfigChange` fires and `PoolRegistry.Retire` closes that cluster's pools with `stream.ReasonCredentialsChanged`.
+  - The hub passes the reason on, and the web client answers that one reason with a `resync`, so tables rebuild on the new credentials instead of freezing.
+  - The old probe result isn't carried over.
+- **ID collisions:** contexts that sanitise to one ID get `-2`, `-3` in sorted-name order. A name that is already safe keeps itself.
+- **Watcher:** watches the parent directories of every loading-precedence file, which includes an explicit `--kubeconfig` / `KUBEBAY_KUBECONFIG`, and filters events by name. Atomic saves are seen.
+- **Still to do:**
+  - OIDC identity in streams (separate PR);
+  - rename the wire status `connected` to `reachable`.
+
 ### Further ideas worth a look (unscoped, one-liners)
 - **Revert unsaved YAML edits — SHIPPED 2026-09-27.** One-click "discard my in-progress edit" button in `YamlTab.tsx`, next to Reload — a local reset (no network call), unlike Reload which re-fetches from the server.

@@ -15,6 +15,9 @@ import (
 // while connected.
 func TeardownOnDisconnect(mgr *clusters.Manager, pools *informers.PoolRegistry, pf *PFManager) {
 	mgr.OnDisconnect(pools.Close)
+	// New credentials in the kubeconfig: rebuild the informers with them, and
+	// tell open streams to resubscribe rather than reporting a disconnect.
+	mgr.OnConfigChange(pools.Retire)
 	if pf != nil {
 		mgr.OnDisconnect(pf.StopCluster)
 	}
