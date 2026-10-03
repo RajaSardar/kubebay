@@ -16,6 +16,9 @@ vi.mock("../../lib/api", async (orig) => ({
 vi.mock("../heavy", () => ({ ExecTerm: () => null, YamlTab: () => null }));
 vi.mock("../ActionsBar", () => ({ ActionsBar: () => null }));
 vi.mock("../RightSizingBanner", () => ({ RightSizingBanner: () => null }));
+vi.mock("../WorkloadHealthChip", () => ({
+  WorkloadHealthChip: (p: { cluster: string; obj: { metadata: { name: string } } | null }) => <div>7 days of {p.cluster}/{p.obj?.metadata.name}</div>,
+}));
 vi.mock("../WarningSparkline", () => ({
   WarningSparkline: (p: { cluster: string; obj: { metadata: { name: string } } | null }) => <div>warnings of {p.cluster}/{p.obj?.metadata.name}</div>,
 }));
@@ -34,11 +37,13 @@ describe("GenericDrawer warnings", () => {
   it("shows a workload's last hour of warnings on its Summary tab", async () => {
     renderDrawer("deployments");
     expect(await screen.findByText("warnings of c1/web")).toBeInTheDocument();
+    expect(screen.getByText("7 days of c1/web")).toBeInTheDocument();
   });
 
   it("does not for kinds without pods", async () => {
     renderDrawer("configmaps");
     await screen.findAllByText(/web/);
     expect(screen.queryByText(/warnings of/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/7 days of/)).not.toBeInTheDocument();
   });
 });

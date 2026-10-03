@@ -4,6 +4,7 @@ import { api, nodeApi } from "../lib/api";
 import { ExecTerm, YamlTab } from "./heavy";
 import { EventsDrawer } from "./EventsDrawer";
 import { WarningSparkline } from "./WarningSparkline";
+import { WorkloadHealthChip } from "./WorkloadHealthChip";
 import { ActionsBar } from "./ActionsBar";
 import { NodeSummary } from "./NodeSummary";
 import { ServiceSummary } from "./ServiceSummary";
@@ -145,6 +146,7 @@ function PaneContent({
           </div>
         )}
         {RIGHTSIZABLE_SLUGS.has(def.slug) && obj && <WarningSparkline cluster={cluster} obj={obj} style={{ padding: "14px 14px 0" }} />}
+        {RIGHTSIZABLE_SLUGS.has(def.slug) && obj && <WorkloadHealthChip cluster={cluster} obj={obj} style={{ padding: "8px 14px 0" }} />}
         <MetadataSummary obj={obj} />
       </div>
     );

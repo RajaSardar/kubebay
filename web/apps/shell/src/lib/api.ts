@@ -520,6 +520,14 @@ export interface HistorySeries {
   coverage: HistoryCoverage;
 }
 
+/** One workload's recorded hours over the last 7 days, and how many it was broken in (`GET /api/history/health`). */
+export interface WorkloadHealth {
+  recordedHours: number;
+  brokenHours: number;
+  recordedDays: number;
+  brokenDays: number;
+}
+
 const q = (cluster: string) => `cluster=${encodeURIComponent(cluster)}`;
 
 /** Local usage history (backlog #36): consent, status and erase. */
@@ -531,6 +539,11 @@ export const historyApi = {
   /** Cluster-total hourly series from local history; from/to are RFC 3339 and must lie within retention. */
   series: (cluster: string, from: string, to: string) =>
     get<HistorySeries>(`/api/history/series?${q(cluster)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
+  /** How many recorded hours of the last 7 days a workload was broken in; `since` (its creation) drops the hours before it. */
+  health: (cluster: string, ns: string, kind: string, name: string, since?: string) =>
+    get<WorkloadHealth>(
+      `/api/history/health?${q(cluster)}&ns=${encodeURIComponent(ns)}&kind=${encodeURIComponent(kind)}&name=${encodeURIComponent(name)}${since ? `&since=${encodeURIComponent(since)}` : ""}`,
+    ),
 };
 
 export interface ArgoCDResource {
