@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MemoryRouter } from "react-router-dom";
 import { AuditSecurityFeedCard } from "../AuditSecurityFeedCard";
 import { securityApi, type AuditEventsResponse } from "../../lib/api";
 
@@ -13,7 +14,9 @@ function renderCard() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <AuditSecurityFeedCard cluster="kind-dev" />
+      <MemoryRouter>
+        <AuditSecurityFeedCard cluster="kind-dev" />
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
@@ -22,7 +25,7 @@ const configured: AuditEventsResponse = {
   configured: true,
   path: "/var/log/kube/audit.log",
   events: [
-    { id: "a1", time: "2026-10-01T10:00:00Z", rule: "exec-into-pod", severity: "high", title: "Exec into pod", user: "alice", object: "pods/exec shop/api-1", allowed: true },
+    { id: "a1", time: "2026-10-01T10:00:00Z", rule: "exec-into-pod", severity: "high", title: "Exec into pod", user: "alice", object: "pods/exec shop/api-1", allowed: true, ref: { resource: "pods", namespace: "shop", name: "api-1" } },
     { id: "a2", time: "2026-10-01T09:00:00Z", rule: "cluster-admin-binding", severity: "high", title: "Binding to cluster-admin", user: "bob", object: "clusterrolebindings oops", detail: "grants cluster-admin to User mallory", allowed: false },
   ],
 };
@@ -78,5 +81,39 @@ describe("AuditSecurityFeedCard", () => {
     renderCard();
     expect(await screen.findByText(/off when OIDC is configured/)).toBeInTheDocument();
     expect(screen.queryByLabelText("Audit log path")).toBeNull();
+  });
+
+  it("links an event to the object it touched", async () => {
+    vi.mocked(securityApi.auditEvents).mockResolvedValue(configured);
+    renderCard();
+    const link = await screen.findByRole("link", { name: "pods/exec shop/api-1" });
+    expect(link).toHaveAttribute("href", "/workloads?pod=shop%2Fapi-1");
+    expect(screen.queryByRole("link", { name: "clusterrolebindings oops" })).toBeNull();
+  });
+
+  it("shows a burst of Secret reads as one row with its count and span", async () => {
+    vi.mocked(securityApi.auditEvents).mockResolvedValue({
+      configured: true,
+      path: "/var/log/kube/audit.log",
+      events: [
+        {
+          id: "s9",
+          time: "2026-10-01T10:02:00Z",
+          firstTime: "2026-10-01T10:00:00Z",
+          count: 25,
+          rule: "secret-read",
+          severity: "medium",
+          title: "Burst of Secret reads by a person",
+          user: "alice",
+          object: "secrets shop/*",
+          detail: "25 reads of 3 Secrets: shop/a, shop/b, shop/c",
+          allowed: true,
+        },
+      ],
+    });
+    renderCard();
+    expect(await screen.findByText("Burst of Secret reads by a person")).toBeInTheDocument();
+    expect(screen.getByText("×25")).toBeInTheDocument();
+    expect(screen.getByText("since 2026-10-01T10:00:00Z")).toBeInTheDocument();
   });
 });

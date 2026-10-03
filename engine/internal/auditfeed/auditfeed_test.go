@@ -3,6 +3,7 @@ package auditfeed
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -27,8 +28,9 @@ func TestExecIntoPod(t *testing.T) {
 		ID: "a1", Time: "2026-10-01T10:00:00.000000Z", Rule: "exec-into-pod", Severity: "high",
 		Title: "Exec into pod", User: "alice@example.com", SourceIP: "10.0.0.5",
 		Object: "pods/exec shop/api-1", Allowed: true,
+		Ref: &ObjectRef{Resource: "pods", Namespace: "shop", Name: "api-1"},
 	}
-	if got != want {
+	if !reflect.DeepEqual(got, want) {
 		t.Errorf("got %+v\nwant %+v", got, want)
 	}
 }
