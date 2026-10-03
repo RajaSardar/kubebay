@@ -129,6 +129,25 @@ describe("ContextMenu", () => {
     fireEvent.mouseDown(document.body);
     expect(onClose).toHaveBeenCalledTimes(2);
   });
+
+  it("renders into document.body, so a pressed table row's transform cannot move it mid-click", () => {
+    // tr.row-clickable:active scales the row; a fixed menu inside it would be
+    // placed against the row and jump under the pointer between press and release.
+    render(
+      <table>
+        <tbody>
+          <tr data-testid="row" style={{ transform: "scale(0.998)" }}>
+            <td>
+              <ContextMenu x={10} y={10} items={items} onClose={() => {}} />
+            </td>
+          </tr>
+        </tbody>
+      </table>,
+    );
+    const menu = screen.getByRole("menu");
+    expect(screen.getByTestId("row")).not.toContainElement(menu);
+    expect(menu.parentElement).toBe(document.body);
+  });
 });
 
 describe("adoption helpers", () => {

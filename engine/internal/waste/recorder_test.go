@@ -8,6 +8,8 @@ import (
 	"errors"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
@@ -110,5 +112,54 @@ func TestSampleCluster_RecorderMarksNoUsageWithoutMetricsServer(t *testing.T) {
 	}
 	if u["shop"].ReqCPUMillis != 100 {
 		t.Fatalf("requests are still recorded: %+v", u["shop"])
+	}
+}
+
+func readyNode(name, cpu, mem string) *corev1.Node {
+	return &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+		Status: corev1.NodeStatus{
+			Allocatable: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse(cpu), corev1.ResourceMemory: resource.MustParse(mem)},
+		},
+	}
+}
+
+func TestSampleCluster_RecorderGetsAllocatableAndNodeCount(t *testing.T) {
+	pod := deploymentOwnedPod("shop", "app-1", "rs-uid-1", "100m", "128Mi")
+	rs := replicaSet("shop", "app-rs", "rs-uid-1", "dep-uid-1")
+	cs := fake.NewSimpleClientset(&pod, &rs, readyNode("n1", "2", "4Gi"), readyNode("n2", "1500m", "2Gi"))
+	mc := newFakeMetricsClient(podMetrics("shop", "app-1", "40m", "100Mi"))
+
+	got, filter, rec := captureRecorder(map[string]bool{"kind-dev": true})
+	s := NewSampler(nil, discardLogger())
+	s.SetRecorder(filter, rec)
+	if err := s.sampleCluster(context.Background(), "kind-dev", cs, mc); err != nil {
+		t.Fatal(err)
+	}
+	tot := byNs((*got)[0].usage)[""]
+	if tot.Nodes != 2 || tot.AllocCPUMillis != 3500 || tot.AllocMemBytes != 6<<30 {
+		t.Fatalf("cluster total capacity: %+v", tot)
+	}
+	if ns := byNs((*got)[0].usage)["shop"]; ns.Nodes != 0 || ns.AllocCPUMillis != 0 {
+		t.Fatalf("capacity belongs to the cluster total only: %+v", ns)
+	}
+}
+
+func TestSampleCluster_NodeListFailureStillRecordsUsage(t *testing.T) {
+	pod := deploymentOwnedPod("shop", "app-1", "rs-uid-1", "100m", "128Mi")
+	rs := replicaSet("shop", "app-rs", "rs-uid-1", "dep-uid-1")
+	cs := fake.NewSimpleClientset(&pod, &rs)
+	cs.PrependReactor("list", "nodes", func(ktesting.Action) (bool, runtime.Object, error) {
+		return true, nil, errors.New("nodes is forbidden")
+	})
+	got, filter, rec := captureRecorder(map[string]bool{"kind-dev": true})
+	s := NewSampler(nil, discardLogger())
+	s.SetRecorder(filter, rec)
+	if err := s.sampleCluster(context.Background(), "kind-dev", cs, newFakeMetricsClient()); err != nil {
+		t.Fatal(err)
+	}
+	tot := byNs((*got)[0].usage)[""]
+	if tot.ReqCPUMillis != 100 || tot.Nodes != 0 {
+		t.Fatalf("a forbidden node list leaves capacity unknown, usage intact: %+v", tot)
 	}
 }
