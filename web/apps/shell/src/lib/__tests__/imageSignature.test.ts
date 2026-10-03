@@ -99,7 +99,9 @@ describe("summarizeImageSignaturePolicies", () => {
       sigstore: [cip("acme")],
       namespaces: [namespace("shop", { "policy.sigstore.dev/include": "true" }), namespace("dev")],
     });
-    expect(optIn.status).toBe("enforced");
+    // dev isn't opted in, so its pods run unverified: enforced in part.
+    expect(optIn.status).toBe("partial");
+    expect(optIn.uncovered).toEqual(["dev"]);
     expect(optIn.sigstoreNamespaces).toEqual(["shop"]);
     expect(optIn.policies[0]).toEqual({ engine: "sigstore", name: "acme", mode: "enforce", images: ["ghcr.io/acme/**"] });
   });
@@ -112,5 +114,109 @@ describe("summarizeImageSignaturePolicies", () => {
     });
     expect(r.status).toBe("audit-only");
     expect(r.policies[0]?.mode).toBe("audit");
+  });
+});
+
+describe("per-namespace coverage", () => {
+  const nss = [namespace("shop"), namespace("billing", { team: "pay" }), namespace("dev-1"), namespace("kube-system")];
+  const enforce = (rule: Record<string, unknown>) =>
+    kyvernoPolicy("verify", { validationFailureAction: "Enforce", rules: [{ ...verifyRule([{ imageReferences: ["*"] }]), ...rule }] });
+  const modeOf = (r: ReturnType<typeof summarizeImageSignaturePolicies>, ns: string) => r.namespaces.find((n) => n.name === ns)?.mode;
+
+  it("a cluster policy with no namespace scope covers every namespace", () => {
+    const r = summarizeImageSignaturePolicies({ kyverno: [enforce({ match: { any: [{ resources: { kinds: ["Pod"] } }] } })], sigstore: [], namespaces: nss });
+    expect(r.namespaces.map((n) => n.mode)).toEqual(["enforce", "enforce", "enforce", "enforce"]);
+    expect(r.status).toBe("enforced");
+  });
+
+  it("honours match namespaces (with wildcards), namespaceSelector and exclude", () => {
+    const r = summarizeImageSignaturePolicies({
+      kyverno: [
+        enforce({
+          match: { any: [{ resources: { kinds: ["Pod"], namespaces: ["shop", "dev-*"] } }, { resources: { kinds: ["Pod"], namespaceSelector: { matchLabels: { team: "pay" } } } }] },
+          exclude: { any: [{ resources: { namespaces: ["dev-1"] } }] },
+        }),
+      ],
+      sigstore: [],
+      namespaces: nss,
+    });
+    expect(modeOf(r, "shop")).toBe("enforce");
+    expect(modeOf(r, "billing")).toBe("enforce");
+    expect(modeOf(r, "dev-1")).toBe("none");
+    expect(r.status).toBe("partial");
+    expect(r.uncovered).toEqual(["dev-1"]);
+  });
+
+  it("does not count a rule for other kinds, and an exclude by user does not exclude a namespace", () => {
+    const r = summarizeImageSignaturePolicies({
+      kyverno: [
+        enforce({ match: { resources: { kinds: ["Service"] } } }),
+        kyvernoPolicy("pods", { rules: [{ ...verifyRule([{ imageReferences: ["*"], failureAction: "Audit" }]), match: { resources: { kinds: ["Deployment"] } }, exclude: { any: [{ subjects: [{ kind: "User", name: "ci" }] }] } }] }),
+      ],
+      sigstore: [],
+      namespaces: [namespace("shop")],
+    });
+    expect(modeOf(r, "shop")).toBe("audit");
+    expect(r.status).toBe("audit-only");
+  });
+
+  it("a namespaced Kyverno Policy covers only its own namespace", () => {
+    const local = kyvernoPolicy("verify", { validationFailureAction: "Enforce", rules: [verifyRule([{ imageReferences: ["*"] }])] }, "shop");
+    const r = summarizeImageSignaturePolicies({ kyverno: [local], sigstore: [], namespaces: nss });
+    expect(modeOf(r, "shop")).toBe("enforce");
+    expect(modeOf(r, "billing")).toBe("none");
+  });
+
+  it("system namespaces are listed but never make coverage partial", () => {
+    const r = summarizeImageSignaturePolicies({
+      kyverno: [enforce({ match: { any: [{ resources: { kinds: ["Pod"] } }] }, exclude: { any: [{ resources: { namespaces: ["kube-system"] } }] } })],
+      sigstore: [],
+      namespaces: nss,
+    });
+    expect(r.namespaces.find((n) => n.name === "kube-system")).toMatchObject({ mode: "none", system: true });
+    expect(r.status).toBe("enforced");
+  });
+
+  it("Sigstore covers only opted-in namespaces", () => {
+    const r = summarizeImageSignaturePolicies({ kyverno: [], sigstore: [cip("acme")], namespaces: [namespace("shop", { "policy.sigstore.dev/include": "true" }), namespace("billing")] });
+    expect(modeOf(r, "shop")).toBe("enforce");
+    expect(modeOf(r, "billing")).toBe("none");
+    expect(r.status).toBe("partial");
+  });
+});
+
+describe("Connaisseur and Ratify", () => {
+  it("detects Ratify from its CRDs and the Gatekeeper constraint kind", () => {
+    const d = detectImageSignatureEngines([crd("config.ratify.deislabs.io", "verifiers", "v1beta1"), crd("constraints.gatekeeper.sh", "ratifyverification", "v1beta1")]);
+    expect(d.ratifyInstalled).toBe(true);
+    expect(d.ratifyConstraintGvr).toBe("constraints.gatekeeper.sh/v1beta1/ratifyverification");
+  });
+
+  it("reads Ratify enforcement and scope from Gatekeeper constraints", () => {
+    const constraint = (name: string, enforcementAction: string, match: Record<string, unknown>) => ({ metadata: { name }, spec: { enforcementAction, match } });
+    const r = summarizeImageSignaturePolicies({
+      kyverno: [],
+      sigstore: [],
+      ratifyConstraints: [constraint("verify-prod", "deny", { namespaces: ["shop"] }), constraint("verify-dry", "dryrun", { excludedNamespaces: ["shop"] })],
+      namespaces: [namespace("shop"), namespace("billing")],
+    });
+    expect(r.policies.map((p) => `${p.engine}:${p.name}:${p.mode}`)).toEqual(["ratify:verify-prod:enforce", "ratify:verify-dry:audit"]);
+    expect(r.namespaces.map((n) => `${n.name}:${n.mode}`)).toEqual(["shop:enforce", "billing:audit"]);
+  });
+
+  it("detects Connaisseur from its validating webhook and scopes it by namespaceSelector", () => {
+    const webhook = {
+      metadata: { name: "connaisseur-webhook" },
+      webhooks: [{ name: "connaisseur-svc.connaisseur.svc", namespaceSelector: { matchExpressions: [{ key: "securesystemsengineering.connaisseur/webhook", operator: "NotIn", values: ["ignore"] }] } }],
+    };
+    const other = { metadata: { name: "kyverno-resource-validating-webhook-cfg" }, webhooks: [{ name: "validate.kyverno.svc" }] };
+    const r = summarizeImageSignaturePolicies({
+      kyverno: [],
+      sigstore: [],
+      validatingWebhooks: [webhook, other],
+      namespaces: [namespace("shop"), namespace("legacy", { "securesystemsengineering.connaisseur/webhook": "ignore" })],
+    });
+    expect(r.policies).toEqual([{ engine: "connaisseur", name: "connaisseur-webhook", mode: "enforce", images: [] }]);
+    expect(r.namespaces.map((n) => `${n.name}:${n.mode}`)).toEqual(["shop:enforce", "legacy:none"]);
   });
 });

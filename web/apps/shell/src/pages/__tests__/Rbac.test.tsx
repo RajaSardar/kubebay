@@ -23,6 +23,12 @@ vi.mock("../../lib/api", async (orig) => ({
   rbacApi: {
     all: vi.fn(async () => ({ roles: [], clusterRoles: [], roleBindings: [], clusterRoleBindings: [], findings: [] })),
   },
+  crdApi: {
+    list: vi.fn(async () => [
+      { group: "config.ratify.deislabs.io", resource: "verifiers", gvr: "config.ratify.deislabs.io/v1beta1/verifiers", kind: "Verifier", version: "v1beta1", scope: "Cluster" },
+      { group: "constraints.gatekeeper.sh", resource: "ratifyverification", gvr: "constraints.gatekeeper.sh/v1beta1/ratifyverification", kind: "RatifyVerification", version: "v1beta1", scope: "Cluster" },
+    ]),
+  },
 }));
 
 function renderPage() {
@@ -73,5 +79,17 @@ describe("Rbac", () => {
     renderPage();
     expect(await screen.findByText("Pod shop/api-1")).toBeInTheDocument();
     expect(screen.getByText(/Mounts the shop\/api ServiceAccount token/)).toBeInTheDocument();
+  });
+
+  it("feeds signature coverage the namespaces, Ratify constraints and validating webhooks", async () => {
+    renderPage();
+    await screen.findByText("Image signature verification");
+    await vi.waitFor(() => {
+      const calls = vi.mocked(useResourceStream).mock.calls;
+      const enabled = (gvr: string) => calls.some(([, g, o]) => g === gvr && (o as { enabled?: boolean } | undefined)?.enabled !== false);
+      expect(enabled("constraints.gatekeeper.sh/v1beta1/ratifyverification")).toBe(true);
+      expect(enabled("admissionregistration.k8s.io/v1/validatingwebhookconfigurations")).toBe(true);
+      expect(enabled("v1/namespaces")).toBe(true);
+    });
   });
 });

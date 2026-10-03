@@ -128,21 +128,26 @@ export default function Rbac() {
   const kyvernoClusterPolicies = useResourceStream(kcpGvr ? effectiveCluster || undefined : undefined, kcpGvr ?? "", { mode: "full", enabled: !!kcpGvr });
   const kyvernoPolicies = useResourceStream(kpGvr ? effectiveCluster || undefined : undefined, kpGvr ?? "", { mode: "full", enabled: !!kpGvr });
   const sigstorePolicies = useResourceStream(cipGvr ? effectiveCluster || undefined : undefined, cipGvr ?? "", { mode: "full", enabled: !!cipGvr });
-  const namespaces = useResourceStream(
-    sigEngines.sigstoreClusterImagePolicyGvr ? effectiveCluster || undefined : undefined,
-    "v1/namespaces",
-    { enabled: !!sigEngines.sigstoreClusterImagePolicyGvr },
-  );
+  // Namespace labels: Sigstore policy scope and attack-path NetworkPolicy namespaceSelectors.
+  const namespaces = useResourceStream(effectiveCluster || undefined, "v1/namespaces");
+  const ratifyGvr = sigEngines.ratifyConstraintGvr;
+  const ratifyConstraints = useResourceStream(ratifyGvr ? effectiveCluster || undefined : undefined, ratifyGvr ?? "", { mode: "full", enabled: !!ratifyGvr });
+  // Connaisseur has no CRD; its validating webhook is how it shows up.
+  const validatingWebhooks = useResourceStream(effectiveCluster || undefined, "admissionregistration.k8s.io/v1/validatingwebhookconfigurations", { mode: "full" });
   const imageSignatureReport = useMemo(
     () =>
       summarizeImageSignaturePolicies({
         kyverno: [...kyvernoClusterPolicies.rows, ...kyvernoPolicies.rows],
         sigstore: sigstorePolicies.rows,
         namespaces: namespaces.rows,
+        ratifyConstraints: ratifyConstraints.rows,
+        validatingWebhooks: validatingWebhooks.rows,
       }),
-    [kyvernoClusterPolicies.rows, kyvernoPolicies.rows, sigstorePolicies.rows, namespaces.rows],
+    [kyvernoClusterPolicies.rows, kyvernoPolicies.rows, sigstorePolicies.rows, namespaces.rows, ratifyConstraints.rows, validatingWebhooks.rows],
   );
-  const sigEnginesInstalled = !!(sigEngines.kyvernoClusterPolicyGvr || sigEngines.kyvernoPolicyGvr || sigEngines.sigstoreClusterImagePolicyGvr);
+  const sigEnginesInstalled =
+    !!(sigEngines.kyvernoClusterPolicyGvr || sigEngines.kyvernoPolicyGvr || sigEngines.sigstoreClusterImagePolicyGvr || sigEngines.ratifyInstalled) ||
+    imageSignatureReport.policies.some((p) => p.engine === "connaisseur");
 
   // Backlog #35: unreferenced Secret finder. Secrets stay in metadata mode —
   // the finder needs names/labels/annotations only, not values.
