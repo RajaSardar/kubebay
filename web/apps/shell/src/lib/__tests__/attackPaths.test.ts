@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findAttackPaths, type AttackPathInput } from "../attackPaths";
+import { findAttackPaths, type AttackPathInput, type AttackPathRule } from "../attackPaths";
 import type { RBACFinding } from "../api";
 
 function pod(ns: string, name: string, labels: Record<string, string>, opts: { sa?: string; automount?: boolean; rs?: string; hash?: string } = {}) {
@@ -127,5 +127,143 @@ describe("findAttackPaths", () => {
     );
     expect(paths.map((p) => `${p.workload.name}:${p.complete}`)).toEqual(["api:true", "web-1:false"]);
     expect(paths[1]!.workload.kind).toBe("Pod");
+  });
+
+  describe("NetworkPolicy that admits the entry's traffic", () => {
+    const policy = (ingress: unknown[] | undefined) => ({
+      metadata: { name: "api-np", namespace: "shop" },
+      spec: { podSelector: { matchLabels: { app: "api" } }, policyTypes: ["Ingress"], ...(ingress ? { ingress } : {}) },
+    });
+    const controller = {
+      metadata: { name: "ingress-nginx-controller-1", namespace: "ingress-nginx", labels: { "app.kubernetes.io/name": "ingress-nginx", "app.kubernetes.io/component": "controller" } },
+      spec: { containers: [{ name: "controller" }] },
+      status: { podIP: "10.0.5.7" },
+    };
+    const viaIngress = (np: Record<string, unknown>, extra: Partial<AttackPathInput> = {}) =>
+      findAttackPaths(
+        base({
+          pods: [apiPod, controller],
+          services: [svc("shop", "api", "ClusterIP", { app: "api" })],
+          ingresses: [ingress("shop", "public", "shop.example.com", "api")],
+          namespaces: [{ metadata: { name: "ingress-nginx", labels: { "kubernetes.io/metadata.name": "ingress-nginx" } } }],
+          networkPolicies: [np],
+          ...extra,
+        }),
+      ).find((p) => p.workload.name === "api")!;
+
+    it("is not isolation when it lets the ingress controller in", () => {
+      const p = viaIngress(policy([{ from: [{ namespaceSelector: { matchLabels: { "kubernetes.io/metadata.name": "ingress-nginx" } } }] }]));
+      expect(p.ingressIsolated).toBe(false);
+      expect(p.steps[1]).toBe("NetworkPolicy shop/api-np selects these pods but admits traffic from the ingress controller");
+    });
+
+    it("is isolation when its rules leave the ingress controller out", () => {
+      const p = viaIngress(policy([{ from: [{ podSelector: { matchLabels: { app: "web" } } }] }]));
+      expect(p.ingressIsolated).toBe(true);
+      expect(p.steps[1]).toBe("Ingress is restricted by NetworkPolicy shop/api-np");
+    });
+
+    it("matches the controller by IP when the rule is an ipBlock", () => {
+      expect(viaIngress(policy([{ from: [{ ipBlock: { cidr: "10.0.5.0/24" } }] }])).ingressIsolated).toBe(false);
+      expect(viaIngress(policy([{ from: [{ ipBlock: { cidr: "10.0.5.0/24", except: ["10.0.5.7/32"] } }] }])).ingressIsolated).toBe(true);
+    });
+
+    it("can't call it isolated when it can't find the ingress controller", () => {
+      const p = viaIngress(policy([{ from: [{ podSelector: { matchLabels: { app: "web" } } }] }]), { pods: [apiPod] });
+      expect(p.ingressIsolated).toBe(false);
+      expect(p.steps[1]).toBe("NetworkPolicy shop/api-np selects these pods, but the ingress controller's pods weren't found to check it");
+    });
+
+    it("an empty from, or any ipBlock, admits LoadBalancer traffic", () => {
+      for (const rules of [[{}], [{ from: [] }], [{ from: [{ ipBlock: { cidr: "0.0.0.0/0" } }] }]]) {
+        expect(findAttackPaths(base({ networkPolicies: [policy(rules)] }))[0]!.ingressIsolated).toBe(false);
+      }
+      expect(findAttackPaths(base({ networkPolicies: [policy([{ from: [{ podSelector: {} }] }])] }))[0]!.ingressIsolated).toBe(true);
+    });
+  });
+
+  describe("Gateway API routes", () => {
+    const route = {
+      metadata: { name: "shop-route", namespace: "shop" },
+      spec: { parentRefs: [{ name: "public", namespace: "infra" }], hostnames: ["shop.example.com"], rules: [{ backendRefs: [{ name: "api", port: 80 }] }] },
+    };
+
+    it("treats an HTTPRoute backend as an entry point", () => {
+      const [p] = findAttackPaths(base({ services: [svc("shop", "api", "ClusterIP", { app: "api" })], httpRoutes: [route] }));
+      expect(p!.entry).toEqual([{ via: "Gateway", name: "shop-route", gateway: "infra/public", detail: "shop.example.com" }]);
+      expect(p!.steps[0]).toBe("Reachable from outside the cluster via HTTPRoute shop/shop-route on Gateway infra/public (shop.example.com)");
+    });
+
+    it("ignores routes to other services and non-Service backends", () => {
+      const other = { ...route, spec: { ...route.spec, rules: [{ backendRefs: [{ name: "web" }, { name: "api", kind: "ServiceImport", group: "multicluster.x-k8s.io" }] }] } };
+      expect(findAttackPaths(base({ services: [svc("shop", "api", "ClusterIP", { app: "api" })], httpRoutes: [other] }))).toEqual([]);
+    });
+  });
+
+  describe("node breakout", () => {
+    it("counts a privileged container or a hostPath volume as a payoff", () => {
+      const escape = {
+        ...apiPod,
+        spec: {
+          ...apiPod.spec,
+          containers: [{ name: "app", image: "shop/api:1", securityContext: { privileged: true } }],
+          volumes: [{ name: "sock", hostPath: { path: "/var/run/docker.sock" } }],
+        },
+      };
+      const p = findAttackPaths(base({ pods: [escape], rbacFindings: [] }))[0]!;
+      expect(p.nodeEscape).toEqual(["privileged container app", "hostPath /var/run/docker.sock"]);
+      expect(p.complete).toBe(true);
+      expect(p.steps).toContain("Can break out to the node: privileged container app; hostPath /var/run/docker.sock");
+    });
+  });
+
+  describe("Secrets the token can read", () => {
+    const rbacSnap = (bindings: { cluster?: boolean; ns?: string; role: string; subject: { kind: string; name: string; ns?: string } }[], rules: Record<string, AttackPathRule[]>) => ({
+      roles: Object.entries(rules)
+        .filter(([k]) => k.startsWith("Role:"))
+        .map(([k, r]) => ({ name: k.split(":")[2]!, ns: k.split(":")[1], kind: "Role", rules: r })),
+      clusterRoles: Object.entries(rules)
+        .filter(([k]) => k.startsWith("ClusterRole:"))
+        .map(([k, r]) => ({ name: k.split(":")[1]!, kind: "ClusterRole", rules: r })),
+      roleBindings: bindings.filter((b) => !b.cluster).map((b, i) => ({ name: `rb${i}`, ns: b.ns, kind: "RoleBinding", roleRef: b.role, subjects: [b.subject] })),
+      clusterRoleBindings: bindings.filter((b) => b.cluster).map((b, i) => ({ name: `crb${i}`, kind: "ClusterRoleBinding", roleRef: b.role, subjects: [b.subject] })),
+    });
+    const sa = { kind: "ServiceAccount", name: "api", ns: "shop" };
+    const readSecrets = (extra: Partial<AttackPathRule> = {}): AttackPathRule => ({ verbs: ["get"], apiGroups: [""], resources: ["secrets"], ...extra });
+
+    it("names cluster-wide Secret access and counts it as a payoff", () => {
+      const p = findAttackPaths(base({ vulnReports: [], rbacFindings: [], rbac: rbacSnap([{ cluster: true, role: "ClusterRole:reader", subject: sa }], { "ClusterRole:reader": [readSecrets({ verbs: ["list"] })] }) }))[0]!;
+      expect(p.secretAccess).toEqual(["every namespace"]);
+      expect(p.steps).toContain("The token can read Secrets in every namespace");
+    });
+
+    it("scopes a RoleBinding to its namespace and keeps resourceNames", () => {
+      const snap = rbacSnap(
+        [
+          { ns: "shop", role: "Role:db", subject: { kind: "ServiceAccount", name: "api" } },
+          { ns: "billing", role: "ClusterRole:view-secrets", subject: sa },
+        ],
+        { "Role:shop:db": [readSecrets({ resourceNames: ["db-creds"] })], "ClusterRole:view-secrets": [readSecrets({ apiGroups: ["*"], resources: ["*"] })] },
+      );
+      const p = findAttackPaths(base({ vulnReports: [], rbacFindings: [], rbac: snap }))[0]!;
+      expect(p.secretAccess).toEqual(["shop/db-creds", "billing"]);
+    });
+
+    it("counts groups every ServiceAccount is in, and ignores write-only or other-resource rules", () => {
+      const snap = rbacSnap(
+        [
+          { cluster: true, role: "ClusterRole:all-sa", subject: { kind: "Group", name: "system:serviceaccounts:shop" } },
+          { cluster: true, role: "ClusterRole:writer", subject: sa },
+        ],
+        { "ClusterRole:all-sa": [readSecrets()], "ClusterRole:writer": [readSecrets({ verbs: ["create"] }), { verbs: ["get"], apiGroups: [""], resources: ["configmaps"] }] },
+      );
+      expect(findAttackPaths(base({ vulnReports: [], rbacFindings: [], rbac: snap }))[0]!.secretAccess).toEqual(["every namespace"]);
+    });
+
+    it("needs the token mounted", () => {
+      const snap = rbacSnap([{ cluster: true, role: "ClusterRole:reader", subject: sa }], { "ClusterRole:reader": [readSecrets()] });
+      const noToken = pod("shop", "api-7d9-abc", { app: "api" }, { sa: "api", rs: "api-7d9", hash: "7d9", automount: false });
+      expect(findAttackPaths(base({ pods: [noToken], vulnReports: [], rbacFindings: [], rbac: snap }))).toEqual([]);
+    });
   });
 });
