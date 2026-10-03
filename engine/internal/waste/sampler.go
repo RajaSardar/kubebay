@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"sort"
 	"sync"
 	"time"
 
@@ -58,6 +59,9 @@ type NsUsage struct {
 	HasUsage     bool // false when metrics-server returned nothing this tick
 	ReqCPUMillis int64
 	ReqMemBytes  int64
+	// Broken names the workloads with a broken pod this tick (podBroken), as
+	// "namespace/Kind/name", once each. Only the cluster total (Ns "") has it.
+	Broken []string
 }
 
 // UsageRecorder receives a cluster's namespace totals after each Tier B
@@ -409,6 +413,7 @@ func (s *Sampler) sampleCluster(ctx context.Context, clusterID string, cs kubern
 	tickRequested := map[WorkloadKey]reqTotals{}
 	tickUsage := map[WorkloadKey]podUsage{}
 	tickHasUsage := map[WorkloadKey]bool{}
+	broken := map[string]bool{}
 
 	for _, pod := range pods.Items {
 		// Namespace totals come first, before owner resolution drops bare pods.
@@ -421,6 +426,9 @@ func (s *Sampler) sampleCluster(ctx context.Context, clusterID string, cs kubern
 			continue
 		}
 		key := WorkloadKey{Cluster: clusterID, Ns: pod.Namespace, Kind: kind, Name: name}
+		if record && podBroken(pod, now) {
+			broken[pod.Namespace+"/"+kind+"/"+name] = true
+		}
 
 		var reqCPU, reqMem int64
 		for _, c := range pod.Spec.Containers {
@@ -467,6 +475,10 @@ func (s *Sampler) sampleCluster(ctx context.Context, clusterID string, cs kubern
 			usage[0].ReqMemBytes += u.ReqMemBytes
 			usage = append(usage, *u)
 		}
+		for w := range broken {
+			usage[0].Broken = append(usage[0].Broken, w)
+		}
+		sort.Strings(usage[0].Broken)
 		s.recorder(ctx, clusterID, cs, now, usage)
 	}
 	return nil
