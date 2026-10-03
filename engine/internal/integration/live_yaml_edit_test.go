@@ -221,3 +221,77 @@ spec:
 		}
 	}
 }
+
+// The old YAML tab force-applied whole objects, leaving a "kubebay" Apply
+// entry that claims every field and conflicts with later server-side appliers.
+// The next edit through the endpoint must drop that entry without changing a
+// single value.
+func TestLiveEditReleasesStaleKubebayApplyOwnership(t *testing.T) {
+	if os.Getenv("KUBEBAY_INTEGRATION_TEST") != "1" {
+		t.Skip("set KUBEBAY_INTEGRATION_TEST=1 against a reachable API server")
+	}
+	cfg, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(safeKubeconfigRules(t), &clientcmd.ConfigOverrides{}).ClientConfig()
+	if err != nil {
+		t.Skipf("no kubeconfig: %v", err)
+	}
+	cs, err := kubernetes.NewForConfig(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dyn, err := dynamic.NewForConfig(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv, _ := buildTestServer(t)
+	clusterID := firstClusterID(t, httpGetJSON(t, srv.URL+"/api/clusters"))
+	ctx := context.Background()
+	name := fmt.Sprintf("kb-stale-%d", time.Now().UnixNano())
+
+	cm := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default"}, Data: map[string]string{"a": "1", "b": "2"}}
+	if _, err := cs.CoreV1().ConfigMaps("default").Create(ctx, cm, metav1.CreateOptions{FieldManager: "kubectl-client-side-apply"}); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = cs.CoreV1().ConfigMaps("default").Delete(context.Background(), name, metav1.DeleteOptions{}) })
+
+	// Recreate what the old force-apply path left behind.
+	force := true
+	stale := fmt.Sprintf(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":%q,"namespace":"default"},"data":{"a":"1","b":"2"}}`, name)
+	if _, err := dyn.Resource(schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}).Namespace("default").
+		Patch(ctx, name, types.ApplyPatchType, []byte(stale), metav1.PatchOptions{FieldManager: "kubebay", Force: &force}); err != nil {
+		t.Fatal(err)
+	}
+	hasApply := func() bool {
+		got, err := cs.CoreV1().ConfigMaps("default").Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, e := range got.ManagedFields {
+			if e.Manager == "kubebay" && e.Operation == metav1.ManagedFieldsOperationApply {
+				return true
+			}
+		}
+		return false
+	}
+	if !hasApply() {
+		t.Fatal("setup: expected a kubebay Apply entry")
+	}
+
+	q := url.Values{"cluster": {clusterID}, "gvr": {"v1/configmaps"}, "ns": {"default"}, "name": {name}}
+	original := string(httpGetJSON(t, srv.URL+"/api/yaml?"+q.Encode()))
+	edited := strings.Replace(original, `a: "1"`, `a: "10"`, 1)
+	if edited == original {
+		t.Fatalf("could not edit %q", original)
+	}
+	body := map[string]any{"cluster": clusterID, "gvr": "v1/configmaps", "ns": "default", "name": name, "yaml": edited, "original": original}
+	code, resp := putJSON(t, srv.URL+"/api/yaml", body)
+	if code != http.StatusOK || !strings.Contains(resp, `"releasedApplyOwnership":true`) {
+		t.Fatalf("edit: %d %s", code, resp)
+	}
+	if hasApply() {
+		t.Error("the stale kubebay Apply entry is still there")
+	}
+	got, _ := cs.CoreV1().ConfigMaps("default").Get(ctx, name, metav1.GetOptions{})
+	if got.Data["a"] != "10" || got.Data["b"] != "2" {
+		t.Errorf("data = %v: releasing ownership must not change values", got.Data)
+	}
+}

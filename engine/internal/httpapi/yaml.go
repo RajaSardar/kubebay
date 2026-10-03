@@ -323,6 +323,13 @@ func (c *Channels) HandleApplyYAML(w http.ResponseWriter, r *http.Request) {
 		UserAgent: r.Header.Get("User-Agent"),
 	})
 	resp := map[string]interface{}{"applied": applied != nil, "dryRun": req.DryRun}
+	if u, ok := applied.(interface {
+		GetManagedFields() []metav1.ManagedFieldsEntry
+	}); ok && !req.DryRun {
+		if c.releaseStaleApplyOwner(r.Context(), ri, req.Namespace, req.Name, u.GetManagedFields()) {
+			resp["releasedApplyOwnership"] = true
+		}
+	}
 	if edit != nil {
 		resp["patchType"] = patchTypeName(edit.Type)
 		resp["changedPaths"] = edit.ChangedPaths
@@ -494,4 +501,51 @@ func patchTypeName(t types.PatchType) string {
 	default:
 		return "apply"
 	}
+}
+
+// staleApplyOwnerPatch builds a JSON patch removing every managedFields entry
+// for manager "kubebay" with operation Apply: ownership the old force-apply
+// edit path claimed (backlog #46). Edits are Update patches now, so such an
+// entry only blocks later server-side appliers (Helm 4, Argo CD, Flux) with
+// conflicts against "kubebay". Each removal first tests that the index still
+// holds that entry, so a concurrent change fails the patch instead of
+// removing someone else's ownership. Indexes go highest first so earlier
+// removals don't shift later ones. Nil when there is nothing to remove.
+func staleApplyOwnerPatch(entries []metav1.ManagedFieldsEntry) []byte {
+	var ops []map[string]interface{}
+	for i := len(entries) - 1; i >= 0; i-- {
+		e := entries[i]
+		if e.Manager != "kubebay" || e.Operation != metav1.ManagedFieldsOperationApply {
+			continue
+		}
+		base := fmt.Sprintf("/metadata/managedFields/%d", i)
+		ops = append(ops,
+			map[string]interface{}{"op": "test", "path": base + "/manager", "value": "kubebay"},
+			map[string]interface{}{"op": "test", "path": base + "/operation", "value": "Apply"},
+			map[string]interface{}{"op": "remove", "path": base},
+		)
+	}
+	if len(ops) == 0 {
+		return nil
+	}
+	b, _ := json.Marshal(ops)
+	return b
+}
+
+// releaseStaleApplyOwner drops a stale kubebay Apply entry after a successful
+// edit. Removing an ownership entry changes no field values. Best effort: a
+// failure (a concurrent write moved the index) leaves the entry for the next
+// edit and never fails the edit itself.
+func (c *Channels) releaseStaleApplyOwner(ctx context.Context, ri dynamic.NamespaceableResourceInterface, ns, name string, entries []metav1.ManagedFieldsEntry) bool {
+	patch := staleApplyOwnerPatch(entries)
+	if patch == nil {
+		return false
+	}
+	var err error
+	if ns != "" {
+		_, err = ri.Namespace(ns).Patch(ctx, name, types.JSONPatchType, patch, metav1.PatchOptions{FieldManager: "kubebay"})
+	} else {
+		_, err = ri.Patch(ctx, name, types.JSONPatchType, patch, metav1.PatchOptions{FieldManager: "kubebay"})
+	}
+	return err == nil
 }
