@@ -67,6 +67,7 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { ClusterConnectingOverlay } from "./components/ClusterConnectingOverlay";
 import { PageSkeleton } from "./components/PageSkeleton";
 import { usePrewarm } from "./lib/usePrewarm";
+import { useRemoteDisconnects } from "./lib/useRemoteDisconnects";
 import { useSidebar, type SidebarState } from "./lib/useSidebar";
 import { HideSidebarButton, ShowSidebarButton } from "./components/SidebarToggle";
 
@@ -663,6 +664,7 @@ function AppInner() {
 
 export default function App() {
   const navigate = useNavigate();
+  useRemoteDisconnects();
 
   // Warm the two routes users almost always reach from Home, once the main
   // thread is idle, so splitting them out never costs a visible fallback.

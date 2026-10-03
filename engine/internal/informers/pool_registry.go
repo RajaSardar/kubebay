@@ -3,6 +3,7 @@ package informers
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 
@@ -27,16 +28,25 @@ func NewPoolRegistry(mgr ClusterConfigSource) *PoolRegistry {
 	return &PoolRegistry{mgr: mgr, pools: map[string]*Pool{}}
 }
 
-func (r *PoolRegistry) For(_ context.Context, clusterID string) (*Pool, error) {
-	ident := clusters.IdentityFromContext(context.Background())
-	return r.ForUser(context.Background(), clusterID, ident)
+// For returns the pool for the identity on ctx (set by the OIDC middleware
+// on the request the stream came from), or the engine's own pool without one.
+func (r *PoolRegistry) For(ctx context.Context, clusterID string) (*Pool, error) {
+	return r.ForUser(ctx, clusterID, clusters.IdentityFromContext(ctx))
 }
 
-func (r *PoolRegistry) ForUser(ctx context.Context, clusterID string, ident *clusters.Identity) (*Pool, error) {
-	key := clusterID
-	if ident != nil && ident.Name != "" {
-		key = clusterID + "\u007c" + ident.Name
+// registryKey is "id" for the engine's own identity, else "id|user|groups":
+// groups are part of the impersonation, so a membership change gets a new pool.
+func registryKey(clusterID string, ident *clusters.Identity) string {
+	if ident == nil || ident.Name == "" {
+		return clusterID
 	}
+	groups := slices.Clone(ident.Groups)
+	slices.Sort(groups)
+	return clusterID + "\u007c" + ident.Name + "\u007c" + strings.Join(groups, ",")
+}
+
+func (r *PoolRegistry) ForUser(_ context.Context, clusterID string, ident *clusters.Identity) (*Pool, error) {
+	key := registryKey(clusterID, ident)
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if p, ok := r.pools[key]; ok {

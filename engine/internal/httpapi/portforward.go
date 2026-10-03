@@ -47,7 +47,7 @@ func NewPFManager(c *clusters.Manager) *PFManager {
 }
 
 func (p *PFManager) Start(ctx context.Context, cluster, namespace, pod string, podPort, localPort int32) (*PortForward, error) {
-	cfg, err := p.Clusters.RestConfig(cluster)
+	cfg, err := restConfigFor(ctx, p.Clusters, cluster)
 	if err != nil {
 		return nil, fmt.Errorf("connect: %w", err)
 	}

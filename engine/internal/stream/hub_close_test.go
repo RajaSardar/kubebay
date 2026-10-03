@@ -122,3 +122,45 @@ func TestHubPassesOnWhyTheEngineClosedAStream(t *testing.T) {
 		t.Errorf("got %+v, want an error frame for s1 carrying %q", f, ReasonCredentialsChanged)
 	}
 }
+
+type ctxKey struct{}
+
+type ctxSource struct {
+	handle *closingHandle
+	got    chan any
+}
+
+func (s ctxSource) Subscribe(ctx context.Context, _, _ string, _ []string, _, _ string) (SubHandle, error) {
+	s.got <- ctx.Value(ctxKey{})
+	return s.handle, nil
+}
+
+// The auth middleware puts the logged-in identity on the request context;
+// the pool registry reads it from the subscribe context to impersonate.
+func TestHubSubscribesWithTheRequestContext(t *testing.T) {
+	src := ctxSource{handle: &closingHandle{snap: make(chan []Op), deltas: make(chan []Op)}, got: make(chan any, 1)}
+	hub := NewHub(slog.New(slog.NewTextHandler(io.Discard, nil)), nil)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hub.Handle(w, r.WithContext(context.WithValue(r.Context(), ctxKey{}, "alice")), src, "")
+	}))
+	defer srv.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	c, _, err := websocket.Dial(ctx, "ws"+strings.TrimPrefix(srv.URL, "http"), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close(websocket.StatusNormalClosure, "")
+	sub, _ := json.Marshal(ClientFrame{Type: TypeSub, ID: "s1", Cluster: "c1", GVR: "v1/pods"})
+	if err := c.Write(ctx, websocket.MessageText, sub); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case v := <-src.got:
+		if v != "alice" {
+			t.Errorf("subscribe context value = %v, want the request's identity", v)
+		}
+	case <-ctx.Done():
+		t.Fatal("never subscribed")
+	}
+}

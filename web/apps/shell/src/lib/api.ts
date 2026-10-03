@@ -523,7 +523,33 @@ export interface HistorySeries {
 const q = (cluster: string) => `cluster=${encodeURIComponent(cluster)}`;
 
 /** Local usage history (backlog #36): consent, status and erase. */
+/** One 4-hour bucket of a cluster's total: hourly peaks and the highest request total. */
+export interface HistorySummaryPoint {
+  t: string;
+  cpuMax: number | null;
+  memMax: number | null;
+  reqCpuMillis: number | null;
+  reqMemBytes: number | null;
+}
+
+export interface ClusterHistorySummary {
+  points: HistorySummaryPoint[];
+  lastSample: string | null;
+  /** Last known capacity; 0 when no recorded hour had a node count. */
+  allocCpuMillis: number;
+  allocMemBytes: number;
+  nodes: number;
+}
+
+export interface HistorySummary {
+  available: boolean;
+  bucketHours: number;
+  clusters: Record<string, ClusterHistorySummary>;
+}
+
 export const historyApi = {
+  /** Every recorded cluster's last `days` of cluster-total usage, in one call. */
+  summary: (days = 7) => get<HistorySummary>(`/api/history/summary?days=${days}`),
   enroll: (cluster: string) => send<{ recording: boolean }>("POST", `/api/history/enroll?${q(cluster)}`),
   setRecording: (cluster: string, on: boolean) => send<{ recording: boolean }>("PUT", `/api/history/recording?${q(cluster)}&on=${on}`),
   erase: (cluster: string) => send<{ erased: number }>("DELETE", `/api/history?${q(cluster)}`),
