@@ -945,7 +945,12 @@ The YAML view also strips `resourceVersion`.
 - **Kind test:** a concurrent change to REGION followed by an edit of REGION gives a 409, and the concurrent value survives.
 
 **Slice 3 (shipped):** `HandleCreateResource` no longer forces. Creating over an object whose fields another tool owns returns a 409 that names the object and points at its YAML tab; Helm/kubectl values survive (kind test `TestLiveCreateOverAnObjectAnotherToolManages`). The NetpolEditor "replace" banner says so. Discovery/dynamic clients for create go through `discoClient`/`dynClient` overrides for tests.
-**Remaining (optional, unscheduled):** cleanup of stale `kubebay` Apply managedFields entries left by the old force-apply path.
+**Slice 4 (building): stale ownership cleanup.**
+- After a successful non-dry-run edit, any `kubebay` + `Apply` managedFields entry left by the old force-apply path is removed with a JSON patch.
+- Each removal first `test`s the manager and operation at that index, and removals go highest index first, so a concurrent change fails the patch rather than removing another manager's entry.
+- Best effort: a failure leaves the entry for the next edit. Values never change.
+- The response carries `releasedApplyOwnership`.
+- Kind test: `TestLiveEditReleasesStaleKubebayApplyOwnership`.
 
 **Slice 2 (original plan):**
 - **Stale-edit check:** 409 `changed-since-load` when a field the user edited also changed live.
