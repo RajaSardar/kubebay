@@ -56,6 +56,10 @@ type Obs struct {
 	// Broken lists the workloads that were broken this tick, as
 	// "namespace/Kind/name". Only the cluster total (Ns "") carries it.
 	Broken []string
+	// Capacity, on the cluster total only; Nodes 0 means unknown this tick.
+	AllocCPUMillis int64
+	AllocMemBytes  int64
+	Nodes          int
 }
 
 // Meta identifies the cluster behind a fingerprint directory.
@@ -110,6 +114,10 @@ type acc struct {
 	MemMax int64   `json:"mx"`
 	ReqCPU int64   `json:"rc"`
 	ReqMem int64   `json:"rm"`
+	// Last known capacity within the hour; a tick without it keeps the old value.
+	AllocCPU int64 `json:"ac,omitempty"`
+	AllocMem int64 `json:"am,omitempty"`
+	Nodes    int   `json:"nd,omitempty"`
 }
 
 type openHour struct {
@@ -132,6 +140,9 @@ type line struct {
 	MX *float64  `json:"mx,omitempty"`
 	RC int64     `json:"rc"`
 	RM int64     `json:"rm"`
+	AC int64     `json:"ac,omitempty"`
+	AM int64     `json:"am,omitempty"`
+	ND int       `json:"nd,omitempty"`
 }
 
 type cluster struct {
@@ -286,6 +297,9 @@ func (s *Store) Record(fp string, meta Meta, at time.Time, obs []Obs) error {
 		}
 		a.N++
 		a.ReqCPU, a.ReqMem = o.ReqCPUMillis, o.ReqMemBytes
+		if o.Nodes > 0 {
+			a.AllocCPU, a.AllocMem, a.Nodes = o.AllocCPUMillis, o.AllocMemBytes, o.Nodes
+		}
 		if o.HasUsage {
 			a.UN++
 			a.CPUSum += float64(o.CPUMillis)
@@ -380,7 +394,7 @@ func (s *Store) flush(cdir string, oh *openHour) error {
 }
 
 func toLine(h time.Time, ns string, a *acc) line {
-	l := line{V: lineVersion, H: h, Ns: ns, N: a.N, UN: a.UN, RC: a.ReqCPU, RM: a.ReqMem}
+	l := line{V: lineVersion, H: h, Ns: ns, N: a.N, UN: a.UN, RC: a.ReqCPU, RM: a.ReqMem, AC: a.AllocCPU, AM: a.AllocMem, ND: a.Nodes}
 	if a.UN > 0 {
 		cm, mm := a.CPUSum/float64(a.UN), a.MemSum/float64(a.UN)
 		cx, mx := float64(a.CPUMax), float64(a.MemMax)

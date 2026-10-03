@@ -62,6 +62,10 @@ type NsUsage struct {
 	// Broken names the workloads with a broken pod this tick (podBroken), as
 	// "namespace/Kind/name", once each. Only the cluster total (Ns "") has it.
 	Broken []string
+	// Capacity, set on the cluster total only; zero when the node list failed.
+	AllocCPUMillis int64
+	AllocMemBytes  int64
+	Nodes          int
 }
 
 // UsageRecorder receives a cluster's namespace totals after each Tier B
@@ -479,6 +483,15 @@ func (s *Sampler) sampleCluster(ctx context.Context, clusterID string, cs kubern
 			usage[0].Broken = append(usage[0].Broken, w)
 		}
 		sort.Strings(usage[0].Broken)
+		// Capacity feeds the clusters page headroom bar. A forbidden node list
+		// (namespace-scoped RBAC) leaves it unknown rather than failing the tick.
+		if nodes, err := cs.CoreV1().Nodes().List(tctx, metav1.ListOptions{}); err == nil {
+			for _, n := range nodes.Items {
+				usage[0].AllocCPUMillis += n.Status.Allocatable.Cpu().MilliValue()
+				usage[0].AllocMemBytes += n.Status.Allocatable.Memory().Value()
+			}
+			usage[0].Nodes = len(nodes.Items)
+		}
 		s.recorder(ctx, clusterID, cs, now, usage)
 	}
 	return nil

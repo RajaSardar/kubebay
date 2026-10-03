@@ -250,3 +250,51 @@ func TestHistoryHealth_BrokenOverRecordedHours(t *testing.T) {
 		t.Fatalf("never recorded: %d", res.Code)
 	}
 }
+
+func TestHistorySummary_AllRecordedClustersInOneCall(t *testing.T) {
+	f := newHistoryFixture(t)
+	rec := HistoryUsageRecorder(f.api.Recorder, func(id string) history.Meta { return history.Meta{ClusterID: id, Context: id} }, nil)
+	now := time.Now()
+	rec(context.Background(), "kind-dev", fake.NewSimpleClientset(), now, []waste.NsUsage{
+		{Ns: "", CPUMillis: 250, HasUsage: true, ReqCPUMillis: 400, AllocCPUMillis: 2000, AllocMemBytes: 4 << 30, Nodes: 2},
+	})
+	rec(context.Background(), "stage", fake.NewSimpleClientset(), now, []waste.NsUsage{{Ns: "", ReqCPUMillis: 100}})
+
+	res := do(f.api.HandleSummary, http.MethodGet, "/x?days=7")
+	if res.Code != http.StatusOK {
+		t.Fatalf("summary: %d %s", res.Code, res.Body)
+	}
+	var body struct {
+		Available   bool                       `json:"available"`
+		BucketHours int                        `json:"bucketHours"`
+		Clusters    map[string]history.Summary `json:"clusters"`
+	}
+	if err := json.Unmarshal(res.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	dev := body.Clusters["kind-dev"]
+	if !body.Available || body.BucketHours != 4 || len(body.Clusters) != 2 {
+		t.Fatalf("summary body: %+v", body)
+	}
+	if len(dev.Points) != 7*6 && len(dev.Points) != 7*6+1 {
+		t.Errorf("7 days of 4-hour buckets, got %d", len(dev.Points))
+	}
+	last := dev.Points[len(dev.Points)-1]
+	if last.CPUMax == nil || *last.CPUMax != 250 || dev.Nodes != 2 || dev.AllocCPUMillis != 2000 {
+		t.Errorf("kind-dev summary: last=%+v nodes=%d alloc=%d", last, dev.Nodes, dev.AllocCPUMillis)
+	}
+}
+
+func TestHistorySummary_RejectsBadDaysAndSurvivesNoStore(t *testing.T) {
+	f := newHistoryFixture(t)
+	for _, q := range []string{"days=0", "days=x", "days=36"} {
+		if res := do(f.api.HandleSummary, http.MethodGet, "/x?"+q); res.Code != http.StatusBadRequest {
+			t.Errorf("%s: %d", q, res.Code)
+		}
+	}
+	api := &HistoryAPI{Settings: f.sm, Unavailable: "no dir"}
+	res := do(api.HandleSummary, http.MethodGet, "/x")
+	if res.Code != http.StatusOK || !strings.Contains(res.Body.String(), `"available":false`) || !strings.Contains(res.Body.String(), `"clusters":{}`) {
+		t.Errorf("a list page must not error when history is off: %d %s", res.Code, res.Body)
+	}
+}

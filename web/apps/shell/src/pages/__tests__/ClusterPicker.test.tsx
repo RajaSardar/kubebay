@@ -3,7 +3,8 @@ import { render, screen, fireEvent, within, waitFor } from "@testing-library/rea
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import ClusterPicker from "../ClusterPicker";
-import { api, type ClusterInfo } from "../../lib/api";
+import { api, historyApi, type ClusterInfo, type HistorySummary } from "../../lib/api";
+import * as channel from "../../lib/clusterChannel";
 import { useClusterStore } from "../../lib/cluster-store";
 import { useClusterMeta } from "../../lib/cluster-meta-store";
 import * as conns from "../../lib/clusterConnections";
@@ -16,8 +17,12 @@ vi.mock("react-router-dom", async () => {
 
 vi.mock("../../lib/api", async (orig) => {
   const actual = await orig<typeof import("../../lib/api")>();
-  return { ...actual, api: { ...actual.api, clusters: vi.fn(), disconnectCluster: vi.fn() }, historyApi: { ...actual.historyApi, enroll: vi.fn(() => Promise.resolve()) } };
+  return { ...actual, api: { ...actual.api, clusters: vi.fn(), disconnectCluster: vi.fn() }, historyApi: { ...actual.historyApi, enroll: vi.fn(() => Promise.resolve()), summary: vi.fn() } };
 });
+
+vi.mock("../../lib/clusterChannel", () => ({ announceDisconnect: vi.fn(), onRemoteDisconnect: vi.fn(() => () => {}) }));
+
+const noHistory: HistorySummary = { available: true, bucketHours: 4, clusters: {} };
 
 const summaries: Record<string, conns.ClusterSummary> = {};
 vi.mock("../../lib/clusterConnections", () => ({
@@ -61,6 +66,8 @@ beforeEach(() => {
   vi.mocked(api.disconnectCluster).mockReset().mockResolvedValue({ ok: true });
   vi.mocked(conns.connectCluster).mockReset();
   vi.mocked(conns.disconnectCluster).mockReset();
+  vi.mocked(channel.announceDisconnect).mockReset();
+  vi.mocked(historyApi.summary).mockReset().mockResolvedValue(noHistory);
   for (const k of Object.keys(summaries)) delete summaries[k];
   useClusterStore.setState({ active: "" });
   useClusterMeta.setState({ meta: {} });
@@ -198,5 +205,41 @@ describe("ClusterPicker", () => {
     await screen.findByText("stage", { selector: "[data-cluster-name]" });
     fireEvent.click(within(openMenu("stage")).getByRole("menuitem", { name: "Copy context name" }));
     expect(writeText).toHaveBeenCalledWith("arn:aws:eks:eu-west-1:123:cluster/stage");
+  });
+
+  it("draws a week of CPU peaks and the request headroom from recorded history", async () => {
+    const pt = (cpuMax: number | null, reqCpuMillis: number | null) => ({ t: "2026-10-01T00:00:00Z", cpuMax, memMax: null, reqCpuMillis, reqMemBytes: 0 });
+    vi.mocked(historyApi.summary).mockResolvedValue({
+      available: true,
+      bucketHours: 4,
+      clusters: { stage: { points: [pt(1000, 2000), pt(null, null), pt(2000, 3000)], lastSample: "2026-10-01T00:00:00Z", allocCpuMillis: 4000, allocMemBytes: 8 * 2 ** 30, nodes: 3 } },
+    });
+    renderPage();
+    const row = await screen.findByText("stage", { selector: "[data-cluster-name]" }).then(() => rowOf("stage"));
+    expect(await within(row).findByRole("img", { name: "CPU peak over the last 7 days: 2 of 4 cores (50%)" })).toBeInTheDocument();
+    expect(within(row).getByRole("img", { name: "Requests use 75% of allocatable CPU and 0% of memory on 3 nodes" })).toBeInTheDocument();
+    expect(within(rowOf("lab")).queryByRole("img", { name: /CPU peak/ })).toBeNull();
+  });
+
+  it("still lists clusters when history is unavailable", async () => {
+    vi.mocked(historyApi.summary).mockRejectedValue(new Error("404"));
+    renderPage();
+    expect(await screen.findByText("stage", { selector: "[data-cluster-name]" })).toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: /CPU peak/ })).toBeNull();
+  });
+
+  it("says when a cluster that isn't connected was last opened", async () => {
+    useClusterMeta.setState({ meta: { stage: { lastUsed: Date.now() - 4 * 86_400_000 } } });
+    renderPage();
+    await screen.findByText("stage", { selector: "[data-cluster-name]" });
+    expect(within(rowOf("stage")).getByText("Opened 4d ago")).toBeInTheDocument();
+    expect(within(rowOf("lab")).queryByText(/Opened/)).toBeNull();
+  });
+
+  it("tells other windows when it disconnects a cluster", async () => {
+    renderPage();
+    await screen.findByText("kind-dev", { selector: "[data-cluster-name]" });
+    fireEvent.click(within(openMenu("kind-dev")).getByRole("menuitem", { name: "Disconnect" }));
+    await waitFor(() => expect(channel.announceDisconnect).toHaveBeenCalledWith("kind-dev"));
   });
 });

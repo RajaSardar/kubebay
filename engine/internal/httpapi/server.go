@@ -463,6 +463,7 @@ func Router(d Deps, token string) http.Handler {
 			r.Get("/api/history/status", d.History.HandleStatus)
 			r.Get("/api/history/series", d.History.HandleSeries)
 			r.Get("/api/history/health", d.History.HandleHealth)
+			r.Get("/api/history/summary", d.History.HandleSummary)
 		}
 
 		r.Post("/api/helm/rollback", d.Helm.HandleRollback)

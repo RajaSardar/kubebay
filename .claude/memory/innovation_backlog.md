@@ -1032,7 +1032,7 @@ Owner-reported gaps on the Helm page.
   - Ports no longer flashes "No active tunnels" while loading.
   - Crds header, PodPanel output wait, ResizePanel and SecretValueReveal lost their bare "Loading…" text.
   - The `loadingStates` guard now fails on any `<p>`/`<div>` "Loading…"/"Waiting for…" text, and on any loading `DataTable` without a `loadingLabel`.
-### 51. Clusters page redesign — status: building (2a engine merged #108; 2b UI in PR)
+### 51. Clusters page redesign — status: shipped 2026-10-02 (#108 engine, #110 UI)
 The owner asked to audit the cluster list, remove its drawer, show which clusters are connected, add Disconnect to the row menu, and add visualisations only if they earn their place. Three experts (UX, frontend/engine correctness, SRE/data-viz) reported, then a synthesis round cross-challenged them.
 
 **Rulings:**
@@ -1090,6 +1090,32 @@ The owner judged the Fleet page unnecessary.
 - **Bookmarks:** an old `/fleet` link now redirects to `/clusters`. The clusters page (#51) shows which clusters are connected, with pod health per connected cluster, so the useful part of Fleet's health cards lives there without streaming every reachable cluster.
 - **Kept:** `/api/waste/workloads` (Cost/Waste uses it) and `kindCounts` (WorkloadsOverview).
 - **Guard:** `noFleet.test.ts`.
+
+### 53. Clusters page usage follow-ups — status: building
+These are the follow-ups to #51 that the clusters-page debate deferred.
+- **Engine:**
+  - The sampler now also records node count and summed allocatable on the cluster-total line of usage history (#36), only when the node list succeeds. Namespace-scoped RBAC leaves capacity unknown rather than failing the tick.
+  - `GET /api/history/summary?days=7` returns every recorded cluster in one call: 4-hour buckets of hourly CPU/memory peaks and the highest request total, plus the last known capacity. The list page doesn't fetch `/series` once per cluster.
+  - History off or unavailable returns an empty answer, not an error.
+- **UI:**
+  - "CPU · 7 days" sparkline. It is scaled to allocatable, so its height reads as utilisation, and it breaks at unrecorded buckets rather than drawing across them.
+  - "Requests" headroom bars: CPU over memory, green, amber at 75% and red at 90%.
+  - "Opened 4d ago" in the Session cell of clusters that aren't connected.
+- **Cross-window disconnect:** a disconnect is announced on a `BroadcastChannel`. Other windows drop their streams, cached queries and active choice, and leave a page showing that cluster. Without this, their open subscriptions would reconnect the cluster straight away.
+- **Not in v1:** a per-cluster history drill-down (the Usage history card covers it), and capacity for clusters never connected. Capacity only exists where the sampler ran.
+
+### 54. Engine fixes from the clusters-page audit — status: building
+These are the issues the #51 experts found in the engine and left for later.
+- **OIDC identity in streams (security):** `PoolRegistry.For` read the identity from `context.Background()`, so in OIDC mode every stream ran with the engine's own credentials. The fix:
+  - It now reads the identity from the subscribe context, which descends from the WebSocket request the auth middleware stamped.
+  - Pools are keyed by `id|user|sorted groups`, so a membership change gets a new impersonation.
+  - Port-forward had the same gap and now uses `restConfigFor`.
+  - Known gap: `/api/pf` lists and stops forwards across users.
+- **Still to do:**
+  - Rebuild pools when a context's credentials change on reload.
+  - Deterministic disambiguation when two contexts sanitise to the same ID.
+  - Watch an explicit `--kubeconfig` / `KUBEBAY_KUBECONFIG` file.
+  - Rename the wire status `connected` to `reachable`.
 
 ### Further ideas worth a look (unscoped, one-liners)
 - **Revert unsaved YAML edits — SHIPPED 2026-09-27.** One-click "discard my in-progress edit" button in `YamlTab.tsx`, next to Reload — a local reset (no network call), unlike Reload which re-fetches from the server.
