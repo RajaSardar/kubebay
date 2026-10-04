@@ -21,21 +21,33 @@ func TestStdinQueueDropsRatherThanBlocks(t *testing.T) {
 	dst := &blockingWriter{release: make(chan struct{})}
 	q := newStdinQueue(dst, 4)
 
-	done := make(chan error, 1)
+	type result struct{ ok, full int }
+	done := make(chan result, 1)
 	go func() {
-		// One write is consumed by the drain goroutine and blocks there; the
-		// rest fill the queue.  Nothing here may block the caller.
-		var last error
+		// The drain goroutine takes one write and blocks on the sink; the
+		// queue holds four more; everything else must be dropped, and nothing
+		// here may block the caller. When the drain goroutine first runs is up
+		// to the scheduler, so the one write it frees room for can land
+		// anywhere in the loop, even last: count outcomes, not the final one.
+		var r result
 		for i := 0; i < 64; i++ {
-			_, last = q.Write([]byte("x"))
+			_, err := q.Write([]byte("x"))
+			switch {
+			case err == nil:
+				r.ok++
+			case errors.Is(err, errStdinQueueFull):
+				r.full++
+			default:
+				t.Errorf("write %d: unexpected error %v", i, err)
+			}
 		}
-		done <- last
+		done <- r
 	}()
 
 	select {
-	case err := <-done:
-		if !errors.Is(err, errStdinQueueFull) {
-			t.Fatalf("overflow error = %v, want errStdinQueueFull", err)
+	case r := <-done:
+		if r.full == 0 || r.ok > 5 || r.ok+r.full != 64 {
+			t.Fatalf("accepted %d, dropped %d: want at most depth+1 (5) accepted and the rest dropped with errStdinQueueFull", r.ok, r.full)
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("stdin writes blocked on a stalled sink — the WebSocket read loop would be frozen")
