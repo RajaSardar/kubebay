@@ -31,9 +31,19 @@ type PortForward struct {
 }
 
 type pfEntry struct {
-	fw       PortForward
+	fw PortForward
+	// owner is the OIDC user who started the forward; "" without OIDC
+	// (desktop), where every caller is the one local user.
+	owner    string
 	stop     chan struct{}
 	stopOnce sync.Once
+}
+
+func ownerOf(ctx context.Context) string {
+	if ident := clusters.IdentityFromContext(ctx); ident != nil {
+		return ident.Name
+	}
+	return ""
 }
 
 type PFManager struct {
@@ -95,7 +105,7 @@ func (p *PFManager) Start(ctx context.Context, cluster, namespace, pod string, p
 	entry := &pfEntry{fw: PortForward{
 		ID: id, Cluster: cluster, Namespace: namespace, Pod: pod,
 		PodPort: podPort, StartedAt: time.Now().UTC().Format(time.RFC3339),
-	}, stop: stop}
+	}, owner: ownerOf(ctx), stop: stop}
 	p.m[id] = entry
 	p.mu.Unlock()
 
@@ -104,20 +114,20 @@ func (p *PFManager) Start(ctx context.Context, cluster, namespace, pod string, p
 	select {
 	case <-ready:
 	case <-time.After(15 * time.Second):
-		p.Stop(id)
+		p.stop(id)
 		msg := stderr.String()
 		if len(msg) > 300 {
 			msg = msg[:300]
 		}
 		return nil, fmt.Errorf("tunnel not ready: %s", msg)
 	case <-ctx.Done():
-		p.Stop(id)
+		p.stop(id)
 		return nil, ctx.Err()
 	}
 
 	ports, err := fw.GetPorts()
 	if err != nil || len(ports) == 0 {
-		p.Stop(id)
+		p.stop(id)
 		return nil, fmt.Errorf("no forwarded ports: %v", err)
 	}
 	entry.fw.LocalPort = ports[0].Local
@@ -125,7 +135,22 @@ func (p *PFManager) Start(ctx context.Context, cluster, namespace, pod string, p
 	return &out, nil
 }
 
-func (p *PFManager) Stop(id string) bool {
+// Stop ends a forward the caller started. Another user's forward reads as
+// unknown, so its existence isn't revealed either.
+func (p *PFManager) Stop(ctx context.Context, id string) bool {
+	p.mu.Lock()
+	entry, ok := p.m[id]
+	if ok && entry.owner != ownerOf(ctx) {
+		ok = false
+	}
+	p.mu.Unlock()
+	if !ok {
+		return false
+	}
+	return p.stop(id)
+}
+
+func (p *PFManager) stop(id string) bool {
 	p.mu.Lock()
 	entry, ok := p.m[id]
 	if ok {
@@ -139,7 +164,8 @@ func (p *PFManager) Stop(id string) bool {
 	return true
 }
 
-// StopCluster stops every port-forward into a cluster (on disconnect).
+// StopCluster stops every port-forward into a cluster, whoever started it
+// (on disconnect, when the cluster's clients are torn down).
 func (p *PFManager) StopCluster(cluster string) {
 	p.mu.Lock()
 	var ids []string
@@ -150,16 +176,20 @@ func (p *PFManager) StopCluster(cluster string) {
 	}
 	p.mu.Unlock()
 	for _, id := range ids {
-		p.Stop(id)
+		p.stop(id)
 	}
 }
 
-func (p *PFManager) List() []PortForward {
+// List returns the caller's own forwards.
+func (p *PFManager) List(ctx context.Context) []PortForward {
+	owner := ownerOf(ctx)
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	out := make([]PortForward, 0, len(p.m))
 	for _, e := range p.m {
-		out = append(out, e.fw)
+		if e.owner == owner {
+			out = append(out, e.fw)
+		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
 	return out

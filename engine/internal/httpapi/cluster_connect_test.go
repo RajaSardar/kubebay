@@ -92,7 +92,7 @@ func TestStopClusterStopsOnlyThatClustersForwards(t *testing.T) {
 	default:
 		t.Error("c1's forward was not stopped")
 	}
-	if got := p.List(); len(got) != 1 || got[0].Cluster != "c2" {
+	if got := p.List(context.Background()); len(got) != 1 || got[0].Cluster != "c2" {
 		t.Errorf("remaining forwards = %+v", got)
 	}
 }

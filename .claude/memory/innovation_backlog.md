@@ -502,7 +502,7 @@ Overall status: **Enforced** (some policy enforces) · **Audit only** (policies 
 
 **Not in v1:** Connaisseur, Ratify/Gatekeeper, and per-namespace coverage for Kyverno's `match`/`exclude` (a Kyverno policy is treated as cluster-wide).
 
-**Slice 2 (building): where it applies.**
+**Slice 2 (shipped 2026-10-03, #123): where it applies.**
 - **Per-namespace coverage.** Every namespace gets the strongest mode that covers it.
   - **Kyverno:** each verifyImages rule's `match`/`exclude` is evaluated: `any`, `all` or legacy `resources`; namespace globs; `namespaceSelector`; pod and workload kinds only. An exclude by user or role doesn't exclude a namespace. A namespaced Policy covers only its own namespace.
   - **Sigstore:** opted-in namespaces only.
@@ -899,7 +899,7 @@ How it contacts registries:
 - pull-secret authentication for private registries
 - per-workload drawer placement
 
-**Slice 2 (building): key verification and private registries.**
+**Slice 2 (shipped 2026-10-03, #124): key verification and private registries.**
 - **Key-based verification.**
   - A cosign tag signature is checked against the public keys in the cluster's Kyverno verifyImages attestors (and the older `key` field) and Sigstore ClusterImagePolicy key authorities.
   - Only the keys whose image patterns cover the image are tried.
@@ -912,7 +912,7 @@ How it contacts registries:
 
 **OSS.**
 
-### 46. Fix: YAML-tab edits conflicted with Helm/kubectl field managers — status: building (slices 1, 2a shipped #89, #99; slice 2b in PR)
+### 46. Fix: YAML-tab edits conflicted with Helm/kubectl field managers — status: shipped 2026-10-03 (slices 1–4: #89, #99, #102, #122)
 
 **User report:** "Apply failed with 3 conflicts: conflicts with "kubectl-client-side-apply" using apps/v1: …env[name="CONFIG_USER"].value…" on a Helm-installed Deployment.
 
@@ -965,7 +965,7 @@ The YAML view also strips `resourceVersion`.
 - **Kind test:** a concurrent change to REGION followed by an edit of REGION gives a 409, and the concurrent value survives.
 
 **Slice 3 (shipped):** `HandleCreateResource` no longer forces. Creating over an object whose fields another tool owns returns a 409 that names the object and points at its YAML tab; Helm/kubectl values survive (kind test `TestLiveCreateOverAnObjectAnotherToolManages`). The NetpolEditor "replace" banner says so. Discovery/dynamic clients for create go through `discoClient`/`dynClient` overrides for tests.
-**Slice 4 (building): stale ownership cleanup.**
+**Slice 4 (shipped 2026-10-03, #122): stale ownership cleanup.**
 - After a successful non-dry-run edit, any `kubebay` + `Apply` managedFields entry left by the old force-apply path is removed with a JSON patch.
 - Each removal first `test`s the manager and operation at that index, and removals go highest index first, so a concurrent change fails the patch rather than removing another manager's entry.
 - Best effort: a failure leaves the entry for the next edit. Values never change.
@@ -1026,13 +1026,13 @@ A retrospective security feed with no kernel agent and no in-cluster install. Th
   - A dynamic audit webhook sink was rejected: it needs API server flags and an always-on receiver, which breaks local-first.
   - Pulling from CloudWatch, GCP or Azure log APIs directly was deferred to an Enterprise-flavoured slice, since it needs cloud credentials. A synced local file covers it now.
   - Spike detection for Secret reads was deferred. Raw rows with a severity filter come first.
-- **Slice 2 (building).**
+- **Slice 2 (shipped 2026-10-03, #120).**
   - **Secret-read grouping.** Each person's reads that follow within 10 minutes of each other, split by allowed or denied, fold into one row: count, first time, and the Secrets read (up to 5 listed).
     - 20 or more reads is a medium "Burst of Secret reads by a person".
     - A lone read stays a normal row with its object.
   - **Object links.** Events carry `ref` (resource/namespace/name). Pods open their drawer on the Pods page, and kinds in `DEFS` open their detail page.
   - **Rotated files.** When the live file leaves byte budget, rotations next to it are read newest first: `audit.log.1`, `audit.log-<date>`, the API server's `audit-<time>.log`, and gzipped copies.
-- **Slice 3 (building): cloud sources.** These run the user's own `aws` / `gcloud` CLIs with their current credentials. That's opt-in per cluster and stays off under OIDC or in-cluster, like the file feed.
+- **Slice 3 (shipped 2026-10-03, #121): cloud sources.** These run the user's own `aws` / `gcloud` CLIs with their current credentials. That's opt-in per cluster and stays off under OIDC or in-cluster, like the file feed.
   - **EKS:** `aws logs filter-log-events` on `/aws/eks/<cluster>/cluster`, streams `kube-apiserver-audit*`.
   - **GKE:** `gcloud logging read`. Cloud Audit Log entries map onto audit Events: methodName gives the verb, resourceName gives the object, and the gRPC status gives allowed or denied.
   - **Server-side filters:** a CloudWatch filter pattern and a GKE methodName regex, so the 5000-entry cap is spent on candidates.
@@ -1056,7 +1056,7 @@ Findings joined into prioritised chains instead of a flat list. Built on what al
   - A graph visualisation was rejected for v1. A ranked table of chains answers "what do I fix first" and a graph doesn't.
   - Using `evaluateConnection` per pod pair was rejected. The question is whether outside traffic is limited at all, not pod-to-pod reachability.
   - Keeping partial chains was a judgement call. An exposed pod with a cluster-wide-secrets token is worth seeing even with no CVE scanner installed.
-- **Slice 2 (building).** These are the four planned next slices.
+- **Slice 2 (shipped 2026-10-03, #119).** These are the four planned next slices.
   - **Isolation that means it.** A policy counts as restricting only when its rules leave the traffic source out.
     - For LoadBalancer/NodePort, the source is outside the cluster: an empty `from` or any `ipBlock` admits it.
     - For an Ingress, the source is the controller pods, found by the common controllers' labels and matched by pod/namespace selector or `ipBlock` against the pod IP.
@@ -1139,7 +1139,7 @@ The owner judged the Fleet page unnecessary.
 - **Kept:** `/api/waste/workloads` (Cost/Waste uses it) and `kindCounts` (WorkloadsOverview).
 - **Guard:** `noFleet.test.ts`.
 
-### 53. Clusters page usage follow-ups — status: building
+### 53. Clusters page usage follow-ups — status: shipped 2026-10-03 (#115)
 These are the follow-ups to #51 that the clusters-page debate deferred.
 - **Engine:**
   - The sampler now also records node count and summed allocatable on the cluster-total line of usage history (#36), only when the node list succeeds. Namespace-scoped RBAC leaves capacity unknown rather than failing the tick.
@@ -1152,20 +1152,24 @@ These are the follow-ups to #51 that the clusters-page debate deferred.
 - **Cross-window disconnect:** a disconnect is announced on a `BroadcastChannel`. Other windows drop their streams, cached queries and active choice, and leave a page showing that cluster. Without this, their open subscriptions would reconnect the cluster straight away.
 - **Not in v1:** a per-cluster history drill-down (the Usage history card covers it), and capacity for clusters never connected. Capacity only exists where the sampler ran.
 
-### 54. Engine fixes from the clusters-page audit — status: building
+### 54. Engine fixes from the clusters-page audit — status: shipped 2026-10-03 (#116, #125; port-forward ownership #126)
 These are the issues the #51 experts found in the engine and left for later.
 - **OIDC identity in streams (security):** `PoolRegistry.For` read the identity from `context.Background()`, so in OIDC mode every stream ran with the engine's own credentials. The fix:
   - It now reads the identity from the subscribe context, which descends from the WebSocket request the auth middleware stamped.
   - Pools are keyed by `id|user|sorted groups`, so a membership change gets a new impersonation.
   - Port-forward had the same gap and now uses `restConfigFor`.
-  - Known gap: `/api/pf` lists and stops forwards across users.
+  - Follow-up (closes the known gap): each port-forward records the OIDC user who started it.
+    - `GET /api/pf` lists only the caller's forwards.
+    - `DELETE /api/pf/{id}` on someone else's forward returns the same 404 as an unknown ID.
+    - Disconnect teardown still stops every forward into the cluster.
+    - Desktop mode (no identity) behaves as before.
 - **Still to do:**
   - Rebuild pools when a context's credentials change on reload.
   - Deterministic disambiguation when two contexts sanitise to the same ID.
   - Watch an explicit `--kubeconfig` / `KUBEBAY_KUBECONFIG` file.
   - Rename the wire status `connected` to `reachable`.
 
-### 55. Cluster manager reload fixes — status: building
+### 55. Cluster manager reload fixes — status: shipped 2026-10-03 (#117)
 Three of the #54 engine issues from the clusters-page audit, in one PR.
 - **Credentials change on reload:**
   - `Load` compares each context's client config (host, token, TLS, exec/auth provider, impersonation).
