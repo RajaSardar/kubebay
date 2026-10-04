@@ -513,6 +513,7 @@ function AppInner() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const sidebar = useSidebar();
   const [switching, setSwitching] = useState(false);
+  const [fastSwitch, setFastSwitch] = useState(false);
   const safetyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [active, setActiveState] = useState<string>(() =>
@@ -537,13 +538,13 @@ function AppInner() {
     connectCluster(id);
 
     if (id !== effectiveActive) {
-      // Only show the switching overlay if we haven't streamed this cluster yet.
-      // If it's already connected (background subs warm), skip the overlay entirely.
-      if (!alreadyStreaming) {
-        setSwitching(true);
-        if (safetyTimer.current) clearTimeout(safetyTimer.current);
-        safetyTimer.current = setTimeout(() => setSwitching(false), 15_000);
-      }
+      // Always show the switching overlay so the user sees the view is changing.
+      // For already-connected clusters (warm background stream) the overlay is
+      // dismissed quickly once connected; for fresh clusters we wait up to 15 s.
+      setSwitching(true);
+      setFastSwitch(alreadyStreaming);
+      if (safetyTimer.current) clearTimeout(safetyTimer.current);
+      safetyTimer.current = setTimeout(() => setSwitching(false), alreadyStreaming ? 800 : 15_000);
       queryClient.invalidateQueries({ queryKey: [id], refetchType: "active" });
       // Do NOT clear stream cache — background subs keep it warm for all clusters.
     }
@@ -554,11 +555,12 @@ function AppInner() {
     navigate({ search: sp.toString() }, { replace: true });
   };
 
-  // Dismiss the switching overlay once the cluster is reachable + stream is up
+  // Dismiss the switching overlay once the cluster is reachable + stream is up.
+  // For fast-switches (already connected) the 400 ms beat gives visual feedback.
   useEffect(() => {
     if (!switching) return;
     if (activeCluster?.status === "reachable" && ws.connected) {
-      const t = setTimeout(() => setSwitching(false), 400);
+      const t = setTimeout(() => { setSwitching(false); setFastSwitch(false); }, 400);
       return () => clearTimeout(t);
     }
   }, [switching, activeCluster?.status, ws.connected]);
@@ -636,6 +638,7 @@ function AppInner() {
               wsRetry={ws.retryAttempt}
               wsNextRetryMs={ws.nextRetryMs}
               isReconnect={showReconnectOverlay}
+              fastSwitch={fastSwitch}
               avatar={overlayAvatar}
             />
           )}

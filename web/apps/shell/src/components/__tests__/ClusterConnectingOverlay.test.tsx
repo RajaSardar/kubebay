@@ -42,4 +42,31 @@ describe("ClusterConnectingOverlay", () => {
     render(<ClusterConnectingOverlay {...base} clusterStatus="reachable" isReconnect wsRetry={2} wsNextRetryMs={4000} />);
     expect(screen.getByRole("status", { name: "Reconnecting to prod-eks…" })).toHaveClass("kb-spinner");
   });
+
+  it("shows spinner and Switching message when fastSwitch=true even though cluster is already connected", () => {
+    render(
+      <ClusterConnectingOverlay
+        {...base}
+        clusterStatus="reachable"
+        wsConnected
+        clusterVersion="v1.34.0"
+        fastSwitch
+      />,
+    );
+    expect(screen.getByRole("status", { name: "Connecting to prod-eks…" })).toBeInTheDocument();
+    expect(screen.getByText("Switching cluster…")).toBeInTheDocument();
+  });
+
+  it("fastSwitch=false (default) still drops the loader when fully connected", () => {
+    render(
+      <ClusterConnectingOverlay
+        {...base}
+        clusterStatus="reachable"
+        wsConnected
+        clusterVersion="v1.34.0"
+      />,
+    );
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.getByText("Connected · v1.34.0")).toBeInTheDocument();
+  });
 });

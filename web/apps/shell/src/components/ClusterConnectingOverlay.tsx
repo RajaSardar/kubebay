@@ -13,6 +13,9 @@ export interface OverlayProps {
   wsRetry: number;
   wsNextRetryMs: number;
   isReconnect: boolean; // true = WS dropped, false = cluster switch
+  /** true when switching to an already-connected cluster — keeps spinner
+   *  visible briefly so the user sees the view is refreshing. */
+  fastSwitch?: boolean;
   avatar: { bg: string; label: string; imageUrl?: string };
 }
 
@@ -25,6 +28,7 @@ export function ClusterConnectingOverlay({
   wsRetry,
   wsNextRetryMs,
   isReconnect,
+  fastSwitch = false,
   avatar,
 }: OverlayProps) {
   const [countdown, setCountdown] = useState(Math.ceil(wsNextRetryMs / 1000));
@@ -68,7 +72,9 @@ export function ClusterConnectingOverlay({
       statusMsg = "Connection lost — reconnecting…";
     }
   } else {
-    if (clusterStatus === "reachable" && wsConnected) {
+    if (fastSwitch && clusterStatus === "reachable" && wsConnected) {
+      statusMsg = "Switching cluster…";
+    } else if (clusterStatus === "reachable" && wsConnected) {
       statusMsg = clusterVersion ? `Connected · ${clusterVersion}` : "Connected";
     } else if (clusterStatus === "reachable") {
       statusMsg = "API reachable · opening live stream…";
@@ -81,7 +87,11 @@ export function ClusterConnectingOverlay({
   }
 
   // Still waiting: not failed, and not yet fully connected.
-  const waiting = isReconnect ? !wsConnected : !isError && !(clusterStatus === "reachable" && wsConnected);
+  // fastSwitch keeps waiting=true even when already reachable so the spinner
+  // stays visible for the brief overlay duration before App.tsx dismisses it.
+  const waiting = isReconnect
+    ? !wsConnected
+    : !isError && (fastSwitch || !(clusterStatus === "reachable" && wsConnected));
 
   return (
     <div className="conn-overlay">
