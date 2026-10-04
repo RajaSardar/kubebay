@@ -109,8 +109,8 @@ func Router(d Deps, token string) http.Handler {
 			d.Hub.Handle(w, req, poolSource{reg: d.Pools, mgr: d.Clusters}, wsSubprotocolFromContext(req.Context()))
 		})
 
-		r.Get("/api/pf", func(w http.ResponseWriter, _ *http.Request) {
-			writeJSON(w, d.PF.List())
+		r.Get("/api/pf", func(w http.ResponseWriter, r *http.Request) {
+			writeJSON(w, d.PF.List(r.Context()))
 		})
 		r.Post("/api/pf", func(w http.ResponseWriter, r *http.Request) {
 			var body struct {
@@ -141,7 +141,7 @@ func Router(d Deps, token string) http.Handler {
 		})
 		r.Delete("/api/pf/{id}", func(w http.ResponseWriter, r *http.Request) {
 			id := chi.URLParam(r, "id")
-			if !d.PF.Stop(id) {
+			if !d.PF.Stop(r.Context(), id) {
 				http.Error(w, "unknown forward", http.StatusNotFound)
 				return
 			}

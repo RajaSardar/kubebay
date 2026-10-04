@@ -1158,7 +1158,11 @@ These are the issues the #51 experts found in the engine and left for later.
   - It now reads the identity from the subscribe context, which descends from the WebSocket request the auth middleware stamped.
   - Pools are keyed by `id|user|sorted groups`, so a membership change gets a new impersonation.
   - Port-forward had the same gap and now uses `restConfigFor`.
-  - Known gap: `/api/pf` lists and stops forwards across users.
+  - Follow-up (closes the known gap): each port-forward records the OIDC user who started it.
+    - `GET /api/pf` lists only the caller's forwards.
+    - `DELETE /api/pf/{id}` on someone else's forward returns the same 404 as an unknown ID.
+    - Disconnect teardown still stops every forward into the cluster.
+    - Desktop mode (no identity) behaves as before.
 - **Still to do:**
   - Rebuild pools when a context's credentials change on reload.
   - Deterministic disambiguation when two contexts sanitise to the same ID.
