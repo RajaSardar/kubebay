@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -21,6 +22,32 @@ import (
 	"github.com/RajaSardar/kubebay/engine/internal/audit"
 	"github.com/RajaSardar/kubebay/engine/internal/clusters"
 )
+
+// stripComplianceSpecs is a Helm PostRenderer that removes ClusterComplianceReport
+// CR instances from the rendered manifest before Helm validates it against the
+// cluster API. Some Trivy-Operator chart versions include compliance preset objects
+// (k8s-cis-1.23, k8s-nsa-1.0, etc.) even when clusterComplianceEnabled=false.
+// Their CRD is installed from crds/ first, but the Helm SDK's REST mapper cache
+// doesn't refresh between CRD install and manifest validation, causing
+// "resource mapping not found" errors. Stripping the instances (not the CRD) is
+// safe: we set clusterComplianceEnabled=false, so the presets are unused.
+type stripComplianceSpecs struct{}
+
+func (s *stripComplianceSpecs) Run(renderedManifests *bytes.Buffer) (*bytes.Buffer, error) {
+	const sep = "\n---\n"
+	var out bytes.Buffer
+	for _, doc := range strings.Split(renderedManifests.String(), sep) {
+		if strings.TrimSpace(doc) == "" {
+			continue
+		}
+		if strings.Contains(doc, "kind: ClusterComplianceReport") {
+			continue
+		}
+		out.WriteString(doc)
+		out.WriteString(sep)
+	}
+	return &out, nil
+}
 
 type HelmManager struct {
 	Clusters *clusters.Manager
@@ -311,6 +338,7 @@ func (h *HelmManager) HandleUpgrade(w http.ResponseWriter, r *http.Request) {
 		if req.DryRun {
 			inst.DryRunOption = "client"
 		}
+		inst.PostRenderer = &stripComplianceSpecs{}
 		rel, iErr := inst.Run(ch, vals)
 		if iErr != nil {
 			http.Error(w, fmt.Sprintf("install: %v", iErr), http.StatusBadGateway)
@@ -342,6 +370,7 @@ func (h *HelmManager) HandleUpgrade(w http.ResponseWriter, r *http.Request) {
 	if req.DryRun {
 		up.DryRunOption = "client"
 	}
+	up.PostRenderer = &stripComplianceSpecs{}
 	rel, uErr := up.Run(req.Name, ch, vals)
 	if uErr != nil {
 		http.Error(w, fmt.Sprintf("upgrade: %v", uErr), http.StatusBadGateway)
