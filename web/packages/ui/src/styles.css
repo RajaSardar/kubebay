@@ -523,6 +523,8 @@ kbd {
 .kb-table th.col-select,
 .kb-table td.col-select {
   padding: 0 var(--kb-space-2) 0 var(--kb-gutter);
+  text-overflow: clip; /* checkbox cell must never show … */
+  overflow: visible;
 }
 
 /* ── Row checkbox ── */
