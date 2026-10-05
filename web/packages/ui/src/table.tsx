@@ -160,14 +160,21 @@ function Checkbox({
     if (ref.current) ref.current.indeterminate = !!indeterminate;
   }, [indeterminate]);
   return (
-    <input
-      ref={ref}
-      type="checkbox"
-      className="kb-checkbox"
-      checked={checked}
-      aria-label={label}
-      onChange={(e) => onChange(e.target.checked)}
-    />
+    // Wrap in a <label aria-label> instead of putting aria-label on the input.
+    // WebKit renders a native "…" truncation indicator next to form controls
+    // (inputs) whose aria-label string is wider than the cell — moving the label
+    // to the <label> element stops that while preserving the accessible name via
+    // label association (accname-1.1 §2.5: label's aria-label propagates to its
+    // associated control).
+    <label className="kb-checkbox-label" aria-label={label}>
+      <input
+        ref={ref}
+        type="checkbox"
+        className="kb-checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+    </label>
   );
 }
 

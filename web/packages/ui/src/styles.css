@@ -482,6 +482,11 @@ kbd {
   border-bottom: 1px solid var(--kb-border-subtle);
   white-space: nowrap;
   overflow: hidden;
+}
+
+/* Text overflow only on data cells — never on the checkbox or menu columns,
+   which contain replaced elements (input, button) that must not show …  */
+.kb-table td:not(.col-select):not(.col-row-menu) {
   text-overflow: ellipsis;
   max-width: 0; /* forces ellipsis inside table-layout:fixed cells */
 }
@@ -519,15 +524,24 @@ kbd {
 }
 
 /* Selection column: its own tighter padding, but the checkbox still starts on
-   the shared page gutter so it lines up with the title and the search field. */
+   the shared page gutter so it lines up with the title and the search field.
+   overflow: visible so WebKit does not render a native "…" truncation indicator
+   on the checkbox form control when the cell clips its content. */
 .kb-table th.col-select,
 .kb-table td.col-select {
   padding: 0 var(--kb-space-2) 0 var(--kb-gutter);
-  text-overflow: clip; /* checkbox cell must never show … */
   overflow: visible;
 }
 
+
 /* ── Row checkbox ── */
+/* display:contents removes the <label> box so only the <input> is visual.
+   This prevents WebKit from rendering the long aria-label as truncated "…" text
+   next to the native form control. */
+.kb-checkbox-label {
+  display: contents;
+}
+
 .kb-checkbox {
   width: 14px;
   height: 14px;
