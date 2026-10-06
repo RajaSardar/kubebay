@@ -101,6 +101,61 @@ describe("extraColumns('events') – Count", () => {
   });
 });
 
+// ── services columns (backlog #13) ───────────────────────────────────────────
+
+describe("extraColumns('services') – External IP", () => {
+  const { "External IP": ExternalIP } = extraColumns("services");
+
+  it("shows load balancer IP for LoadBalancer services", () => {
+    const svc = { spec: { type: "LoadBalancer", clusterIP: "10.0.0.1" }, status: { loadBalancer: { ingress: [{ ip: "1.2.3.4" }] } } };
+    expect(ExternalIP!(svc).v).toBe("1.2.3.4");
+  });
+
+  it("shows hostname when load balancer provides a hostname instead of IP", () => {
+    const svc = { spec: { type: "LoadBalancer", clusterIP: "10.0.0.1" }, status: { loadBalancer: { ingress: [{ hostname: "abc.elb.amazonaws.com" }] } } };
+    expect(ExternalIP!(svc).v).toBe("abc.elb.amazonaws.com");
+  });
+
+  it("shows multiple LB IPs joined by comma", () => {
+    const svc = { spec: { type: "LoadBalancer" }, status: { loadBalancer: { ingress: [{ ip: "1.2.3.4" }, { ip: "5.6.7.8" }] } } };
+    expect(ExternalIP!(svc).v).toBe("1.2.3.4, 5.6.7.8");
+  });
+
+  it("shows externalName for ExternalName services", () => {
+    const svc = { spec: { type: "ExternalName", externalName: "mydb.example.com" } };
+    expect(ExternalIP!(svc).v).toBe("mydb.example.com");
+  });
+
+  it("shows dash for ClusterIP services (no external exposure)", () => {
+    const svc = { spec: { type: "ClusterIP", clusterIP: "10.0.0.1" }, status: {} };
+    expect(ExternalIP!(svc).v).toBe("–");
+  });
+
+  it("shows dash for pending LB with no ingress yet", () => {
+    const svc = { spec: { type: "LoadBalancer" }, status: { loadBalancer: {} } };
+    expect(ExternalIP!(svc).v).toBe("–");
+  });
+});
+
+describe("extraColumns('services') – Port (all ports, not just first)", () => {
+  const { Port } = extraColumns("services");
+
+  it("shows all ports when there are multiple", () => {
+    const svc = { spec: { ports: [{ port: 80, protocol: "TCP" }, { port: 443, protocol: "TCP" }] } };
+    expect(Port!(svc).v).toBe("80/TCP, 443/TCP");
+  });
+
+  it("includes nodePort when present", () => {
+    const svc = { spec: { ports: [{ port: 80, nodePort: 30080, protocol: "TCP" }] } };
+    expect(Port!(svc).v).toBe("80:30080/TCP");
+  });
+
+  it("shows dash when no ports", () => {
+    const svc = { spec: { ports: [] } };
+    expect(Port!(svc).v).toBe("–");
+  });
+});
+
 // ── unknown slug returns empty ────────────────────────────────────────────────
 
 describe("extraColumns for unknown slug", () => {

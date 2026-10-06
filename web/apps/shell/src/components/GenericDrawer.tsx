@@ -8,6 +8,7 @@ import { WorkloadHealthChip } from "./WorkloadHealthChip";
 import { ActionsBar } from "./ActionsBar";
 import { NodeSummary } from "./NodeSummary";
 import { ServiceSummary } from "./ServiceSummary";
+import { NamespaceSummary } from "./NamespaceSummary";
 import { MetadataSummary } from "./MetadataSummary";
 import { RolloutProgress } from "./RolloutProgress";
 import { RolloutLine } from "./RolloutLine";
@@ -71,6 +72,7 @@ function SplitDivider({
 function PaneContent({
   isNode,
   isService,
+  isNamespace,
   nodeTab,
   svcTab,
   genTab,
@@ -88,6 +90,7 @@ function PaneContent({
 }: {
   isNode: boolean;
   isService: boolean;
+  isNamespace: boolean;
   nodeTab: NodeTab;
   svcTab: SvcTab;
   genTab: GenTab;
@@ -108,6 +111,9 @@ function PaneContent({
   // plural, so prefer the Kind the live object reports once it has loaded.
   const eventKind = (typeof obj?.kind === "string" && obj.kind) || def.kind;
 
+  if (isNamespace && genTab === "summary") {
+    return <NamespaceSummary cluster={cluster} namespace={name} />;
+  }
   if (isService && svcTab === "summary") {
     if (objLoading) return <SkeletonLines lines={6} label="Loading details…" />;
     if (obj) return <ServiceSummary obj={obj} />;
@@ -241,6 +247,7 @@ export default function GenericDrawer({
 
   const isNode = def.slug === "nodes";
   const isService = def.slug === "services";
+  const isNamespace = def.slug === "namespaces";
 
   // Per-kind split persistence key
   const splitKey = `kb.split.${def.slug}`;
@@ -438,6 +445,7 @@ export default function GenericDrawer({
   const sharedContentProps = {
     isNode,
     isService,
+    isNamespace,
     cluster,
     def,
     ns,

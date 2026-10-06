@@ -237,11 +237,17 @@ export function extraColumns(
       return {
         Type: (o) => ({ v: str(rec(o.spec).type) || "ClusterIP" }),
         "Cluster IP": (o) => ({ v: str(rec(o.spec).clusterIP) || "–" }),
+        "External IP": (o) => {
+          const type = str(rec(o.spec).type);
+          if (type === "ExternalName") return { v: str(rec(o.spec).externalName) || "–" };
+          const ingress = (rec(rec(o.status).loadBalancer).ingress ?? []) as Record<string, unknown>[];
+          const ips = ingress.map((i) => str(i.ip) || str(i.hostname)).filter(Boolean);
+          return { v: ips.join(", ") || "–" };
+        },
         Port: (o) => {
           const ports = (rec(o.spec).ports ?? []) as Record<string, unknown>[];
           if (!ports.length) return { v: "–" };
-          const p = ports[0] ?? {};
-          return { v: `${str(p.port)}${p.nodePort ? ":" + str(p.nodePort) : ""}/${str(p.protocol) || "TCP"}` };
+          return { v: ports.map((p) => `${p.port != null ? String(p.port) : ""}${p.nodePort ? ":" + String(p.nodePort) : ""}/${str(p.protocol) || "TCP"}`).join(", ") };
         },
       };
     case "ingresses":
