@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Badge, DataTable, EmptyState, InlineBanner, PageHeader, StatusDot, TextField } from "@kubebay/ui";
+import { Badge, Button, DataTable, EmptyState, InlineBanner, Modal, PageHeader, Row, Stack, StatusDot, TextField } from "@kubebay/ui";
 import { api } from "../lib/api";
 
 interface AuditEntry {
@@ -35,6 +35,7 @@ function fmtTime(iso: string): string {
 
 export default function AuditLog() {
   const [filter, setFilter] = useState("");
+  const [detail, setDetail] = useState<AuditEntry | null>(null);
 
   const q = useQuery({
     queryKey: ["audit"],
@@ -76,12 +77,43 @@ export default function AuditLog() {
         </InlineBanner>
       )}
 
+      {detail && (
+        <Modal label="Audit entry details" onClose={() => setDetail(null)} placement="center" size="wide">
+          <Stack gap={3} style={{ padding: "24px 28px" }}>
+            {(
+              [
+                ["Time", fmtTime(detail.time)],
+                ["Action", detail.action],
+                ["Cluster", detail.cluster],
+                ["Namespace", detail.namespace || "–"],
+                ["Resource", detail.resource || "–"],
+                ["Detail", detail.detail || "–"],
+                ["User-Agent", detail.userAgent || "–"],
+              ] as [string, string][]
+            ).map(([label, value]) => (
+              <Row key={label} gap={3} style={{ borderBottom: "1px solid var(--kb-border-subtle)", paddingBottom: 6 }}>
+                <span style={{ width: 120, flexShrink: 0, color: "var(--kb-fg-muted)", fontSize: "var(--kb-text-sm)", whiteSpace: "nowrap" }}>
+                  {label}
+                </span>
+                <span className="mono small" style={{ wordBreak: "break-all" }}>
+                  {value}
+                </span>
+              </Row>
+            ))}
+            <Row gap={2} style={{ justifyContent: "flex-end" }}>
+              <Button onClick={() => setDetail(null)}>Close</Button>
+            </Row>
+          </Stack>
+        </Modal>
+      )}
+
       {!q.isError && (
         <DataTable
           loading={q.isLoading}
           loadingLabel="Loading audit log…"
           rows={sorted}
           rowKey={(_, i) => String(i)}
+          onRowClick={(e) => setDetail(e)}
           empty={
             <EmptyState
               title="No audit entries yet."

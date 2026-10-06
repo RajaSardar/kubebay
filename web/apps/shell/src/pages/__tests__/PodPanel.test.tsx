@@ -10,6 +10,9 @@ vi.mock("../../components/heavy", () => ({
 vi.mock("../../components/PodSummary", () => ({ PodSummary: () => <div data-testid="pod-summary" /> }));
 vi.mock("../../components/PodGraphs", () => ({ PodGraphs: () => <div data-testid="pod-graphs" /> }));
 vi.mock("../../components/ResizePanel", () => ({ ResizePanel: () => <div data-testid="resize-panel" /> }));
+vi.mock("../../components/EventsDrawer", () => ({
+  EventsDrawer: ({ name }: { name: string }) => <div data-testid="events-drawer">{name}</div>,
+}));
 vi.mock("../../components/PodVulnerabilitiesTab", () => ({
   PodVulnerabilitiesTab: ({ ns, podName, containers }: { ns: string; podName: string; containers: string[] }) => (
     <div data-testid="pod-vulnerabilities">
@@ -33,6 +36,44 @@ vi.mock("../../lib/api", async (orig) => ({
 }));
 
 const pod = { cluster: "kind-test", namespace: "team-a", pod: "web-abc-xyz", containers: ["nginx"], obj: { metadata: { name: "web-abc-xyz" } } };
+
+describe("PodPanel — always opens on Summary tab (backlog #3)", () => {
+  it("defaults to Summary even when localStorage remembers yaml or shell", () => {
+    localStorage.setItem("kb.drawerTab", "yaml");
+    render(<PodPanel pod={pod} onClose={() => {}} />);
+    // Should show Summary content, NOT yaml
+    expect(screen.getByTestId("pod-summary")).toBeInTheDocument();
+    expect(screen.queryByTestId("yaml-tab")).toBeNull();
+    localStorage.removeItem("kb.drawerTab");
+  });
+
+  it("opens on an explicit pod.tab when provided (e.g. Edit YAML from menu)", () => {
+    render(<PodPanel pod={{ ...pod, tab: "yaml" }} onClose={() => {}} />);
+    expect(screen.getByTestId("yaml-tab")).toBeInTheDocument();
+  });
+});
+
+describe("PodPanel — Events tab wiring (backlog #7)", () => {
+  beforeEach(() => {
+    localStorage.removeItem("kb.drawerTab");
+  });
+
+  it("shows an Events tab button", () => {
+    render(<PodPanel pod={pod} onClose={() => {}} />);
+    expect(screen.getByRole("tab", { name: /events/i })).toBeInTheDocument();
+  });
+
+  it("renders EventsDrawer when Events tab is selected", () => {
+    render(<PodPanel pod={pod} onClose={() => {}} />);
+    fireEvent.click(screen.getByRole("tab", { name: /events/i }));
+    expect(screen.getByTestId("events-drawer")).toBeInTheDocument();
+  });
+
+  it("does not render EventsDrawer until Events tab is selected", () => {
+    render(<PodPanel pod={pod} onClose={() => {}} />);
+    expect(screen.queryByTestId("events-drawer")).toBeNull();
+  });
+});
 
 describe("PodPanel — Vulnerabilities tab wiring (backlog #16)", () => {
   beforeEach(() => {

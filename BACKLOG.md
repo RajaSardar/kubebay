@@ -1,0 +1,12 @@
+1. Do research and find the best solution also check how freelens does start node shell to check and go inside a node
+2. When we click on a namespace in the namespace page it should show all the resources connected to the namespace in it's summery
+~~3. When we click on pod and it open the drawer, then it should automatically always select summery to show until~~ ✅ Done
+~~4. in audit logs i should able to click the log and see the entire details of that specific logs.~~ ✅ Done
+5. replicas count increase decrease should be a button and not input box can you do check how freelens do it and also do an indepth research and debate for this and decide how it should be
+6. Terminal tool in the kubebay acting as a side nav,see freelens space where they are keeping this, then can you do launch 20 experts of innovatiors technical software designers and and ceo cto planner, lazy engineers, kubernetes experts, 24*7 on call perosns, and every hour kubebay like app users and plan where this research and complete the output.
+~~7. Not able to see events of a pod in the pod do research and find the best place to set it~~ ✅ Done
+8. when i click pod then it should have a link of owner controller like deployment/ statefulsets/ replicasets/ crds/ also shuld do the same for deployments and all they should also controlled by somethinkg else do launch expers of agents and debade and decide and before that do che how freelens do this
+9. Can you check how the helm release works in freelens, and launch few agents and research and plan the release when i click a release it should list all iits details including all the created components of it should show in it
+10. Helm release should load in background when we open/connect a cluster as most of the time lisitng helm release takes too much time, you can do research on this using multiple experts agents and debate and innovate some way to soleve this
+11. Helm Charts Should be like a store, do launch lots of innovative experts agents and do unfiltered debate and decide how it should be
+12. Do launch 30 experts agents (analyst, sde,fde, k8s experts, lazy engineer, product engineer, ceo,cto, design head, kubernetes experts, big 5 employees, freshers) to unfiltered debate and compare what and how ranchar vs kubebay vs lens and then add missing features and what else innovation we can do in kubebay

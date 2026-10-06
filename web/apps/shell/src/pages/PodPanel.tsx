@@ -11,6 +11,7 @@ import { PodVulnerabilitiesTab } from "../components/PodVulnerabilitiesTab";
 import { ImageSignatureCheck } from "../components/ImageSignatureCheck";
 import { TriageTab } from "../components/TriageTab";
 import { useTriageAllowed } from "../lib/useTriageAllowed";
+import { EventsDrawer } from "../components/EventsDrawer";
 
 export interface SelectedPod {
   cluster: string;
@@ -19,7 +20,7 @@ export interface SelectedPod {
   containers: string[];
   obj?: Record<string, unknown>;
   /** Open on this tab (the row menu's Logs, Shell or Edit YAML) instead of the last one used. */
-  tab?: "logs" | "shell" | "yaml";
+  tab?: "logs" | "shell" | "yaml" | "events";
 }
 
 const TAILS = [200, 2000, 10000];
@@ -30,7 +31,7 @@ function classify(line: string): "" | "err" | "warn" {
   return "";
 }
 
-const POD_TABS = ["summary", "logs", "triage", "shell", "graphs", "size", "vulnerabilities", "signatures", "yaml"] as const;
+const POD_TABS = ["summary", "logs", "triage", "shell", "graphs", "size", "vulnerabilities", "signatures", "events", "yaml"] as const;
 type PodTab = (typeof POD_TABS)[number];
 const POD_TAB_LABELS = {
   summary: "Summary",
@@ -41,19 +42,16 @@ const POD_TAB_LABELS = {
   size: "Size",
   vulnerabilities: "Vulnerabilities",
   signatures: "Signatures",
+  events: "Events",
   yaml: "YAML",
 };
 
 export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod; onClose: () => void; onDeleted?: () => void }) {
-  const [tab, setTabState] = useState<PodTab>(() => {
-    if (pod.tab) return pod.tab;
-    const saved = localStorage.getItem("kb.drawerTab");
-    return saved === "shell" || saved === "yaml" || saved === "graphs" || saved === "size" || saved === "vulnerabilities" || saved === "signatures" || saved === "summary"
-      ? saved
-      : "summary";
-  });
+  const [tab, setTabState] = useState<PodTab>(
+    // Always open on Summary unless an explicit tab was requested (e.g. "Edit YAML" from the row menu).
+    pod.tab ?? "summary",
+  );
   const setTab = (t: PodTab) => {
-    localStorage.setItem("kb.drawerTab", t);
     setTabState(t);
   };
   // Triage shows only where the user turned it on for this cluster (backlog #13).
@@ -305,6 +303,10 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
       ) : tab === "signatures" ? (
         <div style={{ padding: 14 }}>
           <ImageSignatureCheck cluster={pod.cluster} scope={{ ns: pod.namespace, pod: pod.pod }} />
+        </div>
+      ) : tab === "events" ? (
+        <div style={{ padding: "12px 16px", overflow: "auto" }}>
+          <EventsDrawer cluster={pod.cluster} namespace={pod.namespace} name={pod.pod} kind="Pod" />
         </div>
       ) : tab === "shell" ? (
         <div className="term-wrap">
