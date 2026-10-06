@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { Badge, Row, Stack, StatusDot } from "@kubebay/ui";
 import { ResourceLink } from "./ResourceLink";
+import { useOwnerChain } from "../lib/useOwnerChain";
 import { PodEnvValue } from "./PodEnvValue";
 import { PodContainerPortForward } from "./PodContainerPortForward";
 import { describeVolume } from "../lib/podVolumes";
@@ -63,6 +64,9 @@ export function PodSummary({
   obj: Record<string, unknown>;
   cluster: string;
 }) {
+  const rawOwnerRefs = arr(rec(obj.metadata).ownerReferences) as { apiVersion?: string; kind: string; name: string; controller?: boolean }[];
+  const ownerChain = useOwnerChain(cluster, String(rec(obj.metadata).namespace ?? ""), rawOwnerRefs);
+
   const data = useMemo(() => {
     const meta = rec(obj.metadata);
     const spec = rec(obj.spec);
@@ -122,12 +126,6 @@ export function PodSummary({
       };
     });
 
-    const ownerReferences = arr(meta.ownerReferences).map((o) => ({
-      kind: str(o.kind),
-      name: str(o.name),
-      slug: str(o.kind).toLowerCase() + "s",
-    }));
-
     return {
       name: str(meta.name),
       namespace: str(meta.namespace),
@@ -144,7 +142,6 @@ export function PodSummary({
       conditions,
       volumes,
       containerDetails,
-      ownerReferences,
       deletionTimestamp: meta.deletionTimestamp ? str(meta.deletionTimestamp) : "",
     };
   }, [obj]);
@@ -166,15 +163,18 @@ export function PodSummary({
       </div>
 
       <Section title="Metadata">
-        {data.ownerReferences.length > 0 && (
+        {ownerChain.length > 0 && (
           <KV
             k="Owned by"
             v={
-              <Row gap={2} wrap>
-                {data.ownerReferences.map((o, i) => (
-                  <ResourceLink key={i} kind={o.slug} ns={data.namespace} name={o.name}>
-                    <span className="mono">{o.kind}/{o.name}</span>
-                  </ResourceLink>
+              <Row gap={1} wrap align="center">
+                {ownerChain.map((o, i) => (
+                  <Row key={i} gap={1} align="center">
+                    {i > 0 && <span className="muted small">←</span>}
+                    <ResourceLink kind={o.slug} ns={o.ns} name={o.name}>
+                      <span className="mono">{o.kind}/{o.name}</span>
+                    </ResourceLink>
+                  </Row>
                 ))}
               </Row>
             }

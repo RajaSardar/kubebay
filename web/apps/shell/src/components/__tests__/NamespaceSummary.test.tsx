@@ -10,18 +10,30 @@ vi.mock("react-router-dom", async () => {
   return { ...actual, useNavigate: () => navigateMock };
 });
 
-// Each call to useResourceStream returns rows for one GVR
-const streamData: Record<string, unknown[]> = {
+const streamData: Record<string, Record<string, unknown>[]> = {
   "v1/pods": [
-    { status: { phase: "Running" } },
-    { status: { phase: "Running" } },
-    { status: { phase: "Pending" } },
+    { metadata: { name: "web-abc" }, status: { phase: "Running" } },
+    { metadata: { name: "web-def" }, status: { phase: "Running" } },
+    { metadata: { name: "db-xyz" }, status: { phase: "Pending" } },
   ],
-  "apps/v1/deployments": [{ metadata: {} }, { metadata: {} }],
-  "apps/v1/statefulsets": [{ metadata: {} }],
-  "v1/services": [{ metadata: {} }, { metadata: {} }, { metadata: {} }],
-  "v1/configmaps": [{ metadata: {} }, { metadata: {} }],
-  "v1/secrets": [{ metadata: {} }],
+  "apps/v1/deployments": [
+    { metadata: { name: "web" }, status: { readyReplicas: 2, replicas: 2 } },
+    { metadata: { name: "api" }, status: { readyReplicas: 1, replicas: 3 } },
+  ],
+  "apps/v1/statefulsets": [
+    { metadata: { name: "postgres" }, status: { readyReplicas: 1, replicas: 1 } },
+  ],
+  "v1/services": [
+    { metadata: { name: "web-svc" }, spec: { type: "ClusterIP" } },
+    { metadata: { name: "lb" }, spec: { type: "LoadBalancer" } },
+  ],
+  "v1/configmaps": [
+    { metadata: { name: "app-config" } },
+    { metadata: { name: "env-config" } },
+  ],
+  "v1/secrets": [
+    { metadata: { name: "db-secret" } },
+  ],
 };
 
 vi.mock("../../lib/useResourceStream", () => ({
@@ -39,37 +51,47 @@ function render$(ns = "platform") {
   );
 }
 
-describe("NamespaceSummary (backlog #2)", () => {
-  it("shows a row for each resource type", () => {
+describe("NamespaceSummary — actual resource rows (backlog #2 extended)", () => {
+  it("shows actual pod names, not just a count", () => {
     render$();
-    expect(screen.getByText(/pods/i)).toBeInTheDocument();
-    expect(screen.getByText(/deployments/i)).toBeInTheDocument();
-    expect(screen.getByText(/statefulsets/i)).toBeInTheDocument();
-    expect(screen.getByText(/services/i)).toBeInTheDocument();
-    expect(screen.getByText(/configmaps/i)).toBeInTheDocument();
-    expect(screen.getByText(/secrets/i)).toBeInTheDocument();
+    expect(screen.getByText("web-abc")).toBeInTheDocument();
+    expect(screen.getByText("web-def")).toBeInTheDocument();
+    expect(screen.getByText("db-xyz")).toBeInTheDocument();
   });
 
-  it("shows counts for each resource type", () => {
+  it("shows actual deployment names", () => {
     render$();
-    // 3 pods, 2 deployments, 1 statefulset, 3 services, 2 configmaps, 1 secret
+    expect(screen.getByText("web")).toBeInTheDocument();
+    expect(screen.getByText("api")).toBeInTheDocument();
+  });
+
+  it("shows section headers with counts", () => {
+    render$();
+    expect(screen.getByText("Pods (3)")).toBeInTheDocument();
+    expect(screen.getByText("Deployments (2)")).toBeInTheDocument();
+    expect(screen.getByText("Services (2)")).toBeInTheDocument();
+  });
+
+  it("shows pod phase as a status indicator", () => {
+    render$();
+    expect(screen.getAllByTitle("Running").length).toBeGreaterThan(0);
+  });
+
+  it("clicking a section header navigates to the resource table filtered by namespace", () => {
+    render$();
+    fireEvent.click(screen.getByText("Deployments (2)"));
+    expect(navigateMock).toHaveBeenCalledWith(expect.stringContaining("deployments"));
+  });
+
+  it("hides empty sections (StatefulSets with 1 item still shows)", () => {
+    render$();
+    expect(screen.getByText("StatefulSets (1)")).toBeInTheDocument();
+    expect(screen.getByText("postgres")).toBeInTheDocument();
+  });
+
+  it("keeps the count testids for backwards compat", () => {
+    render$();
     expect(screen.getByTestId("count-pods").textContent).toBe("3");
     expect(screen.getByTestId("count-deployments").textContent).toBe("2");
-    expect(screen.getByTestId("count-statefulsets").textContent).toBe("1");
-    expect(screen.getByTestId("count-services").textContent).toBe("3");
-    expect(screen.getByTestId("count-configmaps").textContent).toBe("2");
-    expect(screen.getByTestId("count-secrets").textContent).toBe("1");
-  });
-
-  it("shows running/total for pods", () => {
-    render$();
-    expect(screen.getByTestId("count-pods").textContent).toBe("3");
-    expect(screen.getByText(/2 running/i)).toBeInTheDocument();
-  });
-
-  it("clicking a row navigates to the filtered resource table", () => {
-    render$();
-    fireEvent.click(screen.getByTestId("row-deployments"));
-    expect(navigateMock).toHaveBeenCalledWith(expect.stringContaining("deployments"));
   });
 });

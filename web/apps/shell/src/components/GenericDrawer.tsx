@@ -161,7 +161,7 @@ function PaneContent({
         {def.slug === "deployments" && obj && (
           <RolloutLine cluster={cluster} obj={obj} onShowRollout={onGenTab && (() => onGenTab("rollout"))} style={{ padding: "8px 14px 0" }} />
         )}
-        <MetadataSummary obj={obj} />
+        <MetadataSummary obj={obj} cluster={cluster} ns={ns} />
       </div>
     );
   }

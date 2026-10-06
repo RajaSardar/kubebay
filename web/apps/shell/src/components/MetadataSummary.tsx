@@ -2,6 +2,8 @@ import { Badge, Row, Stack } from "@kubebay/ui";
 import { ConditionsTable, type Condition } from "./ConditionsTable";
 import { ageOf, fmtAge } from "../lib/resources";
 import { ownerOf, ownerLabel } from "../lib/gitops";
+import { useOwnerChain } from "../lib/useOwnerChain";
+import { ResourceLink } from "./ResourceLink";
 
 function rec(v: unknown): Record<string, unknown> {
   return (v ?? {}) as Record<string, unknown>;
@@ -38,12 +40,46 @@ function KV({ k, v }: { k: string; v: React.ReactNode }) {
 // one entry can't blow out the whole panel.
 const MAX_ANNOTATION_LEN = 120;
 
+function OwnerChainRow({
+  cluster,
+  ns,
+  rawOwnerRefs,
+}: {
+  cluster: string;
+  ns: string;
+  rawOwnerRefs: { apiVersion?: string; kind: string; name: string; controller?: boolean }[];
+}) {
+  const chain = useOwnerChain(cluster, ns, rawOwnerRefs);
+  if (!chain.length) return null;
+  return (
+    <Section title="Owned by">
+      <Row gap={1} wrap align="center">
+        {chain.map((o, i) => (
+          <Row key={i} gap={1} align="center">
+            {i > 0 && <span className="muted small">←</span>}
+            <ResourceLink kind={o.slug} ns={o.ns} name={o.name}>
+              <span className="mono small">{o.kind}/{o.name}</span>
+            </ResourceLink>
+          </Row>
+        ))}
+      </Row>
+    </Section>
+  );
+}
+
 /**
- * Generic per-resource summary: Created, Labels, Annotations, Owner References, and (when
- * present) Conditions — shown for any object that doesn't have a bespoke summary component
- * (Node, Service, Pod), which today get YAML + Events only.
+ * Generic per-resource summary: Created, Labels, Annotations, Owner References (as clickable
+ * chain when cluster+ns are provided), and (when present) Conditions.
  */
-export function MetadataSummary({ obj }: { obj: Record<string, unknown> | null }) {
+export function MetadataSummary({
+  obj,
+  cluster,
+  ns,
+}: {
+  obj: Record<string, unknown> | null;
+  cluster?: string;
+  ns?: string;
+}) {
   if (!obj) {
     return <div className="muted small" style={{ padding: 14 }}>Could not load object data.</div>;
   }
@@ -52,9 +88,10 @@ export function MetadataSummary({ obj }: { obj: Record<string, unknown> | null }
   const status = rec(obj.status);
   const labels = rec(meta.labels) as Record<string, unknown>;
   const annotations = rec(meta.annotations) as Record<string, unknown>;
-  const ownerRefs = arr(meta.ownerReferences);
+  const rawOwnerRefs = arr(meta.ownerReferences) as { apiVersion?: string; kind: string; name: string; controller?: boolean }[];
   const conditions = arr(status.conditions) as unknown as Condition[];
   const gitopsOwner = ownerOf(obj);
+  const effectiveNs = ns ?? str(meta.namespace);
 
   return (
     <div className="pod-summary" style={{ padding: 14, overflowY: "auto", flex: 1 }}>
@@ -62,6 +99,21 @@ export function MetadataSummary({ obj }: { obj: Record<string, unknown> | null }
         <KV k="Created" v={meta.creationTimestamp ? `${fmtAge(ageOf(obj))} ago` : "–"} />
         {gitopsOwner && <KV k="Managed by" v={<Badge>{ownerLabel(gitopsOwner)}</Badge>} />}
       </Section>
+
+      {/* Owner chain — clickable links with multi-level tracing when cluster is available */}
+      {rawOwnerRefs.length > 0 && cluster && effectiveNs ? (
+        <OwnerChainRow cluster={cluster} ns={effectiveNs} rawOwnerRefs={rawOwnerRefs} />
+      ) : rawOwnerRefs.length > 0 ? (
+        <Section title={`Owner References (${rawOwnerRefs.length})`}>
+          <Stack gap={1}>
+            {rawOwnerRefs.map((o, i) => (
+              <div key={i} className="small">
+                <span className="muted">{str(o.kind)}</span> <span className="mono">{str(o.name)}</span>
+              </div>
+            ))}
+          </Stack>
+        </Section>
+      ) : null}
 
       <Section title={`Labels (${Object.keys(labels).length})`}>
         {Object.keys(labels).length > 0 ? (
@@ -95,18 +147,6 @@ export function MetadataSummary({ obj }: { obj: Record<string, unknown> | null }
           <span className="muted small">No annotations</span>
         )}
       </Section>
-
-      {ownerRefs.length > 0 && (
-        <Section title={`Owner References (${ownerRefs.length})`}>
-          <Stack gap={1}>
-            {ownerRefs.map((o, i) => (
-              <div key={i} className="small">
-                <span className="muted">{str(o.kind)}</span> <span className="mono">{str(o.name)}</span>
-              </div>
-            ))}
-          </Stack>
-        </Section>
-      )}
 
       {conditions.length > 0 && (
         <Section title={`Conditions (${conditions.length})`}>

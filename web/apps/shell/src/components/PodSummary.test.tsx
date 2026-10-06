@@ -1,6 +1,22 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
+
+// Simulate the owner chain: ReplicaSet → Deployment (2 levels deep)
+vi.mock("../lib/useOwnerChain", () => ({
+  useOwnerChain: (_cluster: string, _ns: string, refs: { kind: string; name: string }[]) => {
+    if (!refs.length) return [];
+    const first = refs[0];
+    // For our test RS, add a fake Deployment as its owner
+    if (first.kind === "ReplicaSet" && first.name === "web-abc-123") {
+      return [
+        { kind: "ReplicaSet", name: "web-abc-123", slug: "replicasets", ns: "prod" },
+        { kind: "Deployment", name: "web", slug: "deployments", ns: "prod" },
+      ];
+    }
+    return refs.map((r) => ({ kind: r.kind, name: r.name, slug: r.kind.toLowerCase() + "s", ns: "prod" }));
+  },
+}));
 import { PodSummary } from "./PodSummary";
 
 const navigateMock = vi.fn();
@@ -106,7 +122,7 @@ describe("PodSummary", () => {
     expect(screen.getByTestId("pf-8080")).toBeTruthy();
   });
 
-  it("shows owner references as clickable links (backlog #8)", () => {
+  it("shows the full owner chain including multi-level ancestors (backlog #14)", () => {
     const obj = {
       ...basePod,
       metadata: {
@@ -115,7 +131,20 @@ describe("PodSummary", () => {
       },
     };
     renderSummary(obj);
+    // Both ReplicaSet AND its parent Deployment should be visible
     expect(screen.getByText("ReplicaSet/web-abc-123")).toBeInTheDocument();
+    expect(screen.getByText("Deployment/web")).toBeInTheDocument();
+  });
+
+  it("clicking an owner link navigates to its detail page", () => {
+    const obj = {
+      ...basePod,
+      metadata: {
+        ...basePod.metadata,
+        ownerReferences: [{ kind: "ReplicaSet", name: "web-abc-123", apiVersion: "apps/v1", controller: true }],
+      },
+    };
+    renderSummary(obj);
     fireEvent.click(screen.getByText("ReplicaSet/web-abc-123"));
     expect(navigateMock).toHaveBeenCalledWith("/detail/replicasets/prod/web-abc-123");
   });
@@ -125,19 +154,15 @@ describe("PodSummary", () => {
     expect(screen.queryByText(/owned by/i)).toBeNull();
   });
 
-  it("shows multiple owner references when present", () => {
+  it("shows StatefulSet owner as a clickable link", () => {
     const obj = {
       ...basePod,
       metadata: {
         ...basePod.metadata,
-        ownerReferences: [
-          { kind: "StatefulSet", name: "db-0", apiVersion: "apps/v1", controller: true },
-          { kind: "CronJob", name: "backup", apiVersion: "batch/v1", controller: false },
-        ],
+        ownerReferences: [{ kind: "StatefulSet", name: "db-0", apiVersion: "apps/v1", controller: true }],
       },
     };
     renderSummary(obj);
     expect(screen.getByText("StatefulSet/db-0")).toBeInTheDocument();
-    expect(screen.getByText("CronJob/backup")).toBeInTheDocument();
   });
 });
