@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArmedButton, Badge, Button, InlineBanner, Row, TextField } from "@kubebay/ui";
+import { ArmedButton, Badge, Button, InlineBanner, Row } from "@kubebay/ui";
 import { actionApi, api } from "../lib/api";
 import { ownerLabel, ownerWarning, type GitOpsOwner } from "../lib/gitops";
 import { PolicyRejectionError, type PolicyRejectionDetail } from "../lib/policyRejection";
@@ -45,15 +45,17 @@ export function ActionsBar({
   ns,
   name,
   gitopsOwner,
+  currentReplicas,
 }: {
   slug: Slug;
   cluster: string;
   ns: string;
   name: string;
   gitopsOwner?: GitOpsOwner | null;
+  currentReplicas?: number;
 }) {
   const { msg, err, rejection, busy, run } = useFeedback();
-  const [replicas, setReplicas] = useState("");
+  const [replicas, setReplicas] = useState(currentReplicas ?? 0);
   const ownerDetail = gitopsOwner ? ownerLabel(gitopsOwner) : undefined;
 
   const showScale = slug === "deployments" || slug === "statefulsets";
@@ -69,22 +71,31 @@ export function ActionsBar({
       <Row align="center" gap={2} wrap>
       {showScale && (
         <>
-          <label className="ctl">
-            replicas
-            <TextField
-              style={{ maxWidth: 70 }}
-              placeholder="n"
-              value={replicas}
-              onChange={(e) => setReplicas(e.target.value.replace(/\D/g, ""))}
-              inputMode="numeric"
-            />
-          </label>
+          <Button
+            type="button"
+            variant="ghost"
+            aria-label="Decrease replicas"
+            disabled={busy || replicas <= 0}
+            onClick={() => setReplicas((r) => Math.max(0, r - 1))}
+          >
+            −
+          </Button>
+          <span style={{ minWidth: 28, textAlign: "center" }} className="mono">{replicas}</span>
+          <Button
+            type="button"
+            variant="ghost"
+            aria-label="Increase replicas"
+            disabled={busy}
+            onClick={() => setReplicas((r) => r + 1)}
+          >
+            +
+          </Button>
           <Button
             variant="ghost"
-            disabled={busy || !replicas}
+            disabled={busy || replicas === (currentReplicas ?? -1)}
             onClick={() =>
               void run(async () => {
-                await api.scale({ cluster, gvr: GVR[slug]!, ns, name, replicas: Number(replicas), gitopsOwner: ownerDetail });
+                await api.scale({ cluster, gvr: GVR[slug]!, ns, name, replicas, gitopsOwner: ownerDetail });
                 return `Scaled to ${replicas}.`;
               })
             }
