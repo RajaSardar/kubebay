@@ -1,5 +1,5 @@
 1. Do research and find the best solution also check how freelens does start node shell to check and go inside a node
-2. When we click on a namespace in the namespace page it should show all the resources connected to the namespace in it's summery
+~~2. When we click on a namespace in the namespace page it should show all the resources connected to the namespace in it's summery~~ ✅ Done
 ~~3. When we click on pod and it open the drawer, then it should automatically always select summery to show until~~ ✅ Done
 ~~4. in audit logs i should able to click the log and see the entire details of that specific logs.~~ ✅ Done
 ~~5. replicas count increase decrease should be a button and not input box can you do check how freelens do it and also do an indepth research and debate for this and decide how it should be~~ ✅ Done
@@ -10,3 +10,5 @@
 10. Helm release should load in background when we open/connect a cluster as most of the time lisitng helm release takes too much time, you can do research on this using multiple experts agents and debate and innovate some way to soleve this
 11. Helm Charts Should be like a store, do launch lots of innovative experts agents and do unfiltered debate and decide how it should be
 12. Do launch 30 experts agents (analyst, sde,fde, k8s experts, lazy engineer, product engineer, ceo,cto, design head, kubernetes experts, big 5 employees, freshers) to unfiltered debate and compare what and how ranchar vs kubebay vs lens and then add missing features and what else innovation we can do in kubebay
+~~13. Also check why all the services are only showing cluster ip and nothign else ?~~ ✅ Done
+14. Also for the task no 8. it is only showing 1 level of trace back like if my application are deployed by helm and then helm created deployment and then those deployment created replicasets and then those replicaset created pod, we should have all these levels of trace back owned by link in all of these same for crds, which you have not yet fixed 
