@@ -122,6 +122,12 @@ export function PodSummary({
       };
     });
 
+    const ownerReferences = arr(meta.ownerReferences).map((o) => ({
+      kind: str(o.kind),
+      name: str(o.name),
+      slug: str(o.kind).toLowerCase() + "s",
+    }));
+
     return {
       name: str(meta.name),
       namespace: str(meta.namespace),
@@ -138,6 +144,7 @@ export function PodSummary({
       conditions,
       volumes,
       containerDetails,
+      ownerReferences,
       deletionTimestamp: meta.deletionTimestamp ? str(meta.deletionTimestamp) : "",
     };
   }, [obj]);
@@ -159,6 +166,20 @@ export function PodSummary({
       </div>
 
       <Section title="Metadata">
+        {data.ownerReferences.length > 0 && (
+          <KV
+            k="Owned by"
+            v={
+              <Row gap={2} wrap>
+                {data.ownerReferences.map((o, i) => (
+                  <ResourceLink key={i} kind={o.slug} ns={data.namespace} name={o.name}>
+                    <span className="mono">{o.kind}/{o.name}</span>
+                  </ResourceLink>
+                ))}
+              </Row>
+            }
+          />
+        )}
         <KV k="Node" v={data.nodeName ? <ResourceLink kind="nodes" name={data.nodeName}><span className="mono">{data.nodeName}</span></ResourceLink> : null} />
         <KV
           k="Service Account"

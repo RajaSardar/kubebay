@@ -105,4 +105,39 @@ describe("PodSummary", () => {
     renderSummary(obj);
     expect(screen.getByTestId("pf-8080")).toBeTruthy();
   });
+
+  it("shows owner references as clickable links (backlog #8)", () => {
+    const obj = {
+      ...basePod,
+      metadata: {
+        ...basePod.metadata,
+        ownerReferences: [{ kind: "ReplicaSet", name: "web-abc-123", apiVersion: "apps/v1", controller: true }],
+      },
+    };
+    renderSummary(obj);
+    expect(screen.getByText("ReplicaSet/web-abc-123")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("ReplicaSet/web-abc-123"));
+    expect(navigateMock).toHaveBeenCalledWith("/detail/replicasets/prod/web-abc-123");
+  });
+
+  it("shows no Owned By row when there are no owner references", () => {
+    renderSummary(basePod);
+    expect(screen.queryByText(/owned by/i)).toBeNull();
+  });
+
+  it("shows multiple owner references when present", () => {
+    const obj = {
+      ...basePod,
+      metadata: {
+        ...basePod.metadata,
+        ownerReferences: [
+          { kind: "StatefulSet", name: "db-0", apiVersion: "apps/v1", controller: true },
+          { kind: "CronJob", name: "backup", apiVersion: "batch/v1", controller: false },
+        ],
+      },
+    };
+    renderSummary(obj);
+    expect(screen.getByText("StatefulSet/db-0")).toBeInTheDocument();
+    expect(screen.getByText("CronJob/backup")).toBeInTheDocument();
+  });
 });

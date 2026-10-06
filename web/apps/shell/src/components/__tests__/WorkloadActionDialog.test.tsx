@@ -25,29 +25,51 @@ describe("workloadActions", () => {
   });
 });
 
-describe("WorkloadActionDialog — scale", () => {
+describe("WorkloadActionDialog — scale stepper (backlog #5)", () => {
   beforeEach(() => vi.mocked(api.scale).mockReset());
 
-  it("starts at the current replica count and applies the new one", async () => {
+  it("shows − and + stepper buttons with the current count", () => {
+    render(<WorkloadActionDialog action="scale" slug="deployments" cluster="kind-shop" obj={deploy(3)} onClose={() => {}} />);
+    expect(screen.getByRole("button", { name: "Decrease replicas" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Increase replicas" })).toBeInTheDocument();
+    expect(screen.getByText("3")).toBeInTheDocument();
+  });
+
+  it("+ increments the count and enables Scale", () => {
+    render(<WorkloadActionDialog action="scale" slug="deployments" cluster="kind-shop" obj={deploy(3)} onClose={() => {}} />);
+    fireEvent.click(screen.getByRole("button", { name: "Increase replicas" }));
+    expect(screen.getByText("4")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Scale" })).not.toBeDisabled();
+  });
+
+  it("− decrements the count and enables Scale", () => {
+    render(<WorkloadActionDialog action="scale" slug="deployments" cluster="kind-shop" obj={deploy(3)} onClose={() => {}} />);
+    fireEvent.click(screen.getByRole("button", { name: "Decrease replicas" }));
+    expect(screen.getByText("2")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Scale" })).not.toBeDisabled();
+  });
+
+  it("− is disabled when count is 0", () => {
+    render(<WorkloadActionDialog action="scale" slug="deployments" cluster="kind-shop" obj={deploy(0)} onClose={() => {}} />);
+    expect(screen.getByRole("button", { name: "Decrease replicas" })).toBeDisabled();
+  });
+
+  it("Scale is disabled when count is unchanged", () => {
+    render(<WorkloadActionDialog action="scale" slug="deployments" cluster="kind-shop" obj={deploy(3)} onClose={() => {}} />);
+    expect(screen.getByRole("button", { name: "Scale" })).toBeDisabled();
+  });
+
+  it("applies the new count and closes", async () => {
     vi.mocked(api.scale).mockResolvedValueOnce({ ok: true });
     const onClose = vi.fn();
     render(<WorkloadActionDialog action="scale" slug="deployments" cluster="kind-shop" obj={deploy(3)} onClose={onClose} />);
     expect(screen.getByRole("dialog", { name: "Scale web" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Scale web" })).toBeInTheDocument();
-    const field = screen.getByLabelText("Replicas") as HTMLInputElement;
-    expect(field.value).toBe("3");
-    fireEvent.change(field, { target: { value: "5" } });
+    fireEvent.click(screen.getByRole("button", { name: "Increase replicas" }));
+    fireEvent.click(screen.getByRole("button", { name: "Increase replicas" }));
     fireEvent.click(screen.getByRole("button", { name: "Scale" }));
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     expect(api.scale).toHaveBeenCalledWith({ cluster: "kind-shop", gvr: "apps/v1/deployments", ns: "shop", name: "web", replicas: 5, gitopsOwner: undefined });
-  });
-
-  it("cannot apply an empty or unchanged count", () => {
-    render(<WorkloadActionDialog action="scale" slug="deployments" cluster="kind-shop" obj={deploy(3)} onClose={() => {}} />);
-    const apply = screen.getByRole("button", { name: "Scale" });
-    expect(apply).toBeDisabled();
-    fireEvent.change(screen.getByLabelText("Replicas"), { target: { value: "" } });
-    expect(apply).toBeDisabled();
   });
 
   it("warns when a GitOps controller owns the workload, and tells the engine who", async () => {
@@ -56,7 +78,8 @@ describe("WorkloadActionDialog — scale", () => {
       <WorkloadActionDialog action="scale" slug="deployments" cluster="kind-shop" obj={deploy(2, { "argocd.argoproj.io/instance": "shop-app" })} onClose={() => {}} />,
     );
     expect(screen.getByText(/Argo CD \(shop-app\) manages this resource/)).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("Replicas"), { target: { value: "4" } });
+    fireEvent.click(screen.getByRole("button", { name: "Increase replicas" }));
+    fireEvent.click(screen.getByRole("button", { name: "Increase replicas" }));
     fireEvent.click(screen.getByRole("button", { name: "Scale" }));
     await waitFor(() => expect(api.scale).toHaveBeenCalledWith(expect.objectContaining({ gitopsOwner: "Argo CD: shop-app" })));
   });
@@ -65,7 +88,7 @@ describe("WorkloadActionDialog — scale", () => {
     vi.mocked(api.scale).mockRejectedValueOnce(new PolicyRejectionError({ engine: "kyverno", webhook: "w", message: "max 10 replicas" }));
     const onClose = vi.fn();
     render(<WorkloadActionDialog action="scale" slug="deployments" cluster="kind-shop" obj={deploy(3)} onClose={onClose} />);
-    fireEvent.change(screen.getByLabelText("Replicas"), { target: { value: "50" } });
+    for (let i = 0; i < 47; i++) fireEvent.click(screen.getByRole("button", { name: "Increase replicas" }));
     fireEvent.click(screen.getByRole("button", { name: "Scale" }));
     expect(await screen.findByText(/max 10 replicas/)).toBeInTheDocument();
     expect(onClose).not.toHaveBeenCalled();
