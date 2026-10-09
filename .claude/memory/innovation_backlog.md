@@ -1180,5 +1180,32 @@ Three of the #54 engine issues from the clusters-page audit, in one PR.
 - **Watcher:** watches the parent directories of every loading-precedence file, which includes an explicit `--kubeconfig` / `KUBEBAY_KUBECONFIG`, and filters events by name. Atomic saves are seen.
 - **Wire status rename (separate PR):** the probe status `connected` is now `reachable` in the engine (`StatusReachable`), the shell's `ClusterInfo.status`, the clusters page, the header dot and the connecting overlay. `Cluster.connected` alone means the user's session. `StatusDot status="connected"` is the UI's own vocabulary and is unchanged.
 
+### 56. Rancher vs Kubebay vs Lens analysis → sequenced backlog plan — status: idea (plan written 2026-10-09)
+The full analysis is `docs/COMPETITIVE_ANALYSIS.md`. The plan is `docs/BACKLOG.md`, with stable IDs `KB-01…KB-23`.
+- **Headline finding:** the binding constraint is trust and distribution, not features.
+  - The repo has 0 stars and the v0.6.0 assets ~0 downloads.
+  - macOS builds are ad-hoc signed, and the README tells users to strip quarantine.
+  - There is no auto-updater.
+  - The README's "budgets enforced in CI" is untrue: no CI performance job exists.
+  - The DMG is 52.9 MB and the AppImage 102.4 MB, against the 40 MB website claim.
+- **Now (no new detectors or pages):**
+  - KB-01 business-model ADR, which resolves PRD §3 vs the open-core split above vs RESEARCH §8.4.
+  - KB-02 performance harness and honest claims.
+  - KB-03 notarization, KB-04 Tauri updater, KB-05 cosign + provenance.
+  - KB-06 launch kit.
+  - KB-07 = **#5 MCP v1 as designed** (Lens, Headlamp and Rancher Prime all ship MCP now).
+  - KB-08 Rancher-aware cluster detection. It is frontend-only: `clusters.Cluster.Server` already reaches the shell.
+- **Next:**
+  - KB-09 = #5 phase 2; KB-10 = **#14 EKS discovery**; KB-18 = **#13 AI triage half**.
+  - KB-11 Playwright golden path; KB-12 client-go/Helm refresh + DRA kinds.
+  - KB-13 declarative `extensions.yaml` (k9s-style). Command actions ride the local shell (#10), so they are desktop-only.
+  - KB-14 Windows/Linux smoke CI or a "preview" label; KB-15 findings export (JSON/MD/SARIF); KB-16 saved views; KB-17 opt-in usage signal.
+- **Later:**
+  - KB-19 headless `kubebay scan`. Most detectors are TypeScript in `web/apps/shell/src/lib/`, so this is a port.
+  - KB-20 [Team] self-hosted edition; KB-21 air-gap bundle.
+  - KB-22 ⌘K cross-cluster search, the demand-gated alternative to the removed Fleet page (#52).
+  - KB-23 WASM plugins.
+- Statuses of #5, #13 and #14 are unchanged here. They move only when real work starts.
+
 ### Further ideas worth a look (unscoped, one-liners)
 - **Revert unsaved YAML edits — SHIPPED 2026-09-27.** One-click "discard my in-progress edit" button in `YamlTab.tsx`, next to Reload — a local reset (no network call), unlike Reload which re-fetches from the server.
