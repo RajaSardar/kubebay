@@ -11,8 +11,8 @@ import * as api from "../../lib/api";
 
 vi.mock("../../lib/api");
 vi.mock("../../components/ConfigurePrometheusModal", () => ({
-  default: ({ cluster, onClose }: { cluster: string; onClose: () => void }) => (
-    <div role="dialog" aria-label={`Configure Prometheus for ${cluster}`}>
+  default: ({ cluster, connected, onClose }: { cluster: string; connected?: boolean; onClose: () => void }) => (
+    <div role="dialog" aria-label={`Configure Prometheus for ${cluster}`} data-connected={String(connected)}>
       <button onClick={onClose}>Close</button>
     </div>
   ),
@@ -73,5 +73,19 @@ describe("kubeconfig on the cluster list", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Actions for kind-shop" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Configure Prometheus…" }));
     expect(screen.getByRole("dialog", { name: "Configure Prometheus for kind-shop" })).toBeInTheDocument();
+  });
+
+  it("tells the Prometheus dialog whether the cluster is connected, so it doesn't connect it", async () => {
+    renderAt("/clusters");
+    fireEvent.click(await screen.findByRole("button", { name: "Actions for kind-shop" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Configure Prometheus…" }));
+    expect(screen.getByRole("dialog", { name: "Configure Prometheus for kind-shop" })).toHaveAttribute("data-connected", "false");
+  });
+
+  it("offers no Prometheus set-up for a cluster whose kubeconfig entry is broken", async () => {
+    vi.mocked(api.api.clusters).mockResolvedValue([{ ...kind, status: "misconfigured", error: "no server" }]);
+    renderAt("/clusters");
+    fireEvent.click(await screen.findByRole("button", { name: "Actions for kind-shop" }));
+    expect(screen.getByRole("menuitem", { name: "Configure Prometheus…" })).toHaveAttribute("aria-disabled", "true");
   });
 });
