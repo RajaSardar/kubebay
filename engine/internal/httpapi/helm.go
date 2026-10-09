@@ -11,6 +11,7 @@ import (
 	"time"
 
 	genericclioptions "k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/yaml"
 
 	"helm.sh/helm/v3/pkg/action"
@@ -67,6 +68,12 @@ func (h *HelmManager) actionCfg(cluster, ns string) (*action.Configuration, erro
 	}
 	cf := genericclioptions.NewConfigFlags(true)
 	cf.Context = &ctxName
+	// Same in-memory v1alpha1 exec upgrade the cluster manager applies, since
+	// Helm reads the kubeconfig itself.
+	cf.WrapConfigFn = func(c *rest.Config) *rest.Config {
+		clusters.UpgradeLegacyExec(c)
+		return c
+	}
 	if kubeconfigPaths != "" {
 		p := kubeconfigPaths
 		cf.KubeConfig = &p

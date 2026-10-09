@@ -100,7 +100,7 @@ Kubebay OSS stays the complete local-first single/multi-cluster IDE — everythi
 - **(b) Bundle/auto-manage a kubectl binary for terminal PATH — rejected as posed, unanimously, because the premise is false.** Kubebay has **no local terminal at all** today — every xterm in the app (`ExecTerm.tsx`, driven from `GenericDrawer`/`PodPanel`) execs into a pod via client-go's `remotecommand`, and node-shell execs into a privileged busybox pod. There is no PATH to put kubectl on. A user typing `kubectl get pods` into either terminal today gets "not found," or worse, in a tooling image with kubectl already present, silently runs as the **pod's ServiceAccount instead of their own identity** — a confusing, currently-shipping footgun independent of this whole debate. Building the local shell that would make (b) coherent is a real, separable, high-value idea — logged below — but it must never auto-download a binary (all four experts converged here): resolve the user's own already-installed kubectl first, offer a checksum-verified opt-in download button at most, and never make bundling the default. Freelens's own `ensure-binaries` package (1,570+ LOC, 9 bespoke dependencies, an external cosign binary, 89 pinned checksums across 15 kubectl versions of which 14 are already EOL/unpatched) is the concrete shape of the tax nobody should choose to pay by default.
 - **The actual most important thing this debate surfaced has nothing to do with kubectl** — see #11 below.
 
-### 9. Opt-in external-kubectl escape hatch for exotic auth — status: scoping (designed 2026-09-17) — **verdict: build later, gated on real demand**
+### 9. Opt-in external-kubectl escape hatch for exotic auth — status: scoping (designed 2026-09-17) — **verdict: build later, gated on real demand** (its two cheap fixes shipped 2026-10-09)
 **Feasibility verified against the `kubectl@v0.31.3` / `apimachinery@v0.31.4` source in the local module cache, not from memory:**
 - **Port-forward WORKS.** `proxy_server.go:NewProxyHandler` sets `proxy.UpgradeTransport = makeUpgradeTransport(...)`, which uses `utilnet.SetOldTransportDefaults` to force HTTP/1.1 upstream — precisely the fix for the historical upgrade caveat. SPDY/3.1 and `v5.channel.k8s.io` WebSocket both survive.
 - **Exec is BLOCKED BY DEFAULT — the single most important finding.** `proxy_server.go:43` sets `DefaultPathRejectRE = "^/api/.*/pods/.*/exec,^/api/.*/pods/.*/attach"`, returning a bare 403. Port-forward is *not* on that list. Kubebay would have to launch with `--reject-paths=''`. Worse: a 403 on the WS upgrade is exactly what `exec.go:shouldFallback` matches, so it silently falls back to SPDY and gets 403 again — a confusing double failure if the flag is ever forgotten.
@@ -109,6 +109,15 @@ Kubebay OSS stays the complete local-first single/multi-cluster IDE — everythi
 **The ~200-400 LOC / 1 week estimate is refuted: realistically ~900-1100 lines and 2-3 weeks.** The hidden cost is that `informers/pool_registry.go` has **no invalidation API** — pools cache a `*rest.Config` with a baked-in `Host: http://127.0.0.1:<port>`, so every proxy restart changes the port and orphans every informer. Teardown would have to be wired through `stream/hub.go` subscriptions and the port-forward manager.
 **Security is worse than "obscurity", and worth stating plainly:** Kubebay's own listener is token-gated, but **the kubectl proxy port has no auth at all** — any local process can `curl http://127.0.0.1:<port>/api/v1/secrets` and read the cluster. `--accept-hosts` only stops DNS rebinding, and Freelens's random path prefix sits in argv where `ps` shows it. Also `Pdeathsig` is Linux-only, so a SIGKILLed engine on macOS leaves a credentialed open port behind forever.
 **Do these two cheap things instead (~2 days total), then wait for real demand:** (1) diagnostics — when `Load()` skips a context or a health check 401s, name the cause ("kubeconfig uses `client.authentication.k8s.io/v1alpha1`, dropped in client-go v0.31") and instrument how often it fires; (2) a ~20-line rewrite of `v1alpha1` → `v1beta1` in the in-memory `clientcmdapi.Config` before handing it to clientcmd, which **kills one of the four justifying cases outright**. Keep this design on file so it's a two-week pickup rather than a re-litigation. Hard-disable under `--in-cluster`.
+**The two cheap things, done 2026-10-09:**
+- **Diagnostics.** Unusable contexts were already listed as `misconfigured` with the real error (#11). The new part is naming the v1alpha1 cause:
+  - client-go doesn't reject `v1alpha1` when it reads the kubeconfig. It fails when building the transport (`exec plugin: invalid apiVersion`), or, when the plugin still answers v1alpha1, with `decoding stdout: no kind "ExecCredential" is registered for version v1alpha1`. The second reads like a client-go bug.
+  - The probe now replaces it with the cause: the plugin (by command), the version it is stuck on, and the fix (update the plugin, then re-run `aws eks update-kubeconfig`).
+  - Each in-memory upgrade is logged at Info with the context name. That's the "how often" signal, since Kubebay has no telemetry.
+- **The rewrite.** `clusters.UpgradeLegacyExec` asks a v1alpha1 exec plugin for v1beta1, on a copy of the exec stanza after `ClientConfig()`. The user's file is never written.
+  - Current plugins (aws CLI, gke-gcloud-auth-plugin, kubelogin) read the version they are asked for from `KUBERNETES_EXEC_INFO` and answer in it, so an old kubeconfig works with a current CLI.
+  - Helm reads the kubeconfig itself, so `actionCfg` applies the same upgrade through `ConfigFlags.WrapConfigFn`.
+  - Tested end to end against a TLS fake API server with shell-script plugins (one echoes the requested version, one is stuck on v1alpha1). It has to be TLS, because clientcmd applies user credentials only to TLS servers.
 Per-cluster, off-by-default toggle: "Connect via external kubectl proxy." Spawns the *user's own* kubectl (never bundled/downloaded) as `kubectl <ctx> proxy --port=0 --address=127.0.0.1 --accept-hosts='^127\.0\.0\.1$'`, parses the printed port, and points an otherwise-unchanged `rest.Config{Host: "http://127.0.0.1:<port>"}` at it — everything downstream (informers, dynamic client, exec, port-forward) is unchanged. Only worth building if a real user hits one of: PIV/YubiKey hardware-token mTLS (non-extractable private key, which `rest.Config` structurally cannot drive), Kerberos/SPNEGO to the API server, or a corporate policy that only a vetted kubectl distribution may reach the control plane. Must verify SPDY/WS exec and port-forward actually survive the `kubectl proxy` hop before shipping; if port-forward doesn't, degrade only that feature with a clear message rather than the whole cluster. Estimated ~200-400 lines plus process lifecycle, about a week. Do not build speculatively — wait for a real ask.
 
 ### 10. Local shell terminal — status: shipped — engine (#5) + frontend (PR #10) both merged 2026-09-23 [high value, do not bundle a binary]
@@ -566,7 +575,7 @@ Skipped as managed or used outside pod specs:
 **Not in v1:** Gateway API `certificateRefs`, DaemonSet and Job templates, CSI `nodePublishSecretRef`, and a delete action.
 
 **Effort: S.** **OSS, not Enterprise.**
-### 36. Local historical rollup (retention layer) — status: building (slices 1–2 shipped: #73–#75, #77, #78; slice 3 in progress)
+### 36. Local historical rollup (retention layer) — status: shipped 2026-10-02 (slices 1–3: #73–#75, #77, #78, #79, #100)
 
 The [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszbyRLEMgqjEFVVewJ)'s **Foundational** item. It gates trend-based headroom forecasting and the cost/usage anomaly detector (Tier 2 #20 and #21). Today the only usage history is `waste`'s in-memory ring buffer, which is lost when the engine restarts.
 
@@ -658,6 +667,7 @@ Verdict:
        - It covers CPU and memory, for both usage (mean) and requests.
        - It shares one series fetch with the forecast, through `lib/useClusterHistorySeries.ts`.
        - If nothing qualifies it says so, and states what it compared against.
+     - **3b shipped** in #100.
 
 **Not in v1:**
 
@@ -1119,7 +1129,7 @@ The owner asked to audit the cluster list, remove its drawer, show which cluster
   - `TableRow` is keyboard-reachable when clickable.
 - **"First reachable cluster" fallbacks removed:** App, ClusterStrip, Sidebar, the Custom Resources group and the palette's live pods now all use the opened cluster. Guarded by `activeCluster.test.ts`.
 
-**Follow-ups:**
+**Follow-ups** (all shipped 2026-10-03: #53 and #54 below, and #55):
 - rename the wire status `connected` to `reachable`;
 - batched `/api/history/summary` plus a 7-day sparkline;
 - allocatable and node count in the sampler, plus a headroom bar;
