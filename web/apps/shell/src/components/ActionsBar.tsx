@@ -55,7 +55,10 @@ export function ActionsBar({
   currentReplicas?: number;
 }) {
   const { msg, err, rejection, busy, run } = useFeedback();
-  const [replicas, setReplicas] = useState(currentReplicas ?? 0);
+  // null = untouched → follow the live spec.replicas (the object may load after mount)
+  const [edited, setEdited] = useState<number | null>(null);
+  const replicas = edited ?? currentReplicas ?? 0;
+  const setReplicas = (fn: (r: number) => number) => setEdited(fn(replicas));
   const ownerDetail = gitopsOwner ? ownerLabel(gitopsOwner) : undefined;
 
   const showScale = slug === "deployments" || slug === "statefulsets";

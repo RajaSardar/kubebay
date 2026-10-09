@@ -72,6 +72,16 @@ describe("ActionsBar — replicas stepper (backlog #5)", () => {
   });
 });
 
+describe("ActionsBar — replicas follows live value (regression)", () => {
+  it("shows the real count when currentReplicas arrives after mount", () => {
+    const { rerender } = render(<ActionsBar {...props} />);
+    rerender(<ActionsBar {...props} currentReplicas={5} />);
+    expect(screen.getByText("5")).toBeTruthy();
+    fireEvent.click(screen.getByLabelText("Decrease replicas"));
+    expect(screen.getByText("4")).toBeTruthy();
+  });
+});
+
 describe("ActionsBar — structured policy rejection (backlog #17)", () => {
   it("renders the structured PolicyRejectionCard instead of a raw error string on a 422 rejection", async () => {
     vi.mocked(api.scale).mockRejectedValueOnce(
