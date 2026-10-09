@@ -61,6 +61,9 @@ type entry struct {
 	cluster        *Cluster
 	cfg            *rest.Config
 	kubeconfigPath string
+	// legacyExec: the kubeconfig's exec plugin was configured for v1alpha1 and
+	// is being asked for v1beta1 (UpgradeLegacyExec).
+	legacyExec bool
 }
 
 func (m *Manager) HelmEnv(id string) (contextName string, kubeconfigPath string, err error) {
@@ -293,6 +296,10 @@ func (m *Manager) Load() error {
 		if cfgErr != nil {
 			m.log.Warn("unusable context", "context", name, "err", cfgErr)
 		}
+		legacyExec := UpgradeLegacyExec(cfg)
+		if legacyExec {
+			m.log.Info("exec plugin configured for v1alpha1; asking it for v1beta1", "context", name)
+		}
 		server := ""
 		if ctxCfg, ok := raw.Contexts[name]; ok && raw.Clusters != nil {
 			if cl, ok := raw.Clusters[ctxCfg.Cluster]; ok {
@@ -319,7 +326,8 @@ func (m *Manager) Load() error {
 			m.mu.RUnlock()
 		}
 		newEntries[id] = &entry{
-			cfg: cfg,
+			cfg:        cfg,
+			legacyExec: legacyExec,
 			// rules.Precedence is only the multi-file search list; it is left
 			// empty whenever rules.ExplicitPath is set (e.g. the engine was
 			// started with --kubeconfig or KUBEBAY_KUBECONFIG, this repo's
@@ -510,8 +518,9 @@ func (m *Manager) probe(id string) {
 	m.mu.RLock()
 	e, ok := m.entries[id]
 	var cfg *rest.Config
+	legacyExec := false
 	if ok {
-		cfg = e.cfg
+		cfg, legacyExec = e.cfg, e.legacyExec
 	}
 	m.mu.RUnlock()
 	if cfg == nil {
@@ -521,12 +530,12 @@ func (m *Manager) probe(id string) {
 	cfgCopy.Timeout = 5 * time.Second
 	client, err := kubernetes.NewForConfig(&cfgCopy)
 	if err != nil {
-		m.record(id, StatusUnreachable, "", err.Error())
+		m.record(id, StatusUnreachable, "", explainExecError(cfg, legacyExec, err.Error()))
 		return
 	}
 	v, err := client.Discovery().ServerVersion()
 	if err != nil {
-		m.record(id, StatusUnreachable, "", err.Error())
+		m.record(id, StatusUnreachable, "", explainExecError(cfg, legacyExec, err.Error()))
 		return
 	}
 	m.record(id, StatusReachable, v.GitVersion, "")
