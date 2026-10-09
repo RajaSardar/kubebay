@@ -80,7 +80,7 @@ LATER (post-1.0; demand- or decision-gated)
   - The MIT core stays free forever, including every single-user feature that has shipped or is planned.
   - The only permissible paid surface is a **self-hosted, licence-keyed team edition** (KB-20), never SaaS.
   - Stay on MIT: the comparable projects are MIT/Apache, and AGPL deters corporate adoption of a client tool for no gain when no SaaS is planned.
-  - Enable GitHub Sponsors now.
+  - Sponsorship: `.github/FUNDING.yml` already points at GitHub Sponsors. Confirm the Sponsors profile is live and link it from the README and website.
 - **Acceptance:**
   - The ADR is merged.
   - PRD §3, the innovation backlog's "Open-core split" and RESEARCH §8.4 are edited to point at the ADR instead of contradicting it.
