@@ -17,7 +17,7 @@ export function GpuCapacityCard({ gpu }: { gpu: GpuCapacity }) {
         </Row>
         <div className="muted small">
           Allocatable GPUs minus what scheduled pods ask for. No pod can use an unclaimed GPU until one asks for it.
-          Utilisation of claimed GPUs needs DCGM metrics and isn't shown yet.
+          How busy the claimed NVIDIA GPUs are is in GPU utilisation below.
         </div>
         <DataTable
           rows={gpu.nodes}

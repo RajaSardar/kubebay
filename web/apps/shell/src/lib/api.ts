@@ -651,7 +651,28 @@ export const wasteApi = {
     get<WorkloadWaste[]>(`/api/waste/workloads?cluster=${encodeURIComponent(cluster)}`),
 };
 
+/** The engine has no Prometheus URL for this cluster (HTTP 412). */
+export class PromNotConfiguredError extends Error {}
+
 export const promApi = {
+  /** An instant query; the result vector. */
+  query: async (params: { cluster: string; query: string }): Promise<{ metric: Record<string, string>; value: [number, string] }[]> => {
+    const q = new URLSearchParams({ cluster: params.cluster, query: params.query });
+    const res = await fetch(`/api/prom/query?${q}`, { headers: { "X-Kubebay-Token": getToken() } });
+    if (res.status === 412) throw new PromNotConfiguredError(await res.text());
+    if (!res.ok) {
+      const text = await res.text();
+      let hint: string | undefined;
+      try {
+        hint = (JSON.parse(text) as { hint?: string }).hint;
+      } catch {
+        hint = undefined;
+      }
+      throw new Error(hint || text || `${res.status} ${res.statusText}`);
+    }
+    const json = (await res.json()) as { data?: { result?: { metric: Record<string, string>; value: [number, string] }[] } };
+    return json.data?.result ?? [];
+  },
   queryRange: async (params: { cluster: string; query: string; startMs: number; endMs: number; stepSec: number }): Promise<{ data: { result: { metric: Record<string, string>; values: [number, string][] }[] } }> => {
     const q = new URLSearchParams({
       cluster: params.cluster,
