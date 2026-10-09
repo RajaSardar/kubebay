@@ -89,10 +89,11 @@ describe("ConfigurePrometheusModal", () => {
     expect(screen.getByText(/kubectl -n monitoring port-forward svc\/prometheus-server 9090:9090/)).toBeTruthy();
   });
 
-  it("renders manual option card", () => {
-    vi.mocked(useResourceStream).mockReturnValue({ rows: [], synced: true, connected: true });
+  it("offers a Manual card beside discovered services", () => {
+    const services = [{ metadata: { name: "prometheus-server", namespace: "monitoring", labels: {} }, spec: { ports: [{ port: 9090 }] } }];
+    vi.mocked(useResourceStream).mockReturnValue({ rows: services, synced: true, connected: true });
     renderModal();
-    expect(screen.getByText(/Manual/i)).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Manual/ })).toBeTruthy();
   });
 
   it("clears URL field when Manual is selected", async () => {
@@ -242,9 +243,8 @@ describe("ConfigurePrometheusModal", () => {
     const saveBtn = screen.getByRole("button", { name: /Save/ });
     await user.click(saveBtn);
 
-    await waitFor(() => {
-      expect(screen.getByText(/Failed to save/i)).toBeTruthy();
-    });
+    // The engine's own reason, not a generic "failed".
+    expect(await screen.findByText("Couldn't save: Save failed")).toBeTruthy();
   });
 
   it("calls onClose when Cancel is clicked", async () => {
@@ -271,5 +271,118 @@ describe("ConfigurePrometheusModal", () => {
     await user.click(cancelBtn);
 
     expect(onSaved).not.toHaveBeenCalled();
+  });
+
+  describe("works before, without and beyond discovery", () => {
+    const stream = (rows: unknown[], synced = true) =>
+      vi.mocked(useResourceStream).mockReturnValue({ rows, synced, connected: true } as never);
+    const svc = (name: string, port: number, ns = "monitoring") => ({ metadata: { name, namespace: ns, labels: {} }, spec: { ports: [{ port }] } });
+
+    it("keeps the URL field, Cancel and Save while discovery is still loading", () => {
+      stream([], false);
+      renderModal();
+      expect(screen.getByRole("textbox", { name: /URL/i })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Cancel" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Save" })).toBeTruthy();
+      expect(screen.getByText("Looking for Prometheus services…")).toBeTruthy();
+    });
+
+    it("does not connect to a cluster that isn't connected just to look for services", () => {
+      stream([]);
+      render(
+        <QueryClientProvider client={qc}>
+          <ConfigurePrometheusModal cluster="kind-test" connected={false} onClose={vi.fn()} onSaved={vi.fn()} />
+        </QueryClientProvider>,
+      );
+      expect(vi.mocked(useResourceStream)).toHaveBeenCalledWith("kind-test", "v1/services", expect.objectContaining({ enabled: false }));
+      expect(screen.getByText("Connect to this cluster to look for its Prometheus services.")).toBeTruthy();
+      expect(screen.getByRole("textbox", { name: /URL/i })).toBeTruthy();
+    });
+
+    it("says so when the cluster has no Prometheus services", () => {
+      stream([svc("checkout", 8080)]);
+      renderModal();
+      expect(screen.getByText("No Prometheus services found in this cluster.")).toBeTruthy();
+      expect(screen.queryByRole("button", { name: /Manual/ })).toBeNull();
+    });
+
+    it("shows Prometheus itself first, not Grafana or the exporters, at most four", () => {
+      stream([
+        svc("kube-prometheus-stack-grafana", 80),
+        svc("kube-prometheus-stack-alertmanager", 9093),
+        svc("kube-prometheus-stack-prometheus-node-exporter", 9100),
+        svc("kube-prometheus-stack-prometheus", 9090),
+      ]);
+      renderModal();
+      const cards = screen.getAllByRole("button", { pressed: false }).map((b) => b.textContent ?? "");
+      expect(cards[0]).toContain("kube-prometheus-stack-prometheus");
+      expect(cards.some((t) => t.includes("grafana") || t.includes("alertmanager") || t.includes("exporter"))).toBe(false);
+    });
+
+    it("cards are the design system's choice cards, marked when chosen", async () => {
+      const user = userEvent.setup();
+      stream([svc("prometheus-server", 9090)]);
+      renderModal();
+      const card = screen.getByRole("button", { name: /prometheus-server/ });
+      expect(card).toHaveAttribute("aria-pressed", "false");
+      await user.click(card);
+      expect(card).toHaveAttribute("aria-pressed", "true");
+      expect(card).toHaveClass("kb-choice-card");
+    });
+
+    it("suggests a port a laptop can bind for a service on port 80", async () => {
+      const user = userEvent.setup();
+      stream([svc("prometheus-server", 80)]);
+      renderModal();
+      await user.click(screen.getByRole("button", { name: /prometheus-server/ }));
+      expect(screen.getByDisplayValue("http://localhost:9090")).toBeTruthy();
+      expect(screen.getByText("kubectl -n monitoring port-forward svc/prometheus-server 9090:80")).toBeTruthy();
+    });
+
+    it("shows the cluster's current URL, and saving it empty goes back to the default", async () => {
+      const user = userEvent.setup();
+      vi.mocked(api.settingsApi.get).mockResolvedValue({
+        prometheusUrl: "http://default:9090",
+        prometheusUrls: { "kind-test": "http://localhost:9091", other: "http://other:9090" },
+        extraKubeconfigs: [],
+      });
+      vi.mocked(api.settingsApi.save).mockResolvedValue({ ok: true, saved: { extraKubeconfigs: [] } } as never);
+      stream([]);
+      renderModal();
+      const field = await screen.findByDisplayValue("http://localhost:9091");
+      expect(field).toHaveAttribute("placeholder", "http://default:9090");
+      expect(screen.getByText("Leave it empty to use the default.")).toBeTruthy();
+      await user.clear(field);
+      await user.click(screen.getByRole("button", { name: "Save" }));
+      await waitFor(() =>
+        expect(api.settingsApi.save).toHaveBeenCalledWith(expect.objectContaining({ prometheusUrls: { other: "http://other:9090" } })),
+      );
+    });
+
+    it("keeps Save off when the field is empty and there is nothing to remove", async () => {
+      vi.mocked(api.settingsApi.get).mockResolvedValue({ prometheusUrl: "", prometheusUrls: {}, extraKubeconfigs: [] });
+      stream([]);
+      renderModal();
+      await waitFor(() => expect(api.settingsApi.get).toHaveBeenCalled());
+      expect(screen.getByRole("button", { name: "Save" })).toHaveProperty("disabled", true);
+    });
+
+    it("saves on Enter", async () => {
+      const user = userEvent.setup();
+      vi.mocked(api.settingsApi.get).mockResolvedValue({ prometheusUrl: "", prometheusUrls: {}, extraKubeconfigs: [] });
+      vi.mocked(api.settingsApi.save).mockResolvedValue({ ok: true, saved: { extraKubeconfigs: [] } } as never);
+      stream([]);
+      renderModal();
+      await user.type(screen.getByRole("textbox", { name: /URL/i }), "http://localhost:9090{Enter}");
+      await waitFor(() =>
+        expect(api.settingsApi.save).toHaveBeenCalledWith(expect.objectContaining({ prometheusUrls: { "kind-test": "http://localhost:9090" } })),
+      );
+    });
+
+    it("is a wide dialog, room for a URL and a port-forward command", () => {
+      stream([]);
+      renderModal();
+      expect(screen.getByRole("dialog", { name: /Configure Prometheus for kind-test/ })).toHaveClass("wide");
+    });
   });
 });

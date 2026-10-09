@@ -178,7 +178,7 @@ function RowMenu({ cluster, connected, pinned, ...a }: RowMenuProps) {
             { label: "Change icon…", onClick: a.onChangeIcon },
             { label: "Copy context name", onClick: () => copy(cluster.context || cluster.id) },
             { label: "Copy server URL", onClick: () => copy(cluster.server), disabled: !cluster.server },
-            { label: "Configure Prometheus…", onClick: a.onConfigurePrometheus },
+            { label: "Configure Prometheus…", onClick: a.onConfigurePrometheus, disabled: broken },
             { separator: true, label: "", onClick: () => {} },
             { label: "Remove from list…", onClick: a.onRemove, danger: true },
           ]}
@@ -532,6 +532,7 @@ export default function ClusterPicker() {
       {promFor && (
         <ConfigurePrometheusModal
           cluster={promFor}
+          connected={list.some((c) => c.id === promFor && isConnected(c))}
           onClose={() => setPromFor(null)}
           onSaved={() => void queryClient.invalidateQueries({ queryKey: ["settings"] })}
         />

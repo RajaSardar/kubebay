@@ -55,6 +55,39 @@ export function findCandidatePrometheusServices(services: Record<string, unknown
   return candidates;
 }
 
+// Services a Prometheus chart ships beside the server that don't serve its query API.
+const NOT_A_PROMETHEUS_SERVER =
+  /(grafana|alertmanager|operator|pushgateway|exporter|kube-state-metrics|adapter|kubelet|coredns|kube-dns|etcd|scheduler|controller-manager|kube-proxy)/i;
+const MAX_SHOWN = 4;
+
+function portOf(c: PrometheusServiceCandidate): number {
+  const port = new URL(c.address).port;
+  return port ? Number(port) : 80;
+}
+
+/**
+ * The candidates worth offering when the user points Kubebay at a Prometheus:
+ * services that serve its query API (not Grafana, Alertmanager, the operator
+ * or the exporters a chart installs beside it), the usual port 9090 and
+ * Prometheus-named services first, at most four.
+ */
+export function rankPrometheusServers(candidates: PrometheusServiceCandidate[]): PrometheusServiceCandidate[] {
+  const score = (c: PrometheusServiceCandidate) =>
+    (portOf(c) === 9090 ? 2 : 0) + (/(^|-)prometheus(-server)?$/.test(c.name) ? 1 : 0);
+  return candidates
+    .filter((c) => !NOT_A_PROMETHEUS_SERVER.test(c.name))
+    .map((c, i) => ({ c, i, s: score(c) }))
+    .sort((a, b) => b.s - a.s || a.i - b.i)
+    .slice(0, MAX_SHOWN)
+    .map(({ c }) => c);
+}
+
+/** A port a laptop can bind without root: the service's own, or 9090 for a privileged one. */
+function localPortFor(c: PrometheusServiceCandidate): number {
+  const port = portOf(c);
+  return port < 1024 ? 9090 : port;
+}
+
 /**
  * Extract the port from an in-cluster DNS address and suggest a localhost
  * port-forward URL for local Prometheus access.
@@ -63,10 +96,7 @@ export function findCandidatePrometheusServices(services: Record<string, unknown
  * This returns the localhost equivalent: http://localhost:9090
  */
 export function suggestLocalURL(c: PrometheusServiceCandidate): string {
-  // Parse port from address like "http://prom.ns.svc:9090" or "http://prom.ns.svc"
-  const url = new URL(c.address);
-  const port = url.port || "80";
-  return `http://localhost:${port}`;
+  return `http://localhost:${localPortFor(c)}`;
 }
 
 /**
@@ -75,7 +105,5 @@ export function suggestLocalURL(c: PrometheusServiceCandidate): string {
  * Example: "kubectl -n monitoring port-forward svc/prometheus-server 9090:9090"
  */
 export function portForwardCommand(c: PrometheusServiceCandidate): string {
-  const url = new URL(c.address);
-  const port = url.port || "80";
-  return `kubectl -n ${c.namespace} port-forward svc/${c.name} ${port}:${port}`;
+  return `kubectl -n ${c.namespace} port-forward svc/${c.name} ${localPortFor(c)}:${portOf(c)}`;
 }
