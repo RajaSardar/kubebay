@@ -52,6 +52,18 @@ Deferred:
 - restart-rate and rollout-churn lines;
 - a kube-state-metrics backfill for clusters that don't record.
 
+### What comes next (debated)
+
+A second debate ranked these deferred items, plus a fix to the "Configure Prometheus" dialog, which is the only way to give a cluster its own Prometheus URL. Four advocates argued, and a judge checked each claim against the code before ruling. The ruling, in order:
+1. **The dialog's functional fixes.** It showed only a spinner when the cluster's Services could not be listed, so a URL could not be typed. It also hid the URL already saved.
+2. **A `title` option on `Modal`,** and a height limit on centred dialogs. The dialog has no visible heading, and neither do other modals.
+3. **Recording the reason code** in the health lines (`r`, still `v: 1`). The chip names a reason only once a week has been recorded, and never a vague one (NotReady, Pending).
+4. **A rollout link in the workload drawer:** how old the current revision is, and how many rollouts happened this week. ReplicaSet revision times are history the cluster keeps, so they don't fall under the zero-recording ruling above.
+
+Dropped: restart rate per pod age, the last crash time and a backoff-based duration floor. All three describe the present, and kubelet resets backoff after ten minutes of clean running, so the floor can't tell chronic crashing from intermittent.
+
+Parked: the kube-state-metrics backfill. It would be the engine's first dependency on kube-state-metrics and a third copy of the broken rule, in PromQL, for the few clusters that have a Prometheus configured.
+
 ## Ruled out
 
 - **Trends 24h/7d as a panel.** It is blank without history recording.
