@@ -56,6 +56,20 @@ describe("Rbac", () => {
     expect(await screen.findByText("old-creds")).toBeInTheDocument();
   });
 
+  it("lists ServiceAccounts no pod or workload runs as, counting DaemonSet templates", async () => {
+    const rows: Record<string, unknown[]> = {
+      "v1/serviceaccounts": [
+        { metadata: { name: "old-bot", namespace: "shop" } },
+        { metadata: { name: "node-agent", namespace: "shop" } },
+      ],
+      "apps/v1/daemonsets": [{ metadata: { name: "agent", namespace: "shop" }, spec: { template: { spec: { serviceAccountName: "node-agent" } } } }],
+    };
+    vi.mocked(useResourceStream).mockImplementation(((_c: string, gvr: string) => ({ rows: rows[gvr] ?? [], synced: true })) as typeof useResourceStream);
+    renderPage();
+    expect(await screen.findByText("old-bot")).toBeInTheDocument();
+    expect(screen.queryByText("node-agent")).toBeNull();
+  });
+
   it("offers an on-demand signature check of the images actually running", async () => {
     renderPage();
     expect(await screen.findByText("Running image signatures")).toBeInTheDocument();
