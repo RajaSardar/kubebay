@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"sync/atomic"
 	"testing"
 
@@ -78,5 +79,43 @@ func TestImageSignaturesRequiresCluster(t *testing.T) {
 	a.Handle(rr, httptest.NewRequest(http.MethodGet, "/api/image-signatures", nil))
 	if rr.Code != http.StatusBadRequest {
 		t.Errorf("status = %d, want 400", rr.Code)
+	}
+}
+
+// The workload and pod drawers check only their own pods, which also lets a
+// user whose access stops at one namespace use it.
+func TestImageSignaturePodScope(t *testing.T) {
+	for _, tc := range []struct {
+		query, ns, labels, fields string
+	}{
+		{"", "", "", ""},
+		{"ns=shop&selector=app%3Dweb", "shop", "app=web", ""},
+		{"ns=shop&selector=app+in+(web,api),!canary", "shop", "app in (api,web),!canary", ""}, // canonical form
+		{"ns=shop&pod=api-1", "shop", "", "metadata.name=api-1"},
+	} {
+		q, _ := url.ParseQuery(tc.query)
+		ns, opts, err := podScope(q)
+		if err != nil {
+			t.Errorf("%q: %v", tc.query, err)
+			continue
+		}
+		if ns != tc.ns || opts.LabelSelector != tc.labels || opts.FieldSelector != tc.fields {
+			t.Errorf("%q: ns=%q labels=%q fields=%q", tc.query, ns, opts.LabelSelector, opts.FieldSelector)
+		}
+	}
+	for _, bad := range []string{"selector=app%3D%3D%3Dweb", "ns=shop&selector=app+in+(", "pod=api-1", "ns=shop&pod=a,b"} {
+		q, _ := url.ParseQuery(bad)
+		if _, _, err := podScope(q); err == nil {
+			t.Errorf("%q: want an error", bad)
+		}
+	}
+}
+
+func TestImageSignaturesRejectsABadSelectorBeforeContactingTheCluster(t *testing.T) {
+	a := &ImageSignatureAPI{}
+	rr := httptest.NewRecorder()
+	a.Handle(rr, httptest.NewRequest(http.MethodGet, "/api/image-signatures?cluster=c&ns=shop&selector=app+in+(", nil))
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("code = %d, want 400", rr.Code)
 	}
 }

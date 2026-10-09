@@ -7,6 +7,7 @@ import { PodSummary } from "../components/PodSummary";
 import { PodGraphs } from "../components/PodGraphs";
 import { ResizePanel } from "../components/ResizePanel";
 import { PodVulnerabilitiesTab } from "../components/PodVulnerabilitiesTab";
+import { ImageSignatureCheck } from "../components/ImageSignatureCheck";
 
 export interface SelectedPod {
   cluster: string;
@@ -26,7 +27,8 @@ function classify(line: string): "" | "err" | "warn" {
   return "";
 }
 
-const POD_TABS = ["summary", "logs", "shell", "graphs", "size", "vulnerabilities", "yaml"] as const;
+const POD_TABS = ["summary", "logs", "shell", "graphs", "size", "vulnerabilities", "signatures", "yaml"] as const;
+type PodTab = (typeof POD_TABS)[number];
 const POD_TAB_LABELS = {
   summary: "Summary",
   logs: "Logs",
@@ -34,18 +36,19 @@ const POD_TAB_LABELS = {
   graphs: "Graphs",
   size: "Size",
   vulnerabilities: "Vulnerabilities",
+  signatures: "Signatures",
   yaml: "YAML",
 };
 
 export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod; onClose: () => void; onDeleted?: () => void }) {
-  const [tab, setTabState] = useState<"summary" | "logs" | "shell" | "graphs" | "size" | "vulnerabilities" | "yaml">(() => {
+  const [tab, setTabState] = useState<PodTab>(() => {
     if (pod.tab) return pod.tab;
     const saved = localStorage.getItem("kb.drawerTab");
-    return saved === "shell" || saved === "yaml" || saved === "graphs" || saved === "size" || saved === "vulnerabilities" || saved === "summary"
+    return saved === "shell" || saved === "yaml" || saved === "graphs" || saved === "size" || saved === "vulnerabilities" || saved === "signatures" || saved === "summary"
       ? saved
       : "summary";
   });
-  const setTab = (t: "summary" | "logs" | "shell" | "graphs" | "size" | "vulnerabilities" | "yaml") => {
+  const setTab = (t: PodTab) => {
     localStorage.setItem("kb.drawerTab", t);
     setTabState(t);
   };
@@ -285,6 +288,10 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
           containers={pod.containers}
           podObj={pod.obj}
         />
+      ) : tab === "signatures" ? (
+        <div style={{ padding: 14 }}>
+          <ImageSignatureCheck cluster={pod.cluster} scope={{ ns: pod.namespace, pod: pod.pod }} />
+        </div>
       ) : tab === "shell" ? (
         <div className="term-wrap">
           <ExecTerm

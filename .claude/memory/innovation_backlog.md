@@ -908,7 +908,14 @@ How it contacts registries:
 - **Opt-in private-registry auth.** "Registries: use the pods' pull secrets" reads each pod's and its ServiceAccount's imagePullSecrets with the user's identity.
   - Each credential goes only to its own registry, or to the token service that registry names, over https.
   - Credentials are never returned, logged or cached. Cache keys only record whether auth was used.
-- **Still not in:** keyless identity verification, OCI 1.1 bundle verification, and per-workload drawer placement.
+- **Still not in:** keyless identity verification and OCI 1.1 bundle verification.
+- **Drawer placement (shipped 2026-10-09).**
+  - Deployment, StatefulSet and DaemonSet drawers, and the Pod drawer, have a "Signatures" tab that runs the same on-demand check for their own pods only.
+  - `GET /api/image-signatures` takes `ns` plus either `selector` (a workload's own `spec.selector`, written by `lib/labelSelector.ts#selectorQuery`) or `pod`.
+    - The engine parses the selector with `labels.Parse` and validates the pod name as a DNS subdomain before it is used in a field selector.
+    - Scoping to a namespace also lets a user whose access stops at one namespace run it.
+  - `selectorQuery` returns null for an empty selector or an unknown operator, because either would check more pods than the workload's. The tab then says it can't find the pods.
+  - The table and controls moved into `components/ImageSignatureCheck.tsx`, shared by the RBAC-page card and the tabs. The Namespaces column is dropped when scoped.
 
 **OSS.**
 

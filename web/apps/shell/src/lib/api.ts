@@ -267,10 +267,25 @@ export interface ImageSignatureRow {
 }
 
 /** Contacts each running image's registry anonymously; only call on an explicit user action. */
+/** Narrows a signature check to one namespace's pods: a workload's (label selector) or one pod's. */
+export interface ImageSignatureScope {
+  ns: string;
+  selector?: string;
+  pod?: string;
+}
+
 export const imageSigApi = {
   /** pullSecrets: authenticate to private registries with each pod's own image pull secrets. */
-  check: (cluster: string, pullSecrets = false) =>
-    get<ImageSignatureRow[]>(`/api/image-signatures?cluster=${encodeURIComponent(cluster)}${pullSecrets ? "&pullSecrets=1" : ""}`),
+  check: (cluster: string, pullSecrets = false, scope?: ImageSignatureScope) => {
+    const q = new URLSearchParams({ cluster });
+    if (pullSecrets) q.set("pullSecrets", "1");
+    if (scope) {
+      q.set("ns", scope.ns);
+      if (scope.selector) q.set("selector", scope.selector);
+      if (scope.pod) q.set("pod", scope.pod);
+    }
+    return get<ImageSignatureRow[]>(`/api/image-signatures?${q.toString()}`);
+  },
 };
 
 export interface AuditSecurityEvent {

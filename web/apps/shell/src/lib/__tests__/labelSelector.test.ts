@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { matchesSelector } from "../labelSelector";
+import { matchesSelector, selectorQuery } from "../labelSelector";
 
 describe("matchesSelector", () => {
   it("matches when all matchLabels are present and equal", () => {
@@ -42,5 +42,31 @@ describe("matchesSelector", () => {
     const selector = { matchLabels: { app: "web" }, matchExpressions: [{ key: "env", operator: "In", values: ["prod"] }] };
     expect(matchesSelector({ app: "web", env: "prod" }, selector)).toBe(true);
     expect(matchesSelector({ app: "web", env: "dev" }, selector)).toBe(false);
+  });
+});
+
+describe("selectorQuery", () => {
+  it("writes matchLabels and matchExpressions as a label selector string", () => {
+    expect(
+      selectorQuery({
+        matchLabels: { app: "web" },
+        matchExpressions: [
+          { key: "tier", operator: "In", values: ["a", "b"] },
+          { key: "track", operator: "NotIn", values: ["canary"] },
+          { key: "team", operator: "Exists" },
+          { key: "legacy", operator: "DoesNotExist" },
+        ],
+      }),
+    ).toBe("app=web,tier in (a,b),track notin (canary),team,!legacy");
+  });
+
+  it("is null for an empty or missing selector, which would select every pod", () => {
+    expect(selectorQuery({})).toBeNull();
+    expect(selectorQuery(undefined)).toBeNull();
+    expect(selectorQuery({ matchLabels: {}, matchExpressions: [] })).toBeNull();
+  });
+
+  it("is null for an operator it doesn't know, rather than a broader selector", () => {
+    expect(selectorQuery({ matchLabels: { app: "web" }, matchExpressions: [{ key: "x", operator: "Gt", values: ["1"] }] })).toBeNull();
   });
 });
