@@ -5,6 +5,7 @@ import { Button, Card, CellLink, ChoiceCard, PageHeader, SegmentedControl, Stack
 import { settingsApi } from "../lib/api";
 import { UsageHistoryCard } from "../components/UsageHistoryCard";
 import { McpSettingsCard } from "../components/McpSettingsCard";
+import { TriageSettingsCard } from "../components/TriageSettingsCard";
 import { useTheme, type ThemeName } from "../lib/theme";
 import { useDisplay, type FontSize, type FontFamily, type Density } from "../lib/display";
 
@@ -280,6 +281,7 @@ export default function Settings() {
       )}
       {settings.isSuccess && <UsageHistoryCard clusters={settings.data.historyClusters ?? {}} />}
       <McpSettingsCard />
+      <TriageSettingsCard />
     </div>
   );
 }

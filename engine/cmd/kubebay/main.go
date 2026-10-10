@@ -178,6 +178,7 @@ func main() {
 		NetDiag:   &httpapi.NetDiagManager{Clusters: mgr, Audit: auditLog},
 		ImageSigs: &httpapi.ImageSignatureAPI{Clusters: mgr, Checker: &sigcheck.Checker{}},
 		MCP:       newMCP(settingsMgr, mgr, registry, auditLog, *addr, *inCluster, auth.Enabled()),
+		Triage:    newTriage(settingsMgr, mgr, registry, auditLog, *inCluster, auth.Enabled()),
 		Settings:  settingsMgr,
 		Audit:     auditLog,
 		Waste:     wasteSampler,

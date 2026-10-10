@@ -11,6 +11,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/RajaSardar/kubebay/engine/internal/mcp"
+	"github.com/RajaSardar/kubebay/engine/internal/redact"
 )
 
 // LogOptions bounds a log read. LimitBytes is enforced by the API server.
@@ -193,7 +194,7 @@ func (t *tools) describe(ctx context.Context, raw json.RawMessage, c *call) (mcp
 	}
 	if a.Kind == "pods" {
 		out["containers"] = containerDetail(o)
-		out["owners"] = t.ownerChain(ctx, in, a.Cluster, a.Namespace, o)
+		out["owners"] = ownerChain(ctx, in, a.Cluster, a.Namespace, o)
 	}
 	if evs, err := t.objectEvents(ctx, a.Cluster, a.Namespace, a.Name); err == nil && len(evs) > 0 {
 		out["events"] = evs
@@ -299,7 +300,7 @@ func redactedEnv(container map[string]any) []map[string]any {
 }
 
 // ownerChain walks controller owners: Pod → ReplicaSet → Deployment.
-func (t *tools) ownerChain(ctx context.Context, in Inspector, cluster, ns string, o map[string]any) []string {
+func ownerChain(ctx context.Context, in Inspector, cluster, ns string, o map[string]any) []string {
 	var chain []string
 	cur := o
 	for depth := 0; depth < 3; depth++ {
@@ -448,7 +449,12 @@ func (t *tools) logs(ctx context.Context, raw json.RawMessage, c *call) (mcp.Res
 	if a.Previous {
 		header += " (previous instance)"
 	}
-	return mcp.TextResult(header + ", last " + fmt.Sprint(tail) + " lines, repeats collapsed:\n" + collapseRepeats(text)), nil
+	masked, n := redact.String(collapseRepeats(text))
+	header += ", last " + fmt.Sprint(tail) + " lines, repeats collapsed"
+	if n > 0 {
+		header += fmt.Sprintf(", %d values masked", n)
+	}
+	return mcp.TextResult(header + ":\n" + masked), nil
 }
 
 // collapseRepeats folds runs of identical lines into one with a count.

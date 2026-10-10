@@ -594,6 +594,46 @@ export const mcpApi = {
   rotate: () => send<McpStatus>("POST", "/api/mcp/rotate"),
 };
 
+/** Backlog #13: incident triage's switch, allowlist, endpoint and model. The key is never returned. */
+export interface TriageStatus {
+  enabled: boolean;
+  clusters: string[];
+  baseURL: string;
+  model: string;
+  key: {
+    /** "env:NAME", "keychain", or "" when there's no key. */
+    source: string;
+    /** The OS keychain's name, or "" when there's none to save to. */
+    store: string;
+    error?: string;
+  };
+  /** Why this engine can't do triage (in a cluster, or OIDC login). */
+  disabled?: string;
+}
+
+export interface TriageEvidenceSection {
+  id: string;
+  title: string;
+  text: string;
+}
+
+/** The exact request a Send would make, and the bundle it carries. */
+export interface TriagePreview {
+  endpoint: string;
+  request: { model: string; max_tokens: number; system: string; messages: { role: string; content: string }[] };
+  evidence: { cluster: string; namespace: string; pod: string; sections: TriageEvidenceSection[]; masked: number; truncated: boolean };
+  approxTokens: number;
+  keySource: string;
+}
+
+export const triageApi = {
+  get: () => get<TriageStatus>("/api/triage"),
+  save: (b: { enabled: boolean; clusters: string[]; baseURL: string; model: string }) => send<TriageStatus>("POST", "/api/triage", b),
+  putKey: (key: string) => send<TriageStatus>("PUT", "/api/triage/key", { key }),
+  deleteKey: () => send<TriageStatus>("DELETE", "/api/triage/key"),
+  preview: (b: { cluster: string; namespace: string; pod: string }) => send<TriagePreview>("POST", "/api/triage/preview", b),
+};
+
 export const settingsApi = {
   get: () => get<AppSettings>("/api/settings"),
   save: (b: AppSettings) => send<{ ok: boolean; saved: AppSettings }>("POST", "/api/settings", b),

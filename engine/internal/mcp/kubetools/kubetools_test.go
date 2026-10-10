@@ -22,6 +22,8 @@ type fakeSource struct {
 	objs     map[string][]map[string]any // gvr -> objects
 	calls    []snapCall
 	logCalls []logCall
+	// currentLogs, when set, is every current (not previous) log read.
+	currentLogs string
 }
 
 func (f *fakeSource) Clusters() []clusters.Cluster { return f.clusters }
