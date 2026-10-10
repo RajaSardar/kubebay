@@ -541,7 +541,32 @@ export interface DiscoveredEksCluster {
 }
 
 /** Backlog #14: EKS discovery through the user's own aws CLI. Every call runs it; only on a user action. */
+export interface GcpProject {
+  id: string;
+  name?: string;
+  /** gcloud's configured default project. */
+  default?: boolean;
+}
+
+export interface DiscoveredGkeCluster {
+  project: string;
+  location: string;
+  name: string;
+  /** The gke_PROJECT_LOCATION_NAME context an import creates. */
+  context: string;
+  endpoint: string;
+  status?: string;
+  version?: string;
+  /** A loaded kubeconfig already has this context. */
+  imported: boolean;
+}
+
 export const cloudDiscoveryApi = {
+  gcpProjects: () => get<GcpProject[]>("/api/discover/gcp/projects"),
+  scanGke: (project: string) =>
+    send<{ clusters: DiscoveredGkeCluster[]; errors: { region: string; cluster?: string; message: string }[] }>("POST", "/api/discover/gke/scan", { project }),
+  importGke: (project: string, location: string, name: string) =>
+    send<{ path: string; context: string }>("POST", "/api/discover/gke/import", { project, location, name }),
   profiles: () => get<AwsProfile[]>("/api/discover/aws/profiles"),
   scan: (profile: string, regions: string[]) =>
     send<{ clusters: DiscoveredEksCluster[]; errors: { region: string; cluster?: string; message: string }[] }>("POST", "/api/discover/eks/scan", { profile, regions }),

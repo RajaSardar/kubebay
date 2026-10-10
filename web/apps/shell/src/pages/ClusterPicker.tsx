@@ -20,6 +20,7 @@ import {
 import { ClusterIconPicker, autoAvatar, avatarLabelColor } from "../components/ClusterIconPicker";
 import { KubeconfigSources } from "../components/KubeconfigSources";
 import { EksDiscovery } from "../components/EksDiscovery";
+import { GkeDiscovery } from "../components/GkeDiscovery";
 import ConfigurePrometheusModal from "../components/ConfigurePrometheusModal";
 import { providerBadge, clusterDisplayName } from "../lib/clusterDistro";
 import {
@@ -521,6 +522,7 @@ export default function ClusterPicker() {
           <Stack gap={3}>
             <KubeconfigSources />
             <EksDiscovery />
+            <GkeDiscovery />
           </Stack>
         </Modal>
       )}

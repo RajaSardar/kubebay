@@ -245,7 +245,7 @@ Independently verified by direct source inspection (not just an expert's claim) 
 **Boundary with #5: both should exist.** MCP is an external model reaching *in*, with Kubebay as the gate; triage is Kubebay reaching *out* with one bounded read-only payload. They should share only the redaction pass and the evidence assembler.
 **Competitive-urgency note (2026-09-26, Lens research pass):** Lens Prism (their paid AI copilot) gained a "terminal skill" this year letting it write local files/run commands — but per Lens's own docs it still never auto-executes; a human runs the surfaced command. That validates, not undercuts, this entry's stricter stance of never wiring a suggested action to an executable button. Separately, Mirantis also launched **Lens Agents** (paid, enterprise: centralized identity/policy/audit for AI coding agents hitting your infra) — correctly out of scope here, it needs a control plane beyond one laptop, same carve-out as the open-core split doc already draws. Freelens's free, much smaller answer — `@freelensapp/agentbridge-extension` (launches a coding agent in a terminal tab scoped to one cluster, pre-wired KUBECONFIG/PATH, editable default-safe permissions file: read-only kubectl/helm allowed, ask for everything else) — is a much closer size/shape match to Kubebay's own philosophy and worth a five-minute look as a UX reference once #10 (local shell) ships. Not a new item.
 
-### 14. Cloud cluster auto-discovery (EKS/AKS/GKE one-click import) — status: shipped 2026-10-10 for EKS (AKS/GKE not started)
+### 14. Cloud cluster auto-discovery (EKS/AKS/GKE one-click import) — status: shipped 2026-10-10 for EKS and GKE (AKS not started)
 **What Lens does (Premium-gated):** calls the cloud provider's own API to list every cluster in your account/regions and one-click-imports it — no manual `aws eks update-kubeconfig` / `az aks get-credentials` round-trip needed first.
 **Where Kubebay is today:** `clusterDistro.ts` only pattern-matches provider/distro off whatever's *already* in kubeconfig (`arn:aws:eks:`, `gke_`, `aks-`, etc.) — verified via grep, there is zero AWS/Azure/GCP SDK anywhere in `engine/go.mod` or the rest of the codebase. Kubebay has no way to discover a cluster it doesn't already have a context for.
 **Scope this as detect-and-offer-import, never provision** — the same posture item #3 (Karpenter) already settled on for the identical reason: no cloud SDK today, and adding one is real new surface area (per-provider credential handling, IAM/service-account scoping, rate limits, a new dependency). A v1 would be one provider at a time — EKS first, matching Raja's own prod footprint — listing clusters via the AWS SDK against whatever credentials/profile are already locally resolvable (same trust boundary as the existing `aws eks get-token` exec-credential flow), rendering them in the cluster picker as "available to import" with one click to append the right context to kubeconfig. Never persist cloud credentials anywhere Kubebay doesn't already trust them; never call any provisioning or mutating cloud API.
@@ -303,8 +303,29 @@ Independently verified by direct source inspection (not just an expert's claim) 
 
 **Not tested against a real AWS account here.** As with the audit feed's cloud sources, the CLI is faked in tests.
 
+**GKE shipped 2026-10-10 (PR open), on the same rules as EKS.**
+- **gcloud as a subprocess:**
+  - `gcloud projects list` (up to 200, with `config get-value project` marked as the default);
+  - one `gcloud container clusters list --project P` per scan, which covers every region and zone, so there's no region field;
+  - `container clusters describe` again on import, so nothing from the browser is trusted and the CA is never sent to it.
+- **Names are validated before argv:** project IDs (including legacy `domain:` ones), regions or zones, and cluster names.
+- **Errors become the fix:**
+  - an expired login → `gcloud auth login`;
+  - no account signed in;
+  - the Kubernetes Engine API not enabled → enable `container.googleapis.com`;
+  - a 403 → `container.clusters.list/get`;
+  - gcloud not installed.
+- **The kubeconfig matches `get-credentials`:**
+  - context, cluster and user are all `gke_PROJECT_LOCATION_NAME`, so `clusterDistro.ts` and an earlier manual import both recognise it;
+  - the server is `https://<endpoint>`;
+  - the user is an exec stanza for `gke-gcloud-auth-plugin` (v1beta1, `provideClusterInfo`, an install hint), never a token.
+- **Shared with EKS:** import goes through the shared `writeDiscovered` (atomic, 0600, under `~/.kubebay/discovered`, then `AddExtraKubeconfig`), and gets the same 409s for an already-loaded context and for a pinned engine (with the `KUBECONFIG=<file> gcloud container clusters get-credentials …` command).
+- **Routes:** `GET /api/discover/gcp/projects`, `POST /api/discover/gke/scan`, `POST /api/discover/gke/import`.
+- **UI:** `components/GkeDiscovery.tsx`, under EKS in the same dialog.
+- **Verified:** with unit fakes, and with the real binary driving a stand-in `gcloud` script (projects → API-disabled error → scan → import → the context loads → re-import 409). Not run against a real Google Cloud project.
+
 **Not in v1:**
-- AKS and GKE;
+- AKS. It needs a decision first: `az aks get-credentials` hands back a static client certificate or token for clusters with local accounts, which breaks the "never a static token" rule. The plan is to import only Entra ID clusters, through a `kubelogin` exec user, and explain the rest;
 - removing an imported cluster (deleting its file from Settings' kubeconfig list works today);
 - scanning every region automatically.
 

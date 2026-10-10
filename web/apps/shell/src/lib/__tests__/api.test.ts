@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { api, mcpApi } from "../api";
+import { api, cloudDiscoveryApi, mcpApi } from "../api";
 import { PolicyRejectionError, StaleEditError } from "../policyRejection";
 
 function jsonResponse(status: number, body: unknown) {
@@ -125,6 +125,26 @@ describe("mcpApi (backlog #5)", () => {
       ["/api/mcp", "GET", undefined],
       ["/api/mcp", "POST", JSON.stringify({ enabled: true, clusters: { "kind-dev": ["shop"] } })],
       ["/api/mcp/rotate", "POST", undefined],
+    ]);
+  });
+});
+
+describe("cloudDiscoveryApi GKE (backlog #14)", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("lists projects, scans one, and imports by project, location and name", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => jsonResponse(200, { clusters: [], errors: [] }));
+    vi.stubGlobal("fetch", fetchMock);
+    await cloudDiscoveryApi.gcpProjects();
+    await cloudDiscoveryApi.scanGke("shop-prod");
+    await cloudDiscoveryApi.importGke("shop-prod", "europe-west1", "web");
+    const calls = fetchMock.mock.calls.map(([url, init]) => [url, (init as RequestInit | undefined)?.method ?? "GET", (init as RequestInit | undefined)?.body]);
+    expect(calls).toEqual([
+      ["/api/discover/gcp/projects", "GET", undefined],
+      ["/api/discover/gke/scan", "POST", JSON.stringify({ project: "shop-prod" })],
+      ["/api/discover/gke/import", "POST", JSON.stringify({ project: "shop-prod", location: "europe-west1", name: "web" })],
     ]);
   });
 });
