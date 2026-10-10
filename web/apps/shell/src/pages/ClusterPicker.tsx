@@ -19,6 +19,7 @@ import {
 } from "../lib/clusterConnections";
 import { ClusterIconPicker, autoAvatar, avatarLabelColor } from "../components/ClusterIconPicker";
 import { KubeconfigSources } from "../components/KubeconfigSources";
+import { EksDiscovery } from "../components/EksDiscovery";
 import ConfigurePrometheusModal from "../components/ConfigurePrometheusModal";
 import { providerBadge, clusterDisplayName } from "../lib/clusterDistro";
 import {
@@ -494,7 +495,7 @@ export default function ClusterPicker() {
       </div>
 
       {removing && (
-        <Modal label={`Remove ${removing.id}`} placement="center" onClose={() => setRemoving(null)}>
+        <Modal label={`Remove ${removing.id}?`} title={`Remove ${removing.id}?`} placement="center" onClose={() => setRemoving(null)}>
           <div className="catalog-confirm">
             <p>{`Remove ${removing.id} from the list? It stays in your kubeconfig; show it again from the hidden clusters.`}</p>
             <Row gap={2} justify="end">
@@ -516,15 +517,10 @@ export default function ClusterPicker() {
       )}
 
       {kubeconfigOpen && (
-        <Modal label="Kubeconfig sources" placement="center" size="wide" onClose={() => setKubeconfigOpen(false)}>
+        <Modal label="Kubeconfig sources" title="Kubeconfig sources" placement="center" size="wide" onClose={() => setKubeconfigOpen(false)}>
           <Stack gap={3}>
-            <Row align="center" justify="between">
-              <strong>Kubeconfig sources</strong>
-              <IconButton label="Close" onClick={() => setKubeconfigOpen(false)}>
-                ×
-              </IconButton>
-            </Row>
             <KubeconfigSources />
+            <EksDiscovery />
           </Stack>
         </Modal>
       )}

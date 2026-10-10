@@ -233,6 +233,15 @@ func (m *Manager) validateKubeconfigs(paths []string) error {
 	return nil
 }
 
+// ExplicitKubeconfig is the one kubeconfig the engine was pinned to
+// (KUBEBAY_KUBECONFIG or --kubeconfig), or "" when it uses the default
+// rules. A pinned engine loads nothing else, extra kubeconfigs included.
+func (m *Manager) ExplicitKubeconfig() string {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.kubeconfig
+}
+
 // SetExtraKubeconfigs validates and applies additional kubeconfig files,
 // then reloads all clusters (file watchers re-register automatically).
 func (m *Manager) SetExtraKubeconfigs(paths []string) error {
