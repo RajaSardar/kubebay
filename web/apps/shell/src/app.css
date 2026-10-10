@@ -253,6 +253,13 @@ body::before {
   font-family: var(--kb-font-mono);
 }
 
+/* Backlog #5: the MCP access chip under the cluster name. */
+.brand-mcp {
+  align-self: flex-start;
+  margin-top: 2px;
+  text-decoration: none;
+}
+
 .palette-hint {
   display: flex;
   align-items: center;

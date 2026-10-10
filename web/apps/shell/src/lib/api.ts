@@ -180,7 +180,7 @@ export const api = {
   applyYaml: applyYamlRequest,
   createResource: (b: { cluster: string; yaml: string; dryRun: boolean }) =>
     send<{ applied: number; total: number; dryRun: boolean }>("POST", "/api/yaml/create", b),
-  auditLog: () => get<{ time: string; action: string; cluster: string; namespace?: string; resource?: string; detail?: string; userAgent?: string }[]>("/api/audit"),
+  auditLog: () => get<{ time: string; action: string; cluster: string; namespace?: string; resource?: string; detail?: string; userAgent?: string; source?: string }[]>("/api/audit"),
 };
 
 export const secretApi = {
@@ -547,6 +547,26 @@ export const cloudDiscoveryApi = {
     send<{ clusters: DiscoveredEksCluster[]; errors: { region: string; cluster?: string; message: string }[] }>("POST", "/api/discover/eks/scan", { profile, regions }),
   importEks: (profile: string, region: string, name: string) =>
     send<{ path: string; context: string }>("POST", "/api/discover/eks/import", { profile, region, name }),
+};
+
+/** Backlog #5: the MCP server's switch and scope. The token never leaves the engine. */
+export interface McpStatus {
+  enabled: boolean;
+  /** Cluster ID to namespaces; an empty list is the whole cluster. */
+  clusters: Record<string, string[]>;
+  url: string;
+  /** Where the bridge reads the URL and token; set while MCP is on. */
+  connectionFile?: string;
+  /** Why this engine can't serve MCP (in a cluster, OIDC login, or not loopback-only). */
+  disabled?: string;
+  /** `<engine> mcp-stdio`, the command an assistant launches. */
+  bridgeCommand?: string[];
+}
+
+export const mcpApi = {
+  get: () => get<McpStatus>("/api/mcp"),
+  save: (b: { enabled: boolean; clusters: Record<string, string[]> }) => send<McpStatus>("POST", "/api/mcp", b),
+  rotate: () => send<McpStatus>("POST", "/api/mcp/rotate"),
 };
 
 export const settingsApi = {

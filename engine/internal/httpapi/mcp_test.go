@@ -160,6 +160,7 @@ func TestMCPRejectsBadScope(t *testing.T) {
 
 func TestMCPGetDescribesTheConnectionWithoutTheToken(t *testing.T) {
 	a, _ := mcpFixture(t)
+	a.BridgeCommand = []string{"/Applications/Kubebay.app/Contents/MacOS/kubebay-engine", "mcp-stdio"}
 	mcpSave(t, a, `{"enabled":true,"clusters":{"kind-dev":[]}}`)
 	rec := httptest.NewRecorder()
 	a.HandleGet(rec, httptest.NewRequest(http.MethodGet, "/api/mcp", nil))
@@ -168,12 +169,14 @@ func TestMCPGetDescribesTheConnectionWithoutTheToken(t *testing.T) {
 		t.Fatalf("%d %s", rec.Code, rec.Body)
 	}
 	var got struct {
-		Enabled        bool   `json:"enabled"`
-		URL            string `json:"url"`
-		ConnectionFile string `json:"connectionFile"`
+		Enabled        bool     `json:"enabled"`
+		URL            string   `json:"url"`
+		ConnectionFile string   `json:"connectionFile"`
+		BridgeCommand  []string `json:"bridgeCommand"`
 	}
 	_ = json.Unmarshal(rec.Body.Bytes(), &got)
-	if !got.Enabled || got.URL == "" || !strings.HasSuffix(got.ConnectionFile, "mcp.json") {
+	// The settings card turns bridgeCommand into Claude Desktop's config.
+	if !got.Enabled || got.URL == "" || !strings.HasSuffix(got.ConnectionFile, "mcp.json") || len(got.BridgeCommand) != 2 || got.BridgeCommand[1] != "mcp-stdio" {
 		t.Errorf("get = %s", rec.Body)
 	}
 }

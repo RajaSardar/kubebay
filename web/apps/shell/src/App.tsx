@@ -70,6 +70,7 @@ import { usePrewarm } from "./lib/usePrewarm";
 import { useRemoteDisconnects } from "./lib/useRemoteDisconnects";
 import { useSidebar, type SidebarState } from "./lib/useSidebar";
 import { HideSidebarButton, ShowSidebarButton } from "./components/SidebarToggle";
+import { McpChip } from "./components/McpChip";
 
 // ──── Cluster Context ────────────────────────────────────────────────────────
 // `active` and `setActive` now live in Zustand (cluster-store.ts).
@@ -421,6 +422,7 @@ function Sidebar({ onOpenPalette, sidebar }: { onOpenPalette: () => void; sideba
               <span className="brand-cluster-name">{activeCluster.id}</span>
             </span>
           )}
+          <McpChip />
         </div>
         <HideSidebarButton sidebar={sidebar} />
       </div>

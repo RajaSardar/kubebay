@@ -1,52 +1,10 @@
-import { useEffect, useState, useMemo, useCallback, type FormEvent } from "react";
+import { useEffect, useState, useMemo, type FormEvent } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Modal, Stack, Row, Button, TextField, ChoiceCard, NsPill, InlineBanner, Spinner } from "@kubebay/ui";
 import { useResourceStream } from "../lib/useResourceStream";
 import { findCandidatePrometheusServices, rankPrometheusServers, suggestLocalURL, portForwardCommand } from "../lib/prometheusServiceDiscovery";
 import * as api from "../lib/api";
-
-function CopyableCommand({ command }: { command: string }) {
-  const [copied, setCopied] = useState(false);
-  const copy = useCallback(() => {
-    navigator.clipboard.writeText(command).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  }, [command]);
-  return (
-    <div style={{ position: "relative", margin: "8px 0 0" }}>
-      <pre
-        className="mono"
-        style={{
-          fontSize: "var(--kb-text-xs)",
-          whiteSpace: "pre-wrap",
-          background: "var(--kb-bg-inset)",
-          padding: "8px 40px 8px 8px",
-          borderRadius: "var(--kb-radius-xs)",
-          margin: 0,
-          cursor: "pointer",
-          userSelect: "all",
-        }}
-        onClick={copy}
-      >
-        {command}
-      </pre>
-      <Button
-        onClick={copy}
-        title="Copy to clipboard"
-        variant="ghost"
-       
-        style={{
-          position: "absolute",
-          top: 4,
-          right: 4,
-        }}
-      >
-        {copied ? "Copied!" : "Copy"}
-      </Button>
-    </div>
-  );
-}
+import { CopyableCommand } from "./CopyableCommand";
 
 interface ConfigurePrometheusModalProps {
   cluster: string;
