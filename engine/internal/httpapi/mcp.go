@@ -48,6 +48,9 @@ type MCPAPI struct {
 	URL     string
 	// Disabled, when set, is why the endpoint doesn't exist here.
 	Disabled string
+	// BridgeCommand launches the stdio bridge (`<engine> mcp-stdio`), for
+	// clients like Claude Desktop that only run local commands.
+	BridgeCommand []string
 
 	mu    sync.RWMutex
 	conf  MCPSettings
@@ -182,15 +185,16 @@ func (a *MCPAPI) Endpoint() http.Handler {
 
 type mcpStatus struct {
 	MCPSettings
-	URL            string `json:"url"`
-	ConnectionFile string `json:"connectionFile,omitempty"`
-	Disabled       string `json:"disabled,omitempty"`
+	URL            string   `json:"url"`
+	ConnectionFile string   `json:"connectionFile,omitempty"`
+	Disabled       string   `json:"disabled,omitempty"`
+	BridgeCommand  []string `json:"bridgeCommand,omitempty"`
 }
 
 func (a *MCPAPI) status() mcpStatus {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
-	st := mcpStatus{MCPSettings: a.conf, URL: a.URL, Disabled: a.Disabled}
+	st := mcpStatus{MCPSettings: a.conf, URL: a.URL, Disabled: a.Disabled, BridgeCommand: a.BridgeCommand}
 	if st.Clusters == nil {
 		st.Clusters = map[string][]string{}
 	}

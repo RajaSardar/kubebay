@@ -32,6 +32,11 @@ import (
 var version = "dev"
 
 func main() {
+	// `kubebay-engine mcp-stdio`: the stdio bridge MCP clients like Claude
+	// Desktop launch; it forwards to the running app and serves nothing.
+	if len(os.Args) > 1 && os.Args[1] == "mcp-stdio" {
+		os.Exit(runMCPStdio(os.Args[2:], os.Stdin, os.Stdout, os.Stderr))
+	}
 	showVersion := flag.Bool("version", false, "print version and exit")
 	noOpen := flag.Bool("no-open", false, "do not open the browser automatically")
 	addr := flag.String("addr", "127.0.0.1:9898", "listen address")

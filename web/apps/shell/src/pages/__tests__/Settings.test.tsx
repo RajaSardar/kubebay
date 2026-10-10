@@ -77,4 +77,12 @@ describe("Settings: app-wide settings only", () => {
     expect(await screen.findByText("Usage history")).toBeInTheDocument();
     expect(screen.getByText("kind-dev")).toBeInTheDocument();
   });
+
+  it("offers the MCP switch for AI assistants, off until turned on", async () => {
+    vi.mocked(api.mcpApi.get).mockResolvedValue({ enabled: false, clusters: {}, url: "http://127.0.0.1:9898/mcp" });
+    vi.mocked(api.api.clusters).mockResolvedValue([]);
+    renderSettings();
+    expect(await screen.findByText("AI assistants (MCP)")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Turn on" })).toBeDisabled();
+  });
 });

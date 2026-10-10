@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button, chartColor, EmptyState, InlineBanner, Row, SkeletonLines } from "@kubebay/ui";
 import { LineChart } from "./LineChart";
 import ConfigurePrometheusModal from "./ConfigurePrometheusModal";
 import { promApi } from "../lib/api";
+import { CopyableCommand } from "./CopyableCommand";
 
 const RANGES = [
   { label: "15m", ms: 900_000, step: 30 },
@@ -14,54 +15,6 @@ const RANGES = [
 
 const MAX_RETRIES = 3;
 const RETRY_INTERVAL = 15_000;
-
-function CopyableCommand({ command }: { command: string }) {
-  const [copied, setCopied] = useState(false);
-  const copy = useCallback(() => {
-    navigator.clipboard.writeText(command).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  }, [command]);
-  return (
-    <div style={{ position: "relative", margin: "8px 0 0" }}>
-      <pre
-        className="mono"
-        style={{
-          fontSize: "var(--kb-text-xs)",
-          whiteSpace: "pre-wrap",
-          background: "var(--kb-bg-inset)",
-          padding: "8px 40px 8px 8px",
-          borderRadius: "var(--kb-radius-xs)",
-          margin: 0,
-          cursor: "pointer",
-          userSelect: "all",
-        }}
-        onClick={copy}
-      >
-        {command}
-      </pre>
-      <button
-        onClick={copy}
-        title="Copy to clipboard"
-        style={{
-          position: "absolute",
-          top: 4,
-          right: 4,
-          background: "transparent",
-          border: "1px solid var(--kb-border-subtle)",
-          borderRadius: "var(--kb-radius-xs)",
-          padding: "2px 6px",
-          fontSize: "var(--kb-text-2xs)",
-          cursor: "pointer",
-          color: "var(--kb-fg-muted)",
-        }}
-      >
-        {copied ? "Copied!" : "Copy"}
-      </button>
-    </div>
-  );
-}
 
 export function PodGraphs({
   cluster,

@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button, Card, CellLink, ChoiceCard, PageHeader, SegmentedControl, Stack, TextField } from "@kubebay/ui";
 import { settingsApi } from "../lib/api";
 import { UsageHistoryCard } from "../components/UsageHistoryCard";
+import { McpSettingsCard } from "../components/McpSettingsCard";
 import { useTheme, type ThemeName } from "../lib/theme";
 import { useDisplay, type FontSize, type FontFamily, type Density } from "../lib/display";
 
@@ -278,6 +279,7 @@ export default function Settings() {
         />
       )}
       {settings.isSuccess && <UsageHistoryCard clusters={settings.data.historyClusters ?? {}} />}
+      <McpSettingsCard />
     </div>
   );
 }

@@ -1,13 +1,21 @@
 package main
 
 import (
+	"context"
+	"flag"
 	"fmt"
+	"io"
+	"os"
+	"os/signal"
+	"path/filepath"
+	"syscall"
 
 	"github.com/RajaSardar/kubebay/engine/internal/audit"
 	"github.com/RajaSardar/kubebay/engine/internal/clusters"
 	"github.com/RajaSardar/kubebay/engine/internal/httpapi"
 	"github.com/RajaSardar/kubebay/engine/internal/informers"
 	"github.com/RajaSardar/kubebay/engine/internal/mcp"
+	"github.com/RajaSardar/kubebay/engine/internal/mcp/bridge"
 	"github.com/RajaSardar/kubebay/engine/internal/mcp/kubetools"
 )
 
@@ -24,5 +32,32 @@ func newMCP(sm *httpapi.SettingsManager, mgr *clusters.Manager, pools *informers
 		Audit:  auditLog.Record,
 	})
 	api.Handler = &mcp.Handler{Tools: reg, Name: "kubebay", Version: version, Instructions: mcpInstructions}
+	if exe, err := os.Executable(); err == nil {
+		api.BridgeCommand = []string{exe, "mcp-stdio"}
+	}
 	return api
+}
+
+// runMCPStdio is the `mcp-stdio` subcommand. stdout carries only MCP
+// messages; diagnostics go to stderr, which MCP clients log.
+func runMCPStdio(args []string, in io.Reader, out, errw io.Writer) int {
+	fs := flag.NewFlagSet("mcp-stdio", flag.ContinueOnError)
+	fs.SetOutput(errw)
+	def := os.Getenv("KUBEBAY_MCP_CONNECTION")
+	if def == "" {
+		if home, err := os.UserHomeDir(); err == nil {
+			def = filepath.Join(home, ".kubebay", "mcp.json")
+		}
+	}
+	conn := fs.String("connection", def, "Kubebay's MCP connection file (written when MCP is turned on)")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	if err := bridge.Run(ctx, in, out, bridge.Options{ConnectionFile: *conn, Log: errw}); err != nil {
+		fmt.Fprintln(errw, "kubebay-mcp:", err)
+		return 1
+	}
+	return 0
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { api } from "../api";
+import { api, mcpApi } from "../api";
 import { PolicyRejectionError, StaleEditError } from "../policyRejection";
 
 function jsonResponse(status: number, body: unknown) {
@@ -105,5 +105,26 @@ describe("api.applyYaml — stale edits", () => {
       expect((e as Error).message).toBe("Operation cannot be fulfilled");
       return true;
     });
+  });
+});
+
+describe("mcpApi (backlog #5)", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("reads, saves and rotates through the token-guarded settings routes", async () => {
+    const status = { enabled: true, clusters: { "kind-dev": [] }, url: "http://127.0.0.1:9898/mcp", bridgeCommand: ["/kb", "mcp-stdio"] };
+    const fetchMock = vi.fn().mockImplementation(async () => jsonResponse(200, status));
+    vi.stubGlobal("fetch", fetchMock);
+    expect((await mcpApi.get()).bridgeCommand).toEqual(["/kb", "mcp-stdio"]);
+    await mcpApi.save({ enabled: true, clusters: { "kind-dev": ["shop"] } });
+    await mcpApi.rotate();
+    const calls = fetchMock.mock.calls.map(([url, init]) => [url, (init as RequestInit | undefined)?.method ?? "GET", (init as RequestInit | undefined)?.body]);
+    expect(calls).toEqual([
+      ["/api/mcp", "GET", undefined],
+      ["/api/mcp", "POST", JSON.stringify({ enabled: true, clusters: { "kind-dev": ["shop"] } })],
+      ["/api/mcp/rotate", "POST", undefined],
+    ]);
   });
 });
