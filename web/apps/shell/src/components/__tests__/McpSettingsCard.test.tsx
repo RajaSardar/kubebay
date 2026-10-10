@@ -59,7 +59,7 @@ describe("McpSettingsCard", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: "Allow prod" }));
     fireEvent.change(screen.getByRole("textbox", { name: "Namespaces for prod" }), { target: { value: "shop, ops" } });
     fireEvent.click(screen.getByRole("button", { name: "Turn on" }));
-    await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith({ enabled: true, clusters: { "kind-dev": [], prod: ["shop", "ops"] } }));
+    await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith({ enabled: true, clusters: { "kind-dev": [], prod: ["shop", "ops"] }, writesEnabled: false }));
   });
 
   it("shows how to connect Claude Desktop and Claude Code, without the token", async () => {
@@ -75,7 +75,7 @@ describe("McpSettingsCard", () => {
     status = on();
     renderCard();
     fireEvent.click(await screen.findByRole("button", { name: "Turn off" }));
-    await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith({ enabled: false, clusters: { "kind-dev": [] } }));
+    await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith({ enabled: false, clusters: { "kind-dev": [] }, writesEnabled: false }));
   });
 
   it("turns off with the saved scope, so an unsaved bad edit can't block the kill switch", async () => {
@@ -83,7 +83,7 @@ describe("McpSettingsCard", () => {
     renderCard();
     fireEvent.change(await screen.findByRole("textbox", { name: "Namespaces for kind-dev" }), { target: { value: "Bad_NS" } });
     fireEvent.click(screen.getByRole("button", { name: "Turn off" }));
-    await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith({ enabled: false, clusters: { "kind-dev": [] } }));
+    await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith({ enabled: false, clusters: { "kind-dev": [] }, writesEnabled: false }));
   });
 
   it("saves a changed scope while on", async () => {
@@ -91,7 +91,7 @@ describe("McpSettingsCard", () => {
     renderCard();
     fireEvent.change(await screen.findByRole("textbox", { name: "Namespaces for kind-dev" }), { target: { value: "shop" } });
     fireEvent.click(screen.getByRole("button", { name: "Save scope" }));
-    await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith({ enabled: true, clusters: { "kind-dev": ["shop"] } }));
+    await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith({ enabled: true, clusters: { "kind-dev": ["shop"] }, writesEnabled: false }));
   });
 
   it("rotates the token only after confirming", async () => {
@@ -131,5 +131,23 @@ describe("McpSettingsCard", () => {
     renderCard();
     expect(await screen.findByRole("checkbox", { name: "Allow old-eks" })).toBeChecked();
     expect(vi.mocked(api.clusters)).toHaveBeenCalled();
+  });
+
+  it("lets assistants propose changes only when you tick it, and says nothing applies without you", async () => {
+    status = on();
+    renderCard();
+    const box = await screen.findByRole("checkbox", { name: /let assistants propose changes/i });
+    expect(box).not.toBeChecked();
+    expect(screen.getByText(/you approve or reject each one here/i)).toBeInTheDocument();
+    fireEvent.click(box);
+    await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith({ enabled: true, clusters: { "kind-dev": [] }, writesEnabled: true }));
+  });
+
+  it("keeps proposals on when the scope is saved", async () => {
+    status = { ...on(), writesEnabled: true };
+    renderCard();
+    fireEvent.change(await screen.findByRole("textbox", { name: "Namespaces for kind-dev" }), { target: { value: "shop" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save scope" }));
+    await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith({ enabled: true, clusters: { "kind-dev": ["shop"] }, writesEnabled: true }));
   });
 });

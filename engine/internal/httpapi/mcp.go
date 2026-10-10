@@ -9,9 +9,11 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/go-chi/chi/v5"
 	"k8s.io/apimachinery/pkg/util/validation"
 
 	"github.com/RajaSardar/kubebay/engine/internal/mcp/kubetools"
+	"github.com/RajaSardar/kubebay/engine/internal/mcp/proposals"
 )
 
 // MCPSettings is the user's MCP choice (backlog #5): off by default, and
@@ -21,6 +23,9 @@ type MCPSettings struct {
 	// Clusters maps a cluster ID to the namespaces an assistant may read
 	// there; an empty list means every namespace.
 	Clusters map[string][]string `json:"clusters,omitempty"`
+	// Writes lets assistants propose changes (phase 2). A proposal changes
+	// nothing until a person approves it in Kubebay.
+	Writes bool `json:"writesEnabled,omitempty"`
 }
 
 // MCPBlockReason: the MCP endpoint hands a token holder the engine's own view
@@ -51,6 +56,8 @@ type MCPAPI struct {
 	// BridgeCommand launches the stdio bridge (`<engine> mcp-stdio`), for
 	// clients like Claude Desktop that only run local commands.
 	BridgeCommand []string
+	// Proposals holds assistants' proposed changes awaiting a decision.
+	Proposals *proposals.Store
 
 	mu    sync.RWMutex
 	conf  MCPSettings
@@ -98,6 +105,13 @@ func NewMCPAPI(sm *SettingsManager, url, disabled string) *MCPAPI {
 }
 
 // Scope is what the tools may read, as of now.
+// Writes reports whether assistants may propose changes right now.
+func (a *MCPAPI) Writes() bool {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return a.conf.Enabled && a.conf.Writes
+}
+
 func (a *MCPAPI) Scope() kubetools.Scope {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
@@ -242,6 +256,9 @@ func (a *MCPAPI) HandleSave(w http.ResponseWriter, r *http.Request) {
 	wasOn := a.conf.Enabled && a.token != ""
 	a.conf = body
 	a.mu.Unlock()
+	if (!body.Enabled || !body.Writes) && a.Proposals != nil {
+		a.Proposals.RejectAll("proposals were turned off in Kubebay")
+	}
 	switch {
 	case body.Enabled && !wasOn:
 		if err := a.mintToken(); err != nil {
@@ -273,4 +290,85 @@ func (a *MCPAPI) HandleRotate(w http.ResponseWriter, _ *http.Request) {
 		return
 	}
 	writeJSON(w, a.status())
+}
+
+// HandleProposals lists what assistants proposed: pending first, for the
+// approval dialog, and the latest decisions.
+func (a *MCPAPI) HandleProposals(w http.ResponseWriter, _ *http.Request) {
+	if a.Disabled != "" || a.Proposals == nil {
+		writeJSON(w, map[string]any{"pending": []proposals.Proposal{}, "recent": []proposals.Proposal{}, "writesEnabled": false})
+		return
+	}
+	recent := a.Proposals.Recent()
+	if len(recent) > 20 {
+		recent = recent[:20]
+	}
+	writeJSON(w, map[string]any{"pending": a.Proposals.Pending(), "recent": recent, "writesEnabled": a.Writes()})
+}
+
+// inWriteScope: proposals are on, and the cluster and namespace are still
+// in scope now, not just when the proposal was made.
+func (a *MCPAPI) inWriteScope(cluster, ns string) error {
+	if !a.Writes() {
+		return fmt.Errorf("proposals are turned off")
+	}
+	allowed, ok := a.Scope().Clusters[cluster]
+	if !ok {
+		return fmt.Errorf("cluster %q is no longer in the MCP scope", cluster)
+	}
+	if len(allowed) > 0 {
+		for _, n := range allowed {
+			if n == ns {
+				return nil
+			}
+		}
+		return fmt.Errorf("namespace %q is no longer in the MCP scope", ns)
+	}
+	return nil
+}
+
+// HandleApprove applies one proposal. Only the UI's token reaches it.
+func (a *MCPAPI) HandleApprove(w http.ResponseWriter, r *http.Request) {
+	if a.Disabled != "" || a.Proposals == nil {
+		http.Error(w, "proposals are not available here", http.StatusForbidden)
+		return
+	}
+	id := chi.URLParam(r, "id")
+	p, ok := a.Proposals.Get(id)
+	if !ok {
+		http.Error(w, "no proposal "+id, http.StatusNotFound)
+		return
+	}
+	if err := a.inWriteScope(p.Cluster, p.Namespace); err != nil {
+		http.Error(w, err.Error(), http.StatusForbidden)
+		return
+	}
+	out, err := a.Proposals.Approve(r.Context(), id)
+	switch {
+	case err == nil:
+		writeJSON(w, out)
+	case out.Status == proposals.StatusFailed:
+		http.Error(w, err.Error(), http.StatusBadGateway)
+	default:
+		http.Error(w, err.Error(), http.StatusConflict)
+	}
+}
+
+// HandleReject closes one proposal without applying it.
+func (a *MCPAPI) HandleReject(w http.ResponseWriter, r *http.Request) {
+	if a.Disabled != "" || a.Proposals == nil {
+		http.Error(w, "proposals are not available here", http.StatusForbidden)
+		return
+	}
+	id := chi.URLParam(r, "id")
+	if _, ok := a.Proposals.Get(id); !ok {
+		http.Error(w, "no proposal "+id, http.StatusNotFound)
+		return
+	}
+	out, err := a.Proposals.Reject(id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusConflict)
+		return
+	}
+	writeJSON(w, out)
 }

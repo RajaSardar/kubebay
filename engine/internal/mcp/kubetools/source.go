@@ -8,11 +8,13 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/RajaSardar/kubebay/engine/internal/clusters"
 	"github.com/RajaSardar/kubebay/engine/internal/informers"
+	"github.com/RajaSardar/kubebay/engine/internal/mcp/proposals"
 )
 
 // PoolSource reads from the engine's shared informer pools, so a tool call
@@ -96,6 +98,35 @@ func (s PoolSource) Get(ctx context.Context, cluster, gvr, ns, name string) (map
 	return u.Object, nil
 }
 
+// Patch applies a strategic merge patch as field manager "kubebay-mcp", so
+// changes an assistant proposed and a person approved are attributable in
+// managedFields. A dry run changes nothing.
+func (s PoolSource) Patch(ctx context.Context, cluster, gvr, ns, name string, patch []byte, dryRun bool) (map[string]any, error) {
+	cfg, err := s.Manager.RestConfig(cluster)
+	if err != nil {
+		return nil, err
+	}
+	g, err := informers.ParseGVR(gvr)
+	if err != nil {
+		return nil, err
+	}
+	dyn, err := dynamic.NewForConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+	defer cancel()
+	opts := metav1.PatchOptions{FieldManager: "kubebay-mcp"}
+	if dryRun {
+		opts.DryRun = []string{metav1.DryRunAll}
+	}
+	u, err := dyn.Resource(g).Namespace(ns).Patch(ctx, name, types.StrategicMergePatchType, patch, opts)
+	if err != nil {
+		return nil, err
+	}
+	return u.Object, nil
+}
+
 // Logs reads a bounded tail of one container's log; the API server enforces
 // LimitBytes, and the read is capped again here.
 func (s PoolSource) Logs(ctx context.Context, cluster, ns, pod string, opt LogOptions) (string, error) {
@@ -128,4 +159,7 @@ func (s PoolSource) Logs(ctx context.Context, cluster, ns, pod string, opt LogOp
 	return string(b), nil
 }
 
-var _ Inspector = PoolSource{}
+var (
+	_ Inspector         = PoolSource{}
+	_ proposals.Patcher = PoolSource{}
+)
