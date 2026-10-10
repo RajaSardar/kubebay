@@ -1,5 +1,7 @@
 # Kubebay Roadmap
 
+> **Current prioritised plan:** [BACKLOG.md](BACKLOG.md) (2026-10-09), derived from [COMPETITIVE_ANALYSIS.md](COMPETITIVE_ANALYSIS.md).
+
 > Effort estimates assume **1–2 focused contributors**; scale linearly for more.
 > Each phase ends with a public milestone release. Dates are relative (T0 = scaffold day).
 
