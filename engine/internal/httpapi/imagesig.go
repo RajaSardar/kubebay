@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"net/url"
 	"sort"
 	"strings"
 	"sync"
@@ -13,7 +15,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 
@@ -141,10 +145,40 @@ func imageSignatureReport(ctx context.Context, pods []corev1.Pod, check sigCheck
 	return out
 }
 
+// podScope narrows the check to one namespace, and within it to a label
+// selector (a workload's pods) or one pod, for the drawers. With no ns it
+// covers every pod the user can list.
+func podScope(q url.Values) (string, metav1.ListOptions, error) {
+	ns, selector, pod := q.Get("ns"), q.Get("selector"), q.Get("pod")
+	var opts metav1.ListOptions
+	if selector != "" {
+		sel, err := labels.Parse(selector)
+		if err != nil {
+			return "", opts, fmt.Errorf("selector: %w", err)
+		}
+		opts.LabelSelector = sel.String()
+	}
+	if pod != "" {
+		if ns == "" {
+			return "", opts, fmt.Errorf("pod needs ns")
+		}
+		if errs := validation.IsDNS1123Subdomain(pod); len(errs) > 0 {
+			return "", opts, fmt.Errorf("pod: %s", strings.Join(errs, "; "))
+		}
+		opts.FieldSelector = "metadata.name=" + pod
+	}
+	return ns, opts, nil
+}
+
 func (a *ImageSignatureAPI) Handle(w http.ResponseWriter, r *http.Request) {
 	cluster := r.URL.Query().Get("cluster")
 	if cluster == "" {
 		http.Error(w, "cluster required", http.StatusBadRequest)
+		return
+	}
+	ns, listOpts, err := podScope(r.URL.Query())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	cfg, err := a.Clusters.RestConfigWithIdentity(cluster, clusters.IdentityFromContext(r.Context()))
@@ -159,7 +193,7 @@ func (a *ImageSignatureAPI) Handle(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
 	defer cancel()
-	pods, err := cs.CoreV1().Pods("").List(ctx, metav1.ListOptions{})
+	pods, err := cs.CoreV1().Pods(ns).List(ctx, listOpts)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadGateway)
 		return

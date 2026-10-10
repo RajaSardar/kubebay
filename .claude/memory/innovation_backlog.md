@@ -176,6 +176,20 @@ Independently verified by direct source inspection (not just an expert's claim) 
 
 ### 13. AI incident triage + RBAC advisor — status: scoping (designed 2026-09-17) — **RBAC advisor half SHIPPED 2026-09-27, AI triage half deferred alongside MCP**
 **RBAC smell detector: SHIPPED.** `AnalyzeRBAC` (engine, `internal/httpapi/rbacadvisor.go`) is a pure function over the existing `RBACSnapshot`: wildcard verb/resource/apiGroup (with a full-everything role and the built-in `cluster-admin` role each getting their own clearer title rather than three separate wildcard findings), escalate/bind/impersonate verbs, cluster-wide Secret read and pod-exec access (ClusterRole only, skipped when `resourceNames` scopes it down — fixed the flagged `Rule` bug that was dropping `resourceNames`/`nonResourceURLs` first, or this would have over-flagged), and dangling ServiceAccount subjects (cross-checked against a live ServiceAccount list). Findings are per real subject via a real binding — an unbound risky role grants nobody anything, so it's silent. `RbacFindingsCard.tsx` adds the third card with a default "hide system:*" toggle, and clicking a finding that carries a query hint pre-fills and re-runs the existing `runWhoCan()` card. **Deliberately deferred, not silently dropped:** "SAs bound to nothing or mounted by no pod" needs a cluster-wide Pod list cross-referenced against every ServiceAccount — a meaningfully pricier check than the others, left as a follow-up.
+**Unused ServiceAccounts: SHIPPED 2026-10-09.** It is client-side, not in `AnalyzeRBAC`.
+- **Why client-side.** The RBAC page already streams every pod, ServiceAccount, Deployment, StatefulSet and CronJob for #28 and #35. The engine would have had to list every pod again on each `/api/rbac/all` call; the page adds only a DaemonSet stream.
+- **The check.** `lib/unusedServiceAccounts.ts#findUnusedServiceAccounts` lists ServiceAccounts that no pod or workload template in their namespace runs as.
+  - A pod's account is `serviceAccountName`, else the deprecated `serviceAccount`, else `default`, as the API server resolves it.
+  - Templates count, so a Deployment scaled to zero or a CronJob between runs still uses its account.
+- **Skipped:**
+  - each namespace's `default` ServiceAccount (it's created automatically, and #28 covers its use);
+  - `kube-system`, `kube-public` and `kube-node-lease`, since controller-manager acts as ServiceAccounts there without running pods;
+  - anything with an ownerReference.
+- **Per account it shows:**
+  - the bindings that name it directly (accounts with any are ranked first, since they hold access nothing visible uses);
+  - any legacy long-lived token Secret (from the metadata-mode Secrets stream #35 already opens). Such a token is the visible sign it may be used from outside the cluster.
+- **UI.** An "Unused ServiceAccounts" card below "Unreferenced Secrets". It says tokens used from outside the cluster aren't visible, so the list is for review, not deletion.
+- **Not in v1:** Job templates, pods created by custom resources that aren't running right now, and group bindings (`system:serviceaccounts[:ns]`), which grant to every account rather than to one.
 **AI triage stays deferred, alongside MCP (#5) — same category (opt-in third-party LLM integration), same "after real OSS traction" call.**
 **Build the RBAC advisor first — and kill its usage-diffing half.** "Permissions actually exercised" is not achievable: Kubebay's own audit logger sees only actions taken *through Kubebay* (7 verbs, one user, one laptop), and inferring "unused permission" from that produces confidently wrong "safe to remove" advice — the worst possible failure for a prod RBAC tool. The real source is the apiserver audit log, which on EKS lands in CloudWatch behind a separate IAM path, is off by default, and needs 30+ days retention. That's a cloud-ingest product, not a desktop feature. **The original backlog line's premise ("driven by the existing audit logger") was simply wrong.**
 **The real product is a static RBAC smell detector (3-4 days).** All input already arrives in the existing `RBACSnapshot` from `rbac.go:HandleAll`. New `engine/internal/httpapi/rbacadvisor.go` returning `[]Finding{severity, title, subject, roleRef, why, rule, suggestion}`. Rules: wildcard verb/resource/apiGroup; `cluster-admin` bindings; `escalate`/`bind`/`impersonate`; cluster-wide `secrets:get/list`; cluster-wide `pods/exec`; bindings whose subject ServiceAccount doesn't exist; SAs bound to nothing or mounted by no pod. Suggestions are **YAML to copy, never applied**. Extend `pages/Rbac.tsx` with a third "Findings" card — do not add a route — and make clicking a finding pre-fill the existing `runWhoCan()` selects so findings and the explorer become one loop. Note `RoleSummary` currently drops `resourceNames`/`nonResourceURLs`; add them or the advisor over-flags. Ship a default "hide `system:*`" toggle for vendor roles.
@@ -310,7 +324,10 @@ Independently verified by direct source inspection (not just an expert's claim) 
 **(1) Everything that names another object is a live link, in Kubebay it's plain text.** `pod-details.tsx` wraps Node in `LinkToNode`, Service Account in `LinkToServiceAccount`, Priority/Runtime Class in their own `LinkTo*`, and every volume in `details/volumes/variants/*` renders its owning ConfigMap/Secret/PVC through the same pattern (e.g. `persistent-volume-claim.tsx` → `LocalRef` → `MaybeLink` → `getMaybeDetailsUrlInjectable`). Every one of these ultimately just builds a details-URL for that kind and navigates a React Router `<Link>` with `stopPropagation`. Kubebay's `PodSummary.tsx` renders the exact same fields — Node (line 153), Service Account (154), each volume's `claimName`/`configMap.name`/`secret.secretName` (261-273) — as inert `<span className="mono">` text. **This is not a missing platform capability — it's an unused one.** `pages/ResourceTable.tsx` already has this precise mechanism today: a table cell can carry `to: { kind, ns, name }` (e.g. line 162 `{ v: vol, to: { kind: "persistentvolumes", ns: "", name: vol } }`, line 191 for PVC claimRefs) and clicking it calls `navigate('/detail/${kind}/${ns||"_"}/${name}')` (line 794) — the same `/detail/:kind/:ns/:name` route `ResourceDetail.tsx` already serves via `GenericDrawer` for any kind `lib/resources.ts#lookupDef` knows. Checked `lib/resources.ts` directly: `nodes`, `configmaps`, `secrets`, `serviceaccounts`, `persistentvolumeclaims`, and `persistentvolumes` are **all already registered kinds** with working detail pages. Wiring `PodSummary.tsx`'s Node/SA/volume fields to this existing route is pure frontend wiring in one file — zero new resource registration, zero engine change.
 **(2) Env values are unresolved placeholders in Kubebay; Freelens resolves them, and reveals secrets on demand.** `pod-container-env.tsx` resolves `fieldRef` (via `resolvePodRef`, reading straight off the live pod object — e.g. `status.podIP`), `resourceFieldRef` (computed against the container's own resources), and `configMapKeyRef` (looked up from an already-loaded `ConfigMapStore`) to their **actual current value** inline. For `secretKeyRef` it renders `secret(name)[key]` plus an eye icon (`secret-key.tsss`'s `SecretKey` component); clicking it lazy-fetches the Secret and base64-decodes the one key, revealing it in place — never fetched or decoded until the user explicitly asks. Kubebay's `PodSummary.tsx` (`containerDetails` mapping, lines 91/219-238) only shows the literal `value` when set, or a static `"← ref"` string for any `valueFrom` — a strictly worse signal than Freelens's resolved values, and there is no secret-reveal affordance in the codebase at all today.
 **(3) Container "Last State" (previous crash) is richer in Freelens.** `pod-details-container.tsx#renderLastState` shows Reason, exit code, and formatted Started/Finished timestamps for the terminated previous instance. Kubebay's `stateReason` (`PodSummary.tsx` line 103) only derives a short `"CrashLoopBackOff"`/`"exit 137"`-style string from the *current* state, with no separate last-state timestamps — a real but small gap for diagnosing "when did it last crash and how long did it run before that."
-**Also checked and confirmed comparable, not a gap:** liveness/readiness/startup probe rendering (`Probe` in `PodSummary.tsx` vs `pod.getLivenessProbe()` etc. in Freelens) — both render compact one-line summaries; Delete flow — Kubebay's force-checkbox + type-to-confirm is arguably more explicit than Freelens's phase-derived delete-mode dropdown (`kube-object-menu.tsx#getPodDeleteModes`), though Kubebay doesn't currently hide "force" for a pod already in a terminal phase the way Freelens's `getPodDeleteModes` does (very minor polish item, not scoped as a phase here). Container CPU/Memory metrics — `components/PodGraphs.tsx` already queries Prometheus `by (container)` and renders one line per container on a shared chart; Freelens's inline per-container sparklines (`pod-details-container-metrics.tsx`) are a different *placement* of comparable data, not new data — deliberately **not** scoped as a phase below.
+**Also checked and confirmed comparable, not a gap:** liveness/readiness/startup probe rendering (`Probe` in `PodSummary.tsx` vs `pod.getLivenessProbe()` etc. in Freelens) — both render compact one-line summaries; Delete flow — Kubebay's force-checkbox + type-to-confirm is arguably more explicit than Freelens's phase-derived delete-mode dropdown (`kube-object-menu.tsx#getPodDeleteModes`), though Kubebay doesn't currently hide "force" for a pod already in a terminal phase the way Freelens's `getPodDeleteModes` does (very minor polish item, not scoped as a phase here). **Done 2026-10-09, more precisely than hiding it by phase.**
+  - The API server's pod strategy (`CheckGracefulDelete`) already uses a zero grace period for a Succeeded/Failed or unscheduled pod, so skipping the grace period adds nothing there.
+  - Kubebay's force also strips finalizers, and a finalizer can hold even a finished pod (a Job's `batch.kubernetes.io/job-tracking`).
+  - So `lib/podDelete.ts#forceDeleteEffect` works out what force would actually do, and the checkbox says that: "force (skip grace period)", "remove finalizers", or both. It is hidden when force would do nothing, and the request sends only the parts that apply. Container CPU/Memory metrics — `components/PodGraphs.tsx` already queries Prometheus `by (container)` and renders one line per container on a shared chart; Freelens's inline per-container sparklines (`pod-details-container-metrics.tsx`) are a different *placement* of comparable data, not new data — deliberately **not** scoped as a phase below.
 **Named but deliberately out of scope for this pass: live port-forwarding from a container port row.** `pod-container-port.tsx` lets a Freelens user click a container port to open a local `kubectl port-forward` and launch a browser tab, with a Forward/Stop toggle. This is a genuinely nice, visible click-to-navigate affordance and the single most "wow" feature found in this research pass — but it means the engine spawning and lifecycle-managing local listening sockets on the user's machine, a materially different trust/attack-surface question than anything in this entry's other phases (which are all read-only rendering + navigation to data the engine already streams). Recommend scoping port-forwarding as its **own** future backlog entry rather than folding it in here, exactly the pattern #15 used to name-and-defer its Phase 3.
 **Architecture fit.** Everything in Phases 0-2 below is confined to `web/apps/shell/src/components/PodSummary.tsx` (plus one new small shared component) and needs no new engine route, no new `EXTRA_DEFS` entry, and no new stream — the pod object Kubebay already fetches into `pod.obj` carries every field these phases read. The only new primitive is a `<ResourceLink kind ns name>` component (thin wrapper around the exact `navigate('/detail/${kind}/${ns||"_"}/${name}')` call `ResourceTable.tsx` line 794 already makes) so `PodSummary.tsx` doesn't need `useNavigate` boilerplate at every call site.
 **Phased plan.**
@@ -816,7 +833,7 @@ From the [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszb
 
 **Follow-up shipped 2026-09-30:** the connectivity matrix now uses the same evaluator (`lib/netpolMatrix.ts#matrixCell`, one representative pod per namespace/app group). Isolation is per pod, egress counts, and an Ingress policy without rules blocks instead of allowing. Cells read open, allowed (with any port restriction) or blocked (naming the isolating policies on the side that blocks), and the old "unknown" state is gone.
 
-### 40. GPU capacity accounting (GPU dimension, Phase 0) — status: shipped 2026-09-30
+### 40. GPU capacity accounting (GPU dimension) — status: shipped (Phase 0 2026-09-30, Phase 1 2026-10-09)
 
 From the [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszbyRLEMgqjEFVVewJ)'s Tier 2 list (item 14, the GPU utilisation and right-sizing dimension). Phase 0 is the GPU twin of #6's Tier 0 waste accounting and needs no metrics. `lib/gpuCapacity.ts#computeGpuCapacity` compares allocatable GPUs per node with the GPUs scheduled pods ask for:
 
@@ -830,6 +847,31 @@ From the [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszb
 **Phase 1 (not in this PR):** utilisation of *claimed* GPUs from DCGM exporter metrics (`DCGM_FI_DEV_GPU_UTIL`, framebuffer used) via the Prometheus path the Tier A recommender already uses, and GPU right-sizing suggestions (fractional/MIG, or time-slicing for underused whole-GPU claims). This needs DCGM, so it's gated on it being present.
 
 **Effort: S** for Phase 0, **M** for Phase 1. **OSS, not Enterprise.**
+
+**Phase 1 shipped 2026-10-09: a "GPU utilisation" card under GPU capacity, shown when a pod claims an NVIDIA GPU.**
+- **Source.** Checked against NVIDIA's own sources rather than assumed:
+  - Metric names come from dcgm-exporter's `default-counters.csv`: `DCGM_FI_DEV_GPU_UTIL` (%), `DCGM_FI_DEV_FB_USED`/`_FREE` (MiB), and `DCGM_FI_PROF_GR_ENGINE_ACTIVE` (a 0–1 ratio, used for MIG slices, which don't report GPU_UTIL).
+  - Label names come from the exporter's `transformation/const.go`: `pod`/`namespace`/`container`, or `pod_name`/`pod_namespace` with `--use-old-namespace`.
+  - Both NVIDIA charts (dcgm-exporter, gpu-operator) default the ServiceMonitor to `honorLabels: false`. Prometheus then keeps its own `pod`/`namespace` (the exporter pod's) and renames the exporter's to `exported_pod`/`exported_namespace`.
+- **Attribution.** `lib/gpuUtilisation.ts` takes a series' pod from `exported_*`, else `pod_name`, else `pod`.
+  - A row exists only for a pod that claims an NVIDIA GPU (from Phase 0). An unallocated GPU's series, which carries only the exporter's own pod label, can never be credited to the exporter, because it claims no GPU.
+  - AMD and Intel GPU claims are skipped, since DCGM is NVIDIA-only.
+- **Queries.** Eight instant queries through `/api/prom/query`, each over `[24h:5m]`. The subquery's `count_over_time` gives the hours of the window Prometheus actually has.
+  - A pod's figures are the average across its GPUs, the highest peak, and the peak framebuffer of any one GPU against its total.
+- **Verdict.**
+  - **Underused:** averages under 10% and never passes 30% across at least 6 observed hours.
+  - **Too little data:** under 6 hours, because a quiet GPU may just be between jobs.
+  - **No DCGM data:** the pod claims a GPU but no series is attributed to it.
+  - The thresholds are printed in the card. The suggestion (time-slicing, or a MIG slice on GPUs that support it) is text only, never an action.
+- **States.**
+  - No Prometheus URL (412): a hint to set one in Settings.
+  - No DCGM series at all: names dcgm-exporter as what's missing.
+  - Unreachable: shows the error.
+- **Not in v1:**
+  - a node-level view of unclaimed-but-busy GPUs;
+  - per-container rows;
+  - workload rollups;
+  - history beyond Prometheus's own retention.
 
 ### 41. Read-only node consolidation view — status: shipped 2026-10-01
 
@@ -955,7 +997,14 @@ How it contacts registries:
 - **Opt-in private-registry auth.** "Registries: use the pods' pull secrets" reads each pod's and its ServiceAccount's imagePullSecrets with the user's identity.
   - Each credential goes only to its own registry, or to the token service that registry names, over https.
   - Credentials are never returned, logged or cached. Cache keys only record whether auth was used.
-- **Still not in:** keyless identity verification, OCI 1.1 bundle verification, and per-workload drawer placement.
+- **Still not in:** keyless identity verification and OCI 1.1 bundle verification.
+- **Drawer placement (shipped 2026-10-09).**
+  - Deployment, StatefulSet and DaemonSet drawers, and the Pod drawer, have a "Signatures" tab that runs the same on-demand check for their own pods only.
+  - `GET /api/image-signatures` takes `ns` plus either `selector` (a workload's own `spec.selector`, written by `lib/labelSelector.ts#selectorQuery`) or `pod`.
+    - The engine parses the selector with `labels.Parse` and validates the pod name as a DNS subdomain before it is used in a field selector.
+    - Scoping to a namespace also lets a user whose access stops at one namespace run it.
+  - `selectorQuery` returns null for an empty selector or an unknown operator, because either would check more pods than the workload's. The tab then says it can't find the pods.
+  - The table and controls moved into `components/ImageSignatureCheck.tsx`, shared by the RBAC-page card and the tabs. The Namespaces column is dropped when scoped.
 
 **OSS.**
 
@@ -1226,6 +1275,33 @@ Three of the #54 engine issues from the clusters-page audit, in one PR.
 - **ID collisions:** contexts that sanitise to one ID get `-2`, `-3` in sorted-name order. A name that is already safe keeps itself.
 - **Watcher:** watches the parent directories of every loading-precedence file, which includes an explicit `--kubeconfig` / `KUBEBAY_KUBECONFIG`, and filters events by name. Atomic saves are seen.
 - **Wire status rename (separate PR):** the probe status `connected` is now `reachable` in the engine (`StatusReachable`), the shell's `ClusterInfo.status`, the clusters page, the header dot and the connecting overlay. `Cluster.connected` alone means the user's session. `StatusDot status="connected"` is the UI's own vocabulary and is unchanged.
+
+### 56. Rancher vs Kubebay vs Lens analysis → sequenced backlog plan — status: idea (plan written 2026-10-09)
+The full analysis is `docs/COMPETITIVE_ANALYSIS.md`. The plan is `docs/BACKLOG.md`, with stable IDs `KB-01…KB-23`.
+- **Headline finding:** the binding constraint is trust and distribution, not features.
+  - The repo has 0 stars and the v0.6.0 assets ~0 downloads.
+  - macOS builds are ad-hoc signed, and the README tells users to strip quarantine.
+  - There is no auto-updater.
+  - The README's "budgets enforced in CI" is untrue: no CI performance job exists.
+  - The DMG is 52.9 MB and the AppImage 102.4 MB, against the 40 MB website claim.
+- **Now (no new detectors or pages):**
+  - KB-01 business-model ADR, which resolves PRD §3 vs the open-core split above vs RESEARCH §8.4.
+  - KB-02 performance harness and honest claims.
+  - KB-03 notarization, KB-04 Tauri updater, KB-05 cosign + provenance.
+  - KB-06 launch kit.
+  - KB-07 = **#5 MCP v1 as designed** (Lens, Headlamp and Rancher Prime all ship MCP now).
+  - KB-08 Rancher-aware cluster detection. It is frontend-only: `clusters.Cluster.Server` already reaches the shell.
+- **Next:**
+  - KB-09 = #5 phase 2; KB-10 = **#14 EKS discovery**; KB-18 = **#13 AI triage half**.
+  - KB-11 Playwright golden path; KB-12 client-go/Helm refresh + DRA kinds.
+  - KB-13 declarative `extensions.yaml` (k9s-style). Command actions ride the local shell (#10), so they are desktop-only.
+  - KB-14 Windows/Linux smoke CI or a "preview" label; KB-15 findings export (JSON/MD/SARIF); KB-16 saved views; KB-17 opt-in usage signal.
+- **Later:**
+  - KB-19 headless `kubebay scan`. Most detectors are TypeScript in `web/apps/shell/src/lib/`, so this is a port.
+  - KB-20 [Team] self-hosted edition; KB-21 air-gap bundle.
+  - KB-22 ⌘K cross-cluster search, the demand-gated alternative to the removed Fleet page (#52).
+  - KB-23 WASM plugins.
+- Statuses of #5, #13 and #14 are unchanged here. They move only when real work starts.
 
 ### Further ideas worth a look (unscoped, one-liners)
 - **Revert unsaved YAML edits — SHIPPED 2026-09-27.** One-click "discard my in-progress edit" button in `YamlTab.tsx`, next to Reload — a local reset (no network call), unlike Reload which re-fetches from the server.

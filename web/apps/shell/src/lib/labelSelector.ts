@@ -40,3 +40,34 @@ export function matchesSelector(labels: Record<string, string>, selector: LabelS
   }
   return true;
 }
+
+/**
+ * A LabelSelector as the string `?labelSelector=` takes, for asking the
+ * engine about one workload's pods. Null for an empty selector (it would
+ * select every pod) or an operator this doesn't know (it would come out
+ * broader than the real selector).
+ */
+export function selectorQuery(selector: LabelSelector | undefined): string | null {
+  const parts: string[] = [];
+  for (const [k, v] of Object.entries(selector?.matchLabels ?? {})) parts.push(`${k}=${v}`);
+  for (const expr of selector?.matchExpressions ?? []) {
+    const values = (expr.values ?? []).join(",");
+    switch (expr.operator) {
+      case "In":
+        parts.push(`${expr.key} in (${values})`);
+        break;
+      case "NotIn":
+        parts.push(`${expr.key} notin (${values})`);
+        break;
+      case "Exists":
+        parts.push(expr.key);
+        break;
+      case "DoesNotExist":
+        parts.push(`!${expr.key}`);
+        break;
+      default:
+        return null;
+    }
+  }
+  return parts.length > 0 ? parts.join(",") : null;
+}

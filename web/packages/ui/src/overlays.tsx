@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, type KeyboardEvent, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
+import { IconButton } from "./shell";
 
 // Keys typed here belong to the control, not the panel: Escape in a field
 // clears or cancels it, and in the terminal or YAML editor it is the user's
@@ -96,6 +97,8 @@ export interface ModalProps {
   placement?: "center";
   /** "wide": a centred card with room for a form of file paths (560px instead of 360px). */
   size?: "wide";
+  /** A visible heading, which then names the dialog, with a Close button beside it. */
+  title?: ReactNode;
   children: ReactNode;
 }
 
@@ -104,10 +107,12 @@ export interface ModalProps {
  * click on the backdrop close it, and focus returns to where it was. It renders
  * into document.body.
  */
-export function Modal({ label, onClose, className, backdrop = "dim", placement, size, children }: ModalProps) {
+export function Modal({ label, onClose, className, backdrop = "dim", placement, size, title, children }: ModalProps) {
   const ref = useRef<HTMLDivElement>(null);
+  const titleId = useId();
   const focusables = () => [...(ref.current?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? [])];
-  useFocusReturn(ref, true, () => focusables()[0] ?? null);
+  // Start on the dialog's own first control; Close is the way out, not the way in.
+  useFocusReturn(ref, true, () => focusables().find((el) => !el.closest(".kb-modal-head")) ?? focusables()[0] ?? null);
 
   const onKeyDown = (e: KeyboardEvent) => {
     if (e.key === "Escape") {
@@ -142,11 +147,22 @@ export function Modal({ label, onClose, className, backdrop = "dim", placement, 
         ref={ref}
         role="dialog"
         aria-modal="true"
-        aria-label={label}
+        aria-label={title ? undefined : label}
+        aria-labelledby={title ? titleId : undefined}
         tabIndex={-1}
         className={`kb-modal${placement ? " " + placement : ""}${size ? " " + size : ""}${className ? " " + className : ""}`}
         onKeyDown={onKeyDown}
       >
+        {title && (
+          <div className="kb-modal-head">
+            <h2 id={titleId} className="kb-modal-title">
+              {title}
+            </h2>
+            <IconButton label="Close" onClick={onClose}>
+              ×
+            </IconButton>
+          </div>
+        )}
         {children}
       </div>
     </>,

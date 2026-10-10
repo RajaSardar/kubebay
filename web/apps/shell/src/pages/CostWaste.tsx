@@ -17,6 +17,7 @@ import { findSpotRiskWorkloads, isSpotNode } from "../lib/spotRisk";
 import { EfficiencyScoreCard } from "../components/EfficiencyScoreCard";
 import { computeEfficiencyScore } from "../lib/efficiencyScore";
 import { GpuCapacityCard } from "../components/GpuCapacityCard";
+import { GpuUtilisationCard } from "../components/GpuUtilisationCard";
 import { computeGpuCapacity } from "../lib/gpuCapacity";
 import { ConsolidationCard } from "../components/ConsolidationCard";
 import { assessConsolidation } from "../lib/consolidation";
@@ -112,6 +113,11 @@ export default function CostWaste() {
         {gpu.totals.length > 0 && (
           <div style={{ marginTop: 16 }}>
             <GpuCapacityCard gpu={gpu} />
+          </div>
+        )}
+        {gpu.pods.some((p) => p.resource.startsWith("nvidia.com/")) && (
+          <div style={{ marginTop: 16 }}>
+            <GpuUtilisationCard cluster={effectiveCluster} pods={gpu.pods} />
           </div>
         )}
         <div style={{ marginTop: 16 }}>

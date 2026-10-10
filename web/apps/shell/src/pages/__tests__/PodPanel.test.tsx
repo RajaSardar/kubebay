@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import PodPanel from "../PodPanel";
+import { imageSigApi } from "../../lib/api";
 
 vi.mock("../../components/heavy", () => ({
   ExecTerm: () => <div data-testid="exec-term" />,
@@ -15,6 +16,11 @@ vi.mock("../../components/PodVulnerabilitiesTab", () => ({
       {ns}/{podName} [{containers.join(",")}]
     </div>
   ),
+}));
+
+vi.mock("../../lib/api", async (orig) => ({
+  ...(await orig<typeof import("../../lib/api")>()),
+  imageSigApi: { check: vi.fn(async () => []) },
 }));
 
 const pod = { cluster: "kind-test", namespace: "team-a", pod: "web-abc-xyz", containers: ["nginx"], obj: { metadata: { name: "web-abc-xyz" } } };
@@ -36,5 +42,18 @@ describe("PodPanel — Vulnerabilities tab wiring (backlog #16)", () => {
   it("does not render the vulnerabilities tab content until it's selected", () => {
     render(<PodPanel pod={pod} onClose={() => {}} />);
     expect(screen.queryByTestId("pod-vulnerabilities")).toBeNull();
+  });
+});
+
+describe("PodPanel — Signatures tab (backlog #45)", () => {
+  beforeEach(() => {
+    localStorage.removeItem("kb.drawerTab");
+  });
+
+  it("checks only this pod's images", async () => {
+    render(<PodPanel pod={pod} onClose={() => {}} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Signatures" }));
+    fireEvent.click(screen.getByRole("button", { name: "Check signatures" }));
+    await vi.waitFor(() => expect(imageSigApi.check).toHaveBeenCalledWith("kind-test", false, { ns: "team-a", pod: "web-abc-xyz" }));
   });
 });

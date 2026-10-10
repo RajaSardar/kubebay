@@ -62,7 +62,9 @@ describe("kubeconfig on the cluster list", () => {
 
   it("opens the kubeconfig dialog from a link (?kubeconfig=1)", async () => {
     renderAt("/clusters?kubeconfig=1");
-    expect(await screen.findByRole("dialog", { name: "Kubeconfig sources" })).toBeInTheDocument();
+    const dialog = await screen.findByRole("dialog", { name: "Kubeconfig sources" });
+    expect(within(dialog).getByRole("heading", { name: "Kubeconfig sources" })).toBeInTheDocument();
+    expect(within(dialog).getAllByRole("button", { name: "Close" })).toHaveLength(1);
   });
 
   it("offers it when no clusters were found", async () => {

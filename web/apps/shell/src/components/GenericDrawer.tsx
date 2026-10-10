@@ -13,6 +13,7 @@ import { RolloutProgress } from "./RolloutProgress";
 import { AutoscalingTab } from "./AutoscalingTab";
 import { PolicyFindingsTab } from "./PolicyFindingsTab";
 import { WorkloadVulnerabilitiesTab } from "./WorkloadVulnerabilitiesTab";
+import { WorkloadSignaturesTab } from "./WorkloadSignaturesTab";
 import { TimelineTab } from "./TimelineTab";
 import { RightSizingBanner } from "./RightSizingBanner";
 import type { ResourceDef } from "../lib/resources";
@@ -21,7 +22,7 @@ import { helmReleaseOf, ownerOf } from "../lib/gitops";
 // ── Tab types per resource kind ──────────────────────────────────────────────
 type NodeTab = "summary" | "shell" | "yaml";
 type SvcTab = "summary" | "yaml";
-type GenTab = "summary" | "rollout" | "timeline" | "autoscaling" | "policy" | "vulnerabilities" | "yaml" | "events";
+type GenTab = "summary" | "rollout" | "timeline" | "autoscaling" | "policy" | "vulnerabilities" | "signatures" | "yaml" | "events";
 
 // KEDA ScaledObjects, HPAs, and VPAs can all target these kinds — every
 // other generic kind (ConfigMap, Secret, …) has nothing to autoscale.
@@ -171,6 +172,10 @@ function PaneContent({
   }
   if (!isNode && !isService && genTab === "vulnerabilities") {
     return <WorkloadVulnerabilitiesTab cluster={cluster} ns={ns} name={name} kind={def.kind} />;
+  }
+  if (!isNode && !isService && genTab === "signatures") {
+    if (objLoading) return <SkeletonLines lines={4} label="Loading details…" />;
+    return <WorkloadSignaturesTab cluster={cluster} ns={ns} obj={obj} />;
   }
   if ((isNode && nodeTab === "yaml") || (isService && svcTab === "yaml") || (!isNode && !isService && genTab === "yaml")) {
     return (
@@ -398,6 +403,7 @@ export default function GenericDrawer({
     autoscaling: "Autoscaling",
     policy: "Policy",
     vulnerabilities: "Vulnerabilities",
+    signatures: "Signatures",
     yaml: "YAML",
     events: "Events",
   };
@@ -416,7 +422,7 @@ export default function GenericDrawer({
     ...(RIGHTSIZABLE_SLUGS.has(def.slug) ? (["timeline"] as const) : []),
     ...(AUTOSCALABLE_SLUGS.has(def.slug) ? (["autoscaling"] as const) : []),
     ...(def.slug !== "policyreports" && def.slug !== "clusterpolicyreports" ? (["policy"] as const) : []),
-    ...(RIGHTSIZABLE_SLUGS.has(def.slug) ? (["vulnerabilities"] as const) : []),
+    ...(RIGHTSIZABLE_SLUGS.has(def.slug) ? (["vulnerabilities", "signatures"] as const) : []),
     "yaml",
     "events",
   ];

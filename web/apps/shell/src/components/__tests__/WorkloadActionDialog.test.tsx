@@ -33,6 +33,7 @@ describe("WorkloadActionDialog — scale", () => {
     const onClose = vi.fn();
     render(<WorkloadActionDialog action="scale" slug="deployments" cluster="kind-shop" obj={deploy(3)} onClose={onClose} />);
     expect(screen.getByRole("dialog", { name: "Scale web" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Scale web" })).toBeInTheDocument();
     const field = screen.getByLabelText("Replicas") as HTMLInputElement;
     expect(field.value).toBe("3");
     fireEvent.change(field, { target: { value: "5" } });
@@ -79,6 +80,7 @@ describe("WorkloadActionDialog — restart", () => {
     const onClose = vi.fn();
     render(<WorkloadActionDialog action="restart" slug="statefulsets" cluster="kind-shop" obj={deploy(3)} onClose={onClose} />);
     expect(screen.getByRole("dialog", { name: "Restart web?" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Restart web?" })).toBeInTheDocument();
     expect(api.restart).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Restart" }));
     await waitFor(() => expect(onClose).toHaveBeenCalled());

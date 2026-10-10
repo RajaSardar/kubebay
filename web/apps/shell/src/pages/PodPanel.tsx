@@ -3,10 +3,12 @@ import { Badge, Button, InlineBanner, Row, Select, Spinner, StatusDot, Tabs, Tex
 import { api } from "../lib/api";
 import { usePodLogs, type PodLogsSpec } from "../lib/usePodLogs";
 import { ExecTerm, YamlTab } from "../components/heavy";
+import { forceDeleteEffect, forceDeleteLabel } from "../lib/podDelete";
 import { PodSummary } from "../components/PodSummary";
 import { PodGraphs } from "../components/PodGraphs";
 import { ResizePanel } from "../components/ResizePanel";
 import { PodVulnerabilitiesTab } from "../components/PodVulnerabilitiesTab";
+import { ImageSignatureCheck } from "../components/ImageSignatureCheck";
 
 export interface SelectedPod {
   cluster: string;
@@ -26,7 +28,8 @@ function classify(line: string): "" | "err" | "warn" {
   return "";
 }
 
-const POD_TABS = ["summary", "logs", "shell", "graphs", "size", "vulnerabilities", "yaml"] as const;
+const POD_TABS = ["summary", "logs", "shell", "graphs", "size", "vulnerabilities", "signatures", "yaml"] as const;
+type PodTab = (typeof POD_TABS)[number];
 const POD_TAB_LABELS = {
   summary: "Summary",
   logs: "Logs",
@@ -34,18 +37,19 @@ const POD_TAB_LABELS = {
   graphs: "Graphs",
   size: "Size",
   vulnerabilities: "Vulnerabilities",
+  signatures: "Signatures",
   yaml: "YAML",
 };
 
 export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod; onClose: () => void; onDeleted?: () => void }) {
-  const [tab, setTabState] = useState<"summary" | "logs" | "shell" | "graphs" | "size" | "vulnerabilities" | "yaml">(() => {
+  const [tab, setTabState] = useState<PodTab>(() => {
     if (pod.tab) return pod.tab;
     const saved = localStorage.getItem("kb.drawerTab");
-    return saved === "shell" || saved === "yaml" || saved === "graphs" || saved === "size" || saved === "vulnerabilities" || saved === "summary"
+    return saved === "shell" || saved === "yaml" || saved === "graphs" || saved === "size" || saved === "vulnerabilities" || saved === "signatures" || saved === "summary"
       ? saved
       : "summary";
   });
-  const setTab = (t: "summary" | "logs" | "shell" | "graphs" | "size" | "vulnerabilities" | "yaml") => {
+  const setTab = (t: PodTab) => {
     localStorage.setItem("kb.drawerTab", t);
     setTabState(t);
   };
@@ -94,6 +98,9 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
     URL.revokeObjectURL(a.href);
   }
 
+  const forceEffect = forceDeleteEffect(pod.obj);
+  const forceLabel = forceDeleteLabel(forceEffect);
+
   async function doDelete() {
     if (deleteInput !== pod.pod) {
       setDeleteErr("Name does not match.");
@@ -107,8 +114,8 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
         gvr: "v1/pods",
         ns: pod.namespace,
         name: pod.pod,
-        graceSeconds: force ? 0 : undefined,
-        forceFinalizers: force,
+        graceSeconds: force && forceEffect.skipsGrace ? 0 : undefined,
+        forceFinalizers: force && forceEffect.removesFinalizers,
       });
       onDeleted?.();
       onClose();
@@ -147,10 +154,12 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
                 onChange={(e) => setDeleteInput(e.target.value)}
                 spellCheck={false}
               />
-              <label className="ctl" style={{ cursor: "pointer" }}>
-                <input type="checkbox" checked={force} onChange={(e) => setForce(e.target.checked)} />
-                force
-              </label>
+              {forceLabel && (
+                <label className="ctl" style={{ cursor: "pointer" }}>
+                  <input type="checkbox" checked={force} onChange={(e) => setForce(e.target.checked)} />
+                  {forceLabel}
+                </label>
+              )}
               <Button variant="danger" disabled={deleting} onClick={() => void doDelete()}>
                 Confirm
               </Button>
@@ -285,6 +294,10 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
           containers={pod.containers}
           podObj={pod.obj}
         />
+      ) : tab === "signatures" ? (
+        <div style={{ padding: 14 }}>
+          <ImageSignatureCheck cluster={pod.cluster} scope={{ ns: pod.namespace, pod: pod.pod }} />
+        </div>
       ) : tab === "shell" ? (
         <div className="term-wrap">
           <ExecTerm
