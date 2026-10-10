@@ -51,7 +51,32 @@ jobs:
           cache-dependency-path: web/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
+      # CLAUDE.md's CI gate: the shell suite, including the design-system
+      # guard tests (shellAdoption, themeTokens, themeContrast).
+      - run: pnpm --filter @kubebay/shell test
       - run: pnpm build
+
+  desktop:
+    name: desktop (rust)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: desktop/src-tauri
+    steps:
+      - uses: actions/checkout@v4
+      # Tauri's Linux prerequisites (GTK and WebKitGTK 4.1). The shipped app
+      # is macOS, but the Rust (token injection, stop_engine, env forwarding)
+      # is shared and must not rot uncompiled.
+      - run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libxdo-dev libssl-dev libayatana-appindicator3-dev
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri
+      # tauri-build requires the engine sidecar named in externalBin, and the
+      # frontendDist directory, to exist; this job builds neither.
+      - run: mkdir -p binaries ../../web/apps/shell/dist && touch binaries/kubebay-engine-x86_64-unknown-linux-gnu && chmod +x binaries/kubebay-engine-x86_64-unknown-linux-gnu && touch ../../web/apps/shell/dist/index.html
+      - run: cargo build --locked
+      - run: cargo test --locked
 
   integration:
     name: integration (kind)
