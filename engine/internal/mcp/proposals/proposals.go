@@ -324,26 +324,19 @@ func canonical(o map[string]any) string {
 
 const staleMessage = "the object changed after this proposal was made, so it wasn't applied; ask the assistant to propose again"
 
+// applyAttempts bounds re-reads when status writes race the approval.
+const applyAttempts = 5
+
 // Approve applies the reviewed patch, only while the object's spec and
 // metadata are still what the diff was computed from. Controllers write
 // status constantly, which moves the resourceVersion without changing
-// anything reviewed, so the check compares content and the apply is pinned
-// to the version just read.
+// anything reviewed, so the check compares content and each write is pinned
+// to the version just read; a 409 from a status write landing in between
+// means read and check again.
 func (s *Store) Approve(ctx context.Context, id string) (Proposal, error) {
 	p, err := s.claim(id, StatusApplying)
 	if err != nil {
 		return Proposal{}, err
-	}
-	live, err := s.patcher.Get(ctx, p.Cluster, p.GVR, p.Namespace, p.Name)
-	if err != nil {
-		out := s.finish(p, StatusFailed, err.Error())
-		s.record(p, "mcp:apply-proposal", " error="+err.Error(), "failed")
-		return out, err
-	}
-	if canonical(clean(live)) != p.reviewed {
-		out := s.finish(p, StatusStale, staleMessage)
-		s.record(p, "mcp:apply-proposal", "", "stale")
-		return out, errors.New(out.Message)
 	}
 	var patch map[string]any
 	_ = json.Unmarshal(p.Patch, &patch)
@@ -351,25 +344,48 @@ func (s *Store) Approve(ctx context.Context, id string) (Proposal, error) {
 	if meta == nil {
 		meta = map[string]any{}
 	}
-	// A resourceVersion in the patch makes it conditional: the API server
-	// answers 409 if the object changes between that read and this write.
-	meta["resourceVersion"] = resourceVersion(live)
 	patch["metadata"] = meta
-	body, _ := json.Marshal(patch)
-	res, err := s.patcher.Patch(ctx, p.Cluster, p.GVR, p.Namespace, p.Name, body, false)
-	switch {
-	case apierrors.IsConflict(err):
-		out := s.finish(p, StatusStale, staleMessage)
-		s.record(p, "mcp:apply-proposal", "", "stale")
-		return out, errors.New(out.Message)
-	case err != nil:
-		out := s.finish(p, StatusFailed, err.Error())
-		s.record(p, "mcp:apply-proposal", " error="+err.Error(), "failed")
-		return out, err
+	for attempt := 1; ; attempt++ {
+		live, err := s.patcher.Get(ctx, p.Cluster, p.GVR, p.Namespace, p.Name)
+		if err != nil {
+			out := s.finish(p, StatusFailed, err.Error())
+			s.record(p, "mcp:apply-proposal", " error="+err.Error(), "failed")
+			return out, err
+		}
+		if canonical(clean(live)) != p.reviewed {
+			out := s.finish(p, StatusStale, staleMessage)
+			s.record(p, "mcp:apply-proposal", "", "stale")
+			return out, errors.New(out.Message)
+		}
+		// A resourceVersion in the patch makes it conditional: the API
+		// server answers 409 if the object changes between that read and
+		// this write.
+		meta["resourceVersion"] = resourceVersion(live)
+		body, _ := json.Marshal(patch)
+		res, err := s.patcher.Patch(ctx, p.Cluster, p.GVR, p.Namespace, p.Name, body, false)
+		switch {
+		case apierrors.IsConflict(err) && attempt < applyAttempts:
+			select {
+			case <-ctx.Done():
+				out := s.finish(p, StatusFailed, ctx.Err().Error())
+				s.record(p, "mcp:apply-proposal", " error="+ctx.Err().Error(), "failed")
+				return out, ctx.Err()
+			case <-time.After(time.Duration(attempt) * 25 * time.Millisecond):
+			}
+			continue
+		case apierrors.IsConflict(err):
+			out := s.finish(p, StatusStale, staleMessage)
+			s.record(p, "mcp:apply-proposal", fmt.Sprintf(" conflicts=%d", attempt), "stale")
+			return out, errors.New(out.Message)
+		case err != nil:
+			out := s.finish(p, StatusFailed, err.Error())
+			s.record(p, "mcp:apply-proposal", " error="+err.Error(), "failed")
+			return out, err
+		}
+		out := s.finish(p, StatusApplied, "applied; the object is now at resourceVersion "+resourceVersion(res))
+		s.record(p, "mcp:apply-proposal", "", "")
+		return out, nil
 	}
-	out := s.finish(p, StatusApplied, "applied; the object is now at resourceVersion "+resourceVersion(res))
-	s.record(p, "mcp:apply-proposal", "", "")
-	return out, nil
 }
 
 // Reject closes a proposal without applying it.

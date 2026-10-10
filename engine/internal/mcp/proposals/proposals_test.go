@@ -23,6 +23,9 @@ type fakeCluster struct {
 	obj     map[string]any
 	rv      int
 	patches []patchCall
+	// raceStatus lands this many controller status writes between a
+	// read and the next real (not dry-run) write.
+	raceStatus int
 }
 
 type patchCall struct {
@@ -79,6 +82,11 @@ func (f *fakeCluster) Patch(_ context.Context, cluster, gvr, ns, name string, pa
 	var p map[string]any
 	if err := json.Unmarshal(patch, &p); err != nil {
 		return nil, err
+	}
+	if !dryRun && f.raceStatus > 0 {
+		f.raceStatus--
+		f.rv++
+		f.obj["metadata"].(map[string]any)["resourceVersion"] = fmt.Sprint(f.rv)
 	}
 	if meta, _ := p["metadata"].(map[string]any); meta != nil {
 		if want, ok := meta["resourceVersion"].(string); ok && want != fmt.Sprint(f.rv) {
@@ -342,5 +350,28 @@ func TestStatusUpdatesDontMakeAProposalStale(t *testing.T) {
 	}
 	if h.cluster.obj["spec"].(map[string]any)["replicas"] != float64(4) {
 		t.Error("applied")
+	}
+}
+
+// A controller writing status between the approval's read and its write is
+// a 409 from the API server, not a change anyone reviewed: read again,
+// check again, apply.
+func TestAStatusWriteRacingTheApprovalIsRetried(t *testing.T) {
+	h := newHarness()
+	p, _ := h.store.Propose(context.Background(), scale(4))
+	h.cluster.raceStatus = 2
+	got, err := h.store.Approve(context.Background(), p.ID)
+	if err != nil || got.Status != StatusApplied || h.cluster.obj["spec"].(map[string]any)["replicas"] != float64(4) {
+		t.Fatalf("approve = %+v, %v", got, err)
+	}
+}
+
+func TestAnEndlessRaceGivesUpStale(t *testing.T) {
+	h := newHarness()
+	p, _ := h.store.Propose(context.Background(), scale(4))
+	h.cluster.raceStatus = 100
+	got, err := h.store.Approve(context.Background(), p.ID)
+	if err == nil || got.Status != StatusStale || h.cluster.obj["spec"].(map[string]any)["replicas"] != float64(2) {
+		t.Fatalf("approve = %+v, %v", got, err)
 	}
 }

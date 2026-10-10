@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -167,7 +168,8 @@ func TestLiveMCPProposalAppliesOnlyAfterApproval(t *testing.T) {
 		t.Fatal("proposing changed the Deployment")
 	}
 	if res := ui(http.MethodPost, "/api/mcp/proposals/"+id+"/approve", ""); res.StatusCode != http.StatusOK {
-		t.Fatalf("approve: %d", res.StatusCode)
+		b, _ := io.ReadAll(res.Body)
+		t.Fatalf("approve: %d %s", res.StatusCode, b)
 	}
 	if minReady() != 5 {
 		t.Error("approval didn't apply the change")
@@ -188,7 +190,8 @@ func TestLiveMCPProposalAppliesOnlyAfterApproval(t *testing.T) {
 		t.Fatal(err)
 	}
 	if res := ui(http.MethodPost, "/api/mcp/proposals/"+stale+"/approve", ""); res.StatusCode != http.StatusConflict {
-		t.Errorf("stale approve: %d", res.StatusCode)
+		b, _ := io.ReadAll(res.Body)
+		t.Errorf("stale approve: %d %s", res.StatusCode, b)
 	}
 	if minReady() != 5 {
 		t.Error("a stale proposal must not apply")
