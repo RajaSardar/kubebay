@@ -33,6 +33,8 @@ describe("ConfigurePrometheusModal", () => {
     vi.mocked(useResourceStream).mockReturnValue({ rows: [], synced: true, connected: true });
     renderModal();
     expect(screen.getByRole("dialog", { name: /Configure Prometheus for kind-test/i })).toBeTruthy();
+    // A heading people can see, not only an accessible name.
+    expect(screen.getByRole("heading", { name: "Configure Prometheus for kind-test" })).toBeTruthy();
   });
 
   it("shows spinner when services are loading", () => {

@@ -132,7 +132,13 @@ export default function ConfigurePrometheusModal({ cluster, connected = true, on
   };
 
   return (
-    <Modal label={`Configure Prometheus for ${cluster}`} onClose={onClose} placement="center" size="wide">
+    <Modal
+      label={`Configure Prometheus for ${cluster}`}
+      title={`Configure Prometheus for ${cluster}`}
+      onClose={onClose}
+      placement="center"
+      size="wide"
+    >
       <form onSubmit={submit}>
         <Stack gap={4}>
           {!connected ? (

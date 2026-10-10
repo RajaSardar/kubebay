@@ -188,7 +188,8 @@ describe("ClusterPicker", () => {
     renderPage();
     await screen.findByText("lab", { selector: "[data-cluster-name]" });
     fireEvent.click(within(openMenu("lab")).getByRole("menuitem", { name: "Remove from list…" }));
-    const dialog = screen.getByRole("dialog");
+    const dialog = screen.getByRole("dialog", { name: "Remove lab?" });
+    expect(within(dialog).getByRole("heading", { name: "Remove lab?" })).toBeInTheDocument();
     expect(within(dialog).getByText(/Remove lab from the list/)).toBeInTheDocument();
     fireEvent.click(within(dialog).getByRole("button", { name: "Remove" }));
     expect(useClusterMeta.getState().meta.lab?.hidden).toBe(true);
