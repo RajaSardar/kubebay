@@ -66,7 +66,8 @@ export function McpSettingsCard() {
       <Stack gap={3}>
         <div className="muted small">
           Let an AI assistant such as Claude read the clusters you choose, through Kubebay&apos;s MCP server. It&apos;s
-          read-only: resources, logs, events and health. Secrets are never shown, and environment values are redacted.
+          read-only (resources, logs, events and health) unless you let it propose changes below, and even then nothing
+          applies until you approve it here. Secrets are never shown, and environment values are redacted.
           Every call is written to the audit log.
         </div>
         {st.disabled ? (
@@ -100,20 +101,38 @@ export function McpSettingsCard() {
             <Row gap={2} align="center" wrap>
               {st.enabled ? (
                 <>
-                  <Button disabled={busy || !edited || !anyOn} onClick={() => void run(() => mcpApi.save({ enabled: true, clusters: scope }))}>
+                  <Button disabled={busy || !edited || !anyOn} onClick={() => void run(() => mcpApi.save({ enabled: true, clusters: scope, writesEnabled: !!st.writesEnabled }))}>
                     Save scope
                   </Button>
-                  <Button variant="danger" disabled={busy} onClick={() => void run(() => mcpApi.save({ enabled: false, clusters: st.clusters }))}>
+                  <Button variant="danger" disabled={busy} onClick={() => void run(() => mcpApi.save({ enabled: false, clusters: st.clusters, writesEnabled: false }))}>
                     Turn off
                   </Button>
                   <ArmedButton label="Rotate token" confirmLabel="Disconnect direct clients?" busy={busy} onGo={() => void run(mcpApi.rotate)} />
                 </>
               ) : (
-                <Button disabled={busy || !anyOn} onClick={() => void run(() => mcpApi.save({ enabled: true, clusters: scope }))}>
+                <Button disabled={busy || !anyOn} onClick={() => void run(() => mcpApi.save({ enabled: true, clusters: scope, writesEnabled: false }))}>
                   Turn on
                 </Button>
               )}
             </Row>
+            {st.enabled && (
+              <Stack gap={1}>
+                <label className="ctl" style={{ cursor: "pointer" }}>
+                  <input
+                    type="checkbox"
+                    aria-label="Let assistants propose changes"
+                    checked={!!st.writesEnabled}
+                    disabled={busy}
+                    onChange={(e) => void run(() => mcpApi.save({ enabled: true, clusters: st.clusters, writesEnabled: e.target.checked }))}
+                  />
+                  <span className="small strong">Let assistants propose changes</span>
+                </label>
+                <div className="muted small">
+                  To workloads, Services and Ingresses in the clusters above. A proposal changes nothing: Kubebay shows you the
+                  diff and you approve or reject each one here. Turning this or MCP off rejects whatever is waiting.
+                </div>
+              </Stack>
+            )}
             {st.enabled && bridge && bridge.length > 0 && (
               <Stack gap={2}>
                 <div className="strong small">Connect an assistant</div>

@@ -118,12 +118,12 @@ describe("mcpApi (backlog #5)", () => {
     const fetchMock = vi.fn().mockImplementation(async () => jsonResponse(200, status));
     vi.stubGlobal("fetch", fetchMock);
     expect((await mcpApi.get()).bridgeCommand).toEqual(["/kb", "mcp-stdio"]);
-    await mcpApi.save({ enabled: true, clusters: { "kind-dev": ["shop"] } });
+    await mcpApi.save({ enabled: true, clusters: { "kind-dev": ["shop"] }, writesEnabled: false });
     await mcpApi.rotate();
     const calls = fetchMock.mock.calls.map(([url, init]) => [url, (init as RequestInit | undefined)?.method ?? "GET", (init as RequestInit | undefined)?.body]);
     expect(calls).toEqual([
       ["/api/mcp", "GET", undefined],
-      ["/api/mcp", "POST", JSON.stringify({ enabled: true, clusters: { "kind-dev": ["shop"] } })],
+      ["/api/mcp", "POST", JSON.stringify({ enabled: true, clusters: { "kind-dev": ["shop"] }, writesEnabled: false })],
       ["/api/mcp/rotate", "POST", undefined],
     ]);
   });
@@ -169,6 +169,26 @@ describe("cloudDiscoveryApi GKE (backlog #14)", () => {
       ["/api/discover/gcp/projects", "GET", undefined],
       ["/api/discover/gke/scan", "POST", JSON.stringify({ project: "shop-prod" })],
       ["/api/discover/gke/import", "POST", JSON.stringify({ project: "shop-prod", location: "europe-west1", name: "web" })],
+    ]);
+  });
+});
+
+describe("mcpApi proposals (backlog #5 phase 2)", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("lists, approves and rejects through the UI-token routes", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => jsonResponse(200, { pending: [], recent: [] }));
+    vi.stubGlobal("fetch", fetchMock);
+    await mcpApi.proposals();
+    await mcpApi.approve("p-1a2b");
+    await mcpApi.reject("p-1a2b");
+    const calls = fetchMock.mock.calls.map(([url, init]) => [url, (init as RequestInit | undefined)?.method ?? "GET"]);
+    expect(calls).toEqual([
+      ["/api/mcp/proposals", "GET"],
+      ["/api/mcp/proposals/p-1a2b/approve", "POST"],
+      ["/api/mcp/proposals/p-1a2b/reject", "POST"],
     ]);
   });
 });

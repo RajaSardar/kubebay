@@ -72,7 +72,7 @@ Kubebay OSS stays the complete local-first single/multi-cluster IDE — everythi
 
 **v3 (banner + in-place pod resize + patch export) shipped 2026-09-27:** `components/RightSizingBanner.tsx` puts the ranked view's own-workload opportunity on the resource's Summary tab (Deployments/StatefulSets/DaemonSets), linking to `/right-sizing` rather than duplicating its apply flow — `lib/rightsizing.ts#summarizeForWorkload` narrows a ranked list to one workload, returning null so the banner renders nothing when there's no opportunity. In-place pod resize already existed (`components/ResizePanel.tsx` → `/api/action/resize-pod`) but had no link to a recommendation; `lib/podOwner.ts#resolveWorkloadOwner` mirrors the engine sampler's own two-hop ReplicaSet→Deployment resolution so the panel can offer a "Use suggested" fill from whichever row (VPA or engine) covers the pod's owning workload — `suggestedRequestsFor` matches a VPA row by exact container name but an engine row by workload only (labeled "workload-level, not container-exact" so the UI never overclaims precision the sampler doesn't have). Patch export is a "Copy as patch" button next to Apply resize. Also fixed a real gap found along the way: `/api/action/resize-pod` recorded no audit entry at all — now matches every other mutating action.
 
-### 5. MCP server — status: shipped v1 (read-only, slices 1–3, 2026-10-10); phase 2 (propose/approve writes) not started
+### 5. MCP server — status: shipped v1 (read-only, slices 1–3) and phase 2 (propose, then a person approves), 2026-10-10
 **Transport: Streamable HTTP mounted at `/mcp` on the engine's existing listener, inside the `requireToken` group — not stdio.** The engine is already one supervised localhost process holding a warm shared informer cache; a stdio subprocess would be a second client-go process opening duplicate watches against prod with a cold cache. Ship a thin stdio bridge (`engine/cmd/kubebay-mcp/main.go`) for Claude Desktop, which configures local servers as stdio commands, reading addr+token from a Tauri-written config. Use a **separate, rotatable MCP token** (not the UI token), validate `Origin` (DNS rebinding), keep the 127.0.0.1 bind.
 **No headless standalone mode in v1.** Without the window there is no confirm banner and no "MCP connected" indicator — a headless MCP server is kubectl with extra steps and forfeits the entire trust-boundary pitch.
 **Tool surface — 7 read-only tools, deliberately few.** `list_clusters`, `list_resources` (informer-cache rows only, never full objects), **`describe_resource` — the crashloop tool**: conditions + per-container image/state/`lastTerminationState` reason+exitCode + last 10 object events + owner chain, replacing what would otherwise be 4 round-trips; `get_logs` (reuses `Channels.OpenLogs` non-follow, dedup with repeat counts, ~40KB cap); `list_events` (aggregated by reason+object); `get_manifest` (explicit escape hatch, reusing `stripNoisyFields`); `get_cluster_health`. **Secrets excluded outright; env values redacted.** Design returns to be token-efficient — dumping raw Kubernetes YAML into a model's context is enormously wasteful.
@@ -119,6 +119,34 @@ Kubebay OSS stays the complete local-first single/multi-cluster IDE — everythi
      - **Sidebar chip:** "AI access on" under the cluster name while MCP is on, linking to the card. There is no top header bar, so the sidebar brand area is the persistent spot.
      - **Found by running the real binary:** the SPA wrapper sent only `/ws` and `/api/*` to the router, so `POST /mcp` answered with `index.html`. Fixed on the slice 1–2 PR with a routing test. Unit tests couldn't see it because they mount the router directly.
      - **Verified end to end** (Linux, real binary, throwaway HOME, dummy kubeconfig): discover, tools/list and tools/call through the bridge for a 2026-07-28 client and a 2025-06-18 `initialize` client; rotate mid-session; disable (the bridge reports the missing connection file); engine down; audit entries carry the client name. Not verified: Claude Desktop itself on macOS, which needs the Mac build.
+
+**Phase 2 shipped (2026-10-10, PR open): propose, then a person approves.** Built to the two-call design above, with three corrections found while building it:
+- **Not server-side apply.** Since #46 every write is an Update patch under the `kubebay` field manager. `propose_change` dry-runs a **strategic merge patch** (`PoolSource.Patch`, field manager **`kubebay-mcp`**, so approved changes are attributable in managedFields).
+- **Polling, not the `/ws` hub.** The hub multiplexes resource streams and has no channel for custom messages. The UI polls `GET /api/mcp/proposals` every 3s, only while proposals are on; the engine is on localhost, so that's as responsive.
+- **The approval is conditional on the reviewed version.** The proposal records the object's resourceVersion, and the approve patch carries it, so the API server answers 409 if anything changed since the diff was computed. The proposal goes `stale` and the model is told to propose again, instead of applying a diff nobody reviewed.
+
+How it fits together:
+- **`internal/mcp/proposals`:** an in-memory store with a 5-minute TTL and at most 20 pending.
+  - Statuses: pending, applying, applied, rejected, expired, stale, failed.
+  - Audited with `source: mcp`: propose, apply (outcome stale/failed), reject, and expiry (once).
+  - The patch may touch only `spec` and metadata labels/annotations: no identity, owners, finalizers or status. A no-op patch is refused.
+  - Two diffs: the full one for the reviewer, and one for the model with env values `<redacted>` and the shared credential pass applied, because context lines would otherwise leak what the read tools hide.
+- **The tools:** `propose_change` (cluster, kind, namespace, name, patch, reason) on Deployments, StatefulSets, DaemonSets, CronJobs, Services and Ingresses only, scope-checked; `get_proposal_status`.
+  - With proposals off, the tool says to turn them on in Settings.
+  - There is still **no apply tool**.
+- **The HTTP side:** `writesEnabled` in the MCP settings, off by default.
+  - `GET /api/mcp/proposals`, `POST /api/mcp/proposals/{id}/approve`, `POST /api/mcp/proposals/{id}/reject`, inside the UI-token group, so the MCP token can't approve.
+  - The approval re-checks the scope as it is now.
+  - Turning MCP or proposals off rejects everything pending: the kill switch covers proposals.
+- **The UI:**
+  - an app-wide `McpProposals` dialog: who proposes, the object, the cluster, the assistant's reason, the changed fields, the tinted diff, a countdown; Approve and apply / Reject / Decide later;
+  - a "Let assistants propose changes" checkbox on the AI assistants card;
+  - turning MCP off also turns proposals off.
+- **Verified:**
+  - unit tests across the store, tools, HTTP and UI;
+  - the real binary (the tool is listed, refused while off, a clear error on an unreachable cluster, 404 for an unknown approval);
+  - `live_mcp_proposals_test.go` in the kind CI job: propose → unchanged → approve → applied as `kubebay-mcp` → a stale proposal is refused with 409.
+- **Not in phase 2:** creating or deleting objects, kinds beyond the six, and approving from the AI client (deliberately never).
 
 ### 6. Cost optimization — status: shipped 2026-09-27 (Phase 0, 1, and 2 all shipped) — **ship "Waste", not "Cost"**
 **Strong recommendation: no bundled price table, and no dollars by default.** Kubebay shows CPU-core-hours and GiB-hours of reserved-but-unused capacity plus a requests:usage ratio. Dollars appear only if the user types their own `$/node-hour` in Settings (blank default) — their number, their liability. A bundled AWS/GCP/Azure table is wrong for every real buyer (reserved instances, savings plans, CUDs, spot, EDP discounts, region) and stale the day it ships; being confidently wrong about money to a finance-adjacent reader is worse than saying nothing. `NodeSummary.tsx` already parses `node.kubernetes.io/instance-type`, zone and region, so the join key is free if this is ever revisited.

@@ -15,6 +15,7 @@ import (
 	"github.com/RajaSardar/kubebay/engine/internal/audit"
 	"github.com/RajaSardar/kubebay/engine/internal/clusters"
 	"github.com/RajaSardar/kubebay/engine/internal/mcp"
+	"github.com/RajaSardar/kubebay/engine/internal/mcp/proposals"
 )
 
 // Source is where the tools read from: the cluster list, and a one-shot
@@ -34,6 +35,11 @@ type Deps struct {
 	Source Source
 	Scope  func() Scope
 	Audit  func(audit.Entry)
+	// Proposals holds propose_change's proposals (phase 2); nil leaves the
+	// write tools out entirely.
+	Proposals *proposals.Store
+	// Writes reports whether the user allowed assistants to propose changes.
+	Writes func() bool
 }
 
 // kindDef is one listable kind. Secrets are deliberately absent.
@@ -100,6 +106,9 @@ func Register(reg *mcp.Registry, d Deps) {
 		Handler:     t.audited(t.listResources),
 	})
 	registerInspection(reg, t)
+	if d.Proposals != nil {
+		registerProposals(reg, t)
+	}
 }
 
 type tools struct{ d Deps }
@@ -107,6 +116,7 @@ type tools struct{ d Deps }
 // call carries what the audit entry records about one tool call.
 type call struct {
 	cluster, namespace, detail string
+	info                       mcp.CallInfo
 }
 
 type handler func(ctx context.Context, args json.RawMessage, c *call) (mcp.Result, error)
@@ -114,7 +124,7 @@ type handler func(ctx context.Context, args json.RawMessage, c *call) (mcp.Resul
 // audited records every call, reads included, success or not.
 func (t *tools) audited(h handler) mcp.ToolHandler {
 	return func(ctx context.Context, args json.RawMessage, info mcp.CallInfo) (mcp.Result, error) {
-		c := &call{}
+		c := &call{info: info}
 		res, err := h(ctx, args, c)
 		if t.d.Audit != nil {
 			e := audit.Entry{

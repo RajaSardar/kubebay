@@ -71,6 +71,7 @@ import { useRemoteDisconnects } from "./lib/useRemoteDisconnects";
 import { useSidebar, type SidebarState } from "./lib/useSidebar";
 import { HideSidebarButton, ShowSidebarButton } from "./components/SidebarToggle";
 import { McpChip } from "./components/McpChip";
+import { McpProposals } from "./components/McpProposals";
 
 // ──── Cluster Context ────────────────────────────────────────────────────────
 // `active` and `setActive` now live in Zustand (cluster-store.ts).
@@ -593,6 +594,7 @@ function AppInner() {
         <ClusterStrip sidebar={sidebar} />
         <Sidebar onOpenPalette={() => setPaletteOpen(true)} sidebar={sidebar} />
         <Palette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+        <McpProposals />
 
         <main className="content">
           <ErrorBoundary resetKey={location.pathname}>

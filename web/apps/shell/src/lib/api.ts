@@ -586,12 +586,37 @@ export interface McpStatus {
   disabled?: string;
   /** `<engine> mcp-stdio`, the command an assistant launches. */
   bridgeCommand?: string[];
+  /** Assistants may propose changes; each waits for approval in Kubebay. */
+  writesEnabled?: boolean;
+}
+
+/** One change an assistant proposed (backlog #5 phase 2). Nothing applies until approved. */
+export interface McpProposal {
+  id: string;
+  cluster: string;
+  kind: string;
+  namespace: string;
+  name: string;
+  reason?: string;
+  client?: string;
+  resourceVersion: string;
+  /** Unified-style diff of the object before and after (dry run). */
+  diff: string;
+  changedPaths: string[];
+  status: "pending" | "applying" | "applied" | "rejected" | "expired" | "stale" | "failed";
+  message?: string;
+  created: string;
+  expires: string;
+  decided?: string;
 }
 
 export const mcpApi = {
   get: () => get<McpStatus>("/api/mcp"),
-  save: (b: { enabled: boolean; clusters: Record<string, string[]> }) => send<McpStatus>("POST", "/api/mcp", b),
+  save: (b: { enabled: boolean; clusters: Record<string, string[]>; writesEnabled: boolean }) => send<McpStatus>("POST", "/api/mcp", b),
   rotate: () => send<McpStatus>("POST", "/api/mcp/rotate"),
+  proposals: () => get<{ pending: McpProposal[]; recent: McpProposal[]; writesEnabled: boolean }>("/api/mcp/proposals"),
+  approve: (id: string) => send<McpProposal>("POST", `/api/mcp/proposals/${encodeURIComponent(id)}/approve`),
+  reject: (id: string) => send<McpProposal>("POST", `/api/mcp/proposals/${encodeURIComponent(id)}/reject`),
 };
 
 /** Backlog #13: incident triage's switch, allowlist, endpoint and model. The key is never returned. */

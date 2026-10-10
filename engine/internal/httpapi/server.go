@@ -337,6 +337,9 @@ func Router(d Deps, token string) http.Handler {
 			r.Get("/api/mcp", d.MCP.HandleGet)
 			r.Post("/api/mcp", d.MCP.HandleSave)
 			r.Post("/api/mcp/rotate", d.MCP.HandleRotate)
+			r.Get("/api/mcp/proposals", d.MCP.HandleProposals)
+			r.Post("/api/mcp/proposals/{id}/approve", d.MCP.HandleApprove)
+			r.Post("/api/mcp/proposals/{id}/reject", d.MCP.HandleReject)
 		}
 		if d.Triage != nil {
 			r.Get("/api/triage", d.Triage.HandleGet)
