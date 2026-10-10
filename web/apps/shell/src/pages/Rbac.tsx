@@ -8,6 +8,7 @@ import { SecretExposureCard } from "../components/SecretExposureCard";
 import { ImageSignatureCard } from "../components/ImageSignatureCard";
 import { RunningImageSignaturesCard } from "../components/RunningImageSignaturesCard";
 import { OrphanedSecretsCard } from "../components/OrphanedSecretsCard";
+import { UnusedServiceAccountsCard } from "../components/UnusedServiceAccountsCard";
 import { AttackPathsCard } from "../components/AttackPathsCard";
 import { AuditSecurityFeedCard } from "../components/AuditSecurityFeedCard";
 import { crdApi, rbacApi, type RBACSnapshot } from "../lib/api";
@@ -16,6 +17,7 @@ import type { FindingQuery } from "../lib/rbacFindings";
 import { findDefaultServiceAccountAutomounts } from "../lib/serviceAccountAutomount";
 import { findSecretEnvExposures } from "../lib/secretExposure";
 import { findOrphanedSecrets } from "../lib/orphanedSecrets";
+import { findUnusedServiceAccounts } from "../lib/unusedServiceAccounts";
 import { findAttackPaths } from "../lib/attackPaths";
 import { detectTrivyOperator } from "../lib/trivyOperator";
 import { detectGatewayApi } from "../lib/routeResolution";
@@ -167,6 +169,21 @@ export default function Rbac() {
         ingresses: ingresses.rows,
       }),
     [secrets.rows, automountPods.rows, deployments.rows, statefulSets.rows, cronJobs.rows, automountSAs.rows, ingresses.rows],
+  );
+
+  // Backlog #13's deferred check: ServiceAccounts nothing runs as. A DaemonSet
+  // whose nodeSelector matches no node has no pods but still uses its account.
+  const daemonSets = useResourceStream(effectiveCluster || undefined, "apps/v1/daemonsets", { mode: "full" });
+  const unusedServiceAccounts = useMemo(
+    () =>
+      findUnusedServiceAccounts({
+        serviceAccounts: automountSAs.rows,
+        pods: automountPods.rows,
+        workloads: [...deployments.rows, ...statefulSets.rows, ...daemonSets.rows, ...cronJobs.rows],
+        bindings: [...(data?.roleBindings ?? []), ...(data?.clusterRoleBindings ?? [])],
+        secrets: secrets.rows,
+      }),
+    [automountSAs.rows, automountPods.rows, deployments.rows, statefulSets.rows, daemonSets.rows, cronJobs.rows, data, secrets.rows],
   );
 
   // Roadmap Tier 3 #24: the findings above joined into chains from outside traffic.
@@ -361,6 +378,8 @@ export default function Rbac() {
       <RunningImageSignaturesCard cluster={effectiveCluster} />
 
       <OrphanedSecretsCard secrets={orphanedSecrets} />
+
+      <UnusedServiceAccountsCard accounts={unusedServiceAccounts} />
 
       <AuditSecurityFeedCard cluster={effectiveCluster} />
 
