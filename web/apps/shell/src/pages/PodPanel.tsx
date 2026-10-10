@@ -3,6 +3,7 @@ import { Badge, Button, InlineBanner, Row, Select, Spinner, StatusDot, Tabs, Tex
 import { api } from "../lib/api";
 import { usePodLogs, type PodLogsSpec } from "../lib/usePodLogs";
 import { ExecTerm, YamlTab } from "../components/heavy";
+import { forceDeleteEffect, forceDeleteLabel } from "../lib/podDelete";
 import { PodSummary } from "../components/PodSummary";
 import { PodGraphs } from "../components/PodGraphs";
 import { ResizePanel } from "../components/ResizePanel";
@@ -97,6 +98,9 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
     URL.revokeObjectURL(a.href);
   }
 
+  const forceEffect = forceDeleteEffect(pod.obj);
+  const forceLabel = forceDeleteLabel(forceEffect);
+
   async function doDelete() {
     if (deleteInput !== pod.pod) {
       setDeleteErr("Name does not match.");
@@ -110,8 +114,8 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
         gvr: "v1/pods",
         ns: pod.namespace,
         name: pod.pod,
-        graceSeconds: force ? 0 : undefined,
-        forceFinalizers: force,
+        graceSeconds: force && forceEffect.skipsGrace ? 0 : undefined,
+        forceFinalizers: force && forceEffect.removesFinalizers,
       });
       onDeleted?.();
       onClose();
@@ -150,10 +154,12 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
                 onChange={(e) => setDeleteInput(e.target.value)}
                 spellCheck={false}
               />
-              <label className="ctl" style={{ cursor: "pointer" }}>
-                <input type="checkbox" checked={force} onChange={(e) => setForce(e.target.checked)} />
-                force
-              </label>
+              {forceLabel && (
+                <label className="ctl" style={{ cursor: "pointer" }}>
+                  <input type="checkbox" checked={force} onChange={(e) => setForce(e.target.checked)} />
+                  {forceLabel}
+                </label>
+              )}
               <Button variant="danger" disabled={deleting} onClick={() => void doDelete()}>
                 Confirm
               </Button>
