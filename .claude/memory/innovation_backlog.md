@@ -72,7 +72,7 @@ Kubebay OSS stays the complete local-first single/multi-cluster IDE — everythi
 
 **v3 (banner + in-place pod resize + patch export) shipped 2026-09-27:** `components/RightSizingBanner.tsx` puts the ranked view's own-workload opportunity on the resource's Summary tab (Deployments/StatefulSets/DaemonSets), linking to `/right-sizing` rather than duplicating its apply flow — `lib/rightsizing.ts#summarizeForWorkload` narrows a ranked list to one workload, returning null so the banner renders nothing when there's no opportunity. In-place pod resize already existed (`components/ResizePanel.tsx` → `/api/action/resize-pod`) but had no link to a recommendation; `lib/podOwner.ts#resolveWorkloadOwner` mirrors the engine sampler's own two-hop ReplicaSet→Deployment resolution so the panel can offer a "Use suggested" fill from whichever row (VPA or engine) covers the pod's owning workload — `suggestedRequestsFor` matches a VPA row by exact container name but an engine row by workload only (labeled "workload-level, not container-exact" so the UI never overclaims precision the sampler doesn't have). Patch export is a "Copy as patch" button next to Apply resize. Also fixed a real gap found along the way: `/api/action/resize-pod` recorded no audit entry at all — now matches every other mutating action.
 
-### 5. MCP server — status: scoping (designed 2026-09-17)
+### 5. MCP server — status: building (slice 1 of 3, 2026-10-10)
 **Transport: Streamable HTTP mounted at `/mcp` on the engine's existing listener, inside the `requireToken` group — not stdio.** The engine is already one supervised localhost process holding a warm shared informer cache; a stdio subprocess would be a second client-go process opening duplicate watches against prod with a cold cache. Ship a thin stdio bridge (`engine/cmd/kubebay-mcp/main.go`) for Claude Desktop, which configures local servers as stdio commands, reading addr+token from a Tauri-written config. Use a **separate, rotatable MCP token** (not the UI token), validate `Origin` (DNS rebinding), keep the 127.0.0.1 bind.
 **No headless standalone mode in v1.** Without the window there is no confirm banner and no "MCP connected" indicator — a headless MCP server is kubectl with extra steps and forfeits the entire trust-boundary pitch.
 **Tool surface — 7 read-only tools, deliberately few.** `list_clusters`, `list_resources` (informer-cache rows only, never full objects), **`describe_resource` — the crashloop tool**: conditions + per-container image/state/`lastTerminationState` reason+exitCode + last 10 object events + owner chain, replacing what would otherwise be 4 round-trips; `get_logs` (reuses `Channels.OpenLogs` non-follow, dedup with repeat counts, ~40KB cap); `list_events` (aggregated by reason+object); `get_manifest` (explicit escape hatch, reusing `stripNoisyFields`); `get_cluster_health`. **Secrets excluded outright; env values redacted.** Design returns to be token-efficient — dumping raw Kubernetes YAML into a model's context is enormously wasteful.
@@ -81,6 +81,33 @@ Kubebay OSS stays the complete local-first single/multi-cluster IDE — everythi
 **Effort:** v1 2-3 weeks (~1500 LOC Go, rendering is the bulk); phase 2 ~2 weeks.
 **Risks:** an authenticated-but-local `/mcp` is full prod read for any local process or rebound browser page (hence separate token, Origin check, default-off); **prompt injection via cluster data** — a pod annotation or log line instructing the model — which read-only v1 caps at exfiltration, making the secrets exclusion load-bearing; wrong-cluster blast radius.
 **Competitive-urgency note (2026-09-26, Lens research pass):** Lens shipped a built-in MCP server in March 2026 (press: "first major Kubernetes management tool to ship a built-in MCP server") — read-only kubectl/PromQL, credentials described as staying local. From what's publicly documented, the design above is still *more* conservative: no direct-apply tool at all, a two-call propose/human-approve ceremony with a 5-min TTL, full read+write audit, default-deny per-cluster/namespace scoping. Treat this as a scheduling signal, not a design gap — worth moving up the queue given this repo's own AI-native SDLC framing, not worth reacting to theirs feature-for-feature.
+**Build debate (2026-10-10): hand-written server or the official Go SDK.** One agent argued each side, then a synthesis round cross-checked them against the spec and the repo. The SDK agent died on an API session limit, so its research was done in the synthesis round from the SDK's source and proxy metadata.
+- **Spec facts, read from the spec repo:**
+  - The newest revision is **2026-07-28**. It is stateless: no `initialize`, `notifications/initialized`, `ping`, sessions or GET stream.
+  - It requires `server/discover`.
+  - Every request carries its version in `_meta`. The `MCP-Protocol-Version`, `Mcp-Method` and `Mcp-Name` headers must match the body, or the server answers 400 with -32020.
+  - An unsupported version gets 400 with -32022 and the supported list. An unknown method gets 404 with -32601.
+  - Every result carries `resultType`; list results add `ttlMs` and `cacheScope`.
+  - Older clients (2025-03-26 to 2025-11-25) still use `initialize`.
+- **The SDK's cost.** `github.com/modelcontextprotocol/go-sdk` from v1.4 needs `go 1.25` (v1.0–v1.2 need 1.23). The engine is on go 1.22, and the Makefile builds with `GOTOOLCHAIN=local`, so a bump breaks `make build` (and the Mac ship) on any machine without Go 1.25. The SDK also pulls jsonschema-go, segmentio/encoding+asm, uritemplate, x/oauth2 and jwt, and raises x/tools, x/sys and x/oauth2 under client-go and Helm.
+- **Verdict: hand-write a stateless, JSON-only server, with no new dependencies, speaking both eras.** The protocol layer is about 500 lines; the tool layer is the same either way.
+  - Revisit the SDK if Kubebay needs SSE, progress, MRTR or OAuth.
+  - The Go bump is overdue (1.22 has been EOL since Feb 2025), but it is its own PR and needs the dev machine's toolchain updated first.
+- **Corrections to the design above, found in the synthesis:**
+  - **Not inside `requireToken`.** That group also accepts the UI token, OIDC cookies, and everything when no token is set. `/mcp` is mounted beside it and takes only its own Bearer token.
+  - **Any `Origin` header is refused (403).** No MCP client is a browser. The global loopback-`Host` guard still applies.
+  - **The audit fields change.** `SessionID` is obsolete with sessions gone. An entry carries the client's name and version plus the JSON-RPC request id, with `Source: "mcp"`.
+  - **`get_manifest` must strip `kubectl.kubernetes.io/last-applied-configuration`.** `stripNoisyFields` leaves it, and it holds the whole manifest, env values included.
+  - **Tools read the informer cache** by subscribing, taking the first snapshot and cancelling. There's no synchronous `Pool.List`.
+- **Slices:**
+  1. **Shipped in this PR:**
+     - the protocol layer (`internal/mcp`);
+     - auth;
+     - the switch and scope;
+     - the token in `~/.kubebay/mcp.json` (0600, minted on enable, revoked on disable or rotate);
+     - `list_clusters` and `list_resources`.
+  2. The remaining tools: `describe_resource`, `get_logs`, `list_events`, `get_manifest`, `get_cluster_health`.
+  3. The stdio bridge (`cmd/kubebay-mcp`) and the UI: a settings card, a header chip, the tool-call log and the kill switch.
 
 ### 6. Cost optimization — status: shipped 2026-09-27 (Phase 0, 1, and 2 all shipped) — **ship "Waste", not "Cost"**
 **Strong recommendation: no bundled price table, and no dollars by default.** Kubebay shows CPU-core-hours and GiB-hours of reserved-but-unused capacity plus a requests:usage ratio. Dollars appear only if the user types their own `$/node-hour` in Settings (blank default) — their number, their liability. A bundled AWS/GCP/Azure table is wrong for every real buyer (reserved instances, savings plans, CUDs, spot, EDP discounts, region) and stale the day it ships; being confidently wrong about money to a finance-adjacent reader is worse than saying nothing. `NodeSummary.tsx` already parses `node.kubernetes.io/instance-type`, zone and region, so the join key is free if this is ever revisited.

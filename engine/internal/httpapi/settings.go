@@ -38,6 +38,9 @@ type AppSettings struct {
 	// read through the provider CLI. Set only through /api/security/audit-source;
 	// a cluster has a file path or a cloud source, never both.
 	AuditSources map[string]auditfeed.CloudSource `json:"auditSources,omitempty"`
+	// MCP is the MCP server's switch and scope (backlog #5). Set only through
+	// /api/mcp; the token lives in its own connection file, never here.
+	MCP *MCPSettings `json:"mcp,omitempty"`
 }
 
 // PrometheusURLFor resolves the endpoint to query for one cluster. A
@@ -217,7 +220,9 @@ func (s *SettingsManager) HandleSave(w http.ResponseWriter, r *http.Request) {
 	var historyClusters map[string]bool
 	var auditLogPaths map[string]string
 	var auditSources map[string]auditfeed.CloudSource
+	var mcpSettings *MCPSettings
 	if current != nil {
+		mcpSettings = current.MCP
 		nodeShellImage = current.NodeShellImage
 		promURLs = current.PrometheusURLs
 		historyClusters = current.HistoryClusters
@@ -248,6 +253,7 @@ func (s *SettingsManager) HandleSave(w http.ResponseWriter, r *http.Request) {
 		HistoryClusters:  historyClusters,
 		AuditLogPaths:    auditLogPaths,
 		AuditSources:     auditSources,
+		MCP:              mcpSettings,
 	}
 	if err := s.save(next); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -259,6 +265,18 @@ func (s *SettingsManager) HandleSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, map[string]any{"ok": true, "saved": next})
+}
+
+// saveMCP stores the MCP switch and scope, keeping every other setting.
+func (s *SettingsManager) saveMCP(m *MCPSettings) error {
+	s.mu <- struct{}{}
+	defer func() { <-s.mu }()
+	set, err := s.Load()
+	if err != nil {
+		return err
+	}
+	set.MCP = m
+	return s.save(set)
 }
 
 // EnrollHistory records consent when the user connects to a cluster. It
