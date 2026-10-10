@@ -72,7 +72,7 @@ export function WorkloadActionDialog({
 
   const title = action === "scale" ? `Scale ${name}` : `Restart ${name}?`;
   return (
-    <Modal label={title} onClose={onClose} placement="center">
+    <Modal label={title} title={title} onClose={onClose} placement="center">
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -80,7 +80,6 @@ export function WorkloadActionDialog({
         }}
       >
         <Stack gap={3}>
-          <div className="workload-action-title">{title}</div>
           {owner && <InlineBanner flush>{ownerWarning(owner)}</InlineBanner>}
           {action === "scale" ? (
             <Row align="center" gap={2}>

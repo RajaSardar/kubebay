@@ -166,3 +166,39 @@ describe("Modal size", () => {
     expect(screen.getByRole("dialog", { name: "Wide" })).toHaveClass("kb-modal", "center", "wide");
   });
 });
+
+describe("Modal title", () => {
+  it("shows a visible heading that names the dialog, and a Close button", () => {
+    const onClose = vi.fn();
+    render(
+      <Modal label="Scale web" title="Scale web" placement="center" onClose={onClose}>
+        <input aria-label="Replicas" />
+      </Modal>,
+    );
+    const dialog = screen.getByRole("dialog", { name: "Scale web" });
+    const heading = screen.getByRole("heading", { name: "Scale web" });
+    expect(dialog).toContainElement(heading);
+    expect(dialog).toHaveAttribute("aria-labelledby", heading.id);
+    expect(heading).toHaveClass("kb-modal-title");
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("starts focus on the dialog's own first control, not on Close", () => {
+    render(
+      <Modal label="Scale web" title="Scale web" placement="center" onClose={() => {}}>
+        <input aria-label="Replicas" />
+      </Modal>,
+    );
+    expect(screen.getByRole("textbox", { name: "Replicas" })).toHaveFocus();
+  });
+
+  it("is styled by the package, and a centred dialog scrolls inside instead of running off the window", () => {
+    const css = readFileSync(resolve(__dirname, "../../../../../packages/ui/src/styles.css"), "utf8");
+    const styled = new Set([...css.matchAll(/\.([a-zA-Z][\w-]*)/g)].map((m) => m[1]!));
+    render(<Modal label="T" title="T" placement="center" onClose={() => {}}><p>x</p></Modal>);
+    const used = new Set([...document.querySelectorAll(".kb-modal [class]")].flatMap((el) => [...el.classList]));
+    expect([...used].filter((c) => !styled.has(c))).toEqual([]);
+    expect(css).toMatch(/\.kb-modal\.center\s*\{[^}]*max-height:[^}]*overflow-y:\s*auto/);
+  });
+});

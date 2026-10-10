@@ -1223,12 +1223,6 @@ h2 {
 }
 
 /* ──── Cluster icon picker ──── */
-.workload-action-title {
-  font-size: var(--kb-text-md);
-  font-weight: 600;
-  color: var(--kb-fg-default);
-}
-
 .icon-picker {
   position: fixed;
   left: 56px;

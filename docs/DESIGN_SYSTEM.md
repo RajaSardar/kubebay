@@ -20,7 +20,7 @@ https://claude.ai/artifact/J35D45QQ7X6Sgd7mwfRSnF
 | Layout | `web/packages/ui/src/layout.tsx` | `Row`, `Stack` (`gap` on the `--kb-space-*` scale, `align`, `justify`, `wrap`, `as`) |
 | Tables and feedback | `web/packages/ui/src/table.tsx` | `DataTable`, `TableWrap` (`busy` refresh bar), `Table`, `SortHeader`, `SelectAllHeader`, `SelectCell`, `TableRow`, `NsPill`, `SkeletonRows`, `SkeletonTable`, `SkeletonLines`, `EmptyState`, `InlineBanner` |
 | Loading | `web/packages/ui/src/spinner.tsx`, `icons.tsx` | `Spinner` (the helm `IconLoader` turning, `role="status"`) |
-| Overlays | `web/packages/ui/src/overlays.tsx` | `Drawer` (with `embedded` for the full-page view), `Modal` (`placement="center"` for a confirm or one-field form) |
+| Overlays | `web/packages/ui/src/overlays.tsx` | `Drawer` (with `embedded` for the full-page view), `Modal` (`placement="center"` for a confirm or one-field form, `size="wide"` for a longer form, `title` for its visible heading and Close button) |
 | Brand mark | `web/packages/ui/src/brand.tsx` | `KubebayMark`; the gradient is `--kb-brand-cyan` → `--kb-brand-green`, also used by the favicons, app icons and the website's `KubebayMark.astro` |
 | Website | `website/src/styles/global.css` | imports `tokens.css` (Dusk); its `--bg`, `--text`, `--accent`… are aliases for `--kb-*` tokens |
 | Desktop window | `web/apps/shell/src/lib/nativeWindow.ts`, `desktop/src-tauri/src/window_theme.rs` | the native window's colour and title bar follow the theme |
@@ -45,7 +45,10 @@ https://claude.ai/artifact/J35D45QQ7X6Sgd7mwfRSnF
    except while the user types in a field, the YAML editor or the terminal,
    and hands focus back when it closes); anything that must hold focus until
    dismissed is a `Modal`, which renders into `document.body` so a translucent
-   ancestor cannot clip it.
+   ancestor cannot clip it. A centred dialog says what it is with `title`,
+   not a hand-made heading row: the title names the dialog, a Close button
+   sits beside it, and focus still starts on the dialog's own first control.
+   A centred dialog taller than the window scrolls inside.
 2. **Loading shows the shape of what is coming.** A list or table with no rows
    yet is a `SkeletonTable` (or a `DataTable` with `loading` and a
    `loadingLabel`) under its real headers, captioned with the helm-wheel
