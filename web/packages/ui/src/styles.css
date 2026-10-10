@@ -1743,10 +1743,29 @@ tr.row-clickable:active {
   transform: translateX(-50%);
   width: min(360px, calc(100vw - 2 * var(--kb-space-4)));
   padding: var(--kb-space-4);
+  /* It starts 22% down, so it may use the rest less a margin, then scrolls inside. */
+  max-height: calc(78vh - var(--kb-space-4));
+  overflow-y: auto;
 }
 
 .kb-modal.center.wide {
   width: min(560px, calc(100vw - 2 * var(--kb-space-4)));
+}
+
+/* A titled dialog: its heading, with Close at the end of the row. */
+.kb-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--kb-space-2);
+  margin-bottom: var(--kb-space-3);
+}
+
+.kb-modal-title {
+  margin: 0;
+  font-size: var(--kb-text-md);
+  font-weight: 600;
+  color: var(--kb-fg-default);
 }
 
 @keyframes kb-modal-fade {
