@@ -45,7 +45,7 @@ func spaHandler(ui fs.FS, api http.Handler) http.Handler {
 		files.ServeHTTP(w, r)
 	})
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/ws" || strings.HasPrefix(r.URL.Path, "/api/") || r.URL.Path == "/api" {
+		if isEngineRoute(r.URL.Path) {
 			api.ServeHTTP(w, r)
 			return
 		}
@@ -53,10 +53,15 @@ func spaHandler(ui fs.FS, api http.Handler) http.Handler {
 	})
 }
 
+// isEngineRoute names the paths the API router owns; everything else is the UI.
+func isEngineRoute(p string) bool {
+	return p == "/ws" || p == "/mcp" || p == "/api" || strings.HasPrefix(p, "/api/")
+}
+
 func fallbackNotice(api http.Handler) http.Handler {
 	page := []byte(`<!doctype html><html><body style="font-family:sans-serif;background:#0a0b10;color:#e9ebf2;display:grid;place-items:center;height:100vh;margin:0"><div style="text-align:center"><h1>Kubebay engine is running</h1><p style="color:#9aa2b6">The web UI was not bundled into this binary.<br>Build it with <code>make web</code> or serve <code>--web-dist</code>.</p></div></body></html>`)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/ws" || strings.HasPrefix(r.URL.Path, "/api/") || r.URL.Path == "/api" {
+		if isEngineRoute(r.URL.Path) {
 			api.ServeHTTP(w, r)
 			return
 		}
