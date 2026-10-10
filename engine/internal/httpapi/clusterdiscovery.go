@@ -12,13 +12,13 @@ import (
 	"github.com/RajaSardar/kubebay/engine/internal/clusters"
 )
 
-// DiscoveryAPI finds EKS clusters the user's own aws CLI can see and imports
-// one into a Kubebay-owned kubeconfig (backlog #14). Nothing runs until the
+// DiscoveryAPI finds EKS and GKE clusters the user's own aws and gcloud CLIs
+// can see and imports one into a Kubebay-owned kubeconfig (backlog #14). Nothing runs until the
 // user asks, and the user's own kubeconfig is never written.
 type DiscoveryAPI struct {
 	Settings *SettingsManager
 	Clusters *clusters.Manager
-	// Run runs the aws CLI (nil = os/exec on the user's PATH).
+	// Run runs the aws or gcloud CLI (nil = os/exec on the user's PATH).
 	Run clouddiscovery.Runner
 	// Disabled, when set, is why discovery is off.
 	Disabled string
@@ -29,9 +29,9 @@ type DiscoveryAPI struct {
 func DiscoveryBlockReason(inCluster, oidcEnabled bool) string {
 	switch {
 	case oidcEnabled:
-		return "cluster discovery runs the aws CLI with the engine host's own credentials, so it is off when OIDC is configured"
+		return "cluster discovery runs the cloud CLIs with the engine host's own credentials, so it is off when OIDC is configured"
 	case inCluster:
-		return "cluster discovery runs the aws CLI with the engine host's own credentials, so it is off in in-cluster mode"
+		return "cluster discovery runs the cloud CLIs with the engine host's own credentials, so it is off in in-cluster mode"
 	}
 	return ""
 }
@@ -154,30 +154,125 @@ func (d *DiscoveryAPI) HandleImport(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadGateway)
 		return
 	}
-	home, err := os.UserHomeDir()
+	path, err := d.writeDiscovered(clouddiscovery.FileName(c, body.Profile), kc)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	writeJSON(w, map[string]string{"path": path, "context": c.Arn})
+}
+
+// writeDiscovered writes one imported cluster's kubeconfig atomically under
+// ~/.kubebay/discovered (0600, directory 0700) and adds it to the extra
+// kubeconfigs, keeping every other setting.
+func (d *DiscoveryAPI) writeDiscovered(file string, kc []byte) (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
 	dir := filepath.Join(home, settingsDir, "discovered")
 	if err := os.MkdirAll(dir, 0o700); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return "", err
 	}
-	path := filepath.Join(dir, clouddiscovery.FileName(c, body.Profile))
+	path := filepath.Join(dir, file)
 	tmp := path + ".tmp"
 	if err := os.WriteFile(tmp, kc, 0o600); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return "", err
 	}
 	if err := os.Rename(tmp, path); err != nil {
 		_ = os.Remove(tmp)
+		return "", err
+	}
+	return path, d.Settings.AddExtraKubeconfig(path)
+}
+
+// HandleGCPProjects lists the projects the signed-in gcloud account can see.
+func (d *DiscoveryAPI) HandleGCPProjects(w http.ResponseWriter, r *http.Request) {
+	if d.blocked(w) {
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+	projects, err := clouddiscovery.GCPProjects(ctx, d.run())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadGateway)
+		return
+	}
+	writeJSON(w, projects)
+}
+
+type discoveredGKE struct {
+	clouddiscovery.GKECluster
+	// Imported: a loaded kubeconfig already has this cluster's gke_ context.
+	Imported bool `json:"imported"`
+}
+
+// HandleGKEScan lists one project's GKE clusters in every location.
+func (d *DiscoveryAPI) HandleGKEScan(w http.ResponseWriter, r *http.Request) {
+	if d.blocked(w) {
+		return
+	}
+	var body struct {
+		Project string `json:"project"`
+	}
+	if err := decodeBody(r, &body); err != nil {
+		http.Error(w, "bad body: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
+	defer cancel()
+	res := clouddiscovery.ScanGKE(ctx, d.run(), body.Project)
+	known := d.knownContexts()
+	out := make([]discoveredGKE, 0, len(res.Clusters))
+	for _, c := range res.Clusters {
+		out = append(out, discoveredGKE{GKECluster: c, Imported: known[c.Context]})
+	}
+	writeJSON(w, map[string]any{"clusters": out, "errors": res.Errors})
+}
+
+// HandleGKEImport describes the cluster again (never trusting an endpoint or
+// CA from the browser) and imports it with a gke-gcloud-auth-plugin user.
+func (d *DiscoveryAPI) HandleGKEImport(w http.ResponseWriter, r *http.Request) {
+	if d.blocked(w) {
+		return
+	}
+	var body struct {
+		Project  string `json:"project"`
+		Location string `json:"location"`
+		Name     string `json:"name"`
+	}
+	if err := decodeBody(r, &body); err != nil {
+		http.Error(w, "bad body: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	if !clouddiscovery.ValidGCPProject(body.Project) || !clouddiscovery.ValidGKELocation(body.Location) || !clouddiscovery.ValidGKEName(body.Name) {
+		http.Error(w, "invalid project, location or cluster name", http.StatusBadRequest)
+		return
+	}
+	if pinned := d.Clusters.ExplicitKubeconfig(); pinned != "" {
+		http.Error(w, fmt.Sprintf("Kubebay was started with one dedicated kubeconfig (%s) and loads nothing else; add this cluster to that file instead: KUBECONFIG=%s gcloud container clusters get-credentials %s --location %s --project %s", pinned, pinned, body.Name, body.Location, body.Project), http.StatusConflict)
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+	c, err := clouddiscovery.DescribeGKE(ctx, d.run(), body.Project, body.Location, body.Name)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadGateway)
+		return
+	}
+	if d.knownContexts()[c.Context] {
+		http.Error(w, fmt.Sprintf("%s is already in a loaded kubeconfig", c.Context), http.StatusConflict)
+		return
+	}
+	kc, err := clouddiscovery.GKEKubeconfig(c)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadGateway)
+		return
+	}
+	path, err := d.writeDiscovered(clouddiscovery.GKEFileName(c), kc)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if err := d.Settings.AddExtraKubeconfig(path); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	writeJSON(w, map[string]string{"path": path, "context": c.Arn})
+	writeJSON(w, map[string]string{"path": path, "context": c.Context})
 }
