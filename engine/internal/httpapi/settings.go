@@ -41,6 +41,9 @@ type AppSettings struct {
 	// MCP is the MCP server's switch and scope (backlog #5). Set only through
 	// /api/mcp; the token lives in its own connection file, never here.
 	MCP *MCPSettings `json:"mcp,omitempty"`
+	// Triage is incident triage's switch, allowlist, endpoint and model
+	// (backlog #13). Set only through /api/triage; never holds the API key.
+	Triage *TriageSettings `json:"triage,omitempty"`
 }
 
 // PrometheusURLFor resolves the endpoint to query for one cluster. A
@@ -221,8 +224,10 @@ func (s *SettingsManager) HandleSave(w http.ResponseWriter, r *http.Request) {
 	var auditLogPaths map[string]string
 	var auditSources map[string]auditfeed.CloudSource
 	var mcpSettings *MCPSettings
+	var triageSettings *TriageSettings
 	if current != nil {
 		mcpSettings = current.MCP
+		triageSettings = current.Triage
 		nodeShellImage = current.NodeShellImage
 		promURLs = current.PrometheusURLs
 		historyClusters = current.HistoryClusters
@@ -254,6 +259,7 @@ func (s *SettingsManager) HandleSave(w http.ResponseWriter, r *http.Request) {
 		AuditLogPaths:    auditLogPaths,
 		AuditSources:     auditSources,
 		MCP:              mcpSettings,
+		Triage:           triageSettings,
 	}
 	if err := s.save(next); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -276,6 +282,18 @@ func (s *SettingsManager) saveMCP(m *MCPSettings) error {
 		return err
 	}
 	set.MCP = m
+	return s.save(set)
+}
+
+// saveTriage stores incident triage's settings, keeping every other setting.
+func (s *SettingsManager) saveTriage(t *TriageSettings) error {
+	s.mu <- struct{}{}
+	defer func() { <-s.mu }()
+	set, err := s.Load()
+	if err != nil {
+		return err
+	}
+	set.Triage = t
 	return s.save(set)
 }
 

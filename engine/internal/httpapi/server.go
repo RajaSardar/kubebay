@@ -37,6 +37,7 @@ type Deps struct {
 	NetDiag   *NetDiagManager
 	ImageSigs *ImageSignatureAPI
 	MCP       *MCPAPI
+	Triage    *TriageAPI
 	Settings  *SettingsManager
 	Auth      *Authenticator
 	Audit     *audit.Logger
@@ -336,6 +337,13 @@ func Router(d Deps, token string) http.Handler {
 			r.Get("/api/mcp", d.MCP.HandleGet)
 			r.Post("/api/mcp", d.MCP.HandleSave)
 			r.Post("/api/mcp/rotate", d.MCP.HandleRotate)
+		}
+		if d.Triage != nil {
+			r.Get("/api/triage", d.Triage.HandleGet)
+			r.Post("/api/triage", d.Triage.HandleSave)
+			r.Put("/api/triage/key", d.Triage.HandlePutKey)
+			r.Delete("/api/triage/key", d.Triage.HandleDeleteKey)
+			r.Post("/api/triage/preview", d.Triage.HandlePreview)
 		}
 		r.Get("/api/discover/aws/profiles", d.Discovery.HandleProfiles)
 		r.Post("/api/discover/eks/scan", d.Discovery.HandleScan)

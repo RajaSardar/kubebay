@@ -85,4 +85,11 @@ describe("Settings: app-wide settings only", () => {
     expect(await screen.findByText("AI assistants (MCP)")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Turn on" })).toBeDisabled();
   });
+
+  it("offers incident triage, off until turned on", async () => {
+    vi.mocked(api.triageApi.get).mockResolvedValue({ enabled: false, clusters: [], baseURL: "https://api.anthropic.com", model: "claude-opus-5-5", key: { source: "", store: "macOS Keychain" } });
+    vi.mocked(api.api.clusters).mockResolvedValue([]);
+    renderSettings();
+    expect(await screen.findByText("AI incident triage")).toBeInTheDocument();
+  });
 });

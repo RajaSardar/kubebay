@@ -24,6 +24,12 @@ func (f *fakeSource) Logs(_ context.Context, cluster, ns, pod string, opt LogOpt
 	if opt.Previous {
 		return "panic: nil map\npanic: nil map\npanic: nil map\nexit 2\n", nil
 	}
+	if f.currentLogs != "" {
+		return f.currentLogs, nil
+	}
+	if opt.Container == "leaky" {
+		return "connecting to postgres://app:hunter2@db/shop\nAuthorization: Bearer abc123def456ghi789\n", nil
+	}
 	return "listening on :8080\n", nil
 }
 
@@ -133,6 +139,20 @@ func TestGetLogsDedupesAndPrefersWhatTheModelAskedFor(t *testing.T) {
 	}
 	if s.src.logCalls[1].opt.TailLines != 1000 {
 		t.Errorf("tailLines capped: %+v", s.src.logCalls[1].opt)
+	}
+}
+
+// Logs are free text: credentials printed by the app are masked before an
+// assistant sees them.
+func TestGetLogsMasksCredentials(t *testing.T) {
+	s := inspectSetup()
+	r, err := s.call(t, "get_logs", `{"cluster":"kind-dev","namespace":"shop","pod":"api-7d9-x","container":"leaky"}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := text(r)
+	if strings.Contains(out, "hunter2") || strings.Contains(out, "abc123def456ghi789") || !strings.Contains(out, "2 values masked") {
+		t.Errorf("logs:\n%s", out)
 	}
 }
 
