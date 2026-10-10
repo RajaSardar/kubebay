@@ -15,6 +15,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -29,8 +30,9 @@ import (
 
 // MCP phase 2 against a live cluster (backlog #5): an assistant proposes a
 // change, nothing happens, the person approves it in Kubebay, and only then
-// does it apply, as field manager kubebay-mcp. A proposal for an object that
-// changed after the diff was reviewed is refused.
+// does it apply, as field manager kubebay-mcp. The Deployment controller
+// writes status in between, which must not block the approval; a proposal
+// for an object whose spec or metadata changed after review is refused.
 func TestLiveMCPProposalAppliesOnlyAfterApproval(t *testing.T) {
 	if os.Getenv("KUBEBAY_INTEGRATION_TEST") != "1" {
 		t.Skip("set KUBEBAY_INTEGRATION_TEST=1 against a reachable API server")
@@ -182,8 +184,7 @@ func TestLiveMCPProposalAppliesOnlyAfterApproval(t *testing.T) {
 	// Someone else changes the object after the proposal: approving it
 	// would apply a diff nobody reviewed.
 	stale := propose(7)
-	d.Labels = map[string]string{"touched": "yes"}
-	if _, err := cs.AppsV1().Deployments("default").Update(ctx, d, metav1.UpdateOptions{}); err != nil {
+	if _, err := cs.AppsV1().Deployments("default").Patch(ctx, name, types.MergePatchType, []byte(`{"metadata":{"labels":{"touched":"yes"}}}`), metav1.PatchOptions{}); err != nil {
 		t.Fatal(err)
 	}
 	if res := ui(http.MethodPost, "/api/mcp/proposals/"+stale+"/approve", ""); res.StatusCode != http.StatusConflict {

@@ -96,12 +96,23 @@ func (f *fakeCluster) Patch(_ context.Context, cluster, gvr, ns, name string, pa
 	return clone(next), nil
 }
 
-// bump simulates someone else changing the object.
-func (f *fakeCluster) bump() {
+// statusUpdate is a controller writing status: the resourceVersion moves,
+// nothing anyone reviewed does.
+func (f *fakeCluster) statusUpdate() {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.rv++
 	f.obj["metadata"].(map[string]any)["resourceVersion"] = fmt.Sprint(f.rv)
+	f.obj["status"] = map[string]any{"readyReplicas": float64(1), "observedGeneration": float64(f.rv)}
+}
+
+// edit is someone else changing the spec.
+func (f *fakeCluster) edit() {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.rv++
+	f.obj["metadata"].(map[string]any)["resourceVersion"] = fmt.Sprint(f.rv)
+	f.obj["spec"].(map[string]any)["paused"] = true
 }
 
 type harness struct {
@@ -205,12 +216,12 @@ func TestApprovingAppliesTheReviewedPatchOnce(t *testing.T) {
 	}
 }
 
-// The human reviewed a diff against one version of the object; if it has
-// changed since, applying would be applying something nobody reviewed.
+// The human reviewed a diff against the object's spec and metadata; if
+// those changed since, applying would be applying something nobody reviewed.
 func TestAChangedObjectMakesTheProposalStale(t *testing.T) {
 	h := newHarness()
 	p, _ := h.store.Propose(context.Background(), scale(4))
-	h.cluster.bump()
+	h.cluster.edit()
 	got, err := h.store.Approve(context.Background(), p.ID)
 	if err == nil || got.Status != StatusStale || !strings.Contains(got.Message, "changed") {
 		t.Errorf("approve = %+v, %v", got, err)
@@ -311,5 +322,25 @@ func TestRejectAllClosesEverythingWaiting(t *testing.T) {
 	}
 	if p, _ := h.store.Get(done.ID); p.Status != StatusApplied {
 		t.Errorf("an applied proposal stays applied: %s", p.Status)
+	}
+}
+
+// Controllers write status all the time, and every write moves the
+// resourceVersion. That isn't a change anyone reviewed, so it mustn't make
+// the proposal stale; the apply is pinned to the version just re-read.
+func TestStatusUpdatesDontMakeAProposalStale(t *testing.T) {
+	h := newHarness()
+	p, _ := h.store.Propose(context.Background(), scale(4))
+	h.cluster.statusUpdate()
+	got, err := h.store.Approve(context.Background(), p.ID)
+	if err != nil || got.Status != StatusApplied {
+		t.Fatalf("approve = %+v, %v", got, err)
+	}
+	last := h.cluster.patches[len(h.cluster.patches)-1]
+	if !strings.Contains(last.patch, `"resourceVersion":"8"`) {
+		t.Errorf("the apply is pinned to the version re-read at approval: %s", last.patch)
+	}
+	if h.cluster.obj["spec"].(map[string]any)["replicas"] != float64(4) {
+		t.Error("applied")
 	}
 }

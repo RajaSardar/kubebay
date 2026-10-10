@@ -75,8 +75,9 @@ type Proposal struct {
 	Patch     json.RawMessage `json:"patch"`
 	Reason    string          `json:"reason,omitempty"`
 	Client    string          `json:"client,omitempty"`
-	// ResourceVersion is the object version the diff was computed against;
-	// an approval applies only to that version.
+	// ResourceVersion is the object version the diff was computed against.
+	// An approval applies only while the object's spec and metadata still
+	// match it; status writes don't count.
 	ResourceVersion string `json:"resourceVersion"`
 	// Diff is for the person reviewing it in Kubebay.
 	Diff string `json:"diff"`
@@ -90,6 +91,8 @@ type Proposal struct {
 	Expires      time.Time  `json:"expires"`
 	Decided      *time.Time `json:"decided,omitempty"`
 	requestID    string
+	// reviewed is the cleaned object the diff was computed from.
+	reviewed string
 }
 
 type Store struct {
@@ -234,6 +237,7 @@ func (s *Store) Propose(ctx context.Context, in Input) (Proposal, error) {
 		Patch: body, Reason: reason, Client: in.Client, ResourceVersion: resourceVersion(live),
 		Diff: lineDiff(toYAML(before), toYAML(after)), ModelDiff: modelDiff, ChangedPaths: paths,
 		Status: StatusPending, Created: now, Expires: now.Add(TTL), requestID: in.RequestID,
+		reviewed: canonical(before),
 	}
 	s.mu.Lock()
 	s.items[p.ID] = p
@@ -313,11 +317,33 @@ func (s *Store) finish(p *Proposal, st Status, msg string) Proposal {
 	return *p
 }
 
-// Approve applies the reviewed patch, only to the reviewed version.
+func canonical(o map[string]any) string {
+	b, _ := json.Marshal(o) // map keys marshal sorted
+	return string(b)
+}
+
+const staleMessage = "the object changed after this proposal was made, so it wasn't applied; ask the assistant to propose again"
+
+// Approve applies the reviewed patch, only while the object's spec and
+// metadata are still what the diff was computed from. Controllers write
+// status constantly, which moves the resourceVersion without changing
+// anything reviewed, so the check compares content and the apply is pinned
+// to the version just read.
 func (s *Store) Approve(ctx context.Context, id string) (Proposal, error) {
 	p, err := s.claim(id, StatusApplying)
 	if err != nil {
 		return Proposal{}, err
+	}
+	live, err := s.patcher.Get(ctx, p.Cluster, p.GVR, p.Namespace, p.Name)
+	if err != nil {
+		out := s.finish(p, StatusFailed, err.Error())
+		s.record(p, "mcp:apply-proposal", " error="+err.Error(), "failed")
+		return out, err
+	}
+	if canonical(clean(live)) != p.reviewed {
+		out := s.finish(p, StatusStale, staleMessage)
+		s.record(p, "mcp:apply-proposal", "", "stale")
+		return out, errors.New(out.Message)
 	}
 	var patch map[string]any
 	_ = json.Unmarshal(p.Patch, &patch)
@@ -326,14 +352,14 @@ func (s *Store) Approve(ctx context.Context, id string) (Proposal, error) {
 		meta = map[string]any{}
 	}
 	// A resourceVersion in the patch makes it conditional: the API server
-	// answers 409 if the object changed since the diff was computed.
-	meta["resourceVersion"] = p.ResourceVersion
+	// answers 409 if the object changes between that read and this write.
+	meta["resourceVersion"] = resourceVersion(live)
 	patch["metadata"] = meta
 	body, _ := json.Marshal(patch)
 	res, err := s.patcher.Patch(ctx, p.Cluster, p.GVR, p.Namespace, p.Name, body, false)
 	switch {
 	case apierrors.IsConflict(err):
-		out := s.finish(p, StatusStale, "the object changed after this proposal was made, so it wasn't applied; ask the assistant to propose again")
+		out := s.finish(p, StatusStale, staleMessage)
 		s.record(p, "mcp:apply-proposal", "", "stale")
 		return out, errors.New(out.Message)
 	case err != nil:
