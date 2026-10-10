@@ -508,6 +508,32 @@ export interface AppSettings {
   historyClusters?: Record<string, boolean>;
 }
 
+export interface AwsProfile {
+  name: string;
+  region?: string;
+}
+
+export interface DiscoveredEksCluster {
+  region: string;
+  name: string;
+  arn: string;
+  account?: string;
+  endpoint: string;
+  status?: string;
+  version?: string;
+  /** A loaded kubeconfig already has this cluster's ARN context. */
+  imported: boolean;
+}
+
+/** Backlog #14: EKS discovery through the user's own aws CLI. Every call runs it; only on a user action. */
+export const cloudDiscoveryApi = {
+  profiles: () => get<AwsProfile[]>("/api/discover/aws/profiles"),
+  scan: (profile: string, regions: string[]) =>
+    send<{ clusters: DiscoveredEksCluster[]; errors: { region: string; cluster?: string; message: string }[] }>("POST", "/api/discover/eks/scan", { profile, regions }),
+  importEks: (profile: string, region: string, name: string) =>
+    send<{ path: string; context: string }>("POST", "/api/discover/eks/import", { profile, region, name }),
+};
+
 export const settingsApi = {
   get: () => get<AppSettings>("/api/settings"),
   save: (b: AppSettings) => send<{ ok: boolean; saved: AppSettings }>("POST", "/api/settings", b),

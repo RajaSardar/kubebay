@@ -261,6 +261,31 @@ func (s *SettingsManager) HandleSave(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{"ok": true, "saved": next})
 }
 
+// AddExtraKubeconfig appends one kubeconfig to the extra list, keeping every
+// other setting, and reloads the clusters. Used by cluster discovery's import.
+func (s *SettingsManager) AddExtraKubeconfig(path string) error {
+	abs, err := sanitizePath(path)
+	if err != nil {
+		return err
+	}
+	s.mu <- struct{}{}
+	defer func() { <-s.mu }()
+	set, err := s.Load()
+	if err != nil {
+		return err
+	}
+	for _, p := range set.ExtraKubeconfigs {
+		if p == abs {
+			return s.mgr.SetExtraKubeconfigs(set.ExtraKubeconfigs)
+		}
+	}
+	set.ExtraKubeconfigs = append(set.ExtraKubeconfigs, abs)
+	if err := s.save(set); err != nil {
+		return err
+	}
+	return s.mgr.SetExtraKubeconfigs(set.ExtraKubeconfigs)
+}
+
 // EnrollHistory records consent when the user connects to a cluster. It
 // only adds a missing entry, so an explicit Stop survives reconnecting.
 // Returns whether the cluster is now recorded.

@@ -176,6 +176,11 @@ func main() {
 		Audit:     auditLog,
 		Waste:     wasteSampler,
 		History:   historyAPI,
+		Discovery: &httpapi.DiscoveryAPI{
+			Settings: settingsMgr,
+			Clusters: mgr,
+			Disabled: httpapi.DiscoveryBlockReason(*inCluster, auth.Enabled()),
+		},
 	}, token)
 
 	switch {

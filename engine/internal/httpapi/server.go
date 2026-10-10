@@ -41,6 +41,7 @@ type Deps struct {
 	Audit     *audit.Logger
 	Waste     wasteSnapshotter
 	History   *HistoryAPI
+	Discovery *DiscoveryAPI
 }
 
 func (d Deps) authEnabled() bool { return d.Auth != nil && d.Auth.Enabled() }
@@ -323,6 +324,9 @@ func Router(d Deps, token string) http.Handler {
 		r.Get("/api/apis", d.Metrics.HandleDiscovery)
 		r.Get("/api/apiversions", d.Metrics.HandleAPIVersions)
 		r.Get("/api/crds", d.Metrics.HandleCRDs)
+		r.Get("/api/discover/aws/profiles", d.Discovery.HandleProfiles)
+		r.Post("/api/discover/eks/scan", d.Discovery.HandleScan)
+		r.Post("/api/discover/eks/import", d.Discovery.HandleImport)
 		r.Get("/api/settings", d.Settings.HandleGet)
 		r.Post("/api/settings", d.Settings.HandleSave)
 		r.Get("/api/prom/query_range", d.Settings.HandlePromQueryRange)
