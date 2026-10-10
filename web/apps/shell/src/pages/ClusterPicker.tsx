@@ -19,6 +19,7 @@ import {
 } from "../lib/clusterConnections";
 import { ClusterIconPicker, autoAvatar, avatarLabelColor } from "../components/ClusterIconPicker";
 import { KubeconfigSources } from "../components/KubeconfigSources";
+import { EksDiscovery } from "../components/EksDiscovery";
 import ConfigurePrometheusModal from "../components/ConfigurePrometheusModal";
 import { providerBadge, clusterDisplayName } from "../lib/clusterDistro";
 import {
@@ -34,6 +35,7 @@ import {
   Row,
   Skeleton,
   SkeletonRows,
+  Stack,
   StatusDot,
   StatusPill,
   Table,
@@ -516,7 +518,10 @@ export default function ClusterPicker() {
 
       {kubeconfigOpen && (
         <Modal label="Kubeconfig sources" title="Kubeconfig sources" placement="center" size="wide" onClose={() => setKubeconfigOpen(false)}>
-          <KubeconfigSources />
+          <Stack gap={3}>
+            <KubeconfigSources />
+            <EksDiscovery />
+          </Stack>
         </Modal>
       )}
 

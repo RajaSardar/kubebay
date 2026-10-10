@@ -200,7 +200,7 @@ Independently verified by direct source inspection (not just an expert's claim) 
 **Boundary with #5: both should exist.** MCP is an external model reaching *in*, with Kubebay as the gate; triage is Kubebay reaching *out* with one bounded read-only payload. They should share only the redaction pass and the evidence assembler.
 **Competitive-urgency note (2026-09-26, Lens research pass):** Lens Prism (their paid AI copilot) gained a "terminal skill" this year letting it write local files/run commands — but per Lens's own docs it still never auto-executes; a human runs the surfaced command. That validates, not undercuts, this entry's stricter stance of never wiring a suggested action to an executable button. Separately, Mirantis also launched **Lens Agents** (paid, enterprise: centralized identity/policy/audit for AI coding agents hitting your infra) — correctly out of scope here, it needs a control plane beyond one laptop, same carve-out as the open-core split doc already draws. Freelens's free, much smaller answer — `@freelensapp/agentbridge-extension` (launches a coding agent in a terminal tab scoped to one cluster, pre-wired KUBECONFIG/PATH, editable default-safe permissions file: read-only kubectl/helm allowed, ask for everything else) — is a much closer size/shape match to Kubebay's own philosophy and worth a five-minute look as a UX reference once #10 (local shell) ships. Not a new item.
 
-### 14. Cloud cluster auto-discovery (EKS/AKS/GKE one-click import) — status: scoping (designed 2026-09-27)
+### 14. Cloud cluster auto-discovery (EKS/AKS/GKE one-click import) — status: shipped 2026-10-10 for EKS (AKS/GKE not started)
 **What Lens does (Premium-gated):** calls the cloud provider's own API to list every cluster in your account/regions and one-click-imports it — no manual `aws eks update-kubeconfig` / `az aks get-credentials` round-trip needed first.
 **Where Kubebay is today:** `clusterDistro.ts` only pattern-matches provider/distro off whatever's *already* in kubeconfig (`arn:aws:eks:`, `gke_`, `aks-`, etc.) — verified via grep, there is zero AWS/Azure/GCP SDK anywhere in `engine/go.mod` or the rest of the codebase. Kubebay has no way to discover a cluster it doesn't already have a context for.
 **Scope this as detect-and-offer-import, never provision** — the same posture item #3 (Karpenter) already settled on for the identical reason: no cloud SDK today, and adding one is real new surface area (per-provider credential handling, IAM/service-account scoping, rate limits, a new dependency). A v1 would be one provider at a time — EKS first, matching Raja's own prod footprint — listing clusters via the AWS SDK against whatever credentials/profile are already locally resolvable (same trust boundary as the existing `aws eks get-token` exec-credential flow), rendering them in the cluster picker as "available to import" with one click to append the right context to kubeconfig. Never persist cloud credentials anywhere Kubebay doesn't already trust them; never call any provisioning or mutating cloud API.
@@ -225,6 +225,43 @@ Independently verified by direct source inspection (not just an expert's claim) 
 **Confirmed OSS**, consistent with the existing framing and the open-core split at the top of this file — no control plane, no fleet feature, helps a solo engineer as much as a team.
 **Risks:** (1) per-region `AccessDenied`/throttling must degrade gracefully, not abort the whole scan — EKS's list/describe throttle is modest and concurrent multi-region scanning can trip it; bound concurrency and rely on the CLI's/SDK's own backoff. (2) SSO/session expiry: a user with an expired `aws sso login` session will get a cryptic CLI/SDK error on scan — must be caught and shown as "run `aws sso login`", not surfaced raw. (3) multi-account: the backlog's own framing ("juggling multiple AWS accounts") implies a profile picker (`~/.aws/config` named profiles), which isn't in the one-liner and adds a small but real UI surface — see open questions. (4) scope discipline: ship UI copy that says "AWS EKS" specifically, not generic "cloud cluster," since AKS/GKE are out of v1 per the existing framing and Kubebay has no Azure/GCP SDK story at all yet.
 **Open questions for Raja:** (a) CLI-subprocess vs in-process AWS SDK for v1 — this spec recommends CLI-subprocess for the smaller trust-boundary delta, confirm that's the right trade given it requires `aws` CLI present; (b) should discovery ever run automatically (e.g. on picker load) or stay strictly user-triggered via a "Scan AWS" button — this spec assumes the latter to avoid surprise API calls/IAM prompts on every launch; (c) default/configurable region list — auto-detect from `~/.aws/config` profiles, or require the user to type regions into Settings; (d) whether a profile picker (multi-account) is in scope for v1 or a fast-follow; (e) priority — this is a genuinely new integration surface (first cloud SDK/CLI dependency, first new file-write capability) rather than an incremental extension of an existing page, so it's worth asking whether it should jump ahead of, e.g., #4/#6's remaining phases.
+
+**EKS shipped 2026-10-10 (Phases 1–3), with this spec's recommended answers to the open questions** (Raja asked for every backlog item to be built):
+- **(a) The aws CLI as a subprocess, not the SDK.** The engine never holds a cloud credential.
+- **(b) Strictly user-triggered.** Nothing runs until "Find EKS clusters" is opened, then Scan or Import is clicked.
+- **(c) Regions are typed,** pre-filled from the chosen profile's own default (`aws configure get region --profile`).
+- **(d) A profile picker is in v1** (`aws configure list-profiles`).
+
+**Engine.**
+- `internal/clouddiscovery`:
+  - `ScanEKS` runs list-clusters, then describe-cluster for each cluster, with at most 4 CLI calls at once.
+  - A region that fails is reported and skipped, and its error is turned into the fix: SSO expired names `aws sso login --profile X`; an opt-in region not enabled; AccessDenied names `eks:ListClusters`; no credentials; aws CLI missing.
+  - Every profile, region and cluster name is validated against AWS naming before it reaches argv, so nothing can be read as a flag.
+  - `Kubeconfig` writes the `aws eks update-kubeconfig` shape: context, cluster and user named by the ARN, so `clusterDistro.ts` recognises EKS with no change. The user is an exec stanza for `aws --region R eks get-token --cluster-name N --output json` with `AWS_PROFILE`, never a static token.
+- Routes, behind the launch token:
+  - `GET /api/discover/aws/profiles`
+  - `POST /api/discover/eks/scan`
+  - `POST /api/discover/eks/import`
+- **Import.**
+  - It describes the cluster again itself, so an endpoint or CA from the browser is never trusted; the scan doesn't even send the CA.
+  - It writes `~/.kubebay/discovered/eks-<profile>-<region>-<name>.yaml` (0600, directory 0700) atomically.
+  - It adds the file through the new `SettingsManager.AddExtraKubeconfig`, which appends under the settings lock and keeps every other setting. `HandleSave` replaces the whole list.
+  - It answers 409 when a loaded kubeconfig already has that ARN context.
+- **Pinned engines.** An engine pinned with `KUBEBAY_KUBECONFIG`/`--kubeconfig` (the prod-safety override) loads nothing else. There, import answers 409 with the `aws eks update-kubeconfig --kubeconfig <that file>` command, instead of reporting a success that never shows up. New `Manager.ExplicitKubeconfig()`.
+- **Desktop only.** It is off with OIDC or `--in-cluster` (`DiscoveryBlockReason`), because the CLI would run with the engine host's credentials.
+
+**UI.** `components/EksDiscovery.tsx` sits in the cluster list's "Add kubeconfig" dialog, under the kubeconfig files:
+- a profile select;
+- a regions field;
+- Scan, then a results table: cluster, region, account, version, status, and Import. A cluster already in a kubeconfig shows "in your kubeconfig".
+- Region errors are listed next to the clusters that did load.
+
+**Not tested against a real AWS account here.** As with the audit feed's cloud sources, the CLI is faked in tests.
+
+**Not in v1:**
+- AKS and GKE;
+- removing an imported cluster (deleting its file from Settings' kubeconfig list works today);
+- scanning every region automatically.
 
 ### 15. Fleet / multi-cluster dashboard — status: removed 2026-10-02 (owner: "unnecessary"; was shipped 2026-09-28)
 **Verified: the engine already keys everything per-cluster; nothing here needs a new engine primitive for v1/v2.** `engine/internal/informers/pool_registry.go`'s `PoolRegistry.For(ctx, clusterID)` lazily creates one informer `Pool` per cluster ID (plus per-identity when impersonation is on) and caches it in a map — it was never a "one active cluster" registry, it already supports N simultaneously-open pools. `httpapi/server.go`'s `poolSource.Subscribe` resolves that pool per-subscription from the `cluster` field the client sends, and `web/apps/shell/src/lib/useResourceStream.ts` already sends an explicit `cluster` string on every `subscribe()` call, with its own comment explaining that the multiplexed `/ws` connection "broadcasts every frame to every attached listener" and each hook filters by its own subscription id. In other words: opening live full-mode subscriptions against several different clusters at once, over the one already-open WebSocket, is a pattern this codebase already relies on (`NamespaceFilter`'s own `v1/namespaces` stream runs alongside a table's main stream today) — it has just never been pointed at more than one cluster ID from the same page.

@@ -53,6 +53,13 @@ describe("kubeconfig on the cluster list", () => {
     await waitFor(() => expect(api.settingsApi.save).toHaveBeenCalledWith(expect.objectContaining({ extraKubeconfigs: ["/tmp/other.yaml"] })));
   });
 
+  it("offers EKS discovery in the same dialog, without running the aws CLI until asked", async () => {
+    renderAt("/clusters?kubeconfig=1");
+    const dialog = await screen.findByRole("dialog", { name: "Kubeconfig sources" });
+    expect(within(dialog).getByRole("button", { name: "Find EKS clusters" })).toBeInTheDocument();
+    expect(api.cloudDiscoveryApi.profiles).not.toHaveBeenCalled();
+  });
+
   it("opens the kubeconfig dialog from a link (?kubeconfig=1)", async () => {
     renderAt("/clusters?kubeconfig=1");
     const dialog = await screen.findByRole("dialog", { name: "Kubeconfig sources" });
