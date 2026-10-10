@@ -3,7 +3,13 @@ package kubetools
 import (
 	"context"
 	"fmt"
+	"io"
 	"time"
+
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
 
 	"github.com/RajaSardar/kubebay/engine/internal/clusters"
 	"github.com/RajaSardar/kubebay/engine/internal/informers"
@@ -57,3 +63,69 @@ func (s PoolSource) Snapshot(ctx context.Context, cluster, gvr string, namespace
 	}
 	return out, nil
 }
+
+// Get reads one object live. A single GET is cheap, and the informer cache
+// for an arbitrary kind may not exist yet.
+func (s PoolSource) Get(ctx context.Context, cluster, gvr, ns, name string) (map[string]any, error) {
+	cfg, err := s.Manager.RestConfig(cluster)
+	if err != nil {
+		return nil, err
+	}
+	g, err := informers.ParseGVR(gvr)
+	if err != nil {
+		return nil, err
+	}
+	dyn, err := dynamic.NewForConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	ri := dyn.Resource(g)
+	if ns != "" {
+		u, err := ri.Namespace(ns).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return nil, err
+		}
+		return u.Object, nil
+	}
+	u, err := ri.Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return u.Object, nil
+}
+
+// Logs reads a bounded tail of one container's log; the API server enforces
+// LimitBytes, and the read is capped again here.
+func (s PoolSource) Logs(ctx context.Context, cluster, ns, pod string, opt LogOptions) (string, error) {
+	cfg, err := s.Manager.RestConfig(cluster)
+	if err != nil {
+		return "", err
+	}
+	cs, err := kubernetes.NewForConfig(cfg)
+	if err != nil {
+		return "", err
+	}
+	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+	defer cancel()
+	tail := int64(opt.TailLines)
+	limit := int64(opt.LimitBytes)
+	rc, err := cs.CoreV1().Pods(ns).GetLogs(pod, &corev1.PodLogOptions{
+		Container:  opt.Container,
+		Previous:   opt.Previous,
+		TailLines:  &tail,
+		LimitBytes: &limit,
+	}).Stream(ctx)
+	if err != nil {
+		return "", err
+	}
+	defer rc.Close()
+	b, err := io.ReadAll(io.LimitReader(rc, limit))
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
+}
+
+var _ Inspector = PoolSource{}

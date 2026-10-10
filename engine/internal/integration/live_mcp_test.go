@@ -77,43 +77,76 @@ func TestLiveMCPListsPodsFromTheInformerCache(t *testing.T) {
 	}
 	_ = json.Unmarshal(b, &conn)
 
-	body, _ := json.Marshal(map[string]any{
-		"jsonrpc": "2.0", "id": 1, "method": "tools/call",
-		"params": map[string]any{
-			"_meta":     map[string]any{"io.modelcontextprotocol/protocolVersion": "2026-07-28", "io.modelcontextprotocol/clientInfo": map[string]string{"name": "it", "version": "1"}},
-			"name":      "list_resources",
-			"arguments": map[string]any{"cluster": clusterID, "kind": "pods", "namespace": "kube-system"},
-		},
-	})
-	req, _ = http.NewRequest(http.MethodPost, srv.URL+"/mcp", strings.NewReader(string(body)))
-	req.Header.Set("Authorization", "Bearer "+conn.Token)
-	req.Header.Set("MCP-Protocol-Version", "2026-07-28")
-	req.Header.Set("Mcp-Method", "tools/call")
-	req.Header.Set("Mcp-Name", "list_resources")
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json, text/event-stream")
-	res, err = http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatal(err)
+	call := func(name string, args map[string]any) string {
+		t.Helper()
+		body, _ := json.Marshal(map[string]any{
+			"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+			"params": map[string]any{
+				"_meta":     map[string]any{"io.modelcontextprotocol/protocolVersion": "2026-07-28", "io.modelcontextprotocol/clientInfo": map[string]string{"name": "it", "version": "1"}},
+				"name":      name,
+				"arguments": args,
+			},
+		})
+		req, _ := http.NewRequest(http.MethodPost, srv.URL+"/mcp", strings.NewReader(string(body)))
+		req.Header.Set("Authorization", "Bearer "+conn.Token)
+		req.Header.Set("MCP-Protocol-Version", "2026-07-28")
+		req.Header.Set("Mcp-Method", "tools/call")
+		req.Header.Set("Mcp-Name", name)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json, text/event-stream")
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer res.Body.Close()
+		var out struct {
+			Result struct {
+				Content []struct {
+					Text string `json:"text"`
+				} `json:"content"`
+				IsError bool `json:"isError"`
+			} `json:"result"`
+		}
+		if err := json.NewDecoder(res.Body).Decode(&out); err != nil || res.StatusCode != http.StatusOK {
+			t.Fatalf("%s: %d %v", name, res.StatusCode, err)
+		}
+		if out.Result.IsError || len(out.Result.Content) == 0 {
+			t.Fatalf("%s: tool error: %+v", name, out.Result)
+		}
+		return out.Result.Content[0].Text
 	}
-	defer res.Body.Close()
-	var out struct {
-		Result struct {
-			Content []struct {
-				Text string `json:"text"`
-			} `json:"content"`
-			IsError bool `json:"isError"`
-		} `json:"result"`
-	}
-	if err := json.NewDecoder(res.Body).Decode(&out); err != nil || res.StatusCode != http.StatusOK {
-		t.Fatalf("tools/call: %d %v", res.StatusCode, err)
-	}
-	if out.Result.IsError || len(out.Result.Content) == 0 {
-		t.Fatalf("tool error: %+v", out.Result)
-	}
-	text := out.Result.Content[0].Text
+
+	text := call("list_resources", map[string]any{"cluster": clusterID, "kind": "pods", "namespace": "kube-system"})
 	if !strings.Contains(text, `"kind":"pods"`) || !strings.Contains(text, "coredns") {
 		t.Errorf("kube-system pods: %s", text)
+	}
+	var list struct {
+		Rows []struct {
+			Name string `json:"name"`
+		} `json:"rows"`
+	}
+	_ = json.Unmarshal([]byte(text), &list)
+	coredns := ""
+	for _, r := range list.Rows {
+		if strings.HasPrefix(r.Name, "coredns") {
+			coredns = r.Name
+			break
+		}
+	}
+	if coredns == "" {
+		t.Fatalf("no coredns pod in %s", text)
+	}
+	if d := call("describe_resource", map[string]any{"cluster": clusterID, "kind": "pods", "namespace": "kube-system", "name": coredns}); !strings.Contains(d, "coredns") || !strings.Contains(d, `"owners":["ReplicaSet/`) || !strings.Contains(d, "Deployment/coredns") {
+		t.Errorf("describe coredns: %s", d)
+	}
+	if l := call("get_logs", map[string]any{"cluster": clusterID, "namespace": "kube-system", "pod": coredns}); !strings.Contains(l, "logs of kube-system/"+coredns) {
+		t.Errorf("logs: %s", l)
+	}
+	if h := call("get_cluster_health", map[string]any{"cluster": clusterID}); !strings.Contains(h, `"nodesReady":`) || !strings.Contains(h, `"podsTotal":`) {
+		t.Errorf("health: %s", h)
+	}
+	if m := call("get_manifest", map[string]any{"cluster": clusterID, "kind": "deployments", "namespace": "kube-system", "name": "coredns"}); !strings.Contains(m, "kind: Deployment") || strings.Contains(m, "managedFields") {
+		t.Errorf("manifest: %s", m)
 	}
 	if strings.Contains(text, `"spec"`) {
 		t.Error("rows, never whole objects")

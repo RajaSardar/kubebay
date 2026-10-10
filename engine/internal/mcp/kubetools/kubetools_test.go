@@ -21,6 +21,7 @@ type fakeSource struct {
 	clusters []clusters.Cluster
 	objs     map[string][]map[string]any // gvr -> objects
 	calls    []snapCall
+	logCalls []logCall
 }
 
 func (f *fakeSource) Clusters() []clusters.Cluster { return f.clusters }

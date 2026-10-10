@@ -99,6 +99,7 @@ func Register(reg *mcp.Registry, d Deps) {
 		InputSchema: json.RawMessage(schema),
 		Handler:     t.audited(t.listResources),
 	})
+	registerInspection(reg, t)
 }
 
 type tools struct{ d Deps }
