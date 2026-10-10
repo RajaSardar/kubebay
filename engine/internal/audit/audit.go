@@ -26,6 +26,9 @@ type Entry struct {
 	// through. Empty-string default keeps old log lines and this struct
 	// backward compatible with each other.
 	Outcome string `json:"outcome,omitempty"`
+	// Source is "mcp" for a call an AI client made through Kubebay's MCP
+	// server (backlog #5), empty for the UI. Reads are audited there too.
+	Source string `json:"source,omitempty"`
 }
 
 type Logger struct {

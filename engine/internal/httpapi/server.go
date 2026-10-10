@@ -36,6 +36,7 @@ type Deps struct {
 	NodeShell *NodeShellManager
 	NetDiag   *NetDiagManager
 	ImageSigs *ImageSignatureAPI
+	MCP       *MCPAPI
 	Settings  *SettingsManager
 	Auth      *Authenticator
 	Audit     *audit.Logger
@@ -94,6 +95,13 @@ func Router(d Deps, token string) http.Handler {
 			})
 			r.Get("/logout", d.Auth.HandleLogout)
 		})
+	}
+
+	// MCP sits beside the token group, not in it: requireToken also accepts
+	// the UI's launch token and OIDC cookies, and everything when no token is
+	// set. /mcp takes only its own Bearer token (MCPAPI.Endpoint).
+	if d.MCP != nil {
+		r.Handle("/mcp", d.MCP.Endpoint())
 	}
 
 	r.Group(func(r chi.Router) {
@@ -324,6 +332,11 @@ func Router(d Deps, token string) http.Handler {
 		r.Get("/api/apis", d.Metrics.HandleDiscovery)
 		r.Get("/api/apiversions", d.Metrics.HandleAPIVersions)
 		r.Get("/api/crds", d.Metrics.HandleCRDs)
+		if d.MCP != nil {
+			r.Get("/api/mcp", d.MCP.HandleGet)
+			r.Post("/api/mcp", d.MCP.HandleSave)
+			r.Post("/api/mcp/rotate", d.MCP.HandleRotate)
+		}
 		r.Get("/api/discover/aws/profiles", d.Discovery.HandleProfiles)
 		r.Post("/api/discover/eks/scan", d.Discovery.HandleScan)
 		r.Post("/api/discover/eks/import", d.Discovery.HandleImport)
