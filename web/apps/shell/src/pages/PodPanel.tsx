@@ -9,6 +9,8 @@ import { PodGraphs } from "../components/PodGraphs";
 import { ResizePanel } from "../components/ResizePanel";
 import { PodVulnerabilitiesTab } from "../components/PodVulnerabilitiesTab";
 import { ImageSignatureCheck } from "../components/ImageSignatureCheck";
+import { TriageTab } from "../components/TriageTab";
+import { useTriageAllowed } from "../lib/useTriageAllowed";
 
 export interface SelectedPod {
   cluster: string;
@@ -28,11 +30,12 @@ function classify(line: string): "" | "err" | "warn" {
   return "";
 }
 
-const POD_TABS = ["summary", "logs", "shell", "graphs", "size", "vulnerabilities", "signatures", "yaml"] as const;
+const POD_TABS = ["summary", "logs", "triage", "shell", "graphs", "size", "vulnerabilities", "signatures", "yaml"] as const;
 type PodTab = (typeof POD_TABS)[number];
 const POD_TAB_LABELS = {
   summary: "Summary",
   logs: "Logs",
+  triage: "Triage",
   shell: "Terminal",
   graphs: "Graphs",
   size: "Size",
@@ -53,6 +56,9 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
     localStorage.setItem("kb.drawerTab", t);
     setTabState(t);
   };
+  // Triage shows only where the user turned it on for this cluster (backlog #13).
+  const triageAllowed = useTriageAllowed(pod.cluster);
+  const tabs = triageAllowed ? POD_TABS : POD_TABS.filter((t) => t !== "triage");
   const [container, setContainer] = useState<string | undefined>(pod.containers[0]);
   const [tail, setTail] = useState(2000);
   const [follow, setFollow] = useState(true);
@@ -185,7 +191,7 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
       )}
 
       <Tabs
-        tabs={POD_TABS}
+        tabs={tabs}
         active={tab}
         labels={POD_TAB_LABELS}
         onChange={setTab}
@@ -294,6 +300,8 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
           containers={pod.containers}
           podObj={pod.obj}
         />
+      ) : tab === "triage" && triageAllowed ? (
+        <TriageTab cluster={pod.cluster} namespace={pod.namespace} pod={pod.pod} />
       ) : tab === "signatures" ? (
         <div style={{ padding: 14 }}>
           <ImageSignatureCheck cluster={pod.cluster} scope={{ ns: pod.namespace, pod: pod.pod }} />

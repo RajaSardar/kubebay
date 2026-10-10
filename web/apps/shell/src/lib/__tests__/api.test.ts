@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { api, mcpApi } from "../api";
+import { api, mcpApi, triageApi } from "../api";
 import { PolicyRejectionError, StaleEditError } from "../policyRejection";
 
 function jsonResponse(status: number, body: unknown) {
@@ -125,6 +125,30 @@ describe("mcpApi (backlog #5)", () => {
       ["/api/mcp", "GET", undefined],
       ["/api/mcp", "POST", JSON.stringify({ enabled: true, clusters: { "kind-dev": ["shop"] } })],
       ["/api/mcp/rotate", "POST", undefined],
+    ]);
+  });
+});
+
+describe("triageApi (backlog #13)", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("uses the token-guarded triage routes; the key goes in a PUT body only", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => jsonResponse(200, { enabled: false, clusters: [], baseURL: "", model: "", key: { source: "", store: "" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    await triageApi.get();
+    await triageApi.save({ enabled: true, clusters: ["kind-dev"], baseURL: "", model: "" });
+    await triageApi.putKey("sk-ant-api03-abc");
+    await triageApi.deleteKey();
+    await triageApi.preview({ cluster: "kind-dev", namespace: "shop", pod: "api-7d9-x" });
+    const calls = fetchMock.mock.calls.map(([url, init]) => [url, (init as RequestInit | undefined)?.method ?? "GET", (init as RequestInit | undefined)?.body]);
+    expect(calls).toEqual([
+      ["/api/triage", "GET", undefined],
+      ["/api/triage", "POST", JSON.stringify({ enabled: true, clusters: ["kind-dev"], baseURL: "", model: "" })],
+      ["/api/triage/key", "PUT", JSON.stringify({ key: "sk-ant-api03-abc" })],
+      ["/api/triage/key", "DELETE", undefined],
+      ["/api/triage/preview", "POST", JSON.stringify({ cluster: "kind-dev", namespace: "shop", pod: "api-7d9-x" })],
     ]);
   });
 });
