@@ -26,6 +26,7 @@ vi.mock("../../lib/useResourceStream", () => ({
 vi.mock("../../lib/api", async (orig) => ({
   ...(await orig<typeof import("../../lib/api")>()),
   wasteApi: { workloads: vi.fn(async () => []) },
+  promApi: { query: vi.fn(async () => []), queryRange: vi.fn() },
 }));
 
 describe("CostWaste GPU capacity", () => {
@@ -38,5 +39,16 @@ describe("CostWaste GPU capacity", () => {
       </QueryClientProvider>,
     );
     expect(screen.getByText("3 of 4 nvidia.com/gpu unclaimed")).toBeInTheDocument();
+  });
+
+  it("adds the claimed GPUs' utilisation card when a pod claims an NVIDIA GPU", async () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter>
+          <CostWaste />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByText("GPU utilisation")).toBeInTheDocument();
   });
 });

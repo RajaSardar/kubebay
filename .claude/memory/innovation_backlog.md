@@ -796,7 +796,7 @@ From the [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszb
 
 **Follow-up shipped 2026-09-30:** the connectivity matrix now uses the same evaluator (`lib/netpolMatrix.ts#matrixCell`, one representative pod per namespace/app group). Isolation is per pod, egress counts, and an Ingress policy without rules blocks instead of allowing. Cells read open, allowed (with any port restriction) or blocked (naming the isolating policies on the side that blocks), and the old "unknown" state is gone.
 
-### 40. GPU capacity accounting (GPU dimension, Phase 0) — status: shipped 2026-09-30
+### 40. GPU capacity accounting (GPU dimension) — status: shipped (Phase 0 2026-09-30, Phase 1 2026-10-09)
 
 From the [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszbyRLEMgqjEFVVewJ)'s Tier 2 list (item 14, the GPU utilisation and right-sizing dimension). Phase 0 is the GPU twin of #6's Tier 0 waste accounting and needs no metrics. `lib/gpuCapacity.ts#computeGpuCapacity` compares allocatable GPUs per node with the GPUs scheduled pods ask for:
 
@@ -810,6 +810,31 @@ From the [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszb
 **Phase 1 (not in this PR):** utilisation of *claimed* GPUs from DCGM exporter metrics (`DCGM_FI_DEV_GPU_UTIL`, framebuffer used) via the Prometheus path the Tier A recommender already uses, and GPU right-sizing suggestions (fractional/MIG, or time-slicing for underused whole-GPU claims). This needs DCGM, so it's gated on it being present.
 
 **Effort: S** for Phase 0, **M** for Phase 1. **OSS, not Enterprise.**
+
+**Phase 1 shipped 2026-10-09: a "GPU utilisation" card under GPU capacity, shown when a pod claims an NVIDIA GPU.**
+- **Source.** Checked against NVIDIA's own sources rather than assumed:
+  - Metric names come from dcgm-exporter's `default-counters.csv`: `DCGM_FI_DEV_GPU_UTIL` (%), `DCGM_FI_DEV_FB_USED`/`_FREE` (MiB), and `DCGM_FI_PROF_GR_ENGINE_ACTIVE` (a 0–1 ratio, used for MIG slices, which don't report GPU_UTIL).
+  - Label names come from the exporter's `transformation/const.go`: `pod`/`namespace`/`container`, or `pod_name`/`pod_namespace` with `--use-old-namespace`.
+  - Both NVIDIA charts (dcgm-exporter, gpu-operator) default the ServiceMonitor to `honorLabels: false`. Prometheus then keeps its own `pod`/`namespace` (the exporter pod's) and renames the exporter's to `exported_pod`/`exported_namespace`.
+- **Attribution.** `lib/gpuUtilisation.ts` takes a series' pod from `exported_*`, else `pod_name`, else `pod`.
+  - A row exists only for a pod that claims an NVIDIA GPU (from Phase 0). An unallocated GPU's series, which carries only the exporter's own pod label, can never be credited to the exporter, because it claims no GPU.
+  - AMD and Intel GPU claims are skipped, since DCGM is NVIDIA-only.
+- **Queries.** Eight instant queries through `/api/prom/query`, each over `[24h:5m]`. The subquery's `count_over_time` gives the hours of the window Prometheus actually has.
+  - A pod's figures are the average across its GPUs, the highest peak, and the peak framebuffer of any one GPU against its total.
+- **Verdict.**
+  - **Underused:** averages under 10% and never passes 30% across at least 6 observed hours.
+  - **Too little data:** under 6 hours, because a quiet GPU may just be between jobs.
+  - **No DCGM data:** the pod claims a GPU but no series is attributed to it.
+  - The thresholds are printed in the card. The suggestion (time-slicing, or a MIG slice on GPUs that support it) is text only, never an action.
+- **States.**
+  - No Prometheus URL (412): a hint to set one in Settings.
+  - No DCGM series at all: names dcgm-exporter as what's missing.
+  - Unreachable: shows the error.
+- **Not in v1:**
+  - a node-level view of unclaimed-but-busy GPUs;
+  - per-container rows;
+  - workload rollups;
+  - history beyond Prometheus's own retention.
 
 ### 41. Read-only node consolidation view — status: shipped 2026-10-01
 
