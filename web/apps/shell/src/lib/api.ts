@@ -703,6 +703,8 @@ export interface WorkloadHealth {
   brokenHours: number;
   recordedDays: number;
   brokenDays: number;
+  /** Broken hours by the reason seen most in each; hours recorded before reasons existed are not here. */
+  reasons?: Record<string, number>;
 }
 
 const q = (cluster: string) => `cluster=${encodeURIComponent(cluster)}`;

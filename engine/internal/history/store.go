@@ -56,6 +56,9 @@ type Obs struct {
 	// Broken lists the workloads that were broken this tick, as
 	// "namespace/Kind/name". Only the cluster total (Ns "") carries it.
 	Broken []string
+	// Reasons gives, per broken workload, why it was broken this tick
+	// (CrashLoopBackOff, OOMKilled…). A workload without one is still broken.
+	Reasons map[string]string
 	// Capacity, on the cluster total only; Nodes 0 means unknown this tick.
 	AllocCPUMillis int64
 	AllocMemBytes  int64
@@ -125,6 +128,8 @@ type openHour struct {
 	ByNs map[string]*acc `json:"byNs"`
 	// Health counts, per broken workload, the ticks it was broken this hour.
 	Health map[string]int `json:"health,omitempty"`
+	// Reasons counts, per broken workload, its broken ticks by reason code.
+	Reasons map[string]map[string]int `json:"reasons,omitempty"`
 }
 
 // line is one closed namespace-hour in a day file.
@@ -317,6 +322,15 @@ func (s *Store) Record(fp string, meta Meta, at time.Time, obs []Obs) error {
 				c.open.Health = map[string]int{}
 			}
 			c.open.Health[w]++
+			if code := o.Reasons[w]; code != "" {
+				if c.open.Reasons == nil {
+					c.open.Reasons = map[string]map[string]int{}
+				}
+				if c.open.Reasons[w] == nil {
+					c.open.Reasons[w] = map[string]int{}
+				}
+				c.open.Reasons[w][code]++
+			}
 		}
 	}
 	b, _ := json.Marshal(c.open)

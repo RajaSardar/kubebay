@@ -20,11 +20,14 @@ import (
 const healthVersion = 1
 
 type healthLine struct {
-	V        int       `json:"v"`
-	H        time.Time `json:"h"`
-	W        string    `json:"w,omitempty"`
-	B        int       `json:"b,omitempty"`
-	Overflow bool      `json:"overflow,omitempty"`
+	V int       `json:"v"`
+	H time.Time `json:"h"`
+	W string    `json:"w,omitempty"`
+	B int       `json:"b,omitempty"`
+	// R is the reason seen on most of the hour's broken ticks; absent on
+	// lines written before reasons were recorded.
+	R        string `json:"r,omitempty"`
+	Overflow bool   `json:"overflow,omitempty"`
 }
 
 // WorkloadHealth is one workload's record over a window: recorded hours (the
@@ -34,6 +37,20 @@ type WorkloadHealth struct {
 	BrokenHours   int `json:"brokenHours"`
 	RecordedDays  int `json:"recordedDays"`
 	BrokenDays    int `json:"brokenDays"`
+	// Reasons counts broken hours by the reason seen most in each; hours
+	// recorded before reasons existed are broken with no reason, so not here.
+	Reasons map[string]int `json:"reasons,omitempty"`
+}
+
+// topReason is the code with the most ticks, the alphabetically first on a tie.
+func topReason(byCode map[string]int) string {
+	best, n := "", 0
+	for code, k := range byCode {
+		if k > n || (k == n && code < best) {
+			best, n = code, k
+		}
+	}
+	return best
 }
 
 // brokenTicksFor is how many broken ticks make an hour broken: five minutes'
@@ -75,13 +92,14 @@ func (s *Store) flushHealth(cdir string, oh *openHour) error {
 			write(healthLine{V: healthVersion, H: oh.Hour, Overflow: true})
 			break
 		}
-		write(healthLine{V: healthVersion, H: oh.Hour, W: w, B: oh.Health[w]})
+		write(healthLine{V: healthVersion, H: oh.Hour, W: w, B: oh.Health[w], R: topReason(oh.Reasons[w])})
 	}
 	return bw.Flush()
 }
 
 type healthHour struct {
 	byW      map[string]int
+	reason   map[string]string
 	overflow bool
 }
 
@@ -91,7 +109,7 @@ func (s *Store) readHealth(fp string, from, to time.Time) map[time.Time]*healthH
 	out := map[time.Time]*healthHour{}
 	at := func(h time.Time) *healthHour {
 		if out[h] == nil {
-			out[h] = &healthHour{byW: map[string]int{}}
+			out[h] = &healthHour{byW: map[string]int{}, reason: map[string]string{}}
 		}
 		return out[h]
 	}
@@ -111,6 +129,7 @@ func (s *Store) readHealth(fp string, from, to time.Time) map[time.Time]*healthH
 				at(l.H).overflow = true
 			} else {
 				at(l.H).byW[l.W] = l.B
+				at(l.H).reason[l.W] = l.R
 			}
 		}
 		_ = fh.Close()
@@ -118,6 +137,7 @@ func (s *Store) readHealth(fp string, from, to time.Time) map[time.Time]*healthH
 	if c := s.load(fp); c.open != nil && !c.open.Hour.Before(from) && c.open.Hour.Before(to) {
 		for w, b := range c.open.Health {
 			at(c.open.Hour).byW[w] = b
+			at(c.open.Hour).reason[w] = topReason(c.open.Reasons[w])
 		}
 	}
 	return out
@@ -137,13 +157,14 @@ func (s *Store) Health(fp, w string, from, to time.Time) (WorkloadHealth, error)
 		if !ok || l.N == 0 {
 			continue
 		}
-		b := 0
+		b, reason := 0, ""
 		if hh := health[h]; hh != nil {
 			var listed bool
 			b, listed = hh.byW[w]
 			if hh.overflow && !listed {
 				continue
 			}
+			reason = hh.reason[w]
 		}
 		day := h.In(s.o.Location).Format("2006-01-02")
 		out.RecordedHours++
@@ -151,6 +172,12 @@ func (s *Store) Health(fp, w string, from, to time.Time) (WorkloadHealth, error)
 		if b >= brokenTicksFor(l.N) {
 			out.BrokenHours++
 			brokenDays[day] = true
+			if reason != "" {
+				if out.Reasons == nil {
+					out.Reasons = map[string]int{}
+				}
+				out.Reasons[reason]++
+			}
 		}
 	}
 	out.RecordedDays, out.BrokenDays = len(days), len(brokenDays)

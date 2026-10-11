@@ -1,5 +1,5 @@
 {
- "_comment": "Shared by attention.ts (Vitest) and the engine's podBroken (go test): the same pods must read broken or fine in both. Times are relative to now.",
+ "_comment": "Shared by attention.ts (Vitest) and the engine's podReason (go test): the same pods must read broken or fine, with the same reason code (\"\" when fine), in both. Times are relative to now.",
  "now": "2026-10-03T12:00:00Z",
  "cases": [
   {
@@ -43,7 +43,8 @@
       }
      ]
     }
-   }
+   },
+   "code": ""
   },
   {
    "name": "crash looping",
@@ -87,7 +88,59 @@
       }
      ]
     }
-   }
+   },
+   "code": "CrashLoopBackOff"
+  },
+  {
+   "name": "crash looping after running out of memory",
+   "broken": true,
+   "pod": {
+    "metadata": {
+     "name": "p",
+     "namespace": "shop",
+     "creationTimestamp": "2026-10-03T11:00:00Z"
+    },
+    "spec": {
+     "nodeName": "n1",
+     "containers": [
+      {
+       "name": "c"
+      }
+     ]
+    },
+    "status": {
+     "phase": "Running",
+     "conditions": [
+      {
+       "type": "Ready",
+       "status": "False",
+       "lastTransitionTime": "2026-10-03T11:59:00Z"
+      }
+     ],
+     "containerStatuses": [
+      {
+       "name": "c",
+       "ready": false,
+       "restartCount": 14,
+       "image": "x",
+       "imageID": "",
+       "state": {
+        "waiting": {
+         "reason": "CrashLoopBackOff",
+         "message": "back-off"
+        }
+       },
+       "lastState": {
+        "terminated": {
+         "reason": "OOMKilled",
+         "exitCode": 137
+        }
+       }
+      }
+     ]
+    }
+   },
+   "code": "OOMKilled"
   },
   {
    "name": "image pull failing",
@@ -123,7 +176,8 @@
       }
      ]
     }
-   }
+   },
+   "code": "ImagePullBackOff"
   },
   {
    "name": "container still creating",
@@ -159,7 +213,8 @@
       }
      ]
     }
-   }
+   },
+   "code": ""
   },
   {
    "name": "pending for two minutes",
@@ -181,7 +236,8 @@
     "status": {
      "phase": "Pending"
     }
-   }
+   },
+   "code": ""
   },
   {
    "name": "pending for ten minutes",
@@ -203,7 +259,8 @@
     "status": {
      "phase": "Pending"
     }
-   }
+   },
+   "code": "Pending"
   },
   {
    "name": "unschedulable",
@@ -233,7 +290,8 @@
       }
      ]
     }
-   }
+   },
+   "code": "Unschedulable"
   },
   {
    "name": "not ready for two minutes",
@@ -276,7 +334,8 @@
       }
      ]
     }
-   }
+   },
+   "code": ""
   },
   {
    "name": "not ready for ten minutes",
@@ -319,7 +378,8 @@
       }
      ]
     }
-   }
+   },
+   "code": "NotReady"
   },
   {
    "name": "succeeded",
@@ -341,7 +401,8 @@
     "status": {
      "phase": "Succeeded"
     }
-   }
+   },
+   "code": ""
   },
   {
    "name": "failed",
@@ -365,7 +426,8 @@
      "reason": "Error",
      "message": "exit 1"
     }
-   }
+   },
+   "code": "Failed"
   },
   {
    "name": "evicted",
@@ -388,7 +450,8 @@
      "phase": "Failed",
      "reason": "Evicted"
     }
-   }
+   },
+   "code": "Evicted"
   },
   {
    "name": "being deleted",
@@ -432,7 +495,8 @@
       }
      ]
     }
-   }
+   },
+   "code": ""
   }
  ]
 }

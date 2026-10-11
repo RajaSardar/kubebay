@@ -62,6 +62,9 @@ type NsUsage struct {
 	// Broken names the workloads with a broken pod this tick (podBroken), as
 	// "namespace/Kind/name", once each. Only the cluster total (Ns "") has it.
 	Broken []string
+	// Reasons gives each broken workload's reason this tick (podReason): the
+	// one most of its broken pods show, the alphabetically first on a tie.
+	Reasons map[string]string
 	// Capacity, set on the cluster total only; zero when the node list failed.
 	AllocCPUMillis int64
 	AllocMemBytes  int64
@@ -417,7 +420,7 @@ func (s *Sampler) sampleCluster(ctx context.Context, clusterID string, cs kubern
 	tickRequested := map[WorkloadKey]reqTotals{}
 	tickUsage := map[WorkloadKey]podUsage{}
 	tickHasUsage := map[WorkloadKey]bool{}
-	broken := map[string]bool{}
+	broken := map[string]map[string]int{} // workload → reason code → broken pods
 
 	for _, pod := range pods.Items {
 		// Namespace totals come first, before owner resolution drops bare pods.
@@ -430,8 +433,14 @@ func (s *Sampler) sampleCluster(ctx context.Context, clusterID string, cs kubern
 			continue
 		}
 		key := WorkloadKey{Cluster: clusterID, Ns: pod.Namespace, Kind: kind, Name: name}
-		if record && podBroken(pod, now) {
-			broken[pod.Namespace+"/"+kind+"/"+name] = true
+		if record {
+			if code := podReason(pod, now); code != "" {
+				w := pod.Namespace + "/" + kind + "/" + name
+				if broken[w] == nil {
+					broken[w] = map[string]int{}
+				}
+				broken[w][code]++
+			}
 		}
 
 		var reqCPU, reqMem int64
@@ -479,8 +488,12 @@ func (s *Sampler) sampleCluster(ctx context.Context, clusterID string, cs kubern
 			usage[0].ReqMemBytes += u.ReqMemBytes
 			usage = append(usage, *u)
 		}
-		for w := range broken {
+		if len(broken) > 0 {
+			usage[0].Reasons = map[string]string{}
+		}
+		for w, codes := range broken {
 			usage[0].Broken = append(usage[0].Broken, w)
+			usage[0].Reasons[w] = mostPods(codes)
 		}
 		sort.Strings(usage[0].Broken)
 		// Capacity feeds the clusters page headroom bar. A forbidden node list
@@ -573,4 +586,15 @@ func (s *Sampler) Snapshot(clusterID string) []WorkloadWaste {
 		})
 	}
 	return out
+}
+
+// mostPods is the reason code most pods show, the alphabetically first on a tie.
+func mostPods(byCode map[string]int) string {
+	best, n := "", 0
+	for code, k := range byCode {
+		if k > n || (k == n && code < best) {
+			best, n = code, k
+		}
+	}
+	return best
 }

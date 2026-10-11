@@ -52,7 +52,7 @@ func TestHealth_CountsBrokenHoursOverRecordedHours(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := WorkloadHealth{RecordedHours: 3, BrokenHours: 2, RecordedDays: 1, BrokenDays: 1}
-	if h != want {
+	if !sameCounts(h, want) {
 		t.Fatalf("Health = %+v, want %+v", h, want)
 	}
 	if h, _ := s.Health("fp1", "shop/Deployment/web", t0.Add(-24*time.Hour), c.t); h.BrokenHours != 0 || h.RecordedHours != 3 {
@@ -80,7 +80,7 @@ func TestHealth_SurvivesReopenAndCountsDays(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := WorkloadHealth{RecordedHours: 2, BrokenHours: 1, RecordedDays: 2, BrokenDays: 1}
-	if h != want {
+	if !sameCounts(h, want) {
 		t.Fatalf("Health = %+v, want %+v", h, want)
 	}
 }
@@ -120,4 +120,10 @@ func TestHealth_PrunedWithItsDay(t *testing.T) {
 	if _, err := os.Stat(p); !os.IsNotExist(err) {
 		t.Fatalf("health file outlived retention: %v", err)
 	}
+}
+
+// sameCounts compares the four counts; reasons are checked where they matter.
+func sameCounts(a, b WorkloadHealth) bool {
+	return a.RecordedHours == b.RecordedHours && a.BrokenHours == b.BrokenHours &&
+		a.RecordedDays == b.RecordedDays && a.BrokenDays == b.BrokenDays
 }

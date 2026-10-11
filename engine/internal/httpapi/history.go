@@ -328,7 +328,7 @@ func HistoryUsageRecorder(rec *history.Recorder, metaFor func(clusterID string) 
 	return func(ctx context.Context, clusterID string, cs kubernetes.Interface, at time.Time, usage []waste.NsUsage) {
 		obs := make([]history.Obs, 0, len(usage))
 		for _, u := range usage {
-			obs = append(obs, history.Obs{Ns: u.Ns, CPUMillis: u.CPUMillis, MemBytes: u.MemBytes, HasUsage: u.HasUsage, ReqCPUMillis: u.ReqCPUMillis, ReqMemBytes: u.ReqMemBytes, AllocCPUMillis: u.AllocCPUMillis, AllocMemBytes: u.AllocMemBytes, Nodes: u.Nodes, Broken: u.Broken})
+			obs = append(obs, history.Obs{Ns: u.Ns, CPUMillis: u.CPUMillis, MemBytes: u.MemBytes, HasUsage: u.HasUsage, ReqCPUMillis: u.ReqCPUMillis, ReqMemBytes: u.ReqMemBytes, AllocCPUMillis: u.AllocCPUMillis, AllocMemBytes: u.AllocMemBytes, Nodes: u.Nodes, Broken: u.Broken, Reasons: u.Reasons})
 		}
 		if err := rec.Record(ctx, metaFor(clusterID), cs, at, obs); err != nil && log != nil {
 			log.Warn("history: record failed", "cluster", clusterID, "err", err)
