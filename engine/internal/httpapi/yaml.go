@@ -81,8 +81,12 @@ func auditActionFor(req ApplyYAMLRequest) string {
 }
 
 func stripNoisyFields(obj map[string]interface{}) {
+	stripMetadata(obj, "managedFields", "resourceVersion", "uid", "selfLink", "generation", "creationTimestamp")
+}
+
+func stripMetadata(obj map[string]interface{}, keys ...string) {
 	if meta, ok := obj["metadata"].(map[string]interface{}); ok {
-		for _, k := range []string{"managedFields", "resourceVersion", "uid", "selfLink", "generation", "creationTimestamp"} {
+		for _, k := range keys {
 			delete(meta, k)
 		}
 	}
@@ -139,14 +143,17 @@ func (c *Channels) HandleGetYAML(w http.ResponseWriter, r *http.Request) {
 		b, _ := json.Marshal(obj)
 		_ = json.Unmarshal(b, &doc)
 	}
-	stripNoisyFields(doc)
 	// The drawer summaries and ResizePanel need a structured object, and shipping a
 	// YAML parser to the browser just to read back what we serialized here is waste.
+	// They read, never apply, it: the drawer matches owned ReplicaSets by uid and
+	// shows when the object was created, so only the editor's text loses those.
 	if q.Get("format") == "json" {
+		stripMetadata(doc, "managedFields", "resourceVersion", "selfLink", "generation")
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(doc)
 		return
 	}
+	stripNoisyFields(doc)
 	out, err := yaml.Marshal(doc)
 	if err != nil {
 		http.Error(w, "marshal: "+err.Error(), http.StatusInternalServerError)
