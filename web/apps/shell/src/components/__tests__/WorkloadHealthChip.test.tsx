@@ -65,4 +65,30 @@ describe("WorkloadHealthChip", () => {
     await waitFor(() => expect(api.historyApi.health).toHaveBeenCalled());
     expect(c.container).toBeEmptyDOMElement();
   });
+
+  it("after a recorded week, says why it keeps breaking when one reason is behind most broken hours", async () => {
+    vi.mocked(api.historyApi.health).mockResolvedValue({
+      recordedHours: 160,
+      brokenHours: 9,
+      recordedDays: 7,
+      brokenDays: 4,
+      reasons: { CrashLoopBackOff: 6, OOMKilled: 2 },
+    });
+    renderIt();
+    expect(await screen.findByText("Broken in 9 of 160 recorded hours, on 4 of 7 recorded days, mostly: keeps crashing on start")).toBeInTheDocument();
+    expect(screen.getByText("CrashLoopBackOff")).toBeInTheDocument();
+  });
+
+  it("names no reason before a full week is recorded", async () => {
+    vi.mocked(api.historyApi.health).mockResolvedValue({
+      recordedHours: 131,
+      brokenHours: 9,
+      recordedDays: 6,
+      brokenDays: 4,
+      reasons: { CrashLoopBackOff: 9 },
+    });
+    renderIt();
+    expect(await screen.findByText("Broken in 9 of 131 recorded hours, on 4 of 6 recorded days")).toBeInTheDocument();
+    expect(screen.queryByText("CrashLoopBackOff")).toBeNull();
+  });
 });
