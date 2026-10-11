@@ -10,6 +10,7 @@ import { NodeSummary } from "./NodeSummary";
 import { ServiceSummary } from "./ServiceSummary";
 import { MetadataSummary } from "./MetadataSummary";
 import { RolloutProgress } from "./RolloutProgress";
+import { RolloutLine } from "./RolloutLine";
 import { AutoscalingTab } from "./AutoscalingTab";
 import { PolicyFindingsTab } from "./PolicyFindingsTab";
 import { WorkloadVulnerabilitiesTab } from "./WorkloadVulnerabilitiesTab";
@@ -83,6 +84,7 @@ function PaneContent({
   shellErr,
   creating,
   onStartShell,
+  onGenTab,
 }: {
   isNode: boolean;
   isService: boolean;
@@ -99,6 +101,8 @@ function PaneContent({
   shellErr: string;
   creating: boolean;
   onStartShell: () => void;
+  /** Switches this pane's tab, for content that leads to another tab. */
+  onGenTab?: (tab: GenTab) => void;
 }) {
   // def.kind is the declared Kind; for a CRD route it is only guessed from the
   // plural, so prefer the Kind the live object reports once it has loaded.
@@ -148,6 +152,9 @@ function PaneContent({
         )}
         {RIGHTSIZABLE_SLUGS.has(def.slug) && obj && <WarningSparkline cluster={cluster} obj={obj} style={{ padding: "14px 14px 0" }} />}
         {RIGHTSIZABLE_SLUGS.has(def.slug) && obj && <WorkloadHealthChip cluster={cluster} obj={obj} style={{ padding: "8px 14px 0" }} />}
+        {def.slug === "deployments" && obj && (
+          <RolloutLine cluster={cluster} obj={obj} onShowRollout={onGenTab && (() => onGenTab("rollout"))} style={{ padding: "8px 14px 0" }} />
+        )}
         <MetadataSummary obj={obj} />
       </div>
     );
@@ -569,6 +576,7 @@ export default function GenericDrawer({
                 nodeTab={leftNodeTab}
                 svcTab={leftSvcTab}
                 genTab={leftGenTab}
+                onGenTab={setLeftGenTab}
               />
             </div>
           </div>
@@ -608,6 +616,7 @@ export default function GenericDrawer({
                 nodeTab={rightNodeTab}
                 svcTab={rightSvcTab}
                 genTab={rightGenTab}
+                onGenTab={setRightGenTab}
               />
             </div>
           </div>
@@ -619,6 +628,7 @@ export default function GenericDrawer({
           nodeTab={nodeTab}
           svcTab={svcTab}
           genTab={genTab}
+          onGenTab={setGenTab}
         />
       )}
     </Drawer>
