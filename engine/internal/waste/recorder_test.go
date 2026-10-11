@@ -194,3 +194,27 @@ func TestSampleCluster_RecorderGetsBrokenWorkloadsOnTheTotal(t *testing.T) {
 		t.Fatalf("namespace lines carry no broken list: %v", u["shop"].Broken)
 	}
 }
+
+// Each broken workload's reason rides along: the one most of its broken pods
+// show this tick, the alphabetically first on a tie.
+func TestSampleCluster_RecorderGetsEachBrokenWorkloadsReason(t *testing.T) {
+	waiting := func(name, reason string) corev1.Pod {
+		p := deploymentOwnedPod("shop", name, "rs-uid-1", "100m", "128Mi")
+		p.Status.ContainerStatuses = []corev1.ContainerStatus{{Name: "app", State: corev1.ContainerState{Waiting: &corev1.ContainerStateWaiting{Reason: reason}}}}
+		return p
+	}
+	a, b, c := waiting("app-1", "CrashLoopBackOff"), waiting("app-2", "ImagePullBackOff"), waiting("app-3", "ImagePullBackOff")
+	rs := replicaSet("shop", "app-rs", "rs-uid-1", "dep-uid-1")
+	cs := fake.NewSimpleClientset(&a, &b, &c, &rs)
+
+	got, filter, rec := captureRecorder(map[string]bool{"kind-dev": true})
+	s := NewSampler(nil, discardLogger())
+	s.SetRecorder(filter, rec)
+	if err := s.sampleCluster(context.Background(), "kind-dev", cs, newFakeMetricsClient()); err != nil {
+		t.Fatal(err)
+	}
+	total := byNs((*got)[0].usage)[""]
+	if r := total.Reasons["shop/Deployment/app"]; r != "ImagePullBackOff" {
+		t.Fatalf("reason = %q, want ImagePullBackOff (2 of 3 pods); reasons %v", r, total.Reasons)
+	}
+}

@@ -221,7 +221,7 @@ func TestHistoryHealth_BrokenOverRecordedHours(t *testing.T) {
 	rec := HistoryUsageRecorder(f.api.Recorder, func(id string) history.Meta { return history.Meta{ClusterID: id, Context: id} }, nil)
 	now := time.Now()
 	rec(context.Background(), "kind-dev", fake.NewSimpleClientset(), now, []waste.NsUsage{
-		{Ns: "", ReqCPUMillis: 100, Broken: []string{"shop/Deployment/api"}},
+		{Ns: "", ReqCPUMillis: 100, Broken: []string{"shop/Deployment/api"}, Reasons: map[string]string{"shop/Deployment/api": "CrashLoopBackOff"}},
 		{Ns: "shop", ReqCPUMillis: 100},
 	})
 	var h history.WorkloadHealth
@@ -230,7 +230,7 @@ func TestHistoryHealth_BrokenOverRecordedHours(t *testing.T) {
 		t.Fatalf("health: %d %s", res.Code, res.Body)
 	}
 	_ = json.Unmarshal(res.Body.Bytes(), &h)
-	if h != (history.WorkloadHealth{RecordedHours: 1, BrokenHours: 1, RecordedDays: 1, BrokenDays: 1}) {
+	if h.RecordedHours != 1 || h.BrokenHours != 1 || h.RecordedDays != 1 || h.BrokenDays != 1 || h.Reasons["CrashLoopBackOff"] != 1 {
 		t.Fatalf("api: %+v", h)
 	}
 	_ = json.Unmarshal(do(f.api.HandleHealth, http.MethodGet, "/x?cluster=kind-dev&ns=shop&kind=Deployment&name=web").Body.Bytes(), &h)
