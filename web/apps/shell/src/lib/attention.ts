@@ -80,6 +80,11 @@ function describe(code: string): { plain: string; severity: AttentionSeverity } 
   return REASONS[code] ?? { plain: "Waiting to start", severity: "warn" };
 }
 
+/** A reason code in the words the Overview uses ("Keeps crashing on start"). */
+export function reasonInWords(code: string): string {
+  return describe(code).plain;
+}
+
 /** Pods older than this before Pending or not-ready counts as stuck. */
 const GRACE_MS = 5 * 60_000;
 
@@ -150,6 +155,11 @@ function podProblem(pod: Obj, nodes: Map<string, Obj>, now: number): PodProblem 
  */
 export function podBroken(pod: Obj, now = Date.now()): boolean {
   return podProblem(pod, new Map(), now) !== null;
+}
+
+/** The reason code podBroken goes by ("" when the pod is fine): what the engine records per hour. */
+export function podReason(pod: Obj, now = Date.now()): string {
+  return podProblem(pod, new Map(), now)?.code ?? "";
 }
 
 /** The workload a pod belongs to: a ReplicaSet's pods belong to its Deployment. */

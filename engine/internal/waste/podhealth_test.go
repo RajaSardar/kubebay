@@ -23,6 +23,7 @@ func TestPodBrokenMatchesShellFixtures(t *testing.T) {
 		Cases []struct {
 			Name   string     `json:"name"`
 			Broken bool       `json:"broken"`
+			Code   string     `json:"code"`
 			Pod    corev1.Pod `json:"pod"`
 		} `json:"cases"`
 	}
@@ -35,6 +36,9 @@ func TestPodBrokenMatchesShellFixtures(t *testing.T) {
 	for _, c := range f.Cases {
 		if got := podBroken(c.Pod, f.Now); got != c.Broken {
 			t.Errorf("%s: podBroken = %v, want %v", c.Name, got, c.Broken)
+		}
+		if got := podReason(c.Pod, f.Now); got != c.Code {
+			t.Errorf("%s: podReason = %q, want %q", c.Name, got, c.Code)
 		}
 	}
 }
