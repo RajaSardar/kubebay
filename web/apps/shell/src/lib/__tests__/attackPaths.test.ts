@@ -249,6 +249,16 @@ describe("findAttackPaths", () => {
       expect(p.secretAccess).toEqual(["shop/db-creds", "billing"]);
     });
 
+    it("survives bindings whose subjects are null (the API omits them when empty)", () => {
+      const snap = rbacSnap([{ cluster: true, role: "ClusterRole:reader", subject: sa }], { "ClusterRole:reader": [readSecrets()] });
+      const nulled = {
+        ...snap,
+        clusterRoleBindings: [{ name: "empty-crb", kind: "ClusterRoleBinding", roleRef: "ClusterRole:reader", subjects: null as never }, ...snap.clusterRoleBindings],
+        roleBindings: [{ name: "empty-rb", ns: "shop", kind: "RoleBinding", roleRef: "ClusterRole:reader", subjects: null as never }],
+      };
+      expect(() => findAttackPaths(base({ vulnReports: [], rbacFindings: [], rbac: nulled }))).not.toThrow();
+    });
+
     it("counts groups every ServiceAccount is in, and ignores write-only or other-resource rules", () => {
       const snap = rbacSnap(
         [

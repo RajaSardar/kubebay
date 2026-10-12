@@ -287,10 +287,10 @@ function secretAccess(sa: string, rbac: AttackPathInput["rbac"]): string[] {
     if (!out.includes(v)) out.push(v);
   };
   for (const b of rbac.clusterRoleBindings) {
-    if (b.subjects.some((s) => isMe(s)) && rulesOf(b.roleRef).some(readsSecrets)) return ["every namespace"];
+    if ((b.subjects ?? []).some((s) => isMe(s)) && rulesOf(b.roleRef).some(readsSecrets)) return ["every namespace"];
   }
   for (const b of rbac.roleBindings) {
-    if (!b.subjects.some((s) => isMe(s, b.ns))) continue;
+    if (!(b.subjects ?? []).some((s) => isMe(s, b.ns))) continue;
     for (const r of rulesOf(b.roleRef, b.ns).filter(readsSecrets)) {
       if (r.resourceNames?.length) r.resourceNames.forEach((n) => add(`${b.ns}/${n}`));
       else add(b.ns ?? "");

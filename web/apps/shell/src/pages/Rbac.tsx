@@ -237,7 +237,7 @@ export default function Rbac() {
       if (!applies) return;
       for (const rule of role.rules) {
         if (!ruleAllows(rule, effectiveVerb === "*" ? "*" : effectiveVerb, meta.group, meta.resource)) continue;
-        for (const s of b.subjects) {
+        for (const s of b.subjects ?? []) {
           const k = subjectKey(s);
           grants.set(k, [...(grants.get(k) ?? []), `${b.kind} ${b.ns ? b.ns + "/" : ""}${b.name}`]);
         }

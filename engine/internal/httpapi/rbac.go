@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	authorizationv1 "k8s.io/api/authorization/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
@@ -59,6 +60,16 @@ func (rb *RBAC) clientset(r *http.Request, cluster string) (*kubernetes.Clientse
 		return nil, err
 	}
 	return kubernetes.NewForConfig(cfg)
+}
+
+// subjectsFrom never returns nil: a binding with no subjects must serialise as
+// [] because the UI iterates the list.
+func subjectsFrom(in []rbacv1.Subject) []Subject {
+	out := make([]Subject, 0, len(in))
+	for _, s := range in {
+		out = append(out, Subject{Kind: s.Kind, Name: s.Name, Namespace: s.Namespace})
+	}
+	return out
 }
 
 func rulesFrom(rules interface{}) []Rule {
@@ -124,16 +135,12 @@ func (rb *RBAC) HandleAll(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, b := range crbs.Items {
 		bb := BindingSummary{Name: b.Name, Kind: "ClusterRoleBinding", RoleRef: b.RoleRef.Kind + ":" + b.RoleRef.Name}
-		for _, s := range b.Subjects {
-			bb.Subjects = append(bb.Subjects, Subject{Kind: s.Kind, Name: s.Name, Namespace: s.Namespace})
-		}
+		bb.Subjects = subjectsFrom(b.Subjects)
 		snap.ClusterRoleBindings = append(snap.ClusterRoleBindings, bb)
 	}
 	for _, b := range rbs.Items {
 		bb := BindingSummary{Name: b.Name, NS: b.Namespace, Kind: "RoleBinding", RoleRef: b.RoleRef.Kind + ":" + b.RoleRef.Name}
-		for _, s := range b.Subjects {
-			bb.Subjects = append(bb.Subjects, Subject{Kind: s.Kind, Name: s.Name, Namespace: s.Namespace})
-		}
+		bb.Subjects = subjectsFrom(b.Subjects)
 		snap.RoleBindings = append(snap.RoleBindings, bb)
 	}
 	snap.Findings = AnalyzeRBAC(snap, existingServiceAccounts)

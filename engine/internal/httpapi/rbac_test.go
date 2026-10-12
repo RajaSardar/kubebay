@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"encoding/json"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"testing"
 )
@@ -24,5 +25,15 @@ func TestRulesFrom_PreservesResourceNamesAndNonResourceURLs(t *testing.T) {
 	}
 	if len(out[0].NonResourceURLs) != 1 || out[0].NonResourceURLs[0] != "/healthz" {
 		t.Errorf("NonResourceURLs dropped: %+v", out[0])
+	}
+}
+
+func TestSubjectsFrom_EmptyIsNotNullInJSON(t *testing.T) {
+	out, err := json.Marshal(subjectsFrom(nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(out) != "[]" {
+		t.Errorf("a binding with no subjects must serialise as [], got %s", out)
 	}
 }
