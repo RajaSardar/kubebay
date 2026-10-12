@@ -347,6 +347,7 @@ func Router(d Deps, token string) http.Handler {
 			r.Put("/api/triage/key", d.Triage.HandlePutKey)
 			r.Delete("/api/triage/key", d.Triage.HandleDeleteKey)
 			r.Post("/api/triage/preview", d.Triage.HandlePreview)
+			r.Post("/api/triage/send", d.Triage.HandleSend)
 		}
 		r.Get("/api/discover/aws/profiles", d.Discovery.HandleProfiles)
 		r.Post("/api/discover/eks/scan", d.Discovery.HandleScan)
