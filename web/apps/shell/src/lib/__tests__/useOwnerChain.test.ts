@@ -13,9 +13,6 @@ vi.mock("../useResourceStream", () => ({
   }),
 }));
 
-function pod(name: string, ownerKind: string, ownerName: string, apiVersion = "apps/v1") {
-  return { metadata: { name, namespace: "prod", ownerReferences: [{ apiVersion, kind: ownerKind, name: ownerName }] } };
-}
 function rs(name: string, ownerKind?: string, ownerName?: string) {
   return {
     metadata: {
@@ -67,7 +64,7 @@ describe("useOwnerChain", () => {
     );
     // Still shows the RS link, just can't follow further
     expect(result.current).toHaveLength(1);
-    expect(result.current[0].kind).toBe("ReplicaSet");
+    expect(result.current[0]?.kind).toBe("ReplicaSet");
   });
 
   it("stops when owner kind is unknown (CRD not in OWNER_GVR map)", () => {

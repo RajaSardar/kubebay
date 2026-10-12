@@ -80,6 +80,7 @@ export function useOwnerChain(
       // Follow the controller owner (controller: true) if present, else first
       const ownerRef =
         (current as (RawOwnerRef & { controller?: boolean })[]).find((o) => o.controller) ?? current[0];
+      if (!ownerRef) break;
 
       const dedupeKey = `${ownerRef.kind}/${ownerRef.name}`;
       if (seen.has(dedupeKey)) break;
