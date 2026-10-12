@@ -1,8 +1,8 @@
 module github.com/RajaSardar/kubebay/engine
 
-go 1.22.0
+go 1.24.0
 
-toolchain go1.22.1
+toolchain go1.26.9
 
 require (
 	github.com/coder/websocket v1.8.12
@@ -142,7 +142,7 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/apiextensions-apiserver v0.31.3 // indirect
+	k8s.io/apiextensions-apiserver v0.31.3
 	k8s.io/apiserver v0.31.3 // indirect
 	k8s.io/component-base v0.31.3 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect

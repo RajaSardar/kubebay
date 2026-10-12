@@ -4,7 +4,7 @@ WORKDIR /src
 COPY web/ ./web/
 RUN cd web && pnpm install --frozen-lockfile && pnpm build
 
-FROM golang:1.22-alpine AS engine
+FROM golang:1.26-alpine AS engine
 WORKDIR /src
 COPY engine/ ./engine/
 COPY --from=web /src/web/apps/shell/dist ./engine/internal/httpapi/static/dist
