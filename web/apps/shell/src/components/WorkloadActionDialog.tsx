@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button, InlineBanner, Modal, Row, Stack, TextField } from "@kubebay/ui";
+import { Button, InlineBanner, Modal, Row, Stack } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { ownerLabel, ownerOf, ownerWarning } from "../lib/gitops";
 import { PolicyRejectionError, type PolicyRejectionDetail } from "../lib/policyRejection";
