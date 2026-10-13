@@ -163,6 +163,7 @@ func main() {
 	}()
 
 	handler := httpapi.Router(httpapi.Deps{
+		Version:   version,
 		Log:       log,
 		Auth:      auth,
 		Clusters:  mgr,
