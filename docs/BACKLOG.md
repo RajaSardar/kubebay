@@ -257,6 +257,11 @@ LATER (post-1.0; demand- or decision-gated)
   - The export records cluster, time and Kubebay version.
 
 ### KB-16 · Saved views (workspaces): M
+- **Status: shipped** (2026-10-13), for the `/r/:kind` resource tables.
+  - `lib/savedViews.ts` is a zustand store persisted under `kb.views`. Applying a view writes the table's own `kb.sort.r/<kind>` and `kb.cols.r/<kind>` prefs, sets the namespace selection and the active cluster, and opens `/r/<kind>?q=…&view=<id>`.
+  - Views open from the `/view/:id` route, which the sidebar and ⌘K link to.
+  - Export and import use a validated `kubebay.savedViews` v1 file.
+  - The Pods page (`/workloads`) isn't covered yet.
 - **Why:** RESEARCH §8.3 says the moat is workflow lock-in, and the way to build it without a server is local, portable state.
 - **Scope:**
   - A named view = cluster + namespaces + kind + filter (`key:value` syntax) + columns + sort.

@@ -17,6 +17,7 @@ import { ResourceListView, type ListColumn } from "../components/ResourceListVie
 import GenericDrawer from "../components/GenericDrawer";
 import { WorkloadActionDialog, workloadActions } from "../components/WorkloadActionDialog";
 import { StarButton } from "../components/Favorites";
+import { SaveViewButton } from "../components/SavedViews";
 import { NamespaceFilter } from "../components/NamespaceFilter";
 import { useSelectedNamespaces } from "../lib/namespace-store";
 import { WorkloadTabBar, isWorkloadRoute } from "../components/WorkloadTabBar";
@@ -315,6 +316,8 @@ export default function ResourceTable() {
   const { cluster: effectiveCluster } = useCluster();
 
   const nsFilter = useSelectedNamespaces(effectiveCluster || undefined);
+  // KB-16: the filter's current text, for Save view.
+  const [filterText, setFilterText] = useState(sp.get("q") ?? "");
   const [selected, setSelected] = useState<{ ns: string; name: string; tab?: "yaml" } | null>(null);
   const [rowAction, setRowAction] = useState<{ action: "scale" | "restart"; obj: Row } | null>(null);
 
@@ -427,6 +430,12 @@ export default function ResourceTable() {
     <div className="page">
       {isWorkloadRoute(location.pathname) && <WorkloadTabBar />}
       <ResourceListView<Row>
+        // A saved view (?view=) or a new ?q= link starts the list afresh, so it
+        // reads the view's filter, columns and sort.
+        key={`${sp.get("view") ?? ""}|${sp.get("q") ?? ""}|${sp.get("view") ? location.key : ""}`}
+        initialFilter={sp.get("q") ?? ""}
+        onFilterChange={setFilterText}
+        headerActions={<SaveViewButton cluster={effectiveCluster} kind={kind} namespaces={def.scoped ? [] : nsFilter} filter={filterText} label={def.label} />}
         title={
           <>
             {def.label}

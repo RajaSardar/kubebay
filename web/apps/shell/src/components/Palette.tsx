@@ -5,6 +5,7 @@ import { Kbd, StatusDot } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { useResourceStream } from "../lib/useResourceStream";
 import { useClusterStore } from "../lib/cluster-store";
+import { useSavedViews } from "../lib/savedViews";
 import { DEFS, EXTRA_DEFS } from "../lib/resources";
 
 // ──── Nav items (static routes) ──────────────────────────────────────────────
@@ -84,8 +85,10 @@ export function usePaletteItems(): PaletteItem[] {
 function useDynamicItems(): PaletteItem[] {
   const clusters = useQuery({ queryKey: ["clusters"], queryFn: api.clusters, staleTime: 30_000 });
   const pfs = useQuery({ queryKey: ["pf-palette"], queryFn: api.pfList, staleTime: 10_000, refetchInterval: 30_000 });
+  const views = useSavedViews((s) => s.views);
   return useMemo(() => {
-    const out: PaletteItem[] = [];
+    // KB-16: saved views first, they're what the user named.
+    const out: PaletteItem[] = views.map((v) => ({ label: `View: ${v.name}`, hint: `${v.kind} · ${v.cluster}`, to: `/view/${v.id}` }));
     for (const c of clusters.data ?? []) {
       out.push({ label: `Cluster: ${c.id}`, hint: c.status, to: `/workloads?cluster=${encodeURIComponent(c.id)}` });
     }
@@ -96,7 +99,7 @@ function useDynamicItems(): PaletteItem[] {
       });
     }
     return out;
-  }, [clusters.data, pfs.data]);
+  }, [clusters.data, pfs.data, views]);
 }
 
 // ──── Live pod items ──────────────────────────────────────────────────────────

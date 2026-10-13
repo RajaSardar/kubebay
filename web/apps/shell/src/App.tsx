@@ -59,6 +59,7 @@ import { Palette } from "./components/Palette";
 import { discoveryApi } from "./lib/api";
 import { KNOWN_GVRS, extSlug } from "./lib/resources";
 import { FavoritesSidebar, useFavorites } from "./components/Favorites";
+import { OpenSavedView, SavedViewsSidebar } from "./components/SavedViews";
 import { useClusterIcons } from "./lib/useClusterIcons";
 import { ClusterIconPicker, autoAvatar, avatarLabelColor, stripAvatarLook } from "./components/ClusterIconPicker";
 import { useWsStatus } from "./lib/useWsStatus";
@@ -468,6 +469,7 @@ function Sidebar({ onOpenPalette, sidebar }: { onOpenPalette: () => void; sideba
         <CustomResourcesGroup />
 
         {favorites.length > 0 && <FavoritesSidebar favorites={favorites} onRemove={removeFav} />}
+        <SavedViewsSidebar />
 
         <div className="nav-section">Tools</div>
         {TOOLS.map((t) => (
@@ -606,6 +608,7 @@ function AppInner() {
               <Route path="/workloads" element={<Workloads />} />
               <Route path="/workloads-overview" element={<WorkloadsOverview />} />
               <Route path="/r/:kind" element={<ResourceTable />} />
+              <Route path="/view/:id" element={<OpenSavedView />} />
               <Route path="/detail/:kind/:ns/:name" element={<ResourceDetail />} />
               <Route path="/ports" element={<Ports />} />
               <Route path="/timeline" element={<Timeline />} />
