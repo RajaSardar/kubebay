@@ -88,8 +88,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-      # KB-02: the release workflow's installer-size check.
-      - run: node --test scripts/installer-sizes.test.mjs
+      # Release tooling: installer sizes (KB-02), the air-gapped bundle (KB-21).
+      - run: node --test scripts/*.test.mjs
 
   integration:
     name: integration (kind)
