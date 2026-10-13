@@ -259,9 +259,12 @@ export interface ImageSignatureRow {
   status: "signed" | "unsigned" | "unknown";
   method?: string;
   reason?: string;
-  /** A found signature checked against the cluster's own policy keys. */
+  /** A found signature checked against the cluster's own policy keys, or for keyless ones, Sigstore's roots and the policies' identities. */
   verification?: "verified" | "failed" | "keyless" | "no-key";
   verifiedBy?: string;
+  /** Who signed a keyless signature that verified against Sigstore's public roots. */
+  signer?: string;
+  issuer?: string;
   pods: number;
   namespaces: string[];
 }
