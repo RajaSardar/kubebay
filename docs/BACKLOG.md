@@ -329,6 +329,10 @@ LATER (post-1.0; demand- or decision-gated)
 - **Watch-out:** hub mode drifts toward Rancher's territory. Keep it read-mostly, with no provisioning.
 
 ### KB-21 · Air-gapped install bundle: S–M
+- **Status: shipped** (2026-10-13).
+  - `scripts/airgap-bundle.mjs` and a release job build `kubebay-airgap-<version>.tar.gz`: the pinned chart, a multi-arch OCI archive and per-arch docker archives, `docs/AIRGAP.md`, and `SHA256SUMS` with its cosign bundle.
+  - Unit-tested, and run end to end locally with skopeo and helm 3.19.5 on a test image: `sha256sum -c` passes, the chart renders the pinned tag, and the docker archive carries the image name.
+  - The release job first runs on the next tag.
 - **What:** a chart plus an image tarball, offline docs, and a checksum and signature manifest.
 - **Why:** Lens sells air-gapped activation in Enterprise ($50/seat). Kubebay already works offline by design and only needs packaging. It stays OSS unless the ADR says otherwise.
 
