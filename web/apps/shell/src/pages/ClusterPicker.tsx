@@ -21,6 +21,7 @@ import { ClusterIconPicker, autoAvatar, avatarLabelColor } from "../components/C
 import { KubeconfigSources } from "../components/KubeconfigSources";
 import { EksDiscovery } from "../components/EksDiscovery";
 import { GkeDiscovery } from "../components/GkeDiscovery";
+import { AksDiscovery } from "../components/AksDiscovery";
 import ConfigurePrometheusModal from "../components/ConfigurePrometheusModal";
 import { providerBadge, clusterDisplayName } from "../lib/clusterDistro";
 import {
@@ -523,6 +524,7 @@ export default function ClusterPicker() {
             <KubeconfigSources />
             <EksDiscovery />
             <GkeDiscovery />
+            <AksDiscovery />
           </Stack>
         </Modal>
       )}

@@ -303,7 +303,7 @@ Independently verified by direct source inspection (not just an expert's claim) 
 **Boundary with #5: both should exist.** MCP is an external model reaching *in*, with Kubebay as the gate; triage is Kubebay reaching *out* with one bounded read-only payload. They should share only the redaction pass and the evidence assembler.
 **Competitive-urgency note (2026-09-26, Lens research pass):** Lens Prism (their paid AI copilot) gained a "terminal skill" this year letting it write local files/run commands — but per Lens's own docs it still never auto-executes; a human runs the surfaced command. That validates, not undercuts, this entry's stricter stance of never wiring a suggested action to an executable button. Separately, Mirantis also launched **Lens Agents** (paid, enterprise: centralized identity/policy/audit for AI coding agents hitting your infra) — correctly out of scope here, it needs a control plane beyond one laptop, same carve-out as the open-core split doc already draws. Freelens's free, much smaller answer — `@freelensapp/agentbridge-extension` (launches a coding agent in a terminal tab scoped to one cluster, pre-wired KUBECONFIG/PATH, editable default-safe permissions file: read-only kubectl/helm allowed, ask for everything else) — is a much closer size/shape match to Kubebay's own philosophy and worth a five-minute look as a UX reference once #10 (local shell) ships. Not a new item.
 
-### 14. Cloud cluster auto-discovery (EKS/AKS/GKE one-click import) — status: shipped 2026-10-10 for EKS and GKE (AKS not started)
+### 14. Cloud cluster auto-discovery (EKS/AKS/GKE one-click import) — status: shipped 2026-10-10 for EKS and GKE, 2026-10-13 for AKS (Entra ID clusters only)
 **What Lens does (Premium-gated):** calls the cloud provider's own API to list every cluster in your account/regions and one-click-imports it — no manual `aws eks update-kubeconfig` / `az aks get-credentials` round-trip needed first.
 **Where Kubebay is today:** `clusterDistro.ts` only pattern-matches provider/distro off whatever's *already* in kubeconfig (`arn:aws:eks:`, `gke_`, `aks-`, etc.) — verified via grep, there is zero AWS/Azure/GCP SDK anywhere in `engine/go.mod` or the rest of the codebase. Kubebay has no way to discover a cluster it doesn't already have a context for.
 **Scope this as detect-and-offer-import, never provision** — the same posture item #3 (Karpenter) already settled on for the identical reason: no cloud SDK today, and adding one is real new surface area (per-provider credential handling, IAM/service-account scoping, rate limits, a new dependency). A v1 would be one provider at a time — EKS first, matching Raja's own prod footprint — listing clusters via the AWS SDK against whatever credentials/profile are already locally resolvable (same trust boundary as the existing `aws eks get-token` exec-credential flow), rendering them in the cluster picker as "available to import" with one click to append the right context to kubeconfig. Never persist cloud credentials anywhere Kubebay doesn't already trust them; never call any provisioning or mutating cloud API.
@@ -382,8 +382,34 @@ Independently verified by direct source inspection (not just an expert's claim) 
 - **UI:** `components/GkeDiscovery.tsx`, under EKS in the same dialog.
 - **Verified:** with unit fakes, and with the real binary driving a stand-in `gcloud` script (projects → API-disabled error → scan → import → the context loads → re-import 409). Not run against a real Google Cloud project.
 
+**AKS: SHIPPED 2026-10-13, Entra ID clusters only** (Raja approved that split on 2026-10-12).
+- **Why only Entra ID:** for a local-accounts cluster, the user credential is a static client certificate, which breaks the "never a static token" rule. Those clusters are listed with the reason and no Import button. The import handler refuses them too (422), and their credential is never fetched.
+- **Engine** (`clouddiscovery/aks.go`):
+  - `AzureSubscriptions` runs `az account list`: enabled ones only, the default first.
+  - `ScanAKS` runs `az aks list --subscription`, one call for every resource group.
+  - `DescribeAKS` runs `az aks show`; the import re-reads the cluster, so it never trusts the browser about Entra ID.
+  - `AKSAccess` and `AKSKubeconfig` build the file.
+  - Validators: subscription is a GUID; resource group allows A–Z, 0–9, `_.()-`, no leading `-`, no trailing `.`; cluster name is up to 63 characters.
+- **Not `az aks get-credentials`:** current az runs `kubelogin convert-kubeconfig -l azurecli` after writing credentials, even with `--file -`. kubelogin then converts the *default* kubeconfig, which Kubebay must never touch. So the import calls the same ARM action directly:
+  - `az rest --method post --url /subscriptions/…/managedClusters/<name>/listClusterUserCredential --uri-parameters api-version=2024-09-01 format=exec`.
+  - The path is relative, so az prefixes its current cloud's ARM endpoint and sovereign clouds work.
+  - The query goes in `--uri-parameters` because on Windows `az` is `az.cmd`, and cmd.exe splits an argument at `&`.
+  - From the returned kubeconfig it keeps only the https server, the CA and the `--server-id`. The id falls back to the AKS server app `6dae42f8-…` and must be a GUID. Everything else is dropped.
+- **The written user** is what `kubelogin convert-kubeconfig -l azurecli` produces: `kubelogin get-token --login azurecli --server-id <id>` (v1beta1, interactiveMode Never, an install hint), with no tenant, so it follows the user's az login.
+- **Context naming:** `aks_<first 8 of subscription>_<group>_<name>`, because az names contexts after the bare cluster name, which isn't unique. When kubeconfigs merge, the first file wins a duplicate name and the other is shadowed silently.
+  - "Already imported" also matches the API server (`serverKey`: host:port, :443 by default). A cluster fetched earlier with `az aks get-credentials` (context `web`) is recognised, in the scan and at import (409).
+- **Shared with EKS and GKE:** `writeDiscovered`, the pinned-kubeconfig 409, which names `az aks get-credentials … --file <pinned>` and then `kubelogin convert-kubeconfig -l azurecli --kubeconfig <pinned>`, and `DiscoveryBlockReason`.
+- **Routes:** `GET /api/discover/azure/subscriptions`, `POST /api/discover/aks/scan`, `POST /api/discover/aks/import`.
+- **UI:** `components/AksDiscovery.tsx`, under GKE in the same dialog. A "private" badge marks private clusters.
+- **Verified:** with unit fakes, and with the real engine binary driving a stand-in `az` script:
+  - subscriptions, then scan;
+  - the local-accounts import refused with 422, and its credential never read;
+  - the Entra ID import writes a 0600 file with no secret, and the context loads;
+  - re-import gets 409;
+  - `get-credentials` is never called and `$KUBECONFIG` is unchanged.
+- **Not verified:** a real Azure subscription, or kubelogin signing in to a real cluster.
+
 **Not in v1:**
-- AKS. It needs a decision first: `az aks get-credentials` hands back a static client certificate or token for clusters with local accounts, which breaks the "never a static token" rule. The plan is to import only Entra ID clusters, through a `kubelogin` exec user, and explain the rest;
 - removing an imported cluster (deleting its file from Settings' kubeconfig list works today);
 - scanning every region automatically.
 
