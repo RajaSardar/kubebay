@@ -1,144 +1,21 @@
 ---
-type CellValue =
-  | { kind: "yes"; label?: string }
-  | { kind: "no"; label?: string }
-  | { kind: "partial"; label: string }
-  | { kind: "text"; label: string };
+import { COLUMNS, COLUMN_NAMES, rows, type Cell } from "../data/comparison";
 
-interface Row {
-  feature: string;
-  kubebay: CellValue;
-  lens: CellValue;
-  freelens: CellValue;
-  k9s: CellValue;
-  headlamp: CellValue;
-}
-
-const rows: Row[] = [
-  {
-    feature: "License",
-    kubebay:  { kind: "text",    label: "MIT" },
-    lens:     { kind: "text",    label: "Proprietary" },
-    freelens: { kind: "text",    label: "MIT" },
-    k9s:      { kind: "text",    label: "MIT" },
-    headlamp: { kind: "text",    label: "Apache 2" },
-  },
-  {
-    feature: "Price",
-    kubebay:  { kind: "yes",     label: "Free forever" },
-    lens:     { kind: "no",      label: "Subscription ($30+/mo)" },
-    freelens: { kind: "yes",     label: "Free" },
-    k9s:      { kind: "yes",     label: "Free" },
-    headlamp: { kind: "yes",     label: "Free" },
-  },
-  {
-    feature: "Account required",
-    kubebay:  { kind: "yes",     label: "None" },
-    lens:     { kind: "no",      label: "Mandatory" },
-    freelens: { kind: "yes",     label: "None" },
-    k9s:      { kind: "yes",     label: "None" },
-    headlamp: { kind: "yes",     label: "None" },
-  },
-  {
-    feature: "Telemetry",
-    kubebay:  { kind: "partial", label: "Opt-in only" },
-    lens:     { kind: "no",      label: "Required" },
-    freelens: { kind: "partial", label: "Partial" },
-    k9s:      { kind: "yes",     label: "None" },
-    headlamp: { kind: "partial", label: "Opt-in" },
-  },
-  {
-    feature: "RAM usage",
-    kubebay:  { kind: "yes",     label: "≤150 MB" },
-    lens:     { kind: "no",      label: "400–800 MB" },
-    freelens: { kind: "no",      label: "400–800 MB" },
-    k9s:      { kind: "yes",     label: "≤30 MB" },
-    headlamp: { kind: "partial", label: "~200 MB" },
-  },
-  {
-    feature: "Cold start",
-    kubebay:  { kind: "yes",     label: "≤1.5 s" },
-    lens:     { kind: "no",      label: "8–15 s" },
-    freelens: { kind: "no",      label: "8–15 s" },
-    k9s:      { kind: "yes",     label: "<1 s" },
-    headlamp: { kind: "partial", label: "~3 s" },
-  },
-  {
-    feature: "Installer size",
-    kubebay:  { kind: "yes",     label: "40 MB" },
-    lens:     { kind: "no",      label: "500+ MB" },
-    freelens: { kind: "no",      label: "500+ MB" },
-    k9s:      { kind: "yes",     label: "10 MB" },
-    headlamp: { kind: "partial", label: "100 MB" },
-  },
-  {
-    feature: "Desktop app",
-    kubebay:  { kind: "yes",     label: "macOS / Win / Linux" },
-    lens:     { kind: "yes" },
-    freelens: { kind: "yes" },
-    k9s:      { kind: "yes" },
-    headlamp: { kind: "no" },
-  },
-  {
-    feature: "In-cluster deploy",
-    kubebay:  { kind: "yes",     label: "Helm chart" },
-    lens:     { kind: "no" },
-    freelens: { kind: "no" },
-    k9s:      { kind: "no" },
-    headlamp: { kind: "yes" },
-  },
-  {
-    feature: "Live streaming",
-    kubebay:  { kind: "yes" },
-    lens:     { kind: "yes" },
-    freelens: { kind: "yes" },
-    k9s:      { kind: "yes" },
-    headlamp: { kind: "yes" },
-  },
-  {
-    feature: "Helm manager",
-    kubebay:  { kind: "yes" },
-    lens:     { kind: "yes" },
-    freelens: { kind: "yes" },
-    k9s:      { kind: "no" },
-    headlamp: { kind: "no" },
-  },
-  {
-    feature: "RBAC explorer",
-    kubebay:  { kind: "yes" },
-    lens:     { kind: "partial", label: "Limited" },
-    freelens: { kind: "partial", label: "Limited" },
-    k9s:      { kind: "no" },
-    headlamp: { kind: "yes" },
-  },
-  {
-    feature: "Open roadmap",
-    kubebay:  { kind: "yes" },
-    lens:     { kind: "no" },
-    freelens: { kind: "partial", label: "Limited" },
-    k9s:      { kind: "yes" },
-    headlamp: { kind: "yes" },
-  },
-];
-
-function cellSymbol(v: CellValue): string {
+function cellSymbol(v: Cell): string {
   if (v.kind === "yes") return "✓";
   if (v.kind === "no")  return "✗";
   if (v.kind === "partial") return "~";
   return "";
 }
 
-function cellLabel(v: CellValue): string {
-  if (v.kind === "text") return v.label;
-  return v.label ?? "";
-}
+const others = COLUMNS.filter((c) => c !== "kubebay");
 ---
 
 <section class="comparison" id="comparison">
   <div class="comparison__inner">
     <div class="comparison__header">
       <h2 class="comparison__title">How Kubebay compares</h2>
-      <p class="comparison__sub">The honest comparison.</p>
+      <p class="comparison__sub">Every cell links to its source. Each was checked on 13 October 2026.</p>
     </div>
 
     <div class="table-wrap">
@@ -152,51 +29,42 @@ function cellLabel(v: CellValue): string {
                 Kubebay
               </span>
             </th>
-            <th scope="col">Lens</th>
-            <th scope="col">Freelens</th>
-            <th scope="col">k9s</th>
-            <th scope="col">Headlamp</th>
+            {others.map((c) => <th scope="col">{COLUMN_NAMES[c]}</th>)}
           </tr>
         </thead>
         <tbody>
           {rows.map((row) => (
             <tr>
               <td class="col-feature">{row.feature}</td>
-              <td class="col-kubebay">
-                <span class={`cell cell--${row.kubebay.kind}`}>
-                  <span class="cell__sym" aria-hidden="true">{cellSymbol(row.kubebay)}</span>
-                  {cellLabel(row.kubebay) && <span class="cell__text">{cellLabel(row.kubebay)}</span>}
-                </span>
-              </td>
-              <td>
-                <span class={`cell cell--${row.lens.kind}`}>
-                  <span class="cell__sym" aria-hidden="true">{cellSymbol(row.lens)}</span>
-                  {cellLabel(row.lens) && <span class="cell__text">{cellLabel(row.lens)}</span>}
-                </span>
-              </td>
-              <td>
-                <span class={`cell cell--${row.freelens.kind}`}>
-                  <span class="cell__sym" aria-hidden="true">{cellSymbol(row.freelens)}</span>
-                  {cellLabel(row.freelens) && <span class="cell__text">{cellLabel(row.freelens)}</span>}
-                </span>
-              </td>
-              <td>
-                <span class={`cell cell--${row.k9s.kind}`}>
-                  <span class="cell__sym" aria-hidden="true">{cellSymbol(row.k9s)}</span>
-                  {cellLabel(row.k9s) && <span class="cell__text">{cellLabel(row.k9s)}</span>}
-                </span>
-              </td>
-              <td>
-                <span class={`cell cell--${row.headlamp.kind}`}>
-                  <span class="cell__sym" aria-hidden="true">{cellSymbol(row.headlamp)}</span>
-                  {cellLabel(row.headlamp) && <span class="cell__text">{cellLabel(row.headlamp)}</span>}
-                </span>
-              </td>
+              {COLUMNS.map((col) => {
+                const v = row[col];
+                return (
+                  <td class={col === "kubebay" ? "col-kubebay" : undefined}>
+                    <span class={`cell cell--${v.kind}`}>
+                      <span class="cell__sym" aria-hidden="true">{cellSymbol(v)}</span>
+                      {v.label && <span class="cell__text">{v.label}</span>}
+                      <a
+                        class="cell__src"
+                        href={v.source.url}
+                        title={v.source.note ? `${v.source.note} (checked ${v.source.checked})` : `Checked ${v.source.checked}`}
+                        aria-label={`Source for ${COLUMN_NAMES[col]}, ${row.feature}`}
+                        rel="noopener"
+                        target="_blank"
+                      >
+                        source
+                      </a>
+                    </span>
+                  </td>
+                );
+              })}
             </tr>
           ))}
         </tbody>
       </table>
     </div>
+    <p class="comparison__note">
+      Memory, start-up time and installer size are left out until Kubebay measures every tool with the same script.
+    </p>
   </div>
 </section>
 
@@ -367,6 +235,26 @@ function cellLabel(v: CellValue): string {
   }
 
   /* plain text */
+  .cell__src {
+    margin-left: 6px;
+    font-size: 0.72em;
+    color: var(--muted);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .cell__src:hover,
+  .cell__src:focus-visible {
+    color: var(--accent);
+  }
+
+  .comparison__note {
+    margin-top: 16px;
+    font-size: 0.85rem;
+    color: var(--muted);
+    text-align: center;
+  }
+
   .cell--text {
     color: #c0c0c0;
   }
