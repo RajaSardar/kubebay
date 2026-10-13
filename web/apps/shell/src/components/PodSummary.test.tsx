@@ -5,8 +5,8 @@ import { MemoryRouter } from "react-router-dom";
 // Simulate the owner chain: ReplicaSet → Deployment (2 levels deep)
 vi.mock("../lib/useOwnerChain", () => ({
   useOwnerChain: (_cluster: string, _ns: string, refs: { kind: string; name: string }[]) => {
-    if (!refs.length) return [];
     const first = refs[0];
+    if (!first) return [];
     // For our test RS, add a fake Deployment as its owner
     if (first.kind === "ReplicaSet" && first.name === "web-abc-123") {
       return [
