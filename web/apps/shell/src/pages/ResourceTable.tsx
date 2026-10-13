@@ -446,6 +446,7 @@ export default function ResourceTable() {
         rows={stream.rows}
         objects={stream.rows}
         synced={stream.synced}
+        forbidden={stream.forbidden}
         busy={!stream.synced}
         live={stream.synced}
         cluster={effectiveCluster}
