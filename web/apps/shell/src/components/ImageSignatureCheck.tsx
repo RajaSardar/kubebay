@@ -11,7 +11,7 @@ const STATUS: Record<ImageSignatureRow["status"], { tone?: BadgeTone; label: (r:
 const VERIFY: Record<NonNullable<ImageSignatureRow["verification"]>, { tone?: BadgeTone; label: (r: ImageSignatureRow) => string }> = {
   verified: { tone: "ok", label: (r) => `verified by ${r.verifiedBy ?? "a policy key"}` },
   failed: { tone: "err", label: () => "verification failed" },
-  keyless: { label: () => "keyless, not verified here" },
+  keyless: { tone: "info", label: (r) => (r.signer ? "verified, no policy identity" : "keyless, not checked") },
   "no-key": { label: () => "no policy key for this image" },
 };
 
@@ -65,8 +65,9 @@ export function ImageSignatureCheck({ cluster, scope, title }: { cluster: string
         Looks up the digest that is actually running in each image&apos;s registry for a cosign signature tag or a
         sigstore referrer, contacting registries anonymously unless you choose the pods&apos; pull secrets (read with
         your access, sent only to the registry each is for). A tag signature is verified against the public keys in the
-        cluster&apos;s Kyverno and Sigstore policies for that image; keyless signatures are left to the admission
-        controller.
+        cluster&apos;s Kyverno and Sigstore policies for that image. A keyless signature is checked against Sigstore&apos;s
+        public trust roots (fetched through TUF): its certificate, transparency log entry and signature, and then its
+        signer against the policies&apos; keyless identities.
       </div>
       {err && <InlineBanner flush>{err}</InlineBanner>}
       {rows && (
@@ -86,7 +87,22 @@ export function ImageSignatureCheck({ cluster, scope, title }: { cluster: string
               header: "Verification",
               render: (r) => (r.verification ? <Badge tone={VERIFY[r.verification].tone}>{VERIFY[r.verification].label(r)}</Badge> : null),
             },
-            { key: "why", header: "Detail", className: "muted small", render: (r) => (r.verification === "verified" ? "" : (r.reason ?? "")) },
+            {
+              key: "why",
+              header: "Detail",
+              className: "muted small",
+              render: (r) => (
+                <Stack gap={1}>
+                  {r.signer && (
+                    <span>
+                      <span className="mono">{r.signer}</span>
+                      {r.issuer && <span> ({r.issuer})</span>}
+                    </span>
+                  )}
+                  {r.verification !== "verified" && r.reason && <span>{r.reason}</span>}
+                </Stack>
+              ),
+            },
             { key: "pods", header: "Pods", className: "mono small", render: (r) => r.pods },
             // A scoped check is one namespace by construction.
             ...(scope ? [] : [{ key: "ns", header: "Namespaces", className: "mono small", render: (r: ImageSignatureRow) => r.namespaces.join(", ") }]),

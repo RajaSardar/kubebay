@@ -35,7 +35,8 @@ type sigRegistry struct {
 	payload     []byte
 	sig         []byte
 	cert        bool
-	needsBasic  string // "user:pass" required on every request when set
+	ann         map[string]string // more annotations on the layer (a keyless signature's)
+	needsBasic  string            // "user:pass" required on every request when set
 	srv         *httptest.Server
 	sawAuthOnly bool
 }
@@ -58,6 +59,9 @@ func (r *sigRegistry) serve(t *testing.T) *httptest.Server {
 			ann := map[string]string{"dev.cosignproject.cosign/signature": base64.StdEncoding.EncodeToString(r.sig)}
 			if r.cert {
 				ann["dev.sigstore.cosign/certificate"] = "-----BEGIN CERTIFICATE-----"
+			}
+			for k, v := range r.ann {
+				ann[k] = v
 			}
 			_ = json.NewEncoder(w).Encode(map[string]any{
 				"schemaVersion": 2,

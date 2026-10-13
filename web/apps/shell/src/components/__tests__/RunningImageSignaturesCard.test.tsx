@@ -32,7 +32,7 @@ describe("RunningImageSignaturesCard", () => {
     expect(screen.getByText("signature found (cosign tag)")).toBeInTheDocument();
     expect(screen.getByText(/registry requires credentials/)).toBeInTheDocument();
     expect(screen.getByText("verified by Kyverno ClusterPolicy verify-acme")).toBeInTheDocument();
-    expect(screen.getByText(/keyless signatures are left to the admission controller/i)).toBeInTheDocument();
+    expect(screen.getByText(/keyless signature is checked against Sigstore's public trust roots/i)).toBeInTheDocument();
     expect(imageSigApi.check).toHaveBeenCalledWith("c1", false);
   });
 
@@ -53,8 +53,24 @@ describe("RunningImageSignaturesCard", () => {
     fireEvent.click(screen.getByRole("button", { name: "Check signatures" }));
     expect(await screen.findByText("verification failed")).toBeInTheDocument();
     expect(screen.getByText("no signature verifies with the policy keys")).toBeInTheDocument();
-    expect(screen.getByText("keyless, not verified here")).toBeInTheDocument();
+    expect(screen.getByText("keyless, not checked")).toBeInTheDocument();
     expect(screen.getByText("no policy key for this image")).toBeInTheDocument();
+  });
+
+  it("names the keyless signer Sigstore's roots verified", async () => {
+    vi.mocked(imageSigApi.check).mockResolvedValue([
+      { image: "a:1", digest: "sha256:1", status: "signed", verification: "verified", verifiedBy: "Kyverno ClusterPolicy release", signer: "release@acme.dev", issuer: "https://accounts.google.com", pods: 1, namespaces: ["x"] },
+      { image: "b:1", digest: "sha256:2", status: "signed", verification: "keyless", signer: "https://github.com/acme/app/.github/workflows/release.yml@refs/tags/v1", issuer: "https://token.actions.githubusercontent.com", reason: "signature verified against Sigstore's public roots; no policy names a signer for this image", pods: 1, namespaces: ["x"] },
+      { image: "c:1", digest: "sha256:3", status: "signed", verification: "failed", signer: "mallory@evil.dev", issuer: "https://accounts.google.com", reason: "signed by mallory@evil.dev (issuer https://accounts.google.com), which no policy identity for this image allows", pods: 1, namespaces: ["x"] },
+    ]);
+    render(<RunningImageSignaturesCard cluster="c1" />);
+    fireEvent.click(screen.getByRole("button", { name: "Check signatures" }));
+    expect(await screen.findByText("verified by Kyverno ClusterPolicy release")).toBeInTheDocument();
+    expect(screen.getByText("release@acme.dev")).toBeInTheDocument();
+    expect(screen.getByText("verified, no policy identity")).toBeInTheDocument();
+    expect(screen.getByText("https://github.com/acme/app/.github/workflows/release.yml@refs/tags/v1")).toBeInTheDocument();
+    expect(screen.getByText(/no policy names a signer/)).toBeInTheDocument();
+    expect(screen.getByText(/which no policy identity for this image allows/)).toBeInTheDocument();
   });
 
   it("uses the pods' pull secrets only when chosen", async () => {

@@ -8,6 +8,7 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/pem"
+	"strings"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -91,5 +92,70 @@ func TestImageSignatureReportPassesThePodsPullCredentials(t *testing.T) {
 	imageSignatureReport(context.Background(), pods, check, credsFor, 10)
 	if gotCreds == nil || gotCreds.Username != "bot" || gotImage != "ghcr.io/org/web:1" {
 		t.Errorf("creds=%+v image=%q", gotCreds, gotImage)
+	}
+}
+
+func TestPolicyIdentitiesFromKyvernoAndSigstore(t *testing.T) {
+	kyverno := &unstructured.Unstructured{Object: map[string]any{
+		"kind": "ClusterPolicy", "metadata": map[string]any{"name": "verify-acme"},
+		"spec": map[string]any{"rules": []any{map[string]any{"verifyImages": []any{
+			map[string]any{
+				"imageReferences": []any{"ghcr.io/acme/*"},
+				"attestors": []any{map[string]any{"entries": []any{
+					map[string]any{"keyless": map[string]any{"subject": "https://github.com/acme/*", "issuer": "https://token.actions.githubusercontent.com", "rekor": map[string]any{"url": "https://rekor.sigstore.dev"}}},
+					map[string]any{"keyless": map[string]any{"subjectRegExp": ".*@acme.dev", "roots": "-----BEGIN CERTIFICATE-----"}},
+					map[string]any{"keyless": map[string]any{"subject": "x", "rekor": map[string]any{"url": "https://rekor.internal.acme"}}},
+				}}},
+			},
+			// The older form: subject and issuer on the entry itself.
+			map[string]any{"image": "ghcr.io/old/*", "subject": "old@acme.dev", "issuer": "https://accounts.google.com"},
+		}}}},
+	}}
+	sigstore := &unstructured.Unstructured{Object: map[string]any{
+		"kind": "ClusterImagePolicy", "metadata": map[string]any{"name": "acme"},
+		"spec": map[string]any{
+			"images": []any{map[string]any{"glob": "registry.acme.io/**"}},
+			"authorities": []any{
+				map[string]any{"keyless": map[string]any{"url": "https://fulcio.sigstore.dev", "identities": []any{
+					map[string]any{"issuer": "https://accounts.google.com", "subject": "release@acme.dev"},
+					map[string]any{"issuerRegExp": ".*", "subjectRegExp": ".*@acme.dev"},
+				}}},
+				map[string]any{"keyless": map[string]any{"url": "https://fulcio.internal.acme", "identities": []any{map[string]any{"issuer": "i", "subject": "s"}}}},
+				map[string]any{"keyless": map[string]any{"trustRootRef": "private", "identities": []any{map[string]any{"issuer": "i", "subject": "s"}}}},
+				map[string]any{"key": map[string]any{"data": pemKey(t)}},
+			},
+		},
+	}}
+	ids := policyIdentities([]*unstructured.Unstructured{kyverno, sigstore})
+	if len(ids) != 8 {
+		t.Fatalf("identities = %+v", ids)
+	}
+	k := ids[0]
+	if k.Source != "Kyverno ClusterPolicy verify-acme" || k.Images[0] != "ghcr.io/acme/*" || k.Subject != "https://github.com/acme/*" || !k.Wildcards || k.Unsupported != "" {
+		t.Errorf("kyverno = %+v", k)
+	}
+	if ids[1].Unsupported == "" || !strings.Contains(ids[1].Unsupported, "Fulcio") || ids[2].Unsupported == "" || !strings.Contains(ids[2].Unsupported, "Rekor") {
+		t.Errorf("own roots: %+v / %+v", ids[1], ids[2])
+	}
+	if ids[3].Subject != "old@acme.dev" || ids[3].Images[0] != "ghcr.io/old/*" {
+		t.Errorf("older form = %+v", ids[3])
+	}
+	s := ids[4]
+	if s.Source != "Sigstore ClusterImagePolicy acme" || s.Subject != "release@acme.dev" || s.Wildcards || !s.AppliesTo("registry.acme.io/team/api") || s.Unsupported != "" {
+		t.Errorf("sigstore = %+v", s)
+	}
+	if ids[5].SubjectRegExp != ".*@acme.dev" || ids[6].Unsupported == "" || ids[7].Unsupported == "" {
+		t.Errorf("sigstore rest = %+v %+v %+v", ids[5], ids[6], ids[7])
+	}
+}
+
+func TestImageSignatureReportNamesTheKeylessSigner(t *testing.T) {
+	pods := []corev1.Pod{sigPod("shop", "web-1", "ghcr.io/org/web:1", "ghcr.io/org/web@"+sigDigest)}
+	check := func(context.Context, sigcheck.Ref, string, *sigcheck.Credentials) sigcheck.Result {
+		return sigcheck.Result{Status: sigcheck.StatusSigned, Verification: sigcheck.VerifiedOK, VerifiedBy: "Kyverno ClusterPolicy p", Signer: "release@acme.dev", Issuer: "https://accounts.google.com"}
+	}
+	rows := imageSignatureReport(context.Background(), pods, check, nil, 10)
+	if len(rows) != 1 || rows[0].Signer != "release@acme.dev" || rows[0].Issuer != "https://accounts.google.com" {
+		t.Errorf("rows = %+v", rows)
 	}
 }
