@@ -48,6 +48,9 @@ export interface ResourceListViewProps<R> {
   /** The raw objects behind the rows, to find a GitOps owner before a delete. */
   objects: readonly Record<string, unknown>[];
   synced: boolean;
+  /** The API server's message when RBAC doesn't let this identity list the
+   *  kind: said in place of a table that would never load. */
+  forbidden?: string;
   /** Rows on screen but the stream is re-syncing: the thin progress bar. */
   busy: boolean;
   live: boolean;
@@ -362,7 +365,12 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
         />
       </div>
 
-      {shouldShowSkeleton(p.synced, all.length) ? (
+      {p.forbidden && all.length === 0 ? (
+        <EmptyState>
+          <p>You can't list {noun} here.</p>
+          <p className="muted small">{p.forbidden}</p>
+        </EmptyState>
+      ) : shouldShowSkeleton(p.synced, all.length) ? (
         <SkeletonTable headers={headers} widths={widths} rows={10} leadingBlank label={`Loading ${noun}…`} />
       ) : rows.length === 0 ? (
         <EmptyState>

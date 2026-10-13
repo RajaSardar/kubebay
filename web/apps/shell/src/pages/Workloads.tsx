@@ -151,7 +151,7 @@ export default function Workloads() {
   const [sp] = useSearchParams();
   const navigate = useNavigate();
   const scope = sp.get("selector") ? { ns: sp.get("ns") ?? "", selector: sp.get("selector")!, of: sp.get("of") ?? "" } : null;
-  const { rows, synced, connected } = useResourceStream(effectiveCluster || undefined, "v1/pods", {
+  const { rows, synced, connected, forbidden } = useResourceStream(effectiveCluster || undefined, "v1/pods", {
     mode: "full",
     ns: scope ? (scope.ns ? [scope.ns] : undefined) : nsFilter.length > 0 ? nsFilter : undefined,
     labelSelector: scope?.selector,
@@ -238,6 +238,7 @@ export default function Workloads() {
         rows={pods}
         objects={rows as Record<string, unknown>[]}
         synced={synced}
+        forbidden={forbidden}
         busy={!synced || !connected}
         live={synced && connected}
         cluster={effectiveCluster}
