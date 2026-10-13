@@ -9,6 +9,7 @@ import { fmtAge, lookupDef, num, str, type ResourceDef } from "../lib/resources"
 import { fmtBytes, fmtCpu } from "../lib/format";
 import { useNodeExtras } from "../lib/useNodeExtras";
 import { evalPrinterPath } from "../lib/printerPath";
+import { claimDeviceClasses, claimDevices, claimState, claimUsers, classDriver, sliceNodes } from "../lib/dra";
 import { ownerOf, ownerLabel, ownerPath } from "../lib/gitops";
 import { templateKindFor } from "../lib/resourceTemplates";
 import { podsOfWorkloadPath } from "../lib/selector";
@@ -283,6 +284,33 @@ export function extraColumns(
         },
         Message: (o) => ({ v: str(rec(o).message).slice(0, 80) || "–", cls: "mono small" }),
         Count: (o) => ({ v: String(typeof rec(o).count === "number" ? rec(o).count : 1) }),
+      };
+    case "resourceclaims":
+      return {
+        State: (o) => claimState(o),
+        "Device class": (o) => ({ v: claimDeviceClasses(o.spec) }),
+        Devices: (o) => ({ v: claimDevices(o), cls: "mono small" }),
+        "Reserved for": (o) => ({ v: claimUsers(o) }),
+      };
+    case "resourceclaimtemplates":
+      return {
+        "Device class": (o) => ({ v: claimDeviceClasses(rec(o.spec).spec) }),
+        Requests: (o) => ({ v: String(((rec(rec(rec(o.spec).spec).devices).requests as unknown[] | undefined) ?? []).length) }),
+      };
+    case "deviceclasses":
+      return {
+        Driver: (o) => ({ v: classDriver(o) }),
+        Selectors: (o) => ({ v: String(((rec(o.spec).selectors as unknown[] | undefined) ?? []).length) }),
+      };
+    case "resourceslices":
+      return {
+        Driver: (o) => ({ v: str(rec(o.spec).driver) || "–" }),
+        Pool: (o) => ({ v: str(rec(rec(o.spec).pool).name) || "–" }),
+        Nodes: (o) => {
+          const node = str(rec(o.spec).nodeName);
+          return node ? { v: node, to: { kind: "nodes", ns: "", name: node } } : { v: sliceNodes(o) };
+        },
+        Devices: (o) => ({ v: String(((rec(o.spec).devices as unknown[] | undefined) ?? []).length) }),
       };
     default:
       return {};
