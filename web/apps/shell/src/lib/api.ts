@@ -561,7 +561,40 @@ export interface DiscoveredGkeCluster {
   imported: boolean;
 }
 
+export interface AzureSubscription {
+  id: string;
+  name?: string;
+  /** az's current subscription. */
+  default?: boolean;
+}
+
+export interface DiscoveredAksCluster {
+  subscription: string;
+  resourceGroup: string;
+  name: string;
+  location: string;
+  /** The aks_SUB8_GROUP_NAME context an import creates. */
+  context: string;
+  endpoint: string;
+  /** The API server is reachable only from its own network. */
+  private?: boolean;
+  status?: string;
+  version?: string;
+  /** Signs users in with Microsoft Entra ID; only these import. */
+  entraID: boolean;
+  importable: boolean;
+  /** Why it can't be imported. */
+  reason?: string;
+  /** A loaded kubeconfig already reaches this cluster (by context or API server). */
+  imported: boolean;
+}
+
 export const cloudDiscoveryApi = {
+  azureSubscriptions: () => get<AzureSubscription[]>("/api/discover/azure/subscriptions"),
+  scanAks: (subscription: string) =>
+    send<{ clusters: DiscoveredAksCluster[]; errors: { region: string; cluster?: string; message: string }[] }>("POST", "/api/discover/aks/scan", { subscription }),
+  importAks: (subscription: string, resourceGroup: string, name: string) =>
+    send<{ path: string; context: string }>("POST", "/api/discover/aks/import", { subscription, resourceGroup, name }),
   gcpProjects: () => get<GcpProject[]>("/api/discover/gcp/projects"),
   scanGke: (project: string) =>
     send<{ clusters: DiscoveredGkeCluster[]; errors: { region: string; cluster?: string; message: string }[] }>("POST", "/api/discover/gke/scan", { project }),

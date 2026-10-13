@@ -17,7 +17,7 @@ export function detectDistro(id: string, server = ""): string {
   if (s.startsWith("k3s-") || s === "k3s") return "k3s";
   if (s === "minikube") return "minikube";
   if (s === "docker-desktop") return "docker";
-  if (s.startsWith("aks-") || s.includes("/aks/")) return "aks";
+  if (s.startsWith("aks-") || s.startsWith("aks_") || s.includes("/aks/")) return "aks";
   return "";
 }
 
@@ -54,6 +54,9 @@ export function clusterDisplayName(id: string, context: string, alias?: string):
   // EKS ARN in context: arn:aws:eks:region:account:cluster/NAME
   const eksMatch = context.match(/cluster\/([^/]+)$/);
   if (eksMatch?.[1]) return eksMatch[1];
+  // Kubebay's AKS import: aks_SUB8_GROUP/NAME
+  const aksMatch = context.match(/^aks_[0-9a-f]{8}_.+\/([^/]+)$/);
+  if (aksMatch?.[1]) return aksMatch[1];
   // GKE context: gke_project_region_NAME
   const gkeMatch = context.match(/^gke_[^_]+_[^_]+_(.+)$/);
   if (gkeMatch?.[1]) return gkeMatch[1];

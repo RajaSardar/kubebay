@@ -54,6 +54,13 @@ describe("clusterDisplayName", () => {
     )).toBe("my-cluster");
   });
 
+  // Kubebay's AKS import: aks_<first 8 of subscription>_<group>/<name>; "/" is
+  // in neither a resource group nor a cluster name, so the split is exact.
+  it("extracts the cluster name from an AKS import context", () => {
+    expect(clusterDisplayName("aks_1a2b3c4d_shop-rg-web", "aks_1a2b3c4d_shop-rg/web", undefined)).toBe("web");
+    expect(clusterDisplayName("aks_1a2b3c4d_my_rg-my_cluster", "aks_1a2b3c4d_my_rg/my_cluster", undefined)).toBe("my_cluster");
+  });
+
   it("returns alias when set, ignoring id/context patterns", () => {
     expect(clusterDisplayName(
       "arn-aws-eks-ap-south-1-123-cluster-prod",
@@ -102,6 +109,10 @@ describe("providerBadge", () => {
     expect(providerBadge("rancher-desktop", "https://127.0.0.1:6443").label).toBe("Rancher Desktop");
     // An Authorized Cluster Endpoint context reaches the node directly.
     expect(providerBadge("prod-node1", "https://10.0.0.5:6443").label).toBe("–");
+  });
+
+  it("returns AKS label for Kubebay's AKS import context", () => {
+    expect(providerBadge("aks_1a2b3c4d_shop-rg/web").label).toBe("AKS");
   });
 
   it("returns AKS label for aks- prefixed context", () => {
