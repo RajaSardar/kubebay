@@ -27,8 +27,10 @@ const (
 	VerifiedOK Verification = "verified"
 	// VerifiedFailed: there were keys for this image and none verified.
 	VerifiedFailed Verification = "failed"
-	// VerifiedKeyless: signed with a Fulcio certificate; checking the identity
-	// and the transparency log is the admission controller's job, not done here.
+	// VerifiedKeyless: signed with a Fulcio certificate, and no policy
+	// identity judged the signer. With trust roots, the signature, chain, SCT
+	// and Rekor entry were checked and Signer names who signed; without them
+	// (offline), nothing was checked and Reason says why.
 	VerifiedKeyless Verification = "keyless"
 	// VerifiedNoKey: signed, but no policy key covers this image.
 	VerifiedNoKey Verification = "no-key"
@@ -52,6 +54,11 @@ type PublicKey struct {
 type Options struct {
 	Keys  []PublicKey
 	Creds *Credentials
+	// Identities are the keyless signers policies accept for this image.
+	Identities []KeylessIdentity
+	// Roots loads Sigstore's trusted root, only when a keyless signature
+	// turns up. Nil leaves keyless signatures unchecked, as before.
+	Roots func(context.Context) (*TrustedRoot, string, error)
 }
 
 // ParsePublicKeys reads every PEM public key in text (policies often hold several).
@@ -79,11 +86,13 @@ func ParsePublicKeys(text, source string, images []string) ([]PublicKey, error) 
 // AppliesTo reports whether the policy uses this key for image. A key with
 // no pattern applies to every image. "*" matches across path segments, as
 // in Kyverno imageReferences; "**" in Sigstore globs means the same here.
-func (k PublicKey) AppliesTo(image string) bool {
-	if len(k.Images) == 0 {
+func (k PublicKey) AppliesTo(image string) bool { return imagesMatch(k.Images, image) }
+
+func imagesMatch(patterns []string, image string) bool {
+	if len(patterns) == 0 {
 		return true
 	}
-	for _, p := range k.Images {
+	for _, p := range patterns {
 		re := "^" + strings.ReplaceAll(regexp.QuoteMeta(p), `\*`, ".*") + "$"
 		if ok, _ := regexp.MatchString(re, image); ok {
 			return true
@@ -118,13 +127,26 @@ const (
 	annCertificate = "dev.sigstore.cosign/certificate"
 )
 
-// verifyTag checks the signatures in a cosign .sig manifest: each layer is a
+// tagVerdict is what checking a cosign .sig manifest concluded.
+type tagVerdict struct {
+	v      Verification
+	by     string
+	reason string
+	signer Signer
+	// transient: keyless signatures went unchecked for want of trust roots,
+	// so the answer may change once they load; don't cache it.
+	transient bool
+}
+
+// verifyTag checks the signatures in a cosign .sig manifest. Each layer is a
 // simple-signing payload, whose blob must hash to the layer digest and name
-// this image's digest, and whose signature one of keys must verify.
-func verifyTag(ctx context.Context, s *session, ref Ref, manifest []byte, keys []PublicKey) (Verification, string, string) {
+// this image's digest. A layer signed with a key must verify with a policy
+// key; a keyless layer must pass verifyKeyless, and its signer must be one
+// a policy identity accepts.
+func verifyTag(ctx context.Context, s *session, ref Ref, manifest []byte, opts Options) tagVerdict {
 	var m sigManifest
 	if err := json.Unmarshal(manifest, &m); err != nil {
-		return VerifiedFailed, "", "the signature manifest isn't readable"
+		return tagVerdict{v: VerifiedFailed, reason: "the signature manifest isn't readable"}
 	}
 	keyless := false
 	for _, l := range m.Layers {
@@ -132,20 +154,37 @@ func verifyTag(ctx context.Context, s *session, ref Ref, manifest []byte, keys [
 			keyless = true
 		}
 	}
-	if len(keys) == 0 {
+	checkKeyless := keyless && opts.Roots != nil
+	if len(opts.Keys) == 0 && !checkKeyless {
 		if keyless {
-			return VerifiedKeyless, "", "keyless signature: its identity is checked by the admission controller, not here"
+			return tagVerdict{v: VerifiedKeyless, reason: "keyless signature: its identity is checked by the admission controller, not here"}
 		}
-		return VerifiedNoKey, "", "no policy key covers this image"
+		return tagVerdict{v: VerifiedNoKey, reason: "no policy key covers this image"}
 	}
 	reason := "no signature verifies with the policy keys"
+	var (
+		root        *TrustedRoot
+		rootErr     error
+		rootLoaded  bool
+		signed      *Signer
+		unsupported string
+	)
+	judged := false
+	for _, id := range opts.Identities {
+		if id.Unsupported == "" {
+			judged = true
+		} else if unsupported == "" {
+			unsupported = id.Source + ": " + id.Unsupported
+		}
+	}
 	for _, l := range m.Layers {
 		sig, err := base64.StdEncoding.DecodeString(l.Annotations[annSignature])
 		if err != nil || len(sig) == 0 || !strings.HasPrefix(l.Digest, "sha256:") {
 			continue
 		}
 		code, blob, err := s.get(ctx, "/blobs/"+l.Digest, "*/*")
-		if err != nil || code != http.StatusOK || fmt.Sprintf("sha256:%x", sha256.Sum256(blob)) != l.Digest {
+		sum := sha256.Sum256(blob)
+		if err != nil || code != http.StatusOK || fmt.Sprintf("sha256:%x", sum) != l.Digest {
 			continue
 		}
 		var p struct {
@@ -162,13 +201,44 @@ func verifyTag(ctx context.Context, s *session, ref Ref, manifest []byte, keys [
 			reason = "the signature is for a different image digest"
 			continue
 		}
-		for _, k := range keys {
+		for _, k := range opts.Keys {
 			if verifySig(k.Key, blob, sig) {
-				return VerifiedOK, k.Source, ""
+				return tagVerdict{v: VerifiedOK, by: k.Source}
+			}
+		}
+		if l.Annotations[annCertificate] == "" || !checkKeyless {
+			continue
+		}
+		if !rootLoaded {
+			root, _, rootErr = opts.Roots(ctx)
+			rootLoaded = true
+		}
+		if rootErr != nil {
+			continue
+		}
+		signer, err := verifyKeyless(root, l.Annotations, sig, sum[:], blob)
+		if err != nil {
+			reason = err.Error()
+			continue
+		}
+		signed = &signer
+		for _, id := range opts.Identities {
+			if id.Unsupported == "" && id.Matches(signer) {
+				return tagVerdict{v: VerifiedOK, by: id.Source, signer: signer}
 			}
 		}
 	}
-	return VerifiedFailed, "", reason
+	switch {
+	case signed != nil && judged:
+		return tagVerdict{v: VerifiedFailed, signer: *signed, reason: fmt.Sprintf("signed by %s (issuer %s), which no policy identity for this image allows", signed.Subject, signed.Issuer)}
+	case signed != nil && unsupported != "":
+		return tagVerdict{v: VerifiedKeyless, signer: *signed, reason: fmt.Sprintf("signature verified against Sigstore's public roots; not judged against %s", unsupported)}
+	case signed != nil:
+		return tagVerdict{v: VerifiedKeyless, signer: *signed, reason: "signature verified against Sigstore's public roots; no policy names a signer for this image"}
+	case rootErr != nil && len(opts.Keys) == 0:
+		return tagVerdict{v: VerifiedKeyless, transient: true, reason: "keyless signature not checked: Sigstore's trust roots couldn't be loaded: " + rootErr.Error()}
+	}
+	return tagVerdict{v: VerifiedFailed, reason: reason}
 }
 
 // cacheKey separates results by whether credentials were used and which
@@ -179,5 +249,10 @@ func cacheKey(ref Ref, opts Options) string {
 		srcs = append(srcs, k.Source)
 	}
 	sort.Strings(srcs)
-	return fmt.Sprintf("%s/%s@%s|auth=%t|keys=%s", ref.Registry, ref.Repo, ref.Digest, opts.Creds != nil, strings.Join(srcs, ","))
+	ids := make([]string, 0, len(opts.Identities))
+	for _, id := range opts.Identities {
+		ids = append(ids, id.Source)
+	}
+	sort.Strings(ids)
+	return fmt.Sprintf("%s/%s@%s|auth=%t|keys=%s|ids=%s|roots=%t", ref.Registry, ref.Repo, ref.Digest, opts.Creds != nil, strings.Join(srcs, ","), strings.Join(ids, ","), opts.Roots != nil)
 }

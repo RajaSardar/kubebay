@@ -1121,7 +1121,7 @@ How it contacts registries:
 - **Opt-in private-registry auth.** "Registries: use the pods' pull secrets" reads each pod's and its ServiceAccount's imagePullSecrets with the user's identity.
   - Each credential goes only to its own registry, or to the token service that registry names, over https.
   - Credentials are never returned, logged or cached. Cache keys only record whether auth was used.
-- **Still not in:** keyless identity verification and OCI 1.1 bundle verification.
+- **Still not in:** keyless identity verification and OCI 1.1 bundle verification. *(Keyless: done in slice 3 below.)*
 - **Drawer placement (shipped 2026-10-09).**
   - Deployment, StatefulSet and DaemonSet drawers, and the Pod drawer, have a "Signatures" tab that runs the same on-demand check for their own pods only.
   - `GET /api/image-signatures` takes `ns` plus either `selector` (a workload's own `spec.selector`, written by `lib/labelSelector.ts#selectorQuery`) or `pod`.
@@ -1129,6 +1129,45 @@ How it contacts registries:
     - Scoping to a namespace also lets a user whose access stops at one namespace run it.
   - `selectorQuery` returns null for an empty selector or an unknown operator, because either would check more pods than the workload's. The tab then says it can't find the pods.
   - The table and controls moved into `components/ImageSignatureCheck.tsx`, shared by the RBAC-page card and the tabs. The Namespaces column is dropped when scoped.
+
+**Slice 3 (2026-10-13): keyless verification against Sigstore's public instance.** Raja approved TUF-fetched trust roots with a cached copy on 2026-10-12.
+- **Why not sigstore-go:** v1.3.0 needs Go 1.25.8, but the engine's floor is 1.24 and `make build` uses the local toolchain. It also pulls in rekor, go-openapi, certificate-transparency and in-toto.
+  - So TUF uses `theupdateframework/go-tuf/v2` v2.2.0 (Go 1.23), with sigstore/sigstore for its signature verifiers.
+  - The cosign keyless checks are written by hand, stdlib only (`sigcheck/keyless.go`).
+- **`verifyKeyless`**, for a `.sig` layer with `dev.sigstore.cosign/certificate` and `bundle`:
+  1. The bundle's SET verifies (ECDSA or Ed25519) over the RFC 8785 form of `{body, integratedTime, logID, logIndex}`, with a trusted-root Rekor key whose ID matches and whose validFor covers integratedTime.
+  2. The body (hashedrekord, or old rekord) records sha256 = the layer digest, the same signature, and the same certificate.
+  3. The leaf chains to a trusted-root Fulcio CA valid at integratedTime, with CodeSigning EKU, verified at that time (Fulcio certs live 10 minutes).
+  4. An embedded SCT verifies with a trusted-root CT log key over the RFC 6962 precert data: the TBS re-encoded without the SCT list, plus the issuer key hash.
+  5. The signature verifies over the digest. Ed25519 needs the payload, which `verifyTag` passes.
+  6. The signer is the first email or URI SAN. The issuer comes from Fulcio OID 1.8 (UTF8String), else 1.1.
+- **Policy identities** (`httpapi.policyIdentities`):
+  - Kyverno `attestors[].entries[].keyless` (subject, issuer, regexps, `*` wildcards) and the older `verifyImages[].subject/issuer`.
+  - Sigstore ClusterImagePolicy `authorities[].keyless.identities`.
+  - `roots`, a non-public `rekor.url` or `pubkey`, a non-public Fulcio `url`, `ca-cert` or `trustRootRef` mark an identity Unsupported. It is then reported as "not judged against <policy>: it trusts its own Fulcio roots", not as a failure.
+  - Regexps match unanchored, as cosign's do.
+- **Results:**
+  - A matching identity gives `verified` by that policy.
+  - A verified signer that no judged identity allows gives `failed`, "signed by X (issuer Y), which no policy identity for this image allows".
+  - A verified signer with no identities gives `keyless`, with the signer shown.
+  - If the trust roots can't be loaded, the result is `keyless`, "not checked: …", and isn't cached.
+  - `Result` and the report rows carry `signer` and `issuer`. The cache key now includes identity sources and whether roots were offered.
+- **TUF** (`sigcheck/tuf.go`, `TrustRoots`):
+  - It embeds the TUF root sigstore-go v1.3.0 ships (v14; the updater rotates to the current one online). The remote is `https://tuf-repo-cdn.sigstore.dev`, with consistent snapshots, and `trusted_root.json` is the target.
+  - The metadata lives in `~/.kubebay/sigstore/tuf`. A verified copy goes to `~/.kubebay/sigstore/trusted_root.json`, reused in memory for 24 hours.
+  - Offline, it uses that copy ("cached copy from <date>") and retries TUF after 10 minutes.
+  - With no writable home, there is no disk cache.
+  - It loads only when a keyless signature turns up.
+- **Tests:**
+  - Real fixtures: Sigstore's public `trusted_root.json`, and the `.sig` manifest of `ghcr.io/sigstore/cosign/cosign:v2.6.0`, whose keyless layer has a 2025 hashedrekord, SCT and Fulcio intermediate.
+    - It verifies, naming `keyless@projectsigstore.iam.gserviceaccount.com` / `https://accounts.google.com`.
+    - It is rejected with a flipped digest, the other layer's signature, no bundle, a forged integratedTime, or a foreign certificate.
+    - It fails with Fulcio, the CT logs or Rekor removed from the root, or with only the 2021–22 CA.
+  - The payload blob couldn't be downloaded (ghcr's blob CDN is blocked here), which is why verifyKeyless takes the digest.
+  - A synthetic Sigstore (own CA, CT and Rekor keys; SCT built over the precert TBS) drives the whole `CheckWith` flow: policy match, wrong signer, another image's digest, untrusted Fulcio, roots unavailable (and not cached), and an Unsupported identity.
+  - A go-tuf repository built in the test checks: fetch, reuse, offline cached copy, a tampered target refused and never cached, and no cache with no network.
+- **Not verified here:** a live fetch from `tuf-repo-cdn.sigstore.dev` (this environment's proxy blocks it), and a full check against a live registry.
+- **Still not in:** OCI 1.1 Sigstore bundle referrers (cosign v3's format, with Rekor v2 inclusion proofs and RFC 3161 timestamps), private Sigstore instances, and attestations.
 
 **OSS.**
 

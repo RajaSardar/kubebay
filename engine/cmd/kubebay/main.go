@@ -176,7 +176,7 @@ func main() {
 		Helm:      helmMgr,
 		NodeShell: nodeShell,
 		NetDiag:   &httpapi.NetDiagManager{Clusters: mgr, Audit: auditLog},
-		ImageSigs: &httpapi.ImageSignatureAPI{Clusters: mgr, Checker: &sigcheck.Checker{}},
+		ImageSigs: &httpapi.ImageSignatureAPI{Clusters: mgr, Checker: &sigcheck.Checker{}, TrustRoots: sigstoreTrustRoots()},
 		MCP:       newMCP(settingsMgr, mgr, registry, auditLog, *addr, *inCluster, auth.Enabled()),
 		Triage:    newTriage(settingsMgr, mgr, registry, auditLog, *inCluster, auth.Enabled()),
 		Settings:  settingsMgr,

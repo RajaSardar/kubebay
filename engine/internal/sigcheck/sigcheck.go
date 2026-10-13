@@ -3,9 +3,11 @@
 // Tier 2 #17). It looks for a cosign signature tag (sha256-<hex>.sig) and
 // for sigstore/cosign artifacts in the OCI 1.1 referrers API. A tag
 // signature is verified against public keys taken from the cluster's own
-// admission policies when given; keyless (Fulcio) identities are left to the
-// admission controller. Registries are contacted anonymously unless the
-// caller passes the pod's pull-secret credentials for that registry.
+// admission policies when given. A keyless (Fulcio) tag signature is checked
+// against Sigstore's public trusted root, fetched through TUF, and its
+// signer against the policies' keyless identities. Registries are contacted
+// anonymously unless the caller passes the pod's pull-secret credentials
+// for that registry.
 package sigcheck
 
 import (
@@ -44,6 +46,12 @@ type Result struct {
 	// policy keys; empty when no signature was found.
 	Verification Verification `json:"verification,omitempty"`
 	VerifiedBy   string       `json:"verifiedBy,omitempty"`
+	// Signer and Issuer name who signed a keyless signature that verified
+	// against Sigstore's roots.
+	Signer string `json:"signer,omitempty"`
+	Issuer string `json:"issuer,omitempty"`
+
+	transient bool
 }
 
 const dockerHub = "registry-1.docker.io"
@@ -124,7 +132,7 @@ func (c *Checker) CheckWith(ctx context.Context, ref Ref, opts Options) Result {
 	c.mu.Unlock()
 
 	res := c.check(ctx, ref, opts)
-	if res.Status != StatusUnknown {
+	if res.Status != StatusUnknown && !res.transient {
 		c.mu.Lock()
 		if c.cache == nil {
 			c.cache = map[string]cached{}
@@ -258,8 +266,9 @@ func (c *Checker) check(ctx context.Context, ref Ref, opts Options) Result {
 		return Result{Status: StatusUnknown, Reason: err.Error()}
 	}
 	if code == http.StatusOK {
-		v, by, why := verifyTag(ctx, s, ref, manifest, opts.Keys)
-		return Result{Status: StatusSigned, Method: "cosign tag", Verification: v, VerifiedBy: by, Reason: why}
+		t := verifyTag(ctx, s, ref, manifest, opts)
+		return Result{Status: StatusSigned, Method: "cosign tag", Verification: t.v, VerifiedBy: t.by, Reason: t.reason,
+			Signer: t.signer.Subject, Issuer: t.signer.Issuer, transient: t.transient}
 	}
 
 	code, body, err := s.get(ctx, "/referrers/"+ref.Digest, "application/vnd.oci.image.index.v1+json")

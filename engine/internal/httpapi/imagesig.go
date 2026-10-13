@@ -31,6 +31,9 @@ import (
 type ImageSignatureAPI struct {
 	Clusters *clusters.Manager
 	Checker  *sigcheck.Checker
+	// TrustRoots, when set, lets keyless signatures be checked against
+	// Sigstore's public trusted root. It's fetched only when one turns up.
+	TrustRoots *sigcheck.TrustRoots
 }
 
 type ImageSignature struct {
@@ -44,8 +47,11 @@ type ImageSignature struct {
 	// Verification is the check against the cluster's own policy keys.
 	Verification sigcheck.Verification `json:"verification,omitempty"`
 	VerifiedBy   string                `json:"verifiedBy,omitempty"`
-	Pods         int                   `json:"pods"`
-	Namespaces   []string              `json:"namespaces"`
+	// Signer and Issuer name a keyless signer whose signature verified.
+	Signer     string   `json:"signer,omitempty"`
+	Issuer     string   `json:"issuer,omitempty"`
+	Pods       int      `json:"pods"`
+	Namespaces []string `json:"namespaces"`
 }
 
 const maxImagesPerPass = 300
@@ -134,6 +140,7 @@ func imageSignatureReport(ctx context.Context, pods []corev1.Pod, check sigCheck
 			r := check(ctx, a.ref, a.row.Image, a.creds)
 			a.row.Status, a.row.Method, a.row.Reason = r.Status, r.Method, r.Reason
 			a.row.Verification, a.row.VerifiedBy = r.Verification, r.VerifiedBy
+			a.row.Signer, a.row.Issuer = r.Signer, r.Issuer
 		}(a)
 	}
 	wg.Wait()
@@ -204,8 +211,14 @@ func (a *ImageSignatureAPI) Handle(w http.ResponseWriter, r *http.Request) {
 	}
 	// Keys come from the admission policies this user can read; none is fine.
 	var keys []sigcheck.PublicKey
+	var identities []sigcheck.KeylessIdentity
 	if dyn, err := dynamic.NewForConfig(cfg); err == nil {
-		keys = policyKeys(listPolicies(ctx, dyn))
+		policies := listPolicies(ctx, dyn)
+		keys, identities = policyKeys(policies), policyIdentities(policies)
+	}
+	var roots func(context.Context) (*sigcheck.TrustedRoot, string, error)
+	if a.TrustRoots != nil {
+		roots = a.TrustRoots.Get
 	}
 	// Pull secrets are read only when the user asks, with their own identity,
 	// and each credential goes only to the registry it is for.
@@ -220,7 +233,13 @@ func (a *ImageSignatureAPI) Handle(w http.ResponseWriter, r *http.Request) {
 				applicable = append(applicable, k)
 			}
 		}
-		return checker.CheckWith(ctx, ref, sigcheck.Options{Keys: applicable, Creds: creds})
+		var ids []sigcheck.KeylessIdentity
+		for _, id := range identities {
+			if id.AppliesTo(image) || id.AppliesTo(ref.Registry+"/"+ref.Repo) {
+				ids = append(ids, id)
+			}
+		}
+		return checker.CheckWith(ctx, ref, sigcheck.Options{Keys: applicable, Creds: creds, Identities: ids, Roots: roots})
 	}
 	writeJSON(w, imageSignatureReport(ctx, pods.Items, check, credsFor, maxImagesPerPass))
 }
@@ -318,6 +337,86 @@ func policyKeys(objs []*unstructured.Unstructured) []sigcheck.PublicKey {
 			for _, a := range auths {
 				if data, ok, _ := unstructured.NestedString(asMap(a), "key", "data"); ok {
 					add(data, "Sigstore "+source, images)
+				}
+			}
+		}
+	}
+	return out
+}
+
+// policyIdentities extracts the keyless signers Kyverno verifyImages
+// attestors (and the older subject/issuer fields) and Sigstore
+// ClusterImagePolicy keyless authorities accept. An identity that relies on
+// its own Fulcio, Rekor or trust root is kept but marked Unsupported, since
+// Kubebay checks against Sigstore's public instance only.
+func policyIdentities(objs []*unstructured.Unstructured) []sigcheck.KeylessIdentity {
+	var out []sigcheck.KeylessIdentity
+	str := func(m map[string]any, k string) string { s, _ := m[k].(string); return s }
+	for _, o := range objs {
+		source := o.GetKind() + " " + o.GetName()
+		if o.GetNamespace() != "" {
+			source = o.GetKind() + " " + o.GetNamespace() + "/" + o.GetName()
+		}
+		switch o.GetKind() {
+		case "ClusterPolicy", "Policy":
+			rules, _, _ := unstructured.NestedSlice(o.Object, "spec", "rules")
+			for _, r := range rules {
+				vis, _, _ := unstructured.NestedSlice(asMap(r), "verifyImages")
+				for _, vi := range vis {
+					m := asMap(vi)
+					images, _, _ := unstructured.NestedStringSlice(m, "imageReferences")
+					if img := str(m, "image"); img != "" {
+						images = append(images, img)
+					}
+					attestors, _, _ := unstructured.NestedSlice(m, "attestors")
+					for _, at := range attestors {
+						entries, _, _ := unstructured.NestedSlice(asMap(at), "entries")
+						for _, e := range entries {
+							kl, ok := asMap(e)["keyless"].(map[string]any)
+							if !ok {
+								continue
+							}
+							id := sigcheck.KeylessIdentity{Source: "Kyverno " + source, Images: images, Wildcards: true,
+								Subject: str(kl, "subject"), Issuer: str(kl, "issuer"), SubjectRegExp: str(kl, "subjectRegExp"), IssuerRegExp: str(kl, "issuerRegExp")}
+							rekorURL, _, _ := unstructured.NestedString(kl, "rekor", "url")
+							rekorKey, _, _ := unstructured.NestedString(kl, "rekor", "pubkey")
+							switch {
+							case str(kl, "roots") != "":
+								id.Unsupported = "it trusts its own Fulcio roots"
+							case rekorKey != "" || (rekorURL != "" && strings.TrimRight(rekorURL, "/") != "https://rekor.sigstore.dev"):
+								id.Unsupported = "it uses its own Rekor log"
+							}
+							out = append(out, id)
+						}
+					}
+					if subj, iss := str(m, "subject"), str(m, "issuer"); subj != "" || iss != "" {
+						out = append(out, sigcheck.KeylessIdentity{Source: "Kyverno " + source, Images: images, Wildcards: true, Subject: subj, Issuer: iss})
+					}
+				}
+			}
+		case "ClusterImagePolicy":
+			var images []string
+			globs, _, _ := unstructured.NestedSlice(o.Object, "spec", "images")
+			for _, g := range globs {
+				if s := str(asMap(g), "glob"); s != "" {
+					images = append(images, s)
+				}
+			}
+			auths, _, _ := unstructured.NestedSlice(o.Object, "spec", "authorities")
+			for _, a := range auths {
+				kl, ok := asMap(a)["keyless"].(map[string]any)
+				if !ok {
+					continue
+				}
+				unsupported := ""
+				if u := strings.TrimRight(str(kl, "url"), "/"); (u != "" && u != "https://fulcio.sigstore.dev") || kl["ca-cert"] != nil || str(kl, "trustRootRef") != "" {
+					unsupported = "it trusts its own Fulcio roots"
+				}
+				ids, _, _ := unstructured.NestedSlice(kl, "identities")
+				for _, i := range ids {
+					m := asMap(i)
+					out = append(out, sigcheck.KeylessIdentity{Source: "Sigstore " + source, Images: images, Unsupported: unsupported,
+						Subject: str(m, "subject"), Issuer: str(m, "issuer"), SubjectRegExp: str(m, "subjectRegExp"), IssuerRegExp: str(m, "issuerRegExp")})
 				}
 			}
 		}
