@@ -103,3 +103,52 @@ describe("rolloutHistory", () => {
     expect(rolloutHistory({ metadata: {} }, [rs("api-1", 1, ago(DAY))], NOW)).toBeNull();
   });
 });
+
+// StatefulSets and DaemonSets keep their history in ControllerRevisions: a
+// top-level `revision`, and no revision-history. A rollback bumps an old
+// ControllerRevision's revision, the only field anyone changes, so its latest
+// managedFields time is when its revision was set.
+describe("rolloutHistory for StatefulSets and DaemonSets", () => {
+  const sts = { kind: "StatefulSet", metadata: { uid: "sts-1", name: "db", namespace: "shop", creationTimestamp: ago(30 * DAY) } };
+
+  function cr(name: string, revision: number, created: string, lastSet?: string, owner = "sts-1") {
+    return {
+      kind: "ControllerRevision",
+      revision,
+      metadata: {
+        name,
+        creationTimestamp: created,
+        ownerReferences: [{ kind: "StatefulSet", name: "db", uid: owner }],
+        managedFields: [{ manager: "kube-controller-manager", operation: "Update", time: lastSet ?? created }],
+      },
+    };
+  }
+
+  it("gives the current revision, when it was rolled out, and the week's rollouts", () => {
+    const h = rolloutHistory(sts, [cr("db-a", 1, ago(30 * DAY)), cr("db-b", 2, ago(10 * DAY)), cr("db-c", 3, ago(2 * DAY)), cr("x", 9, ago(DAY), undefined, "other")], NOW);
+    expect(h).toEqual({ revision: 3, since: ago(2 * DAY), rollback: false, first: false, rolloutsThisWeek: 1, atLeast: false });
+  });
+
+  it("dates a rollback by when its revision was set", () => {
+    // db-a was rolled back to 5 hours ago: revision 1 became 4.
+    const h = rolloutHistory(sts, [cr("db-a", 4, ago(30 * DAY), ago(5 * 60 * 60_000)), cr("db-b", 2, ago(10 * DAY)), cr("db-c", 3, ago(2 * DAY))], NOW);
+    expect(h).toEqual({ revision: 4, since: ago(5 * 60 * 60_000), rollback: true, first: false, rolloutsThisWeek: 2, atLeast: false });
+  });
+
+  it("without managedFields, calls the current one a rollback when another was created after it, and gives no age", () => {
+    const bare = (name: string, revision: number, created: string) => {
+      const c = cr(name, revision, created);
+      delete (c.metadata as { managedFields?: unknown }).managedFields;
+      return c;
+    };
+    const h = rolloutHistory(sts, [bare("db-a", 3, ago(30 * DAY)), bare("db-b", 2, ago(2 * DAY))], NOW);
+    expect(h?.rollback).toBe(true);
+    expect(h?.since).toBeUndefined();
+  });
+
+  it("works the same for a DaemonSet", () => {
+    const ds = { kind: "DaemonSet", metadata: { uid: "ds-1", name: "agent", namespace: "kube-system", creationTimestamp: ago(30 * DAY) } };
+    const h = rolloutHistory(ds, [cr("agent-a", 1, ago(30 * DAY), undefined, "ds-1")], NOW);
+    expect(h).toEqual({ revision: 1, since: ago(30 * DAY), rollback: false, first: true, rolloutsThisWeek: 0, atLeast: false });
+  });
+});

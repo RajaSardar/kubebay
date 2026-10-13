@@ -7,6 +7,7 @@ import { UsageHistoryCard } from "../components/UsageHistoryCard";
 import { McpSettingsCard } from "../components/McpSettingsCard";
 import { TriageSettingsCard } from "../components/TriageSettingsCard";
 import { ExtensionsCard } from "../components/ExtensionsCard";
+import { SavedViewsCard } from "../components/SavedViews";
 import { useTheme, type ThemeName } from "../lib/theme";
 import { useDisplay, type FontSize, type FontFamily, type Density } from "../lib/display";
 
@@ -284,6 +285,7 @@ export default function Settings() {
       <McpSettingsCard />
       <TriageSettingsCard />
       <ExtensionsCard />
+      <SavedViewsCard />
     </div>
   );
 }

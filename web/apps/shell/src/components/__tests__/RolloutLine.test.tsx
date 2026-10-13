@@ -89,4 +89,17 @@ describe("RolloutLine", () => {
     const b = render(<RolloutLine cluster="c1" obj={deploy} />);
     expect(b.container).toBeEmptyDOMElement();
   });
+
+  it("reads a StatefulSet's ControllerRevisions, and dates its rollback", () => {
+    const sts = { kind: "StatefulSet", metadata: { uid: "sts-1", name: "db", namespace: "shop", creationTimestamp: ago(30 * DAY) } };
+    const cr = (name: string, revision: number, created: string, set = created) => ({
+      kind: "ControllerRevision",
+      revision,
+      metadata: { name, creationTimestamp: created, ownerReferences: [{ uid: "sts-1" }], managedFields: [{ manager: "kube-controller-manager", time: set }] },
+    });
+    stream([cr("db-a", 4, ago(30 * DAY), ago(5 * 60 * 60_000)), cr("db-b", 2, ago(10 * DAY)), cr("db-c", 3, ago(2 * DAY))]);
+    render(<RolloutLine cluster="c1" obj={sts} />);
+    expect(screen.getByText("Revision 4, rolled back to an earlier template 5h ago · 2 rollouts in the last 7 days")).toBeInTheDocument();
+    expect(useResourceStream).toHaveBeenCalledWith("c1", "apps/v1/controllerrevisions", { mode: "full", ns: ["shop"] });
+  });
 });

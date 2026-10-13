@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildRolloutProgress } from "../rollout";
+import { buildControllerRevisionRollout, buildRolloutProgress } from "../rollout";
 
 function deployment(overrides: Record<string, unknown> = {}) {
   return {
@@ -80,5 +80,42 @@ describe("buildRolloutProgress", () => {
   it("handles a Deployment with no owned ReplicaSets yet", () => {
     const result = buildRolloutProgress(deployment(), []);
     expect(result.replicaSets).toEqual([]);
+  });
+});
+
+// StatefulSets and DaemonSets: the same bar, per ControllerRevision, counting
+// the workload's pods by their controller-revision-hash label (a StatefulSet's
+// pods carry the revision's name, a DaemonSet's only its hash).
+describe("buildControllerRevisionRollout", () => {
+  function cr(name: string, revision: number, owner = "w-1") {
+    return { kind: "ControllerRevision", revision, metadata: { name, ownerReferences: [{ uid: owner }] } };
+  }
+  function pod(hash: string, ready: boolean, owner = "w-1") {
+    return {
+      metadata: { labels: { "controller-revision-hash": hash }, ownerReferences: [{ uid: owner }] },
+      status: { conditions: [{ type: "Ready", status: ready ? "True" : "False" }] },
+    };
+  }
+
+  it("counts a StatefulSet's ready pods per revision, newest first", () => {
+    const sts = { kind: "StatefulSet", metadata: { uid: "w-1", name: "db" }, spec: { replicas: 3 } };
+    const result = buildControllerRevisionRollout(
+      sts,
+      [cr("db-aaa", 1), cr("db-bbb", 2), cr("web-zzz", 7, "w-2")],
+      [pod("db-bbb", true), pod("db-bbb", false), pod("db-aaa", true), pod("db-bbb", true, "w-2")],
+    );
+    expect(result.desiredReplicas).toBe(3);
+    expect(result.stuck).toBe(false);
+    expect(result.replicaSets).toEqual([
+      { name: "db-bbb", revision: 2, ready: 1, desired: 3, isNew: true },
+      { name: "db-aaa", revision: 1, ready: 1, desired: 1, isNew: false },
+    ]);
+  });
+
+  it("matches a DaemonSet's pods by hash and wants one per scheduled node", () => {
+    const ds = { kind: "DaemonSet", metadata: { uid: "w-1", name: "agent" }, status: { desiredNumberScheduled: 4 } };
+    const result = buildControllerRevisionRollout(ds, [cr("agent-5f7c", 3)], [pod("5f7c", true), pod("5f7c", true)]);
+    expect(result.desiredReplicas).toBe(4);
+    expect(result.replicaSets).toEqual([{ name: "agent-5f7c", revision: 3, ready: 2, desired: 4, isNew: true }]);
   });
 });

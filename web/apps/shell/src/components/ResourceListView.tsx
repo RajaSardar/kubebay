@@ -73,12 +73,16 @@ export interface ResourceListViewProps<R> {
   filterPlaceholder?: string;
   /** The filter's text when the list first renders (a link's ?q=). */
   initialFilter?: string;
+  /** Called with the filter's text as it changes (a saved view captures it). */
+  onFilterChange?: (q: string) => void;
   onOpen: (r: R) => void;
   /** The row menu; Delete goes through `requestDelete` to get the confirmation. */
   menuItems: (r: R, actions: { requestDelete: () => void }) => MenuItem[];
   onDelete: (t: DeleteTarget, gitopsOwner?: string) => Promise<unknown>;
   /** Controls placed before the filter field (namespace filter). */
   toolbar?: ReactNode;
+  /** Header actions after the count (Save view). */
+  headerActions?: ReactNode;
 }
 
 /** "api, etl, run-0, run-1, run-2 +4 more, across 3 namespaces": what a bulk delete hits. */
@@ -238,6 +242,8 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
     scrollRef,
     headerRef,
   });
+  const onFilterChange = p.onFilterChange;
+  useEffect(() => onFilterChange?.(list.filter), [list.filter, onFilterChange]);
   const { shown: rows, filter, setFilter, filterRef, allKeys, activeRow, sort } = list;
   const noun = p.label.toLowerCase();
   const hintId = useId();
@@ -291,6 +297,7 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
             <Badge title={rows.length === all.length ? undefined : "Shown of total"}>
               {countLabel(rows.length, all.length)}
             </Badge>
+            {p.headerActions}
           </>
         }
       />
