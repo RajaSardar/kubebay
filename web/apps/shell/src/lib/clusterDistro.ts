@@ -1,9 +1,14 @@
+import { rancherCluster } from "./rancher";
+
 /**
- * Detect the Kubernetes distribution from a cluster ID / context name.
+ * Detect the Kubernetes distribution from a cluster ID / context name, and
+ * its server URL when known (a Rancher-proxied context can have any name).
  * Returns a short lowercase label ("eks", "kind", "gke", …) or "" if unknown.
  */
-export function detectDistro(id: string): string {
+export function detectDistro(id: string, server = ""): string {
   const s = id.toLowerCase();
+  if (server && rancherCluster(server)) return "rancher";
+  if (s === "rancher-desktop") return "rancher-desktop";
   if (s.startsWith("arn:aws:eks:")) return "eks";
   if (s.startsWith("kind-") || s === "kind") return "kind";
   if (s === "orbstack" || s.startsWith("orbstack-")) return "orbstack";
@@ -26,11 +31,13 @@ const PROVIDER_MAP: Record<string, { label: string; cls: string }> = {
   k3s:      { label: "k3s",      cls: "badge-k3s" },
   k3d:      { label: "k3d",      cls: "badge-k3d" },
   docker:   { label: "Docker",   cls: "badge-docker" },
+  rancher:  { label: "Rancher",  cls: "badge-rancher" },
+  "rancher-desktop": { label: "Rancher Desktop", cls: "badge-rancher-desktop" },
 };
 
 /** Returns display label and CSS class for a provider badge. */
-export function providerBadge(id: string): { label: string; cls: string } {
-  const d = detectDistro(id);
+export function providerBadge(id: string, server = ""): { label: string; cls: string } {
+  const d = detectDistro(id, server);
   return PROVIDER_MAP[d] ?? { label: "–", cls: "badge-default" };
 }
 
