@@ -93,6 +93,42 @@ scoop bucket add rajasardar https://github.com/RajaSardar/scoop-bucket
 scoop install kubebay
 ```
 
+## Verify your download
+
+Every release asset is signed keylessly with [cosign](https://docs.sigstore.dev/cosign/) by the release workflow and has a GitHub build-provenance attestation, so you can check both what you downloaded and how it was built. Starting with v0.8, each asset has a `<asset>.cosign.bundle` next to it, as well as a `.sha256`.
+
+Checksum:
+
+```bash
+shasum -a 256 -c kubebay-linux-amd64.tar.gz.sha256
+```
+
+Signature (cosign 2.x). The certificate must name this repository's release workflow at a release tag:
+
+```bash
+cosign verify-blob kubebay-linux-amd64.tar.gz \
+  --bundle kubebay-linux-amd64.tar.gz.cosign.bundle \
+  --certificate-identity-regexp '^https://github\.com/RajaSardar/kubebay/\.github/workflows/release\.yml@refs/tags/v' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+```
+
+Build provenance (GitHub CLI):
+
+```bash
+gh attestation verify kubebay-linux-amd64.tar.gz --repo RajaSardar/kubebay
+```
+
+The container image is signed and attested the same way. Verify it by tag or digest:
+
+```bash
+cosign verify ghcr.io/rajasardar/kubebay:v0.8.0 \
+  --certificate-identity-regexp '^https://github\.com/RajaSardar/kubebay/\.github/workflows/publish\.yml@refs/(heads/main|tags/v.+)$' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+gh attestation verify oci://ghcr.io/rajasardar/kubebay:v0.8.0 --repo RajaSardar/kubebay
+```
+
+Running in a cluster, Kubebay's own RBAC page check ("Running image signatures") verifies the same signature against Sigstore's public roots and names the signing workflow.
+
 ## From source
 
 Prerequisites: Go ≥ 1.24 (CI and releases build with Go 1.26), Node 20+ (`corepack enable pnpm`).
