@@ -3,12 +3,14 @@ package informers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -46,6 +48,9 @@ type entry struct {
 	subs        map[*Subscription]struct{}
 	synced      bool
 	lastEmptyAt time.Time
+	// failed is why the entry stopped for good (RBAC forbids the list);
+	// a subscriber arriving after that is ended with it at once.
+	failed string
 }
 
 type Pool struct {
@@ -61,6 +66,7 @@ type Subscription struct {
 	id        string
 	Coal      *stream.Coalescer
 	Snap      chan []stream.Op
+	mu        sync.Mutex // guards subs: an entry can end the subscription mid-Subscribe
 	subs      []*entry
 	done      chan struct{}
 	closeOnce sync.Once
@@ -135,12 +141,18 @@ func (p *Pool) Subscribe(ctx context.Context, gvrStr string, namespaces []string
 			p.unsubscribe(sub)
 			return nil, err
 		}
+		sub.mu.Lock()
+		sub.subs = append(sub.subs, e)
+		sub.mu.Unlock()
 		e.mu.Lock()
 		e.subs[sub] = struct{}{}
 		e.lastEmptyAt = time.Time{}
-		synced := e.synced
+		synced, failed := e.synced, e.failed
 		e.mu.Unlock()
-		sub.subs = append(sub.subs, e)
+		if failed != "" {
+			p.end(sub, failed)
+			return sub, nil
+		}
 		if synced {
 			e.deliverSnapshot(sub)
 		}
@@ -191,10 +203,39 @@ func (p *Pool) Closed() bool {
 
 func (p *Pool) unsubscribe(sub *Subscription) { p.end(sub, "") }
 
+// forbid retires an entry whose list or watch RBAC forbids: it leaves the
+// pool, so a later subscription (after the RBAC changes) lists afresh, its
+// informer stops, and every subscriber is ended with the reason.
+func (p *Pool) forbid(e *entry, reason string) {
+	p.mu.Lock()
+	owned := p.entries[e.key] == e
+	if owned {
+		delete(p.entries, e.key)
+	}
+	p.mu.Unlock()
+	e.mu.Lock()
+	e.failed = reason
+	subs := make([]*Subscription, 0, len(e.subs))
+	for s := range e.subs {
+		subs = append(subs, s)
+	}
+	e.mu.Unlock()
+	for _, s := range subs {
+		p.end(s, reason)
+	}
+	// Whoever takes the entry out of the pool stops it, once.
+	if owned {
+		close(e.stop)
+	}
+}
+
 func (p *Pool) end(sub *Subscription, reason string) {
 	sub.closeOnce.Do(func() {
 		sub.reason.Store(reason)
-		for _, e := range sub.subs {
+		sub.mu.Lock()
+		entries := append([]*entry(nil), sub.subs...)
+		sub.mu.Unlock()
+		for _, e := range entries {
 			e.mu.Lock()
 			delete(e.subs, sub)
 			if len(e.subs) == 0 {
@@ -239,6 +280,16 @@ func (p *Pool) entryFor(key poolKey) (*entry, error) {
 		stop:     make(chan struct{}),
 		subs:     map[*Subscription]struct{}{},
 	}
+	// A list RBAC forbids would otherwise be retried forever while the page
+	// waits for a sync that never comes.
+	_ = inf.SetWatchErrorHandler(func(r *cache.Reflector, err error) {
+		var status apierrors.APIStatus
+		if apierrors.IsForbidden(err) && errors.As(err, &status) {
+			p.forbid(e, stream.ReasonForbidden+status.Status().Message)
+			return
+		}
+		cache.DefaultWatchErrorHandler(r, err)
+	})
 	inf.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj any) { e.emit(stream.OpAdd, obj) },
 		UpdateFunc: func(_, newObj any) { e.emit(stream.OpModify, newObj) },

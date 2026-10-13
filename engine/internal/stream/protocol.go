@@ -148,4 +148,7 @@ func ObjectRV(obj map[string]any) string {
 const (
 	ReasonDisconnected       = "cluster disconnected"
 	ReasonCredentialsChanged = "cluster credentials changed"
+	// ReasonForbidden prefixes the API server's message when RBAC doesn't
+	// let this identity list or watch the resource.
+	ReasonForbidden = "forbidden: "
 )

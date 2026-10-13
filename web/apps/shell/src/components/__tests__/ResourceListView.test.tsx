@@ -120,6 +120,14 @@ describe("ResourceListView", () => {
     expect(screen.getByRole("status", { name: "Loading jobs…" })).toBeInTheDocument();
   });
 
+  it("says RBAC forbids the list instead of sketching a table that will never load", () => {
+    const msg = 'jobs.batch is forbidden: User "dev" cannot list resource "jobs" in API group "batch" at the cluster scope';
+    renderView({ rows: [], synced: false, forbidden: msg });
+    expect(screen.queryByRole("status", { name: "Loading jobs…" })).toBeNull();
+    expect(screen.getByText("You can't list jobs here.")).toBeInTheDocument();
+    expect(screen.getByText(msg)).toBeInTheDocument();
+  });
+
   it("says why the list is empty", () => {
     renderView();
     fireEvent.change(screen.getByRole("textbox", { name: "Filter jobs" }), { target: { value: "nope" } });

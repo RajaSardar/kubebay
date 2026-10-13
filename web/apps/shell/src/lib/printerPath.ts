@@ -2,12 +2,18 @@
 // restricted subset in additionalPrinterColumns, and in practice operators use
 // two shapes: a plain dot path, and a filter predicate to pull one entry out of
 // a conditions array (`.status.conditions[?(@.type=="Ready")].status`, which is
-// how Karpenter and most controllers define their Ready column). Anything more
-// exotic yields "" rather than pulling in a full JSONPath engine.
+// how Karpenter and most controllers define their Ready column). Extension
+// columns (KB-13) also use `[N]` indexes and `\.` for a dot inside a key
+// (`.metadata.labels.app\.kubernetes\.io/name`), as kubectl does. Anything more
+// exotic yields "" rather than pulling in a full JSONPath engine. The engine's
+// extensions package validates against this same subset.
 
 type Step =
   | { kind: "key"; key: string }
+  | { kind: "index"; index: number }
   | { kind: "filter"; key: string[]; value: string };
+
+const INDEX_RE = /^\[(\d+)\]/;
 
 const FILTER_RE = /^\[\?\(@\.([A-Za-z0-9_.\-/]+)\s*==\s*(["'])(.*?)\2\)\]/;
 
@@ -20,14 +26,24 @@ export function parsePrinterPath(raw: string): Step[] | null {
   while (i < path.length) {
     if (path[i] === ".") {
       i += 1;
-      const start = i;
-      while (i < path.length && path[i] !== "." && path[i] !== "[") i += 1;
-      const key = path.slice(start, i);
+      let key = "";
+      while (i < path.length && path[i] !== "." && path[i] !== "[") {
+        if (path[i] === "\\") i += 1;
+        if (i >= path.length) return null;
+        key += path[i];
+        i += 1;
+      }
       if (!key) return null;
       steps.push({ kind: "key", key });
       continue;
     }
     if (path[i] === "[") {
+      const idx = INDEX_RE.exec(path.slice(i));
+      if (idx?.[1]) {
+        steps.push({ kind: "index", index: Number(idx[1]) });
+        i += idx[0].length;
+        continue;
+      }
       const m = FILTER_RE.exec(path.slice(i));
       if (!m || !m[1] || m[3] === undefined) return null;
       steps.push({ kind: "filter", key: m[1].split("."), value: m[3] });
@@ -58,6 +74,9 @@ export function evalPrinterPath(raw: string, obj: unknown): string {
     if (step.kind === "key") {
       if (typeof cur !== "object") return "";
       cur = (cur as Record<string, unknown>)[step.key];
+    } else if (step.kind === "index") {
+      if (!Array.isArray(cur)) return "";
+      cur = cur[step.index];
     } else {
       if (!Array.isArray(cur)) return "";
       cur = cur.find((el) => {

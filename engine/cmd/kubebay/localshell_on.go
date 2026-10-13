@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"os/exec"
+	"path/filepath"
 	"time"
 
 	"github.com/RajaSardar/kubebay/engine/internal/httpapi"
@@ -33,6 +34,9 @@ func setupLocalShell(log *slog.Logger, ch *httpapi.Channels, enabled, inCluster,
 	log.Warn("local shell ENABLED — anything that can reach this listener with the token can run commands as you")
 	st.Available = true
 	st.Kubectl = probeKubectl()
+	if sh, err := localshell.ResolveShell(); err == nil {
+		st.Shell = filepath.Base(sh)
+	}
 	return httpapi.WithLocalShell(ch, m), st, func() { _ = m.Close() }
 }
 

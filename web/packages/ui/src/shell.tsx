@@ -289,6 +289,8 @@ export interface MenuItem {
   onClick: () => void;
   danger?: boolean;
   disabled?: boolean;
+  /** Why the item is disabled, or what it will do; shown on hover and read as its description. */
+  hint?: string;
   separator?: boolean;
 }
 
@@ -341,6 +343,7 @@ export function ContextMenu({
             key={i}
             role="menuitem"
             aria-disabled={item.disabled || undefined}
+            title={item.hint}
             className={`ctx-item${item.danger ? " danger" : ""}${item.disabled ? " disabled" : ""}`}
             onClick={() => {
               if (!item.disabled) {

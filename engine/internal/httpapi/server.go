@@ -46,6 +46,8 @@ type Deps struct {
 	Waste     wasteSnapshotter
 	History   *HistoryAPI
 	Discovery *DiscoveryAPI
+	// Extensions serves ~/.kubebay/extensions.yaml (KB-13); nil = off.
+	Extensions *ExtensionsAPI
 }
 
 func (d Deps) authEnabled() bool { return d.Auth != nil && d.Auth.Enabled() }
@@ -353,6 +355,9 @@ func Router(d Deps, token string) http.Handler {
 			r.Delete("/api/triage/key", d.Triage.HandleDeleteKey)
 			r.Post("/api/triage/preview", d.Triage.HandlePreview)
 			r.Post("/api/triage/send", d.Triage.HandleSend)
+		}
+		if d.Extensions != nil {
+			r.Get("/api/extensions", d.Extensions.HandleGet)
 		}
 		r.Get("/api/discover/aws/profiles", d.Discovery.HandleProfiles)
 		r.Post("/api/discover/eks/scan", d.Discovery.HandleScan)

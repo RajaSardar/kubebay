@@ -14,6 +14,10 @@ import { usageBar, type UsageBar } from "../lib/podUsage";
 import { derivePod, type PodRow } from "../lib/pods";
 import { ResourceListView, type ListColumn } from "../components/ResourceListView";
 import { fmtBytes, fmtCpu } from "../lib/format";
+import { useExtensions } from "../lib/useExtensions";
+import { contextOf } from "../lib/localshell";
+
+const PODS_DEF = { resource: "pods", group: "", kind: "Pod" };
 
 function rec(v: unknown): Record<string, unknown> {
   return (v ?? {}) as Record<string, unknown>;
@@ -147,7 +151,7 @@ export default function Workloads() {
   const [sp] = useSearchParams();
   const navigate = useNavigate();
   const scope = sp.get("selector") ? { ns: sp.get("ns") ?? "", selector: sp.get("selector")!, of: sp.get("of") ?? "" } : null;
-  const { rows, synced, connected } = useResourceStream(effectiveCluster || undefined, "v1/pods", {
+  const { rows, synced, connected, forbidden } = useResourceStream(effectiveCluster || undefined, "v1/pods", {
     mode: "full",
     ns: scope ? (scope.ns ? [scope.ns] : undefined) : nsFilter.length > 0 ? nsFilter : undefined,
     labelSelector: scope?.selector,
@@ -169,7 +173,21 @@ export default function Workloads() {
   const [selected, setSelected] = useState<SelectedPod | null>(null);
 
   const pods = useMemo(() => rows.map(derivePod).filter((p): p is PodRow => p !== null), [rows]);
-  const columns = useMemo(() => podColumns(usage), [usage]);
+  // The pod object behind each row, for extension columns and actions (KB-13).
+  const podObjects = useMemo(() => {
+    const m = new Map<string, unknown>();
+    for (const r of rows) {
+      const meta = rec(rec(r).metadata);
+      m.set(`${String(meta.namespace ?? "")}/${String(meta.name ?? "")}`, r);
+    }
+    return m;
+  }, [rows]);
+  // Read through a ref so the columns stay the same between stream updates.
+  const podObjectsRef = useRef(podObjects);
+  podObjectsRef.current = podObjects;
+  const objectOf = useCallback((p: PodRow) => podObjectsRef.current.get(p.key), []);
+  const ext = useExtensions<PodRow>(PODS_DEF, effectiveCluster, contextOf(effectiveCluster, clusters.data ?? []), objectOf);
+  const columns = useMemo(() => [...podColumns(usage), ...ext.columns], [usage, ext.columns]);
 
   const openPod = useCallback(
     (p: PodRow, tab?: SelectedPod["tab"]) => {
@@ -220,6 +238,7 @@ export default function Workloads() {
         rows={pods}
         objects={rows as Record<string, unknown>[]}
         synced={synced}
+        forbidden={forbidden}
         busy={!synced || !connected}
         live={synced && connected}
         cluster={effectiveCluster}
@@ -260,6 +279,7 @@ export default function Workloads() {
           { label: "Shell", onClick: () => openPod(p, "shell") },
           { label: "Edit YAML", onClick: () => openPod(p, "yaml") },
           { label: "Copy name", onClick: () => void navigator.clipboard?.writeText(p.name) },
+          ...ext.menuItems(p),
           { separator: true, label: "", onClick: () => {} },
           { label: "Delete", danger: true, onClick: requestDelete },
         ]}

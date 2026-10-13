@@ -6,7 +6,13 @@ export interface StreamState {
   rows: Record<string, unknown>[];
   synced: boolean;
   connected: boolean;
+  /** The API server's message when RBAC doesn't let this identity list the
+   *  resource: the engine ended the subscription, so it will never sync. */
+  forbidden?: string;
 }
+
+/** The engine ends a subscription RBAC forbids with this before the API server's message. */
+const FORBIDDEN = "forbidden: ";
 
 // Pure helper — exported for unit tests.
 // Computes the next { synced, connected } state on a WS status event.
@@ -49,7 +55,7 @@ export function useResourceStream(
   // Stable/synced/connected scalars — stored in a single ref object so we
   // can update them without going through React state, then notify listeners
   // only when the epoch flush fires.
-  const metaRef = useRef({ synced: false, connected: false });
+  const metaRef = useRef<{ synced: boolean; connected: boolean; forbidden?: string }>({ synced: false, connected: false });
 
   // Pending flush timer handle.
   const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -93,7 +99,7 @@ export function useResourceStream(
       metaRef.current = { synced: cached.synced, connected: false };
     } else {
       storeRef.current = new Map();
-      metaRef.current = { ...metaRef.current, synced: false };
+      metaRef.current = { ...metaRef.current, synced: false, forbidden: undefined };
     }
     setEpoch((e) => e + 1);
 
@@ -148,7 +154,14 @@ export function useResourceStream(
         setStreamCache(specKey, Array.from(storeRef.current.entries()), true);
         scheduleFlushRef.current();
       },
-      onError: (id: string, msg: string) => console.warn("[kubebay-stream]", id || "(no id)", msg),
+      onError: (id: string, msg: string) => {
+        if (id === subId && msg.startsWith(FORBIDDEN)) {
+          metaRef.current = { ...metaRef.current, forbidden: msg.slice(FORBIDDEN.length) };
+          scheduleFlushRef.current();
+          return;
+        }
+        console.warn("[kubebay-stream]", id || "(no id)", msg);
+      },
     };
     streamDetach = attach(handlers);
     subId = `ui-${Math.random().toString(36).slice(2, 10)}`;
@@ -187,11 +200,11 @@ export function useResourceStream(
   );
 
   // Meta values are also gated on epoch so they stay in sync.
-  const { synced, connected } = useMemo(
+  const { synced, connected, forbidden } = useMemo(
     () => metaRef.current,
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [epoch],
   );
 
-  return useMemo(() => ({ rows, synced, connected }), [rows, synced, connected]);
+  return useMemo(() => ({ rows, synced, connected, ...(forbidden ? { forbidden } : {}) }), [rows, synced, connected, forbidden]);
 }
