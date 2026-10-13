@@ -254,6 +254,9 @@ LATER (post-1.0; demand- or decision-gated)
 - **Acceptance:** the job is green, and the label is removed only after a manual pass on each OS.
 
 ### KB-15 · Findings export: S–M
+- **Status: shipped** (2026-10-13). An "Export report" action on the RBAC page saves SARIF 2.1.0, JSON or Markdown, built by `lib/findingsReport.ts` from the existing detectors' findings with their CIS and ATT&CK control IDs. It covers attack paths, RBAC (non-system, as the card shows), upgrade readiness, SPOF, NetworkPolicy coverage, secrets in env vars, default-SA token automount, and namespaces without image-signature enforcement.
+  - Golden files cover each format, and the SARIF is validated against the OASIS 2.1.0 schema (ajv, draft-04).
+  - The report records the cluster, the time and the Kubebay version, which comes from a new token-protected `GET /api/version`.
 - **Why:** the detectors are Kubebay's most differentiated asset, and today they live only on screen. Teams and auditors need to share them without a server.
 - **Scope:**
   - One "Export report" action that writes JSON, Markdown and **SARIF**. It covers SPOF, NetworkPolicy gaps, RBAC findings, secret exposure, SA-token over-mount, upgrade readiness, signed images and attack paths, all with framework control IDs (backlog #34).

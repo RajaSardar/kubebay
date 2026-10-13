@@ -76,6 +76,11 @@ describe("Rbac", () => {
     expect(screen.getByRole("button", { name: "Check signatures" })).toBeInTheDocument();
   });
 
+  it("offers a findings report export (KB-15)", async () => {
+    renderPage();
+    expect(await screen.findByRole("button", { name: "Export report" })).toBeInTheDocument();
+  });
+
   it("offers the audit-log security feed", async () => {
     renderPage();
     expect(await screen.findByText("Audit-log security events")).toBeInTheDocument();
