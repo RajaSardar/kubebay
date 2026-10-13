@@ -80,6 +80,17 @@ jobs:
       - run: cargo build --locked
       - run: cargo test --locked
 
+  scripts:
+    name: scripts (node)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      # KB-02: the release workflow's installer-size check.
+      - run: node --test scripts/installer-sizes.test.mjs
+
   integration:
     name: integration (kind)
     runs-on: ubuntu-latest
