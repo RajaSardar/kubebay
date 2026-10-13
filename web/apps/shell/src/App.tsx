@@ -1,4 +1,5 @@
 import { createContext, lazy, Suspense, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { useSmokeReady } from "./lib/smoke";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { APIResourceEntry, ClusterInfo } from "./lib/api";
 import { NavLink, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
@@ -675,6 +676,8 @@ function AppInner() {
 export default function App() {
   const navigate = useNavigate();
   useRemoteDisconnects();
+  // KB-14: a desktop CI smoke run exits once the shell has painted.
+  useSmokeReady();
 
   // Warm the two routes users almost always reach from Home, once the main
   // thread is idle, so splitting them out never costs a visible fallback.

@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
+mod smoke;
 mod window_theme;
 
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
@@ -51,6 +52,27 @@ fn set_window_theme(
         window_theme::save(&path, &theme).map_err(|e| e.to_string())?;
     }
     Ok(())
+}
+
+/// Called by the web app (lib/smoke.ts) once the shell has painted. Ends a
+/// smoke run with exit code 0; does nothing otherwise.
+#[tauri::command]
+fn smoke_ready() {
+    if !smoke::is_on() {
+        return;
+    }
+    eprintln!("[kubebay] smoke: the shell painted");
+    kill_engine();
+    std::process::exit(0);
+}
+
+/// Ends a smoke run that can't succeed.
+fn smoke_fail(why: &str) {
+    if smoke::is_on() {
+        eprintln!("[kubebay] smoke: FAILED: {why}");
+        kill_engine();
+        std::process::exit(1);
+    }
 }
 
 /// Where the engine publishes this session's token.
@@ -262,6 +284,16 @@ fn kill_engine() {
 
 fn main() {
     ENGINE_CHILD.get_or_init(|| Mutex::new(None));
+    if smoke::init_from_env() {
+        eprintln!(
+            "[kubebay] smoke run: exits 0 once the shell paints, 1 after {:?}",
+            smoke::TIMEOUT
+        );
+        std::thread::spawn(|| {
+            std::thread::sleep(smoke::TIMEOUT);
+            smoke_fail("the shell did not report that it painted");
+        });
+    }
 
     // Kill the engine sidecar on Ctrl-C / SIGTERM so it never orphans.
     ctrlc::set_handler(|| {
@@ -272,7 +304,7 @@ fn main() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
-        .invoke_handler(tauri::generate_handler![set_window_theme])
+        .invoke_handler(tauri::generate_handler![set_window_theme, smoke_ready])
         .setup(|app| {
             let handle = app.handle().clone();
             let port = pick_free_port();
@@ -333,12 +365,17 @@ fn main() {
             tauri::async_runtime::spawn(async move {
                 if !wait_for_engine(&addr, 40) {
                     eprintln!("[kubebay] engine failed to become ready");
+                    smoke_fail("the engine did not start listening");
                     return;
                 }
                 let Some(token) = read_session_token(&token_path, 40) else {
                     eprintln!("[kubebay] engine published no session token");
+                    smoke_fail("the engine published no session token");
                     return;
                 };
+                if smoke::is_on() {
+                    eprintln!("[kubebay] smoke: engine listening on {addr}");
+                }
                 std::thread::sleep(Duration::from_millis(300));
 
                 let url = format!("http://{addr}/").parse().expect("valid url");
@@ -346,9 +383,9 @@ fn main() {
                 // gets the token back without asking the user and without the
                 // page having to keep it anywhere on disk.  serde_json does the
                 // escaping so the token cannot break out of the literal.
-                let init = format!(
-                    "window.__KUBEBAY_TOKEN__ = {};",
-                    serde_json::to_string(&token).expect("token is a string")
+                let init = smoke::init_script(
+                    &serde_json::to_string(&token).expect("token is a string"),
+                    smoke::is_on(),
                 );
 
                 let saved = window_theme_path(&handle).and_then(|p| window_theme::load(&p));
