@@ -1,5 +1,5 @@
 import { useResourceStream } from "../lib/useResourceStream";
-import { buildRolloutProgress } from "../lib/rollout";
+import { buildControllerRevisionRollout, buildRolloutProgress } from "../lib/rollout";
 import { InlineBanner, Row, SkeletonLines } from "@kubebay/ui";
 
 /**
@@ -7,7 +7,8 @@ import { InlineBanner, Row, SkeletonLines } from "@kubebay/ui";
  * ready replicas per owned ReplicaSet (new vs old), plus the Progressing
  * condition when it indicates trouble. apps/v1/replicasets is already
  * streamed in full mode elsewhere in the app, so this is a new subscription
- * but no new backend work.
+ * but no new backend work. A StatefulSet or DaemonSet gets the same bar per
+ * ControllerRevision, from its pods' controller-revision-hash.
  */
 export function RolloutProgress({
   cluster,
@@ -18,10 +19,13 @@ export function RolloutProgress({
   namespace: string;
   obj: Record<string, unknown> | null;
 }) {
-  const { rows, synced } = useResourceStream(cluster || undefined, "apps/v1/replicasets", {
-    mode: "full",
-    ns: namespace ? [namespace] : undefined,
-  });
+  const kind = typeof obj?.kind === "string" ? obj.kind : "Deployment";
+  const byRevision = kind === "StatefulSet" || kind === "DaemonSet";
+  const ns = namespace ? [namespace] : undefined;
+  const replicaSets = useResourceStream(cluster || undefined, "apps/v1/replicasets", { mode: "full", ns, enabled: !byRevision });
+  const revisions = useResourceStream(cluster || undefined, "apps/v1/controllerrevisions", { mode: "full", ns, enabled: byRevision });
+  const pods = useResourceStream(cluster || undefined, "v1/pods", { mode: "full", ns, enabled: byRevision });
+  const { rows, synced } = byRevision ? revisions : replicaSets;
 
   if (!obj) {
     return <div className="muted small" style={{ padding: 14 }}>Could not load object data.</div>;
@@ -30,7 +34,7 @@ export function RolloutProgress({
     return <SkeletonLines lines={4} label="Loading rollout status…" />;
   }
 
-  const progress = buildRolloutProgress(obj, rows);
+  const progress = byRevision ? buildControllerRevisionRollout(obj, rows, pods.rows) : buildRolloutProgress(obj, rows);
   const totalReady = progress.replicaSets.reduce((sum, rs) => sum + rs.ready, 0);
   const scale = Math.max(progress.desiredReplicas, totalReady, 1);
 
@@ -58,7 +62,9 @@ export function RolloutProgress({
       </div>
       <div className="rollout-legend">
         {progress.replicaSets.length === 0 ? (
-          <span className="muted small">No ReplicaSets found for this Deployment yet.</span>
+          <span className="muted small">
+            {byRevision ? `No ControllerRevisions found for this ${kind} yet.` : "No ReplicaSets found for this Deployment yet."}
+          </span>
         ) : (
           progress.replicaSets.map((rs) => (
             <Row align="center" gap={2} key={rs.name} className="small">

@@ -5,7 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import GenericDrawer from "../GenericDrawer";
 import { DEFS } from "../../lib/resources";
 
-// Overview v2: a Deployment's Summary tab says how old its current revision is
+// Overview v2: a workload's Summary tab says how old its current revision is
 // and how many rollouts the week had, and leads to the Rollout tab.
 
 vi.mock("../../lib/api", async (orig) => ({
@@ -46,9 +46,19 @@ describe("GenericDrawer rollout line", () => {
     expect(screen.getByRole("tab", { name: "Rollout" })).toHaveAttribute("aria-selected", "true");
   });
 
-  it("does not for kinds without ReplicaSets", async () => {
-    renderDrawer("statefulsets");
+  it("does the same for StatefulSets and DaemonSets, which keep ControllerRevisions", async () => {
+    for (const slug of ["statefulsets", "daemonsets"] as const) {
+      const r = renderDrawer(slug);
+      fireEvent.click(await screen.findByRole("button", { name: "rollouts of c1/web" }));
+      expect(screen.getByText("rollout progress")).toBeInTheDocument();
+      r.unmount();
+    }
+  });
+
+  it("does not for kinds with no rollouts", async () => {
+    renderDrawer("configmaps");
     await screen.findAllByText(/web/);
     expect(screen.queryByText(/rollouts of/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Rollout" })).not.toBeInTheDocument();
   });
 });

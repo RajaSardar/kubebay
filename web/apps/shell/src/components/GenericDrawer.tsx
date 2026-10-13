@@ -158,7 +158,7 @@ function PaneContent({
         )}
         {RIGHTSIZABLE_SLUGS.has(def.slug) && obj && <WarningSparkline cluster={cluster} obj={obj} style={{ padding: "14px 14px 0" }} />}
         {RIGHTSIZABLE_SLUGS.has(def.slug) && obj && <WorkloadHealthChip cluster={cluster} obj={obj} style={{ padding: "8px 14px 0" }} />}
-        {def.slug === "deployments" && obj && (
+        {RIGHTSIZABLE_SLUGS.has(def.slug) && obj && (
           <RolloutLine cluster={cluster} obj={obj} onShowRollout={onGenTab && (() => onGenTab("rollout"))} style={{ padding: "8px 14px 0" }} />
         )}
         <MetadataSummary obj={obj} cluster={cluster} ns={ns} />
@@ -421,8 +421,8 @@ export default function GenericDrawer({
     yaml: "YAML",
     events: "Events",
   };
-  // Rollout progress only makes sense for Deployments (old-RS-vs-new-RS
-  // replica counts); Autoscaling only for kinds an HPA/VPA/ScaledObject can
+  // Rollout progress for the kinds that roll out revisions (old-vs-new
+  // ReplicaSets, or pods per ControllerRevision); Autoscaling only for kinds an HPA/VPA/ScaledObject can
   // target. Policy findings apply to any resource except a PolicyReport
   // itself (findings about findings would be circular). Vulnerabilities
   // (backlog #16 Phase 2) only for the same three kinds right-sizing covers —
@@ -431,7 +431,7 @@ export default function GenericDrawer({
   // Every other generic kind keeps the plain three tabs.
   const genTabs: GenTab[] = [
     "summary",
-    ...(def.slug === "deployments" ? (["rollout"] as const) : []),
+    ...(RIGHTSIZABLE_SLUGS.has(def.slug) ? (["rollout"] as const) : []),
     // Resource Timeline (roadmap Tier 2 #18): the pod-owning workload kinds.
     ...(RIGHTSIZABLE_SLUGS.has(def.slug) ? (["timeline"] as const) : []),
     ...(AUTOSCALABLE_SLUGS.has(def.slug) ? (["autoscaling"] as const) : []),
