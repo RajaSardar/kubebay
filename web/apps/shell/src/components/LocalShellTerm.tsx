@@ -14,6 +14,8 @@ import {
   type ShellEnd,
 } from "../lib/localshell";
 import { useChannelTerm } from "../lib/useChannelTerm";
+import { typeWhenQuiet } from "../lib/extensions";
+import type { ShellPrefill } from "../lib/useExtensions";
 
 const KUBECTL_HINT =
   "\x1b[33m■ kubectl is not on this machine's PATH.\x1b[0m\r\n" +
@@ -30,16 +32,23 @@ function ShellSession({
   cluster,
   kubectlMissing,
   onPhase,
+  prefill,
+  onTyped,
 }: {
   cluster: string;
   kubectlMissing: boolean;
   onPhase: (p: Phase) => void;
+  /** A command to type at the first prompt (KB-13), never followed by Enter. */
+  prefill?: string;
+  onTyped?: () => void;
 }) {
   const phaseRef = useRef<Phase["at"]>("connecting");
   const report = (p: Phase) => {
     phaseRef.current = p.at;
     onPhase(p);
   };
+  const typer = useRef<ReturnType<typeof typeWhenQuiet> | null>(null);
+  useEffect(() => () => typer.current?.cancel(), []);
 
   const { hostRef } = useChannelTerm({
     idPrefix: "lsh",
@@ -47,8 +56,15 @@ function ShellSession({
     onSetup: (term) => {
       report({ at: "connecting" });
       if (kubectlMissing) term.write(KUBECTL_HINT);
+      if (prefill) {
+        typer.current = typeWhenQuiet(prefill, (text) => {
+          term.paste(text);
+          onTyped?.();
+        });
+      }
     },
     onData: () => {
+      typer.current?.onData();
       // Fires per frame; only the first one is a state change.
       if (phaseRef.current !== "live") report({ at: "live" });
     },
@@ -87,9 +103,12 @@ function Unavailable({ cap }: { cap?: LocalShellCapability }) {
 export function LocalShellTerm({
   selectedCluster,
   clusters,
+  prefill,
 }: {
   selectedCluster: string;
   clusters: ClusterInfo[];
+  /** A command action's line (KB-13): typed once into the first shell on its cluster. */
+  prefill?: ShellPrefill;
 }) {
   const settings = useQuery({ queryKey: ["settings"], queryFn: settingsApi.get });
   const cap = settings.data?.localShell;
@@ -102,6 +121,9 @@ export function LocalShellTerm({
   // The cluster the user said they did not want to move to, so the stale
   // banner stops asking about that one.
   const [dismissedTarget, setDismissedTarget] = useState("");
+  // Taken once, at open: a later restart or rebind gets a clean prompt.
+  const [command] = useState(() => (prefill && prefill.cluster === selectedCluster ? prefill : null));
+  const [typed, setTyped] = useState(false);
 
   const selectedContext = contextOf(selectedCluster, clusters);
   const selectedIsProd = looksProduction(selectedCluster, selectedContext);
@@ -243,11 +265,32 @@ export function LocalShellTerm({
             </InlineBanner>
           )}
 
+          {command && command.cluster === bound.cluster && (
+            <InlineBanner tone="warn">
+              <span>
+                {typed ? (
+                  <>
+                    Typed from your extension <strong>{command.label}</strong>. Read it, then press Enter to run it, or
+                    clear the line.
+                  </>
+                ) : (
+                  <>
+                    From your extension <strong>{command.label}</strong>: Kubebay types this at the prompt and
+                    won&apos;t press Enter.
+                  </>
+                )}{" "}
+                <code>{command.command}</code>
+              </span>
+            </InlineBanner>
+          )}
+
           <ShellSession
             key={`${bound.cluster}#${nonce}`}
             cluster={bound.cluster}
             kubectlMissing={kubectlMissing}
             onPhase={setPhase}
+            prefill={command && command.cluster === bound.cluster && !typed ? command.command : undefined}
+            onTyped={() => setTyped(true)}
           />
         </>
       )}

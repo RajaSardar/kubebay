@@ -119,6 +119,18 @@ describe("ContextMenu", () => {
     expect(screen.getByRole("menuitem", { name: "Delete" })).toHaveClass("ctx-item", "danger");
   });
 
+  it("says why an item is disabled when it has a hint", () => {
+    render(
+      <ContextMenu
+        x={10}
+        y={10}
+        items={[{ label: "Open in Grafana", disabled: true, hint: "It has no label team.", onClick: vi.fn() }]}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("menuitem", { name: "Open in Grafana" })).toHaveAccessibleDescription("It has no label team.");
+  });
+
   it("ignores disabled items and closes on Escape or an outside click", () => {
     const onClose = vi.fn();
     render(<ContextMenu x={10} y={10} items={items} onClose={onClose} />);

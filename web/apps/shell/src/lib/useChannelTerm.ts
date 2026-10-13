@@ -7,6 +7,11 @@ import { attach, chanSend, closeChannel, openChannel, resizeChannel, type ChanSp
 /** What a terminal's callbacks can do to their own terminal. */
 export interface TermHandle {
   write(data: string | Uint8Array): void;
+  /**
+   * Sends text to the program as a paste: bracketed when the program asked for
+   * bracketed paste, so a shell's key bindings don't act on it.
+   */
+  paste(text: string): void;
   /** The channel currently open, or "" between sessions. */
   readonly channelId: string;
   /** Close the open channel, if any, and open a fresh one through `open`. */
@@ -142,6 +147,7 @@ export function useChannelTerm(opts: ChannelTermOptions) {
     let channelId = "";
     const handle: TermHandle = {
       write: (data) => term.write(data),
+      paste: (text) => term.paste(text),
       get channelId() {
         return channelId;
       },
