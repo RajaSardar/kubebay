@@ -396,7 +396,8 @@ Independently verified by direct source inspection (not just an expert's claim) 
   - The query goes in `--uri-parameters` because on Windows `az` is `az.cmd`, and cmd.exe splits an argument at `&`.
   - From the returned kubeconfig it keeps only the https server, the CA and the `--server-id`. The id falls back to the AKS server app `6dae42f8-…` and must be a GUID. Everything else is dropped.
 - **The written user** is what `kubelogin convert-kubeconfig -l azurecli` produces: `kubelogin get-token --login azurecli --server-id <id>` (v1beta1, interactiveMode Never, an install hint), with no tenant, so it follows the user's az login.
-- **Context naming:** `aks_<first 8 of subscription>_<group>_<name>`, because az names contexts after the bare cluster name, which isn't unique. When kubeconfigs merge, the first file wins a duplicate name and the other is shadowed silently.
+- **Context naming:** `aks_<first 8 of subscription>_<group>/<name>`, because az names contexts after the bare cluster name, which isn't unique.
+  - The `/` separates group and name unambiguously, since it's legal in neither. `lib/clusterDistro.ts` gives `aks_` contexts the AKS badge and shows `<name>`. When kubeconfigs merge, the first file wins a duplicate name and the other is shadowed silently.
   - "Already imported" also matches the API server (`serverKey`: host:port, :443 by default). A cluster fetched earlier with `az aks get-credentials` (context `web`) is recognised, in the scan and at import (409).
 - **Shared with EKS and GKE:** `writeDiscovered`, the pinned-kubeconfig 409, which names `az aks get-credentials … --file <pinned>` and then `kubelogin convert-kubeconfig -l azurecli --kubeconfig <pinned>`, and `DiscoveryBlockReason`.
 - **Routes:** `GET /api/discover/azure/subscriptions`, `POST /api/discover/aks/scan`, `POST /api/discover/aks/import`.

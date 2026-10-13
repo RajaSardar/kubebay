@@ -119,8 +119,11 @@ type aksJSON struct {
 
 const noEntraID = "uses local Kubernetes accounts, not Microsoft Entra ID. Kubebay imports only Entra ID clusters, so no client certificate is written to disk; turn on Entra ID integration, or use az aks get-credentials yourself"
 
+// aksContext names an imported cluster aks_<first 8 of subscription>_<group>/<name>.
+// "/" is in neither a resource group nor a cluster name, so the shell can
+// split the name back out (lib/clusterDistro.ts).
 func aksContext(sub, rg, name string) string {
-	return "aks_" + strings.ToLower(sub)[:8] + "_" + rg + "_" + name
+	return "aks_" + strings.ToLower(sub)[:8] + "_" + rg + "/" + name
 }
 
 func (a aksJSON) cluster(sub string) AKSCluster {

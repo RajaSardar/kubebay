@@ -119,7 +119,7 @@ func TestScanAKSMarksOnlyEntraIDClustersImportable(t *testing.T) {
 	core, legacy, web := res.Clusters[0], res.Clusters[1], res.Clusters[2]
 	if web.Name != "web" || web.ResourceGroup != "shop-rg" || web.Subscription != subProd || web.Location != "westeurope" ||
 		web.Endpoint != "web-dns-abc.hcp.westeurope.azmk8s.io" || web.Version != "1.31.2" || web.Status != "Running" ||
-		!web.EntraID || !web.Importable || web.Reason != "" || web.Context != "aks_1a2b3c4d_shop-rg_web" {
+		!web.EntraID || !web.Importable || web.Reason != "" || web.Context != "aks_1a2b3c4d_shop-rg/web" {
 		t.Errorf("web = %+v", web)
 	}
 	if legacy.Importable || legacy.EntraID || !strings.Contains(legacy.Reason, "Entra ID") || !strings.Contains(legacy.Reason, "local") {
@@ -214,7 +214,7 @@ func TestAKSKubeconfigSignsInWithKubeloginAndTheAzureCLI(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	name := "aks_1a2b3c4d_shop-rg_web"
+	name := "aks_1a2b3c4d_shop-rg/web"
 	if cfg.CurrentContext != name || cfg.Contexts[name] == nil || cfg.Clusters[name] == nil || cfg.AuthInfos[name] == nil {
 		t.Fatalf("names: %+v", cfg)
 	}

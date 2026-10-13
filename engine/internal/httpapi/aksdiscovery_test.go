@@ -109,7 +109,7 @@ func TestAKSImportWritesAKubeloginKubeconfigAndLoadsIt(t *testing.T) {
 	}
 	loaded := false
 	for _, c := range sm.mgr.List() {
-		loaded = loaded || c.Context == "aks_1a2b3c4d_shop-rg_web"
+		loaded = loaded || c.Context == "aks_1a2b3c4d_shop-rg/web"
 	}
 	if !loaded {
 		t.Error("the imported context isn't loaded")

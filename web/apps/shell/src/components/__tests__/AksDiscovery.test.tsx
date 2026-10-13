@@ -16,7 +16,7 @@ const cluster = (name: string, over: Partial<DiscoveredAksCluster> = {}): Discov
   resourceGroup: "shop-rg",
   name,
   location: "westeurope",
-  context: `aks_1a2b3c4d_shop-rg_${name}`,
+  context: `aks_1a2b3c4d_shop-rg/${name}`,
   endpoint: `${name}-dns.hcp.westeurope.azmk8s.io`,
   status: "Running",
   version: "1.31.2",
