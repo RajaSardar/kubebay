@@ -24,6 +24,7 @@ import { GkeDiscovery } from "../components/GkeDiscovery";
 import { AksDiscovery } from "../components/AksDiscovery";
 import ConfigurePrometheusModal from "../components/ConfigurePrometheusModal";
 import { providerBadge, clusterDisplayName } from "../lib/clusterDistro";
+import { rancherCluster } from "../lib/rancher";
 import {
   Badge,
   Button,
@@ -147,6 +148,7 @@ function RowMenu({ cluster, connected, pinned, ...a }: RowMenuProps) {
   // this its own click would reopen the menu it just closed.
   const closedAt = useRef(0);
   const broken = cluster.status === "misconfigured";
+  const rancher = rancherCluster(cluster.server);
   const copy = (text: string) => void navigator.clipboard?.writeText(text);
   return (
     <div className="catalog-row-menu">
@@ -181,6 +183,7 @@ function RowMenu({ cluster, connected, pinned, ...a }: RowMenuProps) {
             { label: "Change icon…", onClick: a.onChangeIcon },
             { label: "Copy context name", onClick: () => copy(cluster.context || cluster.id) },
             { label: "Copy server URL", onClick: () => copy(cluster.server), disabled: !cluster.server },
+            ...(rancher ? [{ label: "Open in Rancher", onClick: () => void window.open(rancher.dashboard, "_blank", "noreferrer") }] : []),
             { label: "Configure Prometheus…", onClick: a.onConfigurePrometheus, disabled: broken },
             { separator: true, label: "", onClick: () => {} },
             { label: "Remove from list…", onClick: a.onRemove, danger: true },
@@ -354,7 +357,7 @@ export default function ClusterPicker() {
                       const st = API_STATUS[c.status] ?? API_STATUS.unreachable;
                       const sum = conn ? clusterSummary(c.id) : null;
                       const streamErr = conn ? connectionError(c.id) : "";
-                      const provider = providerBadge(c.context || c.id).label;
+                      const provider = providerBadge(c.context || c.id, c.server).label;
                       const name = clusterDisplayName(c.id, c.context, m.alias);
                       const recorded = usage.data?.clusters?.[c.id];
                       const opened = lastOpenedLabel(m.lastUsed);
