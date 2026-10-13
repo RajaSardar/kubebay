@@ -146,6 +146,7 @@ LATER (post-1.0; demand- or decision-gated)
   - If the targets are missed, run a retro on positioning before starting more Next-horizon feature work.
 
 ### KB-07 · MCP server v1, read-only: M (2–3 weeks)
+- **Status: shipped** in #138 (server and stdio bridge) and #139 (Settings card, client configs, sidebar chip).
 - **Why:** MCP is now a comparison-table row. Lens shipped it built in (Mar 2026), Headlamp ships an AI assistant over MCP, and Rancher Prime ships Liz over MCP servers (analysis §4.6, §7 point 3).
 - **Scope:** **implement backlog #5 exactly as designed.**
   - Streamable HTTP on `/mcp` inside the `requireToken` group, plus a thin stdio bridge (`engine/cmd/kubebay-mcp`) for Claude Desktop.
@@ -165,6 +166,10 @@ LATER (post-1.0; demand- or decision-gated)
   - Docs page "Kubebay as your AI agent's safe window into Kubernetes".
 
 ### KB-08 · Rancher-aware cluster detection: S
+- **Status: shipped** (2026-10-13).
+  - `lib/rancher.ts`: a server path `/k8s/clusters/<id>` (https) gives the "Rancher" badge and an "Open in Rancher" row action to `<origin>/dashboard/c/<id>/explorer`. ACE contexts aren't labelled.
+  - The `rancher-desktop` context gives "Rancher Desktop".
+  - The namespace filter groups by `field.cattle.io/projectId` (annotation, else label) when the cluster has projects.
 - **Why:** the analysis says complement Rancher rather than fight it, and the cheapest proof of that is recognising Rancher. The engine already sends each cluster's `server` URL to the shell (`clusters.Cluster.Server`, JSON `server`), so this is frontend work only.
 - **Scope:**
   - `lib/clusterDistro.ts` detects:
@@ -189,6 +194,7 @@ LATER (post-1.0; demand- or decision-gated)
 - A first external contributor's feature PR is merged (ROADMAP Phase 2 criterion).
 
 ### KB-09 · MCP phase 2: propose and human-approve: M
+- **Status: shipped** in #142. There is no apply tool: approval is only in the Kubebay window, which applies exactly the reviewed diff, pinned to a fresh resourceVersion.
 - **What:** backlog #5 phase 2.
   - `propose_change` runs the existing dry-run and returns a diff plus a `proposalId` with a 5-minute TTL.
   - The proposal is pushed to the UI over `/ws` and shown in the `ActionsBar` confirm language.
@@ -200,6 +206,7 @@ LATER (post-1.0; demand- or decision-gated)
   - A test proves no MCP route can mutate.
 
 ### KB-10 · EKS cluster discovery and one-click import: M (~2 weeks)
+- **Status: shipped**: EKS in #136, GKE in #141, AKS (Entra ID clusters only, via kubelogin) in #148.
 - **What:** backlog #14 as scoped (Phases 0–3).
   - Shell out to the user's own `aws` CLI.
   - Scans run only when the user presses "Scan AWS".
@@ -280,6 +287,7 @@ LATER (post-1.0; demand- or decision-gated)
 - **Acceptance (step 2):** a test asserts that nothing is sent without consent, and the payload schema is published in `docs/SECURITY.md`.
 
 ### KB-18 · BYO-key AI failure triage: M–L (depends on KB-07)
+- **Status: shipped**: consent, evidence and the review pane in #140; Send with evidence-cited, structured findings in #147 (Anthropic Go SDK, any Messages-API endpoint). A local Ollama isn't supported.
 - **What:** the deferred half of backlog #13.
   - The engine-side LLM call uses a user-supplied key or a local Ollama, with a configurable base URL.
   - A per-cluster allow-list.
