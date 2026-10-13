@@ -130,6 +130,8 @@ export interface PodUsage {
 
 export const api = {
   health: () => get<{ ok: boolean }>("/api/healthz"),
+  /** The engine's build, e.g. "v0.7.0" ("dev" for a local build). */
+  version: () => get<{ version: string }>("/api/version"),
   clusters: () => get<ClusterInfo[]>("/api/clusters"),
   /** Mark a cluster connected without opening it (opening a stream also connects). */
   connectCluster: (id: string) => send<ClusterInfo>("POST", `/api/clusters/${encodeURIComponent(id)}/connect`),

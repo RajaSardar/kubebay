@@ -1,0 +1,361 @@
+{
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "Kubebay",
+          "version": "v0.7.0",
+          "informationUri": "https://github.com/RajaSardar/kubebay",
+          "rules": [
+            {
+              "id": "kubebay.attack-path",
+              "name": "Attack paths",
+              "shortDescription": {
+                "text": "Outside traffic can reach a workload whose identity grants risky access"
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "properties": {
+                "tags": [
+                  "kubernetes",
+                  "CIS 5.1.2",
+                  "ATT&CK T1552.007"
+                ]
+              }
+            },
+            {
+              "id": "kubebay.rbac.cluster-admin-binding",
+              "name": "RBAC",
+              "shortDescription": {
+                "text": "Bound to the built-in cluster-admin role"
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "properties": {
+                "tags": [
+                  "kubernetes",
+                  "CIS 5.1.1"
+                ]
+              }
+            },
+            {
+              "id": "kubebay.upgrade.removed-api",
+              "name": "Upgrade readiness",
+              "shortDescription": {
+                "text": "The cluster still serves an API version an upcoming Kubernetes release removes"
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "properties": {
+                "tags": [
+                  "kubernetes"
+                ]
+              }
+            },
+            {
+              "id": "kubebay.spof.no-pdb",
+              "name": "Single points of failure",
+              "shortDescription": {
+                "text": "One replica and no PodDisruptionBudget"
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "properties": {
+                "tags": [
+                  "kubernetes"
+                ]
+              }
+            },
+            {
+              "id": "kubebay.netpol.uncovered",
+              "name": "NetworkPolicy coverage",
+              "shortDescription": {
+                "text": "No NetworkPolicy selects these pods"
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "properties": {
+                "tags": [
+                  "kubernetes",
+                  "CIS 5.3.2"
+                ]
+              }
+            },
+            {
+              "id": "kubebay.secret-env",
+              "name": "Secret exposure",
+              "shortDescription": {
+                "text": "Secrets read into environment variables"
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "properties": {
+                "tags": [
+                  "kubernetes",
+                  "CIS 5.4.1"
+                ]
+              }
+            },
+            {
+              "id": "kubebay.sa-token.automount",
+              "name": "ServiceAccount tokens",
+              "shortDescription": {
+                "text": "Default ServiceAccount token mounted"
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "properties": {
+                "tags": [
+                  "kubernetes",
+                  "CIS 5.1.5",
+                  "CIS 5.1.6",
+                  "ATT&CK T1528"
+                ]
+              }
+            },
+            {
+              "id": "kubebay.signatures.unenforced",
+              "name": "Image signatures",
+              "shortDescription": {
+                "text": "Image signatures aren't enforced"
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "properties": {
+                "tags": [
+                  "kubernetes",
+                  "CIS 5.5.1",
+                  "ATT&CK T1525"
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "automationDetails": {
+        "id": "kubebay/kind-dev/2026-10-13T10:00:00.000Z"
+      },
+      "invocations": [
+        {
+          "executionSuccessful": true,
+          "endTimeUtc": "2026-10-13T10:00:00.000Z"
+        }
+      ],
+      "properties": {
+        "cluster": "kind-dev"
+      },
+      "results": [
+        {
+          "ruleId": "kubebay.attack-path",
+          "ruleIndex": 0,
+          "level": "error",
+          "message": {
+            "text": "Attack path to Deployment shop/api: Reachable from outside through LoadBalancer api-public → Its token can read Secrets in every namespace"
+          },
+          "locations": [
+            {
+              "logicalLocations": [
+                {
+                  "name": "api",
+                  "fullyQualifiedName": "kind-dev/shop/Deployment/api",
+                  "kind": "resource"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "severity": "high",
+            "controls": [
+              "CIS 5.1.2 (Minimize access to secrets)",
+              "ATT&CK T1552.007 (Unsecured Credentials: Container API)"
+            ]
+          }
+        },
+        {
+          "ruleId": "kubebay.rbac.cluster-admin-binding",
+          "ruleIndex": 1,
+          "level": "error",
+          "message": {
+            "text": "Bound to the built-in cluster-admin role: ServiceAccount ci/deployer via ClusterRole:cluster-admin: cluster-admin can do anything in any namespace."
+          },
+          "locations": [
+            {
+              "logicalLocations": [
+                {
+                  "name": "deployer",
+                  "fullyQualifiedName": "kind-dev/ci/ServiceAccount/deployer",
+                  "kind": "resource"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "severity": "high",
+            "controls": [
+              "CIS 5.1.1 (Ensure that the cluster-admin role is only used where required)"
+            ]
+          }
+        },
+        {
+          "ruleId": "kubebay.upgrade.removed-api",
+          "ruleIndex": 2,
+          "level": "error",
+          "message": {
+            "text": "PodDisruptionBudget policy/v1beta1 is removed in Kubernetes 1.25: This cluster still serves policy/v1beta1, 1 minor release before its removal. Move manifests to policy/v1."
+          },
+          "locations": [
+            {
+              "logicalLocations": [
+                {
+                  "name": "kind-dev",
+                  "fullyQualifiedName": "kind-dev",
+                  "kind": "resource"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "severity": "high",
+            "controls": []
+          }
+        },
+        {
+          "ruleId": "kubebay.spof.no-pdb",
+          "ruleIndex": 3,
+          "level": "warning",
+          "message": {
+            "text": "One replica and no PodDisruptionBudget: Deployment shop/api: 1 replica and no PodDisruptionBudget"
+          },
+          "locations": [
+            {
+              "logicalLocations": [
+                {
+                  "name": "api",
+                  "fullyQualifiedName": "kind-dev/shop/Deployment/api",
+                  "kind": "resource"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "severity": "medium",
+            "controls": []
+          }
+        },
+        {
+          "ruleId": "kubebay.netpol.uncovered",
+          "ruleIndex": 4,
+          "level": "warning",
+          "message": {
+            "text": "No NetworkPolicy selects these pods: 2 pods of app api in shop: the namespace has no NetworkPolicy."
+          },
+          "locations": [
+            {
+              "logicalLocations": [
+                {
+                  "name": "api",
+                  "fullyQualifiedName": "kind-dev/shop/App/api",
+                  "kind": "resource"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "severity": "medium",
+            "controls": [
+              "CIS 5.3.2 (Ensure that all Namespaces have Network Policies defined)"
+            ]
+          }
+        },
+        {
+          "ruleId": "kubebay.secret-env",
+          "ruleIndex": 5,
+          "level": "warning",
+          "message": {
+            "text": "Secrets read into environment variables: 2 pods of app api in shop read Secret db-creds into environment variables."
+          },
+          "locations": [
+            {
+              "logicalLocations": [
+                {
+                  "name": "api",
+                  "fullyQualifiedName": "kind-dev/shop/App/api",
+                  "kind": "resource"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "severity": "medium",
+            "controls": [
+              "CIS 5.4.1 (Prefer using Secrets as files over Secrets as environment variables)"
+            ]
+          }
+        },
+        {
+          "ruleId": "kubebay.sa-token.automount",
+          "ruleIndex": 6,
+          "level": "warning",
+          "message": {
+            "text": "Default ServiceAccount token mounted: 3 pods of app web in shop run as the default ServiceAccount with its API token mounted."
+          },
+          "locations": [
+            {
+              "logicalLocations": [
+                {
+                  "name": "web",
+                  "fullyQualifiedName": "kind-dev/shop/App/web",
+                  "kind": "resource"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "severity": "medium",
+            "controls": [
+              "CIS 5.1.5 (Ensure that default service accounts are not actively used)",
+              "CIS 5.1.6 (Ensure that Service Account Tokens are only mounted where necessary)",
+              "ATT&CK T1528 (Steal Application Access Token)"
+            ]
+          }
+        },
+        {
+          "ruleId": "kubebay.signatures.unenforced",
+          "ruleIndex": 7,
+          "level": "warning",
+          "message": {
+            "text": "Image signatures aren't enforced: Nothing enforces image signatures in namespace shop."
+          },
+          "locations": [
+            {
+              "logicalLocations": [
+                {
+                  "name": "shop",
+                  "fullyQualifiedName": "kind-dev/Namespace/shop",
+                  "kind": "resource"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "severity": "medium",
+            "controls": [
+              "CIS 5.5.1 (Configure Image Provenance using ImagePolicyWebhook admission controller)",
+              "ATT&CK T1525 (Implant Internal Image)"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
