@@ -134,7 +134,9 @@ jobs:
           cluster_name: kubebay-ci
           version: v0.33.0
           node_image: ${{ matrix.image }}
-          kubectl_version: v1.34.1
+          # No kubectl_version: kind-action v1.10.0 fetches kubectl from the old
+          # kubernetes-release bucket, which has nothing newer than 2023. The
+          # suite talks to the API with client-go, not kubectl.
       - run: mkdir -p internal/httpapi/static/dist && touch internal/httpapi/static/dist/.gitkeep
       - name: Live integration suite
         run: KUBEBAY_INTEGRATION_TEST=1 go test ./internal/integration/ -v -timeout 300s
