@@ -244,3 +244,23 @@ describe("ClusterPicker", () => {
     await waitFor(() => expect(channel.announceDisconnect).toHaveBeenCalledWith("kind-dev"));
   });
 });
+
+describe("ClusterPicker: Rancher (KB-08)", () => {
+  const viaRancher: ClusterInfo = { id: "prod", context: "prod", server: "https://rancher.acme.io/k8s/clusters/c-m-abc12", status: "reachable", version: "v1.31.0" };
+
+  it("badges a Rancher-proxied cluster and opens it in Rancher's dashboard", async () => {
+    const opened = vi.spyOn(window, "open").mockImplementation(() => null);
+    renderPage([dev, viaRancher]);
+    await screen.findByText("prod", { selector: "[data-cluster-name]" });
+    expect(within(rowOf("prod")).getByText("Rancher")).toBeInTheDocument();
+    fireEvent.click(within(openMenu("prod")).getByRole("menuitem", { name: "Open in Rancher" }));
+    expect(opened).toHaveBeenCalledWith("https://rancher.acme.io/dashboard/c/c-m-abc12/explorer", "_blank", "noreferrer");
+    opened.mockRestore();
+  });
+
+  it("offers Open in Rancher only for Rancher-proxied clusters", async () => {
+    renderPage([dev, viaRancher]);
+    await screen.findByText("kind-dev", { selector: "[data-cluster-name]" });
+    expect(within(openMenu("kind-dev")).queryByRole("menuitem", { name: "Open in Rancher" })).not.toBeInTheDocument();
+  });
+});

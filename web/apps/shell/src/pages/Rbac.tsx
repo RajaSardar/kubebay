@@ -19,6 +19,8 @@ import { findSecretEnvExposures } from "../lib/secretExposure";
 import { findOrphanedSecrets } from "../lib/orphanedSecrets";
 import { findUnusedServiceAccounts } from "../lib/unusedServiceAccounts";
 import { findAttackPaths } from "../lib/attackPaths";
+import { FindingsExport } from "../components/FindingsExport";
+import { isSystemFinding } from "../lib/rbacFindings";
 import { detectTrivyOperator } from "../lib/trivyOperator";
 import { detectGatewayApi } from "../lib/routeResolution";
 import { useCluster } from "../lib/useCluster";
@@ -217,6 +219,26 @@ export default function Rbac() {
     [automountPods.rows, services.rows, ingresses.rows, networkPolicies.rows, vulnReports.rows, data, namespaces.rows, httpRoutes.rows],
   );
 
+  // KB-15: what the export reuses from this page. System bindings are left
+  // out, as the RBAC findings card hides them by default.
+  const exportFindings = useMemo(
+    () => ({
+      rbac: (data?.findings ?? []).filter((f) => !isSystemFinding(f)),
+      attackPaths,
+      secretEnv: secretExposureFindings,
+      automount: automountFindings,
+      unenforcedSignatureNamespaces: imageSignatureReport.uncovered,
+    }),
+    [data, attackPaths, secretExposureFindings, automountFindings, imageSignatureReport.uncovered],
+  );
+  const exportRows = useMemo(
+    () => ({ pods: automountPods.rows, deployments: deployments.rows, statefulSets: statefulSets.rows, services: services.rows, networkPolicies: networkPolicies.rows }),
+    [automountPods.rows, deployments.rows, statefulSets.rows, services.rows, networkPolicies.rows],
+  );
+  const exportReady =
+    !!data &&
+    [automountPods, automountSAs, deployments, statefulSets, services, networkPolicies, namespaces, ingresses, validatingWebhooks].every((st) => st.synced);
+
   function runWhoCan(override?: FindingQuery) {
     if (!data) return;
     const meta = override
@@ -315,6 +337,7 @@ export default function Rbac() {
         level={2}
         title="RBAC explorer"
         count={data && `· ${(data.clusterRoleBindings?.length ?? 0) + (data.roleBindings?.length ?? 0)} bindings`}
+        actions={<FindingsExport cluster={effectiveCluster} ready={exportReady} findings={exportFindings} rows={exportRows} />}
       />
 
       <div className="page-body">

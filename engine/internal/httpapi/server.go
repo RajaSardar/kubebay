@@ -23,6 +23,8 @@ import (
 )
 
 type Deps struct {
+	// Version is the engine build (set at release with -ldflags).
+	Version   string
 	Log       *slog.Logger
 	Clusters  *clusters.Manager
 	Pools     *informers.PoolRegistry
@@ -107,6 +109,9 @@ func Router(d Deps, token string) http.Handler {
 
 	r.Group(func(r chi.Router) {
 		r.Use(requireToken(token, d.Auth))
+		r.Get("/api/version", func(w http.ResponseWriter, _ *http.Request) {
+			writeJSON(w, map[string]string{"version": d.Version})
+		})
 		if d.authEnabled() {
 			r.Use(d.Auth.Middleware)
 		}

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useResourceStream } from "../lib/useResourceStream";
 import { useNamespaceStore, useSelectedNamespaces } from "../lib/namespace-store";
 import { TextField } from "@kubebay/ui";
+import { groupByProject, rancherProject } from "../lib/rancher";
 
 export function NamespaceFilter({ cluster }: { cluster: string | undefined }) {
   const [open, setOpen] = useState(false);
@@ -12,22 +13,29 @@ export function NamespaceFilter({ cluster }: { cluster: string | undefined }) {
   const { setNamespaces, clearNamespaces } = useNamespaceStore();
 
   const namespaces = useResourceStream(cluster, "v1/namespaces", { mode: "metadata" });
+  // Each namespace with its Rancher project (KB-08), "" when it has none.
   const all = useMemo(() => {
     return namespaces.rows
       .map((r) => {
         const meta = ((r ?? {}) as Record<string, unknown>).metadata as
-          | Record<string, unknown>
+          | { name?: string; annotations?: Record<string, string>; labels?: Record<string, string> }
           | undefined;
-        return (meta?.name as string) ?? "";
+        return { name: meta?.name ?? "", project: rancherProject(meta) };
       })
-      .filter(Boolean)
-      .sort();
+      .filter((n) => n.name)
+      .sort((a, b) => a.name.localeCompare(b.name));
   }, [namespaces.rows]);
 
   const filtered = useMemo(() => {
     if (!search) return all;
-    return all.filter((n) => n.toLowerCase().includes(search.toLowerCase()));
+    return all.filter((n) => n.name.toLowerCase().includes(search.toLowerCase()));
   }, [all, search]);
+  // Grouped only when the cluster has Rancher projects.
+  const groups = useMemo(
+    () => (all.some((n) => n.project) ? groupByProject(filtered) : [{ project: "", names: filtered.map((n) => n.name) }]),
+    [all, filtered],
+  );
+  const grouped = groups.length > 1 || (groups[0]?.project ?? "") !== "";
 
   useEffect(() => {
     function onMouseDown(e: MouseEvent) {
@@ -120,22 +128,34 @@ export function NamespaceFilter({ cluster }: { cluster: string | undefined }) {
               All namespaces
             </button>
 
-            {filtered.map((ns) => {
-              const isSelected = selected.includes(ns);
+            {groups.map((g) => {
+              const options = g.names.map((ns) => {
+                const isSelected = selected.includes(ns);
+                return (
+                  <button
+                    key={ns}
+                    className={`ns-option${isSelected ? " selected" : ""}`}
+                    onClick={() => toggle(ns)}
+                    type="button"
+                    role="option"
+                    aria-selected={isSelected}
+                  >
+                    <span className={`ns-checkbox${isSelected ? " checked" : ""}`}>
+                      {isSelected ? "✓" : ""}
+                    </span>
+                    {ns}
+                  </button>
+                );
+              });
+              if (!grouped) return options;
+              const label = g.project ? `Project ${g.project}` : "Not in a project";
               return (
-                <button
-                  key={ns}
-                  className={`ns-option${isSelected ? " selected" : ""}`}
-                  onClick={() => toggle(ns)}
-                  type="button"
-                  role="option"
-                  aria-selected={isSelected}
-                >
-                  <span className={`ns-checkbox${isSelected ? " checked" : ""}`}>
-                    {isSelected ? "✓" : ""}
-                  </span>
-                  {ns}
-                </button>
+                <div key={g.project || "-"} role="group" aria-label={label}>
+                  <div className="muted small strong" style={{ padding: "6px 12px 2px" }} aria-hidden>
+                    {label}
+                  </div>
+                  {options}
+                </div>
               );
             })}
 

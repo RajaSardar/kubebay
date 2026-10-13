@@ -104,6 +104,13 @@ describe("providerBadge", () => {
     expect(b.cls).toBe("badge-orbstack");
   });
 
+  it("labels a context that goes through Rancher's proxy, whatever its name", () => {
+    expect(providerBadge("prod", "https://rancher.acme.io/k8s/clusters/c-m-abc12").label).toBe("Rancher");
+    expect(providerBadge("rancher-desktop", "https://127.0.0.1:6443").label).toBe("Rancher Desktop");
+    // An Authorized Cluster Endpoint context reaches the node directly.
+    expect(providerBadge("prod-node1", "https://10.0.0.5:6443").label).toBe("–");
+  });
+
   it("returns AKS label for Kubebay's AKS import context", () => {
     expect(providerBadge("aks_1a2b3c4d_shop-rg/web").label).toBe("AKS");
   });
