@@ -62,4 +62,35 @@ describe("RolloutProgress", () => {
     render(<RolloutProgress cluster="kind-test" namespace="default" obj={null} />);
     expect(screen.getByText(/could not load object data/i)).toBeTruthy();
   });
+
+  describe("for a StatefulSet", () => {
+    const sts = { kind: "StatefulSet", metadata: { uid: "sts-1", name: "db", namespace: "default" }, spec: { replicas: 3 } };
+    const crs = [
+      { kind: "ControllerRevision", revision: 1, metadata: { name: "db-aaa", ownerReferences: [{ uid: "sts-1" }] } },
+      { kind: "ControllerRevision", revision: 2, metadata: { name: "db-bbb", ownerReferences: [{ uid: "sts-1" }] } },
+    ];
+    const pod = (hash: string) => ({
+      metadata: { labels: { "controller-revision-hash": hash }, ownerReferences: [{ uid: "sts-1" }] },
+      status: { conditions: [{ type: "Ready", status: "True" }] },
+    });
+    function streams(byGvr: Record<string, unknown[]>) {
+      mockUseResourceStream.mockImplementation((_c: string, gvr: string) => ({ rows: byGvr[gvr] ?? [], synced: true, connected: true }));
+    }
+
+    it("shows ready pods per ControllerRevision", () => {
+      streams({ "apps/v1/controllerrevisions": crs, "v1/pods": [pod("db-bbb"), pod("db-bbb"), pod("db-aaa")] });
+      const { container } = render(<RolloutProgress cluster="kind-test" namespace="default" obj={sts} />);
+      expect(screen.getByText(/Rollout progress \(3\/3 ready\)/)).toBeTruthy();
+      expect(container.querySelectorAll(".rollout-bar-segment.new")).toHaveLength(1);
+      expect(container.querySelectorAll(".rollout-bar-segment.old")).toHaveLength(1);
+      expect(screen.getByText("db-bbb")).toBeTruthy();
+      expect(mockUseResourceStream).toHaveBeenCalledWith("kind-test", "apps/v1/controllerrevisions", expect.objectContaining({ enabled: true }));
+    });
+
+    it("says when it has no ControllerRevisions yet", () => {
+      streams({});
+      render(<RolloutProgress cluster="kind-test" namespace="default" obj={sts} />);
+      expect(screen.getByText("No ControllerRevisions found for this StatefulSet yet.")).toBeTruthy();
+    });
+  });
 });

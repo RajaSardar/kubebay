@@ -13,16 +13,21 @@ function weekText(h: RolloutHistory): string {
 function lineText(h: RolloutHistory, now: number): string {
   const age = h.since ? fmtAge(now - Date.parse(h.since)) : "";
   if (h.first && age) return `Revision 1, no rollouts since it was created ${age} ago`;
-  const head = h.rollback ? `Revision ${h.revision}, a rollback to an earlier template` : `Revision ${h.revision}, rolled out ${age} ago`;
+  const head = !h.rollback
+    ? `Revision ${h.revision}, rolled out ${age} ago`
+    : age
+      ? `Revision ${h.revision}, rolled back to an earlier template ${age} ago`
+      : `Revision ${h.revision}, a rollback to an earlier template`;
   const week = weekText(h);
   return week ? `${head} · ${week}` : head;
 }
 
 /**
- * Overview v2, on a Deployment drawer's Summary: how old the current revision
+ * Overview v2, on a workload drawer's Summary: how old the current revision
  * is and how many rollouts the last 7 days had (lib/rolloutHistory), from the
- * ReplicaSets the cluster keeps, so it needs no recording. Leads to the
- * Rollout tab. Renders nothing until an owned ReplicaSet carries a revision.
+ * history the cluster keeps (a Deployment's ReplicaSets, a StatefulSet's or
+ * DaemonSet's ControllerRevisions), so it needs no recording. Leads to the
+ * Rollout tab. Renders nothing until something owned carries a revision.
  */
 export function RolloutLine({
   cluster,
@@ -36,7 +41,8 @@ export function RolloutLine({
   style?: CSSProperties;
 }) {
   const ns = String(((obj.metadata ?? {}) as Record<string, unknown>).namespace ?? "");
-  const { rows } = useResourceStream(cluster || undefined, "apps/v1/replicasets", { mode: "full", ns: [ns] });
+  const gvr = obj.kind === "StatefulSet" || obj.kind === "DaemonSet" ? "apps/v1/controllerrevisions" : "apps/v1/replicasets";
+  const { rows } = useResourceStream(cluster || undefined, gvr, { mode: "full", ns: [ns] });
   const now = Date.now();
   const h = rolloutHistory(obj, rows, now);
   if (!h) return null;
