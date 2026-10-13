@@ -347,6 +347,7 @@ func Router(d Deps, token string) http.Handler {
 			r.Put("/api/triage/key", d.Triage.HandlePutKey)
 			r.Delete("/api/triage/key", d.Triage.HandleDeleteKey)
 			r.Post("/api/triage/preview", d.Triage.HandlePreview)
+			r.Post("/api/triage/send", d.Triage.HandleSend)
 		}
 		r.Get("/api/discover/aws/profiles", d.Discovery.HandleProfiles)
 		r.Post("/api/discover/eks/scan", d.Discovery.HandleScan)
@@ -354,6 +355,9 @@ func Router(d Deps, token string) http.Handler {
 		r.Get("/api/discover/gcp/projects", d.Discovery.HandleGCPProjects)
 		r.Post("/api/discover/gke/scan", d.Discovery.HandleGKEScan)
 		r.Post("/api/discover/gke/import", d.Discovery.HandleGKEImport)
+		r.Get("/api/discover/azure/subscriptions", d.Discovery.HandleAzureSubscriptions)
+		r.Post("/api/discover/aks/scan", d.Discovery.HandleAKSScan)
+		r.Post("/api/discover/aks/import", d.Discovery.HandleAKSImport)
 		r.Get("/api/settings", d.Settings.HandleGet)
 		r.Post("/api/settings", d.Settings.HandleSave)
 		r.Get("/api/prom/query_range", d.Settings.HandlePromQueryRange)

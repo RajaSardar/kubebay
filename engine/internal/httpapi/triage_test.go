@@ -51,6 +51,8 @@ type triageFixture struct {
 	env       map[string]string
 	entries   []audit.Entry
 	evidenced []string
+	// previewed is the request body the last preview showed.
+	previewed json.RawMessage
 }
 
 func newTriageFixture(t *testing.T) *triageFixture {
@@ -140,13 +142,19 @@ func TestPreviewIsTheExactRequestAndIsAudited(t *testing.T) {
 	var got struct {
 		Endpoint     string `json:"endpoint"`
 		ApproxTokens int    `json:"approxTokens"`
+		PreviewID    string `json:"previewId"`
 		Request      struct {
-			Model    string `json:"model"`
-			System   string `json:"system"`
+			Model  string `json:"model"`
+			System []struct {
+				Text string `json:"text"`
+			} `json:"system"`
 			Messages []struct {
-				Content string `json:"content"`
+				Content []struct {
+					Text string `json:"text"`
+				} `json:"content"`
 			} `json:"messages"`
 		} `json:"request"`
+		Betas    []string `json:"betas"`
 		Evidence struct {
 			Masked   int `json:"masked"`
 			Sections []struct {
@@ -155,10 +163,13 @@ func TestPreviewIsTheExactRequestAndIsAudited(t *testing.T) {
 		} `json:"evidence"`
 	}
 	_ = json.Unmarshal(rec.Body.Bytes(), &got)
-	if got.Endpoint != "https://api.anthropic.com/v1/messages" || got.Request.Model != "claude-opus-5-5" || got.ApproxTokens == 0 {
+	if got.Endpoint != "https://api.anthropic.com/v1/messages" || got.Request.Model != "claude-opus-5-5" || got.ApproxTokens == 0 || got.PreviewID == "" {
 		t.Errorf("preview = %s", rec.Body)
 	}
-	if len(got.Request.Messages) != 1 || !strings.Contains(got.Request.Messages[0].Content, "[E2] Logs of api (previous run") || got.Evidence.Masked != 2 || len(got.Evidence.Sections) != 2 {
+	if len(got.Betas) != 1 || len(got.Request.System) != 1 || !strings.Contains(got.Request.System[0].Text, "only the evidence") {
+		t.Errorf("the preview shows the system prompt and the beta header: %s", rec.Body)
+	}
+	if len(got.Request.Messages) != 1 || !strings.Contains(got.Request.Messages[0].Content[0].Text, "[E2] Logs of api (previous run") || got.Evidence.Masked != 2 || len(got.Evidence.Sections) != 2 {
 		t.Errorf("preview = %s", rec.Body)
 	}
 	if len(f.entries) != 1 || f.entries[0].Action != "triage:preview" || f.entries[0].Source != "triage" || f.entries[0].Resource != "api-7d9-x" || f.entries[0].Cluster != "kind-dev" {

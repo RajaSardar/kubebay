@@ -5,11 +5,13 @@ go 1.24.0
 toolchain go1.26.9
 
 require (
+	github.com/anthropics/anthropic-sdk-go v1.80.0
 	github.com/coder/websocket v1.8.12
-	github.com/creack/pty v1.1.18
+	github.com/creack/pty v1.1.24
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/go-chi/chi/v5 v5.1.0
 	github.com/sigstore/sigstore v1.9.5
+	github.com/theupdateframework/go-tuf/v2 v2.2.0
 	github.com/vmihailenco/msgpack/v5 v5.4.1
 	helm.sh/helm/v3 v3.16.4
 	k8s.io/api v0.31.4
@@ -21,15 +23,24 @@ require (
 )
 
 require (
+	github.com/bahlo/generic-list-go v0.2.0 // indirect
+	github.com/buger/jsonparser v1.1.2 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/go-jose/go-jose/v4 v4.0.5 // indirect
 	github.com/google/go-containerregistry v0.20.3 // indirect
+	github.com/invopop/jsonschema v0.14.0 // indirect
 	github.com/letsencrypt/boulder v0.0.0-20240620165639-de9c06129bec // indirect
+	github.com/pb33f/ordered-map/v2 v2.3.1 // indirect
 	github.com/secure-systems-lab/go-securesystemslib v0.9.1 // indirect
 	github.com/sigstore/protobuf-specs v0.4.1 // indirect
-	github.com/theupdateframework/go-tuf/v2 v2.2.0
+	github.com/standard-webhooks/standard-webhooks/libraries v0.0.1 // indirect
+	github.com/tidwall/gjson v1.18.0 // indirect
+	github.com/tidwall/match v1.1.1 // indirect
+	github.com/tidwall/pretty v1.2.1 // indirect
+	github.com/tidwall/sjson v1.2.5 // indirect
 	github.com/titanous/rocacheck v0.0.0-20171023193734-afe73141d399 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
+	go.yaml.in/yaml/v4 v4.0.0-rc.2 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240528184218-531527333157 // indirect
 )
 
@@ -145,11 +156,11 @@ require (
 	golang.org/x/net v0.41.0 // indirect
 	golang.org/x/oauth2 v0.30.0 // indirect
 	golang.org/x/sync v0.16.0 // indirect
-	golang.org/x/sys v0.34.0 // indirect
+	golang.org/x/sys v0.35.0 // indirect
 	golang.org/x/term v0.33.0 // indirect
 	golang.org/x/text v0.27.0 // indirect
-	golang.org/x/time v0.3.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20240701130421-f6361c86f094 // indirect
+	golang.org/x/time v0.5.0 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20240722135656-d784300faade // indirect
 	google.golang.org/grpc v1.65.0 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
