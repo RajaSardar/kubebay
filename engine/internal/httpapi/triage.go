@@ -2,6 +2,8 @@ package httpapi
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net"
@@ -9,7 +11,10 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
+
+	"github.com/anthropics/anthropic-sdk-go"
 
 	"github.com/RajaSardar/kubebay/engine/internal/audit"
 	"github.com/RajaSardar/kubebay/engine/internal/keychain"
@@ -53,8 +58,15 @@ var (
 	apiKeyRe = regexp.MustCompile(`^[A-Za-z0-9._~+/=:-]{16,512}$`)
 )
 
-// TriageAPI owns triage's switch, allowlist, key and preview. Slice 1 sends
-// nothing: the preview is the exact request a later Send will make.
+const (
+	// previewTTL is how long a reviewed request stays sendable.
+	previewTTL  = 10 * time.Minute
+	maxPreviews = 20
+	sendTimeout = 10 * time.Minute
+)
+
+// TriageAPI owns triage's switch, allowlist, key, preview and send. Send
+// makes only a request the user previewed, unchanged.
 type TriageAPI struct {
 	Settings *SettingsManager
 	Evidence func(ctx context.Context, cluster, ns, pod string) (kubetools.Evidence, error)
@@ -63,6 +75,61 @@ type TriageAPI struct {
 	Audit    func(audit.Entry)
 	// Disabled, when set, is why triage doesn't exist in this engine.
 	Disabled string
+
+	mu       sync.Mutex
+	previews map[string]*triagePreview
+	now      func() time.Time
+}
+
+// triagePreview is one reviewed request, kept until it's sent or expires.
+type triagePreview struct {
+	req              triage.Request
+	sections         []string
+	cluster, ns, pod string
+	baseURL, model   string
+	approxTokens     int
+	expires          time.Time
+	sending          bool
+}
+
+func (a *TriageAPI) clock() time.Time {
+	if a.now != nil {
+		return a.now()
+	}
+	return time.Now()
+}
+
+// keep stores a preview, dropping expired ones and, past maxPreviews, the
+// one closest to expiring.
+func (a *TriageAPI) keep(p *triagePreview) string {
+	b := make([]byte, 16)
+	_, _ = rand.Read(b)
+	id := hex.EncodeToString(b)
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.previews == nil {
+		a.previews = map[string]*triagePreview{}
+	}
+	now := a.clock()
+	for k, v := range a.previews {
+		if !now.Before(v.expires) && !v.sending {
+			delete(a.previews, k)
+		}
+	}
+	for len(a.previews) >= maxPreviews {
+		oldest := ""
+		for k, v := range a.previews {
+			if !v.sending && (oldest == "" || v.expires.Before(a.previews[oldest].expires)) {
+				oldest = k
+			}
+		}
+		if oldest == "" {
+			break
+		}
+		delete(a.previews, oldest)
+	}
+	a.previews[id] = p
+	return id
 }
 
 func (a *TriageAPI) settings() TriageSettings {
@@ -266,11 +333,7 @@ func (a *TriageAPI) HandlePreview(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "incident triage is off: turn it on in Settings", http.StatusForbidden)
 		return
 	}
-	allowed := false
-	for _, c := range set.Clusters {
-		allowed = allowed || c == body.Cluster
-	}
-	if !allowed {
+	if !contains(set.Clusters, body.Cluster) {
 		http.Error(w, fmt.Sprintf("incident triage isn't allowed for cluster %q: add it in Settings", body.Cluster), http.StatusForbidden)
 		return
 	}
@@ -284,17 +347,113 @@ func (a *TriageAPI) HandlePreview(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "couldn't gather the evidence: "+err.Error(), http.StatusBadGateway)
 		return
 	}
-	req := triage.BuildRequest(set.Model, ev)
-	entry.Detail = fmt.Sprintf("sections=%d masked=%d approxTokens=%d", len(ev.Sections), ev.Masked, triage.ApproxTokens(req))
+	req := triage.BuildRequest(set.Model, set.BaseURL, ev)
+	approx := triage.ApproxTokens(req)
+	entry.Detail = fmt.Sprintf("sections=%d masked=%d approxTokens=%d", len(ev.Sections), ev.Masked, approx)
 	a.record(entry)
+	ids := make([]string, len(ev.Sections))
+	for i, sec := range ev.Sections {
+		ids[i] = sec.ID
+	}
+	expires := a.clock().Add(previewTTL)
+	id := a.keep(&triagePreview{
+		req: req, sections: ids, cluster: body.Cluster, ns: body.Namespace, pod: body.Pod,
+		baseURL: set.BaseURL, model: set.Model, approxTokens: approx, expires: expires,
+	})
+	betas := req.Betas
+	if betas == nil {
+		betas = []anthropic.AnthropicBeta{}
+	}
 	_, src, _ := a.key()
 	writeJSON(w, map[string]any{
+		"previewId":    id,
+		"expires":      expires.UTC().Format(time.RFC3339),
 		"endpoint":     set.BaseURL + "/v1/messages",
-		"request":      req,
+		"request":      req.Params,
+		"betas":        betas,
 		"evidence":     ev,
-		"approxTokens": triage.ApproxTokens(req),
+		"approxTokens": approx,
 		"keySource":    src,
 	})
+}
+
+// HandleSend sends a previewed request, once, after checking again that
+// triage is on for its cluster and that the endpoint and model are still the
+// ones the user reviewed.
+func (a *TriageAPI) HandleSend(w http.ResponseWriter, r *http.Request) {
+	if a.refuse(w) {
+		return
+	}
+	var body struct {
+		PreviewID string `json:"previewId"`
+	}
+	if err := decodeBody(r, &body); err != nil || body.PreviewID == "" {
+		http.Error(w, "previewId is required", http.StatusBadRequest)
+		return
+	}
+	set := a.settings()
+	a.mu.Lock()
+	p := a.previews[body.PreviewID]
+	switch {
+	case p == nil || !a.clock().Before(p.expires):
+		a.mu.Unlock()
+		http.Error(w, "that preview has expired or was already sent: preview again", http.StatusNotFound)
+		return
+	case p.sending:
+		a.mu.Unlock()
+		http.Error(w, "that preview is already being sent", http.StatusConflict)
+		return
+	case !set.Enabled:
+		a.mu.Unlock()
+		http.Error(w, "incident triage is off: turn it on in Settings", http.StatusForbidden)
+		return
+	case !contains(set.Clusters, p.cluster):
+		a.mu.Unlock()
+		http.Error(w, fmt.Sprintf("incident triage isn't allowed for cluster %q: add it in Settings", p.cluster), http.StatusForbidden)
+		return
+	case set.BaseURL != p.baseURL || set.Model != p.model:
+		a.mu.Unlock()
+		http.Error(w, "the endpoint or model changed since this preview: preview again", http.StatusConflict)
+		return
+	}
+	key, _, err := a.key()
+	if err != nil || key == "" {
+		a.mu.Unlock()
+		http.Error(w, "there's no API key: add one in Settings, or set KUBEBAY_TRIAGE_API_KEY in Kubebay's environment", http.StatusPreconditionFailed)
+		return
+	}
+	p.sending = true
+	a.mu.Unlock()
+
+	ctx, cancel := context.WithTimeout(r.Context(), sendTimeout)
+	defer cancel()
+	res, err := triage.Send(ctx, p.baseURL, key, p.req, p.sections)
+
+	a.mu.Lock()
+	if err != nil {
+		// The same reviewed request can be tried again until it expires.
+		p.sending = false
+	} else {
+		delete(a.previews, body.PreviewID)
+	}
+	a.mu.Unlock()
+
+	entry := audit.Entry{Action: "triage:send", Cluster: p.cluster, Namespace: p.ns, Resource: p.pod, UserAgent: r.Header.Get("User-Agent"), Source: "triage"}
+	entry.Detail = fmt.Sprintf("endpoint=%s model=%s approxTokens=%d", p.baseURL, p.model, p.approxTokens)
+	switch {
+	case err != nil:
+		entry.Detail += " error=" + err.Error()
+	case res.Refusal != nil:
+		entry.Detail += fmt.Sprintf(" refusal=%s answeredBy=%s", res.Refusal.Category, res.Model)
+	default:
+		entry.Detail += fmt.Sprintf(" findings=%d dropped=%d inputTokens=%d outputTokens=%d answeredBy=%s", len(res.Findings), res.Dropped, res.InputTokens, res.OutputTokens, res.Model)
+	}
+	a.record(entry)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadGateway)
+		return
+	}
+	writeJSON(w, res)
 }
 
 func (a *TriageAPI) record(e audit.Entry) {

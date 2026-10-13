@@ -58,7 +58,7 @@ export function TriageSettingsCard() {
         <div className="muted small">
           When it&apos;s on, pods in the clusters you allow get a Triage tab. It gathers a bounded evidence bundle (the
           pod, its owners, warnings, recent rollouts and logs, with credentials masked) and shows exactly what would be
-          sent to the model before anything is. Each preview is written to the audit log.
+          sent. Nothing goes to the model until you press Send, and every preview and send is written to the audit log.
         </div>
         {st.disabled ? (
           <InlineBanner tone="warn" flush>

@@ -644,11 +644,45 @@ export interface TriageEvidenceSection {
 
 /** The exact request a Send would make, and the bundle it carries. */
 export interface TriagePreview {
+  /** Send takes this, once, until `expires`. */
+  previewId: string;
+  expires: string;
   endpoint: string;
-  request: { model: string; max_tokens: number; system: string; messages: { role: string; content: string }[] };
+  /** The Messages API body, as it goes over the wire. */
+  request: {
+    model: string;
+    max_tokens: number;
+    system: { type: string; text: string }[];
+    messages: { role: string; content: { type: string; text: string }[] }[];
+  };
+  /** The anthropic-beta header sent with it. */
+  betas: string[];
   evidence: { cluster: string; namespace: string; pod: string; sections: TriageEvidenceSection[]; masked: number; truncated: boolean };
   approxTokens: number;
   keySource: string;
+}
+
+export interface TriageFinding {
+  title: string;
+  likelihood: "likely" | "possible" | "unlikely";
+  explanation: string;
+  /** IDs of the bundle sections it cites; Kubebay drops IDs that don't exist. */
+  evidence: string[];
+  nextSteps: string[];
+}
+
+/** The model's answer, after Kubebay checked every citation against the bundle. */
+export interface TriageResult {
+  summary: string;
+  findings: TriageFinding[];
+  /** Findings hidden because they cited nothing in the bundle. */
+  dropped: number;
+  missingEvidence?: string;
+  /** The model that answered (a fallback model, if the first declined). */
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+  refusal?: { category?: string; explanation?: string };
 }
 
 export const triageApi = {
@@ -657,6 +691,7 @@ export const triageApi = {
   putKey: (key: string) => send<TriageStatus>("PUT", "/api/triage/key", { key }),
   deleteKey: () => send<TriageStatus>("DELETE", "/api/triage/key"),
   preview: (b: { cluster: string; namespace: string; pod: string }) => send<TriagePreview>("POST", "/api/triage/preview", b),
+  send: (previewId: string) => send<TriageResult>("POST", "/api/triage/send", { previewId }),
 };
 
 export const settingsApi = {
