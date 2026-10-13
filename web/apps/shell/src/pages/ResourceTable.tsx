@@ -19,6 +19,8 @@ import { WorkloadActionDialog, workloadActions } from "../components/WorkloadAct
 import { StarButton } from "../components/Favorites";
 import { NamespaceFilter } from "../components/NamespaceFilter";
 import { useSelectedNamespaces } from "../lib/namespace-store";
+import { useExtensions } from "../lib/useExtensions";
+import { contextOf } from "../lib/localshell";
 import { WorkloadTabBar, isWorkloadRoute } from "../components/WorkloadTabBar";
 
 type Row = Record<string, unknown>;
@@ -302,6 +304,7 @@ const labelsOf = (r: Row) => rec(r.metadata).labels as Record<string, string> | 
 /** A column's key in the filter: "Capacity type" → capacity-type. */
 const filterKeyOf = (header: string) => header.toLowerCase().replace(/\s+/g, "-");
 const versionOf = (r: Row) => str(rec(r.metadata).resourceVersion);
+const rawRow = (r: Row) => r;
 /** Kinds whose row menu offers "Show pods" (they select pods by label). */
 const HAS_PODS = new Set(["deployments", "statefulsets", "daemonsets", "replicasets", "jobs"]);
 
@@ -312,14 +315,15 @@ export default function ResourceTable() {
   const navigate = useNavigate();
 
   const location = useLocation();
-  const { cluster: effectiveCluster } = useCluster();
+  const { cluster: effectiveCluster, list: clusterList } = useCluster();
+  const ext = useExtensions<Row>(def, effectiveCluster, contextOf(effectiveCluster, clusterList), rawRow);
 
   const nsFilter = useSelectedNamespaces(effectiveCluster || undefined);
   const [selected, setSelected] = useState<{ ns: string; name: string; tab?: "yaml" } | null>(null);
   const [rowAction, setRowAction] = useState<{ action: "scale" | "restart"; obj: Row } | null>(null);
 
   const stream = useResourceStream(effectiveCluster || undefined, def?.gvr ?? "v1/configmaps", {
-    mode: def?.mode,
+    mode: ext.needsFull ? "full" : def?.mode,
     ns: def && !def.scoped && nsFilter.length > 0 ? nsFilter : undefined,
   });
 
@@ -381,6 +385,7 @@ export default function ResourceTable() {
         filterText: (o) => evalPrinterPath(pc.jsonPath, o),
         filterKey: filterKeyOf(pc.name),
       })),
+      ...ext.columns,
       {
         // "Managed by", not "Owner": this is the GitOps app (Argo CD / Flux), not
         // Kubernetes ownerReferences. The id stays Owner so saved sorts keep working.
@@ -407,7 +412,7 @@ export default function ResourceTable() {
         filterKey: "owner",
       },
     ];
-  }, [def, nodeUsage, podsPerNode, printerColumns, navigate]);
+  }, [def, nodeUsage, podsPerNode, printerColumns, ext.columns, navigate]);
 
   const onOpen = useCallback((r: Row) => setSelected({ ns: nsOf(r), name: nameOf(r) }), []);
 
@@ -472,6 +477,7 @@ export default function ResourceTable() {
             ...(workloadActions(def.slug).scale ? [{ label: "Scale…", onClick: () => setRowAction({ action: "scale", obj: o }) }] : []),
             ...(workloadActions(def.slug).restart ? [{ label: "Restart…", onClick: () => setRowAction({ action: "restart", obj: o }) }] : []),
             { label: "Copy name", onClick: () => void navigator.clipboard?.writeText(name) },
+            ...ext.menuItems(o),
             { separator: true, label: "", onClick: () => {} },
             { label: "Delete", danger: true, onClick: requestDelete },
           ];

@@ -73,6 +73,8 @@ type LocalShellStatus struct {
 	Enabled   bool           `json:"enabled"`
 	Reason    string         `json:"reason,omitempty"`
 	Kubectl   *KubectlStatus `json:"kubectl,omitempty"`
+	// Shell is the base name of the shell a session starts (zsh, bash, fish…).
+	Shell string `json:"shell,omitempty"`
 }
 
 type SettingsManager struct {

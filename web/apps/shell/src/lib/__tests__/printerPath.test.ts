@@ -67,7 +67,24 @@ describe("evalPrinterPath", () => {
 
   it("rejects paths it does not understand instead of guessing", () => {
     expect(evalPrinterPath("status.replicas", nodePool)).toBe("");
-    expect(evalPrinterPath(".status.conditions[0].status", nodePool)).toBe("");
+    expect(evalPrinterPath(".status.conditions[*].status", nodePool)).toBe("");
+    expect(evalPrinterPath(".a..b", nodePool)).toBe("");
     expect(evalPrinterPath("", nodePool)).toBe("");
+  });
+
+  // KB-13: extension columns use the same evaluator, and the columns people
+  // want most are an image and a label whose key has dots in it.
+  it("reads an array element by index", () => {
+    expect(evalPrinterPath(".status.conditions[1].reason", nodePool)).toBe("NodeClassNotReady");
+    expect(evalPrinterPath(".status.conditions[0].status", nodePool)).toBe("True");
+    expect(evalPrinterPath(".status.conditions[5].status", nodePool)).toBe("");
+    expect(evalPrinterPath(".spec.limits[0]", nodePool)).toBe("");
+  });
+
+  it("reads a key with dots in it when they are escaped", () => {
+    const pod = { metadata: { labels: { "app.kubernetes.io/name": "api", app: "x" } } };
+    expect(evalPrinterPath(".metadata.labels.app\\.kubernetes\\.io/name", pod)).toBe("api");
+    expect(evalPrinterPath("{.metadata.labels.app\\.kubernetes\\.io/name}", pod)).toBe("api");
+    expect(evalPrinterPath(".metadata.labels.app", pod)).toBe("x");
   });
 });

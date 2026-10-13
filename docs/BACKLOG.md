@@ -234,6 +234,11 @@ LATER (post-1.0; demand- or decision-gated)
   - The DRA tables render against a kind cluster with the DRA example driver.
 
 ### KB-13 · Declarative extensions v0 (actions and columns): M
+- **Status: shipped** (2026-10-13). `engine/internal/extensions` parses and validates `~/.kubebay/extensions.yaml` per entry, and `GET /api/extensions` serves it, read on every request.
+  - The shell fills in the templates (`lib/extensions.ts`). Columns and actions appear on the `/r/:kind` tables and on Pods.
+  - URL values are percent-encoded, and the host must be literal. Command values are single-quoted for POSIX shells and fish, verified against bash, dash, zsh (with `RC_QUOTES` too) and fish.
+  - Commands are pasted into the local shell, bracketed when the shell asks for it, and never with Enter. They're offered only where the local shell runs sh, bash, zsh, dash, ksh or fish.
+  - The three docs examples (Grafana, stern, the Rancher fallback) are loaded by a Go test.
 - **Why:** Rancher (UI extensions), Lens (extensions API), Headlamp (plugins + marketplace) and k9s (`plugins.yaml`) are all extensible. Kubebay is not. The planned WASM system (ROADMAP Phase 3) is XL. k9s shows that a declarative file captures most of the value.
 - **Scope:**
   - `~/.kubebay/extensions.yaml`, written by the user only, never downloaded. It defines:

@@ -512,6 +512,8 @@ export interface LocalShellCapability {
   enabled: boolean;
   reason?: string;
   kubectl?: { found: boolean; version?: string };
+  /** The shell a session starts (zsh, bash, fish…). */
+  shell?: string;
 }
 
 export interface AppSettings {
@@ -722,6 +724,37 @@ export interface TriageResult {
   outputTokens: number;
   refusal?: { category?: string; explanation?: string };
 }
+
+/** KB-13: ~/.kubebay/extensions.yaml as the engine validated it. */
+export interface ExtColumn {
+  resource: string;
+  header: string;
+  jsonPath: string;
+}
+
+export interface ExtAction {
+  resource: string;
+  label: string;
+  url?: string;
+  run?: string;
+  contexts?: string[];
+}
+
+export interface ExtensionsFile {
+  path: string;
+  exists: boolean;
+  columns: ExtColumn[];
+  actions: ExtAction[];
+  errors: string[];
+  /** Why extensions are off in this deployment (in-cluster or OIDC). */
+  disabled?: string;
+  /** Whether command actions have a local shell to be typed into. */
+  commands: { available: boolean; reason?: string; shell?: string };
+}
+
+export const extensionsApi = {
+  get: () => get<ExtensionsFile>("/api/extensions"),
+};
 
 export const triageApi = {
   get: () => get<TriageStatus>("/api/triage"),
