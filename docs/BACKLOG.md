@@ -123,6 +123,11 @@ LATER (post-1.0; demand- or decision-gated)
   - The update check sends no identifiers (test asserting the request has no query string or custom headers).
 
 ### KB-05 · Artifact signatures and build provenance: S
+- **Status: built, awaiting the v0.8 release to meet acceptance.**
+  - `publish.yml` signs the pushed image by digest (cosign v2.6 keyless; `.sig` format, which #45's check verifies) and attests it (`actions/attest-build-provenance`, pushed to the registry).
+  - `release.yml` attests every asset and writes `<asset>.cosign.bundle` for each with `cosign sign-blob`.
+  - "Verify your download" is in `docs/INSTALL.md`, and the `cosign verify` command is in `charts/kubebay/README.md`.
+  - `cosign verify-blob` and `gh attestation verify` on v0.8 assets can only be checked once it's tagged.
 - **Why:** Rancher Prime's paid value is assurance (signed images, SBOMs, a trusted registry). Kubebay already ships SBOMs. Signatures and provenance cost little, and they match Kubebay's own signed-image checks (backlog #32, #45).
 - **Scope:**
   - Keyless cosign signing of every release asset and of the `ghcr.io/rajasardar/kubebay` image.

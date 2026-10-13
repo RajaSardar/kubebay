@@ -6,7 +6,8 @@ on:
 
 permissions:
   contents: write
-  id-token: write   # required by anchore/sbom-action for OIDC attestation
+  id-token: write   # OIDC: anchore/sbom-action, keyless cosign signing, build provenance
+  attestations: write  # GitHub artifact attestations (KB-05)
 
 jobs:
   # ── CLI engine tarballs (headless, all platforms) ──────────────────────────
@@ -274,6 +275,21 @@ jobs:
           path: dist
       - name: Add install script to release
         run: cp scripts/install-mac.sh dist/install-mac.sh
+      # KB-05: SLSA build provenance for every asset (gh attestation verify),
+      # then a keyless cosign signature bundle next to each one.
+      - uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/*
+      - uses: sigstore/cosign-installer@v3
+        with:
+          cosign-release: v2.6.0
+      - name: Sign every release asset
+        working-directory: dist
+        run: |
+          for f in *; do
+            [ -f "$f" ] || continue
+            cosign sign-blob --yes --bundle "$f.cosign.bundle" "$f"
+          done
       - name: List release artifacts
         run: ls -lh dist/
       - uses: softprops/action-gh-release@v2
