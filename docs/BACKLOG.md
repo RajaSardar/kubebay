@@ -87,12 +87,18 @@ LATER (post-1.0; demand- or decision-gated)
 - **Owner:** Raja (a decision, not code).
 
 ### KB-02 · Performance harness and honest public claims: M
-- **Status: step 5 shipped** (2026-10-13).
+- **Status: steps 1–5 shipped; budgets are still warnings** (2026-10-14).
+  - **Steps 2–4:** the `perf (kind)` CI job runs `perf/harness.mjs` against the engine binary and a kind cluster on every PR. It measures:
+    - cold start, engine to the web shell's first painted frame (median of 5);
+    - idle RSS and CPU with one cluster open;
+    - RSS and time to sync with 1k and 10k generated pods watched, in metadata and full mode.
+    
+    `scripts/perf-budgets.mjs` checks the results against `perf/budgets.json` (PRD §6) as warnings, writes the job summary and attaches `perf.json`. The method and what each number leaves out are in `docs/PERFORMANCE.md`. The macOS desktop cold start is scripted (`scripts/desktop-cold-start.mjs`, using KB-14's smoke mode) and recorded per release.
   - **Comparison data:** the website's comparison table is `website/src/data/comparison.ts`. Every cell has a `source` (URL and date checked), and `comparison.test.ts` fails on a cell without one. It runs in the new `website (astro)` CI job and before each deploy.
   - **Rows removed:** memory, cold start and installer size, until steps 1–3 measure every tool. Other rows that couldn't be sourced for every tool (telemetry, in-cluster deploy, streaming, Helm, RBAC, roadmap) are gone too.
   - **Errors fixed:** k9s's license, Headlamp's desktop app, and Lens's price.
   - **Copy:** the README, PRD §6 and the website copy no longer claim CI enforcement or quote unmeasured figures.
-  - **Still open:** steps 1–4.
+  - **Still open:** add `--fail` to the Budgets step after three stable runs on main. Not measured yet: watch-to-paint p95, 100k-row scrolling, three clusters idle, the desktop shell's memory, and 100k pods.
 - **Why:** the README says the budgets (≤150 MB RSS, ≤1.5 s cold start, ≤40 MB installer) are "enforced in CI", and they are not: `ci.yml` has no performance job. The v0.6.0 DMG is 52.9 MB and the AppImage 102.4 MB. The website's Lens and Freelens numbers ("8–15 s", "500+ MB") are unmeasured. ROADMAP M0.5 (the performance harness) was never built.
 - **Scope:**
   1. A CI job that records the size of every installer `release.yml` produces and fails on growth of more than 10% over the previous release. **Shipped (2026-10-13), as a warning per step 4:** `scripts/installer-sizes.mjs` in the release job, with `installer-sizes.json` attached to each release.

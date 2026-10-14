@@ -112,7 +112,7 @@ Kubebay's answer: **one Go engine, three surfaces, zero compromises on trust or 
 
 1. **Local-first.** No accounts, no cloud control plane, no mandatory telemetry. Opt-in only, ever.
 2. **Instant by default.** Every view is a live watch stream. No Refresh buttons.
-3. **Lightweight by design.** A Go engine in a Tauri shell, not Electron. The budgets are ≤150 MB idle RAM and ≤1.5 s cold start ([PRD §6](docs/PRODUCT_REQUIREMENTS.md)). They aren't measured in CI yet: that's [KB-02](docs/BACKLOG.md). The v0.6.0 installers are 19 MB (Windows), 27 MB (.deb), 53 MB (universal macOS DMG) and 102 MB (AppImage).
+3. **Lightweight by design.** A Go engine in a Tauri shell, not Electron. The budgets are ≤150 MB idle RAM and ≤1.5 s cold start ([PRD §6](docs/PRODUCT_REQUIREMENTS.md#6-performance-budgets)). CI measures the engine and the web shell against them on every PR, as warnings for now; the desktop app's own memory isn't measured in CI yet ([how](docs/PERFORMANCE.md)). The v0.6.0 installers are 19 MB (Windows), 27 MB (.deb), 53 MB (universal macOS DMG) and 102 MB (AppImage).
 4. **One engine, many surfaces.** Desktop (Tauri), standalone web binary, in-cluster Helm chart.
 5. **RBAC-aware everywhere.** The UI reflects what you're actually allowed to do.
 6. **Keyboard-first.** Command palette drives everything; mouse optional.
