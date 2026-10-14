@@ -112,9 +112,9 @@ Additional requirements:
 - Theme hot-switch with zero flicker (tokens swap before paint).
 - Plugins receive the token set read-only; they cannot inject unscoped styles.
 
-## 6. Performance Budgets (contractual; not yet measured in CI, see KB-02 in docs/BACKLOG.md)
+## 6. Performance Budgets
 
-Measured by the Phase-0 harness (kind clusters + synthetic workload generator) on every PR. Red metric ⇒ failing build. Numbers are targets validated against public Freelens/Lens measurements:
+These are contractual. The `perf (kind)` CI job measures the ones it can on every PR (engine memory and CPU, watch load with generated pods, web-shell cold start); see [PERFORMANCE.md](PERFORMANCE.md) for what each number covers and leaves out. Over budget is a warning until three stable runs on main, then a failing build. The baseline column is not Kubebay's measurement:
 
 | Metric | Budget | Baseline reality (Lens/Freelens) |
 |---|---|---|

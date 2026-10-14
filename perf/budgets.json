@@ -1,0 +1,26 @@
+{
+  "coldStart.totalMs": {
+    "max": 1500,
+    "unit": "ms",
+    "label": "Cold start to first interactive frame (engine + web shell)",
+    "source": "PRD §6"
+  },
+  "idle.rssMB": {
+    "max": 150,
+    "unit": "MB",
+    "label": "Engine idle RSS, 1 cluster (PRD's 150 MB is shell and engine together)",
+    "source": "PRD §6"
+  },
+  "idle.cpuPercent": {
+    "max": 1,
+    "unit": "%",
+    "label": "Engine idle CPU, % of one core",
+    "source": "PRD §6: ≈ 0%, event-driven"
+  },
+  "watch.10000.metadata.rssMB": {
+    "max": 400,
+    "unit": "MB",
+    "label": "Engine RSS, 10k pods watched (metadata; PRD's 400 MB is for 100k)",
+    "source": "PRD §6"
+  }
+}

@@ -183,8 +183,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-      # Release tooling: installer sizes (KB-02), the air-gapped bundle (KB-21).
-      - run: node --test scripts/*.test.mjs
+      # Release tooling: installer sizes (KB-02), the air-gapped bundle (KB-21);
+      # the performance harness's pure parts and budgets (KB-02).
+      - run: node --test scripts/*.test.mjs perf/*.test.mjs
 
   integration:
     name: integration (kind)
@@ -246,3 +247,47 @@ jobs:
       - run: mkdir -p internal/httpapi/static/dist && touch internal/httpapi/static/dist/.gitkeep
       - name: Live integration suite
         run: KUBEBAY_INTEGRATION_TEST=1 go test ./internal/integration/ -v -timeout 300s
+
+  # KB-02: engine memory, CPU and cold start against the PRD §6 budgets. Over
+  # budget is a warning until three stable runs on main; then the budgets step
+  # gets --fail. Method: docs/PERFORMANCE.md.
+  perf:
+    name: perf (kind)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: engine/go.mod
+          cache-dependency-path: engine/go.sum
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - uses: helm/kind-action@v1.10.0
+        with:
+          cluster_name: kubebay-perf
+          version: v0.33.0
+          node_image: kindest/node:v1.34.11@sha256:44e222ee2132dab25ff87301682f89eb82c7880ea3a1bf543bfe9708fd08d67d
+      - name: Build the engine with the web app embedded
+        run: make web-install build
+      - name: Measure
+        run: |
+          (cd perf && npm ci && npx playwright-core install --with-deps chromium)
+          kind get kubeconfig --name kubebay-perf > "$RUNNER_TEMP/kubeconfig"
+          node perf/harness.mjs --engine engine/bin/kubebay --kubeconfig "$RUNNER_TEMP/kubeconfig" \
+            --context kind-kubebay-perf --out perf/perf.json
+      - name: Budgets
+        if: always() && hashFiles('perf/perf.json') != ''
+        run: node scripts/perf-budgets.mjs --results perf/perf.json --budgets perf/budgets.json --summary "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always() && hashFiles('perf/perf.json') != ''
+        with:
+          name: perf
+          path: perf/perf.json
+          retention-days: 90
