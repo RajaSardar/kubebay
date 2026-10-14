@@ -24,7 +24,7 @@ vi.mock("../../lib/api", async (orig) => ({
   helmApi: { releases: vi.fn(), history: vi.fn(), valuesText: vi.fn(), manifestText: vi.fn() },
 }));
 
-vi.mock("@monaco-editor/react", () => ({ default: () => <div data-testid="editor" /> }));
+vi.mock("../../lib/monaco", () => ({ default: () => <div data-testid="editor" /> }));
 
 const rel = (name: string, namespace: string, chart: string): HelmRelease => ({
   name,

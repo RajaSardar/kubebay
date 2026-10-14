@@ -5,7 +5,7 @@ import CreateResource from "../CreateResource";
 import { api } from "../../lib/api";
 import { PolicyRejectionError } from "../../lib/policyRejection";
 
-vi.mock("@monaco-editor/react", () => ({
+vi.mock("../../lib/monaco", () => ({
   default: () => <div data-testid="editor" />,
 }));
 

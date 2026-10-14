@@ -4,7 +4,7 @@ import { YamlTab } from "../YamlTab";
 import { api } from "../../lib/api";
 import { PolicyRejectionError, StaleEditError } from "../../lib/policyRejection";
 
-vi.mock("@monaco-editor/react", () => ({
+vi.mock("../../lib/monaco", () => ({
   default: ({ onChange }: { onChange: (v: string) => void }) => (
     <button data-testid="editor" onClick={() => onChange("kind: ConfigMap\nmetadata:\n  name: example\n  # edited\n")} />
   ),
