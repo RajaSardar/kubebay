@@ -248,7 +248,7 @@ LATER (post-1.0; demand- or decision-gated)
   - **CI:** the integration suite runs on kind with Kubernetes 1.29 (pinned), 1.34 and 1.37.
   - **DRA:** the `resource.k8s.io/v1` tables are in DEFS with their own columns, under a "Devices (DRA)" sidebar group. The Pod drawer links the pod's ResourceClaims.
   - **Checked:** `TestLiveDRAObjectsStream` streams DeviceClasses, ResourceSlices and ResourceClaims on 1.34+ and skips below. The tables were checked against an envtest 1.34 API server seeded with allocated claims.
-  - **DRA example driver:** the `e2e dra (kind, Kubernetes 1.37)` CI job installs the driver (v0.5.0, its own kind config) and checks the DeviceClasses, ResourceSlices and ResourceClaims tables and the Pod drawer's claim link against it (`e2e/tests/dra.spec.ts`).
+  - **DRA example driver:** the `e2e dra (kind, Kubernetes 1.37)` CI job installs the driver (v0.5.0, its own kind config) and checks the DeviceClasses, ResourceSlices and ResourceClaims tables and the Pod drawer's claim link against it. It also checks the claim's Summary, which shows the device it was given and the pod it's reserved for (`e2e/tests/dra.spec.ts`).
   - **Still open:** Helm 4 evaluation, and the Go 1.25/1.26 bump for the newest libraries.
 - **Why:** `client-go v0.31.4` and `helm v3.16.4`, while Kubernetes is at 1.36 (Rancher 2.15.1 supports it). Lens 2026.9 shipped DRA devices in its navigator, and Kubebay already has GPU accounting (backlog #40).
 - **Scope:**

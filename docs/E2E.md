@@ -48,7 +48,7 @@ The test checks what the tables show:
 - **DeviceClasses:** `gpu.example.com`, with the driver its selector pins.
 - **ResourceSlices:** the worker's pool of 8 GPUs.
 - **ResourceClaims:** the claim allocated to a GPU on the worker and reserved for the pod.
-- **Pod drawer:** "Resource claims (1)", whose link opens the claim.
+- **Pod drawer:** "Resource claims (1)", whose link opens the claim. The claim's Summary shows the GPU it was given and links the pod it's reserved for.
 
 ## Running it locally
 
