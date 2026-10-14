@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
-import Editor from "@monaco-editor/react";
+import Editor from "../lib/monaco";
 import { Badge, Button, Card, Drawer, EmptyState, InlineBanner, Row, Select, Skeleton, TextField } from "@kubebay/ui";
 import { helmApi, helmMarketApi, type HelmChartEntry } from "../lib/api";
 import { useMonacoTheme } from "../lib/theme";

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { DiffEditor } from "@monaco-editor/react";
+import { DiffEditor } from "../lib/monaco";
 import { Badge, Button, InlineBanner, Row, Select, Stack, TextField } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { useMonacoTheme } from "../lib/theme";

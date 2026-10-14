@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import Editor from "@monaco-editor/react";
+import Editor from "../lib/monaco";
 import { Button, InlineBanner, Row, Select, Stack } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { useMonacoTheme } from "../lib/theme";

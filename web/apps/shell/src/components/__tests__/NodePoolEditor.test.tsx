@@ -17,7 +17,7 @@ spec:
       - nodes: "10%"
 `;
 
-vi.mock("@monaco-editor/react", () => ({
+vi.mock("../../lib/monaco", () => ({
   default: ({ onChange }: { onChange: (v: string) => void }) => (
     <button
       data-testid="editor"

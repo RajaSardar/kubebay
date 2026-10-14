@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { DiffEditor } from "@monaco-editor/react";
+import { DiffEditor } from "../lib/monaco";
 import { ArmedButton, Badge, Button, Card, EmptyState, InlineBanner, PageHeader, Row, Stack } from "@kubebay/ui";
 import { PageLoader } from "../components/PageLoader";
 import { InstallVpaRecommender } from "../components/InstallVpaRecommender";
