@@ -55,11 +55,13 @@ const CASES: { stored: Record<string, string>; env: Env; want: string }[] = [
 describe("index.html theme boot", () => {
   beforeEach(() => vi.unstubAllGlobals());
 
-  it("has an inline boot script that runs before the stylesheet and the app bundle", () => {
+  it("has an inline boot script that runs before any stylesheet and the app bundle", () => {
     expect(bootScript).toBeDefined();
-    const at = (s: string) => indexHtml.indexOf(s);
-    expect(at('id="kb-theme-boot"')).toBeLessThan(at('rel="stylesheet"'));
-    expect(at('id="kb-theme-boot"')).toBeLessThan(at('type="module"'));
+    const boot = indexHtml.indexOf('id="kb-theme-boot"');
+    expect(boot).toBeGreaterThan(-1);
+    // The build adds the app's stylesheets after it; any written here must follow it too.
+    for (const css of indexHtml.matchAll(/rel="stylesheet"/g)) expect(boot).toBeLessThan(css.index!);
+    expect(boot).toBeLessThan(indexHtml.indexOf('type="module"'));
   });
 
   it("starts from the default theme, not Dusk, when scripts are off", () => {
