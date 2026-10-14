@@ -98,6 +98,17 @@ jobs:
       - run: npm test
       - run: npm run build
 
+  scripts:
+    name: scripts (node)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      # Release tooling: installer sizes (KB-02), the air-gapped bundle (KB-21).
+      - run: node --test scripts/*.test.mjs
+
   integration:
     name: integration (kind)
     runs-on: ubuntu-latest

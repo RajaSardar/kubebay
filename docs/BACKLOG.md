@@ -95,7 +95,7 @@ LATER (post-1.0; demand- or decision-gated)
   - **Still open:** steps 1–4.
 - **Why:** the README says the budgets (≤150 MB RSS, ≤1.5 s cold start, ≤40 MB installer) are "enforced in CI", and they are not: `ci.yml` has no performance job. The v0.6.0 DMG is 52.9 MB and the AppImage 102.4 MB. The website's Lens and Freelens numbers ("8–15 s", "500+ MB") are unmeasured. ROADMAP M0.5 (the performance harness) was never built.
 - **Scope:**
-  1. A CI job that records the size of every installer `release.yml` produces and fails on growth of more than 10% over the previous release.
+  1. A CI job that records the size of every installer `release.yml` produces and fails on growth of more than 10% over the previous release. **Shipped (2026-10-13), as a warning per step 4:** `scripts/installer-sizes.mjs` in the release job, with `installer-sizes.json` attached to each release.
   2. An engine idle-RSS and watch-load benchmark against kind with generated workloads (1k and 10k pods, metadata mode), as a Go benchmark or a test binary that emits JSON.
   3. Cold start to first interactive frame for the web shell (headless Chromium), plus a manual, scripted macOS desktop measurement recorded per release.
   4. Budgets begin as **warnings** and flip to failures once there are three stable runs.
