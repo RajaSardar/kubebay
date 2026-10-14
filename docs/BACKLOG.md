@@ -245,6 +245,7 @@ LATER (post-1.0; demand- or decision-gated)
 ### KB-12 · Kubernetes library refresh and DRA: M
 - **Status: partly shipped** (2026-10-13).
   - **Library bump:** `k8s.io/*` went to v0.34.10 and Helm to v3.19.5. These are the newest versions on Go 1.24; Kubernetes 1.35+ libraries and Helm 3.20+ need Go 1.25 or 1.26. That bump is a separate decision, because `make build` uses `GOTOOLCHAIN=local`.
+  - **Helm 4:** evaluated in `docs/adr/0002-helm-4-and-go-1-26.md` (proposed, needs a decision). Helm 3.19 gets no more patches, and Helm 3's security support ends 2027-02-10. Every newer Helm needs Go 1.25 or 1.26, so the recommendation is Go 1.26 and the Helm 4.3 SDK in one PR before then.
   - **CI:** the integration suite runs on kind with Kubernetes 1.29 (pinned), 1.34 and 1.37.
   - **DRA:** the `resource.k8s.io/v1` tables are in DEFS with their own columns, under a "Devices (DRA)" sidebar group. The Pod drawer links the pod's ResourceClaims.
   - **Checked:** `TestLiveDRAObjectsStream` streams DeviceClasses, ResourceSlices and ResourceClaims on 1.34+ and skips below. The tables were checked against an envtest 1.34 API server seeded with allocated claims.
