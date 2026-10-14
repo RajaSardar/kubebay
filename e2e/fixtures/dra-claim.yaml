@@ -1,0 +1,37 @@
+# KB-12: a claim the DRA example driver (gpu.example.com) can satisfy, and a pod
+# that uses it, so the ResourceClaims table and the Pod drawer have something
+# allocated and reserved to show.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kubebay-dra
+---
+apiVersion: resource.k8s.io/v1
+kind: ResourceClaim
+metadata:
+  namespace: kubebay-dra
+  name: e2e-gpu
+spec:
+  devices:
+    requests:
+      - name: gpu
+        exactly:
+          deviceClassName: gpu.example.com
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  namespace: kubebay-dra
+  name: e2e-gpu-pod
+spec:
+  terminationGracePeriodSeconds: 1
+  containers:
+    - name: app
+      image: busybox:1.37.0@sha256:bdf57e528e45e4433820e045b29b4597825a1c9e38353532d90a01445013f82e
+      command: ["sh", "-c", "sleep 3600"]
+      resources:
+        claims:
+          - name: gpu
+  resourceClaims:
+    - name: gpu
+      resourceClaimName: e2e-gpu

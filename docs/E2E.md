@@ -34,6 +34,22 @@ trace of the failed run (`npx playwright show-trace`) and the engine log.
 Making the check required in branch protection is a repository setting; an
 admin has to add `e2e (kind)`.
 
+## DRA: `e2e dra (kind, Kubernetes 1.37)`
+
+KB-12's acceptance test, `e2e/tests/dra.spec.ts`, runs in its own job. The job
+creates a kind cluster with the [DRA example driver](https://github.com/kubernetes-sigs/dra-example-driver)'s
+own cluster config from its v0.5.0 tag (Kubernetes 1.37, its feature gates and CDI). It then:
+
+1. Installs the driver's chart from that tag.
+2. Creates `e2e/fixtures/dra-claim.yaml`, a ResourceClaim for `gpu.example.com` and a pod using it.
+3. Waits for the pod to be Ready, which means the claim is allocated.
+
+The test checks what the tables show:
+- **DeviceClasses:** `gpu.example.com`, with the driver its selector pins.
+- **ResourceSlices:** the worker's pool of 8 GPUs.
+- **ResourceClaims:** the claim allocated to a GPU on the worker and reserved for the pod.
+- **Pod drawer:** "Resource claims (1)", whose link opens the claim.
+
 ## Running it locally
 
 Use a dedicated kind cluster, never your default kubeconfig:

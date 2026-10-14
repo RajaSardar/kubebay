@@ -47,3 +47,31 @@ func TestCoalescerAddThenDeleteCollapses(t *testing.T) {
 	}
 	c.Close()
 }
+
+// Every open table has a coalescer, so one that wakes on a timer while
+// nothing changes costs CPU for as long as the app is open.
+func TestCoalescerSleepsWhileIdle(t *testing.T) {
+	c := NewCoalescer()
+	go c.Run(time.Millisecond)
+	defer c.Close()
+
+	time.Sleep(50 * time.Millisecond)
+	if n := c.wakes.Load(); n != 0 {
+		t.Fatalf("an idle coalescer woke %d times in 50 ms; it should wait for an op", n)
+	}
+
+	// One op wakes it once, and the op still arrives.
+	c.Push(Op{Op: OpAdd, Key: "a"})
+	select {
+	case batch := <-c.Out():
+		if len(batch) != 1 || batch[0].Key != "a" {
+			t.Fatalf("want the one op, got %+v", batch)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for flush")
+	}
+	time.Sleep(50 * time.Millisecond)
+	if n := c.wakes.Load(); n != 1 {
+		t.Fatalf("one op should wake it once, it woke %d times", n)
+	}
+}

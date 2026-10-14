@@ -13,6 +13,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
   - the pods it's reserved for, linked.
   
   It used to show only the claim's labels and annotations
+- **DRA tables tested against a real driver**: a new `e2e dra (kind, Kubernetes 1.37)` CI job installs the Kubernetes DRA example driver on kind. It checks the result in a real browser: the DeviceClasses, ResourceSlices and ResourceClaims tables show the driver's GPUs and an allocated, reserved claim, and the Pod drawer links the pod's claim
 - **Performance measured in CI**: a new `perf (kind)` job measures the engine binary on every pull request against a kind cluster:
   - cold start to the web shell's first painted frame;
   - idle memory and CPU with one cluster open;
@@ -69,6 +70,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 - **Pending has its own colour**: Pending pods use each theme's info hue instead of the warning orange, so they no longer read as warnings
 
 ### Fixed
+- **Kubebay no longer uses CPU while you're not doing anything**: with a cluster page open, the engine woke every open table's update queue 60 times a second whether or not anything had changed, about 5% of a CPU core on a quiet cluster. The CI performance job flagged it against the PRD's "≈ 0% idle CPU". A table's queue now sleeps until a change arrives and sends it 16 ms later, as before, and the same page now costs about 0.1%
 - **Nothing loads from Google any more**: every launch fetched a stylesheet from fonts.googleapis.com, for Inter (which nothing used) and JetBrains Mono (Display settings' third font), telling Google each time Kubebay opened; offline, JetBrains Mono quietly fell back to another font. JetBrains Mono now ships with the app, and the page loads nothing from another origin (a test checks `index.html` and that every font Display settings name is bundled)
 - **The YAML editor works offline**: every code editor (YAML tabs, Create resource, Helm values, the KEDA and right-sizing diffs) loaded Monaco from cdn.jsdelivr.net the first time it opened, so with no internet, behind a proxy that blocks it, or in an air-gapped install it never appeared, and each first open told a CDN you were using Kubebay. Monaco now ships in the app: the editor, its features and YAML only, about 4 MB minified, loaded the first time an editor opens. Closing a diff (after Dry-run, or turning off "diff view") no longer throws an uncaught "TextModel got disposed" error
 - **A list you're not allowed to see says so**: when RBAC doesn't let your identity list a kind (say, Deployments across all namespaces), the page said nothing and showed a loading table forever, while the engine retried the list in the background. The engine now stops asking and the list says "You can't list deployments here." with the API server's reason. Opening the page again, for example after your access changes, tries again
