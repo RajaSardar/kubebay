@@ -7,6 +7,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 ## [Unreleased]
 
 ### Added
+- **A ResourceClaim's page shows its allocation**: the Summary tab of a DRA ResourceClaim, opened from the ResourceClaims table or a pod's "Resource claims" link, now shows:
+  - the claim's state and the device class it asks for;
+  - each device it was given (pool/device, driver and the request it answers);
+  - the pods it's reserved for, linked.
+  
+  It used to show only the claim's labels and annotations
 - **Performance measured in CI**: a new `perf (kind)` job measures the engine binary on every pull request against a kind cluster:
   - cold start to the web shell's first painted frame;
   - idle memory and CPU with one cluster open;

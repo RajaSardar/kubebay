@@ -10,6 +10,7 @@ import { NodeSummary } from "./NodeSummary";
 import { ServiceSummary } from "./ServiceSummary";
 import { NamespaceSummary } from "./NamespaceSummary";
 import { MetadataSummary } from "./MetadataSummary";
+import { ResourceClaimSummary } from "./ResourceClaimSummary";
 import { RolloutProgress } from "./RolloutProgress";
 import { RolloutLine } from "./RolloutLine";
 import { AutoscalingTab } from "./AutoscalingTab";
@@ -161,6 +162,7 @@ function PaneContent({
         {RIGHTSIZABLE_SLUGS.has(def.slug) && obj && (
           <RolloutLine cluster={cluster} obj={obj} onShowRollout={onGenTab && (() => onGenTab("rollout"))} style={{ padding: "8px 14px 0" }} />
         )}
+        {def.slug === "resourceclaims" && obj && <ResourceClaimSummary obj={obj} />}
         <MetadataSummary obj={obj} cluster={cluster} ns={ns} />
       </div>
     );
