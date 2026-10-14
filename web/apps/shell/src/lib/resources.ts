@@ -89,6 +89,11 @@ export const DEFS: Record<string, ResourceDef> = {
   apiservices: def("apiservices", "API Services", "APIService", "apiregistration.k8s.io/v1/apiservices", { scoped: true }),
   flowschemas: def("flowschemas", "FlowSchemas", "FlowSchema", "flowcontrol.apiserver.k8s.io/v1/flowschemas", { scoped: true }),
   prioritylevelconfigurations: def("prioritylevelconfigurations", "Priority Levels", "PriorityLevelConfiguration", "flowcontrol.apiserver.k8s.io/v1/prioritylevelconfigurations", { scoped: true }),
+  // Dynamic Resource Allocation (resource.k8s.io/v1, GA in Kubernetes 1.34)
+  resourceclaims: def("resourceclaims", "ResourceClaims", "ResourceClaim", "resource.k8s.io/v1/resourceclaims", { mode: "full" }),
+  resourceclaimtemplates: def("resourceclaimtemplates", "ResourceClaimTemplates", "ResourceClaimTemplate", "resource.k8s.io/v1/resourceclaimtemplates", { mode: "full" }),
+  deviceclasses: def("deviceclasses", "DeviceClasses", "DeviceClass", "resource.k8s.io/v1/deviceclasses", { scoped: true, mode: "full" }),
+  resourceslices: def("resourceslices", "ResourceSlices", "ResourceSlice", "resource.k8s.io/v1/resourceslices", { scoped: true, mode: "full" }),
 };
 
 export function extSlug(gvr: string): string {

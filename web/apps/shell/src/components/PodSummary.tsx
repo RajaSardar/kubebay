@@ -6,6 +6,7 @@ import { PodEnvValue } from "./PodEnvValue";
 import { PodContainerPortForward } from "./PodContainerPortForward";
 import { describeVolume } from "../lib/podVolumes";
 import { describeLastState } from "../lib/podContainerState";
+import { podResourceClaims } from "../lib/dra";
 
 function rec(v: unknown): Record<string, unknown> {
   return (v ?? {}) as Record<string, unknown>;
@@ -130,6 +131,7 @@ export function PodSummary({
       name: str(meta.name),
       namespace: str(meta.namespace),
       uid: str(meta.uid),
+      claims: podResourceClaims(obj),
       phase,
       podIP,
       nodeName,
@@ -310,6 +312,26 @@ export function PodSummary({
           )}
         </Section>
       ))}
+
+      {data.claims.length > 0 && (
+        <Section title={`Resource claims (${data.claims.length})`}>
+          <Stack gap={1}>
+            {data.claims.map((c) => (
+              <Row gap={2} align="center" key={c.name}>
+                <span className="mono small">{c.name}</span>
+                <Badge>DRA</Badge>
+                {c.claim ? (
+                  <ResourceLink kind="resourceclaims" ns={data.namespace} name={c.claim}>
+                    <span className="muted small mono">{c.claim}</span>
+                  </ResourceLink>
+                ) : (
+                  <span className="muted small">not created yet, from template {c.template}</span>
+                )}
+              </Row>
+            ))}
+          </Stack>
+        </Section>
+      )}
 
       {data.volumes.length > 0 && (
         <Section title={`Volumes (${data.volumes.length})`}>

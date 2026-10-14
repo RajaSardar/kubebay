@@ -282,13 +282,13 @@ func (p *Pool) entryFor(key poolKey) (*entry, error) {
 	}
 	// A list RBAC forbids would otherwise be retried forever while the page
 	// waits for a sync that never comes.
-	_ = inf.SetWatchErrorHandler(func(r *cache.Reflector, err error) {
+	_ = inf.SetWatchErrorHandlerWithContext(func(ctx context.Context, r *cache.Reflector, err error) {
 		var status apierrors.APIStatus
 		if apierrors.IsForbidden(err) && errors.As(err, &status) {
 			p.forbid(e, stream.ReasonForbidden+status.Status().Message)
 			return
 		}
-		cache.DefaultWatchErrorHandler(r, err)
+		cache.DefaultWatchErrorHandler(ctx, r, err)
 	})
 	inf.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj any) { e.emit(stream.OpAdd, obj) },
