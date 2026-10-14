@@ -22,7 +22,7 @@ count and memory.
 | Number | How it's taken |
 |---|---|
 | **Cold start** (`coldStart.totalMs`) | Start the engine binary and time it until `/api/healthz` answers (`engineReadyMs`). Then open `/clusters` in a new Chromium context with an empty cache, the token handed over as the desktop app does. Time from navigation start to the frame after the cluster appears in the list (`firstFrameMs`). The total is the sum. Median of 5 runs, a fresh engine each time. |
-| **Idle** (`idle.rssMB`, `idle.cpuPercent`) | One engine, connected to the cluster, with the app open on that cluster's Overview. After 20 s: the median RSS of 5 samples a second apart, then CPU over 10 s, as a percentage of one core. |
+| **Idle** (`idle.rssMB`, `idle.cpuPercent`) | One engine, connected to the cluster while it holds only kind's own system pods, with the app open on that cluster's Overview. After 20 s: the median RSS of 5 samples a second apart, then CPU over 10 s, as a percentage of one core. |
 | **Watch load** (`watch[]`) | Generate N pods (1,000, then 10,000) in `kubebay-perf`. For each N and each mode (`metadata`, `full`), start a fresh engine and connect it. Subscribe to every pod in the cluster over the WebSocket, as the Pods page does, and time from subscribing to the engine's `sync` (`syncMs`). After 10 s, take the median RSS of 5 samples. `count` is how many of the generated pods the snapshot held; a run that saw fewer doesn't count. |
 
 What these leave out:

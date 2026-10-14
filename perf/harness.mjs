@@ -86,7 +86,7 @@ async function startEngine() {
   const readyMs = performance.now() - t0;
   const stop = async () => {
     proc.kill("SIGTERM");
-    await Promise.race([once(proc, "exit"), sleep(10_000).then(() => proc.kill("SIGKILL"))]);
+    await Promise.race([once(proc, "exit"), sleep(10_000, undefined, { ref: false }).then(() => proc.kill("SIGKILL"))]);
     rmSync(home, { recursive: true, force: true });
   };
   return { proc, base, port, readyMs, stop };
@@ -175,7 +175,15 @@ async function ensurePods(n) {
   } catch {
     // already there
   }
-  const have = podCount();
+  let have = podCount();
+  if (have > n) {
+    // Left over from a bigger run: start this count from nothing.
+    kubectl(["-n", NAMESPACE, "delete", "pods", "-l", "kubebay.dev/perf=true", "--wait=false"]);
+    for (let i = 0; (have = podCount()) > 0; i++) {
+      if (i === 120) throw new Error(`${have} pods still in ${NAMESPACE} a minute after deleting them`);
+      await sleep(500);
+    }
+  }
   const chunks = [];
   for (let start = have; start < n; start += 500) chunks.push([start, Math.min(500, n - start)]);
   const create = ([start, count]) =>
@@ -227,7 +235,9 @@ async function watch(pods, mode) {
   });
   const t0 = performance.now();
   ws.send(JSON.stringify({ type: "sub", id: "perf", cluster: opts.context, gvr: "v1/pods", mode }));
-  await Promise.race([synced, sleep(300_000).then(() => Promise.reject(new Error(`no sync for ${pods} pods in 5 min`)))]);
+  // An unref'd timer: a pending one would keep Node running for 5 minutes after the last watch.
+  const timeout = sleep(300_000, undefined, { ref: false }).then(() => Promise.reject(new Error(`no sync for ${pods} pods in 5 min`)));
+  await Promise.race([synced, timeout]);
   const syncMs = round(performance.now() - t0);
   await sleep(opts.settleMs / 2);
   const rss = await sampleRss(engine.proc.pid);
