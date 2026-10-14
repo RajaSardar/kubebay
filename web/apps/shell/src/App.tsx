@@ -157,6 +157,17 @@ const GROUPS: NavGroupDef[] = [
     ],
   },
   {
+    // Dynamic Resource Allocation: GPUs and other devices, GA in Kubernetes 1.34.
+    label: "Devices (DRA)",
+    icon: <IconLayers />,
+    leaves: [
+      { to: "/r/resourceclaims", label: "ResourceClaims" },
+      { to: "/r/resourceclaimtemplates", label: "ResourceClaimTemplates" },
+      { to: "/r/deviceclasses", label: "DeviceClasses" },
+      { to: "/r/resourceslices", label: "ResourceSlices" },
+    ],
+  },
+  {
     label: "Access Control",
     icon: <IconShield />,
     leaves: [

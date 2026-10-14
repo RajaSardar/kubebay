@@ -235,6 +235,12 @@ LATER (post-1.0; demand- or decision-gated)
 - **Acceptance:** the job is required in branch protection, and a flake budget is tracked.
 
 ### KB-12 · Kubernetes library refresh and DRA: M
+- **Status: partly shipped** (2026-10-13).
+  - **Library bump:** `k8s.io/*` went to v0.34.10 and Helm to v3.19.5. These are the newest versions on Go 1.24; Kubernetes 1.35+ libraries and Helm 3.20+ need Go 1.25 or 1.26. That bump is a separate decision, because `make build` uses `GOTOOLCHAIN=local`.
+  - **CI:** the integration suite runs on kind with Kubernetes 1.29 (pinned), 1.34 and 1.37.
+  - **DRA:** the `resource.k8s.io/v1` tables are in DEFS with their own columns, under a "Devices (DRA)" sidebar group. The Pod drawer links the pod's ResourceClaims.
+  - **Checked:** `TestLiveDRAObjectsStream` streams DeviceClasses, ResourceSlices and ResourceClaims on 1.34+ and skips below. The tables were checked against an envtest 1.34 API server seeded with allocated claims.
+  - **Still open:** Helm 4 evaluation, the Go 1.25/1.26 bump for the newest libraries, and a run with the DRA example driver.
 - **Why:** `client-go v0.31.4` and `helm v3.16.4`, while Kubernetes is at 1.36 (Rancher 2.15.1 supports it). Lens 2026.9 shipped DRA devices in its navigator, and Kubebay already has GPU accounting (backlog #40).
 - **Scope:**
   - Bump `k8s.io/*` to the current minor and Helm to the latest 3.x. Evaluate Helm 4 separately.

@@ -109,13 +109,52 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: engine/go.mod
+      # The oldest Kubernetes the suite runs on (KB-12). This is what kind-action
+      # v1.10.0 created by default; it's pinned so a bump is a visible change.
       - uses: helm/kind-action@v1.10.0
         with:
           cluster_name: kubebay-ci
+          version: v0.22.0
+          node_image: kindest/node:v1.29.2@sha256:51a1434a5397193442f0be2a297b488b6c919ce8a3931be0ce822606ea5ca245
       # internal/integration imports internal/httpapi, which embeds this
       # directory (`//go:embed all:static`); go:embed fails to compile
       # against an empty/missing directory, and this job never runs the
       # frontend build that would normally populate it.
       - run: mkdir -p internal/httpapi/static/dist && touch internal/httpapi/static/dist/.gitkeep
       - name: Live delta-stream round-trip test
+        run: KUBEBAY_INTEGRATION_TEST=1 go test ./internal/integration/ -v -timeout 300s
+
+  # KB-12: the same suite on newer Kubernetes. 1.34 is the first with Dynamic
+  # Resource Allocation GA (the DRA stream test runs there and on 1.37), and
+  # 1.37 is the newest. A separate job, so the "integration (kind)" check
+  # keeps its name.
+  integration-versions:
+    name: integration (kind, Kubernetes ${{ matrix.k8s }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - k8s: "1.34"
+            image: kindest/node:v1.34.11@sha256:44e222ee2132dab25ff87301682f89eb82c7880ea3a1bf543bfe9708fd08d67d
+          - k8s: "1.37"
+            image: kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5
+    defaults:
+      run:
+        working-directory: engine
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: engine/go.mod
+      - uses: helm/kind-action@v1.10.0
+        with:
+          cluster_name: kubebay-ci
+          version: v0.33.0
+          node_image: ${{ matrix.image }}
+          # No kubectl_version: kind-action v1.10.0 fetches kubectl from the old
+          # kubernetes-release bucket, which has nothing newer than 2023. The
+          # suite talks to the API with client-go, not kubectl.
+      - run: mkdir -p internal/httpapi/static/dist && touch internal/httpapi/static/dist/.gitkeep
+      - name: Live integration suite
         run: KUBEBAY_INTEGRATION_TEST=1 go test ./internal/integration/ -v -timeout 300s
