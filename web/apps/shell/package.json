@@ -10,6 +10,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@fontsource/jetbrains-mono": "^5.3.0",
     "@fontsource/roboto": "^5.3.0",
     "@kubebay/ui": "workspace:*",
     "@monaco-editor/react": "^4.7.0",
