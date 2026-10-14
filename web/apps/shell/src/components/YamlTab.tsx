@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import Editor, { DiffEditor } from "@monaco-editor/react";
+import Editor, { DiffEditor } from "../lib/monaco";
 import { Badge, Button, InlineBanner, Row, SkeletonLines, TextField } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { useMonacoTheme } from "../lib/theme";
