@@ -318,6 +318,17 @@ jobs:
           path: dist
       - name: Add install script to release
         run: cp scripts/install-mac.sh dist/install-mac.sh
+      # KB-02: weigh every installer against the previous release's and warn
+      # on growth over 10% (a warning until the budgets have three stable
+      # runs). The report is attached to the release, and signed with it.
+      - name: Installer sizes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh api "repos/$REPO/releases/latest" --jq '{tag: .tag_name, assets: [.assets[] | {name, size}]}' > previous.json || echo '{}' > previous.json
+          node scripts/installer-sizes.mjs --dir dist --tag "$TAG" --previous previous.json --out dist/installer-sizes.json
       # KB-05: SLSA build provenance for every asset (gh attestation verify),
       # then a keyless cosign signature bundle next to each one.
       - uses: actions/attest-build-provenance@v2
