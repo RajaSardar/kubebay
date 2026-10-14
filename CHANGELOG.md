@@ -13,6 +13,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
   - the pods it's reserved for, linked.
   
   It used to show only the claim's labels and annotations
+- **DRA tables tested against a real driver**: a new `e2e dra (kind, Kubernetes 1.37)` CI job installs the Kubernetes DRA example driver on kind. It checks the result in a real browser: the DeviceClasses, ResourceSlices and ResourceClaims tables show the driver's GPUs and an allocated, reserved claim, and the Pod drawer links the pod's claim
 - **Performance measured in CI**: a new `perf (kind)` job measures the engine binary on every pull request against a kind cluster:
   - cold start to the web shell's first painted frame;
   - idle memory and CPU with one cluster open;
