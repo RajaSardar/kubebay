@@ -255,6 +255,16 @@ jobs:
     name: perf (kind)
     runs-on: ubuntu-latest
     timeout-minutes: 30
+  # KB-11: the golden path in a real browser against a real cluster: connect,
+  # Pods, logs streaming, an exec round-trip, a port-forward, and a YAML edit
+  # with a dry-run diff, applied. See docs/E2E.md.
+  e2e:
+    name: e2e (kind)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      KUBEBAY_TOKEN: e2e-token
+      KUBEBAY_E2E_CONTEXT: kind-kubebay-e2e
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -291,3 +301,54 @@ jobs:
           name: perf
           path: perf/perf.json
           retention-days: 90
+      # The same Kubernetes as the newest-but-one integration leg.
+      - uses: helm/kind-action@v1.10.0
+        with:
+          cluster_name: kubebay-e2e
+          version: v0.33.0
+          node_image: kindest/node:v1.34.11@sha256:44e222ee2132dab25ff87301682f89eb82c7880ea3a1bf543bfe9708fd08d67d
+      - name: Fixture pod
+        run: |
+          kubectl create -f e2e/fixtures/golden-path.yaml
+          kubectl -n kubebay-e2e wait --for=condition=Ready pod/e2e-logger --timeout=180s
+      - name: Build the engine with the web app embedded
+        run: make web-install build
+      - name: Start the engine
+        run: |
+          # Its own kubeconfig and home, never the runner's defaults.
+          kind get kubeconfig --name kubebay-e2e > "$RUNNER_TEMP/kubeconfig"
+          mkdir -p "$RUNNER_TEMP/home"
+          HOME="$RUNNER_TEMP/home" nohup engine/bin/kubebay --addr 127.0.0.1:9898 --no-open \
+            --kubeconfig "$RUNNER_TEMP/kubeconfig" --token-file "$RUNNER_TEMP/session-token" \
+            > "$RUNNER_TEMP/engine.log" 2>&1 &
+          for _ in $(seq 1 30); do curl -sf http://127.0.0.1:9898/api/healthz && exit 0; sleep 1; done
+          cat "$RUNNER_TEMP/engine.log"
+          exit 1
+      - name: Golden path
+        working-directory: e2e
+        env:
+          KUBECONFIG: ${{ runner.temp }}/kubeconfig
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          npx playwright test
+      - name: Summary
+        if: always()
+        working-directory: e2e
+        run: |
+          [ -f results.json ] || exit 0
+          node -e '
+            const s = require("./results.json").stats;
+            const line = `e2e (kind): ${s.expected} passed, ${s.unexpected} failed, ${s.flaky} flaky, ${(s.duration / 1000).toFixed(1)} s`;
+            console.log(line);
+            require("fs").appendFileSync(process.env.GITHUB_STEP_SUMMARY, line + "\n");
+          '
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: e2e-report
+          path: |
+            e2e/playwright-report
+            e2e/test-results
+            ${{ runner.temp }}/engine.log
+          retention-days: 14

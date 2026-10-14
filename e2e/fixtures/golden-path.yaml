@@ -1,0 +1,33 @@
+# KB-11: what the golden-path E2E drives. One pod that logs a counter every
+# second and serves a page on 8080, so logs, exec and port-forward all hit it.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kubebay-e2e
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: e2e-logger
+  namespace: kubebay-e2e
+  labels:
+    app: e2e-logger
+spec:
+  terminationGracePeriodSeconds: 1
+  containers:
+    - name: app
+      image: busybox:1.37.0@sha256:bdf57e528e45e4433820e045b29b4597825a1c9e38353532d90a01445013f82e
+      command: ["sh", "-c"]
+      args:
+        - |
+          mkdir -p /www && echo kubebay-e2e-ok > /www/index.html
+          httpd -p 8080 -h /www
+          i=0
+          while true; do i=$((i+1)); echo "tick $i"; sleep 1; done
+      ports:
+        - containerPort: 8080
+      readinessProbe:
+        httpGet:
+          path: /
+          port: 8080
+        periodSeconds: 2
