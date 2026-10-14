@@ -47,13 +47,17 @@ test("DRA: the example driver's class, slices and an allocated claim", async ({ 
     await expect(claim).toContainText("e2e-gpu-pod");
   });
 
-  await test.step("the pod's drawer links its claim", async () => {
+  await test.step("the pod's drawer links its claim, whose page shows the allocation", async () => {
     await page.goto("/workloads?pod=kubebay-dra/e2e-gpu-pod");
     const drawer = page.getByRole("dialog", { name: "e2e-gpu-pod" });
     await expect(drawer.getByText("Resource claims (1)")).toBeVisible();
     await drawer.getByText("e2e-gpu", { exact: true }).click();
     await expect(page).toHaveURL(/\/detail\/resourceclaims\/kubebay-dra\/e2e-gpu$/);
     await expect(page.getByText("Back to ResourceClaims")).toBeVisible();
+    // The claim's Summary: the GPU it was given, and the pod it's reserved for.
+    const section = (title: string) => page.locator(".pod-section").filter({ hasText: title });
+    await expect(section("Allocated devices (1)")).toContainText(new RegExp(`${worker}/gpu-\\d`));
+    await expect(section("Reserved for (1)").getByRole("link", { name: "e2e-gpu-pod" })).toBeVisible();
   });
 
   expect(pageErrors).toEqual([]);
