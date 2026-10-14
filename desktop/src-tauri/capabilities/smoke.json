@@ -1,0 +1,10 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "smoke",
+  "description": "Lets the engine-served page end a CI smoke run (KUBEBAY_SMOKE=1) once it has painted. The command does nothing outside a smoke run.",
+  "windows": ["main"],
+  "remote": {
+    "urls": ["http://127.0.0.1:*"]
+  },
+  "permissions": ["allow-smoke-ready"]
+}
