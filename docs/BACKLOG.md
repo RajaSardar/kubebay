@@ -269,6 +269,11 @@ LATER (post-1.0; demand- or decision-gated)
   - Three example extensions in the docs (a Grafana link, `stern` on a workload, an "open in Rancher" fallback).
 
 ### KB-14 · Windows and Linux desktop confidence: M
+- **Status: smoke test shipped; Preview labels on** (2026-10-13).
+  - CI's `desktop smoke` job builds the release-style desktop app on Windows and Linux and launches it with `KUBEBAY_SMOKE=1`. The app exits 0 once the engine is listening and the shell has painted (`lib/smoke.ts` reports a double `requestAnimationFrame` after `App` commits).
+  - Checked locally on Linux under Xvfb: exit 0 in 12 s with the real engine, and non-zero with a broken sidecar.
+  - The README and website say **Preview**, and the website's broken Windows/Linux links and commands are fixed.
+  - Still open: the manual pass on each OS, then remove the label.
 - **Why:** `release.yml` publishes `.exe`, `.deb` and `.AppImage` builds, but TRACKER.md defers parity and nothing tests them. Untested installers do more harm than no installers (analysis §7 point 5).
 - **Scope:**
   - A CI smoke job on `windows-latest` and `ubuntu-22.04`: build, launch headless, wait for the engine health endpoint and the webview's first paint, then exit cleanly.

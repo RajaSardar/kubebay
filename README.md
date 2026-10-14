@@ -36,6 +36,10 @@ Or download directly from [Latest Release](https://github.com/RajaSardar/kubebay
 > ```
 > Or: **System Settings → Privacy & Security → Open Anyway**.
 
+### Windows and Linux (Preview)
+
+Each release also has a Windows installer (`Kubebay_<version>_x64-setup.exe`) and Linux packages (`.deb`, `.AppImage`), x86_64 only. They're **Preview**. CI builds the desktop app on Windows and Linux on every change, launches it, and fails unless the engine starts and the UI paints ([KB-14](docs/BACKLOG.md)). No release has been tested by hand on either yet. The label comes off after one has.
+
 ### CLI engine (all platforms, v0.4.0+)
 
 Headless engine — serves the web UI, you bring the browser. Download from [Latest Release](https://github.com/RajaSardar/kubebay/releases/latest).
