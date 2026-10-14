@@ -302,7 +302,7 @@ jobs:
         run: |
           npm ci
           npx playwright install --with-deps chromium
-          npx playwright test
+          npx playwright test tests/golden-path.spec.ts
       - name: Summary
         if: always()
         working-directory: e2e
@@ -367,3 +367,75 @@ jobs:
           name: perf
           path: perf/perf.json
           retention-days: 90
+
+  # KB-12's acceptance: the DRA tables against a kind cluster running the DRA
+  # example driver. Its v0.5.0 release is tested on Kubernetes 1.37 with its own
+  # cluster config (feature gates, CDI), which this job uses as it is.
+  e2e-dra:
+    name: e2e dra (kind, Kubernetes 1.37)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      KUBEBAY_TOKEN: e2e-token
+      KUBEBAY_E2E_CONTEXT: kind-kubebay-dra
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: engine/go.mod
+          cache-dependency-path: engine/go.sum
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - name: The DRA example driver (v0.5.0)
+        run: git clone --depth 1 --branch v0.5.0 https://github.com/kubernetes-sigs/dra-example-driver "$RUNNER_TEMP/dra-example-driver"
+      - uses: helm/kind-action@v1.10.0
+        with:
+          cluster_name: kubebay-dra
+          version: v0.33.0
+          node_image: kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5
+          config: ${{ runner.temp }}/dra-example-driver/demo/scripts/kind-cluster-config.yaml
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.19.5
+      - name: Driver and fixture
+        run: |
+          helm upgrade -i --create-namespace --namespace dra-example-driver dra-example-driver \
+            "$RUNNER_TEMP/dra-example-driver/deployments/helm/dra-example-driver" --wait --timeout 5m
+          for _ in $(seq 1 60); do [ -n "$(kubectl get resourceslices -o name)" ] && break; sleep 2; done
+          kubectl get deviceclasses,resourceslices
+          kubectl create -f e2e/fixtures/dra-claim.yaml
+          kubectl -n kubebay-dra wait --for=condition=Ready pod/e2e-gpu-pod --timeout=180s
+          kubectl -n kubebay-dra get resourceclaims
+      - name: Build the engine with the web app embedded
+        run: make web-install build
+      - name: Start the engine
+        run: |
+          kind get kubeconfig --name kubebay-dra > "$RUNNER_TEMP/kubeconfig"
+          mkdir -p "$RUNNER_TEMP/home"
+          HOME="$RUNNER_TEMP/home" nohup engine/bin/kubebay --addr 127.0.0.1:9898 --no-open \
+            --kubeconfig "$RUNNER_TEMP/kubeconfig" --token-file "$RUNNER_TEMP/session-token" \
+            > "$RUNNER_TEMP/engine.log" 2>&1 &
+          for _ in $(seq 1 30); do curl -sf http://127.0.0.1:9898/api/healthz && exit 0; sleep 1; done
+          cat "$RUNNER_TEMP/engine.log"
+          exit 1
+      - name: DRA tables
+        working-directory: e2e
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          npx playwright test tests/dra.spec.ts
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: e2e-dra-report
+          path: |
+            e2e/playwright-report
+            e2e/test-results
+            ${{ runner.temp }}/engine.log
+          retention-days: 14
