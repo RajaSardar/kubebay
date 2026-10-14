@@ -95,7 +95,7 @@ LATER (post-1.0; demand- or decision-gated)
   - **Still open:** steps 1–4.
 - **Why:** the README says the budgets (≤150 MB RSS, ≤1.5 s cold start, ≤40 MB installer) are "enforced in CI", and they are not: `ci.yml` has no performance job. The v0.6.0 DMG is 52.9 MB and the AppImage 102.4 MB. The website's Lens and Freelens numbers ("8–15 s", "500+ MB") are unmeasured. ROADMAP M0.5 (the performance harness) was never built.
 - **Scope:**
-  1. A CI job that records the size of every installer `release.yml` produces and fails on growth of more than 10% over the previous release.
+  1. A CI job that records the size of every installer `release.yml` produces and fails on growth of more than 10% over the previous release. **Shipped (2026-10-13), as a warning per step 4:** `scripts/installer-sizes.mjs` in the release job, with `installer-sizes.json` attached to each release.
   2. An engine idle-RSS and watch-load benchmark against kind with generated workloads (1k and 10k pods, metadata mode), as a Go benchmark or a test binary that emits JSON.
   3. Cold start to first interactive frame for the web shell (headless Chromium), plus a manual, scripted macOS desktop measurement recorded per release.
   4. Budgets begin as **warnings** and flip to failures once there are three stable runs.
@@ -235,6 +235,12 @@ LATER (post-1.0; demand- or decision-gated)
 - **Acceptance:** the job is required in branch protection, and a flake budget is tracked.
 
 ### KB-12 · Kubernetes library refresh and DRA: M
+- **Status: partly shipped** (2026-10-13).
+  - **Library bump:** `k8s.io/*` went to v0.34.10 and Helm to v3.19.5. These are the newest versions on Go 1.24; Kubernetes 1.35+ libraries and Helm 3.20+ need Go 1.25 or 1.26. That bump is a separate decision, because `make build` uses `GOTOOLCHAIN=local`.
+  - **CI:** the integration suite runs on kind with Kubernetes 1.29 (pinned), 1.34 and 1.37.
+  - **DRA:** the `resource.k8s.io/v1` tables are in DEFS with their own columns, under a "Devices (DRA)" sidebar group. The Pod drawer links the pod's ResourceClaims.
+  - **Checked:** `TestLiveDRAObjectsStream` streams DeviceClasses, ResourceSlices and ResourceClaims on 1.34+ and skips below. The tables were checked against an envtest 1.34 API server seeded with allocated claims.
+  - **Still open:** Helm 4 evaluation, the Go 1.25/1.26 bump for the newest libraries, and a run with the DRA example driver.
 - **Why:** `client-go v0.31.4` and `helm v3.16.4`, while Kubernetes is at 1.36 (Rancher 2.15.1 supports it). Lens 2026.9 shipped DRA devices in its navigator, and Kubebay already has GPU accounting (backlog #40).
 - **Scope:**
   - Bump `k8s.io/*` to the current minor and Helm to the latest 3.x. Evaluate Helm 4 separately.
@@ -340,6 +346,10 @@ LATER (post-1.0; demand- or decision-gated)
 - **Watch-out:** hub mode drifts toward Rancher's territory. Keep it read-mostly, with no provisioning.
 
 ### KB-21 · Air-gapped install bundle: S–M
+- **Status: shipped** (2026-10-13).
+  - `scripts/airgap-bundle.mjs` and a release job build `kubebay-airgap-<version>.tar.gz`: the pinned chart, a multi-arch OCI archive and per-arch docker archives, `docs/AIRGAP.md`, and `SHA256SUMS` with its cosign bundle.
+  - Unit-tested, and run end to end locally with skopeo and helm 3.19.5 on a test image: `sha256sum -c` passes, the chart renders the pinned tag, and the docker archive carries the image name.
+  - The release job first runs on the next tag.
 - **What:** a chart plus an image tarball, offline docs, and a checksum and signature manifest.
 - **Why:** Lens sells air-gapped activation in Enterprise ($50/seat). Kubebay already works offline by design and only needs packaging. It stays OSS unless the ADR says otherwise.
 

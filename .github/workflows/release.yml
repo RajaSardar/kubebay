@@ -263,9 +263,52 @@ jobs:
           output-file: sbom-go.json
           artifact-name: sbom-go.json
 
+  # ── Air-gapped install bundle (KB-21) ─────────────────────────────────────
+  # The chart pinned to this tag, the image for every platform plus a
+  # docker-load tarball per platform, docs/AIRGAP.md and a signed SHA256SUMS.
+  airgap:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+      id-token: write   # keyless signature of SHA256SUMS
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.19.5
+      - uses: sigstore/cosign-installer@v3
+        with:
+          cosign-release: v2.6.0
+      - name: Wait for the release image
+        env:
+          TAG: ${{ github.ref_name }}
+          GH_ACTOR: ${{ github.actor }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          command -v skopeo > /dev/null || { sudo apt-get update -q && sudo apt-get install -y -q skopeo; }
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}"
+          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+          echo "$GH_TOKEN" | skopeo login ghcr.io -u "$GH_ACTOR" --password-stdin
+          # publish.yml builds and pushes it from the same tag.
+          for _ in $(seq 1 60); do
+            skopeo inspect --raw "docker://$IMAGE:$TAG" > /dev/null 2>&1 && exit 0
+            sleep 30
+          done
+          echo "::error::$IMAGE:$TAG didn't appear within 30 minutes"
+          exit 1
+      - name: Build the bundle
+        env:
+          TAG: ${{ github.ref_name }}
+        run: node scripts/airgap-bundle.mjs --version "$TAG" --image "docker://$IMAGE:$TAG" --chart charts/kubebay --docs docs/AIRGAP.md --out dist --sign
+      - uses: actions/upload-artifact@v4
+        with:
+          name: airgap
+          path: dist/*
+
   # ── Single GitHub release combining everything ────────────────────────────
   github-release:
-    needs: [engine-binaries, desktop, sbom]
+    needs: [engine-binaries, desktop, sbom, airgap]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -275,6 +318,17 @@ jobs:
           path: dist
       - name: Add install script to release
         run: cp scripts/install-mac.sh dist/install-mac.sh
+      # KB-02: weigh every installer against the previous release's and warn
+      # on growth over 10% (a warning until the budgets have three stable
+      # runs). The report is attached to the release, and signed with it.
+      - name: Installer sizes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh api "repos/$REPO/releases/latest" --jq '{tag: .tag_name, assets: [.assets[] | {name, size}]}' > previous.json || echo '{}' > previous.json
+          node scripts/installer-sizes.mjs --dir dist --tag "$TAG" --previous previous.json --out dist/installer-sizes.json
       # KB-05: SLSA build provenance for every asset (gh attestation verify),
       # then a keyless cosign signature bundle next to each one.
       - uses: actions/attest-build-provenance@v2

@@ -165,4 +165,29 @@ describe("PodSummary", () => {
     renderSummary(obj);
     expect(screen.getByText("StatefulSet/db-0")).toBeInTheDocument();
   });
+
+  // KB-12: a pod's DRA claims link to the ResourceClaim objects.
+  it("lists the pod's resource claims and links each to its ResourceClaim", () => {
+    navigateMock.mockClear();
+    renderSummary({
+      ...basePod,
+      spec: {
+        ...basePod.spec,
+        resourceClaims: [
+          { name: "gpu", resourceClaimTemplateName: "gpu-template" },
+          { name: "pending", resourceClaimTemplateName: "gpu-template" },
+        ],
+      },
+      status: { ...basePod.status, resourceClaimStatuses: [{ name: "gpu", resourceClaimName: "web-1-gpu-x7k2p" }] },
+    });
+    expect(screen.getByText("Resource claims (2)")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("web-1-gpu-x7k2p"));
+    expect(navigateMock).toHaveBeenCalledWith("/detail/resourceclaims/prod/web-1-gpu-x7k2p");
+    expect(screen.getByText(/not created yet, from template gpu-template/)).toBeInTheDocument();
+  });
+
+  it("has no resource claims section for a pod without claims", () => {
+    renderSummary(basePod);
+    expect(screen.queryByText(/Resource claims/)).toBeNull();
+  });
 });
