@@ -151,6 +151,7 @@ pnpm build
 
 Also:
 - Test against a real cluster (kind is fine). Describe what you tested in the PR.
+- CI also runs the golden-path E2E (`e2e (kind)`): Playwright against the built engine and a kind cluster. To run it locally, see [docs/E2E.md](docs/E2E.md).
 - If your change touches the informer path, a hot rendering path, or any stream, verify the performance budgets in [docs/PRODUCT_REQUIREMENTS.md](docs/PRODUCT_REQUIREMENTS.md) are unaffected.
 - If your change touches an architectural decision, update or add an ADR in `docs/adr/`.
 

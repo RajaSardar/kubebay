@@ -233,6 +233,8 @@ LATER (post-1.0; demand- or decision-gated)
 - **Positioning:** a paid feature in Lens, free here.
 
 ### KB-11 · Golden-path E2E against kind: M
+- **Status: shipped** (2026-10-14). The `e2e (kind)` CI job runs `e2e/tests/golden-path.spec.ts` in Chromium against the engine-served build and a kind cluster (Kubernetes 1.34), on every PR and on main. It covers: token → cluster list → Pods → logs streaming → exec round-trip (`kb-$((6*7))` → `kb-42`) → port-forward page reachable → YAML edit, Dry-run diff, Apply, checked with `kubectl`. It also fails on any uncaught page error. No retries; the flake budget and how to run it locally are in `docs/E2E.md`.
+  - Still open: making the check required needs a repository admin.
 - **Why:** this is a ROADMAP Phase 1 exit criterion and was never met. Today's CI is unit and integration tests only.
 - **Scope:**
   - Playwright against the web build served by the engine, on a kind cluster in CI.
