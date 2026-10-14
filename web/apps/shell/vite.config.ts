@@ -1,11 +1,12 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { shipMinified } from "./build/shipMinified";
+import { staysLazy } from "./build/staysLazy";
 
 export default defineConfig({
   // Monaco is bundled rather than fetched from a CDN (lib/monaco.tsx); its
   // worker is a separate build, so it gets the plugin too.
-  plugins: [react(), shipMinified("monaco-editor")],
+  plugins: [react(), shipMinified("monaco-editor"), staysLazy("monaco-editor")],
   worker: {
     format: "es",
     plugins: () => [shipMinified("monaco-editor")],
@@ -23,7 +24,14 @@ export default defineConfig({
     rollupOptions: {
       output: {
         // Monaco in a chunk of its own, so shipMinified can tell it apart.
-        manualChunks: (id) => (id.includes("/node_modules/monaco-editor/") ? "monaco-editor" : undefined),
+        // Vite's preload helper gets one too: the entry needs it, and left to
+        // itself Rollup puts it in Monaco's chunk, which then loads at startup.
+        manualChunks: (id) =>
+          id.includes("/node_modules/monaco-editor/")
+            ? "monaco-editor"
+            : id.startsWith("\0vite/preload-helper")
+              ? "preload-helper"
+              : undefined,
       },
     },
   },
