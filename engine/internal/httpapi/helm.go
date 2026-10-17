@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -14,11 +15,13 @@ import (
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/yaml"
 
-	"helm.sh/helm/v3/pkg/action"
-	"helm.sh/helm/v3/pkg/chart/loader"
-	"helm.sh/helm/v3/pkg/cli"
-	"helm.sh/helm/v3/pkg/release"
-	"helm.sh/helm/v3/pkg/storage/driver"
+	"helm.sh/helm/v4/pkg/action"
+	"helm.sh/helm/v4/pkg/chart/loader"
+	"helm.sh/helm/v4/pkg/cli"
+	"helm.sh/helm/v4/pkg/kube"
+	ri "helm.sh/helm/v4/pkg/release"
+	releasev1 "helm.sh/helm/v4/pkg/release/v1"
+	"helm.sh/helm/v4/pkg/storage/driver"
 
 	"github.com/RajaSardar/kubebay/engine/internal/audit"
 	"github.com/RajaSardar/kubebay/engine/internal/clusters"
@@ -59,7 +62,8 @@ func NewHelm(mgr *clusters.Manager, auditLog *audit.Logger) *HelmManager {
 	return &HelmManager{Clusters: mgr, Audit: auditLog}
 }
 
-var helmSilentLog = func(_ string, _ ...interface{}) {}
+// helmSilentLog drops the Helm SDK's own logging, which goes to slog in Helm 4.
+var helmSilentLog = slog.DiscardHandler
 
 func (h *HelmManager) actionCfg(cluster, ns string) (*action.Configuration, error) {
 	ctxName, kubeconfigPaths, err := h.Clusters.HelmEnv(cluster)
@@ -85,8 +89,8 @@ func (h *HelmManager) actionCfg(cluster, ns string) (*action.Configuration, erro
 		releaseNS := ns
 		cf.Namespace = &releaseNS
 	}
-	cfg := new(action.Configuration)
-	if err := cfg.Init(cf, ns, "secrets", helmSilentLog); err != nil {
+	cfg := action.NewConfiguration(action.ConfigurationSetLogger(helmSilentLog))
+	if err := cfg.Init(cf, ns, "secrets"); err != nil {
 		return nil, fmt.Errorf("helm init: %w", err)
 	}
 	return cfg, nil
@@ -109,6 +113,10 @@ type ReleaseSummary struct {
 	Updated     string `json:"updated,omitempty"`
 	Description string `json:"description,omitempty"`
 	Manifest    string `json:"manifest,omitempty"`
+	// ApplyMethod is how the release's objects were applied: "ssa"
+	// (server-side, Helm 4's default for new installs) or "csa" (client-side,
+	// every release Helm 3 wrote).
+	ApplyMethod string `json:"applyMethod,omitempty"`
 }
 
 // helmUpgradeAuditDetail names the chart and version an install/upgrade
@@ -121,7 +129,11 @@ func helmUpgradeAuditDetail(chartRef, version string) string {
 	return fmt.Sprintf("chart=%s version=%s", chartRef, version)
 }
 
-func summarize(r *release.Release) ReleaseSummary {
+func summarize(rr ri.Releaser) ReleaseSummary {
+	r, ok := rr.(*releasev1.Release)
+	if !ok || r == nil {
+		return ReleaseSummary{Status: "unknown"}
+	}
 	status := "unknown"
 	if r.Info != nil {
 		status = r.Info.Status.String()
@@ -143,6 +155,11 @@ func summarize(r *release.Release) ReleaseSummary {
 	}
 	if r.Info != nil {
 		out.Description = r.Info.Description
+	}
+	// Unset means client-side apply: Helm 3 never recorded the method.
+	out.ApplyMethod = string(releasev1.ApplyMethodClientSideApply)
+	if r.ApplyMethod != "" {
+		out.ApplyMethod = r.ApplyMethod
 	}
 	return out
 }
@@ -227,8 +244,8 @@ func (h *HelmManager) HandleManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	manifest := ""
-	if rel != nil {
-		manifest = rel.Manifest
+	if r1, ok := rel.(*releasev1.Release); ok && r1 != nil {
+		manifest = r1.Manifest
 	}
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	_, _ = w.Write([]byte(manifest))
@@ -252,9 +269,7 @@ func (h *HelmManager) HandleRollback(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	client := action.NewRollback(cfg)
-	client.Version = req.Revision
-	client.Timeout = 5 * time.Minute
+	client := helmRollback(cfg, req)
 	ctx, cancel := context.WithTimeout(r.Context(), client.Timeout+30*time.Second)
 	defer cancel()
 	_ = ctx
@@ -277,8 +292,7 @@ func (h *HelmManager) HandleUninstall(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	client := action.NewUninstall(cfg)
-	client.Timeout = 5 * time.Minute
+	client := helmUninstall(cfg)
 	ctx, cancel := context.WithTimeout(r.Context(), client.Timeout+30*time.Second)
 	defer cancel()
 	out, uerr := client.Run(req.Name)
@@ -342,17 +356,7 @@ func (h *HelmManager) HandleUpgrade(w http.ResponseWriter, r *http.Request) {
 	_, getErr := get.Run(req.Name)
 
 	if errors.Is(getErr, driver.ErrReleaseNotFound) || (getErr != nil && strings.Contains(strings.ToLower(getErr.Error()), "not found")) {
-		inst := action.NewInstall(cfg)
-		inst.ChartPathOptions = cpo
-		inst.ReleaseName = req.Name
-		inst.Namespace = req.NS
-		inst.CreateNamespace = true
-		inst.Timeout = 5 * time.Minute
-		inst.DryRun = req.DryRun
-		if req.DryRun {
-			inst.DryRunOption = "client"
-		}
-		inst.PostRenderer = &stripComplianceSpecs{}
+		inst := helmInstall(cfg, req, cpo)
 		rel, iErr := inst.Run(ch, vals)
 		if iErr != nil {
 			http.Error(w, fmt.Sprintf("install: %v", iErr), http.StatusBadGateway)
@@ -376,15 +380,7 @@ func (h *HelmManager) HandleUpgrade(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	up := action.NewUpgrade(cfg)
-	up.ChartPathOptions = cpo
-	up.Namespace = req.NS
-	up.Timeout = 5 * time.Minute
-	up.DryRun = req.DryRun
-	if req.DryRun {
-		up.DryRunOption = "client"
-	}
-	up.PostRenderer = &stripComplianceSpecs{}
+	up := helmUpgrade(cfg, req, cpo)
 	rel, uErr := up.Run(req.Name, ch, vals)
 	if uErr != nil {
 		http.Error(w, fmt.Sprintf("upgrade: %v", uErr), http.StatusBadGateway)
@@ -401,4 +397,61 @@ func (h *HelmManager) HandleUpgrade(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	writeJSON(w, summarize(rel))
+}
+
+// helmTimeout bounds every install, upgrade, rollback and uninstall.
+const helmTimeout = 5 * time.Minute
+
+// helmDryRun is a preview's strategy: rendered client-side, never sent to the
+// API server.
+func helmDryRun(dryRun bool) action.DryRunStrategy {
+	if dryRun {
+		return action.DryRunClient
+	}
+	return action.DryRunNone
+}
+
+// The action builders below set what Helm 4 requires or changed:
+//   - a wait strategy (an action without one fails). Kubebay waits for hooks
+//     only, as Helm 3 did without --wait;
+//   - the apply method: Helm 4's defaults, server-side for new installs and
+//     "auto" (the release's own method) for upgrades and rollbacks.
+
+func helmInstall(cfg *action.Configuration, req HelmUpgradeRequest, cpo action.ChartPathOptions) *action.Install {
+	inst := action.NewInstall(cfg)
+	inst.ChartPathOptions = cpo
+	inst.ReleaseName = req.Name
+	inst.Namespace = req.NS
+	inst.CreateNamespace = true
+	inst.Timeout = helmTimeout
+	inst.WaitStrategy = kube.HookOnlyStrategy
+	inst.DryRunStrategy = helmDryRun(req.DryRun)
+	inst.PostRenderer = &stripComplianceSpecs{}
+	return inst
+}
+
+func helmUpgrade(cfg *action.Configuration, req HelmUpgradeRequest, cpo action.ChartPathOptions) *action.Upgrade {
+	up := action.NewUpgrade(cfg)
+	up.ChartPathOptions = cpo
+	up.Namespace = req.NS
+	up.Timeout = helmTimeout
+	up.WaitStrategy = kube.HookOnlyStrategy
+	up.DryRunStrategy = helmDryRun(req.DryRun)
+	up.PostRenderer = &stripComplianceSpecs{}
+	return up
+}
+
+func helmRollback(cfg *action.Configuration, req HelmActionRequest) *action.Rollback {
+	rb := action.NewRollback(cfg)
+	rb.Version = req.Revision
+	rb.Timeout = helmTimeout
+	rb.WaitStrategy = kube.HookOnlyStrategy
+	return rb
+}
+
+func helmUninstall(cfg *action.Configuration) *action.Uninstall {
+	un := action.NewUninstall(cfg)
+	un.Timeout = helmTimeout
+	un.WaitStrategy = kube.HookOnlyStrategy
+	return un
 }
