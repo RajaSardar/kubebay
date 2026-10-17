@@ -39,7 +39,7 @@ const kubebay = {
   prd: {
     url: "https://github.com/RajaSardar/kubebay/blob/main/docs/PRODUCT_REQUIREMENTS.md",
     checked: CHECKED,
-    note: "No paywall on any single-user feature, ever. Sponsorships fund the project.",
+    note: "No feature paywalls. Donations/sponsorships only.",
   },
   readme: { url: "https://github.com/RajaSardar/kubebay#readme", checked: CHECKED, note: "Local-first. No accounts." },
   release: {

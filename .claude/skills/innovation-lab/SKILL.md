@@ -13,7 +13,7 @@ When Raja describes a new idea (or several in one message):
 
 1. Read the current backlog file first — never blind-append without seeing what's already there. Check for near-duplicates; if the idea overlaps an existing entry, extend that entry instead of creating a new one.
 2. Write each idea as its own `###` entry, in the same voice and level of detail as the existing entries: one paragraph grounding it in Kubebay's actual architecture (what already exists that it builds on, which files/packages it'd touch), not generic marketing copy. If you don't know the relevant part of the codebase, use Grep/Read to check before writing the entry — a wrong technical claim in the backlog is worse than a vague one.
-3. Tag `[Enterprise]` only when it clearly needs a control plane beyond one laptop, shared by several people (see the "Open-core split" section in the backlog file and `docs/adr/0001-business-model-and-licence.md`). Guided automation over third-party controllers is OSS. Default to OSS when unsure — ask if the user seems to care about the split for this specific idea.
+3. Tag `[Enterprise]` only when it clearly needs a control plane beyond one laptop or is a guided-automation layer over a complex third-party controller (see the "Open-core split" section in the backlog file). Default to OSS when unsure — ask if the user seems to care about the split for this specific idea.
 4. New entries start at `status: idea`. Never mark something `scoping`, `building`, or `shipped` yourself — those transitions come from actual work (an innovation-scout pass, an opened branch/PR, a merge), not from adding the idea.
 5. Show the user the new entry text before or after writing it (a short confirmation, not the whole file dumped back).
 

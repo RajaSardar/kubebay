@@ -24,7 +24,7 @@ real-time, and genuinely beautiful** — with the features every competitor left
 - ❌ No mandatory telemetry (opt-in, anonymous, documented payload — ever).
 - ❌ No cluster provisioning/management (we observe & operate existing clusters; we are not Rancher).
 - ❌ Not a CI/CD or GitOps engine — we *integrate* with Flux/ArgoCD, never replace them.
-- ❌ No paywall on any single-user feature, ever. Sponsorships fund the project. The one paid surface [ADR 0001](adr/0001-business-model-and-licence.md) leaves open is a self-hosted team edition, built only on demand (KB-20).
+- ❌ No feature paywalls. Donations/sponsorships only.
 
 ## 4. Feature Requirements by Phase
 
@@ -114,18 +114,18 @@ Additional requirements:
 
 ## 6. Performance Budgets
 
-These are contractual. The `perf (kind)` CI job measures the ones it can on every PR (engine memory and CPU, watch load with generated pods, web-shell cold start); see [PERFORMANCE.md](PERFORMANCE.md) for what each number covers and leaves out. Over budget is a warning until three stable runs on main, then a failing build. The baseline column is not Kubebay's measurement:
+These are contractual. The `perf (kind)` CI job measures the ones it can on every PR (engine memory and CPU, watch load with generated pods, web-shell cold start); see [PERFORMANCE.md](PERFORMANCE.md) for what each number covers and leaves out. Over budget fails the build (since 2026-10-17, after three stable runs on main).
 
-| Metric | Budget | Baseline reality (Lens/Freelens) |
-|---|---|---|
-| Idle RSS — desktop app total (shell+engine), 1 cluster | **≤ 150 MB** | ~300–500 MB typical |
-| Idle RSS — 3 clusters connected, 1 actively viewed | ≤ 250 MB | scales worse |
-| Cold start → first interactive frame | ≤ 1.5 s | ~3–4 s |
-| Installer size (desktop) | ≤ 40 MB | ~150–250 MB |
-| Idle CPU after warmup | ≈ 0% (event-driven) | measurable churn reported |
-| Scroll 100k-row table | ≥ 55 fps sustained | jank reported |
-| Watch-event → painted UI, p95 (local kind) | ≤ 100 ms | n/a |
-| Engine memory @ 100k pods watched (metadata mode) | ≤ 400 MB | n/a (most tools OOM/jank) |
+| Metric | Budget |
+|---|---|
+| Idle RSS — desktop app total (shell+engine), 1 cluster | **≤ 150 MB** |
+| Idle RSS — 3 clusters connected, 1 actively viewed | ≤ 250 MB |
+| Cold start → first interactive frame | ≤ 1.5 s |
+| Installer size (desktop) | ≤ 40 MB |
+| Idle CPU after warmup | ≈ 0% (event-driven) |
+| Scroll 100k-row table | ≥ 55 fps sustained |
+| Watch-event → painted UI, p95 (local kind) | ≤ 100 ms |
+| Engine memory @ 100k pods watched (metadata mode) | ≤ 400 MB |
 
 Methodology notes live beside the harness; budgets may only change via ADR with evidence.
 

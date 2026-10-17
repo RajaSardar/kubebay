@@ -97,6 +97,8 @@ A team edition on an MIT core needs no CLA, because MIT allows a separately lice
 
 ## Consequences
 
+These edits are made when the ADR is accepted, not while it's proposed: until then the PRD, RESEARCH, the innovation backlog and the website keep their current wording, so nothing announces a change that hasn't been decided.
+
 - **PRD §3 changes in wording, not in intent:**
   - "No feature paywalls" becomes "no paywall on any single-user feature, ever".
   - It points here for the team-edition exception.
@@ -108,4 +110,4 @@ A team edition on an MIT core needs no CLA, because MIT allows a separately lice
 - **The backlog items it gates:**
   - **KB-20** may be built once three organisations ask, under the rules in (b).
   - **KB-17 step 2** (opt-in usage signal) is unblocked as far as the business model goes. It stays off by default, as PRD §3 requires.
-- **Public copy:** the website's "Free, no paid tier" stays true until a team edition exists. If one ships, the pricing copy says exactly what (b) says: free for every individual, paid only for the self-hosted team features.
+- **Public copy:** the website's "Free, no paid tier" stays true until a team edition exists. Its PRD note ("No feature paywalls. Donations/sponsorships only.") changes to quote the new PRD §3 line. If one ships, the pricing copy says exactly what (b) says: free for every individual, paid only for the self-hosted team features.
