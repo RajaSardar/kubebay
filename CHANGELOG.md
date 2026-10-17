@@ -7,6 +7,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 ## [Unreleased]
 
 ### Added
+- **The desktop app updates itself** (once releases carry the update signing key): 30 seconds after launch and once a day it checks the latest release, downloads a newer version in the background and verifies its signature, then shows an **Update ready** banner. **Restart to update** installs it, but never while a terminal, port-forward or change is in flight; the banner says which. Settings → Updates turns the checks off, shows the one URL they fetch (with no identifiers), and has **Check now**. A Homebrew cask install is told to `brew upgrade` instead. Builds without the key never check. The engine gains `GET /api/activity`, which reports what a restart would interrupt
 - **Monthly download report**: a scheduled `download report` workflow writes, on the 1st of each month, how many times each release and channel (macOS, Windows and Linux apps, the engine tarballs that Homebrew installs, the air-gapped bundle) was downloaded, all time and since the previous report, plus stars and forks. It reads public GitHub data only: nothing in the app changes and nothing is sent from anyone's machine (`scripts/download-report.mjs`)
 - **A ResourceClaim's page shows its allocation**: the Summary tab of a DRA ResourceClaim, opened from the ResourceClaims table or a pod's "Resource claims" link, now shows:
   - the claim's state and the device class it asks for;

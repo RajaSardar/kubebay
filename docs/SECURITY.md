@@ -51,7 +51,10 @@ actions denied by SSAR probes.
 
 ## 6. Telemetry & Privacy
 
-- Default: **zero network calls** beyond the Kubernetes API servers in your kubeconfig and OS update checks you control.
+- Default: **no network calls** beyond the Kubernetes API servers in your kubeconfig, with one exception: the desktop app's update check (KB-04).
+  - It fetches `https://github.com/RajaSardar/kubebay/releases/latest/download/latest.json` 30 s after launch and then daily. The request has no query string, cookies or custom headers (only Host, Accept, User-Agent `tauri-plugin-updater/<version>` and Accept-Encoding), and a test asserts it.
+  - Settings → Updates turns it off. A build without the updater's public key (any local build, and any release made without the signing key) never makes it.
+  - An update installs only after its minisign signature verifies against the public key built into the app, and only if it was signed for the version the manifest announces (`requireSignedVersion`), so an old genuine release can't be replayed as a new one. It installs only when the user restarts, never while the engine reports a terminal, port-forward or write in flight.
 - Opt-in metrics: anonymous counters (feature usage, crash-free rate) with a publicly documented payload schema and a settings page showing exactly what would be sent next.
 - GDPR posture: opt-in before any collection; deletion = turn it off (nothing identifiable stored).
 

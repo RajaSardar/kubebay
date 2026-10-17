@@ -77,17 +77,25 @@ describe("theme changes reach the desktop window", () => {
 
 describe("the desktop app accepts the call", () => {
   const tauri = resolve(__dirname, "../../../../../../desktop/src-tauri");
-  // The page's whole IPC surface, exactly: set_window_theme, and smoke_ready
-  // (KB-14), which does nothing outside a KUBEBAY_SMOKE=1 run.
-  it("declares exactly set_window_theme and smoke_ready, callable only from the engine-served page", () => {
-    expect(readFileSync(resolve(tauri, "build.rs"), "utf8")).toMatch(/commands\(&\["set_window_theme", "smoke_ready"\]\)/);
+  // The page's whole IPC surface, exactly: set_window_theme; smoke_ready
+  // (KB-14), which does nothing outside a KUBEBAY_SMOKE=1 run; and the
+  // updater's four commands (KB-04).
+  const commands = ["set_window_theme", "smoke_ready", "update_status", "set_update_checks", "check_for_updates", "install_update"];
+  it("declares exactly its commands, callable only from the engine-served page", () => {
+    const build = readFileSync(resolve(tauri, "build.rs"), "utf8");
+    const declared = /commands\(&\[([^\]]*)\]\)/.exec(build)?.[1] ?? "";
+    expect([...declared.matchAll(/"([a-z_]+)"/g)].map((m) => m[1])).toEqual(commands);
     const main = readFileSync(resolve(tauri, "src/main.rs"), "utf8");
-    expect(main).toMatch(/generate_handler!\[set_window_theme, smoke_ready\]/);
+    const handled = /generate_handler!\[([^\]]*)\]/.exec(main)?.[1] ?? "";
+    expect(handled.split(",").map((c) => c.trim()).filter(Boolean)).toEqual(commands);
     expect(main).toMatch(/fn smoke_ready\(\) \{\s*if !smoke::is_on\(\) \{\s*return;\s*\}/);
     const cap = JSON.parse(readFileSync(resolve(tauri, "capabilities/window-theme.json"), "utf8"));
     expect(cap).toMatchObject({ windows: ["main"], remote: { urls: ["http://127.0.0.1:*"] }, permissions: ["allow-set-window-theme"] });
     const smoke = JSON.parse(readFileSync(resolve(tauri, "capabilities/smoke.json"), "utf8"));
     expect(smoke).toMatchObject({ windows: ["main"], remote: { urls: ["http://127.0.0.1:*"] }, permissions: ["allow-smoke-ready"] });
     expect(smoke.permissions).toHaveLength(1);
+    const updates = JSON.parse(readFileSync(resolve(tauri, "capabilities/updates.json"), "utf8"));
+    expect(updates).toMatchObject({ windows: ["main"], remote: { urls: ["http://127.0.0.1:*"] } });
+    expect(updates.permissions).toEqual(["allow-update-status", "allow-set-update-checks", "allow-check-for-updates", "allow-install-update"]);
   });
 });

@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/coder/websocket"
@@ -21,7 +22,13 @@ const (
 type Hub struct {
 	log      *slog.Logger
 	chandeps ChannelDeps
+	// terminals counts open exec and local-shell channels, across every
+	// connection: a restart would cut them off (KB-04).
+	terminals atomic.Int64
 }
+
+// Terminals is the number of exec and local-shell channels open right now.
+func (h *Hub) Terminals() int { return int(h.terminals.Load()) }
 
 type SubSource interface {
 	Subscribe(ctx context.Context, cluster, gvr string, namespaces []string, selector, mode string) (SubHandle, error)
@@ -311,10 +318,16 @@ func (h *Hub) Handle(w http.ResponseWriter, r *http.Request, src SubSource, subp
 				if frame.Cols > 0 && frame.Rows > 0 {
 					rz <- TermSize{Cols: frame.Cols, Rows: frame.Rows}
 				}
+				// The runner calls finished exactly once, when the session ends.
+				h.terminals.Add(1)
+				finished := func() {
+					h.terminals.Add(-1)
+					closeChan(frame.ID, entry)
+				}
 				if frame.Kind == ChanKindLocalShell {
-					go h.runLocalShell(chCtx, frame, writer, pr, rz, func() { closeChan(frame.ID, entry) })
+					go h.runLocalShell(chCtx, frame, writer, pr, rz, finished)
 				} else {
-					go h.runExec(chCtx, frame, writer, pr, rz, func() { closeChan(frame.ID, entry) })
+					go h.runExec(chCtx, frame, writer, pr, rz, finished)
 				}
 			default:
 				go h.runLogs(chCtx, frame, writer, func() { closeChan(frame.ID, entry) })

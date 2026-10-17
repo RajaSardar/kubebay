@@ -109,11 +109,16 @@ func Router(d Deps, token string) http.Handler {
 		r.Handle("/mcp", d.MCP.Endpoint())
 	}
 
+	writes := &writeTracker{}
 	r.Group(func(r chi.Router) {
 		r.Use(requireToken(token, d.Auth))
+		r.Use(writes.middleware)
 		r.Get("/api/version", func(w http.ResponseWriter, _ *http.Request) {
 			writeJSON(w, map[string]string{"version": d.Version})
 		})
+		// What a restart would interrupt; the desktop app checks it before
+		// installing an update (KB-04).
+		r.Get("/api/activity", activityHandler(d.Hub, d.PF, writes))
 		if d.authEnabled() {
 			r.Use(d.Auth.Middleware)
 		}
