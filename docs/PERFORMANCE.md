@@ -8,7 +8,7 @@ leaves out. Quote a number with its date, commit and this page, or don't quote i
 
 The job runs on every pull request and on main. It works in four steps:
 
-1. Builds the engine with the web app embedded (`make build`).
+1. Builds the engine with the web app embedded, with the release build's flags: no cgo and no `localshell` tag, so CI measures the binary releases ship. `make build` adds the tag and leaves cgo on, which is why the job doesn't use it.
 2. Creates a kind cluster (Kubernetes 1.34, the integration suite's pinned node image).
 3. Runs `perf/harness.mjs` against it.
 4. Checks the result against `perf/budgets.json` with `scripts/perf-budgets.mjs`.
@@ -60,7 +60,8 @@ Linux only (the harness reads `/proc`). Use a dedicated cluster:
 
 ```sh
 kind create cluster --name kubebay-perf --kubeconfig /tmp/kubebay-perf.kubeconfig
-make build
+make web-install sync-ui
+(cd engine && CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o bin/kubebay ./cmd/kubebay)
 (cd perf && npm ci && npx playwright-core install chromium)
 node perf/harness.mjs --engine engine/bin/kubebay --kubeconfig /tmp/kubebay-perf.kubeconfig \
   --context kind-kubebay-perf --out perf/perf.json
