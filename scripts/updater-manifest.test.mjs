@@ -64,3 +64,28 @@ test("a signature without its bundle is an error, not a broken link", () => {
   const dir = dist({ "Kubebay_0.8.0_x64-setup.exe.sig": "c2ln" });
   assert.throws(() => manifest({ dir, tag: "v0.8.0", repo: "RajaSardar/kubebay" }), /Kubebay_0\.8\.0_x64-setup\.exe/);
 });
+
+// The release wiring: updater bundles and latest.json only when the signing
+// key and its public half are both configured, and the app is built to
+// require the signed version.
+test("release.yml builds update bundles only with the key, and publishes latest.json", async () => {
+  const { readFileSync } = await import("node:fs");
+  const yml = readFileSync(new URL("../.github/workflows/release.yml", import.meta.url), "utf8");
+  assert.match(yml, /TAURI_SIGNING_PRIVATE_KEY: \$\{\{ secrets\.TAURI_SIGNING_PRIVATE_KEY \}\}/);
+  assert.match(yml, /TAURI_UPDATER_PUBKEY: \$\{\{ vars\.TAURI_UPDATER_PUBKEY \}\}/);
+  assert.match(yml, /if \[ -n "\$TAURI_SIGNING_PRIVATE_KEY" \] && \[ -n "\$TAURI_UPDATER_PUBKEY" \]/);
+  assert.match(yml, /"createUpdaterArtifacts":true/);
+  assert.match(yml, /"requireSignedVersion":true/);
+  assert.match(yml, /node scripts\/updater-manifest\.mjs --dir dist/);
+});
+
+// requireSignedVersion rejects a signature that doesn't carry the version it
+// was signed for, and `tauri build` records it only from Tauri CLI 2.12.0.
+test("the desktop build signs updates with the version they're for (Tauri CLI 2.12+)", async () => {
+  const { readFileSync } = await import("node:fs");
+  const lock = readFileSync(new URL("../desktop/pnpm-lock.yaml", import.meta.url), "utf8");
+  const version = /'@tauri-apps\/cli':\s*\n\s*specifier: [^\n]+\n\s*version: (\d+)\.(\d+)\.(\d+)/.exec(lock);
+  assert.ok(version, "desktop/pnpm-lock.yaml pins @tauri-apps/cli");
+  const [major, minor] = [Number(version[1]), Number(version[2])];
+  assert.ok(major > 2 || (major === 2 && minor >= 12), `@tauri-apps/cli ${version.slice(1).join(".")} doesn't record the signed version`);
+});
