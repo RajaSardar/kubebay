@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { COLUMNS, rows } from "./comparison";
 
@@ -38,5 +38,42 @@ describe("the rest of the site", () => {
   it.each(["Hero.astro", "WhyKubebay.astro"])("%s claims no unmeasured RAM, start-up or installer figure", (file) => {
     const src = readFileSync(resolve(__dirname, "../components", file), "utf8");
     expect(src).not.toMatch(/≤\s?150 MB|≤\s?1\.5\s?s|40 MB installer|Engine running &mdash; \d+ MB/);
+  });
+
+  // Structured data is shown in search results; a rating Kubebay can't source
+  // reads as fabricated reviews.
+  it("SEO.astro publishes no review rating", () => {
+    const src = readFileSync(resolve(__dirname, "../components/SEO.astro"), "utf8");
+    expect(src).not.toMatch(/aggregateRating|ratingValue|ratingCount|reviewCount/);
+  });
+
+  // Copy only: CSS durations (`0.2s`, `--delay: 80ms`) aren't claims.
+  const copy = (file: string) =>
+    readFileSync(resolve(__dirname, "../components", file), "utf8")
+      .replace(/<style[\s\S]*?<\/style>/g, "")
+      .replace(/\sstyle="[^"]*"/g, "");
+  const components = readdirSync(resolve(__dirname, "../components")).filter((f) => f.endsWith(".astro"));
+  const INSTALL_TIME =
+    /\b(under|in|within)\s+(a|an|one|\d+)\s*(seconds?|secs?|minutes?|mins?)\b|\b(under|in|within)\s+\d+\s?s\b|\bin seconds\b|\b\d+[- ](second|minute)s?\b|totalTime/i;
+
+  it("the install-time pattern catches rephrasings, not CSS", () => {
+    for (const t of ["in under 2 minutes", "Install in 1 minute", "Get Kubebay in seconds", "Up and running in under a minute", "in 30s", "a 30-second install", "in 2 min"]) {
+      expect(t).toMatch(INSTALL_TIME);
+    }
+    expect('<div style="--delay: 80ms"></div><style>a { transition: opacity 0.2s }</style>'.replace(/<style[\s\S]*?<\/style>/g, "").replace(/\sstyle="[^"]*"/g, "")).not.toMatch(INSTALL_TIME);
+  });
+
+  it.each(components)("%s claims no unmeasured install time", (file) => {
+    expect(copy(file)).not.toMatch(INSTALL_TIME);
+  });
+
+  // The release the site names is the one the app is at.
+  it("every version the site shows is the app's version", () => {
+    const { version } = JSON.parse(readFileSync(resolve(__dirname, "../../../desktop/src-tauri/tauri.conf.json"), "utf8"));
+    const shown = components.flatMap((file) =>
+      [...copy(file).matchAll(/\bv(\d+\.\d+\.\d+)\b|softwareVersion:\s*'([^']+)'/g)].map((m) => `${file}: ${m[1] ?? m[2]}`),
+    );
+    expect(shown.length).toBeGreaterThan(0);
+    expect(shown.filter((s) => !s.endsWith(`: ${version}`))).toEqual([]);
   });
 });
