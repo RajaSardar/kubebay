@@ -64,6 +64,7 @@ LATER (post-1.0; demand- or decision-gated)
 - At least two weeks of download data exist.
 
 ### KB-01 · Decide the business model (ADR): S
+- **Status: drafted, awaiting Raja's decision** (2026-10-17). `docs/adr/0001-business-model-and-licence.md` (proposed) follows the recommendation below. Until it's accepted, PRD §3, RESEARCH, the innovation backlog and the website keep their current wording. Accepting it means marking it Accepted and making the edits its Consequences list, in one PR.
 - **Why:** three documents contradict each other.
   - PRD §3: *"No feature paywalls. Donations/sponsorships only"* and *"SaaS: rejected permanently."*
   - Innovation backlog: *"Open-core split (working assumption)"*, with Enterprise candidates.
