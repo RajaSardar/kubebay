@@ -78,6 +78,13 @@ func (h *HelmManager) actionCfg(cluster, ns string) (*action.Configuration, erro
 		p := kubeconfigPaths
 		cf.KubeConfig = &p
 	}
+	// Helm's Kubernetes client creates the chart objects that name no namespace
+	// in its own. Make that the release's, as `helm install -n` does; left
+	// unset, they'd land in the kubeconfig context's namespace.
+	if ns != "" {
+		releaseNS := ns
+		cf.Namespace = &releaseNS
+	}
 	cfg := new(action.Configuration)
 	if err := cfg.Init(cf, ns, "secrets", helmSilentLog); err != nil {
 		return nil, fmt.Errorf("helm init: %w", err)
