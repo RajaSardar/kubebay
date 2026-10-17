@@ -7,6 +7,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 ## [Unreleased]
 
 ### Added
+- **The desktop app updates itself** (once releases carry the update signing key): 30 seconds after launch and once a day it checks the latest release, downloads a newer version in the background and verifies its signature, then shows an **Update ready** banner. **Restart to update** installs it, but never while a terminal, port-forward or change is in flight; the banner says which. Settings → Updates turns the checks off, shows the one URL they fetch (with no identifiers), and has **Check now**. A Homebrew cask install is told to `brew upgrade` instead. Builds without the key never check. The engine gains `GET /api/activity`, which reports what a restart would interrupt
 - **A ResourceClaim's page shows its allocation**: the Summary tab of a DRA ResourceClaim, opened from the ResourceClaims table or a pod's "Resource claims" link, now shows:
   - the claim's state and the device class it asks for;
   - each device it was given (pool/device, driver and the request it answers);

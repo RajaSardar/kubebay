@@ -122,6 +122,14 @@ LATER (post-1.0; demand- or decision-gated)
   - Homebrew cask installs without a quarantine workaround.
 
 ### KB-04 · Auto-update: M (depends on KB-03)
+- **Status: built, off until the signing key exists** (2026-10-17). Raja chose to build it ahead of KB-03.
+  - **Desktop:** `tauri-plugin-updater` loads only when the build carries a public key. It checks one fixed URL 30 s after launch and every 24 h, and downloads and verifies the update (`requireSignedVersion` on). It installs and restarts only on request, and never while the engine's new `GET /api/activity` reports a terminal, port-forward or write in flight. Homebrew cask installs are told to `brew upgrade --cask kubebay`.
+  - **Web:** an "Update ready" `InlineBanner` and a Settings → Updates card (the switch, the URL, Check now).
+  - **Release:** `release.yml` builds signed update bundles and `latest.json` (`scripts/updater-manifest.mjs`) only when the secret `TAURI_SIGNING_PRIVATE_KEY` and the variable `TAURI_UPDATER_PUBKEY` are both set. Otherwise it warns, and the release doesn't update itself.
+  - **Tests:** the real plugin against a local server, with keys made at test time. A signed update installs; a tampered bundle, another key's signature and an old release announced as newer are rejected; the request carries no identifiers.
+  - **Checked locally with a throwaway key:** a keyed Linux release build (AppImage and .deb) signs both bundles with their version bound, `latest.json` builds from them, and the keyed app launches and passes the smoke run. That check found that Tauri CLI 2.11 signs without the version, which `requireSignedVersion` would reject on every update, so the desktop build moves to CLI 2.12.1 and a test keeps it there.
+  - **To turn it on (Raja):** run `cd desktop && pnpm tauri signer generate -w ~/.tauri/kubebay.key`, then add the private key as the secret `TAURI_SIGNING_PRIVATE_KEY` (and its password as `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`) and the `.pub` contents as the repository variable `TAURI_UPDATER_PUBKEY`. Releases from then on update themselves. Losing the key means shipping a new public key in a release users install by hand.
+  - **Still open:** the manual v0.8.0 → v0.8.1 update test on macOS, once two keyed releases exist.
 - **Why:** Lens auto-updates. Kubebay users stay on whatever they downloaded, security fixes included. `Cargo.toml` has no `tauri-plugin-updater`, and `TAURI_SIGNING_PRIVATE_KEY` is empty in `release.yml`.
 - **Scope:**
   - `tauri-plugin-updater` with a signed `latest.json` on GitHub Releases.
