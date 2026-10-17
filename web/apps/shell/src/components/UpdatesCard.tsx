@@ -20,7 +20,7 @@ function stateLine(s: UpdateStatus): string {
     case "homebrew":
       return `Kubebay ${s.version} is out. Homebrew installed this copy: update it with brew upgrade --cask kubebay.`;
     case "manual":
-      return "This copy can't update itself (it was installed from a .deb or .rpm package). Get new versions from your package manager or the releases page.";
+      return `This copy can't update itself (it was installed from a .deb or .rpm package). Get new versions from your package manager or ${RELEASES_URL.replace("https://", "")}.`;
     case "failed":
       return `The last check failed: ${s.error}`;
     default:
@@ -57,11 +57,8 @@ export function UpdatesCard() {
       <div className="rbac-section-title">Updates</div>
       {st.state === "unavailable" ? (
         <div className="muted small">
-          This build doesn&apos;t update itself. New versions are on the{" "}
-          <a href={RELEASES_URL} target="_blank" rel="noreferrer">
-            releases page
-          </a>
-          .
+          This build doesn&apos;t update itself. New versions are at{" "}
+          <span className="mono">{RELEASES_URL.replace("https://", "")}</span>.
         </div>
       ) : (
         <Stack gap={3}>

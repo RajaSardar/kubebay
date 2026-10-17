@@ -41,7 +41,9 @@ describe("UpdatesCard (KB-04)", () => {
     desktop({ ...base, state: "unavailable" });
     renderCard();
     expect(await screen.findByText(/This build doesn't update itself/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "releases page" })).toHaveAttribute("href", "https://github.com/RajaSardar/kubebay/releases");
+    // Text, not a link: a link would navigate the app's own window away.
+    expect(screen.getByText("github.com/RajaSardar/kubebay/releases")).toBeInTheDocument();
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
     expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
   });
 
