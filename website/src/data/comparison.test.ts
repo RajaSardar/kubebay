@@ -39,4 +39,16 @@ describe("the rest of the site", () => {
     const src = readFileSync(resolve(__dirname, "../components", file), "utf8");
     expect(src).not.toMatch(/≤\s?150 MB|≤\s?1\.5\s?s|40 MB installer|Engine running &mdash; \d+ MB/);
   });
+
+  // Structured data is shown in search results; a rating Kubebay can't source
+  // reads as fabricated reviews.
+  it("SEO.astro publishes no review rating", () => {
+    const src = readFileSync(resolve(__dirname, "../components/SEO.astro"), "utf8");
+    expect(src).not.toMatch(/aggregateRating|ratingValue|ratingCount|reviewCount/);
+  });
+
+  it.each(["SEO.astro", "Download.astro"])("%s claims no unmeasured install time", (file) => {
+    const src = readFileSync(resolve(__dirname, "../components", file), "utf8");
+    expect(src).not.toMatch(/under \d+ minutes?|in \d+ (seconds|minutes)|totalTime/i);
+  });
 });

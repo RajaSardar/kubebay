@@ -180,20 +180,18 @@ This is a product feature, not an optimization afterthought.
 4. Binary msgpack deltas + batched flush (16 ms tick) → no JSON.parse pressure, fewer syscalls.
 5. Virtualized rendering → DOM size constant vs row count.
 6. Lazy informer lifecycle (A4) → connecting to 10 clusters costs nothing until browsed.
-7. Shell budget: Tauri (no bundled Chromium) → RAM floor ~40–80 MB instead of Electron's 200–400 MB.
+7. Shell budget: Tauri uses the OS webview instead of bundling Chromium, so the desktop shell ships no browser engine of its own.
 
-**Budgets are enforced**, not aspirational — CI runs the perf harness (kind clusters seeded via fake workload generator) on every PR:
+The budgets come from [PRD §6](PRODUCT_REQUIREMENTS.md#6-performance-budgets). CI measures the engine and the web shell against them on every PR (the `perf (kind)` job; the method and what it leaves out are in [PERFORMANCE.md](PERFORMANCE.md)). Over budget is a warning until main has had three stable runs; then the Budgets step gets `--fail`.
 
-| Metric | Budget | Freelens/Lens reality (measured publicly) |
+| Metric | Budget | Measured |
 |---|---|---|
-| Idle RSS, desktop, 1 cluster | ≤ 150 MB | ~300–500 MB common |
-| Cold start → interactive | ≤ 1.5 s | ~3–4 s |
-| Installer size | ≤ 40 MB | ~150–250 MB |
-| Idle CPU | ≈ 0% | measurable background churn reported |
-| Scroll, 100k-row table | 60 fps | jank reported on large lists |
-| Watch-to-paint p95 (local) | ≤ 100 ms | n/a |
-
-Regression rule: any PR that moves a red metric fails CI. Details & methodology live next to the harness in Phase 0 code.
+| Idle RSS, desktop, 1 cluster | ≤ 150 MB | the engine, in CI; the desktop shell's memory isn't measured yet |
+| Cold start → interactive | ≤ 1.5 s | engine and web shell in CI; the macOS app per release |
+| Installer size | ≤ 40 MB | each release, against the previous one |
+| Idle CPU | ≈ 0% | the engine, in CI |
+| Scroll, 100k-row table | 60 fps | not yet |
+| Watch-to-paint p95 (local) | ≤ 100 ms | not yet |
 
 ## 8. Failure Modes & Handling
 
