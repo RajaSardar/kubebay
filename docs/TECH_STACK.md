@@ -9,11 +9,11 @@
 
 | Layer | Choice | Locked? |
 |---|---|---|
-| Engine language | Go 1.23+ | ✅ |
+| Engine language | Go 1.26+ | ✅ |
 | K8s client | `client-go` (+ dynamic client, discovery, `k8s.io/metrics`) | ✅ |
 | Streaming transport | WebSocket (nhooyr `websockets`) + MessagePack | ✅ |
 | REST framework | `net/http` + `chi` router (stdlib-first) | ✅ |
-| Helm integration | Helm SDK v3 (`helm.sh/helm/v3/pkg/action`) | ✅ |
+| Helm integration | Helm SDK v4 (`helm.sh/helm/v4/pkg/action`, ADR 0002) | ✅ |
 | Plugin runtime | WASM via `wazero` (pure-Go interpreter/compiler) | ✅ Phase 3 |
 | MCP server | Official Go MCP SDK (stdio + streamable HTTP) | ✅ Phase 3 |
 | Frontend framework | React 18 + TypeScript 5 (strict) + Vite | ✅ |

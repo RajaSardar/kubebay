@@ -1,6 +1,6 @@
 # ADR 0002: Move the engine to the Helm 4 SDK, which means Go 1.26
 
-- **Status:** Proposed. It needs a maintainer's decision, because it raises the Go needed to build Kubebay.
+- **Status:** Accepted (2026-10-17). Implemented with Helm v4.3.1 and `k8s.io/*` v0.37.1.
 - **Date:** 2026-10-14
 - **Backlog:** KB-12, "evaluate Helm 4 separately"
 
@@ -54,7 +54,7 @@ I read the v4.3.0 source against the nine calls Kubebay makes: `Configuration.In
 2. **Go 1.26 and Helm v3.22.** The SDK API doesn't change. It's supported until 2027-02-10, and then this decision comes back with no further Helm 3 to move to.
 3. **Go 1.26 and Helm v4.3 (proposed).** This is the same Go and client-go change as option 2, plus a small API migration. It lands on the line Helm will keep maintaining.
 
-## Decision (proposed)
+## Decision
 
 Option 3: one PR that does the following.
 
@@ -75,3 +75,10 @@ The deadline is 2027-02-10. Doing it before then also brings the Kubernetes 1.35
 - **Builds:** contributors and `make build` need Go 1.26. Go 1.24 has been out of support since Go 1.26 shipped, so this also puts the engine back on a supported compiler.
 - **Mixing Helm 3 and Kubebay on one release:** a release Kubebay installs is server-side applied. If someone later upgrades it with a Helm 3 CLI, that upgrade is client-side, and the field managers on the objects change hands. It still works, and both tools read the release. Helm 3 is end-of-life in four months, so we follow Helm 4's defaults rather than pin client-side apply. The Helm page shows each release's apply method.
 - **Size:** about a day for the port and its tests. Most of the risk is in client-go v0.34 → v0.37, which the three-version integration matrix is there to catch.
+
+## What implementing it found
+
+- **A wait strategy is required.** Every Helm 4 action fails with "wait strategy not set" unless one is chosen. Kubebay sets `kube.HookOnlyStrategy` on install, upgrade, rollback and uninstall: it waits for hooks, as Helm 3 did without `--wait`, and not for the release's resources.
+- **The release namespace wasn't reaching Helm's client (a bug in Helm 3 too).** `actionCfg` gave the namespace to the release storage but not to Helm's Kubernetes client. So a chart's objects with no `namespace:` in their template were created in the kubeconfig context's namespace, usually `default`, not the release's. It now sets the client's namespace too, as `helm install -n` does. The live integration test caught it.
+- **Chart values:** `loader.Load` returns the `Charter` interface, so the chart-values endpoint reads defaults through `chart.NewAccessor`.
+- **Release types:** `List`, `History` and `Get` return `Releaser` (`any`). The summary asserts `*releasev1.Release`. Anything else shows as status "unknown" rather than failing the list.
