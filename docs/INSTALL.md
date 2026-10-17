@@ -131,7 +131,7 @@ Running in a cluster, Kubebay's own RBAC page check ("Running image signatures")
 
 ## From source
 
-Prerequisites: Go ≥ 1.24 (CI and releases build with Go 1.26), Node 20+ (`corepack enable pnpm`).
+Prerequisites: Go ≥ 1.26, Node 20+ (`corepack enable pnpm`).
 
 ```bash
 git clone https://github.com/RajaSardar/kubebay && cd kubebay

@@ -10,10 +10,11 @@ import (
 
 	"sigs.k8s.io/yaml"
 
-	"helm.sh/helm/v3/pkg/action"
-	"helm.sh/helm/v3/pkg/chart/loader"
-	"helm.sh/helm/v3/pkg/getter"
-	"helm.sh/helm/v3/pkg/repo"
+	"helm.sh/helm/v4/pkg/action"
+	"helm.sh/helm/v4/pkg/chart"
+	"helm.sh/helm/v4/pkg/chart/loader"
+	"helm.sh/helm/v4/pkg/getter"
+	repo "helm.sh/helm/v4/pkg/repo/v1"
 )
 
 type RepoSummary struct {
@@ -217,7 +218,12 @@ func (h *HelmManager) HandleChartValues(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, fmt.Sprintf("load: %v", err), http.StatusBadGateway)
 		return
 	}
-	out, err := yaml.Marshal(ch.Values)
+	acc, err := chart.NewAccessor(ch)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("load: %v", err), http.StatusBadGateway)
+		return
+	}
+	out, err := yaml.Marshal(acc.Values())
 	if err != nil {
 		http.Error(w, "marshal: "+err.Error(), http.StatusInternalServerError)
 		return

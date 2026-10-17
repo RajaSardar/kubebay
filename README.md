@@ -4,7 +4,7 @@
 
 **A bay is where ships anchor safely. Kubebay is where your clusters come to rest.**
 
-A free, open-source, **local-first Kubernetes IDE** — cleaner than Lens, lighter than Freelens, friendlier than k9s.
+A free, open-source, **local-first Kubernetes IDE** — cleaner than Lens, friendlier than k9s.
 
 [![CI](https://github.com/RajaSardar/kubebay/actions/workflows/ci.yml/badge.svg)](https://github.com/RajaSardar/kubebay/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-41c98e.svg)](LICENSE)
@@ -102,7 +102,7 @@ you a token at all.
 The Kubernetes UI landscape has a trust and quality vacuum:
 
 - **Lens** went closed-source + subscription + mandatory accounts
-- **OpenLens** died unpatched; **Freelens** keeps it alive but Electron-heavy
+- **OpenLens** died unpatched; **Freelens** keeps it alive on the same Electron codebase
 - **Headlamp** is well-governed but visually plain for daily-driver use
 - The official **Kubernetes Dashboard was archived** in Jan 2026
 

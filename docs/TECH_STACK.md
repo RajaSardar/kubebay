@@ -9,11 +9,11 @@
 
 | Layer | Choice | Locked? |
 |---|---|---|
-| Engine language | Go 1.23+ | ✅ |
+| Engine language | Go 1.26+ | ✅ |
 | K8s client | `client-go` (+ dynamic client, discovery, `k8s.io/metrics`) | ✅ |
 | Streaming transport | WebSocket (nhooyr `websockets`) + MessagePack | ✅ |
 | REST framework | `net/http` + `chi` router (stdlib-first) | ✅ |
-| Helm integration | Helm SDK v3 (`helm.sh/helm/v3/pkg/action`) | ✅ |
+| Helm integration | Helm SDK v4 (`helm.sh/helm/v4/pkg/action`, ADR 0002) | ✅ |
 | Plugin runtime | WASM via `wazero` (pure-Go interpreter/compiler) | ✅ Phase 3 |
 | MCP server | Official Go MCP SDK (stdio + streamable HTTP) | ✅ Phase 3 |
 | Frontend framework | React 18 + TypeScript 5 (strict) + Vite | ✅ |
@@ -58,7 +58,7 @@
 - TanStack Query handles genuinely request/response data (REST) with caching/retry for free.
 
 ### 2.5 Desktop shell: **Tauri 2** (Electron fallback documented)
-- Tauri: ~5–15 MB installer vs ~150–250 MB; ~60–120 MB RAM vs ~300–500 MB; sub-second cold start; capability-based security model aligns with SECURITY.md.
+- Tauri uses the OS webview instead of bundling Chromium; the measured sizes and memory are in [PERFORMANCE.md](PERFORMANCE.md). Its capability-based security model aligns with SECURITY.md.
 - Engine runs as a **sidecar binary** (Go cross-compiles cleanly into Tauri's external binaries mechanism).
 - Known trade-off accepted: OS webview variance (WKWebView/WebView2/WebKitGTK). Mitigations: design system avoids bleeding-edge CSS; Playwright matrix on all three platforms in CI.
 - **Fallback trigger:** if WebKitGTK (Linux) proves unmanageable in practice → Electron build target reuses the identical SPA + engine; architecture isolates this decision to the shell package only.
