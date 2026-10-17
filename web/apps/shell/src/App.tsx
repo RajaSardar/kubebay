@@ -73,6 +73,7 @@ import { useRemoteDisconnects } from "./lib/useRemoteDisconnects";
 import { useSidebar, type SidebarState } from "./lib/useSidebar";
 import { HideSidebarButton, ShowSidebarButton } from "./components/SidebarToggle";
 import { McpChip } from "./components/McpChip";
+import { UpdateBanner } from "./components/UpdateBanner";
 import { McpProposals } from "./components/McpProposals";
 
 // ──── Cluster Context ────────────────────────────────────────────────────────
@@ -611,6 +612,7 @@ function AppInner() {
         <McpProposals />
 
         <main className="content">
+          <UpdateBanner />
           <ErrorBoundary resetKey={location.pathname}>
             {/* Empty page shell, not a spinner: chunks resolve in a few ms on
                 local disk and a spinner would flash more than it informs. */}

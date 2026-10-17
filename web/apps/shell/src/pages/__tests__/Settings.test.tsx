@@ -92,4 +92,15 @@ describe("Settings: app-wide settings only", () => {
     renderSettings();
     expect(await screen.findByText("AI incident triage")).toBeInTheDocument();
   });
+
+  it("shows the Updates card in the desktop app", async () => {
+    const w = window as unknown as { __TAURI_INTERNALS__?: { invoke: () => Promise<unknown> } };
+    w.__TAURI_INTERNALS__ = { invoke: async () => ({ state: "idle", currentVersion: "0.8.0", autoCheck: true }) };
+    try {
+      renderSettings();
+      expect(await screen.findByRole("checkbox", { name: "Check for updates automatically" })).toBeInTheDocument();
+    } finally {
+      delete w.__TAURI_INTERNALS__;
+    }
+  });
 });
