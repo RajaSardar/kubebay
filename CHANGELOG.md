@@ -7,6 +7,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 ## [Unreleased]
 
 ### Added
+- **Monthly download report**: a scheduled `download report` workflow writes, on the 1st of each month, how many times each release and channel (macOS, Windows and Linux apps, the engine tarballs that Homebrew installs, the air-gapped bundle) was downloaded, all time and since the previous report, plus stars and forks. It reads public GitHub data only: nothing in the app changes and nothing is sent from anyone's machine (`scripts/download-report.mjs`)
 - **A ResourceClaim's page shows its allocation**: the Summary tab of a DRA ResourceClaim, opened from the ResourceClaims table or a pod's "Resource claims" link, now shows:
   - the claim's state and the device class it asks for;
   - each device it was given (pool/device, driver and the request it answers);
