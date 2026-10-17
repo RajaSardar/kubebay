@@ -408,6 +408,8 @@ export interface HelmRelease {
   updated?: string;
   description?: string;
   manifest?: string;
+  /** How the release's objects were applied: "ssa" (server-side) or "csa" (client-side, every release Helm 3 wrote). */
+  applyMethod?: string;
 }
 
 export const helmApi = {

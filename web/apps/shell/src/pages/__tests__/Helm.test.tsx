@@ -116,4 +116,18 @@ describe("Helm releases", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Manifest" }));
     expect(screen.getByRole("status", { name: "Loading manifest…" })).toBeInTheDocument();
   });
+
+  it("each revision in History says how it was applied", async () => {
+    vi.mocked(helmApi.releases).mockResolvedValue(releases);
+    vi.mocked(helmApi.history).mockResolvedValue([
+      { ...rel("redis", "shop", "redis"), revision: 1, applyMethod: "csa" },
+      { ...rel("redis", "shop", "redis"), revision: 2, applyMethod: "ssa" },
+    ]);
+    renderPage();
+    fireEvent.click(await screen.findByText("redis"));
+    const rev1 = (await screen.findByText("rev 1")).closest(".tl-item") as HTMLElement;
+    const rev2 = screen.getByText("rev 2").closest(".tl-item") as HTMLElement;
+    expect(within(rev1).getByText("client-side apply")).toBeInTheDocument();
+    expect(within(rev2).getByText("server-side apply")).toBeInTheDocument();
+  });
 });
