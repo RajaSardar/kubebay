@@ -45,14 +45,24 @@ What these leave out:
   - scrolling a 100k-row table;
   - idle with three clusters connected.
 
-## Budgets: warnings first
+## Budgets fail the build
 
-`perf/budgets.json` maps a metric to its limit and source. Today a metric over
-its limit is a **warning**: an annotation on the run and "over" in the summary.
-KB-02 step 4 flips them to failures once main has had three stable runs. A
-maintainer does that by adding `--fail` to the job's Budgets step and noting the
-date in `docs/BACKLOG.md`. A budget changes only through an ADR with evidence,
-as the PRD says.
+`perf/budgets.json` maps a metric to its limit and source. A metric over its
+limit **fails the `perf (kind)` job**: an error annotation on the run, "over" in
+the summary, and a non-zero exit from the Budgets step (`--fail`). A budget that
+isn't measured yet (100k pods) is listed as "not measured" and doesn't fail.
+
+The budgets began as warnings (KB-02 step 4) and became failures on 2026-10-17,
+after three stable runs on main:
+
+| Run (commit) | Cold start | Idle RSS | Idle CPU | 10k pods, metadata |
+|---|---|---|---|---|
+| 6f06324 | 207 ms | 98.2 MB | 0.1% | 275.7 MB |
+| e0c1d1f | 160 ms | 98.5 MB | 0% | 277.7 MB |
+| 61f9c3d | 250 ms | 96.1 MB | 0.1% | 281.8 MB |
+| **Limit** | 1500 ms | 150 MB | 1% | 400 MB |
+
+A budget changes only through an ADR with evidence, as the PRD says.
 
 ## On your machine
 

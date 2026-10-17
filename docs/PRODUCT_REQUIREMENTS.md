@@ -114,7 +114,7 @@ Additional requirements:
 
 ## 6. Performance Budgets
 
-These are contractual. The `perf (kind)` CI job measures the ones it can on every PR (engine memory and CPU, watch load with generated pods, web-shell cold start); see [PERFORMANCE.md](PERFORMANCE.md) for what each number covers and leaves out. Over budget is a warning until three stable runs on main, then a failing build. The baseline column is not Kubebay's measurement:
+These are contractual. The `perf (kind)` CI job measures the ones it can on every PR (engine memory and CPU, watch load with generated pods, web-shell cold start); see [PERFORMANCE.md](PERFORMANCE.md) for what each number covers and leaves out. Over budget fails the build (since 2026-10-17, after three stable runs on main). The baseline column is not Kubebay's measurement:
 
 | Metric | Budget | Baseline reality (Lens/Freelens) |
 |---|---|---|
