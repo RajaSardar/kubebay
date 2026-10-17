@@ -317,6 +317,11 @@ LATER (post-1.0; demand- or decision-gated)
 - **Acceptance:** round-trip tests for export and import; views survive restart and kubeconfig reload.
 
 ### KB-17 · Opt-in usage signal: S–M (gated on KB-01)
+- **Status: step 1 shipped** (2026-10-17). Raja approved building it ahead of KB-01, because it changes nothing in the app.
+  - `scripts/download-report.mjs` reads the public release data and the star, fork and watcher counts. It reports downloads all time and since the previous report, by channel (macOS, Windows and Linux apps, the engine tarballs, the air-gapped bundle, the install script) and by release. Checksums, signatures and SBOMs aren't counted.
+  - The `download report` workflow runs it on the 1st of each month (or by hand). It puts the report in the job summary and keeps the snapshot as an artifact for the next month's comparison.
+  - **Homebrew:** its public analytics cover only Homebrew's own taps, not `rajasardar/tap`. The tap's formula downloads the engine tarball from GitHub Releases, so brew installs show up in "Engine, macOS (Homebrew)".
+  - Step 2 stays gated on KB-01 and on step 1 not being enough.
 - **Why:** PRD §8's success metrics ("weekly active installs, opt-in only") cannot be measured today.
 - **Step 1, which costs nothing in the app:**
   - Track GitHub release download counts and Homebrew analytics.
@@ -400,7 +405,7 @@ LATER (post-1.0; demand- or decision-gated)
 
 ## Metrics to review each release
 
-- **Adoption:** stars, release downloads per asset, Homebrew installs, issues and PRs from people other than the maintainer.
+- **Adoption:** stars, release downloads per asset, Homebrew installs, issues and PRs from people other than the maintainer. The monthly `download report` workflow (KB-17 step 1) has the first three.
 - **Trust:** notarized ✅ / ❌, signed assets ✅ / ❌, auto-update adoption (share of downloads on the latest version).
 - **Proof:** installer sizes and idle RSS against the budgets (KB-02 artifact).
 - **Quality:** E2E pass rate and flake rate (KB-11); time from a reported regression to its fix.
