@@ -69,7 +69,8 @@ jobs:
         include:
           - os: macos-latest      # Universal — runs natively on Apple Silicon + Intel
             rust-target: universal-apple-darwin
-            bundles: dmg
+            # app: the updater bundle (Kubebay.app.tar.gz) is made from it (KB-04).
+            bundles: app,dmg
 
           - os: windows-latest
             rust-target: x86_64-pc-windows-msvc
@@ -206,7 +207,13 @@ jobs:
         shell: bash
         working-directory: desktop
         env:
-          TAURI_SIGNING_PRIVATE_KEY: ""
+          # KB-04: with both set, the build makes signed update bundles and the
+          # app carries the public key, so it updates itself. Without them the
+          # app has no updater. Generate the pair with `pnpm tauri signer
+          # generate`; the private key is a secret, the public key a variable.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          TAURI_UPDATER_PUBKEY: ${{ vars.TAURI_UPDATER_PUBKEY }}
           # macOS code signing: use real identity when secret is set, ad-hoc (-) otherwise
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY || '-' }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -217,7 +224,15 @@ jobs:
           [ -z "$APPLE_ID" ]       && unset APPLE_ID
           [ -z "$APPLE_PASSWORD" ] && unset APPLE_PASSWORD
           [ -z "$APPLE_TEAM_ID" ]  && unset APPLE_TEAM_ID
-          pnpm tauri build --target ${{ matrix.rust-target }} --bundles ${{ matrix.bundles }}
+          if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ] && [ -n "$TAURI_UPDATER_PUBKEY" ]; then
+            # The public key is base64, so it needs no JSON escaping.
+            UPDATER_CONFIG='{"bundle":{"createUpdaterArtifacts":true},"plugins":{"updater":{"pubkey":"'"$TAURI_UPDATER_PUBKEY"'","requireSignedVersion":true}}}'
+            pnpm tauri build --target ${{ matrix.rust-target }} --bundles ${{ matrix.bundles }} --config "$UPDATER_CONFIG"
+          else
+            echo "::warning::No updater key (secret TAURI_SIGNING_PRIVATE_KEY and variable TAURI_UPDATER_PUBKEY): this release won't update itself"
+            unset TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+            pnpm tauri build --target ${{ matrix.rust-target }} --bundles ${{ matrix.bundles }}
+          fi
 
       # ── Collect installer artifacts ───────────────────────────────────────
       - name: Collect artifacts
@@ -230,9 +245,21 @@ jobs:
             -o -name "*.msi" \
             -o -name "*.deb" \
             -o -name "*.AppImage" \
+            -o -name "*.app.tar.gz" \
+            -o -name "*-setup.exe.sig" \
+            -o -name "*.msi.sig" \
+            -o -name "*.deb.sig" \
+            -o -name "*.AppImage.sig" \
+            -o -name "*.app.tar.gz.sig" \
           \) | while read f; do
             cp "$f" dist/
             echo "collected: $f"
+          done
+          # KB-04: the macOS update bundle is built as Kubebay.app.tar.gz; give it
+          # the version so it can't be mistaken for another release's.
+          VERSION="${GITHUB_REF_NAME#v}"
+          for f in dist/Kubebay.app.tar.gz dist/Kubebay.app.tar.gz.sig; do
+            [ -f "$f" ] && mv "$f" "${f/Kubebay.app/Kubebay_${VERSION}_universal.app}"
           done
           ls -lh dist/
 
@@ -318,6 +345,18 @@ jobs:
           path: dist
       - name: Add install script to release
         run: cp scripts/install-mac.sh dist/install-mac.sh
+      # KB-04: the manifest the desktop app's updater reads, from the bundles
+      # the build signed. No signatures (no updater key): no manifest.
+      - name: Updater manifest
+        env:
+          REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if ls dist/*.sig >/dev/null 2>&1; then
+            node scripts/updater-manifest.mjs --dir dist --tag "$TAG" --repo "$REPO" --out dist/latest.json
+          else
+            echo "No signed update bundles: this release has no latest.json"
+          fi
       # KB-02: weigh every installer against the previous release's and warn
       # on growth over 10% (a warning until the budgets have three stable
       # runs). The report is attached to the release, and signed with it.

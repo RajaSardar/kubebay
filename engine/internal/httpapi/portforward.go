@@ -181,6 +181,13 @@ func (p *PFManager) StopCluster(cluster string) {
 }
 
 // List returns the caller's own forwards.
+// Count is the number of running port-forwards, every owner's.
+func (p *PFManager) Count() int {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return len(p.m)
+}
+
 func (p *PFManager) List(ctx context.Context) []PortForward {
 	owner := ownerOf(ctx)
 	p.mu.Lock()

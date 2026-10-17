@@ -1,0 +1,10 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "updates",
+  "description": "KB-04: lets the engine-served page show the updater's state, turn the daily check on or off, check now, and install a downloaded update (which restarts only when the engine reports nothing in flight).",
+  "windows": ["main"],
+  "remote": {
+    "urls": ["http://127.0.0.1:*"]
+  },
+  "permissions": ["allow-update-status", "allow-set-update-checks", "allow-check-for-updates", "allow-install-update"]
+}

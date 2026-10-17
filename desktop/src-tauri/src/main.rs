@@ -5,6 +5,7 @@ use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
 mod smoke;
+mod updater;
 mod window_theme;
 
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
@@ -12,6 +13,10 @@ use tauri_plugin_shell::process::{CommandChild, CommandEvent};
 use tauri_plugin_shell::ShellExt;
 
 static ENGINE_CHILD: OnceLock<Mutex<Option<CommandChild>>> = OnceLock::new();
+
+/// The engine's address and session token, once it's up: the updater asks it
+/// what a restart would interrupt.
+static ENGINE_SESSION: OnceLock<(String, String)> = OnceLock::new();
 
 /// Where the window's last theme colour and appearance are kept between launches.
 fn window_theme_path(app: &tauri::AppHandle) -> Option<PathBuf> {
@@ -64,6 +69,73 @@ fn smoke_ready() {
     eprintln!("[kubebay] smoke: the shell painted");
     kill_engine();
     std::process::exit(0);
+}
+
+/// KB-04: where the updater is, for the page's banner and Settings card.
+#[tauri::command]
+fn update_status(app: tauri::AppHandle, updates: tauri::State<'_, updater::Updates>) -> updater::StatusView {
+    updates.view(&app.package_info().version.to_string())
+}
+
+/// Turns the launch and daily checks on or off; turning them on checks now.
+#[tauri::command]
+async fn set_update_checks(
+    app: tauri::AppHandle,
+    updates: tauri::State<'_, updater::Updates>,
+    enabled: bool,
+) -> Result<updater::StatusView, String> {
+    updates.set_auto_check(enabled).map_err(|e| e.to_string())?;
+    if enabled {
+        run_update_check(&app).await;
+    }
+    Ok(updates.view(&app.package_info().version.to_string()))
+}
+
+/// "Check now" in Settings.
+#[tauri::command]
+async fn check_for_updates(
+    app: tauri::AppHandle,
+    updates: tauri::State<'_, updater::Updates>,
+) -> Result<updater::StatusView, String> {
+    run_update_check(&app).await;
+    Ok(updates.view(&app.package_info().version.to_string()))
+}
+
+/// "Restart to update": installs the downloaded update and restarts, unless
+/// the engine reports something a restart would cut off.
+#[tauri::command]
+fn install_update(app: tauri::AppHandle, updates: tauri::State<'_, updater::Updates>) -> Result<(), String> {
+    let (addr, token) = ENGINE_SESSION.get().ok_or("The engine isn't running yet.")?;
+    let activity = updater::fetch_activity(addr, token)?;
+    if let Some(why) = updater::restart_blocker(&activity) {
+        return Err(why);
+    }
+    let pending = updates.take_pending().ok_or("No update is ready to install.")?;
+    // The Windows installer replaces the engine binary, which can't be done
+    // while it runs; elsewhere it stops when the app restarts.
+    #[cfg(windows)]
+    kill_engine();
+    if let Err(e) = pending.update.install(&pending.bytes) {
+        updates.put_back(pending);
+        return Err(format!("The update didn't install: {e}"));
+    }
+    app.restart();
+}
+
+/// One check, and download if there's an update. Does nothing if the build
+/// can't update itself or a check is already running.
+async fn run_update_check(app: &tauri::AppHandle) {
+    let updates = app.state::<updater::Updates>();
+    if !updates.begin_check() {
+        return;
+    }
+    let homebrew = updater::installed_by_homebrew(|p| p.exists());
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or_default();
+    let (status, pending) = updater::check_once(app, updater::ENDPOINT, homebrew, now_ms).await;
+    updates.finish_check(status, pending);
 }
 
 /// Ends a smoke run that can't succeed.
@@ -302,10 +374,39 @@ fn main() {
     })
     .ok();
 
-    tauri::Builder::default()
-        .plugin(tauri_plugin_shell::init())
-        .invoke_handler(tauri::generate_handler![set_window_theme, smoke_ready])
-        .setup(|app| {
+    let context = tauri::generate_context!();
+    // KB-04: only a build that carries the updater's public key (release.yml
+    // adds it) loads the updater; anything else never checks.
+    let can_update = updater::build_has_key(context.config()) && !smoke::is_on();
+    let mut builder = tauri::Builder::default().plugin(tauri_plugin_shell::init());
+    if can_update {
+        builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+    }
+    builder
+        .invoke_handler(tauri::generate_handler![
+            set_window_theme,
+            smoke_ready,
+            update_status,
+            set_update_checks,
+            check_for_updates,
+            install_update
+        ])
+        .setup(move |app| {
+            let prefs = app.path().app_config_dir().ok().map(|d| d.join("updates.json"));
+            app.manage(updater::Updates::new(can_update, prefs));
+            if can_update {
+                let h = app.handle().clone();
+                std::thread::spawn(move || {
+                    std::thread::sleep(updater::FIRST_CHECK_AFTER);
+                    loop {
+                        if h.state::<updater::Updates>().auto_check() {
+                            tauri::async_runtime::block_on(run_update_check(&h));
+                        }
+                        std::thread::sleep(updater::CHECK_EVERY);
+                    }
+                });
+            }
+
             let handle = app.handle().clone();
             let port = pick_free_port();
             let addr = format!("127.0.0.1:{port}");
@@ -376,6 +477,7 @@ fn main() {
                 if smoke::is_on() {
                     eprintln!("[kubebay] smoke: engine listening on {addr}");
                 }
+                let _ = ENGINE_SESSION.set((addr.clone(), token.clone()));
                 std::thread::sleep(Duration::from_millis(300));
 
                 let url = format!("http://{addr}/").parse().expect("valid url");
@@ -411,7 +513,7 @@ fn main() {
 
             Ok(())
         })
-        .build(tauri::generate_context!())
+        .build(context)
         .expect("error building kubebay")
         .run(|_app_handle, event| match event {
             // Window closed (red ✕ button or ⌘W) — kill engine immediately.

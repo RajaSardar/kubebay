@@ -84,13 +84,6 @@ const softwareAppSchema = {
     'Dark and light themes',
   ],
   screenshot: `${siteUrl}/og-image.png`,
-  aggregateRating: {
-    '@type': 'AggregateRating',
-    ratingValue: '4.9',
-    ratingCount: '47',
-    bestRating: '5',
-    worstRating: '1',
-  },
   author: {
     '@type': 'Person',
     name: 'Raja Sardar',
@@ -109,7 +102,7 @@ const softwareAppSchema = {
     ],
   },
   datePublished: '2024-01-01',
-  softwareVersion: '0.2.0',
+  softwareVersion: '0.6.0',
   keywords: keywords,
 };
 
@@ -139,21 +132,20 @@ const howToSchema = {
   '@context': 'https://schema.org',
   '@type': 'HowTo',
   name: 'How to install Kubebay Kubernetes IDE',
-  description: 'Install Kubebay, the free open-source Kubernetes IDE, on macOS, Windows, or Linux in under 2 minutes.',
-  totalTime: 'PT2M',
+  description: 'Install Kubebay, the free open-source Kubernetes IDE, on macOS, Windows, or Linux.',
   step: [
     {
       '@type': 'HowToStep',
       position: 1,
       name: 'Download Kubebay',
-      text: 'Go to the GitHub releases page and download the installer for your operating system — .dmg for macOS, .msi for Windows, or .AppImage for Linux.',
+      text: 'Go to the GitHub releases page and download the installer for your operating system — .dmg for macOS, the -setup.exe for Windows, or .AppImage for Linux.',
       url: 'https://github.com/RajaSardar/kubebay/releases/latest',
     },
     {
       '@type': 'HowToStep',
       position: 2,
       name: 'Install the app',
-      text: 'Open the installer and drag Kubebay to your Applications folder (macOS), run the .msi wizard (Windows), or chmod +x and run the .AppImage (Linux).',
+      text: 'Open the installer and drag Kubebay to your Applications folder (macOS), run the -setup.exe installer (Windows), or chmod +x and run the .AppImage (Linux).',
     },
     {
       '@type': 'HowToStep',
@@ -203,7 +195,7 @@ const faqSchema = {
       name: 'How does Kubebay compare to Lens or Freelens?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Kubebay is a drop-in alternative to Lens and Freelens. Unlike Lens which requires a paid subscription for many features, Kubebay is permanently free and open-source. Unlike Freelens which can feel unmaintained, Kubebay is actively developed with live-streaming views, an integrated pod terminal, and a modern cluster catalog UI.',
+        text: 'Kubebay is a drop-in alternative to Lens and Freelens. Unlike Lens which requires a paid subscription for many features, Kubebay is permanently free and open-source. Kubebay is actively developed, with live-streaming views, an integrated pod terminal, and a modern cluster catalog UI.',
       },
     },
     {
@@ -251,7 +243,7 @@ const faqSchema = {
       name: 'How do I install Kubebay?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Download the installer from the GitHub releases page (https://github.com/RajaSardar/kubebay/releases/latest). Choose the .dmg for macOS, .msi for Windows, or .AppImage for Linux. Install it, open it, and your kubeconfig clusters appear automatically in the catalog.',
+        text: 'Download the installer from the GitHub releases page (https://github.com/RajaSardar/kubebay/releases/latest). Choose the .dmg for macOS, the -setup.exe for Windows, or .AppImage for Linux. Install it, open it, and your kubeconfig clusters appear automatically in the catalog.',
       },
     },
   ],

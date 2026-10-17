@@ -22,6 +22,7 @@ import { KubeconfigSources } from "../components/KubeconfigSources";
 import { EksDiscovery } from "../components/EksDiscovery";
 import { GkeDiscovery } from "../components/GkeDiscovery";
 import { AksDiscovery } from "../components/AksDiscovery";
+import { UpdateBanner } from "../components/UpdateBanner";
 import ConfigurePrometheusModal from "../components/ConfigurePrometheusModal";
 import { providerBadge, clusterDisplayName } from "../lib/clusterDistro";
 import { rancherCluster } from "../lib/rancher";
@@ -277,6 +278,7 @@ export default function ClusterPicker() {
   return (
     <div className="catalog-root">
       <div className="catalog-main">
+        <UpdateBanner />
         <div className="catalog-header">
           <Row gap={3} align="center">
             <KubebayMark className="catalog-header-logo" />

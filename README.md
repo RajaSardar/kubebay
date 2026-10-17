@@ -4,7 +4,7 @@
 
 **A bay is where ships anchor safely. Kubebay is where your clusters come to rest.**
 
-A free, open-source, **local-first Kubernetes IDE** — cleaner than Lens, lighter than Freelens, friendlier than k9s.
+A free, open-source, **local-first Kubernetes IDE** — cleaner than Lens, friendlier than k9s.
 
 [![CI](https://github.com/RajaSardar/kubebay/actions/workflows/ci.yml/badge.svg)](https://github.com/RajaSardar/kubebay/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-41c98e.svg)](LICENSE)
@@ -102,7 +102,7 @@ you a token at all.
 The Kubernetes UI landscape has a trust and quality vacuum:
 
 - **Lens** went closed-source + subscription + mandatory accounts
-- **OpenLens** died unpatched; **Freelens** keeps it alive but Electron-heavy
+- **OpenLens** died unpatched; **Freelens** keeps it alive on the same Electron codebase
 - **Headlamp** is well-governed but visually plain for daily-driver use
 - The official **Kubernetes Dashboard was archived** in Jan 2026
 
@@ -112,7 +112,7 @@ Kubebay's answer: **one Go engine, three surfaces, zero compromises on trust or 
 
 1. **Local-first.** No accounts, no cloud control plane, no mandatory telemetry. Opt-in only, ever.
 2. **Instant by default.** Every view is a live watch stream. No Refresh buttons.
-3. **Lightweight by design.** A Go engine in a Tauri shell, not Electron. The budgets are ≤150 MB idle RAM and ≤1.5 s cold start ([PRD §6](docs/PRODUCT_REQUIREMENTS.md#6-performance-budgets)). CI measures the engine and the web shell against them on every PR, as warnings for now; the desktop app's own memory isn't measured in CI yet ([how](docs/PERFORMANCE.md)). The v0.6.0 installers are 19 MB (Windows), 27 MB (.deb), 53 MB (universal macOS DMG) and 102 MB (AppImage).
+3. **Lightweight by design.** A Go engine in a Tauri shell, not Electron. The budgets are ≤150 MB idle RAM and ≤1.5 s cold start ([PRD §6](docs/PRODUCT_REQUIREMENTS.md#6-performance-budgets)). CI measures the engine and the web shell against them on every PR and fails the build on a budget over; the desktop app's own memory isn't measured in CI yet ([how](docs/PERFORMANCE.md)). The v0.6.0 installers are 19 MB (Windows), 27 MB (.deb), 53 MB (universal macOS DMG) and 102 MB (AppImage).
 4. **One engine, many surfaces.** Desktop (Tauri), standalone web binary, in-cluster Helm chart.
 5. **RBAC-aware everywhere.** The UI reflects what you're actually allowed to do.
 6. **Keyboard-first.** Command palette drives everything; mouse optional.

@@ -88,18 +88,19 @@ LATER (post-1.0; demand- or decision-gated)
 - **Owner:** Raja (a decision, not code).
 
 ### KB-02 · Performance harness and honest public claims: M
-- **Status: steps 1–5 shipped; budgets are still warnings** (2026-10-14).
+- **Status: steps 1–5 shipped; budgets fail the build** (2026-10-17).
   - **Steps 2–4:** the `perf (kind)` CI job runs `perf/harness.mjs` against the engine binary and a kind cluster on every PR. It measures:
     - cold start, engine to the web shell's first painted frame (median of 5);
     - idle RSS and CPU with one cluster open;
     - RSS and time to sync with 1k and 10k generated pods watched, in metadata and full mode.
     
-    `scripts/perf-budgets.mjs` checks the results against `perf/budgets.json` (PRD §6) as warnings, writes the job summary and attaches `perf.json`. The method and what each number leaves out are in `docs/PERFORMANCE.md`. The macOS desktop cold start is scripted (`scripts/desktop-cold-start.mjs`, using KB-14's smoke mode) and recorded per release.
+    `scripts/perf-budgets.mjs` checks the results against `perf/budgets.json` (PRD §6), as warnings at first and failures since 2026-10-17, writes the job summary and attaches `perf.json`. The method and what each number leaves out are in `docs/PERFORMANCE.md`. The macOS desktop cold start is scripted (`scripts/desktop-cold-start.mjs`, using KB-14's smoke mode) and recorded per release.
   - **Comparison data:** the website's comparison table is `website/src/data/comparison.ts`. Every cell has a `source` (URL and date checked), and `comparison.test.ts` fails on a cell without one. It runs in the new `website (astro)` CI job and before each deploy.
   - **Rows removed:** memory, cold start and installer size, until steps 1–3 measure every tool. Other rows that couldn't be sourced for every tool (telemetry, in-cluster deploy, streaming, Helm, RBAC, roadmap) are gone too.
   - **Errors fixed:** k9s's license, Headlamp's desktop app, and Lens's price.
-  - **Copy:** the README, PRD §6 and the website copy no longer claim CI enforcement or quote unmeasured figures.
-  - **Still open:** add `--fail` to the Budgets step after three stable runs on main. Not measured yet: watch-to-paint p95, 100k-row scrolling, three clusters idle, the desktop shell's memory, and 100k pods.
+  - **Copy:** the README, PRD §6 and the website copy no longer quote unmeasured figures, and they claimed CI enforcement only once the budgets failed the build.
+  - **Budgets enforced (2026-10-17):** the Budgets step runs with `--fail` after three stable runs on main (6f06324, e0c1d1f, 61f9c3d), each within every budget with room to spare (cold start ≤ 250 ms of 1500, idle RSS ≤ 98.5 MB of 150, idle CPU ≤ 0.1% of 1%, 10k pods ≤ 281.8 MB of 400). The installer-size check in `release.yml` stays a warning until three releases have run it.
+  - **Still open, not measured yet:** watch-to-paint p95, 100k-row scrolling, three clusters idle, the desktop shell's memory, and 100k pods.
 - **Why:** the README says the budgets (≤150 MB RSS, ≤1.5 s cold start, ≤40 MB installer) are "enforced in CI", and they are not: `ci.yml` has no performance job. The v0.6.0 DMG is 52.9 MB and the AppImage 102.4 MB. The website's Lens and Freelens numbers ("8–15 s", "500+ MB") are unmeasured. ROADMAP M0.5 (the performance harness) was never built.
 - **Scope:**
   1. A CI job that records the size of every installer `release.yml` produces and fails on growth of more than 10% over the previous release. **Shipped (2026-10-13), as a warning per step 4:** `scripts/installer-sizes.mjs` in the release job, with `installer-sizes.json` attached to each release.
@@ -123,6 +124,14 @@ LATER (post-1.0; demand- or decision-gated)
   - Homebrew cask installs without a quarantine workaround.
 
 ### KB-04 · Auto-update: M (depends on KB-03)
+- **Status: built, off until the signing key exists** (2026-10-17). Raja chose to build it ahead of KB-03.
+  - **Desktop:** `tauri-plugin-updater` loads only when the build carries a public key. It checks one fixed URL 30 s after launch and every 24 h, and downloads and verifies the update (`requireSignedVersion` on). It installs and restarts only on request, and never while the engine's new `GET /api/activity` reports a terminal, port-forward or write in flight. Homebrew cask installs are told to `brew upgrade --cask kubebay`.
+  - **Web:** an "Update ready" `InlineBanner` and a Settings → Updates card (the switch, the URL, Check now).
+  - **Release:** `release.yml` builds signed update bundles and `latest.json` (`scripts/updater-manifest.mjs`) only when the secret `TAURI_SIGNING_PRIVATE_KEY` and the variable `TAURI_UPDATER_PUBKEY` are both set. Otherwise it warns, and the release doesn't update itself.
+  - **Tests:** the real plugin against a local server, with keys made at test time. A signed update installs; a tampered bundle, another key's signature and an old release announced as newer are rejected; the request carries no identifiers.
+  - **Checked locally with a throwaway key:** a keyed Linux release build (AppImage and .deb) signs both bundles with their version bound, `latest.json` builds from them, and the keyed app launches and passes the smoke run. That check found that Tauri CLI 2.11 signs without the version, which `requireSignedVersion` would reject on every update, so the desktop build moves to CLI 2.12.1 and a test keeps it there.
+  - **To turn it on (Raja):** run `cd desktop && pnpm tauri signer generate -w ~/.tauri/kubebay.key`, then add the private key as the secret `TAURI_SIGNING_PRIVATE_KEY` (and its password as `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`) and the `.pub` contents as the repository variable `TAURI_UPDATER_PUBKEY`. Releases from then on update themselves. Losing the key means shipping a new public key in a release users install by hand.
+  - **Still open:** the manual v0.8.0 → v0.8.1 update test on macOS, once two keyed releases exist.
 - **Why:** Lens auto-updates. Kubebay users stay on whatever they downloaded, security fixes included. `Cargo.toml` has no `tauri-plugin-updater`, and `TAURI_SIGNING_PRIVATE_KEY` is empty in `release.yml`.
 - **Scope:**
   - `tauri-plugin-updater` with a signed `latest.json` on GitHub Releases.
@@ -244,14 +253,13 @@ LATER (post-1.0; demand- or decision-gated)
 - **Acceptance:** the job is required in branch protection, and a flake budget is tracked.
 
 ### KB-12 · Kubernetes library refresh and DRA: M
-- **Status: shipped except Helm 4 and the Go bump** (2026-10-14).
-  - **Library bump:** `k8s.io/*` went to v0.34.10 and Helm to v3.19.5. These are the newest versions on Go 1.24; Kubernetes 1.35+ libraries and Helm 3.20+ need Go 1.25 or 1.26. That bump is a separate decision, because `make build` uses `GOTOOLCHAIN=local`.
-  - **Helm 4:** evaluated in `docs/adr/0002-helm-4-and-go-1-26.md` (proposed, needs a decision). Helm 3.19 gets no more patches, and Helm 3's security support ends 2027-02-10. Every newer Helm needs Go 1.25 or 1.26, so the recommendation is Go 1.26 and the Helm 4.3 SDK in one PR before then.
+- **Status: shipped** (2026-10-17).
+  - **Library bump:** `k8s.io/*` went to v0.34.10 and Helm to v3.19.5 first (Go 1.24). Then, per ADR 0002 (accepted 2026-10-17), the engine moved to Go 1.26, `k8s.io/*` v0.37.1 and the Helm v4.3.1 SDK.
+  - **Helm 4:** `docs/adr/0002-helm-4-and-go-1-26.md`. New installs are server-side applied, and upgrades keep the release's method. Each History revision shows its apply method. `TestLiveHelmReleaseLifecycle` installs, upgrades, rolls back and uninstalls a chart through the engine, and `TestLiveHelmReadsAReleaseHelm3Wrote` reads a Helm 3 release. Porting it also fixed chart objects with no `namespace:` landing in the context's namespace instead of the release's.
   - **CI:** the integration suite runs on kind with Kubernetes 1.29 (pinned), 1.34 and 1.37.
   - **DRA:** the `resource.k8s.io/v1` tables are in DEFS with their own columns, under a "Devices (DRA)" sidebar group. The Pod drawer links the pod's ResourceClaims.
   - **Checked:** `TestLiveDRAObjectsStream` streams DeviceClasses, ResourceSlices and ResourceClaims on 1.34+ and skips below. The tables were checked against an envtest 1.34 API server seeded with allocated claims.
   - **DRA example driver:** the `e2e dra (kind, Kubernetes 1.37)` CI job installs the driver (v0.5.0, its own kind config) and checks the DeviceClasses, ResourceSlices and ResourceClaims tables and the Pod drawer's claim link against it. It also checks the claim's Summary, which shows the device it was given and the pod it's reserved for (`e2e/tests/dra.spec.ts`).
-  - **Still open:** Helm 4 evaluation, and the Go 1.25/1.26 bump for the newest libraries.
 - **Why:** `client-go v0.31.4` and `helm v3.16.4`, while Kubernetes is at 1.36 (Rancher 2.15.1 supports it). Lens 2026.9 shipped DRA devices in its navigator, and Kubebay already has GPU accounting (backlog #40).
 - **Scope:**
   - Bump `k8s.io/*` to the current minor and Helm to the latest 3.x. Evaluate Helm 4 separately.
@@ -318,6 +326,11 @@ LATER (post-1.0; demand- or decision-gated)
 - **Acceptance:** round-trip tests for export and import; views survive restart and kubeconfig reload.
 
 ### KB-17 · Opt-in usage signal: S–M (gated on KB-01)
+- **Status: step 1 shipped** (2026-10-17). Raja approved building it ahead of KB-01, because it changes nothing in the app.
+  - `scripts/download-report.mjs` reads the public release data and the star, fork and watcher counts. It reports downloads all time and since the previous report, by channel (macOS, Windows and Linux apps, the engine tarballs, the air-gapped bundle, the install script) and by release. Checksums, signatures and SBOMs aren't counted.
+  - The `download report` workflow runs it on the 1st of each month (or by hand). It puts the report in the job summary and keeps the snapshot as an artifact for the next month's comparison.
+  - **Homebrew:** its public analytics cover only Homebrew's own taps, not `rajasardar/tap`. The tap's formula downloads the engine tarball from GitHub Releases, so brew installs show up in "Engine, macOS (Homebrew)".
+  - Step 2 stays gated on KB-01 and on step 1 not being enough.
 - **Why:** PRD §8's success metrics ("weekly active installs, opt-in only") cannot be measured today.
 - **Step 1, which costs nothing in the app:**
   - Track GitHub release download counts and Homebrew analytics.
@@ -401,7 +414,7 @@ LATER (post-1.0; demand- or decision-gated)
 
 ## Metrics to review each release
 
-- **Adoption:** stars, release downloads per asset, Homebrew installs, issues and PRs from people other than the maintainer.
+- **Adoption:** stars, release downloads per asset, Homebrew installs, issues and PRs from people other than the maintainer. The monthly `download report` workflow (KB-17 step 1) has the first three.
 - **Trust:** notarized ✅ / ❌, signed assets ✅ / ❌, auto-update adoption (share of downloads on the latest version).
 - **Proof:** installer sizes and idle RSS against the budgets (KB-02 artifact).
 - **Quality:** E2E pass rate and flake rate (KB-11); time from a reported regression to its fix.
