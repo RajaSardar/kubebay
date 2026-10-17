@@ -28,6 +28,8 @@ function statusTone(s: string) {
   return STATUS_TONE[s.toLowerCase()] ?? { dot: "pending" as const };
 }
 
+const APPLY_LABEL: Record<string, string> = { ssa: "server-side apply", csa: "client-side apply" };
+
 function fmtUpdated(iso?: string): string {
   if (!iso) return "–";
   const t = Date.parse(iso);
@@ -193,6 +195,7 @@ function ReleaseDrawer({
                   <span className="mono strong">rev {h.revision}</span>
                   <Badge tone={statusTone(h.status).badge}>{h.status.toLowerCase()}</Badge>
                   <span className="mono muted small">{h.chartVersion && `chart ${h.chartVersion}`}</span>
+                  {h.applyMethod && <span className="muted small">{APPLY_LABEL[h.applyMethod] ?? h.applyMethod}</span>}
                   <span className="muted small" style={{ marginLeft: "auto" }}>{fmtUpdated(h.updated)}</span>
                   {h.revision !== rel.revision && (
                     <ArmedButton
