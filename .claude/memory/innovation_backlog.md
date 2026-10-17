@@ -12,7 +12,14 @@ type: roadmap
 - Entries tagged **[Enterprise]** are candidates for a paid/enterprise tier rather than the OSS core — see the split below before scoping one as free.
 - Adding an entry here is not permission to build it. Nothing in this file gets implemented without Raja explicitly asking for that specific item.
 
-## Open-core split (working assumption — confirm with Raja before monetizing anything)
+## Open-core split
+
+**Decided in `docs/adr/0001-business-model-and-licence.md`** (proposed 2026-10-17; Raja's decision). In short:
+- Every single-user feature is free forever, with no account, licence key or limit. That includes guided automation over KEDA, Karpenter and VPA: carve-out (b) below is dropped, since those wizards shipped OSS.
+- The only paid surface Kubebay may ever have is a **self-hosted, licence-keyed team edition** (KB-20), built only when ≥3 organisations ask. It holds only capabilities that exist because several people share one deployment (carve-out (a)): SSO group policy, central audit export, shared views, hub mode.
+- No SaaS. The licence stays MIT.
+
+Tag an idea `[Enterprise]`/`[Team]` only under carve-out (a). The original working assumption follows for history.
 
 Kubebay OSS stays the complete local-first single/multi-cluster IDE — everything shipped through v0.2.0, plus straightforward additions in the same spirit (more resource kinds, more visualizations, more drawer tabs). Enterprise-tier candidates are the ones that need either:
 - (a) a control plane beyond one user's laptop — fleet-wide policy, SSO, centralized audit export, or

@@ -24,7 +24,7 @@ real-time, and genuinely beautiful** — with the features every competitor left
 - ❌ No mandatory telemetry (opt-in, anonymous, documented payload — ever).
 - ❌ No cluster provisioning/management (we observe & operate existing clusters; we are not Rancher).
 - ❌ Not a CI/CD or GitOps engine — we *integrate* with Flux/ArgoCD, never replace them.
-- ❌ No feature paywalls. Donations/sponsorships only.
+- ❌ No paywall on any single-user feature, ever. Sponsorships fund the project. The one paid surface [ADR 0001](adr/0001-business-model-and-licence.md) leaves open is a self-hosted team edition, built only on demand (KB-20).
 
 ## 4. Feature Requirements by Phase
 

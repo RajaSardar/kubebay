@@ -307,6 +307,8 @@ The defensible moat must be built deliberately: **workflow lock-in** via saved c
 
 ### 8.4 Business Model
 
+> **Superseded by [ADR 0001](docs/adr/0001-business-model-and-licence.md).** The SaaS control plane recommended below is rejected (PRD §3 and §7). The only paid surface Kubebay may have is a self-hosted, licence-keyed team edition, and every single-user feature stays free.
+
 **Open core + SaaS control plane** is the correct path (Grafana execution, not Lens execution):
 - Local desktop app stays free forever — that's the growth engine
 - Monetization: hosted sync service for team coordination (shared cluster contexts, RBAC overlays, audit logs, SSO)
@@ -404,6 +406,8 @@ One page: one decision-maker (you), one tier of triagers (GitHub Triage role), a
 5. Architecture deep-dive: "Why Go + Tauri beats Electron for K8s tooling"
 
 ### 10.3 License Consideration
+
+> **Decided in [ADR 0001](docs/adr/0001-business-model-and-licence.md): stay on MIT.** No SaaS is planned, so AGPL's network clause would protect nothing, and it would deter corporate adoption of a client tool.
 
 Current MIT is contributor-friendly but allows commercial forks without reciprocity. Consider **AGPL-3.0** to close the Freelens/Lens loophole — any fork that runs as a networked service must open-source modifications. Dual-license model (AGPL community + commercial license for enterprises) is the HashiCorp/GitLab model done right. Avoid BSL — not OSI-approved, alienates CNCF ecosystem.
 
