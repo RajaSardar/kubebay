@@ -8,6 +8,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ### Added
 - **The desktop app updates itself** (once releases carry the update signing key): 30 seconds after launch and once a day it checks the latest release, downloads a newer version in the background and verifies its signature, then shows an **Update ready** banner. **Restart to update** installs it, but never while a terminal, port-forward or change is in flight; the banner says which. Settings → Updates turns the checks off, shows the one URL they fetch (with no identifiers), and has **Check now**. A Homebrew cask install is told to `brew upgrade` instead. Builds without the key never check. The engine gains `GET /api/activity`, which reports what a restart would interrupt
+- **Monthly download report**: a scheduled `download report` workflow writes, on the 1st of each month, how many times each release and channel (macOS, Windows and Linux apps, the engine tarballs that Homebrew installs, the air-gapped bundle) was downloaded, all time and since the previous report, plus stars and forks. It reads public GitHub data only: nothing in the app changes and nothing is sent from anyone's machine (`scripts/download-report.mjs`)
 - **A ResourceClaim's page shows its allocation**: the Summary tab of a DRA ResourceClaim, opened from the ResourceClaims table or a pod's "Resource claims" link, now shows:
   - the claim's state and the device class it asks for;
   - each device it was given (pool/device, driver and the request it answers);
@@ -60,6 +61,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 - **The desktop window follows the theme**: the title bar and the window behind the page take the chosen theme's appearance and colour (or follow macOS for System), and the next launch opens in them instead of flashing the OS default
 
 ### Changed
+- **Performance budgets fail the build**: the `perf (kind)` CI job now fails when the engine goes over a PRD §6 budget (cold start ≤ 1.5 s, idle RSS ≤ 150 MB, idle CPU ≤ 1%, 10k pods watched ≤ 400 MB), instead of warning. Main had three runs in a row within every budget first; `docs/PERFORMANCE.md` has the numbers
 - **Helm 4 and Kubernetes 1.37 libraries** (ADR 0002): the Helm page runs on the Helm 4.3 SDK instead of Helm 3.19.5, which gets no more fixes (Helm 3's security support ends 2027-02-10). client-go and the other `k8s.io` modules move from v0.34.10 to v0.37.1. What you'll notice:
   - New installs are **server-side applied**, Helm 4's default. Upgrades and rollbacks keep the method the release was created with, so releases Helm 3 installed stay client-side.
   - Each revision in a release's History says "server-side apply" or "client-side apply".
