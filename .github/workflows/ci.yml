@@ -362,9 +362,11 @@ jobs:
           kind get kubeconfig --name kubebay-perf > "$RUNNER_TEMP/kubeconfig"
           node perf/harness.mjs --engine engine/bin/kubebay --kubeconfig "$RUNNER_TEMP/kubeconfig" \
             --context kind-kubebay-perf --out perf/perf.json
+      # Over budget fails the job (KB-02 step 4, since 2026-10-17, after three
+      # stable runs on main). A budget changes only through an ADR.
       - name: Budgets
         if: always() && hashFiles('perf/perf.json') != ''
-        run: node scripts/perf-budgets.mjs --results perf/perf.json --budgets perf/budgets.json --summary "$GITHUB_STEP_SUMMARY"
+        run: node scripts/perf-budgets.mjs --results perf/perf.json --budgets perf/budgets.json --summary "$GITHUB_STEP_SUMMARY" --fail
       - uses: actions/upload-artifact@v4
         if: always() && hashFiles('perf/perf.json') != ''
         with:

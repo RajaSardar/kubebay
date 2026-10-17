@@ -114,7 +114,7 @@ Additional requirements:
 
 ## 6. Performance Budgets
 
-These are contractual. The `perf (kind)` CI job measures the ones it can on every PR (engine memory and CPU, watch load with generated pods, web-shell cold start); see [PERFORMANCE.md](PERFORMANCE.md) for what each number covers and leaves out. Over budget is a warning for now; a maintainer adds `--fail` to the Budgets step once main has had three stable runs.
+These are contractual. The `perf (kind)` CI job measures the ones it can on every PR (engine memory and CPU, watch load with generated pods, web-shell cold start); see [PERFORMANCE.md](PERFORMANCE.md) for what each number covers and leaves out. Over budget fails the build (since 2026-10-17, after three stable runs on main).
 
 | Metric | Budget |
 |---|---|
