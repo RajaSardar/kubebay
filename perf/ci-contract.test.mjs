@@ -5,18 +5,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { jobBlock } from "../scripts/workflow.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (path) => readFileSync(join(root, path), "utf8");
-
-// The lines of one top-level job in a workflow, by its key under `jobs:`.
-export function jobBlock(yaml, name) {
-  const all = yaml.split("\n");
-  const start = all.findIndex((l) => l === `  ${name}:`);
-  if (start < 0) return "";
-  const end = all.findIndex((l, i) => i > start && /^ {2}\S/.test(l));
-  return all.slice(start, end < 0 ? undefined : end).join("\n");
-}
 
 test("jobBlock returns one job and stops at the next", () => {
   const yaml = "jobs:\n  a:\n    steps:\n      - run: x\n  # b runs later\n  b:\n    steps: []\n";
@@ -29,6 +21,8 @@ test("releases build the engine without cgo or build tags", () => {
   assert.match(release, /CGO_ENABLED=0/);
   assert.match(release, /go build -trimpath -ldflags "-s -w -X main\.version=/);
   assert.doesNotMatch(release, /-tags/);
+  // GOTOOLCHAIN unset: go.mod's toolchain line picks the compiler.
+  assert.doesNotMatch(release, /GOTOOLCHAIN/);
 });
 
 test("the perf job builds its engine the way releases do", () => {
@@ -38,4 +32,7 @@ test("the perf job builds its engine the way releases do", () => {
   assert.match(perf, /go build -trimpath -ldflags "-s -w -X main\.version=/);
   // make build adds the local shell (-tags localshell), which no release ships.
   assert.doesNotMatch(perf, /-tags|make (web-install )?build\b/);
+  // The same compiler as releases: go.mod's toolchain line, not the Go that
+  // setup-go installs (GOTOOLCHAIN=local, as the Makefile sets, would use that).
+  assert.doesNotMatch(perf, /GOTOOLCHAIN/);
 });

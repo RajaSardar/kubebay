@@ -102,7 +102,7 @@ you a token at all.
 The Kubernetes UI landscape has a trust and quality vacuum:
 
 - **Lens** went closed-source + subscription + mandatory accounts
-- **OpenLens** died unpatched; **Freelens** keeps it alive but Electron-heavy
+- **OpenLens** died unpatched; **Freelens** keeps it alive on the same Electron codebase
 - **Headlamp** is well-governed but visually plain for daily-driver use
 - The official **Kubernetes Dashboard was archived** in Jan 2026
 

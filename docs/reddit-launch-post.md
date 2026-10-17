@@ -13,7 +13,7 @@ I built a Kubernetes desktop UI because Lens went subscription-only, k9s is TUI-
 
 Hey r/kubernetes,
 
-I've been running production EKS clusters for a while and the tooling situation genuinely started to bother me. Lens went closed-source with mandatory accounts and a subscription. OpenLens quietly died. The official Kubernetes Dashboard was archived in January 2026. Freelens is keeping the torch alive but it's still Electron — heavy memory footprint, slow cold start. k9s is great for terminal work but if you want something you can actually hand to a colleague who isn't comfortable in a TUI, it falls short.
+I've been running production EKS clusters for a while and the tooling situation genuinely started to bother me. Lens went closed-source with mandatory accounts and a subscription. OpenLens quietly died. The official Kubernetes Dashboard was archived in January 2026. Freelens is keeping the torch alive on the same Electron codebase. k9s is great for terminal work but if you want something you can actually hand to a colleague who isn't comfortable in a TUI, it falls short.
 
 So I built Kubebay.
 
@@ -38,11 +38,12 @@ It's a Tauri desktop app (Go backend, React frontend) that tries to be a genuine
 
 Not a cloud product. Not a SaaS. No accounts. No telemetry (and I mean it — there is no phone-home code in the repo, check for yourself). Your kubeconfig never leaves your machine. The Go engine runs on localhost.
 
-**Performance targets enforced in CI:**
+**Performance targets** (CI measures the engine and web shell against them on every PR, as warnings for now: [how]([github link]/blob/main/docs/PERFORMANCE.md)):
 
 - <= 150 MB idle RAM
 - <= 1.5 s cold start
-- <= 40 MB installer
+
+The v0.6.0 installers are 19 MB (Windows), 27 MB (.deb), 53 MB (universal macOS DMG) and 102 MB (AppImage).
 
 It's MIT licensed. The governance model is documented — I'm the BDFL, there's a public roadmap, and the contribution path is written down. I'm not trying to build a startup here, I just wanted a tool I actually want to use every day.
 

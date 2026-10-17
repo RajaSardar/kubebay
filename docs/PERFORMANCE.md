@@ -8,7 +8,7 @@ leaves out. Quote a number with its date, commit and this page, or don't quote i
 
 The job runs on every pull request and on main. It works in four steps:
 
-1. Builds the engine with the web app embedded, with the release build's flags: no cgo and no `localshell` tag, so CI measures the binary releases ship. `make build` adds the tag and leaves cgo on, which is why the job doesn't use it.
+1. Builds the engine with the web app embedded, the way releases build it: no cgo, no `localshell` tag, and the compiler that go.mod's `toolchain` line names. So CI measures the binary releases ship. `make build` adds the tag, leaves cgo on and uses the Go that setup-go installs (`GOTOOLCHAIN=local`), which is why the job doesn't use it.
 2. Creates a kind cluster (Kubernetes 1.34, the integration suite's pinned node image).
 3. Runs `perf/harness.mjs` against it.
 4. Checks the result against `perf/budgets.json` with `scripts/perf-budgets.mjs`.

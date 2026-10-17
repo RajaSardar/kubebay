@@ -49,7 +49,7 @@ These are not aspirational — PRs that conflict with them will be closed.
 
 1. **Local-first.** No accounts, no cloud control plane, no mandatory telemetry. A PR that adds any of these will be rejected regardless of quality.
 2. **Instant by default.** No refresh buttons. Every view rides a live watch stream.
-3. **Lightweight by design.** CI measures every PR against the performance budgets in [PRD §6](docs/PRODUCT_REQUIREMENTS.md#6-performance-budgets) ([how](docs/PERFORMANCE.md)). Over budget is a warning for now; it becomes a failure once main has had three stable runs. If your change regresses a budget, optimize before resubmitting.
+3. **Lightweight by design.** On every PR, CI measures the engine and the web shell against the budgets in [PRD §6](docs/PRODUCT_REQUIREMENTS.md#6-performance-budgets) that it can measure ([how](docs/PERFORMANCE.md)). Over budget is a warning for now; a maintainer adds `--fail` once main has had three stable runs. If your change regresses a budget, optimize before resubmitting.
 4. **RBAC-aware UI.** Never show an action the API server would deny.
 
 ---
