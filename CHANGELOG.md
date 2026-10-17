@@ -64,7 +64,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
   - Each revision in a release's History says "server-side apply" or "client-side apply".
   - Releases Helm 3 wrote list and open as before, and each Helm version reads the other's releases.
 
-  A new integration test installs, upgrades, rolls back and uninstalls a chart through the engine on kind (Kubernetes 1.29, 1.34 and 1.37), and reads a release in Helm 3's format
+  A new integration test installs, upgrades, rolls back and uninstalls a chart through the engine on kind (Kubernetes 1.29, 1.34 and 1.37), and reads a release in Helm 3's format. The engine binary is about 8 MB larger, and its idle memory about 9 MB higher (still within the 150 MB budget)
 - **Building the engine needs Go 1.26 or later** (was 1.24), which Helm 4 and the Kubernetes 1.37 libraries need. CI, release and Docker builds already used Go 1.26. `make build` uses whatever Go you have installed (`GOTOOLCHAIN=local`), so install Go 1.26 first
 - **Building the engine needs Go 1.24 or later** (was 1.22, out of support since February 2025). `go.mod` asks for Go 1.24 at minimum, which the Anthropic Go SDK needs for AI triage, and names Go 1.26.9 as the toolchain, so CI, release and Docker builds use a supported compiler. `make build` still uses whatever Go you have installed (`GOTOOLCHAIN=local`), so install Go 1.24 or later first
 - Removed about 800 lines of unused styles and two unrouted pages (the old Home and Overview)
