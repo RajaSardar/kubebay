@@ -5,6 +5,8 @@ import { PageLoader } from "../components/PageLoader";
 import { EventHeatStrip } from "../components/EventHeatStrip";
 import { useCluster } from "../lib/useCluster";
 import { useResourceStream, shouldShowSkeleton } from "../lib/useResourceStream";
+import { deniedStreams } from "../lib/forbidden";
+import { ForbiddenState } from "../components/ForbiddenState";
 
 interface EventRow {
   key: string;
@@ -69,7 +71,7 @@ export default function Timeline() {
   const [filter, setFilter] = useState("");
   const [warningsOnly, setWarningsOnly] = useState(false);
 
-  const { rows, synced } = useResourceStream(effectiveCluster || undefined, "v1/events", { mode: "full" });
+  const { rows, synced, forbidden } = useResourceStream(effectiveCluster || undefined, "v1/events", { mode: "full" });
 
   const events = useMemo(() => {
     const out = rows
@@ -144,7 +146,9 @@ export default function Timeline() {
       </div>
 
       <div className="page-body">
-        {shouldShowSkeleton(synced, events.length) ? (
+        {shouldShowSkeleton(synced, events.length) && forbidden ? (
+          <ForbiddenState denied={deniedStreams({ events: { forbidden } })} />
+        ) : shouldShowSkeleton(synced, events.length) ? (
           <PageLoader message="Connecting to event stream…" />
         ) : events.length === 0 ? (
           <EmptyState>

@@ -7,6 +7,8 @@ import { InstallVpaRecommender } from "../components/InstallVpaRecommender";
 import { CreateVpaObject } from "../components/CreateVpaObject";
 import { RightSizingTable, rowKey, type Selection } from "../components/RightSizingTable";
 import { useResourceStream, shouldShowSkeleton } from "../lib/useResourceStream";
+import { deniedStreams } from "../lib/forbidden";
+import { ForbiddenState } from "../components/ForbiddenState";
 import { useCluster } from "../lib/useCluster";
 import { useMonacoTheme } from "../lib/theme";
 import { api, crdApi, wasteApi } from "../lib/api";
@@ -212,10 +214,11 @@ export default function RightSizing() {
   }
 
   if (anyLoading) {
+    const denied = deniedStreams({ deployments, verticalpodautoscalers: vpas });
     return (
       <div className="page">
         <PageHeader level={2} title="Right-sizing" />
-        <PageLoader message="Loading VPA recommendations…" />
+        {denied.length > 0 ? <ForbiddenState denied={denied} /> : <PageLoader message="Loading VPA recommendations…" />}
       </div>
     );
   }

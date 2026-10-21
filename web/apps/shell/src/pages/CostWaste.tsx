@@ -8,6 +8,8 @@ import { UsageAnomalyCard } from "../components/UsageAnomalyCard";
 import { WorkloadUsageTable } from "../components/WorkloadUsageTable";
 import { PageLoader } from "../components/PageLoader";
 import { useResourceStream, shouldShowSkeleton } from "../lib/useResourceStream";
+import { deniedStreams } from "../lib/forbidden";
+import { ForbiddenState } from "../components/ForbiddenState";
 import { useCluster } from "../lib/useCluster";
 import { wasteApi } from "../lib/api";
 import { computeClusterWaste } from "../lib/waste";
@@ -78,10 +80,11 @@ export default function CostWaste() {
   }
 
   if (shouldShowSkeleton(nodes.synced, nodes.rows.length) || shouldShowSkeleton(pods.synced, pods.rows.length)) {
+    const denied = deniedStreams({ nodes, pods });
     return (
       <div className="page">
         <PageHeader level={2} title="Cost / Waste" />
-        <PageLoader message="Computing capacity accounting…" />
+        {denied.length > 0 ? <ForbiddenState denied={denied} /> : <PageLoader message="Computing capacity accounting…" />}
       </div>
     );
   }
