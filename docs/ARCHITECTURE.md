@@ -182,7 +182,7 @@ This is a product feature, not an optimization afterthought.
 6. Lazy informer lifecycle (A4) → connecting to 10 clusters costs nothing until browsed.
 7. Shell budget: Tauri uses the OS webview (WKWebView, WebView2, WebKitGTK) instead of bundling Chromium. Only the Linux AppImage carries its own copy of WebKitGTK.
 
-The budgets come from [PRD §6](PRODUCT_REQUIREMENTS.md#6-performance-budgets). CI measures the engine and the web shell against them on every PR (the `perf (kind)` job; the method and what it leaves out are in [PERFORMANCE.md](PERFORMANCE.md)). Over budget is a warning until main has had three stable runs; then the Budgets step gets `--fail`.
+The budgets come from [PRD §6](PRODUCT_REQUIREMENTS.md#6-performance-budgets). CI measures the engine and the web shell against them on every PR (the `perf (kind)` job; the method and what it leaves out are in [PERFORMANCE.md](PERFORMANCE.md)). A measured budget that's over fails the job; it has since 2026-10-17, after three stable runs on main. Budgets CI doesn't measure can't fail it.
 
 | Metric | Budget | Measured |
 |---|---|---|
