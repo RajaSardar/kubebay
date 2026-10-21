@@ -4,6 +4,8 @@ import { useQuery as useRQQuery } from "@tanstack/react-query";
 import { Badge, Card, PageHeader, Row, SegmentedControl, Select, Skeleton, Stack } from "@kubebay/ui";
 import { useCluster } from "../lib/useCluster";
 import { useResourceStream, shouldShowSkeleton } from "../lib/useResourceStream";
+import { deniedStreams } from "../lib/forbidden";
+import { ForbiddenState } from "../components/ForbiddenState";
 import { WorkloadTabBar } from "../components/WorkloadTabBar";
 import { PressureGrid } from "../components/PressureGrid";
 import { SpofRadarList } from "../components/SpofRadarList";
@@ -53,6 +55,8 @@ function useKindCounts(
         jobs: jobs.rows,
       }),
       synced: pods.synced && deps.synced && stss.synced && dss.synced && jobs.synced && nodes.synced,
+      // What RBAC forbids of these: they never sync, so the page says so.
+      denied: deniedStreams({ pods, nodes, deployments: deps, statefulsets: stss, daemonsets: dss, jobs }),
       daemonSets: dss.rows,
     }),
     [pods, deps, stss, dss, jobs, nodes],
@@ -82,7 +86,7 @@ export default function WorkloadsOverview() {
   const [showAllNs, setShowAllNs] = useState(false);
   const scope = useMemo(() => (showAllNs ? [] : selectedNs), [showAllNs, selectedNs]);
 
-  const { kinds, synced, daemonSets } = useKindCounts(pods, nodes, deployments, statefulSets, effectiveCluster || undefined);
+  const { kinds, synced, denied, daemonSets } = useKindCounts(pods, nodes, deployments, statefulSets, effectiveCluster || undefined);
 
   // SPOF Radar's own resources -- only opened once that tab is actually
   // selected, same gating discipline the Pressure tab's podMetricsQ uses.
@@ -265,6 +269,8 @@ export default function WorkloadsOverview() {
           <ServiceMismatchList findings={serviceMismatches} />
           <RouteResolutionList routes={routes} />
         </Stack>
+      ) : shouldShowSkeleton(synced, totals.total) && denied.length > 0 ? (
+        <ForbiddenState denied={denied} />
       ) : shouldShowSkeleton(synced, totals.total) ? (
         <div className="cluster-grid">
           {[0, 1, 2, 3, 4, 5].map((i) => (

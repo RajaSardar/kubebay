@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { Badge, Button, ColumnChooser, EmptyState, IconButton, InlineBanner, NsPill, PageHeader, SelectAllHeader, SelectCell, SelectionBar, SkeletonTable, SortHeader, Table, TableRow, TableWrap, TextField, VisuallyHidden } from "@kubebay/ui";
 import { shouldShowSkeleton } from "../lib/useResourceStream";
+import { ForbiddenState } from "./ForbiddenState";
 import { useColumnWidths } from "../lib/useColumnWidths";
 import { useColumnPrefs } from "../lib/useColumnPrefs";
 import { useRowSelection } from "../lib/useRowSelection";
@@ -366,10 +367,7 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
       </div>
 
       {p.forbidden && all.length === 0 ? (
-        <EmptyState>
-          <p>You can't list {noun} here.</p>
-          <p className="muted small">{p.forbidden}</p>
-        </EmptyState>
+        <ForbiddenState denied={[{ what: noun, reason: p.forbidden }]} />
       ) : shouldShowSkeleton(p.synced, all.length) ? (
         <SkeletonTable headers={headers} widths={widths} rows={10} leadingBlank label={`Loading ${noun}…`} />
       ) : rows.length === 0 ? (
