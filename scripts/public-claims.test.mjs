@@ -35,6 +35,9 @@ export const FIGURE = /(?<![A-Za-z])\d[\d.,–-]*\+?\s?(MB|MiB|GB|GiB|KB|KiB|ms|
 const ENFORCES = /\benforc(e|es|ed|ing|ement)\b|\bfail(s|ing)?\s+(the\s+|a\s+)?(CI|build|PR|job|merge)\b|\bCI\s+(fails|blocks|gates)\b|\bblocks?\s+(the\s+)?merge\b/i;
 const ABOUT_PERF = /\bbudgets?\b|\bperformance\b|\bperf\b|\bmetrics?\b(?!-server)/i;
 export const claimsEnforcement = (text) => ENFORCES.test(text) && ABOUT_PERF.test(text);
+// "Over budget is a warning for now", "as warnings until ...": true only before --fail.
+const WARN_ONLY = /\b(is|are)\s+(a\s+)?warnings?\s+(for now|until)\b|\bas warnings?\s+(for now|until)\b|\bwarnings? for now\b/i;
+export const claimsWarningOnly = (text) => WARN_ONLY.test(text) && ABOUT_PERF.test(text);
 export const comparesSpeed = (text) =>
   /\b(lighter|faster|smaller|leaner|quicker|snappier)(-weight)?\s+than\s+(\w+\s+){0,3}(Open)?(Lens|Freelens|Headlamp|k9s|Electron)\b/i.test(text);
 export const disparages = (text) => /\bbloat(ed)?\b|\bunmaintained\b|\bElectron[- ]heavy\b/i.test(text);
@@ -93,6 +96,11 @@ test("the guards' predicates catch rephrasings and leave unrelated text alone", 
     assert.ok(claimsEnforcement(t), t);
   }
   assert.ok(!claimsEnforcement("RBAC is enforced by the API server; metrics-server is optional."));
+  for (const t of ["Over budget is a warning for now.", "Over budget is a warning until main has had three stable runs.",
+    "CI measures the budgets on every PR, as warnings for now.", "Performance targets (as warnings until v1)"]) {
+    assert.ok(claimsWarningOnly(t), t);
+  }
+  assert.ok(!claimsWarningOnly("The budgets began as warnings (KB-02 step 4) and became failures on 2026-10-17."));
   for (const t of ["lighter than Freelens", "lighter than both Lens and Freelens", "much faster than any Electron app",
     "lighter-weight than Freelens", "faster than OpenLens"]) {
     assert.ok(comparesSpeed(t), t);
@@ -108,6 +116,12 @@ test("the guards' predicates catch rephrasings and leave unrelated text alone", 
 test("the docs claim budget enforcement only once the perf job fails on a breach", (t) => {
   if (budgetsFail(read(".github/workflows/ci.yml"))) return t.skip("the Budgets step passes --fail");
   assert.deepEqual(where(docProse().filter((u) => claimsEnforcement(u.text))), []);
+});
+
+test("once the perf job fails on a breach, nothing calls the budgets warnings", (t) => {
+  if (!budgetsFail(read(".github/workflows/ci.yml"))) return t.skip("the Budgets step doesn't pass --fail yet");
+  const site = SITE.flatMap((p) => read(p).split("\n").map((text, i) => ({ path: p, line: i + 1, text })));
+  assert.deepEqual(where([...docProse(), ...site].filter((u) => claimsWarningOnly(u.text))), []);
 });
 
 test("a competitor figure in the docs links its source", () => {

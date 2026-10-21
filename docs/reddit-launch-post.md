@@ -38,7 +38,7 @@ It's a Tauri desktop app (Go backend, React frontend) that tries to be a genuine
 
 Not a cloud product. Not a SaaS. No accounts. No telemetry (and I mean it — there is no phone-home code in the repo, check for yourself). Your kubeconfig never leaves your machine. The Go engine runs on localhost.
 
-**Performance targets** (CI measures the engine and web shell against them on every PR, as warnings for now: [how]([github link]/blob/main/docs/PERFORMANCE.md)):
+**Performance targets** (CI measures the engine and web shell against them on every PR, and a PR over budget fails: [how]([github link]/blob/main/docs/PERFORMANCE.md)):
 
 - <= 150 MB idle RAM
 - <= 1.5 s cold start
