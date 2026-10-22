@@ -480,6 +480,8 @@ export default function ResourceTable() {
         objects={stream.rows}
         synced={stream.synced}
         forbidden={stream.forbidden}
+        namespaces={def.scoped ? undefined : nsFilter}
+        denied={stream.denied}
         busy={!stream.synced}
         live={stream.synced}
         cluster={effectiveCluster}

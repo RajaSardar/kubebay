@@ -16,9 +16,11 @@ interface DataFrame {
 }
 
 interface ControlFrame {
-  type: "ack" | "error" | "sync" | "pong" | "chan-closed";
+  type: "ack" | "error" | "sync" | "pong" | "chan-closed" | "denied";
   id?: string;
   message?: string;
+  /** The namespace a "denied" frame is about. */
+  ns?: string;
 }
 
 export interface SubSpec {
@@ -77,6 +79,8 @@ export interface Handlers {
   onError?: (id: string, message: string) => void;
   onChanData?: (id: string, data: Uint8Array) => void;
   onChanClosed?: (id: string, message?: string) => void;
+  /** RBAC refuses one namespace of a subscription; it goes on for the others. */
+  onDenied?: (id: string, ns: string, message: string) => void;
   /** connected=true on open; false on close with retry attempt + next-retry ms */
   onStatus?: (connected: boolean, retryAttempt?: number, nextRetryMs?: number) => void;
 }
@@ -165,6 +169,9 @@ class MultiplexedStream {
           break;
         case "chan-closed":
           this.dispatch((h) => h.onChanClosed?.(f.id ?? "", f.message));
+          break;
+        case "denied":
+          this.dispatch((h) => h.onDenied?.(f.id ?? "", f.ns ?? "", f.message ?? ""));
           break;
       }
       return;
