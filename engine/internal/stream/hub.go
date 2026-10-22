@@ -409,12 +409,19 @@ func (h *Hub) start(parent context.Context, frame *ClientFrame, src SubSource, w
 	table.put(frame.ID, cancel)
 	_ = writer.sendControl(ControlFrame{Type: TypeAck, ID: frame.ID, Message: "subscribed"})
 
+	// A namespace RBAC refuses is named; the stream goes on for the others.
+	var denials <-chan Denial
+	if d, ok := handle.(interface{ Denials() <-chan Denial }); ok {
+		denials = d.Denials()
+	}
 	go func() {
 		synced := false
 		for {
 			select {
 			case <-subCtx.Done():
 				return
+			case d := <-denials:
+				_ = writer.sendControl(ControlFrame{Type: TypeDenied, ID: frame.ID, NS: d.NS, Message: d.Message})
 			case snap := <-handle.Snapshot():
 				_ = writer.sendData(&DataFrame{Type: TypeBegin, ID: frame.ID})
 				for i := 0; i < len(snap); i += itemsPerFrame {
