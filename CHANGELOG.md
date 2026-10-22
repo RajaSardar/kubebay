@@ -7,6 +7,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 ## [Unreleased]
 
 ### Added
+- **Three more performance budgets measured in CI**: the `perf (kind)` job now also measures, on every pull request:
+  - the time from a pod being created to its row painted on the Pods page (p95 of 30);
+  - the frame rate scrolling a Pods table of 100,000 rows;
+  - idle memory and CPU with three clusters connected and one open.
+  
+  They warn rather than fail until they have three stable runs on main. The engine's memory with 100,000 pods, which CI doesn't run, was measured once by hand. `docs/PERFORMANCE.md` has the method and the numbers
 - **The desktop app updates itself** (once releases carry the update signing key): 30 seconds after launch and once a day it checks the latest release, downloads a newer version in the background and verifies its signature, then shows an **Update ready** banner. **Restart to update** installs it, but never while a terminal, port-forward or change is in flight; the banner says which. Settings → Updates turns the checks off, shows the one URL they fetch (with no identifiers), and has **Check now**. A Homebrew cask install is told to `brew upgrade` instead. Builds without the key never check. The engine gains `GET /api/activity`, which reports what a restart would interrupt
 - **Monthly download report**: a scheduled `download report` workflow writes, on the 1st of each month, how many times each release and channel (macOS, Windows and Linux apps, the engine tarballs that Homebrew installs, the air-gapped bundle) was downloaded, all time and since the previous report, plus stars and forks. It reads public GitHub data only: nothing in the app changes and nothing is sent from anyone's machine (`scripts/download-report.mjs`)
 - **A ResourceClaim's page shows its allocation**: the Summary tab of a DRA ResourceClaim, opened from the ResourceClaims table or a pod's "Resource claims" link, now shows:
@@ -80,6 +86,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 - **Pending has its own colour**: Pending pods use each theme's info hue instead of the warning orange, so they no longer read as warnings
 
 ### Fixed
+- **Long tables scroll smoothly**: scrolling the Pods table with 100,000 pods ran at about 37 frames a second in the performance harness. Every row's Age tooltip built a new date formatter, and the select-all box checked every row on every frame, even with nothing selected. It now runs at 55 to 59, against the browser's 60 there. Every resource table shares this code, so they all gain the same
 - **Helm installs put every object in the release's namespace**: installing or upgrading a chart from the Helm page put any object whose template has no `namespace:` into the kubeconfig context's namespace (usually `default`), while the release itself was recorded in the namespace you picked. `helm install -n` puts them in the release's namespace, and so does Kubebay now. Charts that template `namespace: {{ .Release.Namespace }}`, as most published charts do, weren't affected
 - **Kubebay no longer uses CPU while you're not doing anything**: with a cluster page open, the engine woke every open table's update queue 60 times a second whether or not anything had changed, about 5% of a CPU core on a quiet cluster. The CI performance job flagged it against the PRD's "≈ 0% idle CPU". A table's queue now sleeps until a change arrives and sends it 16 ms later, as before, and the same page now costs about 0.1%
 - **Nothing loads from Google any more**: every launch fetched a stylesheet from fonts.googleapis.com, for Inter (which nothing used) and JetBrains Mono (Display settings' third font), telling Google each time Kubebay opened; offline, JetBrains Mono quietly fell back to another font. JetBrains Mono now ships with the app, and the page loads nothing from another origin (a test checks `index.html` and that every font Display settings name is bundled)
