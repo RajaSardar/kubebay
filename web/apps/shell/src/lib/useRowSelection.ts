@@ -41,14 +41,15 @@ export function useRowSelection() {
   /** True when keys is non-empty and every key is selected. */
   const isAllSelected = useCallback(
     (keys: string[]) =>
-      keys.length > 0 && keys.every((k) => selectedKeys.has(k)),
+      // Fewer selected than shown can't be all of them: no walk over every row.
+      keys.length > 0 && selectedKeys.size >= keys.length && keys.every((k) => selectedKeys.has(k)),
     [selectedKeys]
   );
 
   /** True when at least one — but not all — keys are selected. */
   const isIndeterminate = useCallback(
     (keys: string[]) => {
-      if (keys.length === 0) return false;
+      if (keys.length === 0 || selectedKeys.size === 0) return false;
       const count = keys.filter((k) => selectedKeys.has(k)).length;
       return count > 0 && count < keys.length;
     },

@@ -25,12 +25,17 @@ export function countLabel(shown: number, total: number): string {
   return shown === total ? String(shown) : `${shown} of ${total}`;
 }
 
+// One formatter for every Age tooltip: toLocaleString with options builds a
+// new one per call, and a scrolling table renders an Age cell per row.
+let tooltipTime: Intl.DateTimeFormat | undefined;
+
 /** An exact local timestamp for the tooltip on a relative age ("3d"). */
 export function absoluteTime(ts: string | undefined): string {
   if (!ts) return "";
   const d = new Date(ts);
   if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "medium" });
+  tooltipTime ??= new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "medium" });
+  return tooltipTime.format(d);
 }
 
 // One clock for every Age cell on screen: a single 1s timer while any cell is

@@ -1,5 +1,5 @@
 import { renderHook, act } from "@testing-library/react";
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { useRowSelection } from "../useRowSelection";
 
 describe("useRowSelection", () => {
@@ -70,6 +70,19 @@ describe("useRowSelection", () => {
     const keys = ["ns/pod-1", "ns/pod-2"];
     act(() => result.current.selectAll(keys));
     expect(result.current.isIndeterminate(keys)).toBe(false);
+  });
+
+  // KB-02: the select-all box asks on every render, scrolling included, so
+  // with nothing selected it mustn't walk 100k rows' keys to say no.
+  it("answers for an empty selection without walking the keys", () => {
+    const { result } = renderHook(() => useRowSelection());
+    const keys = Array.from({ length: 100_000 }, (_, i) => `ns/pod-${i}`);
+    const every = vi.spyOn(keys, "every");
+    const filter = vi.spyOn(keys, "filter");
+    expect(result.current.isAllSelected(keys)).toBe(false);
+    expect(result.current.isIndeterminate(keys)).toBe(false);
+    expect(every).not.toHaveBeenCalled();
+    expect(filter).not.toHaveBeenCalled();
   });
 
   it("deselect removes only the given keys", () => {
