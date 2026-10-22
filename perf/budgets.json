@@ -22,5 +22,33 @@
     "unit": "MB",
     "label": "Engine RSS, 10k pods watched (metadata; PRD's 400 MB is for 100k)",
     "source": "PRD §6"
+  },
+  "paint.p95Ms": {
+    "max": 100,
+    "unit": "ms",
+    "label": "Watch event to painted row, p95 (timed from the create request)",
+    "source": "PRD §6",
+    "warnOnly": true
+  },
+  "scroll.fps": {
+    "min": 55,
+    "unit": "fps",
+    "label": "Scrolling a 100k-row Pods table",
+    "source": "PRD §6",
+    "warnOnly": true
+  },
+  "idle3.rssMB": {
+    "max": 250,
+    "unit": "MB",
+    "label": "Engine idle RSS, 3 clusters connected, 1 viewed (PRD's 250 MB is shell and engine together)",
+    "source": "PRD §6",
+    "warnOnly": true
+  },
+  "idle3.cpuPercent": {
+    "max": 1,
+    "unit": "%",
+    "label": "Engine idle CPU, 3 clusters connected, % of one core",
+    "source": "PRD §6: ≈ 0%, event-driven",
+    "warnOnly": true
   }
 }
