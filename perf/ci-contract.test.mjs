@@ -30,7 +30,8 @@ test("the perf job builds its engine the way releases do", () => {
   assert.notEqual(perf, "", "ci.yml has a perf job");
   assert.match(perf, /CGO_ENABLED=0/);
   assert.match(perf, /go build -trimpath -ldflags "-s -w -X main\.version=/);
-  // make build adds the local shell (-tags localshell), which no release ships.
+  // make build adds the local shell (-tags localshell), which only the desktop
+  // app's engine ships; the standalone engine the job measures has none.
   assert.doesNotMatch(perf, /-tags|make (web-install )?build\b/);
   // The same compiler as releases: go.mod's toolchain line, not the Go that
   // setup-go installs (GOTOOLCHAIN=local, as the Makefile sets, would use that).
