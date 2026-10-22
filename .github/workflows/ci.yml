@@ -127,7 +127,8 @@ jobs:
         run: |
           mkdir -p desktop/src-tauri/binaries
           cd engine
-          go build -trimpath -o "../desktop/src-tauri/binaries/$SIDECAR" ./cmd/kubebay
+          # release.yml's sidecar flags (scripts/engine-builds.test.mjs).
+          go build -trimpath -ldflags "-s -w -X main.version=smoke-${GITHUB_SHA::12}" -o "../desktop/src-tauri/binaries/$SIDECAR" ./cmd/kubebay
       - name: Install Linux build and display deps
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xvfb
@@ -282,8 +283,12 @@ jobs:
         run: |
           kubectl create -f e2e/fixtures/golden-path.yaml
           kubectl -n kubebay-e2e wait --for=condition=Ready pod/e2e-logger --timeout=180s
-      - name: Build the engine with the web app embedded
-        run: make web-install build
+      # The binary releases ship: no cgo and no localshell tag (the Makefile adds
+      # the tag). scripts/engine-builds.test.mjs checks it.
+      - name: Build the engine the way releases do, with the web app embedded
+        run: |
+          make web-install sync-ui
+          cd engine && CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=e2e-${GITHUB_SHA::12}" -o bin/kubebay ./cmd/kubebay
       - name: Start the engine
         run: |
           # Its own kubeconfig and home, never the runner's defaults.
@@ -418,8 +423,12 @@ jobs:
           kubectl create -f e2e/fixtures/dra-claim.yaml
           kubectl -n kubebay-dra wait --for=condition=Ready pod/e2e-gpu-pod --timeout=180s
           kubectl -n kubebay-dra get resourceclaims
-      - name: Build the engine with the web app embedded
-        run: make web-install build
+      # The binary releases ship: no cgo and no localshell tag (the Makefile adds
+      # the tag). scripts/engine-builds.test.mjs checks it.
+      - name: Build the engine the way releases do, with the web app embedded
+        run: |
+          make web-install sync-ui
+          cd engine && CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=e2e-${GITHUB_SHA::12}" -o bin/kubebay ./cmd/kubebay
       - name: Start the engine
         run: |
           kind get kubeconfig --name kubebay-dra > "$RUNNER_TEMP/kubeconfig"
