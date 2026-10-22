@@ -1,6 +1,9 @@
 // Every engine binary CI tests or an image ships is built the way release
-// binaries are: no cgo, no build tags, stripped, stamped with a version, and
-// compiled by go.mod's toolchain. perf/ci-contract.test.mjs checks the perf job.
+// binaries are: no cgo, stripped, stamped with a version, and compiled by
+// go.mod's toolchain, with no build tags except the desktop app's engine, which
+// carries the local shell (-tags localshell, as release.yml's sidecar does;
+// scripts/local-shell-check.test.mjs checks that). perf/ci-contract.test.mjs
+// checks the perf job.
 // Run: node --test scripts/engine-builds.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -12,17 +15,25 @@ import { jobBlock, steps } from "./workflow.mjs";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (path) => readFileSync(join(root, path), "utf8");
 
-const RELEASE_LDFLAGS = /go build -trimpath -ldflags "-s -w -X main\.version=/;
+// The standalone engine, which the e2e jobs test, and the desktop app's engine,
+// which the smoke job tests: the same flags, plus the tag on the desktop's.
+const STANDALONE_BUILD = /go build -trimpath -ldflags "-s -w -X main\.version=/;
+const DESKTOP_BUILD = /go build -trimpath -tags localshell -ldflags "-s -w -X main\.version=/;
 const NO_CGO = /CGO_ENABLED(=|:\s*)"?0\b/;
 
-for (const name of ["e2e", "e2e-dra", "desktop-smoke"]) {
+for (const [name, build, forbidden] of [
+  // make build adds the local shell (-tags localshell), which the standalone
+  // engine releases ship never has.
+  ["e2e", STANDALONE_BUILD, /-tags|make (web-install )?build\b|GOTOOLCHAIN/],
+  ["e2e-dra", STANDALONE_BUILD, /-tags|make (web-install )?build\b|GOTOOLCHAIN/],
+  ["desktop-smoke", DESKTOP_BUILD, /make (web-install )?build\b|GOTOOLCHAIN/],
+]) {
   test(`the ${name} job tests the engine releases ship`, () => {
     const job = jobBlock(read(".github/workflows/ci.yml"), name);
     assert.notEqual(job, "", `ci.yml has a ${name} job`);
     assert.match(job, NO_CGO);
-    assert.match(job, RELEASE_LDFLAGS);
-    // make build adds the local shell (-tags localshell), which no release ships.
-    assert.doesNotMatch(job, /-tags|make (web-install )?build\b|GOTOOLCHAIN/);
+    assert.match(job, build);
+    assert.doesNotMatch(job, forbidden);
   });
 }
 

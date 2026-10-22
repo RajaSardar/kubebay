@@ -127,8 +127,18 @@ jobs:
         run: |
           mkdir -p desktop/src-tauri/binaries
           cd engine
-          # release.yml's sidecar flags (scripts/engine-builds.test.mjs).
-          go build -trimpath -ldflags "-s -w -X main.version=smoke-${GITHUB_SHA::12}" -o "../desktop/src-tauri/binaries/$SIDECAR" ./cmd/kubebay
+          # release.yml's sidecar flags, local shell included (scripts/engine-builds.test.mjs).
+          go build -trimpath -tags localshell -ldflags "-s -w -X main.version=smoke-${GITHUB_SHA::12}" -o "../desktop/src-tauri/binaries/$SIDECAR" ./cmd/kubebay
+      # The app starts its engine with --local-shell; check this engine would
+      # really give it one (releases once shipped one without the tag). Windows
+      # has no local shell, so there it must give the platform's reason, which
+      # only a tagged binary does.
+      - name: The engine serves the local shell
+        shell: bash
+        env:
+          SIDECAR: ${{ matrix.sidecar }}
+          EXPECT: ${{ runner.os == 'Windows' && '--expect-unsupported' || '' }}
+        run: node scripts/local-shell-check.mjs --engine "desktop/src-tauri/binaries/$SIDECAR" $EXPECT
       - name: Install Linux build and display deps
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xvfb
