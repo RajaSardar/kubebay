@@ -111,6 +111,9 @@ jobs:
           cp -R web/apps/shell/dist engine/internal/httpapi/static/dist
 
       # ── Build the Go engine sidecar(s) for this platform ─────────────────
+      # The desktop app's engine carries the local shell (-tags localshell): the
+      # app starts it with --local-shell for the terminal on your own machine.
+      # The standalone engine and the container image never do.
       - uses: actions/setup-go@v5
         with:
           go-version-file: engine/go.mod
@@ -123,9 +126,9 @@ jobs:
         run: |
           mkdir -p desktop/src-tauri/binaries
           cd engine
-          GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags "$LDFLAGS" \
+          GOOS=darwin GOARCH=arm64 go build -trimpath -tags localshell -ldflags "$LDFLAGS" \
             -o ../desktop/src-tauri/binaries/kubebay-engine-aarch64-apple-darwin ./cmd/kubebay
-          GOOS=darwin GOARCH=amd64 go build -trimpath -ldflags "$LDFLAGS" \
+          GOOS=darwin GOARCH=amd64 go build -trimpath -tags localshell -ldflags "$LDFLAGS" \
             -o ../desktop/src-tauri/binaries/kubebay-engine-x86_64-apple-darwin ./cmd/kubebay
           # Tauri universal build expects a pre-lipo'd fat binary
           lipo -create \
@@ -143,7 +146,7 @@ jobs:
         run: |
           mkdir -p desktop/src-tauri/binaries
           cd engine
-          go build -trimpath \
+          go build -trimpath -tags localshell \
             -ldflags "-s -w -X main.version=${{ github.ref_name }}" \
             -o "../desktop/src-tauri/binaries/${{ matrix.sidecar }}" \
             ./cmd/kubebay

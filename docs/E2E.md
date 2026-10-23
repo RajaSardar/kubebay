@@ -24,7 +24,7 @@ The `e2e (kind)` job in `.github/workflows/ci.yml` runs on every pull request
 and on main. It:
 
 1. Creates a kind cluster (Kubernetes 1.34) and the fixture pod.
-2. Builds the engine with the web app embedded (`make web-install build`).
+2. Builds the engine with the web app embedded, the way release binaries are built: no cgo and no `localshell` tag (which `make build` adds). Both e2e jobs do; `scripts/engine-builds.test.mjs` checks it.
 3. Starts the engine with its own kubeconfig and home directory.
 4. Runs the test.
 
