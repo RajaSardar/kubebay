@@ -9,6 +9,14 @@ export interface StreamState {
   /** The API server's message when RBAC doesn't let this identity list the
    *  resource: the engine ended the subscription, so it will never sync. */
   forbidden?: string;
+  /** Namespaces of the subscription RBAC refuses, with the API server's
+   *  reason; the stream goes on for the others. Their rows are dropped. */
+  denied?: NamespaceDenial[];
+}
+
+export interface NamespaceDenial {
+  ns: string;
+  reason: string;
 }
 
 /** The engine ends a subscription RBAC forbids with this before the API server's message. */
@@ -55,7 +63,10 @@ export function useResourceStream(
   // Stable/synced/connected scalars — stored in a single ref object so we
   // can update them without going through React state, then notify listeners
   // only when the epoch flush fires.
-  const metaRef = useRef<{ synced: boolean; connected: boolean; forbidden?: string }>({ synced: false, connected: false });
+  const metaRef = useRef<{ synced: boolean; connected: boolean; forbidden?: string; denied?: NamespaceDenial[] }>({
+    synced: false,
+    connected: false,
+  });
 
   // Pending flush timer handle.
   const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -99,7 +110,7 @@ export function useResourceStream(
       metaRef.current = { synced: cached.synced, connected: false };
     } else {
       storeRef.current = new Map();
-      metaRef.current = { ...metaRef.current, synced: false, forbidden: undefined };
+      metaRef.current = { ...metaRef.current, synced: false, forbidden: undefined, denied: undefined };
     }
     setEpoch((e) => e + 1);
 
@@ -154,9 +165,23 @@ export function useResourceStream(
         setStreamCache(specKey, Array.from(storeRef.current.entries()), true);
         scheduleFlushRef.current();
       },
+      onDenied: (id: string, ns: string, reason: string) => {
+        if (id !== subId) return;
+        // What we held from a namespace we may no longer see isn't live.
+        for (const store of [storeRef.current, resyncRef.current]) {
+          if (!store) continue;
+          for (const [key, obj] of store) {
+            if ((obj.metadata as { namespace?: string } | undefined)?.namespace === ns) store.delete(key);
+          }
+        }
+        const others = (metaRef.current.denied ?? []).filter((d) => d.ns !== ns);
+        metaRef.current = { ...metaRef.current, denied: [...others, { ns, reason }] };
+        scheduleFlushRef.current();
+      },
       onError: (id: string, msg: string) => {
         if (id === subId && msg.startsWith(FORBIDDEN)) {
-          metaRef.current = { ...metaRef.current, forbidden: msg.slice(FORBIDDEN.length) };
+          // Ended for good: nothing it shows is live any more.
+          metaRef.current = { ...metaRef.current, synced: false, forbidden: msg.slice(FORBIDDEN.length) };
           scheduleFlushRef.current();
           return;
         }
@@ -200,11 +225,14 @@ export function useResourceStream(
   );
 
   // Meta values are also gated on epoch so they stay in sync.
-  const { synced, connected, forbidden } = useMemo(
+  const { synced, connected, forbidden, denied } = useMemo(
     () => metaRef.current,
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [epoch],
   );
 
-  return useMemo(() => ({ rows, synced, connected, ...(forbidden ? { forbidden } : {}) }), [rows, synced, connected, forbidden]);
+  return useMemo(
+    () => ({ rows, synced, connected, ...(forbidden ? { forbidden } : {}), ...(denied?.length ? { denied } : {}) }),
+    [rows, synced, connected, forbidden, denied],
+  );
 }

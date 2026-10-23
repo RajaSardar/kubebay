@@ -21,6 +21,9 @@ const (
 	TypeError      = "error"
 	TypeSync       = "sync"
 	TypeChanClosed = "chan-closed"
+	// TypeDenied names one namespace of a subscription that RBAC refuses;
+	// the subscription goes on for the others.
+	TypeDenied = "denied"
 
 	TypeBegin    = "begin"
 	TypeItems    = "items"
@@ -63,6 +66,15 @@ type ControlFrame struct {
 	ID      string `json:"id,omitempty"`
 	Message string `json:"message,omitempty"`
 	RV      string `json:"rv,omitempty"`
+	// NS is the namespace a "denied" frame is about.
+	NS string `json:"ns,omitempty"`
+}
+
+// Denial is one namespace of a subscription that RBAC refuses: the
+// subscription goes on for its other namespaces.
+type Denial struct {
+	NS      string
+	Message string
 }
 
 const (

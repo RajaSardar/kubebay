@@ -154,6 +154,17 @@ describe("error frames", () => {
   });
 });
 
+describe("denied frames", () => {
+  it("name the namespace RBAC refused, for the subscription it belongs to", async () => {
+    const { mod, socket } = await freshWs();
+    socket().accept();
+    const onDenied = vi.fn();
+    mod.attach({ onDenied });
+    socket().onmessage?.({ data: JSON.stringify({ type: "denied", id: "ui-1", ns: "payments", message: "pods is forbidden" }) });
+    expect(onDenied).toHaveBeenCalledWith("ui-1", "payments", "pods is forbidden");
+  });
+});
+
 describe("frame order", () => {
   // Binary frames (begin/items/delta) and text frames (sync) must reach the
   // handlers in the order the server sent them. Decoding binary frames
