@@ -3,7 +3,8 @@
 // write perf.json. Linux only: memory and CPU come from /proc.
 //
 //   node perf/harness.mjs --engine engine/bin/kubebay --kubeconfig KUBECONFIG --context CONTEXT \
-//     [--pods 1000,10000] [--runs 5] [--settle 20] [--out perf/perf.json] [--chromium PATH]
+//     [--pods 1000,10000] [--runs 5] [--settle 20] [--paint-samples 30] [--scroll-rows 100000] \
+//     [--out perf/perf.json] [--chromium PATH]
 //
 // What each number means, and what it leaves out, is in docs/PERFORMANCE.md.
 
@@ -14,12 +15,14 @@ import { createServer } from "node:net";
 import { cpus, platform, tmpdir, totalmem } from "node:os";
 import { join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
-import { decode } from "@msgpack/msgpack";
+import { decode, encode } from "@msgpack/msgpack";
 import { chromium } from "playwright-core";
-import { cpuTicks, median, podsList, rssMB } from "./lib.mjs";
+import { aliasContexts, cpuTicks, frameStats, listedPods, median, percentile, podsList, rssMB, snapshotFrames } from "./lib.mjs";
 
 const TOKEN = "kubebay-perf";
 const NAMESPACE = "kubebay-perf";
+// The watch-to-paint pods, kept apart so the watch counts never see them.
+const PAINT_NAMESPACE = "kubebay-perf-paint";
 
 const argv = process.argv.slice(2);
 const arg = (name, fallback) => {
@@ -33,6 +36,8 @@ const opts = {
   pods: arg("pods", "1000,10000").split(",").map(Number),
   runs: Number(arg("runs", "5")),
   settleMs: Number(arg("settle", "20")) * 1000,
+  paintSamples: Number(arg("paint-samples", "30")),
+  scrollRows: Number(arg("scroll-rows", "100000")),
   out: arg("out", "perf/perf.json"),
   chromium: arg("chromium"),
 };
@@ -59,13 +64,13 @@ async function freePort() {
 }
 
 /** Starts the engine with its own home and port; resolves once /api/healthz answers. */
-async function startEngine() {
+async function startEngine(kubeconfig = opts.kubeconfig) {
   const home = mkdtempSync(join(tmpdir(), "kubebay-perf-"));
   const port = await freePort();
   const t0 = performance.now();
   const proc = spawn(
     opts.engine,
-    ["--addr", `127.0.0.1:${port}`, "--no-open", "--kubeconfig", opts.kubeconfig, "--token-file", join(home, "session-token")],
+    ["--addr", `127.0.0.1:${port}`, "--no-open", "--kubeconfig", kubeconfig, "--token-file", join(home, "session-token")],
     { env: { ...process.env, HOME: home, XDG_CONFIG_HOME: join(home, ".config"), KUBEBAY_TOKEN: TOKEN }, stdio: ["ignore", "pipe", "pipe"] },
   );
   let log = "";
@@ -92,12 +97,12 @@ async function startEngine() {
   return { proc, base, port, readyMs, stop };
 }
 
-async function connect(engine) {
-  const r = await fetch(`${engine.base}/api/clusters/${encodeURIComponent(opts.context)}/connect`, {
+async function connect(engine, context = opts.context) {
+  const r = await fetch(`${engine.base}/api/clusters/${encodeURIComponent(context)}/connect`, {
     method: "POST",
     headers: { "X-Kubebay-Token": TOKEN },
   });
-  if (!r.ok) throw new Error(`connect ${opts.context}: ${r.status} ${await r.text()}`);
+  if (!r.ok) throw new Error(`connect ${context}: ${r.status} ${await r.text()}`);
 }
 
 /** Median RSS of a few samples a second apart. */
@@ -151,17 +156,168 @@ async function coldStart(browser) {
   return { runs, engineReadyMs: pick("engineReadyMs"), firstFrameMs: pick("firstFrameMs"), totalMs: pick("totalMs") };
 }
 
-/** One cluster connected, the app open on its overview, nobody touching it. */
-async function idle(browser) {
-  const engine = await startEngine();
-  await connect(engine);
+/** `clusters` clusters connected, the app open on the first one's overview, nobody touching it. */
+async function idle(browser, clusters = 1) {
+  // More than one: the same cluster under more context names, which the
+  // engine connects to and health-checks as separate clusters.
+  const dir = mkdtempSync(join(tmpdir(), "kubebay-perf-kubeconfig-"));
+  const config = aliasContexts(JSON.parse(kubectl(["config", "view", "--raw", "--minify", "-o", "json"])), opts.context, clusters);
+  const kubeconfig = join(dir, "kubeconfig.json");
+  writeFileSync(kubeconfig, JSON.stringify(config));
+  const engine = await startEngine(kubeconfig);
+  for (const c of config.contexts) await connect(engine, c.name);
   const { ctx, page } = await newPage(browser, engine.base, opts.context);
   await page.goto(`${engine.base}/workloads-overview`);
   await sleep(opts.settleMs);
-  const result = { rssMB: await sampleRss(engine.proc.pid), cpuPercent: await cpuPercent(engine.proc.pid, 10) };
+  const result = { clusters, rssMB: await sampleRss(engine.proc.pid), cpuPercent: await cpuPercent(engine.proc.pid, 10) };
   await ctx.close();
   await engine.stop();
+  rmSync(dir, { recursive: true, force: true });
   return result;
+}
+
+/** `kubectl proxy` on a free port: the API server over plain HTTP, so a create is one fetch. */
+async function apiProxy() {
+  const p = spawn("kubectl", ["--kubeconfig", opts.kubeconfig, "--context", opts.context, "proxy", "--port=0"], {
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  let out = "";
+  const base = await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`kubectl proxy didn't start: ${out}`)), 15_000);
+    const read = (d) => {
+      out += d;
+      const m = /Starting to serve on (127\.0\.0\.1:\d+)/.exec(out);
+      if (m) {
+        clearTimeout(timer);
+        resolve(`http://${m[1]}`);
+      }
+    };
+    p.stdout.on("data", read);
+    p.stderr.on("data", read);
+    p.on("exit", (code) => reject(new Error(`kubectl proxy exited with ${code}: ${out}`)));
+  });
+  return { base, stop: () => p.kill() };
+}
+
+/**
+ * The Pods page open, filtered to the paint pods. Creates them one at a time
+ * and times each from the create request to the frame that shows its row.
+ * Each pod's name sorts before the last one's, so its row lands at the top.
+ */
+async function paint(browser) {
+  try {
+    kubectl(["create", "namespace", PAINT_NAMESPACE]);
+  } catch {
+    // already there
+  }
+  kubectl(["-n", PAINT_NAMESPACE, "delete", "pods", "--all", "--wait=true"]);
+  const proxy = await apiProxy();
+  const engine = await startEngine();
+  await connect(engine);
+  const { ctx, page } = await newPage(browser, engine.base, opts.context);
+  await page.goto(`${engine.base}/workloads?q=perf-paint-`);
+  await page.getByText("No pods match.").waitFor({ timeout: 30_000 });
+  // The row's frame, on the wall clock both sides share: the observer sees the
+  // row go into the DOM, and the next animation frame is the one that shows it.
+  await page.evaluate(() => {
+    window.__paint = {};
+    new MutationObserver(() => {
+      const want = window.__paintWant;
+      if (!want || want in window.__paint || !document.querySelector(`td.td-name[title="${want}"]`)) return;
+      window.__paint[want] = 0;
+      requestAnimationFrame(() => (window.__paint[want] = performance.timeOrigin + performance.now()));
+    }).observe(document.body, { childList: true, subtree: true });
+  });
+  const now = () => performance.timeOrigin + performance.now();
+  const samples = [];
+  const writes = [];
+  for (let i = 0; i < opts.paintSamples; i++) {
+    const name = `perf-paint-${String(999 - i).padStart(3, "0")}`;
+    const pod = podsList(PAINT_NAMESPACE, i, 1).items[0];
+    pod.metadata.name = name;
+    await page.evaluate((n) => (window.__paintWant = n), name);
+    const t0 = now();
+    const r = await fetch(`${proxy.base}/api/v1/namespaces/${PAINT_NAMESPACE}/pods`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(pod),
+    });
+    writes.push(now() - t0);
+    if (!r.ok) throw new Error(`create ${name}: ${r.status} ${await r.text()}`);
+    const painted = await page.waitForFunction((n) => window.__paint[n] || null, name, { timeout: 10_000, polling: 50 });
+    samples.push((await painted.jsonValue()) - t0);
+    // Apart, so each pod is its own watch event and its own frame.
+    await sleep(250);
+  }
+  await ctx.close();
+  await engine.stop();
+  proxy.stop();
+  kubectl(["-n", PAINT_NAMESPACE, "delete", "pods", "--all", "--wait=true"]);
+  return {
+    samples: samples.length,
+    runsMs: samples.map(round),
+    p50Ms: round(percentile(samples, 50)),
+    p95Ms: round(percentile(samples, 95)),
+    maxMs: round(Math.max(...samples)),
+    writeMs: round(median(writes)),
+  };
+}
+
+/**
+ * The Pods page scrolled for 5 s through `rows` pods. The rows are synthetic:
+ * the harness answers the page's pods subscription itself, frame for frame as
+ * the engine would, so the cluster doesn't need that many pods. The engine
+ * serves everything else.
+ */
+async function scroll(browser, rows) {
+  const engine = await startEngine();
+  await connect(engine);
+  const { ctx, page } = await newPage(browser, engine.base, opts.context);
+  const pods = listedPods(NAMESPACE, rows, new Date().toISOString());
+  const ours = new Set();
+  await page.routeWebSocket(/\/ws$/, (ws) => {
+    const server = ws.connectToServer();
+    ws.onMessage((msg) => {
+      const f = typeof msg === "string" ? JSON.parse(msg) : null;
+      if (f?.gvr === "v1/pods" && (f.type === "sub" || f.type === "resync")) {
+        ours.add(f.id);
+        ws.send(JSON.stringify({ type: "ack", id: f.id, message: "subscribed" }));
+        for (const frame of snapshotFrames(f.id, pods)) ws.send(Buffer.from(encode(frame)));
+        ws.send(JSON.stringify({ type: "sync", id: f.id }));
+        return;
+      }
+      if (f?.type === "unsub" && ours.has(f.id)) return;
+      server.send(msg);
+    });
+  });
+  const t0 = performance.now();
+  await page.goto(`${engine.base}/workloads`);
+  await page.locator('td.td-name[title="perf-00000"]').waitFor({ timeout: 120_000 });
+  const loadMs = round(performance.now() - t0);
+  await sleep(1000);
+  // About 6,000 px a second at 60 fps: a fast flick down the table, one step a frame.
+  const run = await page.evaluate(
+    ([seconds, step]) =>
+      new Promise((resolve) => {
+        const el = document.querySelector(".table-wrap");
+        const stamps = [];
+        const tick = (t) => {
+          stamps.push(t);
+          if (t - stamps[0] >= seconds * 1000) {
+            const names = [...document.querySelectorAll("td.td-name")].map((td) => td.title);
+            resolve({ stamps, lastRow: names[names.length - 1] });
+            return;
+          }
+          el.scrollTop += step;
+          requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      }),
+    [5, 100],
+  );
+  await ctx.close();
+  await engine.stop();
+  return { rows, loadMs, lastRow: run.lastRow, ...frameStats(run.stamps) };
 }
 
 function podCount() {
@@ -265,6 +421,15 @@ try {
   console.log("idle…");
   results.idle = await idle(browser);
   console.log(JSON.stringify(results.idle));
+  console.log("idle, three clusters…");
+  results.idle3 = await idle(browser, 3);
+  console.log(JSON.stringify(results.idle3));
+  console.log("watch event to painted row…");
+  results.paint = await paint(browser);
+  console.log(JSON.stringify(results.paint));
+  console.log(`scrolling ${opts.scrollRows} rows…`);
+  results.scroll = await scroll(browser, opts.scrollRows);
+  console.log(JSON.stringify(results.scroll));
   results.watch = [];
   for (const n of [...opts.pods].sort((a, b) => a - b)) {
     console.log(`creating ${n} pods…`);

@@ -5,8 +5,9 @@
 //   node scripts/perf-budgets.mjs --results perf/perf.json --budgets perf/budgets.json \
 //     [--summary "$GITHUB_STEP_SUMMARY"] [--fail]
 //
-// A budget over is a warning until the budgets have three stable runs on main
-// (step 4); --fail makes it an error and a failing exit.
+// --fail makes a budget over an error and a failing exit (step 4). A budget
+// marked warnOnly stays a warning until it has three stable runs on main.
+// A budget has a max (memory, time) or a min (frame rate).
 
 import { appendFileSync, readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
@@ -34,17 +35,23 @@ export function evaluate(results, budgets) {
   return Object.entries(budgets).map(([key, b]) => {
     const short = shortWatch(results, key);
     const value = short ? undefined : metric(results, key);
-    const status = typeof value !== "number" ? "not measured" : value > b.max ? "over" : "ok";
+    const outside = b.min != null ? value < b.min : value > b.max;
+    const status = typeof value !== "number" ? "not measured" : outside ? "over" : "ok";
     return { key, ...b, value, status, note: short ?? "" };
   });
 }
 
 const fmt = (v, unit) => (typeof v === "number" ? `${v} ${unit}` : "–");
+const limit = (r) => (r.min != null ? `≥ ${r.min} ${r.unit}` : `≤ ${r.max} ${r.unit}`);
+const fails = (r) => r.status === "over" && !r.warnOnly;
 
 export function annotations(rows, level = "warning") {
   return rows
     .filter((r) => r.status === "over")
-    .map((r) => `::${level} title=Performance budget::${r.label} is ${fmt(r.value, r.unit)}, over its ${r.max} ${r.unit} budget (${r.source})`);
+    .map((r) => {
+      const past = r.min != null ? `below its ${r.min}` : `over its ${r.max}`;
+      return `::${r.warnOnly ? "warning" : level} title=Performance budget::${r.label} is ${fmt(r.value, r.unit)}, ${past} ${r.unit} budget (${r.source})`;
+    });
 }
 
 export function summaryMarkdown(rows, results) {
@@ -55,7 +62,10 @@ export function summaryMarkdown(rows, results) {
     "",
     "| Budget | Measured | Limit | Status |",
     "|---|---|---|---|",
-    ...rows.map((r) => `| ${r.label} | ${fmt(r.value, r.unit)} | ≤ ${r.max} ${r.unit} | ${r.status}${r.note ? ` (${r.note})` : ""} |`),
+    ...rows.map((r) => {
+      const note = [r.status === "over" && r.warnOnly ? "warning only" : "", r.note].filter(Boolean).join("; ");
+      return `| ${r.label} | ${fmt(r.value, r.unit)} | ${limit(r)} | ${r.status}${note ? ` (${note})` : ""} |`;
+    }),
     "",
     "| Pods watched | Time to sync | Engine RSS |",
     "|---|---|---|",
@@ -78,7 +88,7 @@ function main(argv) {
   console.log(md);
   if (arg("summary")) appendFileSync(arg("summary"), md + "\n");
   for (const line of annotations(rows, fail ? "error" : "warning")) console.log(line);
-  if (fail && rows.some((r) => r.status === "over")) process.exit(1);
+  if (fail && rows.some(fails)) process.exit(1);
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) main(process.argv.slice(2));

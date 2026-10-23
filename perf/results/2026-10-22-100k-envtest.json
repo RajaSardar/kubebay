@@ -1,0 +1,126 @@
+{
+  "date": "2026-10-22T23:27:16.724Z",
+  "commit": "2b4c610",
+  "kubernetes": "v1.34.1",
+  "runner": "linux, 4 CPUs, 16 GB",
+  "settleSeconds": 20,
+  "coldStart": {
+    "runs": [
+      {
+        "engineReadyMs": 125,
+        "firstFrameMs": 727,
+        "totalMs": 852
+      },
+      {
+        "engineReadyMs": 44,
+        "firstFrameMs": 199,
+        "totalMs": 243
+      },
+      {
+        "engineReadyMs": 50,
+        "firstFrameMs": 272,
+        "totalMs": 322
+      },
+      {
+        "engineReadyMs": 56,
+        "firstFrameMs": 451,
+        "totalMs": 507
+      },
+      {
+        "engineReadyMs": 50,
+        "firstFrameMs": 178,
+        "totalMs": 227
+      }
+    ],
+    "engineReadyMs": 50,
+    "firstFrameMs": 272,
+    "totalMs": 322
+  },
+  "idle": {
+    "clusters": 1,
+    "rssMB": 63.3,
+    "cpuPercent": 0.1
+  },
+  "idle3": {
+    "clusters": 3,
+    "rssMB": 63.2,
+    "cpuPercent": 0.1
+  },
+  "paint": {
+    "samples": 30,
+    "runsMs": [
+      86,
+      54,
+      56,
+      52,
+      52,
+      56,
+      45,
+      49,
+      51,
+      53,
+      57,
+      60,
+      63,
+      49,
+      55,
+      54,
+      57,
+      54,
+      56,
+      59,
+      57,
+      57,
+      51,
+      58,
+      59,
+      60,
+      49,
+      55,
+      61,
+      49
+    ],
+    "p50Ms": 55,
+    "p95Ms": 63,
+    "maxMs": 86,
+    "writeMs": 7
+  },
+  "scroll": {
+    "rows": 100000,
+    "loadMs": 27402,
+    "lastRow": "perf-00668",
+    "frames": 277,
+    "fps": 55,
+    "p95FrameMs": 33.3
+  },
+  "watch": [
+    {
+      "pods": 10000,
+      "mode": "metadata",
+      "count": 10000,
+      "syncMs": 1121,
+      "rssMB": 259.3
+    },
+    {
+      "pods": 10000,
+      "mode": "full",
+      "count": 10000,
+      "syncMs": 4032,
+      "rssMB": 339.8
+    },
+    {
+      "pods": 100000,
+      "mode": "metadata",
+      "count": 100000,
+      "syncMs": 11483,
+      "rssMB": 2059.4
+    },
+    {
+      "pods": 100000,
+      "mode": "full",
+      "count": 100000,
+      "syncMs": 33826,
+      "rssMB": 2716.3
+    }
+  ]
+}

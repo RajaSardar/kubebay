@@ -88,7 +88,7 @@ LATER (post-1.0; demand- or decision-gated)
 - **Owner:** Raja (a decision, not code).
 
 ### KB-02 · Performance harness and honest public claims: M
-- **Status: steps 1–5 shipped; budgets fail the build** (2026-10-17).
+- **Status: steps 1–5 shipped; budgets fail the build** (2026-10-17). **Every PRD §6 budget but the desktop shell's memory is now measured** (2026-10-22).
   - **Steps 2–4:** the `perf (kind)` CI job runs `perf/harness.mjs` against the engine binary and a kind cluster on every PR. It measures:
     - cold start, engine to the web shell's first painted frame (median of 5);
     - idle RSS and CPU with one cluster open;
@@ -100,7 +100,9 @@ LATER (post-1.0; demand- or decision-gated)
   - **Errors fixed:** k9s's license, Headlamp's desktop app, and Lens's price.
   - **Copy:** the README, PRD §6 and the website copy no longer quote unmeasured figures, and they claimed CI enforcement only once the budgets failed the build.
   - **Budgets enforced (2026-10-17):** the Budgets step runs with `--fail` after three stable runs on main (6f06324, e0c1d1f, 61f9c3d), each within every budget with room to spare (cold start ≤ 250 ms of 1500, idle RSS ≤ 98.5 MB of 150, idle CPU ≤ 0.1% of 1%, 10k pods ≤ 281.8 MB of 400). The installer-size check in `release.yml` stays a warning until three releases have run it.
-  - **Still open, not measured yet:** watch-to-paint p95, 100k-row scrolling, three clusters idle, the desktop shell's memory, and 100k pods.
+  - **Three more budgets in CI (2026-10-22):** the job also measures watch event to painted row (p95 of 30 pods created with the Pods page open), scrolling a 100k-row Pods table (synthetic rows, answered by the harness), and idle with three clusters connected and one open. They are `warnOnly` until three stable runs on main, then they fail the build like the first four. Measuring scrolling found two hot spots in the shared resource table (a date formatter built per row, a select-all check over every row); fixed, 100k rows went from 37 fps to 55–59 on the same machine.
+  - **100k pods, by hand (2026-10-22):** the engine holds 2,059 MB watching 100k generated pods in metadata mode (2,716 MB full), five times the PRD's 400 MB; 10k take 259 MB. That is about 20 KB per pod, many times the objects' size. Against a local envtest API server, method and table in `docs/PERFORMANCE.md`. **Needs a follow-up:** a heap profile of the engine at 100k pods, then either bring per-pod memory down or change the budget by ADR with this evidence.
+  - **Still open:** the desktop shell's own memory (the webview), so the idle budgets are checked against the engine alone.
 - **Why:** the README says the budgets (≤150 MB RSS, ≤1.5 s cold start, ≤40 MB installer) are "enforced in CI", and they are not: `ci.yml` has no performance job. The v0.6.0 DMG is 52.9 MB and the AppImage 102.4 MB. The website's Lens and Freelens numbers ("8–15 s", "500+ MB") are unmeasured. ROADMAP M0.5 (the performance harness) was never built.
 - **Scope:**
   1. A CI job that records the size of every installer `release.yml` produces and fails on growth of more than 10% over the previous release. **Shipped (2026-10-13), as a warning per step 4:** `scripts/installer-sizes.mjs` in the release job, with `installer-sizes.json` attached to each release.

@@ -23,6 +23,9 @@ count and memory.
 |---|---|
 | **Cold start** (`coldStart.totalMs`) | Start the engine binary and time it until `/api/healthz` answers (`engineReadyMs`). Then open `/clusters` in a new Chromium context with an empty cache, the token handed over as the desktop app does. Time from navigation start to the frame after the cluster appears in the list (`firstFrameMs`). The total is the sum. Median of 5 runs, a fresh engine each time. |
 | **Idle** (`idle.rssMB`, `idle.cpuPercent`) | One engine, connected to the cluster while it holds only kind's own system pods, with the app open on that cluster's Overview. After 20 s: the median RSS of 5 samples a second apart, then CPU over 10 s, as a percentage of one core. |
+| **Idle, three clusters** (`idle3.rssMB`, `idle3.cpuPercent`) | The same, with three clusters connected and the app open on the first one's Overview. The three are the kind cluster under three context names (`kind-kubebay-perf`, `-2`, `-3`), which the engine connects to and health-checks as three clusters. |
+| **Watch event to painted row** (`paint.p95Ms`) | The Pods page open, filtered to `perf-paint-`. The harness creates 30 pods one at a time, 250 ms apart, each with a single request to the API server (through `kubectl proxy`). Each sample runs from just before that request to the animation frame after the pod's row enters the page, on the wall clock the harness and the browser share. Each pod's name sorts before the last one's, so its row lands at the top of the table. The p95 is the nearest-rank 29th of 30; `runsMs` holds every sample, and `writeMs` the API server's median time to answer the create. |
+| **Scrolling 100k rows** (`scroll.fps`) | The Pods page with 100,000 pods. The harness answers the page's pods subscription itself, frame for frame as the engine does (a begin frame, then 200 pods to a frame, then sync), with pods shaped like the generated ones; the engine serves everything else. One second after the first row appears, the table scrolls 100 px every animation frame for 5 s, about 6,000 px a second, and `fps` is the frames that ran in that time. `p95FrameMs` is the 95th-percentile frame time, and `lastRow` the bottom row when it stopped, which shows the table really moved. |
 | **Watch load** (`watch[]`) | Generate N pods (1,000, then 10,000) in `kubebay-perf`. For each N and each mode (`metadata`, `full`), start a fresh engine and connect it. Subscribe to every pod in the cluster over the WebSocket, as the Pods page does, and time from subscribing to the engine's `sync` (`syncMs`). After 10 s, take the median RSS of 5 samples. `count` is how many of the generated pods the snapshot held; a run that saw fewer doesn't count. |
 
 What these leave out:
@@ -30,27 +33,45 @@ What these leave out:
 - **Cold start is the web shell, not the desktop app.** The browser is already
   running, so the webview's own start-up isn't in it. For the desktop app, see
   below.
-- **Idle RSS is the engine alone.** The PRD's 150 MB covers the desktop shell
-  and the engine together. The shell's webview isn't measured in CI.
+- **Idle RSS is the engine alone.** The PRD's 150 MB (one cluster) and 250 MB
+  (three) cover the desktop shell and the engine together. The shell's webview
+  isn't measured in CI.
+- **Connected clusters cost little until a page watches them.** Connecting a
+  cluster adds it to the engine's health check, every 30 s; its informers start
+  when a page subscribes. With one of three viewed, the other two add almost
+  nothing, and the three-cluster number shows that. Opening a page on each would
+  cost what the watch-load rows do.
 - **Idle CPU is the engine while the app is open.** With nothing attached, a
   connected engine uses no measurable CPU; what the budget sees is the engine
   serving the open page.
 - **The generated pods are lighter than real ones.** They name a scheduler that
   doesn't exist, so they stay Pending: no node, no container statuses, small
   `managedFields`. Real pods cost the engine more memory each.
-- **The PRD's 100k-pod budget isn't run.** CI measures 10k. The budget file
-  checks 10k against the 100k limit, which only catches gross regressions.
-- **Not measured yet:**
-  - watch event to painted row (p95);
-  - scrolling a 100k-row table;
-  - idle with three clusters connected.
+- **Watch to paint starts at the create request.** So it includes the API
+  server's write (`writeMs`, under 10 ms on kind), and the API server's own
+  delivery of the watch event, which nothing outside it can timestamp.
+- **Scrolling measures the web shell, not the engine.** Its rows don't come
+  from a cluster: 100k real pods would take kind longer than the job has. It
+  runs in headless Chromium with no GPU, where 60 fps is the ceiling (a plain
+  scrolling page runs at 60 there), on a 4-vCPU runner, slower than most
+  laptops.
+- **The PRD's 100k-pod budget isn't run in CI.** CI measures 10k. The budget
+  file checks 10k against the 100k limit, which only catches gross regressions.
+  It has been measured by hand; see below.
+- **Not measured yet:** the desktop shell's own memory.
 
 ## Budgets fail the build
 
-`perf/budgets.json` maps a metric to its limit and source. A metric over its
-limit **fails the `perf (kind)` job**: an error annotation on the run, "over" in
-the summary, and a non-zero exit from the Budgets step (`--fail`). A budget that
-isn't measured yet (100k pods) is listed as "not measured" and doesn't fail.
+`perf/budgets.json` maps a metric to its limit and source: a `max`, or for
+frame rate a `min`. A metric past its limit **fails the `perf (kind)` job**: an
+error annotation on the run, "over" in the summary, and a non-zero exit from
+the Budgets step (`--fail`). A budget that isn't measured is listed as "not
+measured" and doesn't fail.
+
+A budget marked `warnOnly` is a warning instead, "over (warning only)" in the
+summary, until it has three stable runs on main; then the flag comes out. The
+four added on 2026-10-22 (three clusters idle, watch to paint, scrolling) are
+warn-only.
 
 The budgets began as warnings (KB-02 step 4) and became failures on 2026-10-17,
 after three stable runs on main:
@@ -63,6 +84,39 @@ after three stable runs on main:
 | **Limit** | 1500 ms | 150 MB | 1% | 400 MB |
 
 A budget changes only through an ADR with evidence, as the PRD says.
+
+## 100k pods, by hand
+
+CI doesn't run the PRD's 100k-pod budget (Engine RSS ≤ 400 MB, metadata). It
+was measured once with this harness (`--pods 10000,100000`) against a local
+envtest API server (Kubernetes 1.34, etcd, no nodes) on a 4-CPU, 15 GB Linux
+machine, with the generated pods described above, on 2026-10-22. The whole run
+is `perf/results/2026-10-22-100k-envtest.json` (its `commit` is the branch's
+base; the harness and engine were that branch's).
+
+| Pods watched | Mode | Time to sync | Engine RSS |
+|---|---|---|---|
+| 10,000 | metadata | 1.1 s | 259.3 MB |
+| 10,000 | full | 4.0 s | 339.8 MB |
+| 100,000 | metadata | 11.5 s | **2,059.4 MB** |
+| 100,000 | full | 33.8 s | 2,716.3 MB |
+
+**At 100k pods the engine is about five times over the 400 MB budget.** Each
+pod watched in metadata mode adds about 20 KB: (259.3 − 63.3) MB over 10k
+pods, and the 100k run agrees. That is many times a generated pod's own size,
+so the budget is unmet until the engine's per-pod memory comes down, or an ADR
+changes the budget with this evidence. No README or website copy may claim it
+meanwhile. CI's
+10k row can't catch it: 10k pods sit well inside 400 MB.
+
+## Found by measuring
+
+- **Scrolling 100k rows ran at about 37 fps** (2026-10-22, same machine,
+  p95 frame 50 ms). A CPU profile showed two causes in the Pods table: every
+  Age cell's tooltip built a new date formatter (`toLocaleString` with options),
+  about 40% of its JavaScript time; and the select-all box walked every row's
+  key on every render, with nothing selected. With both fixed, two runs gave
+  58.8 and 55.0 fps (p95 frame 16.8 and 33.3 ms).
 
 ## On your machine
 
@@ -82,6 +136,8 @@ Options:
 - `--pods 1000,10000`: the pod counts to measure.
 - `--runs 5`: cold-start runs.
 - `--settle 20`: seconds to wait before idle samples. Watch samples wait half that.
+- `--paint-samples 30`: pods to create for watch-to-paint.
+- `--scroll-rows 100000`: rows in the scrolling table.
 - `--chromium PATH`: use an installed Chromium.
 
 ## The desktop app, per release

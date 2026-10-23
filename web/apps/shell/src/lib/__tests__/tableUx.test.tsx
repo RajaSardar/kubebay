@@ -40,6 +40,19 @@ describe("absoluteTime", () => {
     expect(absoluteTime("2026-09-29T04:26:44Z")).toMatch(/2026/);
   });
   it("is empty for a missing timestamp", () => expect(absoluteTime(undefined)).toBe(""));
+  it("reads as the locale's medium date and time", () => {
+    const fmt = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "medium" });
+    expect(absoluteTime("2026-09-29T04:26:44Z")).toBe(fmt.format(new Date("2026-09-29T04:26:44Z")));
+  });
+  // KB-02: every Age cell a table renders calls this. toLocaleString with
+  // options builds a new formatter each call, which was about 40% of the
+  // Pods table's scripting while it scrolled.
+  it("reuses one formatter rather than building one per call", () => {
+    const spy = vi.spyOn(Date.prototype, "toLocaleString");
+    for (let i = 0; i < 50; i++) absoluteTime("2026-09-29T04:26:44Z");
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
 });
 
 describe("useSortPref", () => {
