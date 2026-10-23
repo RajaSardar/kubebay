@@ -128,6 +128,14 @@ describe("ResourceListView", () => {
     expect(screen.getByText(msg)).toBeInTheDocument();
   });
 
+  it("names a namespace RBAC refuses and what it still shows, keeping the rows it can see", () => {
+    const reason = 'jobs.batch is forbidden: User "dev" cannot list resource "jobs" in API group "batch" in the namespace "payments"';
+    renderView({ namespaces: ["shop", "payments"], denied: [{ ns: "payments", reason }] });
+    expect(screen.getByText("You can't list jobs in payments. Showing shop.")).toBeInTheDocument();
+    expect(screen.getByText(reason)).toBeInTheDocument();
+    expect(screen.getAllByRole("row").length).toBeGreaterThan(1);
+  });
+
   it("says why the list is empty", () => {
     renderView();
     fireEvent.change(screen.getByRole("textbox", { name: "Filter jobs" }), { target: { value: "nope" } });

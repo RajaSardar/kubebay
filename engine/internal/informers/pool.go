@@ -63,11 +63,19 @@ type Pool struct {
 }
 
 type Subscription struct {
-	id        string
-	Coal      *stream.Coalescer
-	Snap      chan []stream.Op
-	mu        sync.Mutex // guards subs: an entry can end the subscription mid-Subscribe
-	subs      []*entry
+	id   string
+	Coal *stream.Coalescer
+	Snap chan []stream.Op
+	deny chan stream.Denial
+	mu   sync.Mutex // guards the fields below: entries answer from their own goroutines
+	subs []*entry
+	// One snapshot per subscription: each namespace's entry answers once,
+	// with its snapshot or a refusal, and the merged snapshot goes out when
+	// all expect of them have.
+	expect    int
+	got       map[*entry][]stream.Op
+	refused   map[*entry]bool
+	sent      bool
 	done      chan struct{}
 	closeOnce sync.Once
 	reason    atomic.Value // string: why the engine ended it, "" if the client did
@@ -76,6 +84,72 @@ type Subscription struct {
 func (s *Subscription) ID() string                   { return s.id }
 func (s *Subscription) Snapshot() <-chan []stream.Op { return s.Snap }
 func (s *Subscription) Deltas() <-chan []stream.Op   { return s.Coal.Out() }
+
+// Denials names the namespaces of the subscription that RBAC refuses.
+func (s *Subscription) Denials() <-chan stream.Denial { return s.deny }
+
+// mergedLocked is the subscription's one snapshot, once every namespace has
+// answered and it hasn't gone out yet. s.mu must be held.
+func (s *Subscription) mergedLocked() ([]stream.Op, bool) {
+	if s.sent || len(s.got)+len(s.refused) < s.expect || len(s.got) == 0 {
+		return nil, false
+	}
+	s.sent = true
+	var out []stream.Op
+	for _, e := range s.subs {
+		out = append(out, s.got[e]...)
+	}
+	return out, true
+}
+
+func (s *Subscription) sendSnapshot(ops []stream.Op) {
+	select {
+	case s.Snap <- ops:
+	case <-s.done:
+	}
+}
+
+// offer is one namespace's snapshot.
+func (s *Subscription) offer(e *entry, ops []stream.Op) {
+	s.mu.Lock()
+	if _, seen := s.got[e]; seen || s.refused[e] {
+		s.mu.Unlock()
+		return
+	}
+	s.got[e] = ops
+	merged, ready := s.mergedLocked()
+	s.mu.Unlock()
+	if ready {
+		s.sendSnapshot(merged)
+	}
+}
+
+// refuse is one namespace refused by RBAC. It reports whether every
+// namespace now is, in which case the caller ends the subscription;
+// otherwise the namespace is named and the others go on.
+func (s *Subscription) refuse(e *entry, message string) (all bool) {
+	s.mu.Lock()
+	if s.refused[e] {
+		s.mu.Unlock()
+		return false
+	}
+	s.refused[e] = true
+	delete(s.got, e)
+	if len(s.refused) >= s.expect {
+		s.mu.Unlock()
+		return true
+	}
+	merged, ready := s.mergedLocked()
+	s.mu.Unlock()
+	select {
+	case s.deny <- stream.Denial{NS: e.key.namespace, Message: message}:
+	case <-s.done:
+	}
+	if ready {
+		s.sendSnapshot(merged)
+	}
+	return false
+}
 
 // CloseReason says why the engine ended the subscription; "" when the
 // client unsubscribed.
@@ -123,18 +197,19 @@ func (p *Pool) Subscribe(ctx context.Context, gvrStr string, namespaces []string
 		return nil, err
 	}
 	mode = NormalizeMode(mode)
+	nsList := uniqueNamespaces(namespaces)
 	sub := &Subscription{
-		id:   fmt.Sprintf("sub-%d", time.Now().UnixNano()),
-		Coal: stream.NewCoalescer(),
-		Snap: make(chan []stream.Op, 4),
-		done: make(chan struct{}),
+		id:      fmt.Sprintf("sub-%d", time.Now().UnixNano()),
+		Coal:    stream.NewCoalescer(),
+		Snap:    make(chan []stream.Op, 4),
+		deny:    make(chan stream.Denial, len(nsList)),
+		expect:  len(nsList),
+		got:     map[*entry][]stream.Op{},
+		refused: map[*entry]bool{},
+		done:    make(chan struct{}),
 	}
 	go sub.Coal.Run(16 * time.Millisecond)
 
-	nsList := namespaces
-	if len(nsList) == 0 {
-		nsList = []string{metav1.NamespaceAll}
-	}
 	for _, ns := range nsList {
 		e, err := p.entryFor(poolKey{gvr: gvr, namespace: ns, selector: selector, mode: mode})
 		if err != nil {
@@ -150,8 +225,11 @@ func (p *Pool) Subscribe(ctx context.Context, gvrStr string, namespaces []string
 		synced, failed := e.synced, e.failed
 		e.mu.Unlock()
 		if failed != "" {
-			p.end(sub, failed)
-			return sub, nil
+			if sub.refuse(e, strings.TrimPrefix(failed, stream.ReasonForbidden)) {
+				p.end(sub, failed)
+				return sub, nil
+			}
+			continue
 		}
 		if synced {
 			e.deliverSnapshot(sub)
@@ -203,9 +281,28 @@ func (p *Pool) Closed() bool {
 
 func (p *Pool) unsubscribe(sub *Subscription) { p.end(sub, "") }
 
+// uniqueNamespaces is the subscription's namespaces, each once; none means
+// all namespaces.
+func uniqueNamespaces(namespaces []string) []string {
+	if len(namespaces) == 0 {
+		return []string{metav1.NamespaceAll}
+	}
+	seen := map[string]bool{}
+	out := make([]string, 0, len(namespaces))
+	for _, ns := range namespaces {
+		if !seen[ns] {
+			seen[ns] = true
+			out = append(out, ns)
+		}
+	}
+	return out
+}
+
 // forbid retires an entry whose list or watch RBAC forbids: it leaves the
-// pool, so a later subscription (after the RBAC changes) lists afresh, its
-// informer stops, and every subscriber is ended with the reason.
+// pool, so a later subscription (after the RBAC changes) lists afresh, and
+// its informer stops. A subscriber for whom it was the last namespace left
+// is ended with the reason; any other is told which namespace was refused
+// and goes on with the rest.
 func (p *Pool) forbid(e *entry, reason string) {
 	p.mu.Lock()
 	owned := p.entries[e.key] == e
@@ -221,7 +318,9 @@ func (p *Pool) forbid(e *entry, reason string) {
 	}
 	e.mu.Unlock()
 	for _, s := range subs {
-		p.end(s, reason)
+		if s.refuse(e, strings.TrimPrefix(reason, stream.ReasonForbidden)) {
+			p.end(s, reason)
+		}
 	}
 	// Whoever takes the entry out of the pool stops it, once.
 	if owned {
@@ -389,10 +488,7 @@ func (e *entry) deliverSnapshot(sub *Subscription) {
 		}
 		ops = append(ops, stream.Op{Op: stream.OpAdd, Key: key, Obj: m})
 	}
-	select {
-	case sub.Snap <- ops:
-	case <-sub.done:
-	}
+	sub.offer(e, ops)
 }
 
 func (p *Pool) sweeper() {

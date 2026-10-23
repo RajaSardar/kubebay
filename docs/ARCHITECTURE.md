@@ -123,6 +123,10 @@ Single WebSocket + REST. Control frames are JSON; bulk payloads are MessagePack.
 { "type": "items", "id": "s1", "objs": "<msgpack batch>" }
 { "type": "sync",  "id": "s1", "rv": "128371" }
 
+// S→C: a namespace of the subscription RBAC refuses; the others stay live
+{ "type": "denied", "id": "s1", "ns": "team-y",
+  "message": "<the API server's reason>" }
+
 // S→C: live deltas (batched, coalesced per key under backpressure)
 { "type": "delta", "id": "s1", "rv": "128402",
   "ops": [ ["m","<key>","<msgpack obj>"], ["d","<key>"] ] }
@@ -136,6 +140,7 @@ Single WebSocket + REST. Control frames are JSON; bulk payloads are MessagePack.
 2. `rv` monotonic per topic; client may request `resync` after reconnect instead of replaying missed windows (simpler and always correct).
 3. Exec/logs/port-forward use separate channel types on the same socket: `{type:"chan-open", kind:"exec", …}` → binary frames prefixed with channel id.
 4. REST endpoints handle: CRUD mutations (SSA), kubeconfig management, Helm ops, settings, plugin registry. Anything request/response-shaped is REST; anything continuous is WS.
+5. A subscription is one stream, however many namespaces it names: one begin/items/sync carrying all of them. A namespace RBAC refuses is named in a `denied` frame and the others stay live; only when every namespace is refused does the stream end, with an `error` frame `forbidden: <reason>`. The engine never widens or narrows the namespaces a client asked for (ADR 0003).
 
 ## 5. Frontend Architecture
 

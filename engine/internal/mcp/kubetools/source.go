@@ -29,8 +29,9 @@ type PoolSource struct {
 
 func (s PoolSource) Clusters() []clusters.Cluster { return s.Manager.List() }
 
-// Snapshot subscribes, takes the first snapshot of each namespace's informer,
-// and unsubscribes.
+// Snapshot subscribes, takes the subscription's one snapshot (every
+// namespace's, merged), and unsubscribes. A stream the engine ends, as when
+// RBAC refuses the list, returns why at once instead of timing out.
 func (s PoolSource) Snapshot(ctx context.Context, cluster, gvr string, namespaces []string, selector, mode string) ([]map[string]any, error) {
 	timeout := s.Timeout
 	if timeout == 0 {
@@ -46,24 +47,26 @@ func (s PoolSource) Snapshot(ctx context.Context, cluster, gvr string, namespace
 	if err != nil {
 		return nil, err
 	}
-	want := len(namespaces)
-	if want == 0 {
-		want = 1
-	}
-	var out []map[string]any
-	for i := 0; i < want; i++ {
+	deltas := sub.Deltas()
+	for {
 		select {
 		case ops := <-sub.Snapshot():
+			var out []map[string]any
 			for _, op := range ops {
 				if op.Obj != nil {
 					out = append(out, op.Obj)
 				}
 			}
+			return out, nil
+		case _, open := <-deltas:
+			// Changes before the snapshot are in it; only the end matters.
+			if !open {
+				return nil, fmt.Errorf("%s in %s: %s", gvr, cluster, sub.CloseReason())
+			}
 		case <-ctx.Done():
 			return nil, fmt.Errorf("timed out waiting for %s in %s to sync", gvr, cluster)
 		}
 	}
-	return out, nil
 }
 
 // Get reads one object live. A single GET is cheap, and the informer cache
