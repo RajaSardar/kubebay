@@ -399,8 +399,15 @@ func (p *Pool) entryFor(key poolKey) (*entry, error) {
 	})
 	// Before the informer runs: a transform set later is refused.
 	_ = inf.SetTransform(trimManagedFields)
-	inf.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj any) { e.emit(stream.OpAdd, obj) },
+	inf.AddEventHandler(cache.ResourceEventHandlerDetailedFuncs{
+		AddFunc: func(obj any, isInInitialList bool) {
+			// The initial list reaches subscribers in the snapshot, sent once
+			// the informer has synced: as deltas it would be every object made
+			// a map a second time, at the sync's peak, for nothing.
+			if !isInInitialList {
+				e.emit(stream.OpAdd, obj)
+			}
+		},
 		UpdateFunc: func(_, newObj any) { e.emit(stream.OpModify, newObj) },
 		DeleteFunc: func(obj any) { e.emit(stream.OpDelete, obj) },
 	})
