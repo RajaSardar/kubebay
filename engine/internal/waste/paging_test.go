@@ -2,7 +2,10 @@ package waste
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"strconv"
 	"strings"
 	"testing"
@@ -12,6 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/rest"
 	ktesting "k8s.io/client-go/testing"
 )
 
@@ -115,5 +119,92 @@ func TestTierAListsAPageAtATime(t *testing.T) {
 	checkPaged(t, seen, "replicasets", 2)
 	if _, ok := s.tierA[WorkloadKey{Cluster: "kind-dev", Ns: "default", Kind: "Deployment", Name: "app"}]; !ok {
 		t.Fatalf("no Tier A entry for app, whose pod and ReplicaSet are on the second page: %+v", s.tierA)
+	}
+}
+
+// A tick has 20 s, and a real client waits its turn: by default client-go
+// allows a burst of 10 requests, then 5 a second. At 500 a page, 100k pods
+// took 200 requests, so every tick ran out of time and the Cost page stopped
+// updating past about 55k pods. A big cluster keeps old ReplicaSets too (10
+// per Deployment by default), as many as its pods. The fake clientset above
+// has no rate limit, so this one lists through the sampler's own client from
+// an API server of its own.
+func TestATickAt100kPodsAndReplicaSetsFinishes(t *testing.T) {
+	const n = 100_000
+	pod := deploymentOwnedPod("default", "", "rs-uid-1", "10m", "16Mi")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		limit, _ := strconv.Atoi(q.Get("limit"))
+		start, _ := strconv.Atoi(q.Get("continue"))
+		if limit <= 0 {
+			limit = n
+		}
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/v1/pods":
+			end := min(start+limit, n)
+			list := corev1.PodList{TypeMeta: metav1.TypeMeta{Kind: "PodList", APIVersion: "v1"}}
+			for i := start; i < end; i++ {
+				p := pod
+				p.Name = fmt.Sprintf("app-%d", i)
+				list.Items = append(list.Items, p)
+			}
+			if end < n {
+				list.Continue = strconv.Itoa(end)
+			}
+			_ = json.NewEncoder(w).Encode(list)
+		case "/apis/apps/v1/replicasets":
+			// The pods' ReplicaSet and n-1 others, old revisions of other Deployments.
+			end := min(start+limit, n)
+			list := appsv1.ReplicaSetList{TypeMeta: metav1.TypeMeta{Kind: "ReplicaSetList", APIVersion: "apps/v1"}}
+			for i := start; i < end; i++ {
+				uid := fmt.Sprintf("rs-uid-%d", i+1)
+				list.Items = append(list.Items, replicaSet("default", "rs-"+uid, uid, fmt.Sprintf("dep-uid-%d", i+1)))
+			}
+			if end < n {
+				list.Continue = strconv.Itoa(end)
+			}
+			_ = json.NewEncoder(w).Encode(list)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	cs, err := samplerClient(&rest.Config{Host: srv.URL})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	s := NewSampler(nil, discardLogger())
+	if err := s.sampleCluster(context.Background(), "big", cs, newFakeMetricsClient()); err != nil {
+		t.Fatalf("sampleCluster at %d pods: %v", n, err)
+	}
+	// No metrics here, so Snapshot has no rows yet; the tick's requests do.
+	if got := s.requested[WorkloadKey{Cluster: "big", Ns: "default", Kind: "Deployment", Name: "app"}].PodCount; got != n {
+		t.Fatalf("Deployment app requested by %d pods, want all %d", got, n)
+	}
+}
+
+// The pages a tick needs at the PRD's 100k pods, with as many old
+// ReplicaSets, fit its client's rate limit in half the tick: the other half
+// is the API server's own time, which on a remote cluster can be most of it.
+func TestATicksPagesFitItsClientsRateLimit(t *testing.T) {
+	base := &rest.Config{Host: "https://cluster.example"}
+	cfg := samplerConfig(base)
+	if base.QPS != 0 || base.Burst != 0 {
+		t.Fatal("samplerConfig changed the cluster's config, which other clients share")
+	}
+	qps, burst := cfg.QPS, cfg.Burst
+	if qps == 0 {
+		qps = rest.DefaultQPS
+	}
+	if burst == 0 {
+		burst = rest.DefaultBurst
+	}
+	const n = 100_000
+	pages := 2*((n+listPageSize-1)/listPageSize) + 1 // pods, ReplicaSets, metrics
+	allowed := float64(burst) + float64(qps)*tickTimeout.Seconds()/2
+	if float64(pages) > allowed {
+		t.Fatalf("a tick needs %d requests; its client allows %.0f in %v (burst %d, %.0f a second)", pages, allowed, tickTimeout/2, burst, qps)
 	}
 }

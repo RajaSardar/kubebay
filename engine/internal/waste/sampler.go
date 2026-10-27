@@ -14,6 +14,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	metricsv "k8s.io/metrics/pkg/client/clientset/versioned"
 
 	"github.com/RajaSardar/kubebay/engine/internal/clusters"
@@ -186,7 +187,7 @@ func (s *Sampler) tickTierA(ctx context.Context) {
 		if err != nil {
 			continue
 		}
-		cs, err := kubernetes.NewForConfig(cfg)
+		cs, err := samplerClient(cfg)
 		if err != nil {
 			s.log.Warn("waste tier A: client init failed", "cluster", c.ID, "err", err)
 			continue
@@ -323,8 +324,26 @@ func (s *Sampler) queryPromVector(ctx context.Context, base, query string) (map[
 // listPageSize is how many objects one list request asks for. The sampler
 // walks every pod of every connected cluster each minute: listed in one
 // request, the whole list was in memory at once, about 1.6 GB of garbage a
-// minute at 100k pods (KB-02).
-const listPageSize = 500
+// minute at 100k pods (KB-02). Each page is held while it's counted, so a
+// bigger page costs memory: at 100k pods, 5,000 a page kept the engine's RSS
+// around 400 MB, 2,000 a page about 370 MB.
+const listPageSize = 2000
+
+// samplerClient is the clientset a tick lists pods and ReplicaSets with.
+func samplerClient(cfg *rest.Config) (kubernetes.Interface, error) {
+	return kubernetes.NewForConfig(samplerConfig(cfg))
+}
+
+// samplerConfig is the cluster's config for a tick's client, a copy, since
+// the cluster manager's config is shared. A tick lists every page within
+// tickTimeout, then nothing for a minute. client-go's default limit (a burst
+// of 10, then 5 requests a second) left too little of it: at 500 a page,
+// every tick past about 55k pods ran out of time.
+func samplerConfig(cfg *rest.Config) *rest.Config {
+	c := rest.CopyConfig(cfg)
+	c.QPS, c.Burst = 20, 40
+	return c
+}
 
 // eachPod calls fn for every pod in the cluster, a page at a time, so no
 // more than a page of them is held at once.
@@ -396,7 +415,7 @@ func (s *Sampler) tick(ctx context.Context) {
 		if err != nil {
 			continue // e.g. a misconfigured entry mid-list — skip, don't fail the whole tick
 		}
-		cs, err := kubernetes.NewForConfig(cfg)
+		cs, err := samplerClient(cfg)
 		if err != nil {
 			s.log.Warn("waste sampler: client init failed", "cluster", c.ID, "err", err)
 			continue
@@ -412,11 +431,14 @@ func (s *Sampler) tick(ctx context.Context) {
 	}
 }
 
+// tickTimeout is how long one cluster's tick may take.
+const tickTimeout = 20 * time.Second
+
 // sampleCluster takes its clients as parameters (rather than constructing
 // them) so the aggregation logic is testable against fake clientsets
 // without a live cluster.
 func (s *Sampler) sampleCluster(ctx context.Context, clusterID string, cs kubernetes.Interface, mc metricsv.Interface) error {
-	tctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+	tctx, cancel := context.WithTimeout(ctx, tickTimeout)
 	defer cancel()
 
 	// A full-cluster Pod/ReplicaSet list every tick is real API-server load on
