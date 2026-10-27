@@ -97,7 +97,14 @@ func (s *Subscription) mergedLocked() ([]stream.Op, bool) {
 	s.sent = true
 	var out []stream.Op
 	for _, e := range s.subs {
-		out = append(out, s.got[e]...)
+		ops, ok := s.got[e]
+		if !ok {
+			continue
+		}
+		out = append(out, ops...)
+		// Keep only that e answered: the objects are the client's now, and
+		// holding them would keep a copy of every row alive while subscribed.
+		s.got[e] = nil
 	}
 	return out, true
 }
