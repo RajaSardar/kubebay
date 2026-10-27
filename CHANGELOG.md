@@ -86,6 +86,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 - **Pending has its own colour**: Pending pods use each theme's info hue instead of the warning orange, so they no longer read as warnings
 
 ### Fixed
+- **The engine uses far less memory on big clusters**: watching 100,000 pods, it held about 2 GB, five times the PRD's 400 MB budget, and kept growing while nothing changed. A heap profile found three causes, now fixed:
+  - each open table kept everything it first sent the page for as long as it stayed open, in metadata mode a full copy of every object;
+  - managedFields' field sets, which nothing in Kubebay reads, were most of every object in memory (each entry's manager and time stay);
+  - the Cost/Waste sampler fetched every pod in one request every minute, even with the page closed; it now fetches 500 at a time.
+  
+  The same 100k pods now settle at 352 MB in metadata mode (live heap 1,164 MB to 140 MB), and at 1.7 GB in full mode, which the Pods page uses, down from 2.6 to 3.2 GB. Tables loaded in metadata mode send 60% less on first load and sync about twice as fast
 - **Long tables scroll smoothly**: scrolling the Pods table with 100,000 pods ran at about 37 frames a second in the performance harness. Every row's Age tooltip built a new date formatter, and the select-all box checked every row on every frame, even with nothing selected. It now runs at 55 to 59, against the browser's 60 there. Every resource table shares this code, so they all gain the same
 - **A list filtered to several namespaces shows all of them**: picking `shop` and `payments` showed only whichever namespace loaded last, because each namespace's rows replaced the others'. A subscription now arrives as one snapshot holding every namespace. When RBAC refuses one of them, the list says so ("You can't list deployments in payments. Showing shop.", with the API server's reason) and the rest stay live; before, one refused namespace stopped the whole list while its rows stayed on screen marked Live. AI assistants (MCP) asking for something RBAC refuses get the refusal at once instead of a 20-second timeout
 - **The container image reports its version**: `kubebay --version` and `/api/version` in the `ghcr.io/rajasardar/kubebay` image said `dev`. A release's image now reports its tag, like the release binaries, and a main build reports `main-<commit>`. The image's engine is also built by the Go release go.mod names (1.26.9), as the release binaries are, instead of whichever Go 1.26 Docker Hub had at build time

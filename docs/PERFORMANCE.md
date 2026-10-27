@@ -109,6 +109,42 @@ changes the budget with this evidence. No README or website copy may claim it
 meanwhile. CI's
 10k row can't catch it: 10k pods sit well inside 400 MB.
 
+### Where the memory went (2026-10-27)
+
+A heap profile of the engine watching the same 100k pods (Go's `pprof`, in a
+scratch build) found three causes:
+
+1. **Each subscription kept its snapshot.** Since one snapshot per
+   subscription (#181), a subscription held every namespace's copy of its
+   objects for as long as it lived: 950 MB of the 1,164 MB live heap. It now
+   lets them go once the snapshot is sent.
+2. **managedFields' field sets were most of every object.** `fieldsV1` is 48 of
+   the 51 maps in a pod's metadata, in the cache and in every snapshot's copy.
+   The informers now drop it as objects arrive; each entry's manager and time
+   stay.
+3. **The Cost/Waste sampler listed every pod at once, every minute,** with or
+   without the page open: about 1.6 GB of garbage a tick. It now lists 500 at a
+   time.
+
+The same 100k pods, before and after the three fixes. A script connects the
+engine and subscribes to every pod as the Pods page does, then reads the
+engine's RSS 10 s after sync (where CI samples) and 70 s after, and its live
+heap after a forced garbage collection:
+
+| Mode | RSS at sync + 10 s | RSS at sync + 70 s | Live heap |
+|---|---|---|---|
+| metadata, before | 2,041 MB | 2,620 MB | 1,164 MB |
+| metadata, after | 833 MB | **352 MB** | 140 MB |
+| full, before | 2,576 MB | 3,174 MB | 1,482 MB |
+| full, after | 1,722 MB | 1,727 MB | 772 MB |
+
+**What's left.** At sync the engine still turns every object into an op before
+the first frame goes out, so metadata mode's RSS peaks at about 830 MB and
+falls only as Go hands the memory back. The fix is to build the snapshot a
+frame at a time. Full mode, which the Pods page uses and the PRD's budget
+doesn't cover, holds 772 MB of cached pods as Go maps, and RSS settles at
+about twice that.
+
 ## Found by measuring
 
 - **Scrolling 100k rows ran at about 37 fps** (2026-10-22, same machine,
