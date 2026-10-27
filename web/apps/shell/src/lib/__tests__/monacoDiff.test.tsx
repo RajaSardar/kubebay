@@ -46,7 +46,8 @@ describe("DiffEditor", () => {
     const onMount = vi.fn();
     const view = render(<DiffEditor original="a: 1" modified="a: 2" language="yaml" onMount={onMount} />);
     await view.findByTestId("diff");
-    expect(onMount).toHaveBeenCalledTimes(1);
+    // Monaco loads lazily, so the editor mounts in an effect React may run after the diff is in the DOM.
+    await waitFor(() => expect(onMount).toHaveBeenCalledTimes(1));
     expect(() => view.unmount()).not.toThrow();
     await waitFor(() => expect(log).toEqual(["editor disposed", "original disposed", "modified disposed"]));
   });
