@@ -809,6 +809,14 @@ h2 {
   overflow: hidden;
 }
 
+/* The named-namespaces picker (ADR 0003) carries a banner with the API
+   server's reason, which wraps badly at the list's width. As wide as
+   a TextField gets. */
+.ns-dropdown.named {
+  width: 320px;
+  max-height: 420px;
+}
+
 .ns-dropdown-list {
   overflow-y: auto;
   flex: 1;
