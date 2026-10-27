@@ -50,9 +50,9 @@ func (s PoolSource) Snapshot(ctx context.Context, cluster, gvr string, namespace
 	deltas := sub.Deltas()
 	for {
 		select {
-		case ops := <-sub.Snapshot():
+		case snap := <-sub.Snapshot():
 			var out []map[string]any
-			for _, op := range ops {
+			for _, op := range snap.All() {
 				if op.Obj != nil {
 					out = append(out, op.Obj)
 				}

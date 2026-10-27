@@ -36,7 +36,7 @@ type SubSource interface {
 
 type SubHandle interface {
 	ID() string
-	Snapshot() <-chan []Op
+	Snapshot() <-chan Snapshot
 	Deltas() <-chan []Op
 }
 
@@ -424,9 +424,8 @@ func (h *Hub) start(parent context.Context, frame *ClientFrame, src SubSource, w
 				_ = writer.sendControl(ControlFrame{Type: TypeDenied, ID: frame.ID, NS: d.NS, Message: d.Message})
 			case snap := <-handle.Snapshot():
 				_ = writer.sendData(&DataFrame{Type: TypeBegin, ID: frame.ID})
-				for i := 0; i < len(snap); i += itemsPerFrame {
-					end := min(i+itemsPerFrame, len(snap))
-					_ = writer.sendData(&DataFrame{Type: TypeItems, ID: frame.ID, Ops: snap[i:end]})
+				for ops := range snap.Frames(itemsPerFrame) {
+					_ = writer.sendData(&DataFrame{Type: TypeItems, ID: frame.ID, Ops: ops})
 				}
 				_ = writer.sendControl(ControlFrame{Type: TypeSync, ID: frame.ID})
 				synced = true
