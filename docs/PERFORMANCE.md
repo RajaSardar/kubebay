@@ -152,8 +152,12 @@ What would bring RSS at 100k pods under 400 MB, each its own PR:
   list, which was also made maps as it arrived and sent as deltas ahead of the
   snapshot, now reaches the page only in the snapshot.
 - Feed the waste sampler from the pods informer, or sample only while its page
-  is open. **Done differently:** it lists 500 objects a page and totals pods
-  page by page, so a tick holds one page. It still lists once a minute.
+  is open. **Done differently:** it lists 2,000 objects a page and totals pods
+  page by page, so a tick holds one page. It still lists once a minute. It
+  first listed 500 a page through client-go's default rate limit (a burst of
+  10 requests, then 5 a second), which can't fit 200 pages in a tick's 20 s:
+  past about 55k pods every tick failed, in the runs below too. Its client now
+  allows 20 requests a second after a burst of 40 (2026-10-27).
 - Leave `managedFields` out of the metadata informers' store. **Done, in part:**
   every informer drops each entry's field set (`fieldsV1`, 48 of the 51 maps in
   a generated pod's metadata) as objects arrive, and keeps the entries. Of the
@@ -171,11 +175,21 @@ The same 100k pods against a Kubernetes 1.34 envtest API server, RSS at sync,
 | full, field sets and sampler | 772 MB | 1,399 MB | 1,722 MB | 1,727 MB |
 | full, all three | 776 MB | 1,407 MB | 1,407 MB | 1,624 MB |
 
-**Metadata mode now stays under the 400 MB budget, at sync and after.** Full
-mode, which the Pods page uses and the budget doesn't cover, holds 772 MB of
-cached pods as Go maps (1,482 MB before), and its RSS settles at about twice
-that: Go lets the heap reach twice what's live before it collects. Bringing
-that down means caching less of each pod, a design choice of its own.
+Every sampler tick in those runs failed. Measured again with its ticks
+completing (2026-10-27), same server and pods, RSS 10 s to 3 minutes after
+sync:
+
+| Mode | Live heap | RSS 10 s | RSS 60 s | RSS 2 min | RSS 3 min |
+|---|---|---|---|---|---|
+| metadata | 147 MB | 346 MB | 389 MB | 389 MB | **390 MB** |
+| full | 810 MB | 1,420 MB | 1,807 MB | 1,836 MB | 1,860 MB |
+
+**Metadata mode stays under the 400 MB budget, at sync and after**, with
+less room than the first table showed. Full mode, which the Pods page uses
+and the budget doesn't cover, holds about 800 MB of cached pods as Go maps
+(1,482 MB before), and its RSS settles at a little over twice that: Go lets
+the heap reach twice what's live before it collects. Bringing that down means
+caching less of each pod, a design choice of its own.
 
 ## Found by measuring
 
