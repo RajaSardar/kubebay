@@ -212,7 +212,7 @@ func (s *Sampler) tierAForCluster(ctx context.Context, clusterID string, cs kube
 	tctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
-	pods, rsOwners, err := podsAndOwners(tctx, cs)
+	rsOwners, err := replicaSetOwners(tctx, cs)
 	if err != nil {
 		return err
 	}
@@ -240,17 +240,17 @@ func (s *Sampler) tierAForCluster(ctx context.Context, clusterID string, cs kube
 	}
 	accs := map[WorkloadKey]*acc{}
 
-	for _, pod := range pods.Items {
+	err = eachPod(tctx, cs, func(pod *corev1.Pod) {
 		owner := controllerOwner(pod.OwnerReferences)
 		kind, name, ok := resolveWorkload(podRef{Owner: owner}, rsOwners)
 		if !ok {
-			continue
+			return
 		}
 		podKey := pod.Namespace + "/" + pod.Name
 		cpuVal, hasCPU := cpuByPod[podKey]
 		memVal, hasMem := memByPod[podKey]
 		if !hasCPU && !hasMem {
-			continue
+			return
 		}
 		covered := hasSufficientCoverage(coverageByPod[podKey], expected)
 
@@ -266,6 +266,9 @@ func (s *Sampler) tierAForCluster(ctx context.Context, clusterID string, cs kube
 		}
 		a.cpuMillis += cpuVal * 1000
 		a.memBytes += memVal
+	})
+	if err != nil {
+		return err
 	}
 
 	now := time.Now()
@@ -317,25 +320,52 @@ func (s *Sampler) queryPromVector(ctx context.Context, base, query string) (map[
 	return parsePromVectorByPodKey(body)
 }
 
-// podsAndOwners lists every pod and resolves ReplicaSet->Deployment
-// ownership in one pass — shared by Tier B's sampleCluster and Tier A's
-// tierAForCluster so both use identical workload attribution.
-func podsAndOwners(ctx context.Context, cs kubernetes.Interface) (*corev1.PodList, map[string]ownerRef, error) {
-	pods, err := cs.CoreV1().Pods(metav1.NamespaceAll).List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return nil, nil, err
-	}
-	rss, err := cs.AppsV1().ReplicaSets(metav1.NamespaceAll).List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return nil, nil, err
-	}
-	rsOwners := map[string]ownerRef{}
-	for _, rs := range rss.Items {
-		if ref := controllerOwner(rs.OwnerReferences); ref != nil {
-			rsOwners[string(rs.UID)] = *ref
+// listPageSize is how many objects one list request asks for. The sampler
+// walks every pod of every connected cluster each minute: listed in one
+// request, the whole list was in memory at once, about 1.6 GB of garbage a
+// minute at 100k pods (KB-02).
+const listPageSize = 500
+
+// eachPod calls fn for every pod in the cluster, a page at a time, so no
+// more than a page of them is held at once.
+func eachPod(ctx context.Context, cs kubernetes.Interface, fn func(*corev1.Pod)) error {
+	opts := metav1.ListOptions{Limit: listPageSize}
+	for {
+		page, err := cs.CoreV1().Pods(metav1.NamespaceAll).List(ctx, opts)
+		if err != nil {
+			return err
 		}
+		for i := range page.Items {
+			fn(&page.Items[i])
+		}
+		if page.Continue == "" {
+			return nil
+		}
+		opts.Continue = page.Continue
 	}
-	return pods, rsOwners, nil
+}
+
+// replicaSetOwners maps each ReplicaSet's UID to its controller, for
+// ReplicaSet->Deployment attribution. Tier B's sampleCluster and Tier A's
+// tierAForCluster both use it, so both attribute pods identically.
+func replicaSetOwners(ctx context.Context, cs kubernetes.Interface) (map[string]ownerRef, error) {
+	owners := map[string]ownerRef{}
+	opts := metav1.ListOptions{Limit: listPageSize}
+	for {
+		page, err := cs.AppsV1().ReplicaSets(metav1.NamespaceAll).List(ctx, opts)
+		if err != nil {
+			return nil, err
+		}
+		for _, rs := range page.Items {
+			if ref := controllerOwner(rs.OwnerReferences); ref != nil {
+				owners[string(rs.UID)] = *ref
+			}
+		}
+		if page.Continue == "" {
+			return owners, nil
+		}
+		opts.Continue = page.Continue
+	}
 }
 
 // Start runs the sampler loop until ctx is cancelled. It samples immediately
@@ -391,9 +421,9 @@ func (s *Sampler) sampleCluster(ctx context.Context, clusterID string, cs kubern
 
 	// A full-cluster Pod/ReplicaSet list every tick is real API-server load on
 	// a very large cluster — an accepted tradeoff for v1's honesty-first,
-	// no-history-store design; revisit with field selectors or an informer
-	// if this shows up as a real cost.
-	pods, rsOwners, err := podsAndOwners(tctx, cs)
+	// no-history-store design. It goes a page at a time (eachPod), so the
+	// engine never holds the whole list.
+	rsOwners, err := replicaSetOwners(tctx, cs)
 	if err != nil {
 		return err
 	}
@@ -422,7 +452,7 @@ func (s *Sampler) sampleCluster(ctx context.Context, clusterID string, cs kubern
 	tickHasUsage := map[WorkloadKey]bool{}
 	broken := map[string]map[string]int{} // workload → reason code → broken pods
 
-	for _, pod := range pods.Items {
+	err = eachPod(tctx, cs, func(pod *corev1.Pod) {
 		// Namespace totals come first, before owner resolution drops bare pods.
 		if record && pod.Status.Phase != corev1.PodSucceeded && pod.Status.Phase != corev1.PodFailed {
 			addNsTotals(nsTotals, pod, metricsByPod, metricsOK)
@@ -430,11 +460,11 @@ func (s *Sampler) sampleCluster(ctx context.Context, clusterID string, cs kubern
 		owner := controllerOwner(pod.OwnerReferences)
 		kind, name, ok := resolveWorkload(podRef{Owner: owner}, rsOwners)
 		if !ok {
-			continue
+			return
 		}
 		key := WorkloadKey{Cluster: clusterID, Ns: pod.Namespace, Kind: kind, Name: name}
 		if record {
-			if code := podReason(pod, now); code != "" {
+			if code := podReason(*pod, now); code != "" {
 				w := pod.Namespace + "/" + kind + "/" + name
 				if broken[w] == nil {
 					broken[w] = map[string]int{}
@@ -461,6 +491,9 @@ func (s *Sampler) sampleCluster(ctx context.Context, clusterID string, cs kubern
 			tickUsage[key] = uu
 			tickHasUsage[key] = true
 		}
+	})
+	if err != nil {
+		return err
 	}
 
 	s.mu.Lock()
@@ -510,7 +543,7 @@ func (s *Sampler) sampleCluster(ctx context.Context, clusterID string, cs kubern
 	return nil
 }
 
-func addNsTotals(totals map[string]*NsUsage, pod corev1.Pod, metricsByPod map[string]podUsage, metricsOK bool) {
+func addNsTotals(totals map[string]*NsUsage, pod *corev1.Pod, metricsByPod map[string]podUsage, metricsOK bool) {
 	t := totals[pod.Namespace]
 	if t == nil {
 		t = &NsUsage{Ns: pod.Namespace, HasUsage: metricsOK}

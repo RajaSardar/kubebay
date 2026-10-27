@@ -144,14 +144,31 @@ heap profile taken after a forced GC.
   added about 320 MB of RSS at 100k pods (2,040 → 2,363 MB). It lists whether
   or not anyone has the Cost page open.
 
-What would bring RSS at 100k pods under 400 MB, each a design choice for its
-own PR:
+What would bring RSS at 100k pods under 400 MB, each its own PR:
 - Convert objects to maps per frame as the snapshot goes out, not all at once,
-  and without the JSON round trip.
+  and without the JSON round trip. **Still open.**
 - Feed the waste sampler from the pods informer, or sample only while its page
-  is open.
-- Leave `managedFields` out of the metadata informers' store. Rollout history,
-  Upgrade Readiness and the MCP tools read it, so they need checking first.
+  is open. **Done differently:** it lists 500 objects a page and totals pods
+  page by page, so a tick holds one page. It still lists once a minute.
+- Leave `managedFields` out of the metadata informers' store. **Done, in part:**
+  every informer drops each entry's field set (`fieldsV1`, 48 of the 51 maps in
+  a generated pod's metadata) as objects arrive, and keeps the entries. Of the
+  readers: the Rollout tab reads when each manager wrote, which stays; Upgrade
+  Readiness reads no managedFields (its comment explains why it can't); the MCP
+  tools strip managedFields before they use an object.
+
+With those two, the same 100k pods against a Kubernetes 1.34 envtest API
+server, RSS 10 s and 70 s after sync, live heap after a forced GC:
+
+| Mode | Live heap | RSS 10 s | RSS 70 s |
+|---|---|---|---|
+| metadata | 140 MB | 833 MB | **352 MB** |
+| full | 772 MB | 1,722 MB | 1,727 MB |
+
+Metadata mode now settles under the 400 MB budget, though RSS still peaks at
+about 830 MB at sync, while the snapshot is built whole. Full mode, which the
+Pods page uses and the budget doesn't cover, holds 772 MB of cached pods as Go
+maps (1,482 MB before), and its RSS settles at about twice that.
 
 ## Found by measuring
 

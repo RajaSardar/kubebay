@@ -396,6 +396,8 @@ func (p *Pool) entryFor(key poolKey) (*entry, error) {
 		}
 		cache.DefaultWatchErrorHandler(ctx, r, err)
 	})
+	// Before the informer runs: a transform set later is refused.
+	_ = inf.SetTransform(trimManagedFields)
 	inf.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj any) { e.emit(stream.OpAdd, obj) },
 		UpdateFunc: func(_, newObj any) { e.emit(stream.OpModify, newObj) },
@@ -424,6 +426,29 @@ func (p *Pool) entryFor(key poolKey) (*entry, error) {
 	}()
 	go p.drainFanout(e)
 	return e, nil
+}
+
+// trimManagedFields drops each managedFields entry's field set (fieldsV1)
+// as an object enters the cache. The sets are most of an object's maps (48
+// of the 51 in a pod's metadata) and so most of what the cache and every
+// snapshot cost; nothing in Kubebay reads them. The entries themselves stay:
+// the Rollout tab reads when each manager last wrote.
+func trimManagedFields(obj any) (any, error) {
+	switch o := obj.(type) {
+	case *unstructured.Unstructured:
+		md, _ := o.Object["metadata"].(map[string]any)
+		entries, _ := md["managedFields"].([]any)
+		for _, e := range entries {
+			if m, ok := e.(map[string]any); ok {
+				delete(m, "fieldsV1")
+			}
+		}
+	case *metav1.PartialObjectMetadata:
+		for i := range o.ManagedFields {
+			o.ManagedFields[i].FieldsV1 = nil
+		}
+	}
+	return obj, nil
 }
 
 func unwrap(obj any) map[string]any {
