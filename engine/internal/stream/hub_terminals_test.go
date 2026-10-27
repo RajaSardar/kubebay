@@ -43,7 +43,7 @@ func waitFor(t *testing.T, what string, cond func() bool) {
 func TestHubCountsOpenTerminals(t *testing.T) {
 	hub := NewHub(slog.New(slog.NewTextHandler(io.Discard, nil)), blockingDeps{})
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		hub.Handle(w, r, closingSource{&closingHandle{snap: make(chan []Op), deltas: make(chan []Op)}}, "")
+		hub.Handle(w, r, closingSource{&closingHandle{snap: make(chan Snapshot), deltas: make(chan []Op)}}, "")
 	}))
 	defer srv.Close()
 

@@ -118,7 +118,7 @@ func TestSeveralNamespacesArriveAsOneSnapshot(t *testing.T) {
 
 	select {
 	case snap := <-sub.Snapshot():
-		if got, want := names(snap), []string{"payments/gateway", "shop/api", "shop/web"}; fmt.Sprint(got) != fmt.Sprint(want) {
+		if got, want := names(snap.All()), []string{"payments/gateway", "shop/api", "shop/web"}; fmt.Sprint(got) != fmt.Sprint(want) {
 			t.Fatalf("snapshot = %v, want %v: every namespace in one snapshot", got, want)
 		}
 	case <-time.After(5 * time.Second):
@@ -126,7 +126,7 @@ func TestSeveralNamespacesArriveAsOneSnapshot(t *testing.T) {
 	}
 	select {
 	case snap := <-sub.Snapshot():
-		t.Fatalf("a second snapshot %v: the client would replace the first with it", names(snap))
+		t.Fatalf("a second snapshot %v: the client would replace the first with it", names(snap.All()))
 	case <-time.After(time.Second):
 	}
 }
@@ -148,7 +148,7 @@ func TestARefusedNamespaceNamesItselfAndTheOthersStayLive(t *testing.T) {
 	}
 	select {
 	case snap := <-sub.Snapshot():
-		if got := names(snap); fmt.Sprint(got) != "[shop/api]" {
+		if got := names(snap.All()); fmt.Sprint(got) != "[shop/api]" {
 			t.Fatalf("snapshot = %v, want shop's rows", got)
 		}
 	case <-time.After(5 * time.Second):

@@ -6,6 +6,8 @@ import (
 	"time"
 	"weak"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
 	"github.com/RajaSardar/kubebay/engine/internal/stream"
 )
 
@@ -20,7 +22,10 @@ type sentinel struct{ _ [1 << 10]byte }
 // to something only that object holds.
 func offerOne(sub *Subscription, e *entry) weak.Pointer[sentinel] {
 	s := new(sentinel)
-	sub.offer(e, []stream.Op{{Op: stream.OpAdd, Key: e.key.namespace + "/api", Obj: map[string]any{"held": s}}})
+	sub.offer(e, []any{&unstructured.Unstructured{Object: map[string]any{
+		"metadata": map[string]any{"namespace": e.key.namespace, "name": "api"},
+		"held":     s,
+	}}})
 	return weak.Make(s)
 }
 
@@ -28,7 +33,7 @@ func receive(t *testing.T, sub *Subscription) {
 	t.Helper()
 	select {
 	case snap := <-sub.Snapshot():
-		if len(snap) == 0 {
+		if snap.Len() == 0 {
 			t.Fatal("empty snapshot")
 		}
 	case <-time.After(5 * time.Second):
@@ -40,10 +45,10 @@ func TestASentSnapshotIsntKeptBySubscription(t *testing.T) {
 	shop := &entry{key: poolKey{namespace: "shop"}}
 	payments := &entry{key: poolKey{namespace: "payments"}}
 	sub := &Subscription{
-		Snap:    make(chan []stream.Op, 4),
+		Snap:    make(chan stream.Snapshot, 4),
 		subs:    []*entry{shop, payments},
 		expect:  2,
-		got:     map[*entry][]stream.Op{},
+		got:     map[*entry][]any{},
 		refused: map[*entry]bool{},
 		done:    make(chan struct{}),
 	}

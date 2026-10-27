@@ -90,7 +90,7 @@ func TestLiveDeltaStream(t *testing.T) {
 
 	select {
 	case snap := <-sub.Snapshot():
-		t.Logf("snapshot received: %d configmaps in indexer", len(snap))
+		t.Logf("snapshot received: %d configmaps in indexer", snap.Len())
 	case <-time.After(90 * time.Second):
 		t.Fatal("timeout waiting for initial snapshot")
 	}

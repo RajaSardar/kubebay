@@ -90,10 +90,11 @@ func TestTheStreamCarriesNoFieldSets(t *testing.T) {
 
 	select {
 	case snap := <-sub.Snapshot():
-		if len(snap) != 1 {
-			t.Fatalf("snapshot = %v, want shop/api", names(snap))
+		ops := snap.All()
+		if len(ops) != 1 {
+			t.Fatalf("snapshot = %v, want shop/api", names(ops))
 		}
-		checkTrimmed(t, "snapshot", snap[0].Obj)
+		checkTrimmed(t, "snapshot", ops[0].Obj)
 	case <-time.After(5 * time.Second):
 		t.Fatal("no snapshot")
 	}

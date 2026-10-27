@@ -15,13 +15,13 @@ import (
 )
 
 type closingHandle struct {
-	snap   chan []Op
+	snap   chan Snapshot
 	deltas chan []Op
 }
 
-func (h *closingHandle) ID() string            { return "h1" }
-func (h *closingHandle) Snapshot() <-chan []Op { return h.snap }
-func (h *closingHandle) Deltas() <-chan []Op   { return h.deltas }
+func (h *closingHandle) ID() string                { return "h1" }
+func (h *closingHandle) Snapshot() <-chan Snapshot { return h.snap }
+func (h *closingHandle) Deltas() <-chan []Op       { return h.deltas }
 
 type closingSource struct{ handle *closingHandle }
 
@@ -32,7 +32,7 @@ func (s closingSource) Subscribe(context.Context, string, string, []string, stri
 // When the engine tears a stream down (the cluster was disconnected), the
 // client must be told, or the table keeps showing frozen rows as live.
 func TestHubReportsAStreamTheEngineClosed(t *testing.T) {
-	handle := &closingHandle{snap: make(chan []Op), deltas: make(chan []Op)}
+	handle := &closingHandle{snap: make(chan Snapshot), deltas: make(chan []Op)}
 	hub := NewHub(slog.New(slog.NewTextHandler(io.Discard, nil)), nil)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		hub.Handle(w, r, closingSource{handle}, "")
@@ -89,7 +89,7 @@ func (s reasonSource) Subscribe(context.Context, string, string, []string, strin
 }
 
 func TestHubPassesOnWhyTheEngineClosedAStream(t *testing.T) {
-	handle := reasonHandle{&closingHandle{snap: make(chan []Op), deltas: make(chan []Op)}, ReasonCredentialsChanged}
+	handle := reasonHandle{&closingHandle{snap: make(chan Snapshot), deltas: make(chan []Op)}, ReasonCredentialsChanged}
 	hub := NewHub(slog.New(slog.NewTextHandler(io.Discard, nil)), nil)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		hub.Handle(w, r, reasonSource{handle}, "")
@@ -138,7 +138,7 @@ func (s ctxSource) Subscribe(ctx context.Context, _, _ string, _ []string, _, _ 
 // The auth middleware puts the logged-in identity on the request context;
 // the pool registry reads it from the subscribe context to impersonate.
 func TestHubSubscribesWithTheRequestContext(t *testing.T) {
-	src := ctxSource{handle: &closingHandle{snap: make(chan []Op), deltas: make(chan []Op)}, got: make(chan any, 1)}
+	src := ctxSource{handle: &closingHandle{snap: make(chan Snapshot), deltas: make(chan []Op)}, got: make(chan any, 1)}
 	hub := NewHub(slog.New(slog.NewTextHandler(io.Discard, nil)), nil)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		hub.Handle(w, r.WithContext(context.WithValue(r.Context(), ctxKey{}, "alice")), src, "")

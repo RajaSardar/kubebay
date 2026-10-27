@@ -65,15 +65,16 @@ type Pool struct {
 type Subscription struct {
 	id   string
 	Coal *stream.Coalescer
-	Snap chan []stream.Op
+	Snap chan stream.Snapshot
 	deny chan stream.Denial
 	mu   sync.Mutex // guards the fields below: entries answer from their own goroutines
 	subs []*entry
 	// One snapshot per subscription: each namespace's entry answers once,
 	// with its snapshot or a refusal, and the merged snapshot goes out when
-	// all expect of them have.
+	// all expect of them have. A namespace's snapshot is its informer's own
+	// objects; they become ops a frame at a time as the hub sends them.
 	expect    int
-	got       map[*entry][]stream.Op
+	got       map[*entry][]any
 	refused   map[*entry]bool
 	sent      bool
 	done      chan struct{}
@@ -81,27 +82,27 @@ type Subscription struct {
 	reason    atomic.Value // string: why the engine ended it, "" if the client did
 }
 
-func (s *Subscription) ID() string                   { return s.id }
-func (s *Subscription) Snapshot() <-chan []stream.Op { return s.Snap }
-func (s *Subscription) Deltas() <-chan []stream.Op   { return s.Coal.Out() }
+func (s *Subscription) ID() string                       { return s.id }
+func (s *Subscription) Snapshot() <-chan stream.Snapshot { return s.Snap }
+func (s *Subscription) Deltas() <-chan []stream.Op       { return s.Coal.Out() }
 
 // Denials names the namespaces of the subscription that RBAC refuses.
 func (s *Subscription) Denials() <-chan stream.Denial { return s.deny }
 
 // mergedLocked is the subscription's one snapshot, once every namespace has
 // answered and it hasn't gone out yet. s.mu must be held.
-func (s *Subscription) mergedLocked() ([]stream.Op, bool) {
+func (s *Subscription) mergedLocked() ([]any, bool) {
 	if s.sent || len(s.got)+len(s.refused) < s.expect || len(s.got) == 0 {
 		return nil, false
 	}
 	s.sent = true
-	var out []stream.Op
+	var out []any
 	for _, e := range s.subs {
-		ops, ok := s.got[e]
+		items, ok := s.got[e]
 		if !ok {
 			continue
 		}
-		out = append(out, ops...)
+		out = append(out, items...)
 		// Keep only that e answered: the objects are the client's now, and
 		// holding them would keep a copy of every row alive while subscribed.
 		s.got[e] = nil
@@ -109,21 +110,21 @@ func (s *Subscription) mergedLocked() ([]stream.Op, bool) {
 	return out, true
 }
 
-func (s *Subscription) sendSnapshot(ops []stream.Op) {
+func (s *Subscription) sendSnapshot(items []any) {
 	select {
-	case s.Snap <- ops:
+	case s.Snap <- stream.NewSnapshot(items, addOp):
 	case <-s.done:
 	}
 }
 
-// offer is one namespace's snapshot.
-func (s *Subscription) offer(e *entry, ops []stream.Op) {
+// offer is one namespace's snapshot: its informer's objects.
+func (s *Subscription) offer(e *entry, items []any) {
 	s.mu.Lock()
 	if _, seen := s.got[e]; seen || s.refused[e] {
 		s.mu.Unlock()
 		return
 	}
-	s.got[e] = ops
+	s.got[e] = items
 	merged, ready := s.mergedLocked()
 	s.mu.Unlock()
 	if ready {
@@ -208,10 +209,10 @@ func (p *Pool) Subscribe(ctx context.Context, gvrStr string, namespaces []string
 	sub := &Subscription{
 		id:      fmt.Sprintf("sub-%d", time.Now().UnixNano()),
 		Coal:    stream.NewCoalescer(),
-		Snap:    make(chan []stream.Op, 4),
+		Snap:    make(chan stream.Snapshot, 4),
 		deny:    make(chan stream.Denial, len(nsList)),
 		expect:  len(nsList),
-		got:     map[*entry][]stream.Op{},
+		got:     map[*entry][]any{},
 		refused: map[*entry]bool{},
 		done:    make(chan struct{}),
 	}
@@ -477,17 +478,29 @@ func jsonToMap(v any) map[string]any {
 	return m
 }
 
-func (e *entry) emit(opType string, obj any) {
+// opOf is obj as an op of kind opType, or false for an object without a key.
+func opOf(opType string, obj any) (stream.Op, bool) {
 	m := unwrap(obj)
 	if m == nil {
-		return
+		return stream.Op{}, false
 	}
 	key, err := stream.ObjectKey(m)
 	if err != nil {
+		return stream.Op{}, false
+	}
+	return stream.Op{Op: opType, Key: key, Obj: m}, true
+}
+
+// addOp is a snapshot's object as an op.
+func addOp(obj any) (stream.Op, bool) { return opOf(stream.OpAdd, obj) }
+
+func (e *entry) emit(opType string, obj any) {
+	op, ok := opOf(opType, obj)
+	if !ok {
 		return
 	}
 	select {
-	case e.fanout <- stream.Op{Op: opType, Key: key, Obj: m}:
+	case e.fanout <- op:
 	default:
 	}
 }
@@ -506,21 +519,11 @@ func (p *Pool) drainFanout(e *entry) {
 	}
 }
 
+// deliverSnapshot offers sub the informer's objects as they are now. They
+// are the cache's own, which client-go replaces rather than changes, so they
+// can be read later; they become ops only as the hub sends each frame.
 func (e *entry) deliverSnapshot(sub *Subscription) {
-	items := e.informer.GetIndexer().List()
-	ops := make([]stream.Op, 0, len(items))
-	for _, it := range items {
-		m := unwrap(it)
-		if m == nil {
-			continue
-		}
-		key, err := stream.ObjectKey(m)
-		if err != nil {
-			continue
-		}
-		ops = append(ops, stream.Op{Op: stream.OpAdd, Key: key, Obj: m})
-	}
-	sub.offer(e, ops)
+	sub.offer(e, e.informer.GetIndexer().List())
 }
 
 func (p *Pool) sweeper() {

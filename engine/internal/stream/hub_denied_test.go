@@ -30,7 +30,7 @@ func (s denyingSource) Subscribe(context.Context, string, string, []string, stri
 // A namespace RBAC refuses is named to the client as a "denied" frame; the
 // stream stays open for the subscription's other namespaces.
 func TestHubNamesARefusedNamespace(t *testing.T) {
-	handle := denyingHandle{&closingHandle{snap: make(chan []Op), deltas: make(chan []Op)}, make(chan Denial, 1)}
+	handle := denyingHandle{&closingHandle{snap: make(chan Snapshot), deltas: make(chan []Op)}, make(chan Denial, 1)}
 	hub := NewHub(slog.New(slog.NewTextHandler(io.Discard, nil)), nil)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		hub.Handle(w, r, denyingSource{handle}, "")
