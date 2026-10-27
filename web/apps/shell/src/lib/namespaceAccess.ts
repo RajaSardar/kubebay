@@ -33,6 +33,8 @@ const NONE: string[] = [];
 export interface NamespaceAccess {
   /** The namespaces stream's rows, when it can list them. */
   rows: Record<string, unknown>[];
+  /** The rows are the cluster's whole list. */
+  synced: boolean;
   /** The API server's reason when namespaces can't be listed. */
   forbidden?: string;
   contextNs?: string;
@@ -48,7 +50,7 @@ export function useNamespaceAccess(cluster: string | undefined, { enabled = true
   const contextNs = list.find((c) => c.id === cluster)?.namespace;
   const remembered = useClusterMeta((s) => (cluster ? s.meta[cluster]?.namespaces : undefined) ?? NONE);
   const named = useMemo(() => namedNamespaces(contextNs, remembered), [contextNs, remembered]);
-  return { rows: namespaces.rows, forbidden: namespaces.forbidden, contextNs, remembered, named };
+  return { rows: namespaces.rows, synced: namespaces.synced, forbidden: namespaces.forbidden, contextNs, remembered, named };
 }
 
 /**

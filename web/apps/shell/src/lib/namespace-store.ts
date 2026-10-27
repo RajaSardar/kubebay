@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
 interface NamespaceState {
   /** Maps clusterName → selected namespace names. Empty array means "all namespaces". */
@@ -7,19 +8,42 @@ interface NamespaceState {
   clearNamespaces: (cluster: string) => void;
 }
 
-export const useNamespaceStore = create<NamespaceState>()((set) => ({
-  selections: {},
-  setNamespaces: (cluster, namespaces) =>
-    set((state) => ({
-      selections: { ...state.selections, [cluster]: namespaces },
-    })),
-  clearNamespaces: (cluster) =>
-    set((state) => {
-      const next = { ...state.selections };
-      delete next[cluster];
-      return { selections: next };
+/** Only entries that are lists of names survive a stored copy someone or
+ *  something else wrote. */
+function storedSelections(v: unknown): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  if (!v || typeof v !== "object") return out;
+  for (const [cluster, names] of Object.entries(v)) {
+    if (Array.isArray(names) && names.every((n) => typeof n === "string")) out[cluster] = names;
+  }
+  return out;
+}
+
+// Kept on this machine so a restart comes back to the same namespaces
+// (ADR 0003): a namespace-limited identity doesn't name them again.
+export const useNamespaceStore = create<NamespaceState>()(
+  persist(
+    (set) => ({
+      selections: {},
+      setNamespaces: (cluster, namespaces) =>
+        set((state) => ({
+          selections: { ...state.selections, [cluster]: namespaces },
+        })),
+      clearNamespaces: (cluster) =>
+        set((state) => {
+          const next = { ...state.selections };
+          delete next[cluster];
+          return { selections: next };
+        }),
     }),
-}));
+    {
+      name: "kb.namespaces",
+      version: 1,
+      partialize: (s) => ({ selections: s.selections }),
+      merge: (stored, current) => ({ ...current, selections: storedSelections((stored as { selections?: unknown } | undefined)?.selections) }),
+    },
+  ),
+);
 
 // Stable empty array — reusing the same reference ensures Zustand's Object.is
 // check doesn't see a "new" value every render, which would cause infinite loops.

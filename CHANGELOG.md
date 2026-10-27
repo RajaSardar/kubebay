@@ -7,6 +7,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 ## [Unreleased]
 
 ### Added
+- **The namespaces you pick are kept**: each cluster's namespace selection outlasts a reload and a restart, so the Pods, workload and other lists come back filtered as you left them, and an identity that can't list namespaces doesn't name them again. It's kept on this machine. A kept namespace that has since been deleted stays ticked in the picker, marked "not on this cluster", so you can untick it (ADR 0003)
 - **Kubebay works for someone who can see only some namespaces**: when your identity can't list namespaces (a Rancher project member, a developer on a shared EKS, GKE or OpenShift cluster), the namespace picker starts in your kubeconfig context's namespace instead of a cluster-wide list that never loads. It says "You can't list namespaces on this cluster. Showing the ones you named." with the API server's reason, offers no "All namespaces", and takes typed namespace names (checked to be valid names), which it remembers for that cluster and can forget. The Workloads Overview, which reads the whole cluster, offers "Open Pods in shop" instead of only saying what it can't list, and Topology offers your namespaces instead of `default`. Nothing changes for an identity that can list namespaces (ADR 0003)
 - **Three more performance budgets measured in CI**: the `perf (kind)` job now also measures, on every pull request:
   - the time from a pod being created to its row painted on the Pods page (p95 of 30);
