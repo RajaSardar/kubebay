@@ -99,6 +99,11 @@ func (s *Subscription) mergedLocked() ([]stream.Op, bool) {
 	for _, e := range s.subs {
 		out = append(out, s.got[e]...)
 	}
+	// Each namespace stays marked as answered, but its objects go: holding
+	// them would keep a copy of the whole snapshot while the page is open.
+	for e := range s.got {
+		s.got[e] = nil
+	}
 	return out, true
 }
 
