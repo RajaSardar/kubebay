@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useQuery as useRQQuery } from "@tanstack/react-query";
-import { Badge, Card, PageHeader, Row, SegmentedControl, Select, Skeleton, Stack } from "@kubebay/ui";
+import { Badge, Button, Card, PageHeader, Row, SegmentedControl, Select, Skeleton, Stack } from "@kubebay/ui";
 import { useCluster } from "../lib/useCluster";
 import { useResourceStream, shouldShowSkeleton } from "../lib/useResourceStream";
 import { deniedStreams } from "../lib/forbidden";
@@ -25,7 +25,8 @@ import { CapacityLine } from "../components/CapacityLine";
 import { clusterCapacity } from "../lib/capacity";
 import { HealthVerdictLine } from "../components/HealthVerdictLine";
 import { healthVerdict, warningTrend } from "../lib/verdict";
-import { useSelectedNamespaces } from "../lib/namespace-store";
+import { useNamespaceStore, useSelectedNamespaces } from "../lib/namespace-store";
+import { useNamespaceAccess } from "../lib/namespaceAccess";
 import { RolloutsInProgress } from "../components/RolloutsInProgress";
 import { rolloutsInProgress } from "../lib/rolloutsInProgress";
 import { PodStatusBar } from "../components/PodStatusBar";
@@ -87,6 +88,24 @@ export default function WorkloadsOverview() {
   const scope = useMemo(() => (showAllNs ? [] : selectedNs), [showAllNs, selectedNs]);
 
   const { kinds, synced, denied, daemonSets } = useKindCounts(pods, nodes, deployments, statefulSets, effectiveCluster || undefined);
+
+  // ADR 0003: this page reads the whole cluster, so an identity that can't
+  // list namespaces is sent to its Pods, in the namespaces it named.
+  const navigate = useNavigate();
+  const setNamespaces = useNamespaceStore((s) => s.setNamespaces);
+  const nsAccess = useNamespaceAccess(effectiveCluster || undefined, { enabled: denied.length > 0 });
+  const podsIn = selectedNs.length > 0 ? selectedNs : nsAccess.named;
+  const openPods =
+    effectiveCluster && nsAccess.forbidden && podsIn.length > 0 ? (
+      <Button
+        onClick={() => {
+          setNamespaces(effectiveCluster, podsIn);
+          navigate("/workloads");
+        }}
+      >
+        Open Pods in {podsIn.length === 1 ? podsIn[0] : `${podsIn.length} namespaces`}
+      </Button>
+    ) : undefined;
 
   // SPOF Radar's own resources -- only opened once that tab is actually
   // selected, same gating discipline the Pressure tab's podMetricsQ uses.
@@ -270,7 +289,7 @@ export default function WorkloadsOverview() {
           <RouteResolutionList routes={routes} />
         </Stack>
       ) : shouldShowSkeleton(synced, totals.total) && denied.length > 0 ? (
-        <ForbiddenState denied={denied} />
+        <ForbiddenState denied={denied} action={openPods} />
       ) : shouldShowSkeleton(synced, totals.total) ? (
         <div className="cluster-grid">
           {[0, 1, 2, 3, 4, 5].map((i) => (

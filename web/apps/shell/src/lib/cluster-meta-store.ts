@@ -6,6 +6,9 @@ export interface ClusterMeta {
   pinned?: boolean;
   hidden?: boolean;
   lastUsed?: number;
+  /** Namespaces typed into the picker for a cluster that won't list its
+   *  namespaces (ADR 0003): where this identity can look. */
+  namespaces?: string[];
 }
 
 interface ClusterMetaState {
@@ -15,6 +18,8 @@ interface ClusterMetaState {
   hide: (id: string) => void;
   show: (id: string) => void;
   touchLastUsed: (id: string) => void;
+  rememberNamespace: (id: string, ns: string) => void;
+  forgetNamespace: (id: string, ns: string) => void;
 }
 
 export const useClusterMeta = create<ClusterMetaState>()(
@@ -42,6 +47,16 @@ export const useClusterMeta = create<ClusterMetaState>()(
       show: (id) =>
         set((s) => ({
           meta: { ...s.meta, [id]: { ...s.meta[id], hidden: false } },
+        })),
+      rememberNamespace: (id, ns) =>
+        set((s) => {
+          const known = s.meta[id]?.namespaces ?? [];
+          if (known.includes(ns)) return s;
+          return { meta: { ...s.meta, [id]: { ...s.meta[id], namespaces: [...known, ns] } } };
+        }),
+      forgetNamespace: (id, ns) =>
+        set((s) => ({
+          meta: { ...s.meta, [id]: { ...s.meta[id], namespaces: (s.meta[id]?.namespaces ?? []).filter((n) => n !== ns) } },
         })),
       touchLastUsed: (id) =>
         set((s) => ({

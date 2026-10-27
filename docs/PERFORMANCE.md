@@ -109,41 +109,66 @@ changes the budget with this evidence. No README or website copy may claim it
 meanwhile. CI's
 10k row can't catch it: 10k pods sit well inside 400 MB.
 
-### Where the memory went (2026-10-27)
+### Where the memory goes (heap profile, 2026-10-27)
 
-A heap profile of the engine watching the same 100k pods (Go's `pprof`, in a
-scratch build) found three causes:
+Same machine shape, envtest API server (Kubernetes 1.31), the same generated
+pods, one Pods-page subscription in metadata mode, engine at 7f69174. The engine
+was built with `net/http/pprof` added through `go build -overlay` (nothing in
+the repo serves it). RSS was sampled from 10 s to 3 minutes after sync, and the
+heap profile taken after a forced GC.
 
-1. **Each subscription kept its snapshot.** Since one snapshot per
-   subscription (#181), a subscription held every namespace's copy of its
-   objects for as long as it lived: 950 MB of the 1,164 MB live heap. It now
-   lets them go once the snapshot is sent.
-2. **managedFields' field sets were most of every object.** `fieldsV1` is 48 of
-   the 51 maps in a pod's metadata, in the cache and in every snapshot's copy.
-   The informers now drop it as objects arrive; each entry's manager and time
-   stay.
-3. **The Cost/Waste sampler listed every pod at once, every minute,** with or
-   without the page open: about 1.6 GB of garbage a tick. It now lists 500 at a
-   time.
+| Pods | Engine | Live heap | RSS 10 s | RSS 60 s | RSS 3 min |
+|---|---|---|---|---|---|
+| 20,000 | 7f69174 | 242.7 MB | 421 MB | 621 MB | 717 MB at 2 min |
+| 20,000 | fixed | 50.7 MB | 438 MB | 553 MB | 375 MB at 2 min |
+| 100,000 | 7f69174 | 1,187 MB | 1,923 MB | 2,883 MB | 3,498 MB |
+| 100,000 | fixed | 226 MB | 2,040 MB | 2,363 MB | 1,853 MB |
 
-The same 100k pods, before and after the three fixes. A script connects the
-engine and subscribes to every pod as the Pods page does, then reads the
-engine's RSS 10 s after sync (where CI samples) and 70 s after, and its live
-heap after a forced garbage collection:
+- **A subscription kept its snapshot (fixed).** Since #181 merged a
+  subscription's namespaces into one snapshot, the subscription kept every
+  namespace's part after sending it: in metadata mode, a map copy of every
+  object, for as long as the page stayed open. That was 78% of the live heap at
+  20k pods. The GC lets the heap grow to twice what's live before it collects,
+  so RSS kept climbing while the page sat idle. The subscription now keeps only which namespaces answered
+  (`pool_snapshot_test.go`).
+- **What stays live is the informer's own copy.** With the fix, 186 MB of the
+  235 MB heap at 100k pods is the typed metadata client-go keeps, about 1.9 KB a
+  pod, and 87 MB of that is `managedFields`. That fits the budget.
+- **RSS is the sync's peak, not what the engine keeps.** Every object is turned
+  into a map twice during the first sync (once as the list arrives, once for
+  the snapshot), each time through a JSON round trip. The Go runtime hands the
+  freed memory back to the OS slowly, so RSS is about 2 GB at sync and still
+  1.85 GB three minutes later, with 226 MB live.
+- **The waste sampler lists every pod in full once a minute.** One tick
+  allocates 176 MB at 20k pods (`podsAndOwners`), and its first tick after sync
+  added about 320 MB of RSS at 100k pods (2,040 → 2,363 MB). It lists whether
+  or not anyone has the Cost page open.
 
-| Mode | RSS at sync + 10 s | RSS at sync + 70 s | Live heap |
+What would bring RSS at 100k pods under 400 MB, each its own PR:
+- Convert objects to maps per frame as the snapshot goes out, not all at once,
+  and without the JSON round trip. **Still open.**
+- Feed the waste sampler from the pods informer, or sample only while its page
+  is open. **Done differently:** it lists 500 objects a page and totals pods
+  page by page, so a tick holds one page. It still lists once a minute.
+- Leave `managedFields` out of the metadata informers' store. **Done, in part:**
+  every informer drops each entry's field set (`fieldsV1`, 48 of the 51 maps in
+  a generated pod's metadata) as objects arrive, and keeps the entries. Of the
+  readers: the Rollout tab reads when each manager wrote, which stays; Upgrade
+  Readiness reads no managedFields (its comment explains why it can't); the MCP
+  tools strip managedFields before they use an object.
+
+With those two, the same 100k pods against a Kubernetes 1.34 envtest API
+server, RSS 10 s and 70 s after sync, live heap after a forced GC:
+
+| Mode | Live heap | RSS 10 s | RSS 70 s |
 |---|---|---|---|
-| metadata, before | 2,041 MB | 2,620 MB | 1,164 MB |
-| metadata, after | 833 MB | **352 MB** | 140 MB |
-| full, before | 2,576 MB | 3,174 MB | 1,482 MB |
-| full, after | 1,722 MB | 1,727 MB | 772 MB |
+| metadata | 140 MB | 833 MB | **352 MB** |
+| full | 772 MB | 1,722 MB | 1,727 MB |
 
-**What's left.** At sync the engine still turns every object into an op before
-the first frame goes out, so metadata mode's RSS peaks at about 830 MB and
-falls only as Go hands the memory back. The fix is to build the snapshot a
-frame at a time. Full mode, which the Pods page uses and the PRD's budget
-doesn't cover, holds 772 MB of cached pods as Go maps, and RSS settles at
-about twice that.
+Metadata mode now settles under the 400 MB budget, though RSS still peaks at
+about 830 MB at sync, while the snapshot is built whole. Full mode, which the
+Pods page uses and the budget doesn't cover, holds 772 MB of cached pods as Go
+maps (1,482 MB before), and its RSS settles at about twice that.
 
 ## Found by measuring
 
