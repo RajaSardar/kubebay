@@ -48,6 +48,20 @@ describe("NamespaceFilter", () => {
     expect(screen.queryByRole("group")).not.toBeInTheDocument();
     expect(screen.getAllByRole("option").slice(1).map((o) => o.textContent)).toEqual(["a", "b"]);
   });
+
+  // A remembered selection can name a namespace deleted since: it stays,
+  // marked, so it can be unticked instead of filtering lists to nothing unseen.
+  it("keeps a selected namespace the cluster no longer has, so it can be unticked", () => {
+    stream.rows = [ns("shop"), ns("payments")];
+    useNamespaceStore.getState().setNamespaces("prod", ["shop", "gone"]);
+    renderFilter("prod");
+    fireEvent.click(screen.getByRole("button", { name: "2 namespaces" }));
+    const gone = screen.getByRole("option", { name: /gone/, selected: true });
+    expect(gone).toHaveTextContent("not on this cluster");
+    expect(screen.getByRole("option", { name: /shop/ })).not.toHaveTextContent("not on this cluster");
+    fireEvent.click(gone);
+    expect(useNamespaceStore.getState().selections.prod).toEqual(["shop"]);
+  });
 });
 
 // ADR 0003: when RBAC won't list namespaces, the picker offers the ones the

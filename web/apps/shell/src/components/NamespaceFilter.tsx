@@ -32,8 +32,7 @@ export function NamespaceFilter({ cluster }: { cluster: string | undefined }) {
   const fallback = !!access.forbidden;
 
   // Each namespace with its Rancher project (KB-08), "" when it has none.
-  const all = useMemo(() => {
-    if (fallback) return [...new Set([...access.named, ...selected])].map((name) => ({ name, project: "" }));
+  const listed = useMemo(() => {
     return access.rows
       .map((r) => {
         const meta = ((r ?? {}) as Record<string, unknown>).metadata as
@@ -41,9 +40,22 @@ export function NamespaceFilter({ cluster }: { cluster: string | undefined }) {
           | undefined;
         return { name: meta?.name ?? "", project: rancherProject(meta) };
       })
-      .filter((n) => n.name)
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [fallback, access.named, access.rows, selected]);
+      .filter((n) => n.name);
+  }, [access.rows]);
+  // A remembered selection can name a namespace deleted since; it stays
+  // here, marked, so it can be unticked (ADR 0003 PR C).
+  const missing = useMemo(() => {
+    if (fallback || !access.synced) return new Set<string>();
+    const names = new Set(listed.map((n) => n.name));
+    return new Set(selected.filter((n) => !names.has(n)));
+  }, [fallback, access.synced, listed, selected]);
+  const all = useMemo(() => {
+    if (fallback) return [...new Set([...access.named, ...selected])].map((name) => ({ name, project: "" }));
+    const names = new Set(listed.map((n) => n.name));
+    return [...listed, ...selected.filter((n) => !names.has(n)).map((name) => ({ name, project: "" }))].sort((a, b) =>
+      a.name.localeCompare(b.name),
+    );
+  }, [fallback, access.named, listed, selected]);
 
   const filtered = useMemo(() => {
     if (!search) return all;
@@ -219,6 +231,7 @@ export function NamespaceFilter({ cluster }: { cluster: string | undefined }) {
                       {isSelected ? "✓" : ""}
                     </span>
                     {ns}
+                    {missing.has(ns) && <span className="muted small">not on this cluster</span>}
                   </button>
                 );
                 // A typed namespace can be forgotten; the context's can't.
