@@ -69,6 +69,7 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { ClusterConnectingOverlay } from "./components/ClusterConnectingOverlay";
 import { PageSkeleton } from "./components/PageSkeleton";
 import { usePrewarm } from "./lib/usePrewarm";
+import { useNamespaceFallback } from "./lib/namespaceAccess";
 import { useRemoteDisconnects } from "./lib/useRemoteDisconnects";
 import { useSidebar, type SidebarState } from "./lib/useSidebar";
 import { HideSidebarButton, ShowSidebarButton } from "./components/SidebarToggle";
@@ -545,6 +546,8 @@ function AppInner() {
   // Pre-warm backend informers for the most-visited GVRs so first renders are
   // instant — same technique as FreeLens's persistent KubeObjectStore subscriptions.
   usePrewarm(effectiveActive || undefined);
+  // An identity that can't list namespaces starts in the ones it named (ADR 0003).
+  useNamespaceFallback(effectiveActive || undefined);
   const activeCluster = list.find((c) => c.id === effectiveActive);
 
   const setActive = (id: string) => {

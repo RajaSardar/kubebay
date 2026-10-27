@@ -77,6 +77,8 @@ export function useResourceStream(
   const [epoch, setEpoch] = useState(0);
 
   const specKey = `${cluster ?? ""}|${gvr}|${opts.ns?.join(",") ?? "*"}|${opts.labelSelector ?? ""}|${opts.mode ?? "metadata"}`;
+  // Not part of the cache key, but a stream enabled late must still subscribe.
+  const enabled = opts.enabled !== false;
 
   // Schedules a debounced flush (16 ms = one animation frame). All WS mutations
   // call this. Collapses rapid-fire delta bursts into a single re-render while
@@ -95,7 +97,7 @@ export function useResourceStream(
     // A re-sync buffer belongs to one subscription. Left over from the previous
     // spec, the next "sync" would swap its rows in: another resource's rows.
     resyncRef.current = null;
-    if (!cluster || opts.enabled === false) {
+    if (!cluster || !enabled) {
       storeRef.current = new Map();
       metaRef.current = { synced: false, connected: false };
       setEpoch((e) => e + 1);
@@ -215,7 +217,7 @@ export function useResourceStream(
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [specKey]);
+  }, [specKey, enabled]);
 
   // Derive the rows array from the Map only when the epoch changes.
   const rows = useMemo(

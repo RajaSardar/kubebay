@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import type { ComponentType } from "react";
@@ -10,8 +10,9 @@ import type { ComponentType } from "react";
 
 const forbidden = new Map<string, string>();
 
+const clusterList = vi.hoisted(() => ({ value: [{ id: "c1" }] as { id: string; namespace?: string }[] }));
 vi.mock("../../lib/useCluster", () => ({
-  useCluster: () => ({ cluster: "c1", setCluster: vi.fn(), list: [{ id: "c1" }], isLoading: false }),
+  useCluster: () => ({ cluster: "c1", setCluster: vi.fn(), list: clusterList.value, isLoading: false }),
 }));
 
 vi.mock("../../lib/useResourceStream", () => ({
@@ -46,7 +47,30 @@ async function renderPage(load: () => Promise<{ default: ComponentType }>) {
 }
 
 describe("pages whose streams RBAC forbids", () => {
-  beforeEach(() => forbidden.clear());
+  beforeEach(async () => {
+    vi.mocked((await import("../../lib/useResourceStream")).useResourceStream).mockClear();
+    forbidden.clear();
+    clusterList.value = [{ id: "c1" }];
+  });
+
+  it("Workloads Overview leads a namespace-limited identity to its Pods (ADR 0003)", async () => {
+    forbidden.set("v1/pods", msg("pods"));
+    forbidden.set("v1/namespaces", msg("namespaces"));
+    clusterList.value = [{ id: "c1", namespace: "shop" }];
+    const { useNamespaceStore } = await import("../../lib/namespace-store");
+    useNamespaceStore.setState({ selections: {} });
+    await renderPage(() => import("../WorkloadsOverview"));
+    fireEvent.click(await screen.findByRole("button", { name: "Open Pods in shop" }));
+    expect(useNamespaceStore.getState().selections.c1).toEqual(["shop"]);
+  });
+
+  it("Workloads Overview asks about namespaces only once something is refused", async () => {
+    const { useResourceStream } = await import("../../lib/useResourceStream");
+    await renderPage(() => import("../WorkloadsOverview"));
+    const asked = vi.mocked(useResourceStream).mock.calls.filter(([, gvr]) => gvr === "v1/namespaces");
+    expect(asked.length).toBeGreaterThan(0);
+    expect(asked.every(([, , opts]) => opts?.enabled === false)).toBe(true);
+  });
 
   it("Workloads Overview names every kind it can't list instead of sketching cards forever", async () => {
     forbidden.set("v1/pods", msg("pods"));

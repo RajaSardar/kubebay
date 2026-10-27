@@ -2,7 +2,7 @@
 
 - **Status:** Accepted (2026-10-22). Raja asked for a design debate and a ruling. Four advocates argued (a configured namespace list, automatic discovery in the engine, a minimal web-led picker, a cost-and-honesty skeptic), and a judge checked their claims against the code before ruling.
 - **Date:** 2026-10-22
-- **Implemented by:** PR A (this ADR's PR); PR B and PR C follow.
+- **Implemented by:** PR A (#181, with this ADR); PR B (namespace-limited users can use the app); PR C follows.
 
 ## Context
 
@@ -32,8 +32,9 @@ Facts the ruling rests on:
 
 ## The PRs
 
-- **PR A (this one):** one snapshot per subscription; the `denied` frame; MCP's prompt refusal; `useResourceStream` exposes `denied` and drops the refused namespace's rows; the lists show the warning.
+- **PR A (#181):** one snapshot per subscription; the `denied` frame; MCP's prompt refusal; `useResourceStream` exposes `denied` and drops the refused namespace's rows; the lists show the warning.
 - **PR B, before launch:** `Cluster.Namespace` from the kubeconfig context. When namespaces can't be listed, the picker selects the context namespace, has no "All namespaces" row, says "You can't list namespaces on this cluster. Showing the ones you named.", and takes a typed namespace (DNS-1123 validated), saved per cluster. Topology uses the named list instead of falling back to `default`. The Overview's ForbiddenState offers "Open Pods in <namespace>". Admins see no change.
+  - As built: the shell selects the named namespaces (`useNamespaceFallback`) only when the selection is empty, so a pick the person made stands. The last selected namespace can't be unticked, since an empty selection means "all". Typed namespaces can be forgotten; the context's can't. The Overview opens its namespaces stream only once one of its own streams is refused, which needed `useResourceStream` to subscribe when `enabled` turns true (before, a stream that started disabled never subscribed, which also left the Overview's SPOF Radar and Service Health tabs without their PodDisruptionBudgets, Services and EndpointSlices).
 - **PR C:** persist the namespace selection, which `NetworkPolicy.tsx` already claims happens.
 
 ## Deferred

@@ -14,6 +14,7 @@ import { PageLoader } from "../components/PageLoader";
 import { useCluster } from "../lib/useCluster";
 import { useResourceStream } from "../lib/useResourceStream";
 import { useSingleNamespace } from "../lib/namespace-store";
+import { namespaceOptions, useNamespaceAccess } from "../lib/namespaceAccess";
 import { buildTopology, type KObj, type TopoNode } from "../lib/topology";
 import PodPanel from "./PodPanel";
 
@@ -104,14 +105,12 @@ const NODE_TYPES = {
 export default function Topology() {
   const { cluster: effectiveCluster, setCluster, list } = useCluster();
 
-  const namespaces = useResourceStream(effectiveCluster || undefined, "v1/namespaces", { mode: "metadata" });
+  // An identity that can't list namespaces picks from the ones it named (ADR 0003).
+  const namespaces = useNamespaceAccess(effectiveCluster || undefined);
   const nsOptions = useMemo(() => {
-    const names = namespaces.rows
-      .map((r) => (r as KObj).metadata?.name)
-      .filter((n): n is string => !!n)
-      .sort();
-    return names.length ? names : ["default"];
-  }, [namespaces.rows]);
+    const names = namespaces.rows.map((r) => (r as KObj).metadata?.name).filter((n): n is string => !!n);
+    return namespaceOptions(names, !!namespaces.forbidden, namespaces.named);
+  }, [namespaces.rows, namespaces.forbidden, namespaces.named]);
 
   const [rawNs, setRawNs] = useSingleNamespace(effectiveCluster || undefined, "default");
   const effectiveNs = nsOptions.includes(rawNs) ? rawNs : nsOptions[0] ?? "default";

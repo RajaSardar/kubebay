@@ -1,11 +1,13 @@
+import type { ReactNode } from "react";
 import { EmptyState } from "@kubebay/ui";
 import { listKinds, type Denied } from "../lib/forbidden";
 
 /**
  * What RBAC doesn't let this identity list, in place of a loader that would
- * never finish: one line naming the kinds, then each API server reason.
+ * never finish: one line naming the kinds, then each API server reason, and
+ * where this identity can look instead when the page knows.
  */
-export function ForbiddenState({ denied }: { denied: readonly Denied[] }) {
+export function ForbiddenState({ denied, action }: { denied: readonly Denied[]; action?: ReactNode }) {
   return (
     <EmptyState>
       <p>You can't list {listKinds(denied.map((d) => d.what))} here.</p>
@@ -14,6 +16,7 @@ export function ForbiddenState({ denied }: { denied: readonly Denied[] }) {
           {d.reason}
         </p>
       ))}
+      {action}
     </EmptyState>
   );
 }

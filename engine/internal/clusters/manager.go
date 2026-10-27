@@ -48,9 +48,12 @@ type Cluster struct {
 	ID      string `json:"id"`
 	Context string `json:"context"`
 	Server  string `json:"server"`
-	Status  Status `json:"status"`
-	Version string `json:"version,omitempty"`
-	Error   string `json:"error,omitempty"`
+	// Namespace is the kubeconfig context's namespace, where its user looks
+	// first; a namespace-limited identity starts there (ADR 0003).
+	Namespace string `json:"namespace,omitempty"`
+	Status    Status `json:"status"`
+	Version   string `json:"version,omitempty"`
+	Error     string `json:"error,omitempty"`
 	// CheckedAt is when the reachability probe last finished.
 	CheckedAt *time.Time `json:"checkedAt,omitempty"`
 	// Connected is the user's session state (streams open), not reachability.
@@ -309,8 +312,9 @@ func (m *Manager) Load() error {
 		if legacyExec {
 			m.log.Info("exec plugin configured for v1alpha1; asking it for v1beta1", "context", name)
 		}
-		server := ""
-		if ctxCfg, ok := raw.Contexts[name]; ok && raw.Clusters != nil {
+		server, namespace := "", ""
+		if ctxCfg, ok := raw.Contexts[name]; ok {
+			namespace = ctxCfg.Namespace
 			if cl, ok := raw.Clusters[ctxCfg.Cluster]; ok {
 				server = cl.Server
 			}
@@ -352,6 +356,7 @@ func (m *Manager) Load() error {
 				ID:        id,
 				Context:   name,
 				Server:    server,
+				Namespace: namespace,
 				Status:    status,
 				Version:   version,
 				Error:     errStr,

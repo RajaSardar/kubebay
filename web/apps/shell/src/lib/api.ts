@@ -58,6 +58,8 @@ export interface ClusterInfo {
   checkedAt?: string;
   version?: string;
   error?: string;
+  /** The kubeconfig context's namespace, when it sets one. */
+  namespace?: string;
 }
 
 async function get<T>(path: string): Promise<T> {
