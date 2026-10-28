@@ -7,6 +7,11 @@ import { IconButton } from "./shell";
 // (vim, completion popups).
 const KEEPS_ESCAPE = "input, textarea, select, [contenteditable='true'], .xterm, .monaco-editor";
 
+// A press here is still the drawer's though it lands outside the panel: a
+// dialog, menu or list it opened (portalled to <body>), or a modal's backdrop,
+// which closes only the modal.
+const STAYS_OPEN = "[role='dialog'], [role='menu'], [role='listbox'], .kb-modal-backdrop";
+
 const FOCUSABLE =
   "a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])";
 
@@ -36,7 +41,10 @@ export interface DrawerProps {
   leading?: ReactNode;
   /** Buttons at the end of the head: pop-out, Delete, Close. */
   actions?: ReactNode;
-  /** Escape closes the panel (not while typing in a field, editor or terminal). */
+  /**
+   * Escape closes the panel (not while typing in a field, editor or terminal),
+   * and so does a press anywhere else on the page.
+   */
   onClose: () => void;
   /** Fill the page instead of sliding over it (the full-page resource view). */
   embedded?: boolean;
@@ -48,6 +56,19 @@ export function Drawer({ title, subtitle, subtitleMono = true, leading, actions,
   const ref = useRef<HTMLElement>(null);
   const titleId = useId();
   useFocusReturn(ref, !embedded, () => null);
+
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  useEffect(() => {
+    if (embedded) return;
+    const onPointerDown = (e: PointerEvent) => {
+      const target = e.target as Element | null;
+      if (e.button !== 0 || !target?.isConnected || ref.current?.contains(target) || target.closest?.(STAYS_OPEN)) return;
+      onCloseRef.current();
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [embedded]);
 
   const onKeyDown = (e: KeyboardEvent) => {
     if (embedded || e.key !== "Escape" || e.defaultPrevented) return;

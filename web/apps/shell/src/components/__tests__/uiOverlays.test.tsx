@@ -63,6 +63,55 @@ describe("Drawer", () => {
     expect(opener).toHaveFocus();
   });
 
+  // Root backlog #15: a click outside an open drawer closes it.
+  it("closes when you press anywhere else on the page", () => {
+    const onClose = vi.fn();
+    render(
+      <>
+        <button type="button">Elsewhere</button>
+        <Drawer title="api" onClose={onClose}>
+          <button type="button">Inside</button>
+        </Drawer>
+      </>,
+    );
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Inside" }));
+    expect(onClose).not.toHaveBeenCalled();
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Elsewhere" }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+    // A right-click is for a menu, not for closing the panel.
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Elsewhere" }), { button: 2 });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("stays open for a press in a dialog or menu it opened, or on that dialog's backdrop", () => {
+    const onClose = vi.fn();
+    const onModalClose = vi.fn();
+    render(
+      <Drawer title="api" onClose={onClose}>
+        <Modal label="Delete api?" onClose={onModalClose}>
+          <button type="button">Confirm</button>
+        </Modal>
+        <div role="menu"><button type="button" role="menuitem">Copy name</button></div>
+      </Drawer>,
+    );
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Confirm" }));
+    fireEvent.pointerDown(screen.getByRole("menuitem", { name: "Copy name" }));
+    fireEvent.pointerDown(document.querySelector(".kb-modal-backdrop")!);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("doesn't close the full-page view on a press outside it", () => {
+    const onClose = vi.fn();
+    render(
+      <>
+        <button type="button">Elsewhere</button>
+        <Drawer title="api" embedded onClose={onClose} />
+      </>,
+    );
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Elsewhere" }));
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
   it("can set the subtitle in the proportional face", () => {
     render(<Drawer title="nginx" subtitle="A web server" subtitleMono={false} onClose={() => {}} />);
     expect(screen.getByText("A web server")).toHaveClass("drawer-subtitle");

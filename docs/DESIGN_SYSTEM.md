@@ -43,7 +43,8 @@ https://claude.ai/artifact/J35D45QQ7X6Sgd7mwfRSnF
    `Stack`, never an inline `display: flex`; spacing between children is their
    `gap`, not margins. A panel about one resource is a `Drawer` (it closes on Escape,
    except while the user types in a field, the YAML editor or the terminal,
-   and hands focus back when it closes); anything that must hold focus until
+   and on a press anywhere else on the page, except in a dialog, menu or list
+   it opened; it hands focus back when it closes); anything that must hold focus until
    dismissed is a `Modal`, which renders into `document.body` so a translucent
    ancestor cannot clip it. A centred dialog says what it is with `title`,
    not a hand-made heading row: the title names the dialog, a Close button

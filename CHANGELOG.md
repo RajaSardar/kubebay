@@ -69,6 +69,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 - **The desktop window follows the theme**: the title bar and the window behind the page take the chosen theme's appearance and colour (or follow macOS for System), and the next launch opens in them instead of flashing the OS default
 
 ### Changed
+- **Clicking outside a drawer closes it**: a press anywhere else on the page closes the open resource drawer, as Escape does. A dialog, menu or list the drawer opened, or a dialog's backdrop, leaves it open, and so does a right-click. The full-page view of a resource stays as it is. Closing a pod's drawer this way ends its terminal and log stream, as closing it any other way does
 - **Performance budgets fail the build**: the `perf (kind)` CI job now fails when the engine goes over a PRD §6 budget (cold start ≤ 1.5 s, idle RSS ≤ 150 MB, idle CPU ≤ 1%, 10k pods watched ≤ 400 MB), instead of warning. Main had three runs in a row within every budget first; `docs/PERFORMANCE.md` has the numbers
 - **Helm 4 and Kubernetes 1.37 libraries** (ADR 0002): the Helm page runs on the Helm 4.3 SDK instead of Helm 3.19.5, which gets no more fixes (Helm 3's security support ends 2027-02-10). client-go and the other `k8s.io` modules move from v0.34.10 to v0.37.1. What you'll notice:
   - New installs are **server-side applied**, Helm 4's default. Upgrades and rollbacks keep the method the release was created with, so releases Helm 3 installed stay client-side.
