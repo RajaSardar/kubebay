@@ -69,9 +69,7 @@ the Budgets step (`--fail`). A budget that isn't measured is listed as "not
 measured" and doesn't fail.
 
 A budget marked `warnOnly` is a warning instead, "over (warning only)" in the
-summary, until it has three stable runs on main; then the flag comes out. The
-four added on 2026-10-22 (three clusters idle, watch to paint, scrolling) are
-warn-only.
+summary, until it has three stable runs on main; then the flag comes out.
 
 The budgets began as warnings (KB-02 step 4) and became failures on 2026-10-17,
 after three stable runs on main:
@@ -82,6 +80,22 @@ after three stable runs on main:
 | e0c1d1f | 160 ms | 98.5 MB | 0% | 277.7 MB |
 | 61f9c3d | 250 ms | 96.1 MB | 0.1% | 281.8 MB |
 | **Limit** | 1500 ms | 150 MB | 1% | 400 MB |
+
+The four added on 2026-10-22 began as warnings too. Three of them became
+failures on 2026-10-28, after three stable runs on main:
+
+| Run (commit) | Watch to paint, p95 | Idle RSS, 3 clusters | Idle CPU, 3 clusters | Scrolling 100k rows |
+|---|---|---|---|---|
+| f578e2b | 59 ms | 67.6 MB | 0% | 57.4 fps |
+| 76ccd3c | 60 ms | 69.1 MB | 0% | 59.2 fps |
+| 2e17488 | 61 ms | 69.2 MB | 0% | 60 fps |
+| **Limit** | 100 ms | 250 MB | 1% | at least 55 fps |
+
+**Scrolling still warns.** Every run has been within its budget, but only just:
+57.4 to 60 fps against 55, where 60 is the browser's ceiling. A slower runner
+could fail a build for nothing the change did, so it stays `warnOnly`. Making
+it fail would need a steadier measurement first, such as the median of several
+passes.
 
 A budget changes only through an ADR with evidence, as the PRD says.
 
