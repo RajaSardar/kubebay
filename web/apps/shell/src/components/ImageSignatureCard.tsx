@@ -1,4 +1,5 @@
 import { Badge, Card, Row, Stack } from "@kubebay/ui";
+import { CardHelp } from "./PageHelp";
 import type { ImageSignatureReport } from "../lib/imageSignature";
 import { ControlTags } from "./ControlTags";
 import { controlsFor } from "../lib/controlIds";
@@ -36,6 +37,7 @@ export function ImageSignatureCard({ report, enginesInstalled }: { report: Image
     <Card style={{ marginBottom: 16 }}>
       <Row align="center" gap={2} className="rbac-section-title">
         Image signature verification
+        <CardHelp card="image-signature-verification" />
         <Badge tone={s.tone}>{s.label}</Badge>
         <ControlTags controls={controlsFor("unverified-images")} />
       </Row>

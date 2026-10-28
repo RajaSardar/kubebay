@@ -1,4 +1,5 @@
 import { Badge, Card, DataTable, Row, Stack } from "@kubebay/ui";
+import { CardHelp } from "./PageHelp";
 import type { AttackPath } from "../lib/attackPaths";
 
 /**
@@ -12,6 +13,7 @@ export function AttackPathsCard({ paths, trivyInstalled }: { paths: AttackPath[]
       <Stack gap={3}>
         <Row align="center" gap={2} wrap>
           <strong>Attack paths</strong>
+          <CardHelp card="attack-paths" />
           <Badge>read-only</Badge>
           {paths.length > 0 && (
             <span className="small">

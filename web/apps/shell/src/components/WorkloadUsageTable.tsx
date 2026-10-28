@@ -1,4 +1,5 @@
-import { Card, DataTable, EmptyState } from "@kubebay/ui";
+import { Card, DataTable, EmptyState, Row } from "@kubebay/ui";
+import { CardHelp } from "./PageHelp";
 import { formatCpuMillis, formatMemBytes, type RightSizingRow } from "../lib/rightsizing";
 
 /**
@@ -22,7 +23,10 @@ export function WorkloadUsageTable({ rows }: { rows: RightSizingRow[] }) {
 
   return (
     <Card>
-      <div className="rbac-section-title">Workload usage vs requests</div>
+      <Row align="center" gap={2} className="rbac-section-title">
+        Workload usage vs requests
+        <CardHelp card="workload-usage" />
+      </Row>
       <DataTable
         rows={rows}
         rowKey={(r, i) => `${r.ns}/${r.workloadName}/${i}`}

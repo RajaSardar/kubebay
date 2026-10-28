@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { Badge, Card, DataTable, Row, Stack } from "@kubebay/ui";
+import { CardHelp } from "./PageHelp";
 import { useClusterHistorySeries } from "../lib/useClusterHistorySeries";
 import {
   FORECAST_MIN_DAYS,
@@ -54,6 +55,7 @@ export function HeadroomForecastCard({ cluster, capacity }: { cluster: string; c
       <Stack gap={3}>
         <Row align="center" gap={2} wrap>
           <strong>Headroom forecast</strong>
+          <CardHelp card="headroom-forecast" />
           <Badge tone="info">daily peak during observed hours</Badge>
           <span className="muted small">{q.data.coverage.label}</span>
         </Row>

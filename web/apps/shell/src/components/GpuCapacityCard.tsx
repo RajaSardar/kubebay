@@ -1,4 +1,5 @@
 import { Badge, Card, DataTable, NsPill, Row, Stack } from "@kubebay/ui";
+import { CardHelp } from "./PageHelp";
 import type { GpuCapacity } from "../lib/gpuCapacity";
 
 /** Roadmap Tier 2 #14 Phase 0: GPU capacity on Cost / Waste. Hidden entirely on clusters without GPU nodes. */
@@ -9,6 +10,7 @@ export function GpuCapacityCard({ gpu }: { gpu: GpuCapacity }) {
       <Stack gap={3}>
         <Row align="center" gap={2} wrap>
           <strong>GPU capacity</strong>
+          <CardHelp card="gpu-capacity" />
           {gpu.totals.map((t) => (
             <Badge key={t.resource} tone={t.idle > 0 ? "warn" : "ok"}>
               {`${t.idle} of ${t.allocatable} ${t.resource} unclaimed`}

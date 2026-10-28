@@ -19,7 +19,7 @@ Press <kbd>⌘</kbd> <kbd>B</kbd> (<kbd>Ctrl</kbd> <kbd>B</kbd> on Windows and L
 
 ## What is this?
 
-Every page has an **ⓘ** beside its title. Click it, or focus it and press <kbd>Enter</kbd>, for a sentence on what the page is, one on how it works, and a link to its page in this manual. <kbd>Esc</kbd> or a click elsewhere closes it.
+Every page has an **ⓘ** beside its title, and so does each insight card, such as SPOF Radar, Attack paths or the Efficiency score. Click it, or focus it and press <kbd>Enter</kbd>, for a sentence on what the page is, one on how it works, and a link to its page in this manual. <kbd>Esc</kbd> or a click elsewhere closes it.
 
 ## The namespace filter
 

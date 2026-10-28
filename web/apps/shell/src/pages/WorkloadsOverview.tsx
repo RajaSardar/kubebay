@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useQuery as useRQQuery } from "@tanstack/react-query";
 import { Badge, Button, Card, PageHeader, Row, SegmentedControl, Select, Skeleton, Stack } from "@kubebay/ui";
-import { PageHelp } from "../components/PageHelp";
+import { CardHelp, PageHelp } from "../components/PageHelp";
 import { useCluster } from "../lib/useCluster";
 import { useResourceStream, shouldShowSkeleton } from "../lib/useResourceStream";
 import { deniedStreams } from "../lib/forbidden";
@@ -276,6 +276,9 @@ export default function WorkloadsOverview() {
           value={tab}
           onChange={setTab}
         />
+        {tab === "pressure" && <CardHelp card="overview-pressure" align="end" />}
+        {tab === "spof" && <CardHelp card="overview-spof" align="end" />}
+        {tab === "service-health" && <CardHelp card="overview-service-health" align="end" />}
       </div>
 
       <div className="page-body">

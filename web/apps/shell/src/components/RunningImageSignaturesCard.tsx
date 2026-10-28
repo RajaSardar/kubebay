@@ -1,4 +1,5 @@
 import { Card } from "@kubebay/ui";
+import { CardHelp } from "./PageHelp";
 import { ImageSignatureCheck } from "./ImageSignatureCheck";
 
 /**
@@ -9,7 +10,12 @@ import { ImageSignatureCheck } from "./ImageSignatureCheck";
 export function RunningImageSignaturesCard({ cluster }: { cluster: string }) {
   return (
     <Card style={{ marginBottom: 16 }}>
-      <ImageSignatureCheck cluster={cluster} title={<strong>Running image signatures</strong>} />
+      <ImageSignatureCheck cluster={cluster} title={
+          <>
+            <strong>Running image signatures</strong>
+            <CardHelp card="running-image-signatures" />
+          </>
+        } />
     </Card>
   );
 }

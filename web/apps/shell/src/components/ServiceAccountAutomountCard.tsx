@@ -1,4 +1,5 @@
 import { Badge, Card, Row, Stack } from "@kubebay/ui";
+import { CardHelp } from "./PageHelp";
 import type { AutomountFinding } from "../lib/serviceAccountAutomount";
 import { ControlTags } from "./ControlTags";
 import { controlsFor } from "../lib/controlIds";
@@ -15,6 +16,7 @@ export function ServiceAccountAutomountCard({ findings }: { findings: AutomountF
     <Card style={{ marginBottom: 16 }}>
       <Row align="center" gap={2} className="rbac-section-title">
         Default ServiceAccount token automount
+        <CardHelp card="sa-automount" />
         <Badge tone={findings.length > 0 ? "err" : "ok"}>{findings.length}</Badge>
         <ControlTags controls={controlsFor("default-sa-automount")} />
       </Row>
