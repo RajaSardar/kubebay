@@ -414,8 +414,19 @@ export interface HelmRelease {
   applyMethod?: string;
 }
 
+/** The release list: the releases, and the named namespaces RBAC refused (ADR 0004). */
+export interface HelmReleaseList {
+  releases: HelmRelease[];
+  denied: { ns: string; message: string }[];
+}
+
 export const helmApi = {
-  releases: (cluster: string) => get<HelmRelease[]>(`/api/helm/releases?cluster=${encodeURIComponent(cluster)}`),
+  /** The whole cluster's releases, or only those in `namespaces` for an identity that can't read release Secrets cluster-wide. */
+  releases: (cluster: string, namespaces?: readonly string[]) => {
+    const q = new URLSearchParams({ cluster });
+    for (const ns of namespaces ?? []) q.append("ns", ns);
+    return get<HelmReleaseList>(`/api/helm/releases?${q}`);
+  },
   history: (cluster: string, ns: string, name: string) =>
     get<HelmRelease[]>(`/api/helm/history?cluster=${encodeURIComponent(cluster)}&ns=${encodeURIComponent(ns)}&name=${encodeURIComponent(name)}`),
   valuesText: async (cluster: string, ns: string, name: string): Promise<string> => {

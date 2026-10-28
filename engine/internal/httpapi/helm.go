@@ -15,10 +15,12 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
+	"k8s.io/client-go/kubernetes"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
@@ -72,6 +74,8 @@ type HelmManager struct {
 	// config, when set, replaces actionCfg: tests hand the handlers Helm's
 	// in-memory storage.
 	config func(r *http.Request, cluster, ns string) (*action.Configuration, error)
+	// store, when set, replaces releaseStore for the release list.
+	store func(r *http.Request, cluster, ns string) (*storage.Storage, error)
 }
 
 // cfg is the Helm action configuration a request's handler works with.
@@ -250,26 +254,47 @@ func listRow(rr ri.Releaser) ReleaseSummary {
 }
 
 func (h *HelmManager) HandleReleases(w http.ResponseWriter, r *http.Request) {
-	cluster := r.URL.Query().Get("cluster")
-	cfg, err := h.releasesCfg(r, cluster, "")
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	q := r.URL.Query()
+	cluster := q.Get("cluster")
+	// Named namespaces, for an identity that can't read release Secrets
+	// cluster-wide; none = the whole cluster.
+	scopes := uniqueStrings(q["ns"])
+	if len(scopes) == 0 {
+		scopes = []string{""}
 	}
-	client := action.NewList(cfg)
-	client.AllNamespaces = true
-	client.StateMask = action.ListAll
-	rels, err := client.Run()
-	if err != nil {
-		http.Error(w, fmt.Sprintf("list: %v", err), http.StatusBadGateway)
-		return
-	}
-	out := make([]ReleaseSummary, 0, len(rels))
-	for _, rel := range rels {
-		out = append(out, listRow(rel))
+	out := releaseList{Releases: []ReleaseSummary{}, Denied: []namespaceRefusal{}}
+	for _, ns := range scopes {
+		store, err := h.releaseStore(r, cluster, ns)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		rels, err := store.ListReleases()
+		var status apierrors.APIStatus
+		if err != nil && ns != "" && apierrors.IsForbidden(err) && errors.As(err, &status) {
+			out.Denied = append(out.Denied, namespaceRefusal{NS: ns, Message: status.Status().Message})
+			continue
+		}
+		if err != nil {
+			http.Error(w, fmt.Sprintf("list: %v", err), http.StatusBadGateway)
+			return
+		}
+		out.Releases = append(out.Releases, newestRows(rels)...)
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(out)
+}
+
+func uniqueStrings(in []string) []string {
+	var out []string
+	seen := map[string]bool{}
+	for _, s := range in {
+		if s != "" && !seen[s] {
+			seen[s] = true
+			out = append(out, s)
+		}
+	}
+	return out
 }
 
 func (h *HelmManager) HandleHistory(w http.ResponseWriter, r *http.Request) {
@@ -628,18 +653,52 @@ func (l liveRevisions) List(ctx context.Context, opts metav1.ListOptions) (*core
 	return l.SecretInterface.List(ctx, opts)
 }
 
-// releasesCfg is actionCfg for listing releases: its storage fetches only
-// live revisions. A configuration built without a cluster connection (Helm's
-// in-memory storage, in tests) is left as it is.
-func (h *HelmManager) releasesCfg(r *http.Request, cluster, ns string) (*action.Configuration, error) {
-	cfg, err := h.cfg(r, cluster, ns)
-	if err != nil || cfg.RESTClientGetter == nil {
-		return cfg, err
+// releaseStore is Helm's storage over the live release Secrets of one
+// namespace ("" = every namespace), read as the person signed in.
+func (h *HelmManager) releaseStore(r *http.Request, cluster, ns string) (*storage.Storage, error) {
+	if h.store != nil {
+		return h.store(r, cluster, ns)
 	}
-	cs, err := cfg.KubernetesClientSet()
+	rc, err := h.Clusters.RestConfigWithIdentity(cluster, clusters.IdentityFromContext(r.Context()))
 	if err != nil {
 		return nil, err
 	}
-	cfg.Releases = liveReleaseStore(cs.CoreV1().Secrets(ns))
-	return cfg, nil
+	cs, err := kubernetes.NewForConfig(rc)
+	if err != nil {
+		return nil, err
+	}
+	return liveReleaseStore(cs.CoreV1().Secrets(ns)), nil
+}
+
+// newestRows keeps each release's newest revision, as helm list does.
+func newestRows(rels []ri.Releaser) []ReleaseSummary {
+	newest := map[string]*releasev1.Release{}
+	for _, rr := range rels {
+		r, ok := rr.(*releasev1.Release)
+		if !ok || r == nil {
+			continue
+		}
+		k := r.Namespace + "/" + r.Name
+		if cur := newest[k]; cur == nil || r.Version > cur.Version {
+			newest[k] = r
+		}
+	}
+	out := make([]ReleaseSummary, 0, len(newest))
+	for _, r := range newest {
+		out = append(out, listRow(r))
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Namespace+"/"+out[i].Name < out[j].Namespace+"/"+out[j].Name })
+	return out
+}
+
+// releaseList is the Helm page's list: the releases, and the named
+// namespaces RBAC refused (ADR 0003, ADR 0004).
+type releaseList struct {
+	Releases []ReleaseSummary   `json:"releases"`
+	Denied   []namespaceRefusal `json:"denied"`
+}
+
+type namespaceRefusal struct {
+	NS      string `json:"ns"`
+	Message string `json:"message"`
 }
