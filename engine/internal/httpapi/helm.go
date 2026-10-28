@@ -76,6 +76,8 @@ type HelmManager struct {
 	config func(r *http.Request, cluster, ns string) (*action.Configuration, error)
 	// store, when set, replaces releaseStore for the release list.
 	store func(r *http.Request, cluster, ns string) (*storage.Storage, error)
+	// mapper, when set, replaces the cluster's discovery for a release's kinds.
+	mapper func(r *http.Request, cluster string) (meta.RESTMapper, error)
 }
 
 // cfg is the Helm action configuration a request's handler works with.
