@@ -7,6 +7,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 ## [Unreleased]
 
 ### Added
+- **A Helm release opens on its Overview**: a release's drawer now opens on an Overview tab that shows:
+  - what the release is: chart, app version, revision, status, when and how it last changed;
+  - everything it created, grouped (Workloads, Networking, Config, Storage, Scaling, Access, Other), each linked to its own page. A kind the cluster no longer serves is marked so instead of linked;
+  - its hooks, what they run on, how their last run went and whether they're deleted after;
+  - its notes.
+
+  A release stuck in a pending status past Helm's 5-minute timeout says so. The engine reads the release once, with Helm's own Get, as the person signed in (`GET /api/helm/release`). It sends the objects by reference only, never what they hold, the values or the manifest. A release they can't read shows the API server's reason. History, Values and Manifest load only when opened (ADR 0004)
 - **A user manual at [kubebay.sardar.dev/docs](https://kubebay.sardar.dev/docs/)**: 35 pages, one for each part of the app, written from the code. They cover installing, connecting clusters, finding your way around (the palette, the table filter language, keyboard shortcuts), every page in the sidebar, the integrations (Helm, Argo CD, Flux, Karpenter, KEDA, extensions, AI assistants and triage), security and privacy, air-gapped installs and troubleshooting. CI fails when a page of the app has no docs page, or a docs link goes nowhere. The site's sitemap now lists every page, and the site's Docs links point to the manual.
 - **Every vulnerability on one page**: a Vulnerabilities page, in the sidebar and the command palette, lists every workload Trivy-Operator found CVEs in, worst first, with its Critical, High, Medium and Low counts, how many have a fix, its images and when they were scanned. A Deployment's row gathers all its ReplicaSets and containers. Filter by namespace, or search by workload, image, CVE or package; a row opens the workload's CVEs, with a link to the workload. A pod's or workload's Vulnerabilities tab now counts its findings and opens this page on it, instead of listing them
 - **Helm for someone who can see only some namespaces**: when your identity can't read Helm's release Secrets across the cluster, the Helm page lists the releases of the namespaces you picked, one namespace at a time, and says which of them it can't read ("You can't list Helm releases in payments. Showing shop.", with the reason). With no namespace picked it says it can't list Helm releases and asks you to pick yours (ADR 0003, ADR 0004)
