@@ -5,7 +5,7 @@ import { crdApi } from "../lib/api";
 import { useResourceStream } from "../lib/useResourceStream";
 import { detectTrivyOperator } from "../lib/trivyOperator";
 import { findingsForWorkload, ownerNamesForWorkload } from "../lib/vulnFindings";
-import { VulnFindingsSummary } from "./PodVulnerabilitiesTab";
+import { VulnFindingsLink } from "./PodVulnerabilitiesTab";
 import { InstallTrivyOperator } from "./InstallTrivyOperator";
 
 /**
@@ -82,5 +82,5 @@ export function WorkloadVulnerabilitiesTab({
     );
   }
 
-  return <VulnFindingsSummary findings={findings} emptyLabel="this workload" />;
+  return <VulnFindingsLink findings={findings} workload={`${ns}/${kind}/${name}`} emptyLabel="this workload" />;
 }
