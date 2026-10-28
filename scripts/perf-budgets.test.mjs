@@ -135,17 +135,21 @@ test("a warn-only budget over its limit warns, even under --fail, and doesn't fa
   assert.match(run.stdout, /::warning title=Performance budget::Watch event to painted row/);
 });
 
-test("the budgets the harness gained later are the PRD's, and warn until they're stable", async () => {
+// Three of them had three stable runs on main with room to spare (f578e2b,
+// 76ccd3c, 2e17488 on 2026-10-27/28), so they fail the build now. Scrolling
+// measured 57.4 to 60 fps against its floor of 55: too close for runner noise
+// not to fail a build, so it still warns.
+test("the budgets the harness gained later are the PRD's; all but scrolling fail the build", async () => {
   const { readFileSync } = await import("node:fs");
   const file = JSON.parse(readFileSync(new URL("../perf/budgets.json", import.meta.url), "utf8"));
   const limit = (k) => file[k].max ?? file[k].min;
   assert.deepEqual(
     ["paint.p95Ms", "scroll.fps", "idle3.rssMB", "idle3.cpuPercent"].map((k) => [k, limit(k), file[k].warnOnly]),
     [
-      ["paint.p95Ms", 100, true],
+      ["paint.p95Ms", 100, undefined],
       ["scroll.fps", 55, true],
-      ["idle3.rssMB", 250, true],
-      ["idle3.cpuPercent", 1, true],
+      ["idle3.rssMB", 250, undefined],
+      ["idle3.cpuPercent", 1, undefined],
     ],
   );
   assert.equal(file["scroll.fps"].min, 55);
