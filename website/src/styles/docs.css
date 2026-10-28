@@ -1,0 +1,356 @@
+/* The docs at /docs: a sidebar, the page, and an "On this page" column on a
+   wide screen. Colours are the site's aliases for the app's tokens
+   (global.css), so the docs read in the same Dusk theme as the site. */
+
+.docs {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 48px;
+  max-width: 1320px;
+  margin-inline: auto;
+  padding: 32px 24px 64px;
+}
+
+@media (min-width: 1200px) {
+  .docs {
+    grid-template-columns: 240px minmax(0, 1fr) 200px;
+  }
+}
+
+/* ── Sidebar ─────────────────────────────────────────────── */
+.docs-side {
+  position: sticky;
+  top: 80px;
+  align-self: start;
+  max-height: calc(100dvh - 96px);
+  overflow-y: auto;
+  font-size: 0.875rem;
+}
+
+.docs-nav > summary {
+  display: none;
+}
+
+.docs-nav__group + .docs-nav__group {
+  margin-top: 24px;
+}
+
+.docs-nav__section {
+  margin-bottom: 8px;
+  color: var(--subtle);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.docs-nav a,
+.docs-toc a {
+  display: block;
+  padding: 4px 10px;
+  border-left: 1px solid var(--border);
+  color: var(--muted);
+  transition: color var(--duration) var(--ease), border-color var(--duration) var(--ease);
+}
+
+.docs-nav a:hover,
+.docs-toc a:hover {
+  color: var(--text);
+}
+
+.docs-nav a[aria-current='page'] {
+  border-left-color: var(--accent);
+  color: var(--text);
+  font-weight: 500;
+}
+
+.docs-nav a:focus-visible,
+.docs-toc a:focus-visible,
+.docs-pager__link:focus-visible,
+.docs-edit:focus-visible {
+  outline: 2px solid var(--kb-focus-ring);
+  outline-offset: 2px;
+}
+
+.docs-toc {
+  position: sticky;
+  top: 80px;
+  align-self: start;
+  display: none;
+  font-size: 0.8125rem;
+}
+
+@media (min-width: 1200px) {
+  .docs-toc {
+    display: block;
+  }
+}
+
+@media (max-width: 899px) {
+  .docs {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+    padding-top: 16px;
+  }
+
+  .docs-side {
+    position: static;
+    max-height: none;
+  }
+
+  .docs-nav {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+  }
+
+  .docs-nav > summary {
+    display: block;
+    padding: 10px 14px;
+    color: var(--text);
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  .docs-nav > nav {
+    padding: 4px 14px 14px;
+  }
+}
+
+/* ── The page ────────────────────────────────────────────── */
+.doc-body {
+  max-width: 72ch;
+}
+
+.doc-body > * + * {
+  margin-top: 1em;
+}
+
+.doc-body h1 {
+  font-size: 2.25rem;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+
+.doc-body .lede {
+  margin-top: 0.5em;
+  color: var(--muted);
+  font-size: 1.125rem;
+}
+
+.doc-body h2 {
+  margin-top: 2.25em;
+  padding-top: 0.25em;
+  font-size: 1.5rem;
+  scroll-margin-top: 80px;
+  text-wrap: balance;
+}
+
+.doc-body h3 {
+  margin-top: 1.75em;
+  font-size: 1.125rem;
+  scroll-margin-top: 80px;
+}
+
+.doc-body p,
+.doc-body li {
+  color: var(--muted);
+  line-height: 1.75;
+}
+
+.doc-body strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.doc-body a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  text-underline-offset: 3px;
+}
+
+.doc-body a:hover {
+  text-decoration-color: var(--accent);
+}
+
+.doc-body ul,
+.doc-body ol {
+  padding-left: 1.4em;
+}
+
+.doc-body ul {
+  list-style: disc;
+}
+
+.doc-body ol {
+  list-style: decimal;
+}
+
+.doc-body li + li {
+  margin-top: 0.35em;
+}
+
+.doc-body li > ul,
+.doc-body li > ol {
+  margin-top: 0.35em;
+}
+
+.doc-body code {
+  padding: 0.1em 0.35em;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 0.875em;
+}
+
+.doc-body pre {
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow-x: auto;
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.doc-body pre code {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: inherit;
+}
+
+.doc-body kbd {
+  display: inline-block;
+  min-width: 1.6em;
+  padding: 0 0.4em;
+  border: 1px solid var(--border-strong);
+  border-bottom-width: 2px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 0.8125em;
+  text-align: center;
+}
+
+.doc-body blockquote {
+  padding: 10px 16px;
+  border-left: 3px solid var(--accent);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: var(--accent-glow);
+}
+
+.doc-body blockquote p {
+  color: var(--text);
+}
+
+.doc-body table {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.doc-body th,
+.doc-body td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.doc-body th {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.doc-body td {
+  color: var(--muted);
+}
+
+/* The docs index: every page, by section. */
+.docs-index {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+  margin-top: 2em;
+}
+
+.docs-index__group {
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.docs-index__group h2 {
+  margin: 0 0 8px;
+  padding: 0;
+  font-size: 1rem;
+}
+
+.docs-index__group ul {
+  padding: 0;
+  list-style: none;
+}
+
+.docs-index__group a {
+  text-decoration: none;
+}
+
+/* ── Foot of the page ────────────────────────────────────── */
+.docs-foot {
+  max-width: 72ch;
+  margin-top: 64px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+
+.docs-pager {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.docs-pager__link {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-weight: 500;
+}
+
+.docs-pager__link:hover {
+  border-color: var(--border-strong);
+}
+
+.docs-pager__link span {
+  color: var(--subtle);
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+
+.docs-pager__link--next {
+  margin-left: auto;
+  text-align: right;
+}
+
+.docs-edit {
+  display: inline-block;
+  margin-top: 20px;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.docs-edit:hover {
+  color: var(--text);
+}

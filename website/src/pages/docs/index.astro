@@ -1,0 +1,25 @@
+---
+import { getCollection, getEntry } from 'astro:content';
+import DocsLayout from '../../layouts/DocsLayout.astro';
+import { sidebar } from '../../lib/docs';
+
+const entry = await getEntry('docs', 'index');
+if (!entry) throw new Error('src/content/docs/index.md is missing');
+const { Content, headings } = await entry.render();
+const all = await getCollection('docs', (d) => d.slug !== 'index');
+const groups = sidebar(all.map((d) => ({ slug: d.slug, title: d.data.title, section: d.data.section, order: d.data.order, description: d.data.description })));
+---
+
+<DocsLayout title={entry.data.title} description={entry.data.description} slug="index" headings={headings}>
+  <Content />
+  <div class="docs-index">
+    {groups.map((g) => (
+      <section class="docs-index__group">
+        <h2>{g.section}</h2>
+        <ul role="list">
+          {g.items.map((d) => <li><a href={`/docs/${d.slug}/`} title={d.description}>{d.title}</a></li>)}
+        </ul>
+      </section>
+    ))}
+  </div>
+</DocsLayout>

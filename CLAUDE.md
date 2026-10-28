@@ -64,6 +64,16 @@ No PR merges if `go test ./...` or `pnpm test` is red. Tests are not optional.
 
 ---
 
+## DOCS RULE: Every user-visible change updates the user manual
+
+**The user manual at https://kubebay.sardar.dev/docs/ is part of the change, not a follow-up.** It's the Markdown in `website/src/content/docs/`, one page per part of the app.
+
+- Every feature, behaviour change or bug fix a user would notice updates the page that documents it, in the same PR. Write from the code, not from memory: name the controls as the UI labels them.
+- A new page of the app (a new `<Route>` in `web/apps/shell/src/App.tsx`) needs a docs page whose frontmatter `appRoutes` lists that route. `website/src/lib/docs.test.ts` fails CI until it does, and it fails on a docs link to a page that doesn't exist.
+- Check the docs build with `cd website && npm test && npm run build`.
+
+---
+
 ## Multi-Agent Debate Rule
 
 **When multiple expert agents are launched for analysis, they MUST debate each other — not just run in parallel.**
