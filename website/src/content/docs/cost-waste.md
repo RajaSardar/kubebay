@@ -2,7 +2,7 @@
 title: Cost / Waste
 description: Where the cluster's capacity goes, with an efficiency score, usage against requests, GPU use, nodes you could consolidate, spot risk, headroom forecasts and unusual usage.
 section: Insights
-order: 3
+order: 4
 appRoutes: ["/cost-waste"]
 ---
 

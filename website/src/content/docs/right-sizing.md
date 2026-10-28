@@ -2,7 +2,7 @@
 title: Right-sizing
 description: CPU and memory requests that are far from what workloads use, ranked by waste, with a dry-run preview and one-click apply.
 section: Insights
-order: 2
+order: 3
 appRoutes: ["/right-sizing"]
 ---
 

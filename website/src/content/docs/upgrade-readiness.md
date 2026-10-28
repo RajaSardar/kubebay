@@ -2,7 +2,7 @@
 title: Upgrade Readiness
 description: API versions your cluster still serves that a coming Kubernetes release removes.
 section: Insights
-order: 4
+order: 5
 appRoutes: ["/upgrade-readiness"]
 ---
 

@@ -33,7 +33,7 @@ System bindings are hidden by default. **Show who else has this** runs the match
 Findings joined into chains that start where traffic from outside the cluster lands: a LoadBalancer or NodePort Service, an Ingress, or a Gateway API HTTPRoute. For each workload it reaches, Kubebay asks:
 
 1. Does a NetworkPolicy keep that traffic out?
-2. Do the pods run images with critical or high CVEs, a **foothold**? This needs Trivy-Operator.
+2. Do the pods run images with critical or high CVEs, a **foothold**? This needs Trivy-Operator: see [Vulnerabilities](/docs/vulnerabilities/).
 3. Does the pods' ServiceAccount token carry risky RBAC, or can they break out to the node through a privileged container or a `hostPath` volume? That's a **payoff**. Kubebay also names the Secrets the token can read.
 
 Exposure alone isn't a path. A chain is listed only when it has a foothold or a payoff.

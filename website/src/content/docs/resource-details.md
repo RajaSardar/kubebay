@@ -22,7 +22,7 @@ Every resource has **Summary**, **YAML** and **Events**. Workloads get more.
 | Timeline | Deployments, StatefulSets, DaemonSets | Events, rollout revisions, condition changes and container terminations on one timeline |
 | Autoscaling | Deployments, StatefulSets | Every HPA, VPA and KEDA ScaledObject that targets it, with min, max and current. **New ScaledObject** creates one. See [KEDA](/docs/keda/) |
 | Policy | all but policy reports | Kyverno or other PolicyReport findings for this object. Passing checks are counted, not listed |
-| Vulnerabilities | Deployments, StatefulSets, DaemonSets | CVEs in its images, from Trivy-Operator |
+| Vulnerabilities | Deployments, StatefulSets, DaemonSets | How many CVEs Trivy-Operator found in its images, with a link to them on the [Vulnerabilities](/docs/vulnerabilities/) page |
 | Signatures | Deployments, StatefulSets, DaemonSets | Whether its images are signed, checked on request |
 | YAML | all | The live object, editable |
 | Events | all | Its recent events |

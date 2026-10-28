@@ -52,7 +52,7 @@ Change a container's CPU and memory requests and limits. On Kubernetes 1.33 and 
 
 ### Vulnerabilities and Signatures
 
-- **Vulnerabilities** counts the CVEs Trivy-Operator found in the pod's images. It needs Trivy-Operator in the cluster.
+- **Vulnerabilities** counts the CVEs Trivy-Operator found in the pod's images, and **Open on the Vulnerabilities page** shows them all. See [Vulnerabilities](/docs/vulnerabilities/).
 - **Signatures** checks whether the pod's images are signed. The check contacts each image's registry, so it runs only when you ask. Choose anonymous access, or the pod's own pull secrets.
 
 ### Triage
