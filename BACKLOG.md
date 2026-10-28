@@ -1,4 +1,4 @@
-1. Do research and find the best solution also check how freelens does start node shell to check and go inside a node
+~~1. Do research and find the best solution also check how freelens does start node shell to check and go inside a node~~ ✅ Done (a node's drawer has Start node shell: like Freelens, a privileged pod on that node, host PID/IPC/network, that execs `nsenter -t 1 -m -u -i -n -p` into the host; the image is set in Settings)
 ~~2. When we click on a namespace in the namespace page it should show all the resources connected to the namespace in it's summery~~ ✅ Done
 ~~3. When we click on pod and it open the drawer, then it should automatically always select summery to show until~~ ✅ Done
 ~~4. in audit logs i should able to click the log and see the entire details of that specific logs.~~ ✅ Done
@@ -12,5 +12,5 @@
 12. Do launch 30 experts agents (analyst, sde,fde, k8s experts, lazy engineer, product engineer, ceo,cto, design head, kubernetes experts, big 5 employees, freshers) to unfiltered debate and compare what and how ranchar vs kubebay vs lens and then add missing features and what else innovation we can do in kubebay
 ~~13. Also check why all the services are only showing cluster ip and nothign else ?~~ ✅ Done
 ~~14. Also for the task no 8. it is only showing 1 level of trace back like if my application are deployed by helm and then helm created deployment and then those deployment created replicasets and then those replicaset created pod, we should have all these levels of trace back owned by link in all of these same for crds, which you have not yet fixed~~ ✅ Done
-15. When i click outside of any open drawer it should close,
+~~15. When i click outside of any open drawer it should close,~~ ✅ Done
 16. I think fr vulnerabilities / cves/ these should move from each individual pods/deployment to single page nav and show everything there 
