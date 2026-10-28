@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"io"
 	"log/slog"
 	"os"
@@ -41,7 +42,7 @@ current-context: legacy
 	if err != nil {
 		t.Fatal(err)
 	}
-	ac, err := NewHelm(mgr, nil).actionCfg("legacy", "default")
+	ac, err := NewHelm(mgr, nil).actionCfg(context.Background(), "legacy", "default")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,7 +81,7 @@ current-context: dev
 	if err != nil {
 		t.Fatal(err)
 	}
-	ac, err := NewHelm(mgr, nil).actionCfg("dev", "team-a")
+	ac, err := NewHelm(mgr, nil).actionCfg(context.Background(), "dev", "team-a")
 	if err != nil {
 		t.Fatal(err)
 	}

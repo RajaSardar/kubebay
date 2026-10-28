@@ -164,7 +164,7 @@ Also:
 - **Link related issues.** Use `Fixes #123` in the PR body.
 - **Describe your testing.** What cluster, what scenario, what you verified.
 - **Keep it reviewable.** PRs over ~500 lines of diff should usually be broken up.
-- **New user-facing behavior** needs a docs update in the same PR.
+- **New user-facing behavior** needs a docs update in the same PR: the user manual at [kubebay.sardar.dev/docs](https://kubebay.sardar.dev/docs/) is the Markdown in [`website/src/content/docs`](website/src/content/docs). A new page of the app needs a docs page whose `appRoutes` lists its route; `website/src/lib/docs.test.ts` fails CI until it has one.
 - **Screenshots or GIFs** for anything visual.
 - **CI must be green.** Do not open a PR with failing checks unless you have a specific question about the failure.
 

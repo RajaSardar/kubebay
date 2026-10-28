@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, within } from "@testing-library/react";
+import { act, render, screen, fireEvent, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import Helm from "../Helm";
@@ -38,8 +38,9 @@ const rel = (name: string, namespace: string, chart: string): HelmRelease => ({
 
 const releases = [rel("redis", "shop", "redis-18.1.0"), rel("api", "shop", "api-2.0.0"), rel("ingress", "infra", "ingress-nginx-4.9.0")];
 
+let qc: QueryClient;
 function renderPage() {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
       <MemoryRouter>
@@ -129,5 +130,35 @@ describe("Helm releases", () => {
     const rev2 = screen.getByText("rev 2").closest(".tl-item") as HTMLElement;
     expect(within(rev1).getByText("client-side apply")).toBeInTheDocument();
     expect(within(rev2).getByText("server-side apply")).toBeInTheDocument();
+  });
+
+  // ADR 0004 S3: the drawer shows the release as it is now, not as it was
+  // when its row was clicked.
+  it("the drawer follows the live release: after a failed upgrade it offers rollback to the last good revision", async () => {
+    const at = (revision: number, status: string) => ({ ...rel("redis", "shop", "redis-18.1.0"), revision, status });
+    vi.mocked(helmApi.releases).mockResolvedValue([at(3, "deployed")]);
+    vi.mocked(helmApi.history).mockResolvedValue([at(3, "deployed"), at(2, "superseded")]);
+    renderPage();
+    fireEvent.click(await screen.findByText("redis"));
+    await screen.findByText("rev 3");
+
+    vi.mocked(helmApi.releases).mockResolvedValue([at(4, "failed")]);
+    vi.mocked(helmApi.history).mockResolvedValue([at(4, "failed"), at(3, "deployed"), at(2, "superseded")]);
+    await act(() => qc.invalidateQueries({ queryKey: ["helm-releases"] }));
+    const rev4 = (await screen.findByText("rev 4")).closest(".tl-item") as HTMLElement;
+    const rev3 = screen.getByText("rev 3").closest(".tl-item") as HTMLElement;
+    expect(within(rev4).queryByRole("button", { name: "Rollback" })).toBeNull();
+    expect(within(rev3).getByRole("button", { name: "Rollback" })).toBeInTheDocument();
+  });
+
+  it("the drawer says so when its release is uninstalled elsewhere", async () => {
+    vi.mocked(helmApi.releases).mockResolvedValue(releases);
+    vi.mocked(helmApi.history).mockResolvedValue([]);
+    renderPage();
+    fireEvent.click(await screen.findByText("redis"));
+    vi.mocked(helmApi.releases).mockResolvedValue(releases.filter((r) => r.name !== "redis"));
+    await act(() => qc.invalidateQueries({ queryKey: ["helm-releases"] }));
+    expect(await screen.findByText("This release is no longer in the cluster: it was uninstalled.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Uninstall" })).toBeNull();
   });
 });

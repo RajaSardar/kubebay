@@ -8,11 +8,22 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"regexp"
+	"sort"
 	"strings"
+	"sync"
 	"time"
 
-	genericclioptions "k8s.io/cli-runtime/pkg/genericclioptions"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/discovery/cached/memory"
+	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/restmapper"
+	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"sigs.k8s.io/yaml"
 
 	"helm.sh/helm/v4/pkg/action"
@@ -21,10 +32,12 @@ import (
 	"helm.sh/helm/v4/pkg/kube"
 	ri "helm.sh/helm/v4/pkg/release"
 	releasev1 "helm.sh/helm/v4/pkg/release/v1"
+	"helm.sh/helm/v4/pkg/storage"
 	"helm.sh/helm/v4/pkg/storage/driver"
 
 	"github.com/RajaSardar/kubebay/engine/internal/audit"
 	"github.com/RajaSardar/kubebay/engine/internal/clusters"
+	"github.com/RajaSardar/kubebay/engine/internal/redact"
 )
 
 // stripComplianceSpecs is a Helm PostRenderer that removes ClusterComplianceReport
@@ -56,6 +69,17 @@ func (s *stripComplianceSpecs) Run(renderedManifests *bytes.Buffer) (*bytes.Buff
 type HelmManager struct {
 	Clusters *clusters.Manager
 	Audit    *audit.Logger
+	// config, when set, replaces actionCfg: tests hand the handlers Helm's
+	// in-memory storage.
+	config func(r *http.Request, cluster, ns string) (*action.Configuration, error)
+}
+
+// cfg is the Helm action configuration a request's handler works with.
+func (h *HelmManager) cfg(r *http.Request, cluster, ns string) (*action.Configuration, error) {
+	if h.config != nil {
+		return h.config(r, cluster, ns)
+	}
+	return h.actionCfg(r.Context(), cluster, ns)
 }
 
 func NewHelm(mgr *clusters.Manager, auditLog *audit.Logger) *HelmManager {
@@ -65,36 +89,89 @@ func NewHelm(mgr *clusters.Manager, auditLog *audit.Logger) *HelmManager {
 // helmSilentLog drops the Helm SDK's own logging, which goes to slog in Helm 4.
 var helmSilentLog = slog.DiscardHandler
 
-func (h *HelmManager) actionCfg(cluster, ns string) (*action.Configuration, error) {
-	ctxName, kubeconfigPaths, err := h.Clusters.HelmEnv(cluster)
+// actionCfg is Helm's configuration for one request: the cluster's own
+// connection, as the person signed in (ADR 0004). Every other request uses
+// the same config, so Helm acts with that person's RBAC (in-cluster mode
+// impersonates them) and needs no kubeconfig file, which in-cluster mode
+// doesn't have.
+func (h *HelmManager) actionCfg(ctx context.Context, cluster, ns string) (*action.Configuration, error) {
+	rc, err := h.Clusters.RestConfigWithIdentity(cluster, clusters.IdentityFromContext(ctx))
 	if err != nil {
 		return nil, err
 	}
-	cf := genericclioptions.NewConfigFlags(true)
-	cf.Context = &ctxName
-	// Same in-memory v1alpha1 exec upgrade the cluster manager applies, since
-	// Helm reads the kubeconfig itself.
-	cf.WrapConfigFn = func(c *rest.Config) *rest.Config {
-		clusters.UpgradeLegacyExec(c)
-		return c
-	}
-	if kubeconfigPaths != "" {
-		p := kubeconfigPaths
-		cf.KubeConfig = &p
-	}
-	// Helm's Kubernetes client creates the chart objects that name no namespace
-	// in its own. Make that the release's, as `helm install -n` does; left
-	// unset, they'd land in the kubeconfig context's namespace.
-	if ns != "" {
-		releaseNS := ns
-		cf.Namespace = &releaseNS
-	}
 	cfg := action.NewConfiguration(action.ConfigurationSetLogger(helmSilentLog))
-	if err := cfg.Init(cf, ns, "secrets"); err != nil {
+	if err := cfg.Init(&releaseGetter{cfg: rc, ns: ns}, ns, "secrets"); err != nil {
 		return nil, fmt.Errorf("helm init: %w", err)
 	}
 	return cfg, nil
 }
+
+// releaseGetter hands Helm a rest config instead of a kubeconfig.
+type releaseGetter struct {
+	cfg *rest.Config
+	ns  string
+
+	once    sync.Once
+	disc    discovery.CachedDiscoveryInterface
+	discErr error
+}
+
+func (g *releaseGetter) ToRESTConfig() (*rest.Config, error) { return rest.CopyConfig(g.cfg), nil }
+
+func (g *releaseGetter) ToDiscoveryClient() (discovery.CachedDiscoveryInterface, error) {
+	g.once.Do(func() {
+		c := rest.CopyConfig(g.cfg)
+		// kubectl's discovery limits: a cluster with many API groups would
+		// otherwise wait on the client-side rate limiter.
+		c.Burst, c.QPS = 300, 50
+		dc, err := discovery.NewDiscoveryClientForConfig(c)
+		if err != nil {
+			g.discErr = err
+			return
+		}
+		g.disc = memory.NewMemCacheClient(dc)
+	})
+	return g.disc, g.discErr
+}
+
+func (g *releaseGetter) ToRESTMapper() (meta.RESTMapper, error) {
+	dc, err := g.ToDiscoveryClient()
+	if err != nil {
+		return nil, err
+	}
+	return restmapper.NewShortcutExpander(restmapper.NewDeferredDiscoveryRESTMapper(dc), dc, nil), nil
+}
+
+// Helm's Kubernetes client creates the chart objects that name no namespace
+// in its own. It is the release's, as `helm install -n` does; left unset,
+// they'd land in "default".
+func (g *releaseGetter) ToRawKubeConfigLoader() clientcmd.ClientConfig {
+	return releaseNamespace{ns: g.ns, cfg: g.cfg}
+}
+
+// releaseNamespace is the kubeconfig Helm asks for its namespace; there is
+// no file behind it.
+type releaseNamespace struct {
+	ns  string
+	cfg *rest.Config
+}
+
+func (l releaseNamespace) RawConfig() (clientcmdapi.Config, error) {
+	return *clientcmdapi.NewConfig(), nil
+}
+
+func (l releaseNamespace) ConfigAccess() clientcmd.ConfigAccess {
+	return clientcmd.NewDefaultClientConfig(*clientcmdapi.NewConfig(), &clientcmd.ConfigOverrides{}).ConfigAccess()
+}
+
+func (l releaseNamespace) Namespace() (string, bool, error) {
+	if l.ns == "" {
+		return "default", false, nil
+	}
+	return l.ns, true, nil
+}
+
+func (l releaseNamespace) ClientConfig() (*rest.Config, error) { return rest.CopyConfig(l.cfg), nil }
 
 func (h *HelmManager) settings() *cli.EnvSettings {
 	s := cli.New()
@@ -164,9 +241,17 @@ func summarize(rr ri.Releaser) ReleaseSummary {
 	return out
 }
 
+// listRow is a release as a list or history shows it: no manifest, which can
+// hold rendered Secrets and which no list needs (ADR 0004).
+func listRow(rr ri.Releaser) ReleaseSummary {
+	row := summarize(rr)
+	row.Manifest = ""
+	return row
+}
+
 func (h *HelmManager) HandleReleases(w http.ResponseWriter, r *http.Request) {
 	cluster := r.URL.Query().Get("cluster")
-	cfg, err := h.actionCfg(cluster, "")
+	cfg, err := h.releasesCfg(r, cluster, "")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -181,7 +266,7 @@ func (h *HelmManager) HandleReleases(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]ReleaseSummary, 0, len(rels))
 	for _, rel := range rels {
-		out = append(out, summarize(rel))
+		out = append(out, listRow(rel))
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(out)
@@ -189,7 +274,7 @@ func (h *HelmManager) HandleReleases(w http.ResponseWriter, r *http.Request) {
 
 func (h *HelmManager) HandleHistory(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
-	cfg, err := h.actionCfg(q.Get("cluster"), q.Get("ns"))
+	cfg, err := h.cfg(r, q.Get("cluster"), q.Get("ns"))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -202,15 +287,18 @@ func (h *HelmManager) HandleHistory(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]ReleaseSummary, 0, len(rels))
 	for _, rel := range rels {
-		out = append(out, summarize(rel))
+		out = append(out, listRow(rel))
 	}
+	// Newest first: storage returns them in the API server's order, which
+	// sorts revision names as text (v1, v10, v2…).
+	sort.Slice(out, func(i, j int) bool { return out[i].Revision > out[j].Revision })
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(out)
 }
 
 func (h *HelmManager) HandleValues(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
-	cfg, err := h.actionCfg(q.Get("cluster"), q.Get("ns"))
+	cfg, err := h.cfg(r, q.Get("cluster"), q.Get("ns"))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -232,7 +320,7 @@ func (h *HelmManager) HandleValues(w http.ResponseWriter, r *http.Request) {
 
 func (h *HelmManager) HandleManifest(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
-	cfg, err := h.actionCfg(q.Get("cluster"), q.Get("ns"))
+	cfg, err := h.cfg(r, q.Get("cluster"), q.Get("ns"))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -248,7 +336,62 @@ func (h *HelmManager) HandleManifest(w http.ResponseWriter, r *http.Request) {
 		manifest = r1.Manifest
 	}
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	_, _ = w.Write([]byte(manifest))
+	_, _ = w.Write([]byte(maskSecretValues(manifest)))
+}
+
+var (
+	manifestDocSep  = regexp.MustCompile(`(?m)^---[ \t]*$`)
+	looksLikeSecret = regexp.MustCompile(`(?m)^kind:\s*["']?Secret["']?\s*$`)
+)
+
+// maskSecretValues returns a rendered manifest with every Secret's data and
+// stringData values masked; their keys, and every other document, stay as
+// they are.
+func maskSecretValues(manifest string) string {
+	var b strings.Builder
+	prev := 0
+	for _, loc := range manifestDocSep.FindAllStringIndex(manifest, -1) {
+		b.WriteString(maskSecretDoc(manifest[prev:loc[0]]))
+		b.WriteString(manifest[loc[0]:loc[1]])
+		prev = loc[1]
+	}
+	b.WriteString(maskSecretDoc(manifest[prev:]))
+	return b.String()
+}
+
+func maskSecretDoc(doc string) string {
+	if !looksLikeSecret.MatchString(doc) {
+		return doc
+	}
+	// Keep the blank lines and "# Source:" comments before the object.
+	lead := 0
+	for lead < len(doc) {
+		end := strings.IndexByte(doc[lead:], '\n')
+		if end < 0 {
+			break
+		}
+		line := strings.TrimSpace(doc[lead : lead+end])
+		if line != "" && !strings.HasPrefix(line, "#") {
+			break
+		}
+		lead += end + 1
+	}
+	var obj map[string]any
+	if err := yaml.Unmarshal([]byte(doc), &obj); err != nil {
+		return doc[:lead] + "# A Secret is not shown: it could not be read to mask its values.\n"
+	}
+	for _, field := range []string{"data", "stringData"} {
+		if values, ok := obj[field].(map[string]any); ok {
+			for k := range values {
+				values[k] = redact.Mask
+			}
+		}
+	}
+	out, err := yaml.Marshal(obj)
+	if err != nil {
+		return doc[:lead] + "# A Secret is not shown: it could not be read to mask its values.\n"
+	}
+	return doc[:lead] + string(out)
 }
 
 type HelmActionRequest struct {
@@ -264,20 +407,24 @@ func (h *HelmManager) HandleRollback(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "cluster, ns, name required", http.StatusBadRequest)
 		return
 	}
-	cfg, err := h.actionCfg(req.Cluster, req.NS)
+	cfg, err := h.cfg(r, req.Cluster, req.NS)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	client := helmRollback(cfg, req)
-	ctx, cancel := context.WithTimeout(r.Context(), client.Timeout+30*time.Second)
-	defer cancel()
-	_ = ctx
 	if err := client.Run(req.Name); err != nil {
-		_ = ctx
 		http.Error(w, fmt.Sprintf("rollback: %v", err), http.StatusBadGateway)
 		return
 	}
+	h.Audit.Record(audit.Entry{
+		Action:    "helm-rollback",
+		Cluster:   req.Cluster,
+		Namespace: req.NS,
+		Resource:  req.Name,
+		Detail:    fmt.Sprintf("revision=%d", req.Revision),
+		UserAgent: r.Header.Get("User-Agent"),
+	})
 	writeJSON(w, map[string]bool{"ok": true})
 }
 
@@ -287,21 +434,23 @@ func (h *HelmManager) HandleUninstall(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "cluster, ns, name required", http.StatusBadRequest)
 		return
 	}
-	cfg, err := h.actionCfg(req.Cluster, req.NS)
+	cfg, err := h.cfg(r, req.Cluster, req.NS)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	client := helmUninstall(cfg)
-	ctx, cancel := context.WithTimeout(r.Context(), client.Timeout+30*time.Second)
-	defer cancel()
-	out, uerr := client.Run(req.Name)
-	if uerr != nil {
-		_ = out
-		_ = ctx
-		http.Error(w, fmt.Sprintf("uninstall: %v", uerr), http.StatusBadGateway)
+	if _, err := client.Run(req.Name); err != nil {
+		http.Error(w, fmt.Sprintf("uninstall: %v", err), http.StatusBadGateway)
 		return
 	}
+	h.Audit.Record(audit.Entry{
+		Action:    "helm-uninstall",
+		Cluster:   req.Cluster,
+		Namespace: req.NS,
+		Resource:  req.Name,
+		UserAgent: r.Header.Get("User-Agent"),
+	})
 	writeJSON(w, map[string]bool{"ok": true})
 }
 
@@ -325,7 +474,7 @@ func (h *HelmManager) HandleUpgrade(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "cluster, ns, name, chartRef required", http.StatusBadRequest)
 		return
 	}
-	cfg, err := h.actionCfg(req.Cluster, req.NS)
+	cfg, err := h.cfg(r, req.Cluster, req.NS)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -438,6 +587,9 @@ func helmUpgrade(cfg *action.Configuration, req HelmUpgradeRequest, cpo action.C
 	up.WaitStrategy = kube.HookOnlyStrategy
 	up.DryRunStrategy = helmDryRun(req.DryRun)
 	up.PostRenderer = &stripComplianceSpecs{}
+	// As many revisions as the helm CLI keeps; unlimited, every upgrade
+	// added a Secret that listing then had to fetch.
+	up.MaxHistory = 10
 	return up
 }
 
@@ -454,4 +606,40 @@ func helmUninstall(cfg *action.Configuration) *action.Uninstall {
 	un.Timeout = helmTimeout
 	un.WaitStrategy = kube.HookOnlyStrategy
 	return un
+}
+
+// liveReleaseStore is Helm's storage over the given release Secrets, listing
+// only the revisions Helm hasn't marked superseded (ADR 0004). Helm decodes
+// every Secret a list returns and then keeps each release's newest revision;
+// a superseded one is never the newest (Helm relabels a revision in the same
+// update that supersedes it), so the API server can leave them out. Failed
+// revisions stay, and Helm still picks the newest.
+func liveReleaseStore(secrets corev1client.SecretInterface) *storage.Storage {
+	return storage.Init(driver.NewSecrets(liveRevisions{secrets}))
+}
+
+type liveRevisions struct{ corev1client.SecretInterface }
+
+func (l liveRevisions) List(ctx context.Context, opts metav1.ListOptions) (*corev1.SecretList, error) {
+	if opts.LabelSelector != "" {
+		opts.LabelSelector += ","
+	}
+	opts.LabelSelector += "status!=superseded"
+	return l.SecretInterface.List(ctx, opts)
+}
+
+// releasesCfg is actionCfg for listing releases: its storage fetches only
+// live revisions. A configuration built without a cluster connection (Helm's
+// in-memory storage, in tests) is left as it is.
+func (h *HelmManager) releasesCfg(r *http.Request, cluster, ns string) (*action.Configuration, error) {
+	cfg, err := h.cfg(r, cluster, ns)
+	if err != nil || cfg.RESTClientGetter == nil {
+		return cfg, err
+	}
+	cs, err := cfg.KubernetesClientSet()
+	if err != nil {
+		return nil, err
+	}
+	cfg.Releases = liveReleaseStore(cs.CoreV1().Secrets(ns))
+	return cfg, nil
 }
