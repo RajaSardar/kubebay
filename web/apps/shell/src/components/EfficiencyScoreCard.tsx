@@ -1,4 +1,5 @@
 import { Badge, Card, Row, Stack } from "@kubebay/ui";
+import { CardHelp } from "./PageHelp";
 import type { EfficiencyScore } from "../lib/efficiencyScore";
 
 const GRADE: Record<NonNullable<EfficiencyScore["grade"]>, { label: string; tone: "ok" | "warn" | "err" }> = {
@@ -18,6 +19,7 @@ export function EfficiencyScoreCard({ efficiency }: { efficiency: EfficiencyScor
     <Card>
       <Row align="center" gap={2} style={{ marginBottom: 8 }}>
         <strong>Efficiency score</strong>
+        <CardHelp card="efficiency-score" />
         {grade && <Badge tone={grade.tone}>{grade.label}</Badge>}
       </Row>
 

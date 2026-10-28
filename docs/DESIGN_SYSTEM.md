@@ -57,7 +57,8 @@ https://claude.ai/artifact/J35D45QQ7X6Sgd7mwfRSnF
    sentence on what the feature is, one on how it works, and a link to its
    page in the user manual. Never a hover-only tooltip for an explanation;
    see `docs/HELP_TIPS_RESEARCH.md`. In the shell, a page's ⓘ is
-   `<PageHelp route="…" />`, its copy in `src/lib/help.ts`.
+   `<PageHelp route="…" />` and an insight card's `<CardHelp card="…" />`, their
+   copy in `src/lib/help.ts`.
 2. **Loading shows the shape of what is coming.** A list or table with no rows
    yet is a `SkeletonTable` (or a `DataTable` with `loading` and a
    `loadingLabel`) under its real headers, captioned with the helm-wheel

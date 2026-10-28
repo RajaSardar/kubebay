@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { Badge, Card, DataTable, Row, Stack } from "@kubebay/ui";
+import { CardHelp } from "./PageHelp";
 import { ANOMALY_MIN_BASELINE_DAYS, findUsageAnomalies, type UsageAnomaly } from "../lib/usageAnomaly";
 import { useClusterHistorySeries } from "../lib/useClusterHistorySeries";
 import { formatCpuMillis, formatMemBytes } from "../lib/rightsizing";
@@ -40,6 +41,7 @@ export function UsageAnomalyCard({ cluster, now }: { cluster: string; now?: Date
       <Stack gap={3}>
         <Row align="center" gap={2} wrap>
           <strong>Unusual usage</strong>
+          <CardHelp card="usage-anomaly" />
           {anomalies.length > 0 && <Badge tone="warn">{`${anomalies.length} in the last 24 hours`}</Badge>}
           <span className="muted small">{q.data.coverage.label}</span>
         </Row>

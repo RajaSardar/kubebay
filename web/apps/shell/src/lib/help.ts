@@ -163,3 +163,133 @@ export const PAGE_HELP: Record<string, PageHelpEntry> = {
     docs: "settings",
   },
 };
+
+/** The insight cards on RBAC and Cost / Waste, and the Overview's views, keyed by card. */
+export const CARD_HELP: Record<string, PageHelpEntry> = {
+  "overview-pressure": {
+    name: "Pressure",
+    what: "Namespaces against nodes: how much of each node each namespace's pods take.",
+    how: "From the pods' requests, or their usage once metrics-server has a sample.",
+    docs: "workloads-overview#pressure",
+  },
+  "overview-spof": {
+    name: "SPOF Radar",
+    what: "Single points of failure that a drain, an upgrade or one node going down would turn into an outage.",
+    how: "Flags single replicas with no PodDisruptionBudget, replicas all on one node, and Services with one Ready backend.",
+    docs: "workloads-overview#spof-radar",
+  },
+  "overview-service-health": {
+    name: "Service Health",
+    what: "Services that route nowhere, broken Ingress and Gateway routes, and cluster DNS problems.",
+    how: "Follows selectors, EndpointSlices and routes to ready pods, and checks CoreDNS's replicas and Corefile.",
+    docs: "workloads-overview#service-health",
+  },
+  "rbac-findings": {
+    name: "RBAC findings",
+    what: "Real subjects holding a risky permission through a real binding: wildcards, escalation verbs, Secrets or exec cluster-wide.",
+    how: "Worked out from the cluster's Roles and bindings; a risky role that nothing binds isn't flagged.",
+    docs: "rbac#findings",
+  },
+  "attack-paths": {
+    name: "Attack paths",
+    what: "Chains from where outside traffic lands to workloads with a vulnerable image or risky access.",
+    how: "Joins Services, Ingresses, NetworkPolicies, Trivy-Operator's CVEs and RBAC; exposure alone isn't a path.",
+    docs: "rbac#attack-paths",
+  },
+  "secret-exposure": {
+    name: "Secrets in environment variables",
+    what: "Workloads that pass Secrets through env or envFrom rather than a mounted volume.",
+    how: "Read from the pod specs; environment variables leak more easily, through process dumps, child processes or logs.",
+    docs: "rbac#workload-checks",
+  },
+  "sa-automount": {
+    name: "Default ServiceAccount token automount",
+    what: "Workloads that run as the default ServiceAccount with its API token still mounted.",
+    how: "Read from the pod specs and ServiceAccounts; that token is a cluster credential a compromised container gets for free.",
+    docs: "rbac#workload-checks",
+  },
+  "orphaned-secrets": {
+    name: "Unreferenced Secrets",
+    what: "Secrets that no pod, workload, ServiceAccount or Ingress refers to.",
+    how: "Kubebay reads only the Secrets' names and metadata, never their values.",
+    docs: "rbac#workload-checks",
+  },
+  "unused-service-accounts": {
+    name: "Unused ServiceAccounts",
+    what: "ServiceAccounts nothing runs as, with the bindings that grant them access.",
+    how: "Compared with the pods and workloads in each namespace; a DaemonSet with no pods still counts as using its account.",
+    docs: "rbac#workload-checks",
+  },
+  "image-signature-verification": {
+    name: "Image signature verification",
+    what: "Whether a policy engine enforces signed images, namespace by namespace.",
+    how: "Read from the Kyverno, Sigstore policy-controller, Ratify or Connaisseur policies the cluster has.",
+    docs: "rbac#image-signatures",
+  },
+  "running-image-signatures": {
+    name: "Running image signatures",
+    what: "Whether a signature is published for each image digest that's actually running.",
+    how: "It contacts each image's registry, so it runs only when you ask.",
+    docs: "rbac#image-signatures",
+  },
+  "audit-security-feed": {
+    name: "Audit-log security events",
+    what: "Security events from your API server's audit log, such as exec into pods or bindings to cluster-admin.",
+    how: "Reads the newest part of the log, from a file on this machine, CloudWatch or Cloud Logging; audit logging must be on.",
+    docs: "rbac#audit-log-security-events",
+  },
+  "efficiency-score": {
+    name: "Efficiency score",
+    what: "One score for how well the cluster's capacity is used: provisioning, request coverage and workload sizing.",
+    how: "From requests against allocatable, and usage where metrics exist; a part without data is left out, not guessed.",
+    docs: "cost-waste#efficiency-score",
+  },
+  capacity: {
+    name: "Capacity",
+    what: "What each namespace requests, and what's idle or taken by DaemonSets, node by node.",
+    how: "Accounting of requests against allocatable; idle capacity and system overhead are never charged to a namespace.",
+    docs: "cost-waste#capacity",
+  },
+  "workload-usage": {
+    name: "Workload usage vs requests",
+    what: "Each workload's request against its observed p95 usage, and how much is wasted.",
+    how: "The same recommender as Right-sizing, read-only: Prometheus over 7 days, or metrics-server over 3 hours.",
+    docs: "cost-waste#workload-usage-vs-requests",
+  },
+  "gpu-capacity": {
+    name: "GPU capacity",
+    what: "GPUs claimed against allocatable, node by node.",
+    how: "Read from the nodes' allocatable GPUs and the pods that request them.",
+    docs: "cost-waste#gpus",
+  },
+  "gpu-utilisation": {
+    name: "GPU utilisation",
+    what: "How busy each pod's NVIDIA GPUs are: average, peak, and peak memory.",
+    how: "From the DCGM exporter, through the cluster's Prometheus.",
+    docs: "cost-waste#gpus",
+  },
+  "node-consolidation": {
+    name: "Node consolidation",
+    what: "Nodes whose pods would fit on the others, and what stops a drain.",
+    how: "Simulates placement by requests, honouring nodeSelectors, required affinity and taints; it never drains anything.",
+    docs: "cost-waste#node-consolidation",
+  },
+  "spot-risk": {
+    name: "Spot disruption risk",
+    what: "Workloads whose every replica is on spot or preemptible nodes, so one reclaim can take them all.",
+    how: "Read from node labels, pods and PodDisruptionBudgets; spot reclaims don't go through the Eviction API.",
+    docs: "cost-waste#spot-disruption-risk",
+  },
+  "headroom-forecast": {
+    name: "Headroom forecast",
+    what: "The trend of the cluster's daily peak against allocatable, and when it would run out.",
+    how: "From local usage history, recorded only while Kubebay is open; it needs 5 days of well-sampled hours.",
+    docs: "cost-waste#history-forecasts-and-anomalies",
+  },
+  "usage-anomaly": {
+    name: "Unusual usage",
+    what: "Hours in the last day that stand out from the same hour on earlier days of the same kind.",
+    how: "From local usage history; it needs 5 earlier weekdays, or weekend days, to compare with.",
+    docs: "cost-waste#history-forecasts-and-anomalies",
+  },
+};

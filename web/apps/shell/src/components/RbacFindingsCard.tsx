@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Badge, Button, Card, Row, Stack } from "@kubebay/ui";
+import { CardHelp } from "./PageHelp";
 import type { RBACFinding } from "../lib/api";
 import { isSystemFinding, findingQuery, type FindingQuery } from "../lib/rbacFindings";
 import { rbacFindingControls } from "../lib/controlIds";
@@ -35,6 +36,7 @@ export function RbacFindingsCard({
     <Card style={{ marginBottom: 16 }}>
       <Row align="center" gap={2} className="rbac-section-title">
         Findings
+        <CardHelp card="rbac-findings" />
         <Badge tone={visible.length > 0 ? "err" : "ok"}>{visible.length}</Badge>
       </Row>
       <label className="ctl" style={{ cursor: "pointer" }}>

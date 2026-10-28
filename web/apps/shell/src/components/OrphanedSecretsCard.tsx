@@ -1,4 +1,5 @@
 import { Badge, Card, DataTable, NsPill, Row } from "@kubebay/ui";
+import { CardHelp } from "./PageHelp";
 import type { OrphanedSecret } from "../lib/orphanedSecrets";
 import { fmtAge } from "../lib/resources";
 
@@ -8,6 +9,7 @@ export function OrphanedSecretsCard({ secrets }: { secrets: OrphanedSecret[] }) 
     <Card style={{ marginBottom: 16 }}>
       <Row align="center" gap={2} className="rbac-section-title">
         Unreferenced Secrets
+        <CardHelp card="orphaned-secrets" />
         <Badge tone={secrets.length > 0 ? "warn" : "ok"}>{secrets.length}</Badge>
       </Row>
 

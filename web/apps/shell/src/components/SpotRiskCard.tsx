@@ -1,4 +1,5 @@
 import { Badge, Card, NsPill, Row, Stack } from "@kubebay/ui";
+import { CardHelp } from "./PageHelp";
 import type { SpotRiskFinding } from "../lib/spotRisk";
 
 const REASON_LABEL: Record<SpotRiskFinding["reason"], string> = {
@@ -11,6 +12,7 @@ export function SpotRiskCard({ findings, spotNodeCount }: { findings: SpotRiskFi
     <Card>
       <Row align="center" gap={2} style={{ marginBottom: 8 }}>
         <strong>Spot disruption risk</strong>
+        <CardHelp card="spot-risk" />
         {spotNodeCount > 0 && <Badge tone={findings.length > 0 ? "err" : "ok"}>{findings.length}</Badge>}
       </Row>
 

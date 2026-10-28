@@ -1,4 +1,5 @@
 import { Badge, Card, DataTable, Row, Stack, type BadgeTone } from "@kubebay/ui";
+import { CardHelp } from "./PageHelp";
 import type { ConsolidationBlocker, ConsolidationResult, NodeConsolidation } from "../lib/consolidation";
 import { formatCpuMillis, formatMemBytes } from "../lib/rightsizing";
 
@@ -44,6 +45,7 @@ export function ConsolidationCard({ result }: { result: ConsolidationResult }) {
       <Stack gap={3}>
         <Row align="center" gap={2} wrap>
           <strong>Node consolidation</strong>
+          <CardHelp card="node-consolidation" />
           <Badge>read-only</Badge>
           <span className="small">
             {k > 0
