@@ -11,7 +11,10 @@
  * React's rules-of-hooks require a fixed number of hook calls per render, so
  * each GVR is listed explicitly. Add new GVRs here to cover more first visits.
  */
+import { useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useResourceStream } from "./useResourceStream";
+import { HELM_SECRETS, helmReleasesQuery } from "./helmReleases";
 
 export function usePrewarm(cluster: string | undefined): void {
   // Core workloads — full mode because every workload page uses full objects.
@@ -29,4 +32,14 @@ export function usePrewarm(cluster: string | undefined): void {
   useResourceStream(cluster, "v1/events", { mode: "metadata" });
   useResourceStream(cluster, "v1/configmaps", { mode: "metadata" });
   useResourceStream(cluster, "networking.k8s.io/v1/ingresses", { mode: "metadata" });
+
+  // Helm releases (ADR 0004): their Secrets' metadata gives the Helm page its
+  // rows at once and live; the list, which the engine decodes, is fetched in
+  // the background once there are releases.
+  const helm = useResourceStream(cluster, HELM_SECRETS.gvr, { mode: "metadata", labelSelector: HELM_SECRETS.labelSelector });
+  const qc = useQueryClient();
+  const hasReleases = helm.synced && helm.rows.length > 0;
+  useEffect(() => {
+    if (cluster && hasReleases) void qc.prefetchQuery(helmReleasesQuery(cluster));
+  }, [cluster, hasReleases, qc]);
 }

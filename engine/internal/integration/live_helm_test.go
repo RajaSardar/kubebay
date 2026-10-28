@@ -79,13 +79,15 @@ func helmNamespace(t *testing.T, cs *kubernetes.Clientset, prefix string) string
 
 func helmReleases(t *testing.T, base, cluster, ns, name string) []helmSummary {
 	t.Helper()
-	var all []helmSummary
+	var all struct {
+		Releases []helmSummary `json:"releases"`
+	}
 	body := httpGetJSON(t, base+"/api/helm/releases?cluster="+url.QueryEscape(cluster))
 	if err := json.Unmarshal(body, &all); err != nil {
 		t.Fatalf("releases: %v: %s", err, body)
 	}
 	var out []helmSummary
-	for _, r := range all {
+	for _, r := range all.Releases {
 		if r.Namespace == ns && r.Name == name {
 			out = append(out, r)
 		}

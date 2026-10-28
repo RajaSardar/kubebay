@@ -94,6 +94,13 @@ func TestListingOnlyLiveRevisionsGivesTheSameRows(t *testing.T) {
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("live revisions only:\n%+v\nevery revision:\n%+v", got, want)
 	}
+	all, err := liveReleaseStore(cs.CoreV1().Secrets("")).ListReleases()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := newestRows(all); !reflect.DeepEqual(got, want) {
+		t.Errorf("the list's newest revisions:\n%+v\nhelm list:\n%+v", got, want)
+	}
 	if fetched != total-superseded {
 		t.Errorf("fetched %d release Secrets, want the %d not superseded (of %d)", fetched, total-superseded, total)
 	}
