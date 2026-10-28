@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"regexp"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -284,6 +285,9 @@ func (h *HelmManager) HandleHistory(w http.ResponseWriter, r *http.Request) {
 	for _, rel := range rels {
 		out = append(out, listRow(rel))
 	}
+	// Newest first: storage returns them in the API server's order, which
+	// sorts revision names as text (v1, v10, v2…).
+	sort.Slice(out, func(i, j int) bool { return out[i].Revision > out[j].Revision })
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(out)
 }
