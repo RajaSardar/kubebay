@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { act, render, screen, fireEvent, within } from "@testing-library/react";
+import { act, render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import Helm from "../Helm";
@@ -11,13 +11,21 @@ vi.mock("../../lib/useCluster", () => ({
   useCluster: () => ({ cluster, setCluster: vi.fn(), list: [{ id: "c1" }], isLoading: false }),
 }));
 
+// The release Secrets' stream (ADR 0004 S5); by default it hasn't said
+// anything yet, so the page shows the list alone.
+const helmSecrets = vi.hoisted(() => ({ value: { rows: [] as unknown[], synced: false, forbidden: undefined as string | undefined } }));
 vi.mock("../../lib/useResourceStream", () => ({
-  useResourceStream: vi.fn(() => ({
-    rows: [{ metadata: { name: "shop" } }, { metadata: { name: "infra" } }],
-    synced: true,
-  })),
+  useResourceStream: vi.fn((_c: string, gvr: string) =>
+    gvr === "v1/secrets"
+      ? helmSecrets.value
+      : { rows: [{ metadata: { name: "shop" } }, { metadata: { name: "infra" } }], synced: true },
+  ),
   shouldShowSkeleton: () => false,
 }));
+
+const releaseSecret = (namespace: string, name: string, version: number, status: string) => ({
+  metadata: { namespace, name: `sh.helm.release.v1.${name}.v${version}`, labels: { owner: "helm", name, version: String(version), status } },
+});
 
 vi.mock("../../lib/api", async (orig) => ({
   ...(await orig<typeof import("../../lib/api")>()),
@@ -59,6 +67,7 @@ function bodyRowNames() {
 
 beforeEach(() => {
   cluster = "c1";
+  helmSecrets.value = { rows: [], synced: false, forbidden: undefined };
   useNamespaceStore.setState({ selections: {} });
   vi.mocked(helmApi.releases).mockReset();
   vi.mocked(helmApi.history).mockReset();
@@ -160,5 +169,55 @@ describe("Helm releases", () => {
     await act(() => qc.invalidateQueries({ queryKey: ["helm-releases"] }));
     expect(await screen.findByText("This release is no longer in the cluster: it was uninstalled.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Uninstall" })).toBeNull();
+  });
+
+  // ADR 0004 S5: rows come from the release Secrets at once; the list fills
+  // in the chart and is asked for again only when a release changes.
+  it("shows releases from their Secrets before the list arrives", async () => {
+    vi.mocked(helmApi.releases).mockReturnValue(new Promise(() => {}));
+    helmSecrets.value = { rows: [releaseSecret("shop", "redis", 4, "pending-upgrade"), releaseSecret("shop", "redis", 3, "deployed")], synced: true, forbidden: undefined };
+    renderPage();
+    const row = (await screen.findByText("redis")).closest("tr") as HTMLElement;
+    expect(within(row).getByText("pending-upgrade")).toBeInTheDocument();
+    expect(within(row).getByText("4")).toBeInTheDocument();
+    // The chart comes with the list: a placeholder until then, not a blank.
+    expect(row.querySelector(".kb-skeleton")).not.toBeNull();
+  });
+
+  it("asks for the list again when a release changes, and not otherwise", async () => {
+    vi.mocked(helmApi.releases).mockResolvedValue([rel("redis", "shop", "redis-18.1.0")]);
+    helmSecrets.value = { rows: [releaseSecret("shop", "redis", 1, "deployed")], synced: true, forbidden: undefined };
+    const view = renderPage();
+    await screen.findByText("redis-18.1.0");
+    const asked = vi.mocked(helmApi.releases).mock.calls.length;
+
+    view.rerender(
+      <QueryClientProvider client={qc}>
+        <MemoryRouter>
+          <Helm />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    expect(vi.mocked(helmApi.releases).mock.calls.length).toBe(asked);
+
+    helmSecrets.value = { rows: [releaseSecret("shop", "redis", 2, "deployed")], synced: true, forbidden: undefined };
+    view.rerender(
+      <QueryClientProvider client={qc}>
+        <MemoryRouter>
+          <Helm />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    await waitFor(() => expect(vi.mocked(helmApi.releases).mock.calls.length).toBe(asked + 1));
+  });
+
+  it("says it can't list Helm releases instead of claiming there are none", async () => {
+    const reason = 'secrets is forbidden: User "dev" cannot list resource "secrets" in API group "" at the cluster scope';
+    vi.mocked(helmApi.releases).mockRejectedValue(new Error(`list: ${reason}`));
+    helmSecrets.value = { rows: [], synced: false, forbidden: reason };
+    renderPage();
+    expect(await screen.findByText("You can't list Helm releases here.")).toBeInTheDocument();
+    expect(screen.getByText(reason)).toBeInTheDocument();
+    expect(screen.queryByText("No Helm releases in this cluster.")).toBeNull();
   });
 });

@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Editor from "../lib/monaco";
-import { ArmedButton, Badge, Button, DataTable, Drawer, EmptyState, InlineBanner, PageHeader, Row, SkeletonLines, StatusDot, Tabs, TextField } from "@kubebay/ui";
+import { ArmedButton, Badge, Button, DataTable, Drawer, EmptyState, InlineBanner, PageHeader, Row, Skeleton, SkeletonLines, StatusDot, Tabs, TextField } from "@kubebay/ui";
 import { helmApi, type HelmRelease } from "../lib/api";
+import { useResourceStream } from "../lib/useResourceStream";
+import { HELM_SECRETS, helmReleasesQuery, helmRowsFromSecrets, mergeReleases, releasesFingerprint } from "../lib/helmReleases";
+import { ForbiddenState } from "../components/ForbiddenState";
 import { useCluster } from "../lib/useCluster";
 import { useMonacoTheme } from "../lib/theme";
 import { ChartsTab } from "../components/HelmCharts";
@@ -298,19 +301,37 @@ export default function Helm() {
   const [view, setView] = useState<"releases" | "charts">("releases");
   const { cluster: effectiveCluster } = useCluster();
 
+  // ADR 0004: the release Secrets' stream (pre-warmed on connect) gives the
+  // rows at once and live; the list fills in the chart columns and is asked
+  // for again only when a release changes, never on a timer.
+  const qc = useQueryClient();
+  const secrets = useResourceStream(effectiveCluster || undefined, HELM_SECRETS.gvr, {
+    mode: "metadata",
+    labelSelector: HELM_SECRETS.labelSelector,
+  });
+  const heads = useMemo(
+    () => (!secrets.forbidden && (secrets.synced || secrets.rows.length > 0) ? helmRowsFromSecrets(secrets.rows) : null),
+    [secrets.forbidden, secrets.synced, secrets.rows],
+  );
   const releases = useQuery({
-    queryKey: ["helm-releases", effectiveCluster],
-    queryFn: () => helmApi.releases(effectiveCluster),
+    ...helmReleasesQuery(effectiveCluster),
     enabled: !!effectiveCluster,
-    refetchInterval: 12_000,
     retry: false,
   });
+  const fingerprint = heads ? releasesFingerprint(heads) : "";
+  const seen = useRef(fingerprint);
+  useEffect(() => {
+    if (seen.current && fingerprint && fingerprint !== seen.current) {
+      void qc.invalidateQueries({ queryKey: helmReleasesQuery(effectiveCluster).queryKey });
+    }
+    seen.current = fingerprint;
+  }, [fingerprint, effectiveCluster, qc]);
 
   const all = useMemo(() => {
-    const out = [...(releases.data ?? [])];
+    const out = mergeReleases(heads, releases.data);
     out.sort((a, b) => `${a.namespace}/${a.name}`.localeCompare(`${b.namespace}/${b.name}`));
     return out;
-  }, [releases.data]);
+  }, [heads, releases.data]);
 
   const nsFilter = useSelectedNamespaces(effectiveCluster || undefined);
   const [search, setSearch] = useState("");
@@ -329,9 +350,9 @@ export default function Helm() {
   // clicked is kept only to say what was uninstalled.
   const [selected, setSelected] = useState<{ namespace: string; name: string } | null>(null);
   const lastSeen = useRef<HelmRelease | null>(null);
-  const live = selected ? releases.data?.find((r) => r.namespace === selected.namespace && r.name === selected.name) : undefined;
+  const live = selected ? all.find((r) => r.namespace === selected.namespace && r.name === selected.name) : undefined;
   if (live) lastSeen.current = live;
-  const gone = !!selected && releases.isSuccess && !live;
+  const gone = !!selected && (heads !== null || releases.isSuccess) && !live;
 
   useEffect(() => {
     setSelected(null);
@@ -379,7 +400,7 @@ export default function Helm() {
         </Row>
       )}
 
-      {releases.isError && (
+      {releases.isError && !secrets.forbidden && (
         <InlineBanner flush>
           Failed to list releases —{" "}
           {releases.error instanceof Error ? releases.error.message : "is the cluster reachable?"}
@@ -389,9 +410,13 @@ export default function Helm() {
 
       {!effectiveCluster ? (
         <PageLoader message="Waiting for a cluster…" />
+      ) : secrets.forbidden && all.length === 0 ? (
+        // Helm keeps releases in Secrets: an identity that can't list them
+        // can't be told there are none.
+        <ForbiddenState denied={[{ what: "Helm releases", reason: secrets.forbidden }]} />
       ) : (
         <DataTable
-          loading={releases.isLoading}
+          loading={!heads && releases.isLoading}
           loadingLabel="Loading Helm releases…"
           rows={rows}
           rowKey={(r) => `${r.namespace}/${r.name}`}
@@ -413,7 +438,9 @@ export default function Helm() {
               key: "chart",
               header: "Chart",
               className: "mono muted",
-              render: (r) => `${r.chart}${r.appVersion ? ` (${r.appVersion})` : ""}`,
+              // A release the list hasn't decoded yet: its chart is on its way.
+              render: (r) =>
+                r.chart ? `${r.chart}${r.appVersion ? ` (${r.appVersion})` : ""}` : releases.isFetching ? <Skeleton w={110} h={10} /> : "–",
             },
             {
               key: "status",
