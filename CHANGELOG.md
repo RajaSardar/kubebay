@@ -10,6 +10,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 - **A Helm release opens on its Overview**: a release's drawer now opens on an Overview tab that shows:
   - what the release is: chart, app version, revision, status, when and how it last changed;
   - everything it created, grouped (Workloads, Networking, Config, Storage, Scaling, Access, Other), each linked to its own page. A kind the cluster no longer serves is marked so instead of linked;
+  - how each of those is doing, live: ready, progressing, not ready (with why: "1 of 2 available: keeps crashing on start"), present or missing, with a count at the top ("1 missing · 1 not ready · 4 ok"). Statuses come from streams opened in the release's namespaces while the Overview is open, not from a request per object; pods are streamed only when a workload isn't ready, to say why. An object your identity can't list says "can't check" with the API server's reason, never "missing";
   - its hooks, what they run on, how their last run went and whether they're deleted after;
   - its notes.
 

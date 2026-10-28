@@ -3,6 +3,7 @@ import { render, screen, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import type { HelmRelease, ReleaseDetails } from "../../lib/api";
+import type { StreamState } from "../../lib/useResourceStream";
 
 // ADR 0004 S8: a release's Overview, its drawer's first tab: what it is,
 // whether it's stuck, everything it created (grouped, each a link to its
@@ -12,6 +13,14 @@ vi.mock("../../lib/api", async (orig) => ({
   ...(await orig<typeof import("../../lib/api")>()),
   helmApi: { details: vi.fn() },
 }));
+// ADR 0004 S9: each object's live status comes from streams, by GVR.
+const live = vi.hoisted(() => ({ streams: {} as Record<string, StreamState> }));
+vi.mock("../../lib/useResourceStream", () => ({
+  useResourceStream: vi.fn((_c: string | undefined, gvr: string, opts: { ns?: string[] } = {}) => {
+    return live.streams[`${gvr}${opts.ns ? ` ${opts.ns.join(",")}` : ""}`] ?? { rows: [], synced: false, connected: true };
+  }),
+}));
+const { useResourceStream } = await import("../../lib/useResourceStream");
 const { helmApi } = await import("../../lib/api");
 const { ReleaseOverview } = await import("../HelmReleaseOverview");
 
@@ -55,6 +64,8 @@ function renderOverview(r: HelmRelease = rel) {
 describe("ReleaseOverview", () => {
   beforeEach(() => {
     vi.mocked(helmApi.details).mockClear();
+    vi.mocked(useResourceStream).mockClear();
+    live.streams = {};
   });
 
   it("says what the release is", async () => {
@@ -96,6 +107,59 @@ describe("ReleaseOverview", () => {
     vi.mocked(helmApi.details).mockResolvedValue({ ...details, release: stuck });
     renderOverview(stuck);
     expect(await screen.findByText(/pending-upgrade for 12 minutes, longer than Helm's 5-minute timeout/)).toBeInTheDocument();
+  });
+
+  it("says how each object it created is doing, live", async () => {
+    vi.mocked(helmApi.details).mockResolvedValue(details);
+    const synced = (rows: Record<string, unknown>[]): StreamState => ({ rows, synced: true, connected: true });
+    live.streams = {
+      "apps/v1/deployments shop": synced([
+        {
+          metadata: { namespace: "shop", name: "web", generation: 1 },
+          spec: { replicas: 2 },
+          status: { observedGeneration: 1, replicas: 2, updatedReplicas: 2, readyReplicas: 2, availableReplicas: 2 },
+        },
+      ]),
+      "v1/services shop": synced([{ metadata: { namespace: "shop", name: "web" } }]),
+      "rbac.authorization.k8s.io/v1/clusterroles": synced([]),
+    };
+    renderOverview();
+    const workloads = await screen.findByRole("region", { name: "Workloads" });
+    expect(within(workloads).getByText("ready")).toBeInTheDocument();
+    // The drawer is narrow: the full reason is the cell's tooltip.
+    expect(within(workloads).getByText("2 of 2 ready").closest("td")).toHaveAttribute("title", "2 of 2 ready");
+    expect(within(screen.getByRole("region", { name: "Networking" })).getByText("present")).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: "Access" })).getByText("missing")).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: "Release" })).getByText("1 missing · 2 ok")).toBeInTheDocument();
+    // Streamed in the release's namespace; no pods while its workloads are ready, nothing for a kind not served.
+    expect(useResourceStream).toHaveBeenCalledWith("c1", "apps/v1/deployments", { mode: "full", ns: ["shop"] });
+    const gvrs = vi.mocked(useResourceStream).mock.calls.map(([, gvr]) => gvr);
+    expect(gvrs).not.toContain("v1/pods");
+    expect(gvrs.some((g) => g.includes("widget"))).toBe(false);
+  });
+
+  it("streams the pods of a workload that isn't ready, to say why", async () => {
+    vi.mocked(helmApi.details).mockResolvedValue(details);
+    live.streams = {
+      "apps/v1/deployments shop": {
+        rows: [{ metadata: { namespace: "shop", name: "web", generation: 1 }, spec: { replicas: 2 }, status: { observedGeneration: 1, replicas: 2, updatedReplicas: 2, availableReplicas: 0 } }],
+        synced: true,
+        connected: true,
+      },
+    };
+    renderOverview();
+    expect(await screen.findByText("0 of 2 available")).toBeInTheDocument();
+    expect(useResourceStream).toHaveBeenCalledWith("c1", "v1/pods", { mode: "full", ns: ["shop"] });
+  });
+
+  it("can't check what the identity can't list, and doesn't call it missing", async () => {
+    vi.mocked(helmApi.details).mockResolvedValue(details);
+    const refused = 'clusterroles.rbac.authorization.k8s.io is forbidden: User "dev" cannot list resource "clusterroles"';
+    live.streams = { "rbac.authorization.k8s.io/v1/clusterroles": { rows: [], synced: false, connected: true, forbidden: refused } };
+    renderOverview();
+    const access = await screen.findByRole("region", { name: "Access" });
+    expect(within(access).getByText("can't check")).toHaveAttribute("title", refused);
+    expect(within(access).queryByText("missing")).toBeNull();
   });
 
   it("loads with skeleton lines", () => {
