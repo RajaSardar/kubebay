@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { DiffEditor } from "../lib/monaco";
 import { ArmedButton, Badge, Button, Card, EmptyState, InlineBanner, PageHeader, Row, Stack } from "@kubebay/ui";
+import { PageHelp } from "../components/PageHelp";
 import { PageLoader } from "../components/PageLoader";
 import { InstallVpaRecommender } from "../components/InstallVpaRecommender";
 import { CreateVpaObject } from "../components/CreateVpaObject";
@@ -207,7 +208,7 @@ export default function RightSizing() {
   if (!effectiveCluster) {
     return (
       <div className="page">
-        <PageHeader level={2} title="Right-sizing" />
+        <PageHeader help={<PageHelp route="/right-sizing" />} level={2} title="Right-sizing" />
         <EmptyState><p>Select a cluster first.</p></EmptyState>
       </div>
     );
@@ -217,7 +218,7 @@ export default function RightSizing() {
     const denied = deniedStreams({ deployments, verticalpodautoscalers: vpas });
     return (
       <div className="page">
-        <PageHeader level={2} title="Right-sizing" />
+        <PageHeader help={<PageHelp route="/right-sizing" />} level={2} title="Right-sizing" />
         {denied.length > 0 ? <ForbiddenState denied={denied} /> : <PageLoader message="Loading VPA recommendations…" />}
       </div>
     );
@@ -225,7 +226,7 @@ export default function RightSizing() {
 
   return (
     <div className="page">
-      <PageHeader
+      <PageHeader help={<PageHelp route="/right-sizing" />}
         level={2}
         title="Right-sizing"
         count={

@@ -13,6 +13,7 @@ import { WorkloadTabBar } from "../components/WorkloadTabBar";
 import { usageBar, type UsageBar } from "../lib/podUsage";
 import { derivePod, type PodRow } from "../lib/pods";
 import { ResourceListView, type ListColumn } from "../components/ResourceListView";
+import { PageHelp } from "../components/PageHelp";
 import { fmtBytes, fmtCpu } from "../lib/format";
 import { useExtensions } from "../lib/useExtensions";
 import { contextOf } from "../lib/localshell";
@@ -234,6 +235,7 @@ export default function Workloads() {
       <ResourceListView<PodRow>
         title="Workloads"
         titleCount="· Pods"
+        help={<PageHelp route="/workloads" />}
         label="Pods"
         rows={pods}
         objects={rows as Record<string, unknown>[]}

@@ -2,6 +2,7 @@ import { Fragment, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArmedButton, Button, EmptyState, InlineBanner, PageHeader, Row, Skeleton, Stack, StatusPill, Table, TableRow, TableWrap, type StatusTone } from "@kubebay/ui";
+import { PageHelp } from "../components/PageHelp";
 import { argoCDApi, type ArgoCDApp } from "../lib/api";
 import { useCluster } from "../lib/useCluster";
 import { ArgoDriftList } from "../components/ArgoDriftList";
@@ -122,7 +123,7 @@ export default function ArgoCD() {
 
   return (
     <div className="page">
-      <PageHeader
+      <PageHeader help={<PageHelp route="/argocd" />}
         title="ArgoCD"
         count={data && (installed ? `${apps.length} application${apps.length !== 1 ? "s" : ""}` : "not installed")}
         actions={

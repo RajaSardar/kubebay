@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Badge, DataTable, EmptyState, IconButton, NsPill, PageHeader, Row, SegmentedControl, Select, Stack } from "@kubebay/ui";
+import { PageHelp } from "../components/PageHelp";
 import { PageLoader } from "../components/PageLoader";
 import { useCluster } from "../lib/useCluster";
 import { useResourceStream } from "../lib/useResourceStream";
@@ -203,7 +204,7 @@ export default function NetworkPolicyPage() {
   return (
     <div className="page">
       {/* ── Header ── */}
-      <PageHeader
+      <PageHeader help={<PageHelp route="/network-policy" />}
         level={2}
         title="Network Policy"
         live={ready}

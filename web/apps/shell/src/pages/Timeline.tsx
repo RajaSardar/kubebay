@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Badge, EmptyState, PageHeader, Select, TextField } from "@kubebay/ui";
+import { PageHelp } from "../components/PageHelp";
 import { PageLoader } from "../components/PageLoader";
 import { EventHeatStrip } from "../components/EventHeatStrip";
 import { useCluster } from "../lib/useCluster";
@@ -112,7 +113,7 @@ export default function Timeline() {
 
   return (
     <div className="page">
-      <PageHeader
+      <PageHeader help={<PageHelp route="/timeline" />}
         level={2}
         title="Timeline"
         live={synced}

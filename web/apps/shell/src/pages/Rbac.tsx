@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Badge, Button, Card, PageHeader, Select, StatusDot, TextField } from "@kubebay/ui";
+import { PageHelp } from "../components/PageHelp";
 import { PageLoader } from "../components/PageLoader";
 import { RbacFindingsCard } from "../components/RbacFindingsCard";
 import { ServiceAccountAutomountCard } from "../components/ServiceAccountAutomountCard";
@@ -325,7 +326,7 @@ export default function Rbac() {
   if (snap.isLoading) {
     return (
       <div className="page">
-        <PageHeader level={2} title="RBAC explorer" />
+        <PageHeader help={<PageHelp route="/rbac" />} level={2} title="RBAC explorer" />
         <PageLoader message="Loading RBAC data…" />
       </div>
     );
@@ -333,7 +334,7 @@ export default function Rbac() {
 
   return (
     <div className="page">
-      <PageHeader
+      <PageHeader help={<PageHelp route="/rbac" />}
         level={2}
         title="RBAC explorer"
         count={data && `· ${(data.clusterRoleBindings?.length ?? 0) + (data.roleBindings?.length ?? 0)} bindings`}

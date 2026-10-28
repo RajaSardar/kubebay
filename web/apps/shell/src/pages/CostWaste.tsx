@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { EmptyState, PageHeader } from "@kubebay/ui";
+import { PageHelp } from "../components/PageHelp";
 import { WasteBreakdown } from "../components/WasteBreakdown";
 import { HistoryCoverageChip } from "../components/HistoryCoverageChip";
 import { HeadroomForecastCard } from "../components/HeadroomForecastCard";
@@ -73,7 +74,7 @@ export default function CostWaste() {
   if (!effectiveCluster) {
     return (
       <div className="page">
-        <PageHeader level={2} title="Cost / Waste" />
+        <PageHeader help={<PageHelp route="/cost-waste" />} level={2} title="Cost / Waste" />
         <EmptyState><p>Select a cluster first.</p></EmptyState>
       </div>
     );
@@ -83,7 +84,7 @@ export default function CostWaste() {
     const denied = deniedStreams({ nodes, pods });
     return (
       <div className="page">
-        <PageHeader level={2} title="Cost / Waste" />
+        <PageHeader help={<PageHelp route="/cost-waste" />} level={2} title="Cost / Waste" />
         {denied.length > 0 ? <ForbiddenState denied={denied} /> : <PageLoader message="Computing capacity accounting…" />}
       </div>
     );
@@ -91,7 +92,7 @@ export default function CostWaste() {
 
   return (
     <div className="page">
-      <PageHeader level={2} title="Cost / Waste" count={`· ${nodes.rows.length} nodes`} />
+      <PageHeader help={<PageHelp route="/cost-waste" />} level={2} title="Cost / Waste" count={`· ${nodes.rows.length} nodes`} />
       <div className="page-body">
         <div className="muted small" style={{ marginBottom: 12 }}>
           Tier 0: allocatable minus requests, computed directly from the live cluster — no metrics required, so this

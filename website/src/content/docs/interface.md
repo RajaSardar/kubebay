@@ -17,6 +17,10 @@ The sidebar starts with **Clusters**, which goes back to the [cluster list](/doc
 
 Press <kbd>⌘</kbd> <kbd>B</kbd> (<kbd>Ctrl</kbd> <kbd>B</kbd> on Windows and Linux) to hide the sidebar and get the width back. Press it again, or click the button on the cluster rail, to bring it back.
 
+## What is this?
+
+Every page has an **ⓘ** beside its title. Click it, or focus it and press <kbd>Enter</kbd>, for a sentence on what the page is, one on how it works, and a link to its page in this manual. <kbd>Esc</kbd> or a click elsewhere closes it.
+
 ## The namespace filter
 
 Most pages have a namespace filter. Pick one namespace, several, or **All namespaces**. The choice is shared across pages and remembered for each cluster.
@@ -84,7 +88,7 @@ Saved views are listed in the sidebar and in the command palette. Opening one sw
 | <kbd>⌘</kbd> <kbd>B</kbd> | hide or show the sidebar |
 | <kbd>/</kbd> | jump to a table's filter |
 | <kbd>j</kbd> <kbd>k</kbd> <kbd>Enter</kbd> <kbd>x</kbd> | move, open and select in a table |
-| <kbd>Esc</kbd> | close a drawer, dialog or the palette |
+| <kbd>Esc</kbd> | close a drawer, dialog, ⓘ or the palette |
 | <kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>Enter</kbd> | open a resource's drawer as a full page |
 | <kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>S</kbd> | split a resource's drawer, to see two of its tabs side by side |
 

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import Editor from "../lib/monaco";
 import { Button, InlineBanner, Row, Select, Stack } from "@kubebay/ui";
+import { PageHelp } from "../components/PageHelp";
 import { api } from "../lib/api";
 import { useMonacoTheme } from "../lib/theme";
 import { RESOURCE_TEMPLATES } from "../lib/resourceTemplates";
@@ -60,6 +61,7 @@ export default function CreateResource() {
     <Stack gap={0} className="page" style={{ height: "100%" }}>
       <div className="toolbar">
         <span className="mono strong" style={{ fontSize: "var(--kb-text-md)" }}>Create Resource</span>
+        <PageHelp route="/create-resource" />
         <Select
           value={selectedKind}
           onChange={(e) => onKindChange(e.target.value)}
