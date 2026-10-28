@@ -74,6 +74,7 @@ export function usePaletteItems(): PaletteItem[] {
       { label: "Ports — forward manager", to: "/ports" },
       { label: "Helm releases", to: "/helm" },
       { label: "RBAC explorer", to: "/rbac" },
+      { label: "Vulnerabilities — every CVE Trivy-Operator found", to: "/vulnerabilities" },
       { label: "Event Timeline", to: "/timeline" },
       { label: "Topology", to: "/topology" },
       { label: "Settings", to: "/settings" },

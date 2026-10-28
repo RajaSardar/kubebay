@@ -40,6 +40,7 @@ const Ports = lazy(() => import("./pages/Ports"));
 const Timeline = lazy(() => import("./pages/Timeline"));
 const Topology = lazy(() => import("./pages/Topology"));
 const Rbac = lazy(() => import("./pages/Rbac"));
+const Vulnerabilities = lazy(() => import("./pages/Vulnerabilities"));
 const Helm = lazy(() => import("./pages/Helm"));
 const WorkloadsOverview = lazy(() => import("./pages/WorkloadsOverview"));
 const ResourceTable = lazy(loadResourceTable);
@@ -221,6 +222,7 @@ const TOOLS = [
   { to: "/argocd", label: "ArgoCD", icon: <IconArgoCD /> },
   { to: "/flux", label: "Flux", icon: <IconRefresh /> },
   { to: "/rbac", label: "RBAC", icon: <IconShield /> },
+  { to: "/vulnerabilities", label: "Vulnerabilities", icon: <IconShield /> },
   { to: "/right-sizing", label: "Right-sizing", icon: <IconLayers /> },
   { to: "/cost-waste", label: "Cost / Waste", icon: <IconDatabase /> },
   { to: "/karpenter", label: "Karpenter", icon: <IconTopology /> },
@@ -631,6 +633,7 @@ function AppInner() {
               <Route path="/timeline" element={<Timeline />} />
               <Route path="/topology" element={<Topology />} />
               <Route path="/rbac" element={<Rbac />} />
+              <Route path="/vulnerabilities" element={<Vulnerabilities />} />
               <Route path="/right-sizing" element={<RightSizing />} />
               <Route path="/cost-waste" element={<CostWaste />} />
               <Route path="/fleet" element={<Navigate to="/clusters" replace />} />

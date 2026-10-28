@@ -24,6 +24,7 @@ const ROUTE_LABELS: Record<string, string> = {
   "/ports": "Port Forwards",
   "/helm": "Helm",
   "/rbac": "RBAC",
+  "/vulnerabilities": "Vulnerabilities",
   "/timeline": "Timeline",
   "/topology": "Topology",
   "/settings": "Settings",
