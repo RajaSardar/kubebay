@@ -1,6 +1,7 @@
-import { useEffect, useId, useRef, type KeyboardEvent, type ReactNode, type RefObject } from "react";
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { IconButton } from "./shell";
+import { IconInfo } from "./icons";
 
 // Keys typed here belong to the control, not the panel: Escape in a field
 // clears or cancels it, and in the terminal or YAML editor it is the user's
@@ -198,5 +199,73 @@ export function Modal({ label, onClose, className, backdrop = "dim", placement, 
       </div>
     </>,
     document.body,
+  );
+}
+
+// ── Help tip ──────────────────────────────────────────────────────────────────
+
+export interface HelpTipProps {
+  /** The button's accessible name, and the panel's: "About Helm". */
+  label: string;
+  /** What the feature is and how it works, in a sentence each, and a link to its docs. */
+  children: ReactNode;
+  /** Which edge of the button the panel lines up with: "start" opens rightward (a
+   *  title on the left), "end" opens leftward (a button at the right edge). */
+  align?: "start" | "end";
+}
+
+/**
+ * An ⓘ beside a feature's title that explains it (docs/HELP_TIPS_RESEARCH.md).
+ * A toggletip rather than a tooltip: a click, Enter or Space opens it, so
+ * keyboard and touch reach it too, and it holds a link. It stays open until
+ * Escape, a press elsewhere or a second click. The panel follows its button,
+ * so Tab moves into it; focus isn't moved on open.
+ */
+export function HelpTip({ label, children, align = "start" }: HelpTipProps) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLSpanElement>(null);
+  const button = useRef<HTMLButtonElement>(null);
+  const panelId = useId();
+
+  useEffect(() => {
+    if (!open) return;
+    const onPress = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    // On the document, not the wrapper: WebKit leaves focus on the page, not
+    // the button, after a click, and Escape should still close the panel.
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      const hadFocus = ref.current?.contains(document.activeElement);
+      setOpen(false);
+      if (hadFocus) button.current?.focus();
+    };
+    document.addEventListener("mousedown", onPress);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onPress);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <span ref={ref} className="kb-helptip">
+      <IconButton
+        ref={button}
+        label={label}
+        title="What is this?"
+        className="kb-helptip-btn"
+        aria-expanded={open}
+        aria-controls={open ? panelId : undefined}
+        onClick={() => setOpen((o) => !o)}
+      >
+        <IconInfo size={15} />
+      </IconButton>
+      {open && (
+        <div id={panelId} className={`kb-helptip-panel${align === "end" ? " end" : ""}`} role="dialog" aria-modal={false} aria-label={label}>
+          {children}
+        </div>
+      )}
+    </span>
   );
 }

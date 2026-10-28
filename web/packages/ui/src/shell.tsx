@@ -265,17 +265,29 @@ export interface PageHeaderProps {
   actions?: ReactNode;
   /** Heading element; both levels look the same. Default 1. */
   level?: 1 | 2;
+  /** A `HelpTip` explaining the page, beside the title but outside the heading. */
+  help?: ReactNode;
 }
 
-export function PageHeader({ title, count, live, actions, level = 1 }: PageHeaderProps) {
+export function PageHeader({ title, count, live, actions, level = 1, help }: PageHeaderProps) {
   const Heading = level === 2 ? "h2" : "h1";
+  const heading = (
+    <Heading>
+      {title}
+      {count != null && count !== false && <span className="page-header-count">{count}</span>}
+      {live && <span className="live-pill">live</span>}
+    </Heading>
+  );
   return (
     <div className="page-header">
-      <Heading>
-        {title}
-        {count != null && count !== false && <span className="page-header-count">{count}</span>}
-        {live && <span className="live-pill">live</span>}
-      </Heading>
+      {help != null && help !== false ? (
+        <div className="page-header-title">
+          {heading}
+          {help}
+        </div>
+      ) : (
+        heading
+      )}
       {actions != null && actions !== false && <div className="page-header-actions">{actions}</div>}
     </div>
   );

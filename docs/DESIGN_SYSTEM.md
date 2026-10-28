@@ -20,11 +20,11 @@ https://claude.ai/artifact/J35D45QQ7X6Sgd7mwfRSnF
 | Layout | `web/packages/ui/src/layout.tsx` | `Row`, `Stack` (`gap` on the `--kb-space-*` scale, `align`, `justify`, `wrap`, `as`) |
 | Tables and feedback | `web/packages/ui/src/table.tsx` | `DataTable`, `TableWrap` (`busy` refresh bar), `Table`, `SortHeader`, `SelectAllHeader`, `SelectCell`, `TableRow`, `NsPill`, `SkeletonRows`, `SkeletonTable`, `SkeletonLines`, `EmptyState`, `InlineBanner` |
 | Loading | `web/packages/ui/src/spinner.tsx`, `icons.tsx` | `Spinner` (the helm `IconLoader` turning, `role="status"`) |
-| Overlays | `web/packages/ui/src/overlays.tsx` | `Drawer` (with `embedded` for the full-page view), `Modal` (`placement="center"` for a confirm or one-field form, `size="wide"` for a longer form, `title` for its visible heading and Close button) |
+| Overlays | `web/packages/ui/src/overlays.tsx` | `Drawer` (with `embedded` for the full-page view), `Modal` (`placement="center"` for a confirm or one-field form, `size="wide"` for a longer form, `title` for its visible heading and Close button), `HelpTip` (the ⓘ that explains a feature) |
 | Brand mark | `web/packages/ui/src/brand.tsx` | `KubebayMark`; the gradient is `--kb-brand-cyan` → `--kb-brand-green`, also used by the favicons, app icons and the website's `KubebayMark.astro` |
 | Website | `website/src/styles/global.css` | imports `tokens.css` (Dusk); its `--bg`, `--text`, `--accent`… are aliases for `--kb-*` tokens |
 | Desktop window | `web/apps/shell/src/lib/nativeWindow.ts`, `desktop/src-tauri/src/window_theme.rs` | the native window's colour and title bar follow the theme |
-| Icons | `web/packages/ui/src/icons.tsx` | 18 stroke icons, `currentColor` |
+| Icons | `web/packages/ui/src/icons.tsx` | 21 stroke icons, `currentColor` |
 | Reduced motion, forced colours | `web/packages/ui/src/styles.css` | apply to any app using the package |
 | Page layout, one-off page styling | `web/apps/shell/src/app.css` | layout only; never a package class |
 
@@ -51,6 +51,13 @@ https://claude.ai/artifact/J35D45QQ7X6Sgd7mwfRSnF
    not a hand-made heading row: the title names the dialog, a Close button
    sits beside it, and focus still starts on the dialog's own first control.
    A centred dialog taller than the window scrolls inside.
+   A feature's explanation is a `HelpTip`, an ⓘ beside its title
+   (`PageHeader`'s `help` prop takes one; `align="end"` at a right edge): a click, Enter or Space opens it,
+   Escape, a press elsewhere or a second click closes it, and it holds a
+   sentence on what the feature is, one on how it works, and a link to its
+   page in the user manual. Never a hover-only tooltip for an explanation;
+   see `docs/HELP_TIPS_RESEARCH.md`. In the shell, a page's ⓘ is
+   `<PageHelp route="…" />`, its copy in `src/lib/help.ts`.
 2. **Loading shows the shape of what is coming.** A list or table with no rows
    yet is a `SkeletonTable` (or a `DataTable` with `loading` and a
    `loadingLabel`) under its real headers, captioned with the helm-wheel
