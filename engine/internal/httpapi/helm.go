@@ -14,9 +14,12 @@ import (
 	"sync"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
+	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/clientcmd"
@@ -29,6 +32,7 @@ import (
 	"helm.sh/helm/v4/pkg/kube"
 	ri "helm.sh/helm/v4/pkg/release"
 	releasev1 "helm.sh/helm/v4/pkg/release/v1"
+	"helm.sh/helm/v4/pkg/storage"
 	"helm.sh/helm/v4/pkg/storage/driver"
 
 	"github.com/RajaSardar/kubebay/engine/internal/audit"
@@ -247,7 +251,7 @@ func listRow(rr ri.Releaser) ReleaseSummary {
 
 func (h *HelmManager) HandleReleases(w http.ResponseWriter, r *http.Request) {
 	cluster := r.URL.Query().Get("cluster")
-	cfg, err := h.cfg(r, cluster, "")
+	cfg, err := h.releasesCfg(r, cluster, "")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -583,6 +587,9 @@ func helmUpgrade(cfg *action.Configuration, req HelmUpgradeRequest, cpo action.C
 	up.WaitStrategy = kube.HookOnlyStrategy
 	up.DryRunStrategy = helmDryRun(req.DryRun)
 	up.PostRenderer = &stripComplianceSpecs{}
+	// As many revisions as the helm CLI keeps; unlimited, every upgrade
+	// added a Secret that listing then had to fetch.
+	up.MaxHistory = 10
 	return up
 }
 
@@ -599,4 +606,40 @@ func helmUninstall(cfg *action.Configuration) *action.Uninstall {
 	un.Timeout = helmTimeout
 	un.WaitStrategy = kube.HookOnlyStrategy
 	return un
+}
+
+// liveReleaseStore is Helm's storage over the given release Secrets, listing
+// only the revisions Helm hasn't marked superseded (ADR 0004). Helm decodes
+// every Secret a list returns and then keeps each release's newest revision;
+// a superseded one is never the newest (Helm relabels a revision in the same
+// update that supersedes it), so the API server can leave them out. Failed
+// revisions stay, and Helm still picks the newest.
+func liveReleaseStore(secrets corev1client.SecretInterface) *storage.Storage {
+	return storage.Init(driver.NewSecrets(liveRevisions{secrets}))
+}
+
+type liveRevisions struct{ corev1client.SecretInterface }
+
+func (l liveRevisions) List(ctx context.Context, opts metav1.ListOptions) (*corev1.SecretList, error) {
+	if opts.LabelSelector != "" {
+		opts.LabelSelector += ","
+	}
+	opts.LabelSelector += "status!=superseded"
+	return l.SecretInterface.List(ctx, opts)
+}
+
+// releasesCfg is actionCfg for listing releases: its storage fetches only
+// live revisions. A configuration built without a cluster connection (Helm's
+// in-memory storage, in tests) is left as it is.
+func (h *HelmManager) releasesCfg(r *http.Request, cluster, ns string) (*action.Configuration, error) {
+	cfg, err := h.cfg(r, cluster, ns)
+	if err != nil || cfg.RESTClientGetter == nil {
+		return cfg, err
+	}
+	cs, err := cfg.KubernetesClientSet()
+	if err != nil {
+		return nil, err
+	}
+	cfg.Releases = liveReleaseStore(cs.CoreV1().Secrets(ns))
+	return cfg, nil
 }
