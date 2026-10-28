@@ -1,15 +1,9 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { Badge, Button, ColumnChooser, EmptyState, IconButton, InlineBanner, NsPill, PageHeader, SelectAllHeader, SelectCell, SelectionBar, SkeletonTable, SortHeader, Table, TableRow, TableWrap, TextField, VisuallyHidden } from "@kubebay/ui";
 import { shouldShowSkeleton } from "../lib/useResourceStream";
-import { ForbiddenState } from "./ForbiddenState";
+import { ForbiddenState, NamespacesDeniedBanner } from "./ForbiddenState";
 import type { NamespaceDenial } from "../lib/useResourceStream";
-import { listKinds } from "../lib/forbidden";
 
-/** The filtered namespaces RBAC lets this identity list, as a phrase. */
-function shownNamespaces(namespaces: readonly string[] | undefined, denied: readonly NamespaceDenial[]): string {
-  const refused = new Set(denied.map((d) => d.ns));
-  return listKinds((namespaces ?? []).filter((ns) => !refused.has(ns)));
-}
 import { useColumnWidths } from "../lib/useColumnWidths";
 import { useColumnPrefs } from "../lib/useColumnPrefs";
 import { useRowSelection } from "../lib/useRowSelection";
@@ -350,19 +344,7 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
       {bulkDelete.rejection && <PolicyRejectionCard flush={false} rejection={bulkDelete.rejection} />}
       {!bulkDelete.rejection && bulkDelete.error && <InlineBanner>{bulkDelete.error}</InlineBanner>}
       {p.denied && p.denied.length > 0 && !(p.forbidden && all.length === 0) && (
-        <InlineBanner tone="warn">
-          <div>
-            <div>
-              You can't list {noun} in {listKinds(p.denied.map((d) => d.ns))}.
-              {shownNamespaces(p.namespaces, p.denied) ? ` Showing ${shownNamespaces(p.namespaces, p.denied)}.` : ""}
-            </div>
-            {p.denied.map((d) => (
-              <div key={d.ns} className="small">
-                {d.reason}
-              </div>
-            ))}
-          </div>
-        </InlineBanner>
+        <NamespacesDeniedBanner noun={noun} namespaces={p.namespaces} denied={p.denied} />
       )}
 
       <div className="toolbar">

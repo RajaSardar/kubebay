@@ -14,7 +14,7 @@ vi.mock("../useResourceStream", () => ({
 }));
 vi.mock("../api", async (orig) => ({
   ...(await orig<typeof import("../api")>()),
-  helmApi: { releases: vi.fn(async () => []) },
+  helmApi: { releases: vi.fn(async () => ({ releases: [], denied: [] })) },
 }));
 
 const { useResourceStream } = await import("../useResourceStream");
@@ -42,7 +42,7 @@ describe("usePrewarm and Helm", () => {
   it("fetches the release list in the background once the cluster has releases", async () => {
     helmSecrets.value = { rows: [release], synced: true };
     renderHook(() => usePrewarm("c1"), { wrapper });
-    await waitFor(() => expect(helmApi.releases).toHaveBeenCalledWith("c1"));
+    await waitFor(() => expect(helmApi.releases).toHaveBeenCalledWith("c1", undefined));
   });
 
   it("doesn't ask for the list on a cluster with no releases", async () => {

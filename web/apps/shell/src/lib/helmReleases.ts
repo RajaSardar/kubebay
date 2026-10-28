@@ -11,11 +11,13 @@ import { helmApi, type HelmRelease } from "./api";
 /** The release Secrets the shell streams. */
 export const HELM_SECRETS = { gvr: "v1/secrets", labelSelector: "owner=helm,status!=superseded" } as const;
 
-/** The release list's query, shared by the Helm page and the prefetch on connect. */
-export function helmReleasesQuery(cluster: string) {
+/** The release list's query, shared by the Helm page and the prefetch on
+ *  connect; `namespaces` scopes it for an identity that can't read release
+ *  Secrets cluster-wide. */
+export function helmReleasesQuery(cluster: string, namespaces?: readonly string[]) {
   return {
-    queryKey: ["helm-releases", cluster] as const,
-    queryFn: () => helmApi.releases(cluster),
+    queryKey: ["helm-releases", cluster, ...(namespaces ?? [])] as const,
+    queryFn: () => helmApi.releases(cluster, namespaces),
     // The stream says when a release changes; no timer.
     refetchInterval: false as const,
     staleTime: 5 * 60_000,

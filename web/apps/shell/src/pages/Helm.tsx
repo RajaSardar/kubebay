@@ -5,7 +5,7 @@ import { ArmedButton, Badge, Button, DataTable, Drawer, EmptyState, InlineBanner
 import { helmApi, type HelmRelease } from "../lib/api";
 import { useResourceStream } from "../lib/useResourceStream";
 import { HELM_SECRETS, helmReleasesQuery, helmRowsFromSecrets, mergeReleases, releasesFingerprint } from "../lib/helmReleases";
-import { ForbiddenState } from "../components/ForbiddenState";
+import { ForbiddenState, NamespacesDeniedBanner } from "../components/ForbiddenState";
 import { useCluster } from "../lib/useCluster";
 import { useMonacoTheme } from "../lib/theme";
 import { ChartsTab } from "../components/HelmCharts";
@@ -305,19 +305,34 @@ export default function Helm() {
   // rows at once and live; the list fills in the chart columns and is asked
   // for again only when a release changes, never on a timer.
   const qc = useQueryClient();
-  const secrets = useResourceStream(effectiveCluster || undefined, HELM_SECRETS.gvr, {
+  const nsFilter = useSelectedNamespaces(effectiveCluster || undefined);
+  const wide = useResourceStream(effectiveCluster || undefined, HELM_SECRETS.gvr, {
     mode: "metadata",
     labelSelector: HELM_SECRETS.labelSelector,
   });
+  // An identity that can't read release Secrets cluster-wide reads them in
+  // the namespaces it picked, each one it can't read named (ADR 0003).
+  const scope = wide.forbidden && nsFilter.length > 0 ? nsFilter : undefined;
+  const scoped = useResourceStream(effectiveCluster || undefined, HELM_SECRETS.gvr, {
+    mode: "metadata",
+    labelSelector: HELM_SECRETS.labelSelector,
+    ns: scope,
+    enabled: !!scope,
+  });
+  const secrets = scope ? scoped : wide;
   const heads = useMemo(
     () => (!secrets.forbidden && (secrets.synced || secrets.rows.length > 0) ? helmRowsFromSecrets(secrets.rows) : null),
     [secrets.forbidden, secrets.synced, secrets.rows],
   );
   const releases = useQuery({
-    ...helmReleasesQuery(effectiveCluster),
+    ...helmReleasesQuery(effectiveCluster, scope),
     enabled: !!effectiveCluster,
     retry: false,
   });
+  const denied = useMemo(
+    () => (scope ? (scoped.denied ?? releases.data?.denied.map((d) => ({ ns: d.ns, reason: d.message })) ?? []) : []),
+    [scope, scoped.denied, releases.data],
+  );
   const fingerprint = heads ? releasesFingerprint(heads) : "";
   const seen = useRef(fingerprint);
   useEffect(() => {
@@ -328,12 +343,11 @@ export default function Helm() {
   }, [fingerprint, effectiveCluster, qc]);
 
   const all = useMemo(() => {
-    const out = mergeReleases(heads, releases.data);
+    const out = mergeReleases(heads, releases.data?.releases);
     out.sort((a, b) => `${a.namespace}/${a.name}`.localeCompare(`${b.namespace}/${b.name}`));
     return out;
   }, [heads, releases.data]);
 
-  const nsFilter = useSelectedNamespaces(effectiveCluster || undefined);
   const [search, setSearch] = useState("");
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -400,7 +414,9 @@ export default function Helm() {
         </Row>
       )}
 
-      {releases.isError && !secrets.forbidden && (
+      {denied.length > 0 && <NamespacesDeniedBanner noun="Helm releases" namespaces={scope} denied={denied} flush />}
+
+      {releases.isError && !wide.forbidden && (
         <InlineBanner flush>
           Failed to list releases —{" "}
           {releases.error instanceof Error ? releases.error.message : "is the cluster reachable?"}
@@ -410,10 +426,13 @@ export default function Helm() {
 
       {!effectiveCluster ? (
         <PageLoader message="Waiting for a cluster…" />
-      ) : secrets.forbidden && all.length === 0 ? (
+      ) : wide.forbidden && !scope && all.length === 0 ? (
         // Helm keeps releases in Secrets: an identity that can't list them
         // can't be told there are none.
-        <ForbiddenState denied={[{ what: "Helm releases", reason: secrets.forbidden }]} />
+        <ForbiddenState
+          denied={[{ what: "Helm releases", reason: wide.forbidden }]}
+          action={<p className="muted small">Pick the namespaces you use in the namespace filter to see their releases.</p>}
+        />
       ) : (
         <DataTable
           loading={!heads && releases.isLoading}

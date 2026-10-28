@@ -57,7 +57,10 @@ func memoryHelm(t *testing.T, rels ...*releasev1.Release) *HelmManager {
 		KubeClient:   &kubefake.PrintingKubeClient{Out: io.Discard},
 		Capabilities: common.DefaultCapabilities,
 	}
-	return &HelmManager{config: func(*http.Request, string, string) (*action.Configuration, error) { return cfg, nil }}
+	return &HelmManager{
+		config: func(*http.Request, string, string) (*action.Configuration, error) { return cfg, nil },
+		store:  func(*http.Request, string, string) (*storage.Storage, error) { return store, nil },
+	}
 }
 
 func webRelease(version int, status rcommon.Status) *releasev1.Release {
