@@ -1,5 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { findingsForPod, findingsForWorkload, ownerNamesForWorkload, severityCounts, type VulnFinding } from "../vulnFindings";
+import {
+  findingsForPod,
+  findingsForWorkload,
+  matchesVulnQuery,
+  ownerNamesForWorkload,
+  severityCounts,
+  vulnWorkloads,
+  type VulnFinding,
+} from "../vulnFindings";
 
 function report(opts: {
   name: string;
@@ -7,8 +15,9 @@ function report(opts: {
   ownerKind: string;
   ownerName: string;
   container: string;
-  vulns: { id: string; severity: string; installedVersion?: string; fixedVersion?: string; primaryLink?: string }[];
+  vulns: { id: string; severity: string; installedVersion?: string; fixedVersion?: string; primaryLink?: string; pkg?: string }[];
   updateTimestamp?: string;
+  image?: { repository: string; tag: string };
 }) {
   return {
     metadata: {
@@ -23,7 +32,9 @@ function report(opts: {
     },
     report: {
       updateTimestamp: opts.updateTimestamp,
+      artifact: opts.image,
       vulnerabilities: opts.vulns.map((v) => ({
+        resource: v.pkg,
         vulnerabilityID: v.id,
         severity: v.severity,
         installedVersion: v.installedVersion,
@@ -155,5 +166,63 @@ describe("severityCounts", () => {
       { id: "d", severity: "LOW", container: "x", reportName: "r" },
     ];
     expect(severityCounts(findings)).toEqual({ CRITICAL: 2, HIGH: 1, MEDIUM: 0, LOW: 1, UNKNOWN: 0 });
+  });
+});
+
+// Root backlog #16: every finding on one page, a row per workload.
+
+describe("vulnWorkloads", () => {
+  const reports = [
+    // web's two ReplicaSets (mid-rollout) and two containers: one row, Deployment web.
+    report({ name: "web-a-nginx", ns: "shop", ownerKind: "ReplicaSet", ownerName: "web-a", container: "nginx", image: { repository: "library/nginx", tag: "1.25" },
+      updateTimestamp: "2026-10-20T00:00:00Z",
+      vulns: [{ id: "CVE-1", severity: "CRITICAL", pkg: "openssl", fixedVersion: "3.0.2" }, { id: "CVE-2", severity: "LOW", pkg: "zlib" }] }),
+    report({ name: "web-b-sidecar", ns: "shop", ownerKind: "ReplicaSet", ownerName: "web-b", container: "sidecar", image: { repository: "envoy", tag: "1.30" },
+      updateTimestamp: "2026-10-22T00:00:00Z",
+      vulns: [{ id: "CVE-3", severity: "HIGH", pkg: "curl", fixedVersion: "8.5" }] }),
+    // A StatefulSet owns its pods directly.
+    report({ name: "db-postgres", ns: "shop", ownerKind: "StatefulSet", ownerName: "db", container: "postgres", image: { repository: "postgres", tag: "16" },
+      vulns: [{ id: "CVE-4", severity: "MEDIUM", pkg: "glibc" }] }),
+    // A ReplicaSet no Deployment owns stays a ReplicaSet.
+    report({ name: "lone-app", ns: "ops", ownerKind: "ReplicaSet", ownerName: "lone", container: "app", vulns: [{ id: "CVE-5", severity: "CRITICAL" }, { id: "CVE-6", severity: "CRITICAL" }] }),
+    // A clean scan isn't a row.
+    report({ name: "clean-app", ns: "ops", ownerKind: "DaemonSet", ownerName: "clean", container: "app", vulns: [] }),
+  ];
+  const replicaSets = [replicaSet("web-a", "shop", "web"), replicaSet("web-b", "shop", "web")];
+
+  it("gives each workload one row, a Deployment for its ReplicaSets' reports", () => {
+    const rows = vulnWorkloads(reports, replicaSets);
+    expect(rows.map((r) => `${r.ns}/${r.kind}/${r.name}`)).toEqual(["ops/ReplicaSet/lone", "shop/Deployment/web", "shop/StatefulSet/db"]);
+    const web = rows.find((r) => r.name === "web")!;
+    expect(web.findings.map((f) => f.id)).toEqual(["CVE-1", "CVE-3", "CVE-2"]);
+    expect(web.counts).toEqual({ CRITICAL: 1, HIGH: 1, MEDIUM: 0, LOW: 1, UNKNOWN: 0 });
+    expect(web.fixable).toBe(2);
+    expect(web.images).toEqual(["envoy:1.30", "library/nginx:1.25"]);
+    expect(web.scannedAt).toBe("2026-10-22T00:00:00Z");
+  });
+
+  it("puts the worst first: most critical, then high, then the rest", () => {
+    // lone has 2 critical, web 1 critical and 1 high, db 1 medium.
+    expect(vulnWorkloads(reports, replicaSets).map((r) => r.name)).toEqual(["lone", "web", "db"]);
+  });
+
+  it("keeps a finding's package", () => {
+    const web = vulnWorkloads(reports, replicaSets).find((r) => r.name === "web")!;
+    expect(web.findings.find((f) => f.id === "CVE-1")!.pkg).toBe("openssl");
+  });
+});
+
+describe("matchesVulnQuery", () => {
+  const web = vulnWorkloads(
+    [report({ name: "web-a-nginx", ns: "shop", ownerKind: "ReplicaSet", ownerName: "web-a", container: "nginx", image: { repository: "library/nginx", tag: "1.25" },
+      vulns: [{ id: "CVE-2024-6387", severity: "CRITICAL", pkg: "openssh-client" }] })],
+    [replicaSet("web-a", "shop", "web")],
+  )[0]!;
+
+  it("finds a workload by its name, namespace, image, a CVE it has or a package", () => {
+    for (const q of ["web", "shop", "nginx:1.25", "cve-2024-6387", "openssh", "shop web"]) expect(matchesVulnQuery(web, q), q).toBe(true);
+    expect(matchesVulnQuery(web, "")).toBe(true);
+    expect(matchesVulnQuery(web, "CVE-2023")).toBe(false);
+    expect(matchesVulnQuery(web, "payments")).toBe(false);
   });
 });
