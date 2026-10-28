@@ -160,6 +160,26 @@ func TestLiveHelmReleaseLifecycle(t *testing.T) {
 		t.Errorf("the ConfigMap has no Apply field manager: %+v", cm.ManagedFields)
 	}
 
+	// ADR 0004 S7: the release's details list what it created, resolved by
+	// the cluster's own discovery.
+	var details struct {
+		Release   helmSummary `json:"release"`
+		Resources []struct {
+			APIVersion, Kind, Namespace, Name string
+			Namespaced, Served                bool
+		} `json:"resources"`
+	}
+	dq := "?cluster=" + url.QueryEscape(cluster) + "&ns=" + ns + "&name=" + name
+	if err := json.Unmarshal(httpGetJSON(t, srv.URL+"/api/helm/release"+dq), &details); err != nil {
+		t.Fatal(err)
+	}
+	if details.Release.Revision != 1 || len(details.Resources) != 1 {
+		t.Fatalf("details = %+v", details)
+	}
+	if r := details.Resources[0]; r.Kind != "ConfigMap" || r.APIVersion != "v1" || r.Namespace != ns || r.Name != name || !r.Namespaced || !r.Served {
+		t.Errorf("created = %+v, want the ConfigMap %s/%s", r, ns, name)
+	}
+
 	if s := upgrade("two", false); s.Revision != 2 || s.ApplyMethod != "ssa" {
 		t.Errorf("upgrade summary = %+v, want revision 2, ssa", s)
 	}
