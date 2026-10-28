@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Badge, Button, Card, EmptyState, Row, Stack } from "@kubebay/ui";
 import { crdApi } from "../lib/api";
@@ -73,6 +74,31 @@ export function VulnFindingsSummary({ findings, emptyLabel = "this pod" }: { fin
 }
 
 /**
+ * What a pod's or workload's drawer shows (root backlog #16): how many
+ * findings by severity, and a way to them on the Vulnerabilities page, which
+ * lists every CVE in one place. `workload` is `namespace/Kind/name`, the
+ * report owner (a ReplicaSet is fine: the page finds its Deployment).
+ */
+export function VulnFindingsLink({ findings, workload, emptyLabel }: { findings: VulnFinding[]; workload: string; emptyLabel: string }) {
+  const navigate = useNavigate();
+  if (findings.length === 0) {
+    return <EmptyState style={{ padding: 14 }} title={`No vulnerability findings for ${emptyLabel}.`} />;
+  }
+  const counts = severityCounts(findings);
+  return (
+    <Stack gap={2} style={{ padding: 14 }}>
+      <div className="muted small">
+        {counts.CRITICAL} critical · {counts.HIGH} high · {counts.MEDIUM} medium · {counts.LOW} low
+        {counts.UNKNOWN > 0 ? ` · ${counts.UNKNOWN} unknown` : ""}
+      </div>
+      <Row>
+        <Button onClick={() => navigate(`/vulnerabilities?workload=${encodeURIComponent(workload)}`)}>Open on the Vulnerabilities page</Button>
+      </Row>
+    </Stack>
+  );
+}
+
+/**
  * Data-fetching half: detects Trivy-Operator the same way Karpenter/KEDA do
  * (a client-side /api/crds filter, degrading to an empty tab when absent,
  * never a broken subscription), resolves the pod's immediate controller
@@ -133,5 +159,5 @@ export function PodVulnerabilitiesTab({
     );
   }
 
-  return <VulnFindingsSummary findings={findings} />;
+  return <VulnFindingsLink findings={findings} workload={`${ns}/${owner.kind}/${owner.name}`} emptyLabel="this pod" />;
 }
