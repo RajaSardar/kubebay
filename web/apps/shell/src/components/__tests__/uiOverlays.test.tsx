@@ -2,7 +2,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { Button, Drawer, Modal } from "@kubebay/ui";
 
@@ -61,6 +62,109 @@ describe("Drawer", () => {
     expect(screen.getByRole("dialog", { name: "api" })).toHaveFocus();
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     expect(opener).toHaveFocus();
+  });
+
+  // Backlog #15: a press on the page behind an open drawer closes it, like
+  // clicking away from any panel. What the drawer opened (a menu, a dialog,
+  // even portalled) and what sits over the page (another dialog, a toast, an
+  // editor's popup) are not "the page", so they leave it open.
+  describe("a press outside", () => {
+    const Portal = ({ children }: { children: ReactNode }) => createPortal(children, document.body);
+
+    it("on the page behind it closes it", () => {
+      const onClose = vi.fn();
+      render(
+        <>
+          <button type="button">Row</button>
+          <Drawer title="api" onClose={onClose}>body</Drawer>
+        </>,
+      );
+      fireEvent.mouseDown(screen.getByRole("button", { name: "Row" }));
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+
+    it("inside it, or in a menu or dialog it opened, leaves it open", () => {
+      const onClose = vi.fn();
+      render(
+        <Drawer title="api" onClose={onClose}>
+          <p>Body</p>
+          <Portal>
+            <button type="button">Menu item</button>
+          </Portal>
+          <Modal label="Scale" onClose={() => {}}>
+            <button type="button">Scale up</button>
+          </Modal>
+        </Drawer>,
+      );
+      fireEvent.mouseDown(screen.getByText("Body"));
+      fireEvent.mouseDown(screen.getByRole("button", { name: "Menu item" }));
+      fireEvent.mouseDown(screen.getByRole("button", { name: "Scale up" }));
+      expect(onClose).not.toHaveBeenCalled();
+    });
+
+    it("on something over the page leaves it open", () => {
+      const onClose = vi.fn();
+      render(
+        <>
+          <Drawer title="api" onClose={onClose}>body</Drawer>
+          <Modal label="Palette" onClose={() => {}}>
+            <input aria-label="Search" />
+          </Modal>
+        </>,
+      );
+      // An editor's context menu or a toast, attached to <body> by hand.
+      const popup = document.body.appendChild(document.createElement("div"));
+      fireEvent.mouseDown(screen.getByRole("textbox", { name: "Search" }));
+      fireEvent.mouseDown(popup);
+      popup.remove();
+      expect(onClose).not.toHaveBeenCalled();
+    });
+
+    it("with the right or middle button leaves it open", () => {
+      const onClose = vi.fn();
+      render(
+        <>
+          <button type="button">Row</button>
+          <Drawer title="api" onClose={onClose}>body</Drawer>
+        </>,
+      );
+      fireEvent.mouseDown(screen.getByRole("button", { name: "Row" }), { button: 2 });
+      fireEvent.mouseDown(screen.getByRole("button", { name: "Row" }), { button: 1 });
+      expect(onClose).not.toHaveBeenCalled();
+    });
+
+    it("never closes the full-page view", () => {
+      const onClose = vi.fn();
+      render(
+        <>
+          <button type="button">Elsewhere</button>
+          <Drawer title="api" embedded onClose={onClose}>body</Drawer>
+        </>,
+      );
+      fireEvent.mouseDown(screen.getByRole("button", { name: "Elsewhere" }));
+      expect(onClose).not.toHaveBeenCalled();
+    });
+
+    it("on another row switches the drawer to it", () => {
+      function Host() {
+        const [open, setOpen] = useState<string | null>("api");
+        return (
+          <>
+            {["api", "web"].map((n) => (
+              <button key={n} type="button" onClick={() => setOpen(n)}>
+                Row {n}
+              </button>
+            ))}
+            {open && <Drawer title={open} onClose={() => setOpen(null)}>body</Drawer>}
+          </>
+        );
+      }
+      render(<Host />);
+      const web = screen.getByRole("button", { name: "Row web" });
+      fireEvent.mouseDown(web);
+      fireEvent.click(web);
+      expect(screen.getByRole("dialog", { name: "web" })).toBeInTheDocument();
+    });
   });
 
   it("can set the subtitle in the proportional face", () => {
