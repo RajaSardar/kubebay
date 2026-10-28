@@ -182,7 +182,8 @@ jobs:
           cache: npm
           cache-dependency-path: website/package-lock.json
       - run: npm ci
-      # KB-02: every comparison cell names its source.
+      # KB-02: every comparison cell names its source. Root backlog #17: every
+      # page of the app (web/apps/shell/src/App.tsx) has a docs page.
       - run: npm test
       - run: npm run build
 

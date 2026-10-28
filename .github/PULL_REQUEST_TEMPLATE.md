@@ -11,6 +11,7 @@
 
 ## Docs
 
+- [ ] Updated the user manual in `website/src/content/docs` for any feature, behaviour or bug fix a user would notice
 - [ ] Updated relevant docs/ pages, README, or CHANGELOG.md
 
 ## Screenshots / GIF
