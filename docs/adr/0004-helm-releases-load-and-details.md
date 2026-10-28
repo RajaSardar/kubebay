@@ -2,7 +2,7 @@
 
 - **Status:** Accepted (2026-10-28). Backlog #9 and #10 asked for research, expert agents and a debate. Four advocates argued (a competitive researcher, an engine performance engineer, a minimal "lazy" engineer, an on-call SRE and security skeptic), and a judge checked their claims against the code and Helm 4.3.1's source before ruling.
 - **Date:** 2026-10-28
-- **Implemented by:** three PRs: the fixes (S1–S3), loading (S4–S6), details (S7–S9).
+- **Implemented by:** the fixes and the filtered list (S1–S4) first, then loading (S5–S6), then details (S7–S9).
 
 ## Context
 
