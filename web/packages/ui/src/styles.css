@@ -1456,10 +1456,14 @@ kbd {
   width: max-content;
   max-width: min(360px, calc(100vw - 2 * var(--kb-gutter)));
   padding: var(--kb-space-3);
+  /* A tip sits in a title, which may be uppercase, spaced or mono: reset it. */
+  font-family: var(--kb-font);
   font-size: var(--kb-text-sm);
   font-weight: 400;
   line-height: 1.5;
   letter-spacing: normal;
+  text-transform: none;
+  text-align: start;
   white-space: normal;
   color: var(--kb-fg-default);
   background: var(--kb-bg-raised);
