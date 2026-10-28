@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -25,6 +26,7 @@ import (
 
 	"github.com/RajaSardar/kubebay/engine/internal/audit"
 	"github.com/RajaSardar/kubebay/engine/internal/clusters"
+	"github.com/RajaSardar/kubebay/engine/internal/redact"
 )
 
 // stripComplianceSpecs is a Helm PostRenderer that removes ClusterComplianceReport
@@ -56,6 +58,17 @@ func (s *stripComplianceSpecs) Run(renderedManifests *bytes.Buffer) (*bytes.Buff
 type HelmManager struct {
 	Clusters *clusters.Manager
 	Audit    *audit.Logger
+	// config, when set, replaces actionCfg: tests hand the handlers Helm's
+	// in-memory storage.
+	config func(r *http.Request, cluster, ns string) (*action.Configuration, error)
+}
+
+// cfg is the Helm action configuration a request's handler works with.
+func (h *HelmManager) cfg(r *http.Request, cluster, ns string) (*action.Configuration, error) {
+	if h.config != nil {
+		return h.config(r, cluster, ns)
+	}
+	return h.actionCfg(cluster, ns)
 }
 
 func NewHelm(mgr *clusters.Manager, auditLog *audit.Logger) *HelmManager {
@@ -164,9 +177,17 @@ func summarize(rr ri.Releaser) ReleaseSummary {
 	return out
 }
 
+// listRow is a release as a list or history shows it: no manifest, which can
+// hold rendered Secrets and which no list needs (ADR 0004).
+func listRow(rr ri.Releaser) ReleaseSummary {
+	row := summarize(rr)
+	row.Manifest = ""
+	return row
+}
+
 func (h *HelmManager) HandleReleases(w http.ResponseWriter, r *http.Request) {
 	cluster := r.URL.Query().Get("cluster")
-	cfg, err := h.actionCfg(cluster, "")
+	cfg, err := h.cfg(r, cluster, "")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -181,7 +202,7 @@ func (h *HelmManager) HandleReleases(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]ReleaseSummary, 0, len(rels))
 	for _, rel := range rels {
-		out = append(out, summarize(rel))
+		out = append(out, listRow(rel))
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(out)
@@ -189,7 +210,7 @@ func (h *HelmManager) HandleReleases(w http.ResponseWriter, r *http.Request) {
 
 func (h *HelmManager) HandleHistory(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
-	cfg, err := h.actionCfg(q.Get("cluster"), q.Get("ns"))
+	cfg, err := h.cfg(r, q.Get("cluster"), q.Get("ns"))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -202,7 +223,7 @@ func (h *HelmManager) HandleHistory(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]ReleaseSummary, 0, len(rels))
 	for _, rel := range rels {
-		out = append(out, summarize(rel))
+		out = append(out, listRow(rel))
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(out)
@@ -210,7 +231,7 @@ func (h *HelmManager) HandleHistory(w http.ResponseWriter, r *http.Request) {
 
 func (h *HelmManager) HandleValues(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
-	cfg, err := h.actionCfg(q.Get("cluster"), q.Get("ns"))
+	cfg, err := h.cfg(r, q.Get("cluster"), q.Get("ns"))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -232,7 +253,7 @@ func (h *HelmManager) HandleValues(w http.ResponseWriter, r *http.Request) {
 
 func (h *HelmManager) HandleManifest(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
-	cfg, err := h.actionCfg(q.Get("cluster"), q.Get("ns"))
+	cfg, err := h.cfg(r, q.Get("cluster"), q.Get("ns"))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -248,7 +269,62 @@ func (h *HelmManager) HandleManifest(w http.ResponseWriter, r *http.Request) {
 		manifest = r1.Manifest
 	}
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	_, _ = w.Write([]byte(manifest))
+	_, _ = w.Write([]byte(maskSecretValues(manifest)))
+}
+
+var (
+	manifestDocSep  = regexp.MustCompile(`(?m)^---[ \t]*$`)
+	looksLikeSecret = regexp.MustCompile(`(?m)^kind:\s*["']?Secret["']?\s*$`)
+)
+
+// maskSecretValues returns a rendered manifest with every Secret's data and
+// stringData values masked; their keys, and every other document, stay as
+// they are.
+func maskSecretValues(manifest string) string {
+	var b strings.Builder
+	prev := 0
+	for _, loc := range manifestDocSep.FindAllStringIndex(manifest, -1) {
+		b.WriteString(maskSecretDoc(manifest[prev:loc[0]]))
+		b.WriteString(manifest[loc[0]:loc[1]])
+		prev = loc[1]
+	}
+	b.WriteString(maskSecretDoc(manifest[prev:]))
+	return b.String()
+}
+
+func maskSecretDoc(doc string) string {
+	if !looksLikeSecret.MatchString(doc) {
+		return doc
+	}
+	// Keep the blank lines and "# Source:" comments before the object.
+	lead := 0
+	for lead < len(doc) {
+		end := strings.IndexByte(doc[lead:], '\n')
+		if end < 0 {
+			break
+		}
+		line := strings.TrimSpace(doc[lead : lead+end])
+		if line != "" && !strings.HasPrefix(line, "#") {
+			break
+		}
+		lead += end + 1
+	}
+	var obj map[string]any
+	if err := yaml.Unmarshal([]byte(doc), &obj); err != nil {
+		return doc[:lead] + "# A Secret is not shown: it could not be read to mask its values.\n"
+	}
+	for _, field := range []string{"data", "stringData"} {
+		if values, ok := obj[field].(map[string]any); ok {
+			for k := range values {
+				values[k] = redact.Mask
+			}
+		}
+	}
+	out, err := yaml.Marshal(obj)
+	if err != nil {
+		return doc[:lead] + "# A Secret is not shown: it could not be read to mask its values.\n"
+	}
+	return doc[:lead] + string(out)
 }
 
 type HelmActionRequest struct {
@@ -264,7 +340,7 @@ func (h *HelmManager) HandleRollback(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "cluster, ns, name required", http.StatusBadRequest)
 		return
 	}
-	cfg, err := h.actionCfg(req.Cluster, req.NS)
+	cfg, err := h.cfg(r, req.Cluster, req.NS)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -287,7 +363,7 @@ func (h *HelmManager) HandleUninstall(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "cluster, ns, name required", http.StatusBadRequest)
 		return
 	}
-	cfg, err := h.actionCfg(req.Cluster, req.NS)
+	cfg, err := h.cfg(r, req.Cluster, req.NS)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -325,7 +401,7 @@ func (h *HelmManager) HandleUpgrade(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "cluster, ns, name, chartRef required", http.StatusBadRequest)
 		return
 	}
-	cfg, err := h.actionCfg(req.Cluster, req.NS)
+	cfg, err := h.cfg(r, req.Cluster, req.NS)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
