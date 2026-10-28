@@ -1,0 +1,83 @@
+---
+import { getCollection } from 'astro:content';
+import Layout from './Layout.astro';
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
+import { sidebar } from '../lib/docs';
+import '../styles/docs.css';
+
+interface Props {
+  title: string;
+  description: string;
+  slug: string;
+  headings?: { depth: number; slug: string; text: string }[];
+}
+
+const { title, description, slug, headings = [] } = Astro.props;
+const all = await getCollection('docs');
+const groups = sidebar(all.map((d) => ({ slug: d.slug, title: d.data.title, section: d.data.section, order: d.data.order })));
+const flat = groups.flatMap((g) => g.items);
+const at = flat.findIndex((d) => d.slug === slug);
+const prev = at > 0 ? flat[at - 1] : undefined;
+const next = at >= 0 ? flat[at + 1] : undefined;
+const href = (s: string) => (s === 'index' ? '/docs/' : `/docs/${s}/`);
+const toc = headings.filter((h) => h.depth === 2);
+const editURL = `https://github.com/RajaSardar/kubebay/edit/main/website/src/content/docs/${slug}.md`;
+---
+
+<Layout title={slug === 'index' ? 'Kubebay docs' : `${title} | Kubebay docs`} description={description}>
+  <Nav />
+  <div class="docs">
+    <aside class="docs-side" aria-label="Docs">
+      <details class="docs-nav" id="docs-nav">
+        <summary>Docs menu</summary>
+        <nav>
+          {groups.map((g) => (
+            <div class="docs-nav__group">
+              <p class="docs-nav__section">{g.section}</p>
+              <ul role="list">
+                {g.items.map((d) => (
+                  <li>
+                    <a href={href(d.slug)} aria-current={d.slug === slug ? 'page' : undefined}>{d.title}</a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </nav>
+      </details>
+    </aside>
+
+    <main class="docs-main">
+      <article class="doc-body">
+        <h1>{title}</h1>
+        <p class="lede">{description}</p>
+        <slot />
+      </article>
+
+      <footer class="docs-foot">
+        <nav class="docs-pager" aria-label="Previous and next page">
+          {prev ? <a class="docs-pager__link" href={href(prev.slug)}><span>Previous</span>{prev.title}</a> : <span />}
+          {next && <a class="docs-pager__link docs-pager__link--next" href={href(next.slug)}><span>Next</span>{next.title}</a>}
+        </nav>
+        <a class="docs-edit" href={editURL} target="_blank" rel="noopener noreferrer">Edit this page on GitHub</a>
+      </footer>
+    </main>
+
+    {toc.length > 1 && (
+      <nav class="docs-toc" aria-label="On this page">
+        <p class="docs-nav__section">On this page</p>
+        <ul role="list">
+          {toc.map((h) => <li><a href={`#${h.slug}`}>{h.text}</a></li>)}
+        </ul>
+      </nav>
+    )}
+  </div>
+  <Footer />
+</Layout>
+
+<script>
+  // The menu is open beside the page on a wide screen, folded on a narrow one.
+  const nav = document.getElementById('docs-nav') as HTMLDetailsElement | null;
+  if (nav && window.matchMedia('(min-width: 900px)').matches) nav.open = true;
+</script>
