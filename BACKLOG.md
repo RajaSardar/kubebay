@@ -14,3 +14,4 @@
 ~~14. Also for the task no 8. it is only showing 1 level of trace back like if my application are deployed by helm and then helm created deployment and then those deployment created replicasets and then those replicaset created pod, we should have all these levels of trace back owned by link in all of these same for crds, which you have not yet fixed~~ ✅ Done
 15. When i click outside of any open drawer it should close,
 16. I think fr vulnerabilities / cves/ these should move from each individual pods/deployment to single page nav and show everything there 
+17. Create a documentation website in the existing kubebay.sardar.dev make it like /doc or what you think is corrent and do document each and eevrything all the useage manual and feature documentation in this also make sure all the future task should also include the update of doc here along with task/features/bug fix which can modify the feature functions/ manual/ 
