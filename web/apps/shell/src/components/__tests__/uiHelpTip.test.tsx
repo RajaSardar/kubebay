@@ -1,4 +1,7 @@
+/// <reference types="node" />
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { HelpTip, PageHeader } from "@kubebay/ui";
 
@@ -91,5 +94,18 @@ describe("PageHeader help", () => {
     expect(heading.parentElement).toContainElement(button);
     fireEvent.click(button);
     expect(heading).not.toContainElement(screen.getByRole("dialog"));
+  });
+});
+
+describe("HelpTip styles", () => {
+  // A tip sits in a title, and a title can be uppercase, spaced out or mono
+  // (the RBAC page's section titles are all three): the panel's sentences
+  // must not inherit that.
+  it("resets the text styles a title passes down", () => {
+    const css = readFileSync(resolve(__dirname, "../../../../../packages/ui/src/styles.css"), "utf8");
+    const panel = /\.kb-helptip-panel \{([^}]*)\}/.exec(css)?.[1] ?? "";
+    for (const decl of ["text-transform: none", "letter-spacing: normal", "font-family: var(--kb-font)", "font-weight: 400", "text-align: start"]) {
+      expect(panel).toContain(decl);
+    }
   });
 });
