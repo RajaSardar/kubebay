@@ -42,8 +42,10 @@ https://claude.ai/artifact/J35D45QQ7X6Sgd7mwfRSnF
    from a grid of cards (themes) is a `ChoiceCard`. Flex layout is `Row` or
    `Stack`, never an inline `display: flex`; spacing between children is their
    `gap`, not margins. A panel about one resource is a `Drawer` (it closes on Escape,
-   except while the user types in a field, the YAML editor or the terminal,
-   and hands focus back when it closes); anything that must hold focus until
+   except while the user types in a field, the YAML editor or the terminal, and
+   on a press on the page behind it, but not on one in a menu or dialog it
+   opened or in anything laid over the page; it hands focus back when it
+   closes); anything that must hold focus until
    dismissed is a `Modal`, which renders into `document.body` so a translucent
    ancestor cannot clip it. A centred dialog says what it is with `title`,
    not a hand-made heading row: the title names the dialog, a Close button
