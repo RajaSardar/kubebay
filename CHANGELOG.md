@@ -88,6 +88,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 - **Pending has its own colour**: Pending pods use each theme's info hue instead of the warning orange, so they no longer read as warnings
 
 ### Fixed
+- **A drain that can't reach the cluster says why**: when Kubebay couldn't build a client from a cluster's credentials (a malformed certificate, say), Drain ignored the error, tried to cordon the node anyway and reported the cordon's failure. It now stops before cordoning and reports the client error
 - **The engine uses far less memory on big clusters**: watching 100,000 pods, it held about 2 GB, five times the PRD's 400 MB budget, and grew while nothing changed. A heap profile found three causes, now fixed:
   - managedFields' field sets, which nothing in Kubebay reads, were most of every object in memory (each entry's manager and time stay);
   - the Cost/Waste sampler fetched every pod in one request every minute, even with the page closed; it now fetches 2,000 at a time;

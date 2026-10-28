@@ -201,9 +201,9 @@ func (a *Actions) Drain(ctx context.Context, cluster, node string, ignoreDaemons
 	if err != nil {
 		return nil, err
 	}
-	cs, derr := kubernetes.NewForConfig(cfg)
+	cs, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
-		return nil, derr
+		return nil, err
 	}
 	if err := a.Cordon(ctx, cluster, node, true); err != nil {
 		return nil, fmt.Errorf("cordon: %w", err)
