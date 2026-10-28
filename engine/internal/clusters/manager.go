@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
@@ -61,41 +60,11 @@ type Cluster struct {
 }
 
 type entry struct {
-	cluster        *Cluster
-	cfg            *rest.Config
-	kubeconfigPath string
+	cluster *Cluster
+	cfg     *rest.Config
 	// legacyExec: the kubeconfig's exec plugin was configured for v1alpha1 and
 	// is being asked for v1beta1 (UpgradeLegacyExec).
 	legacyExec bool
-}
-
-func (m *Manager) HelmEnv(id string) (contextName string, kubeconfigPath string, err error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	e, ok := m.entries[id]
-	if !ok {
-		return "", "", fmt.Errorf("unknown cluster %q", id)
-	}
-	ctxName := e.cluster.Context
-	joined := e.kubeconfigPath
-	// e.kubeconfigPath is the colon-separated list of all kubeconfig files used
-	// during load. Helm's --kubeconfig flag only accepts a single file path, so
-	// we search for the specific file that actually owns this context.
-	if strings.Contains(joined, string(os.PathListSeparator)) {
-		for _, p := range strings.Split(joined, string(os.PathListSeparator)) {
-			if p == "" {
-				continue
-			}
-			raw, lerr := clientcmd.LoadFromFile(p)
-			if lerr != nil {
-				continue
-			}
-			if _, ok := raw.Contexts[ctxName]; ok {
-				return ctxName, p, nil
-			}
-		}
-	}
-	return ctxName, joined, nil
 }
 
 type Manager struct {
@@ -351,7 +320,6 @@ func (m *Manager) Load() error {
 			// can never load: HelmEnv would report no kubeconfig file at all
 			// for this cluster, so actionCfg falls back to the ambient
 			// kubeconfig instead of this one).
-			kubeconfigPath: strings.Join(rules.GetLoadingPrecedence(), string(os.PathListSeparator)),
 			cluster: &Cluster{
 				ID:        id,
 				Context:   name,

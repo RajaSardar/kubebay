@@ -10,10 +10,16 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
-	genericclioptions "k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/restmapper"
+	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"sigs.k8s.io/yaml"
 
 	"helm.sh/helm/v4/pkg/action"
@@ -68,7 +74,7 @@ func (h *HelmManager) cfg(r *http.Request, cluster, ns string) (*action.Configur
 	if h.config != nil {
 		return h.config(r, cluster, ns)
 	}
-	return h.actionCfg(cluster, ns)
+	return h.actionCfg(r.Context(), cluster, ns)
 }
 
 func NewHelm(mgr *clusters.Manager, auditLog *audit.Logger) *HelmManager {
@@ -78,36 +84,89 @@ func NewHelm(mgr *clusters.Manager, auditLog *audit.Logger) *HelmManager {
 // helmSilentLog drops the Helm SDK's own logging, which goes to slog in Helm 4.
 var helmSilentLog = slog.DiscardHandler
 
-func (h *HelmManager) actionCfg(cluster, ns string) (*action.Configuration, error) {
-	ctxName, kubeconfigPaths, err := h.Clusters.HelmEnv(cluster)
+// actionCfg is Helm's configuration for one request: the cluster's own
+// connection, as the person signed in (ADR 0004). Every other request uses
+// the same config, so Helm acts with that person's RBAC (in-cluster mode
+// impersonates them) and needs no kubeconfig file, which in-cluster mode
+// doesn't have.
+func (h *HelmManager) actionCfg(ctx context.Context, cluster, ns string) (*action.Configuration, error) {
+	rc, err := h.Clusters.RestConfigWithIdentity(cluster, clusters.IdentityFromContext(ctx))
 	if err != nil {
 		return nil, err
 	}
-	cf := genericclioptions.NewConfigFlags(true)
-	cf.Context = &ctxName
-	// Same in-memory v1alpha1 exec upgrade the cluster manager applies, since
-	// Helm reads the kubeconfig itself.
-	cf.WrapConfigFn = func(c *rest.Config) *rest.Config {
-		clusters.UpgradeLegacyExec(c)
-		return c
-	}
-	if kubeconfigPaths != "" {
-		p := kubeconfigPaths
-		cf.KubeConfig = &p
-	}
-	// Helm's Kubernetes client creates the chart objects that name no namespace
-	// in its own. Make that the release's, as `helm install -n` does; left
-	// unset, they'd land in the kubeconfig context's namespace.
-	if ns != "" {
-		releaseNS := ns
-		cf.Namespace = &releaseNS
-	}
 	cfg := action.NewConfiguration(action.ConfigurationSetLogger(helmSilentLog))
-	if err := cfg.Init(cf, ns, "secrets"); err != nil {
+	if err := cfg.Init(&releaseGetter{cfg: rc, ns: ns}, ns, "secrets"); err != nil {
 		return nil, fmt.Errorf("helm init: %w", err)
 	}
 	return cfg, nil
 }
+
+// releaseGetter hands Helm a rest config instead of a kubeconfig.
+type releaseGetter struct {
+	cfg *rest.Config
+	ns  string
+
+	once    sync.Once
+	disc    discovery.CachedDiscoveryInterface
+	discErr error
+}
+
+func (g *releaseGetter) ToRESTConfig() (*rest.Config, error) { return rest.CopyConfig(g.cfg), nil }
+
+func (g *releaseGetter) ToDiscoveryClient() (discovery.CachedDiscoveryInterface, error) {
+	g.once.Do(func() {
+		c := rest.CopyConfig(g.cfg)
+		// kubectl's discovery limits: a cluster with many API groups would
+		// otherwise wait on the client-side rate limiter.
+		c.Burst, c.QPS = 300, 50
+		dc, err := discovery.NewDiscoveryClientForConfig(c)
+		if err != nil {
+			g.discErr = err
+			return
+		}
+		g.disc = memory.NewMemCacheClient(dc)
+	})
+	return g.disc, g.discErr
+}
+
+func (g *releaseGetter) ToRESTMapper() (meta.RESTMapper, error) {
+	dc, err := g.ToDiscoveryClient()
+	if err != nil {
+		return nil, err
+	}
+	return restmapper.NewShortcutExpander(restmapper.NewDeferredDiscoveryRESTMapper(dc), dc, nil), nil
+}
+
+// Helm's Kubernetes client creates the chart objects that name no namespace
+// in its own. It is the release's, as `helm install -n` does; left unset,
+// they'd land in "default".
+func (g *releaseGetter) ToRawKubeConfigLoader() clientcmd.ClientConfig {
+	return releaseNamespace{ns: g.ns, cfg: g.cfg}
+}
+
+// releaseNamespace is the kubeconfig Helm asks for its namespace; there is
+// no file behind it.
+type releaseNamespace struct {
+	ns  string
+	cfg *rest.Config
+}
+
+func (l releaseNamespace) RawConfig() (clientcmdapi.Config, error) {
+	return *clientcmdapi.NewConfig(), nil
+}
+
+func (l releaseNamespace) ConfigAccess() clientcmd.ConfigAccess {
+	return clientcmd.NewDefaultClientConfig(*clientcmdapi.NewConfig(), &clientcmd.ConfigOverrides{}).ConfigAccess()
+}
+
+func (l releaseNamespace) Namespace() (string, bool, error) {
+	if l.ns == "" {
+		return "default", false, nil
+	}
+	return l.ns, true, nil
+}
+
+func (l releaseNamespace) ClientConfig() (*rest.Config, error) { return rest.CopyConfig(l.cfg), nil }
 
 func (h *HelmManager) settings() *cli.EnvSettings {
 	s := cli.New()
@@ -346,14 +405,18 @@ func (h *HelmManager) HandleRollback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	client := helmRollback(cfg, req)
-	ctx, cancel := context.WithTimeout(r.Context(), client.Timeout+30*time.Second)
-	defer cancel()
-	_ = ctx
 	if err := client.Run(req.Name); err != nil {
-		_ = ctx
 		http.Error(w, fmt.Sprintf("rollback: %v", err), http.StatusBadGateway)
 		return
 	}
+	h.Audit.Record(audit.Entry{
+		Action:    "helm-rollback",
+		Cluster:   req.Cluster,
+		Namespace: req.NS,
+		Resource:  req.Name,
+		Detail:    fmt.Sprintf("revision=%d", req.Revision),
+		UserAgent: r.Header.Get("User-Agent"),
+	})
 	writeJSON(w, map[string]bool{"ok": true})
 }
 
@@ -369,15 +432,17 @@ func (h *HelmManager) HandleUninstall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	client := helmUninstall(cfg)
-	ctx, cancel := context.WithTimeout(r.Context(), client.Timeout+30*time.Second)
-	defer cancel()
-	out, uerr := client.Run(req.Name)
-	if uerr != nil {
-		_ = out
-		_ = ctx
-		http.Error(w, fmt.Sprintf("uninstall: %v", uerr), http.StatusBadGateway)
+	if _, err := client.Run(req.Name); err != nil {
+		http.Error(w, fmt.Sprintf("uninstall: %v", err), http.StatusBadGateway)
 		return
 	}
+	h.Audit.Record(audit.Entry{
+		Action:    "helm-uninstall",
+		Cluster:   req.Cluster,
+		Namespace: req.NS,
+		Resource:  req.Name,
+		UserAgent: r.Header.Get("User-Agent"),
+	})
 	writeJSON(w, map[string]bool{"ok": true})
 }
 
