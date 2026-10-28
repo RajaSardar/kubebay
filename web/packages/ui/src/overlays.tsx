@@ -25,6 +25,15 @@ function useFocusReturn(ref: RefObject<HTMLElement>, enabled: boolean, initial: 
 
 // ── Drawer ────────────────────────────────────────────────────────────────────
 
+/** The page an element is part of: its ancestor directly under <body>. A
+ *  dialog, a toast or an editor's popup attached to <body> is over the page,
+ *  not part of it. */
+function pageOf(el: HTMLElement): HTMLElement {
+  let n = el;
+  while (n.parentElement && n.parentElement !== n.ownerDocument.body) n = n.parentElement;
+  return n;
+}
+
 export interface DrawerProps {
   /** Resource name or heading; also the panel's accessible name. */
   title: ReactNode;
@@ -36,7 +45,8 @@ export interface DrawerProps {
   leading?: ReactNode;
   /** Buttons at the end of the head: pop-out, Delete, Close. */
   actions?: ReactNode;
-  /** Escape closes the panel (not while typing in a field, editor or terminal). */
+  /** Escape closes the panel (not while typing in a field, editor or terminal),
+   *  and so does a press on the page behind it. */
   onClose: () => void;
   /** Fill the page instead of sliding over it (the full-page resource view). */
   embedded?: boolean;
@@ -48,6 +58,24 @@ export function Drawer({ title, subtitle, subtitleMono = true, leading, actions,
   const ref = useRef<HTMLElement>(null);
   const titleId = useId();
   useFocusReturn(ref, !embedded, () => null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  // A press on the page behind the panel closes it. A press inside it, or in
+  // a menu or dialog it opened, is marked on the way down (React events pass
+  // through portals), so only the page's own presses reach onClose.
+  const pressedInside = useRef<Event | null>(null);
+  useEffect(() => {
+    if (embedded) return;
+    const onPress = (e: MouseEvent) => {
+      const panel = ref.current;
+      if (!panel || e.button !== 0 || pressedInside.current === e) return;
+      const target = e.target as Node;
+      if (pageOf(panel).contains(target) && !panel.contains(target)) onCloseRef.current();
+    };
+    document.addEventListener("mousedown", onPress);
+    return () => document.removeEventListener("mousedown", onPress);
+  }, [embedded]);
 
   const onKeyDown = (e: KeyboardEvent) => {
     if (embedded || e.key !== "Escape" || e.defaultPrevented) return;
@@ -65,6 +93,9 @@ export function Drawer({ title, subtitle, subtitleMono = true, leading, actions,
       aria-labelledby={titleId}
       tabIndex={-1}
       onKeyDown={onKeyDown}
+      onMouseDownCapture={(e) => {
+        pressedInside.current = e.nativeEvent;
+      }}
     >
       <div className="drawer-head">
         {leading}
