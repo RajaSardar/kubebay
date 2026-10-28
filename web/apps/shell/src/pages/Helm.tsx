@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Editor from "../lib/monaco";
 import { ArmedButton, Badge, Button, DataTable, Drawer, EmptyState, InlineBanner, PageHeader, Row, SkeletonLines, StatusDot, Tabs, TextField } from "@kubebay/ui";
@@ -45,10 +45,14 @@ function fmtUpdated(iso?: string): string {
 function ReleaseDrawer({
   cluster,
   rel,
+  gone,
   onClose,
 }: {
   cluster: string;
+  /** The release as the list has it now (ADR 0004). */
   rel: HelmRelease;
+  /** The list no longer has it: it was uninstalled. */
+  gone: boolean;
   onClose: () => void;
 }) {
   const qc = useQueryClient();
@@ -59,8 +63,10 @@ function ReleaseDrawer({
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
 
+  // Asked again whenever the release moves on (an upgrade, a rollback, a
+  // pending status settling), from here or from anywhere else.
   const history = useQuery({
-    queryKey: ["helm-history", cluster, rel.namespace, rel.name],
+    queryKey: ["helm-history", cluster, rel.namespace, rel.name, rel.revision, rel.status],
     queryFn: () => helmApi.history(cluster, rel.namespace, rel.name),
   });
   const valuesQ = useQuery({
@@ -141,6 +147,11 @@ function ReleaseDrawer({
       leading={<StatusDot status={tone.dot} />}
       onClose={onClose}
       actions={
+        gone ? (
+          <Button variant="ghost" onClick={onClose}>
+            Close
+          </Button>
+        ) : (
         <>
           {!confirmingDelete ? (
             <>
@@ -169,8 +180,14 @@ function ReleaseDrawer({
             </>
           )}
         </>
+        )
       }
     >
+      {gone && (
+        <InlineBanner tone="warn" flush>
+          This release is no longer in the cluster: it was uninstalled.
+        </InlineBanner>
+      )}
 
       {err && (
         <InlineBanner flush style={{ margin: "10px 14px 0" }}>
@@ -197,7 +214,7 @@ function ReleaseDrawer({
                   <span className="mono muted small">{h.chartVersion && `chart ${h.chartVersion}`}</span>
                   {h.applyMethod && <span className="muted small">{APPLY_LABEL[h.applyMethod] ?? h.applyMethod}</span>}
                   <span className="muted small" style={{ marginLeft: "auto" }}>{fmtUpdated(h.updated)}</span>
-                  {h.revision !== rel.revision && (
+                  {!gone && h.revision !== rel.revision && (
                     <ArmedButton
                       label="Rollback"
                       confirmLabel="Confirm?"
@@ -307,7 +324,14 @@ export default function Helm() {
   }, [all, nsFilter, search]);
   const filtered = rows.length !== all.length;
 
-  const [selected, setSelected] = useState<HelmRelease | null>(null);
+  // The drawer's release is looked up in the live list on every render, so
+  // it follows upgrades, rollbacks and status changes; the row as it was when
+  // clicked is kept only to say what was uninstalled.
+  const [selected, setSelected] = useState<{ namespace: string; name: string } | null>(null);
+  const lastSeen = useRef<HelmRelease | null>(null);
+  const live = selected ? releases.data?.find((r) => r.namespace === selected.namespace && r.name === selected.name) : undefined;
+  if (live) lastSeen.current = live;
+  const gone = !!selected && releases.isSuccess && !live;
 
   useEffect(() => {
     setSelected(null);
@@ -315,7 +339,8 @@ export default function Helm() {
   }, [effectiveCluster]);
 
   function pick(r: HelmRelease) {
-    setSelected(r);
+    lastSeen.current = r;
+    setSelected({ namespace: r.namespace, name: r.name });
   }
 
   return (
@@ -409,7 +434,9 @@ export default function Helm() {
         />
       )}
 
-      {selected && <ReleaseDrawer cluster={effectiveCluster} rel={selected} onClose={() => setSelected(null)} />}
+      {selected && (live ?? lastSeen.current) && (
+        <ReleaseDrawer cluster={effectiveCluster} rel={(live ?? lastSeen.current)!} gone={gone} onClose={() => setSelected(null)} />
+      )}
       </>
       )}
     </div>
