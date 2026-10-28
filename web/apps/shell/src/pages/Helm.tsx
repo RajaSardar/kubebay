@@ -435,7 +435,15 @@ export default function Helm() {
       )}
 
       {selected && (live ?? lastSeen.current) && (
-        <ReleaseDrawer cluster={effectiveCluster} rel={(live ?? lastSeen.current)!} gone={gone} onClose={() => setSelected(null)} />
+        // Keyed by release: its chart ref and edited values belong to one release,
+        // and "Save & upgrade" must never apply them to the next one opened.
+        <ReleaseDrawer
+          key={`${selected.namespace}/${selected.name}`}
+          cluster={effectiveCluster}
+          rel={(live ?? lastSeen.current)!}
+          gone={gone}
+          onClose={() => setSelected(null)}
+        />
       )}
       </>
       )}

@@ -319,7 +319,10 @@ export function ChartsTab({ cluster }: { cluster: string }) {
       </div>
 
       {installing && (
+        // Keyed by chart: the release name, version and values it seeds belong
+        // to one chart, and Install must never apply them to the next one opened.
         <InstallPanel
+          key={`${installing.repoName}/${installing.chart.name}`}
           cluster={cluster}
           repoName={installing.repoName}
           chart={installing.chart}
