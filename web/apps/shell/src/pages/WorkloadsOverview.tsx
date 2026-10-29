@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useQuery as useRQQuery } from "@tanstack/react-query";
 import { Badge, Button, Card, PageHeader, Row, SegmentedControl, Select, Skeleton, Stack } from "@kubebay/ui";
+import { PageHelp } from "../components/PageHelp";
 import { useCluster } from "../lib/useCluster";
 import { useResourceStream, shouldShowSkeleton } from "../lib/useResourceStream";
 import { deniedStreams } from "../lib/forbidden";
@@ -255,7 +256,7 @@ export default function WorkloadsOverview() {
   return (
     <div className="page">
       <WorkloadTabBar />
-      <PageHeader level={2} title="Workloads Overview" live={synced} actions={<Badge>{totals.total} objects</Badge>} />
+      <PageHeader help={<PageHelp route="/workloads-overview" />} level={2} title="Workloads Overview" live={synced} actions={<Badge>{totals.total} objects</Badge>} />
 
       <div className="toolbar">
         <Select value={effectiveCluster} onChange={(e) => setCluster(e.target.value)} aria-label="cluster">

@@ -5,6 +5,7 @@ import { crdApi, type CRDEntry } from "../lib/api";
 import { extSlug } from "../lib/resources";
 import { useCluster } from "../lib/useCluster";
 import { Badge, Button, InlineBanner, PageHeader, SkeletonLines, TextField } from "@kubebay/ui";
+import { PageHelp } from "../components/PageHelp";
 
 function extPath(r: CRDEntry) {
   return `/r/ext--${extSlug(r.gvr)}?scoped=${r.namespaced ? 1 : 0}`;
@@ -63,7 +64,7 @@ export default function Crds() {
 
   return (
     <div className="page" style={{ overflowY: "auto" }}>
-      <PageHeader title="Custom Resource Definitions" count={!q.isLoading && `${totalCount} CRDs`} />
+      <PageHeader help={<PageHelp route="/crds" />} title="Custom Resource Definitions" count={!q.isLoading && `${totalCount} CRDs`} />
 
       {q.isError && (
         <InlineBanner>

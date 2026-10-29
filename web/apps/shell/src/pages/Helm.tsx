@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Editor from "../lib/monaco";
 import { ArmedButton, Badge, Button, DataTable, Drawer, EmptyState, InlineBanner, PageHeader, Row, Skeleton, SkeletonLines, StatusDot, Tabs, TextField } from "@kubebay/ui";
+import { PageHelp } from "../components/PageHelp";
 import { helmApi, type HelmRelease } from "../lib/api";
 import { useResourceStream } from "../lib/useResourceStream";
 import { HELM_SECRETS, helmReleasesQuery, helmRowsFromSecrets, mergeReleases, releasesFingerprint } from "../lib/helmReleases";
@@ -398,7 +399,7 @@ export default function Helm() {
 
       {view === "releases" && (
       <>
-      <PageHeader
+      <PageHeader help={<PageHelp route="/helm" />}
         level={2}
         title="Helm releases"
         count={!releases.isLoading && (filtered ? `· ${rows.length} of ${all.length}` : `· ${all.length}`)}

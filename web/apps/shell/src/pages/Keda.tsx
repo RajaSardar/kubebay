@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { EmptyState, PageHeader } from "@kubebay/ui";
+import { PageHelp } from "../components/PageHelp";
 import { KedaInventory } from "../components/KedaInventory";
 import { PageLoader } from "../components/PageLoader";
 import { crdApi } from "../lib/api";
@@ -57,7 +58,7 @@ export default function Keda() {
   if (!effectiveCluster) {
     return (
       <div className="page">
-        <PageHeader level={2} title="KEDA" />
+        <PageHeader help={<PageHelp route="/keda" />} level={2} title="KEDA" />
         <EmptyState><p>Select a cluster first.</p></EmptyState>
       </div>
     );
@@ -66,7 +67,7 @@ export default function Keda() {
   if (crds.isLoading) {
     return (
       <div className="page">
-        <PageHeader level={2} title="KEDA" />
+        <PageHeader help={<PageHelp route="/keda" />} level={2} title="KEDA" />
         <PageLoader message="Checking for KEDA…" />
       </div>
     );
@@ -75,7 +76,7 @@ export default function Keda() {
   if (!detection.installed) {
     return (
       <div className="page">
-        <PageHeader level={2} title="KEDA" />
+        <PageHeader help={<PageHelp route="/keda" />} level={2} title="KEDA" />
         <div className="page-body">
           <EmptyState>
             <p>KEDA not detected on this cluster.</p>
@@ -93,7 +94,7 @@ export default function Keda() {
 
   return (
     <div className="page">
-      <PageHeader level={2} title="KEDA" count={`· ${scaledObjects.rows.length} ScaledObjects`} />
+      <PageHeader help={<PageHelp route="/keda" />} level={2} title="KEDA" count={`· ${scaledObjects.rows.length} ScaledObjects`} />
       <div className="page-body">
         <KedaInventory
           scaledObjects={scaledObjects.rows}

@@ -70,6 +70,7 @@ No PR merges if `go test ./...` or `pnpm test` is red. Tests are not optional.
 
 - Every feature, behaviour change or bug fix a user would notice updates the page that documents it, in the same PR. Write from the code, not from memory: name the controls as the UI labels them.
 - A new page of the app (a new `<Route>` in `web/apps/shell/src/App.tsx`) needs a docs page whose frontmatter `appRoutes` lists that route. `website/src/lib/docs.test.ts` fails CI until it does, and it fails on a docs link to a page that doesn't exist.
+- It also needs its ⓘ: an entry in `web/apps/shell/src/lib/help.ts` (what it is, how it works, its docs page) and `<PageHelp route="…" />` in its header. `src/lib/__tests__/help.test.ts` fails CI until both exist, and when an entry links to a docs page or heading that doesn't.
 - Check the docs build with `cd website && npm test && npm run build`.
 
 ---

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Badge, Button, DataTable, EmptyState, InlineBanner, Modal, PageHeader, Row, Stack, StatusDot, TextField } from "@kubebay/ui";
+import { PageHelp } from "../components/PageHelp";
 import { api } from "../lib/api";
 
 interface AuditEntry {
@@ -59,7 +60,7 @@ export default function AuditLog() {
 
   return (
     <div className="page">
-      <PageHeader level={2} title="Audit Log" />
+      <PageHeader help={<PageHelp route="/audit" />} level={2} title="Audit Log" />
 
       <div className="toolbar">
         <TextField

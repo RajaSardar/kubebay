@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button, Card, DataTable, EmptyState, PageHeader, Row, Select, TextField } from "@kubebay/ui";
+import { PageHelp } from "../components/PageHelp";
 import { api } from "../lib/api";
 import { useCluster } from "../lib/useCluster";
 
@@ -48,7 +49,7 @@ export default function Ports() {
 
   return (
     <div className="page">
-      <PageHeader level={2} title="Port forwards" count={!forwards.isLoading && `· ${(forwards.data ?? []).length}`} />
+      <PageHeader help={<PageHelp route="/ports" />} level={2} title="Port forwards" count={!forwards.isLoading && `· ${(forwards.data ?? []).length}`} />
 
       <Card style={{ marginBottom: 16 }}>
         <div className="pf-form">

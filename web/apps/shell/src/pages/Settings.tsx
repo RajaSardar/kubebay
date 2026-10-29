@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button, Card, CellLink, ChoiceCard, PageHeader, SegmentedControl, Stack, TextField } from "@kubebay/ui";
+import { PageHelp } from "../components/PageHelp";
 import { settingsApi } from "../lib/api";
 import { UsageHistoryCard } from "../components/UsageHistoryCard";
 import { McpSettingsCard } from "../components/McpSettingsCard";
@@ -206,7 +207,7 @@ export default function Settings() {
 
   return (
     <div className="page" style={{ overflowY: "auto" }}>
-      <PageHeader title="Settings" />
+      <PageHeader help={<PageHelp route="/settings" />} title="Settings" />
 
       <div className="settings-section-wrap">
         <div className="settings-section-title">Theme</div>

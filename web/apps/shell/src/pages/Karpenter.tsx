@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { EmptyState, PageHeader } from "@kubebay/ui";
+import { PageHelp } from "../components/PageHelp";
 import { NodePoolSummary } from "../components/NodePoolSummary";
 import { UnschedulablePods } from "../components/UnschedulablePods";
 import { PageLoader } from "../components/PageLoader";
@@ -43,7 +44,7 @@ export default function Karpenter() {
   if (!effectiveCluster) {
     return (
       <div className="page">
-        <PageHeader level={2} title="Karpenter" />
+        <PageHeader help={<PageHelp route="/karpenter" />} level={2} title="Karpenter" />
         <EmptyState><p>Select a cluster first.</p></EmptyState>
       </div>
     );
@@ -52,7 +53,7 @@ export default function Karpenter() {
   if (crds.isLoading) {
     return (
       <div className="page">
-        <PageHeader level={2} title="Karpenter" />
+        <PageHeader help={<PageHelp route="/karpenter" />} level={2} title="Karpenter" />
         <PageLoader message="Checking for Karpenter…" />
       </div>
     );
@@ -61,7 +62,7 @@ export default function Karpenter() {
   if (!detection.installed) {
     return (
       <div className="page">
-        <PageHeader level={2} title="Karpenter" />
+        <PageHeader help={<PageHelp route="/karpenter" />} level={2} title="Karpenter" />
         <div className="page-body">
           <EmptyState>
             <p>Karpenter not detected on this cluster.</p>
@@ -79,7 +80,7 @@ export default function Karpenter() {
 
   return (
     <div className="page">
-      <PageHeader level={2} title="Karpenter" count={`· ${nodePoolRows.length} NodePools`} />
+      <PageHeader help={<PageHelp route="/karpenter" />} level={2} title="Karpenter" count={`· ${nodePoolRows.length} NodePools`} />
       <div className="page-body">
         <NodePoolSummary
           rows={nodePoolRows}

@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Button, DataTable, Drawer, EmptyState, IconButton, PageHeader, Row, TextField, type Column } from "@kubebay/ui";
+import { PageHelp } from "../components/PageHelp";
 import { NamespaceFilter } from "../components/NamespaceFilter";
 import { PageLoader } from "../components/PageLoader";
 import { InstallTrivyOperator } from "../components/InstallTrivyOperator";
@@ -92,7 +93,7 @@ export default function Vulnerabilities() {
     }
   };
 
-  const header = (count?: string) => <PageHeader level={2} title="Vulnerabilities" count={count} live={reports.synced && reports.connected} />;
+  const header = (count?: string) => <PageHeader help={<PageHelp route="/vulnerabilities" />} level={2} title="Vulnerabilities" count={count} live={reports.synced && reports.connected} />;
 
   if (!cluster) {
     return (

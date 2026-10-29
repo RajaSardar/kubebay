@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArmedButton, Button, EmptyState, InlineBanner } from "@kubebay/ui";
+import { PageHelp } from "./PageHelp";
 import { settingsApi, type ClusterInfo, type LocalShellCapability } from "../lib/api";
 import {
   bindTo,
@@ -202,7 +203,7 @@ export function LocalShellTerm({
             </InlineBanner>
           )}
 
-          <InlineBanner tone="ok">
+          <InlineBanner tone="ok" actions={<PageHelp route="/terminal" align="end" />}>
             <span>
               Bound to context <strong>{bound.context}</strong> (cluster{" "}
               <strong>{bound.cluster}</strong>). kubectl in this terminal targets that context. It

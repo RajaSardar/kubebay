@@ -48,6 +48,7 @@ import {
   TextField,
   type StatusTone,
 } from "@kubebay/ui";
+import { PageHelp } from "../components/PageHelp";
 
 const APP_VERSION = "v0.6.0";
 const HEADERS = ["Name", "Session", "API", "Version", "Pods", "Nodes", "CPU · 7 days", "Requests"] as const;
@@ -283,7 +284,7 @@ export default function ClusterPicker() {
           <Row gap={3} align="center">
             <KubebayMark className="catalog-header-logo" />
             <div className="catalog-header-title">
-              <PageHeader
+              <PageHeader help={<PageHelp route="/clusters" />}
                 title="Clusters"
                 count={`· ${plural(list.length, "cluster")}`}
                 actions={

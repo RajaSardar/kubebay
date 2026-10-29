@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { EmptyState, PageHeader } from "@kubebay/ui";
+import { PageHelp } from "../components/PageHelp";
 import { PageLoader } from "../components/PageLoader";
 import { UpgradeReadinessPanel } from "../components/UpgradeReadinessPanel";
 import { discoveryApi } from "../lib/api";
@@ -37,7 +38,7 @@ export default function UpgradeReadiness() {
   if (!effectiveCluster) {
     return (
       <div className="page">
-        <PageHeader level={2} title="Upgrade Readiness" />
+        <PageHeader help={<PageHelp route="/upgrade-readiness" />} level={2} title="Upgrade Readiness" />
         <EmptyState><p>Select a cluster first.</p></EmptyState>
       </div>
     );
@@ -46,7 +47,7 @@ export default function UpgradeReadiness() {
   if (apiVersionsQ.isLoading || (!serverVersion && !apiVersionsQ.isError)) {
     return (
       <div className="page">
-        <PageHeader level={2} title="Upgrade Readiness" />
+        <PageHeader help={<PageHelp route="/upgrade-readiness" />} level={2} title="Upgrade Readiness" />
         <PageLoader message="Checking served API versions…" />
       </div>
     );
@@ -55,7 +56,7 @@ export default function UpgradeReadiness() {
   if (apiVersionsQ.isError || !serverVersion) {
     return (
       <div className="page">
-        <PageHeader level={2} title="Upgrade Readiness" />
+        <PageHeader help={<PageHelp route="/upgrade-readiness" />} level={2} title="Upgrade Readiness" />
         <div className="page-body">
           <EmptyState><p>Couldn't determine this cluster's API versions.</p></EmptyState>
         </div>
@@ -65,7 +66,7 @@ export default function UpgradeReadiness() {
 
   return (
     <div className="page">
-      <PageHeader level={2} title="Upgrade Readiness" count={`· server ${serverVersion}`} />
+      <PageHeader help={<PageHelp route="/upgrade-readiness" />} level={2} title="Upgrade Readiness" count={`· server ${serverVersion}`} />
       <div className="page-body">
         <UpgradeReadinessPanel findings={findings} serverVersion={serverVersion} />
       </div>

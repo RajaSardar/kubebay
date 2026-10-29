@@ -18,6 +18,7 @@ import { ResourceListView, type ListColumn } from "../components/ResourceListVie
 import GenericDrawer from "../components/GenericDrawer";
 import { WorkloadActionDialog, workloadActions } from "../components/WorkloadActionDialog";
 import { StarButton } from "../components/Favorites";
+import { PageHelp } from "../components/PageHelp";
 import { SaveViewButton } from "../components/SavedViews";
 import { NamespaceFilter } from "../components/NamespaceFilter";
 import { useSelectedNamespaces } from "../lib/namespace-store";
@@ -469,6 +470,7 @@ export default function ResourceTable() {
         initialFilter={sp.get("q") ?? ""}
         onFilterChange={setFilterText}
         headerActions={<SaveViewButton cluster={effectiveCluster} kind={kind} namespaces={def.scoped ? [] : nsFilter} filter={filterText} label={def.label} />}
+        help={<PageHelp route="/r/:kind" name={def.label} />}
         title={
           <>
             {def.label}

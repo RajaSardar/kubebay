@@ -10,6 +10,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { Badge, EmptyState, PageHeader, Select, StatusDot } from "@kubebay/ui";
+import { PageHelp } from "../components/PageHelp";
 import { PageLoader } from "../components/PageLoader";
 import { useCluster } from "../lib/useCluster";
 import { useResourceStream } from "../lib/useResourceStream";
@@ -155,7 +156,7 @@ export default function Topology() {
 
   return (
     <div className="page page-full">
-      <PageHeader level={2} title="Topology" live={ready} actions={<Badge>{graph.nodes.length} objects</Badge>} />
+      <PageHeader help={<PageHelp route="/topology" />} level={2} title="Topology" live={ready} actions={<Badge>{graph.nodes.length} objects</Badge>} />
 
       <div className="toolbar">
         <Select value={effectiveCluster} onChange={(e) => setCluster(e.target.value)} aria-label="cluster">
