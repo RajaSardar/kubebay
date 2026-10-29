@@ -36,7 +36,7 @@ const releaseSecret = (namespace: string, name: string, version: number, status:
 
 vi.mock("../../lib/api", async (orig) => ({
   ...(await orig<typeof import("../../lib/api")>()),
-  helmApi: { releases: vi.fn(), history: vi.fn(), valuesText: vi.fn(), manifestText: vi.fn() },
+  helmApi: { releases: vi.fn(), history: vi.fn(), valuesText: vi.fn(), manifestText: vi.fn(), details: vi.fn() },
 }));
 
 vi.mock("../../lib/monaco", () => ({ default: () => <div data-testid="editor" /> }));
@@ -81,6 +81,8 @@ beforeEach(() => {
   vi.mocked(helmApi.releases).mockReset();
   vi.mocked(helmApi.history).mockReset();
   vi.mocked(helmApi.manifestText).mockReset();
+  vi.mocked(helmApi.details).mockReset();
+  vi.mocked(helmApi.details).mockReturnValue(new Promise(() => {}));
 });
 
 describe("Helm releases", () => {
@@ -125,12 +127,24 @@ describe("Helm releases", () => {
     expect(screen.getByText("· 2 of 3")).toBeInTheDocument();
   });
 
+  // ADR 0004 S8: a release opens on what it is and what it made.
+  it("the release drawer opens on Overview", async () => {
+    vi.mocked(helmApi.releases).mockResolvedValue(list(releases));
+    renderPage();
+    fireEvent.click(await screen.findByText("redis"));
+    expect(screen.getByRole("tab", { name: "Overview" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("status", { name: "Loading release…" })).toBeInTheDocument();
+    expect(helmApi.details).toHaveBeenCalledWith("c1", "shop", "redis");
+    expect(helmApi.history).not.toHaveBeenCalled();
+  });
+
   it("the release drawer loads history and manifest with loaders, not a word", async () => {
     vi.mocked(helmApi.releases).mockResolvedValue(list(releases));
     vi.mocked(helmApi.history).mockReturnValue(new Promise(() => {}));
     vi.mocked(helmApi.manifestText).mockReturnValue(new Promise(() => {}));
     renderPage();
     fireEvent.click(await screen.findByText("redis"));
+    fireEvent.click(screen.getByRole("tab", { name: "History" }));
     expect(screen.getByRole("status", { name: "Loading history…" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "Manifest" }));
     expect(screen.getByRole("status", { name: "Loading manifest…" })).toBeInTheDocument();
@@ -144,6 +158,7 @@ describe("Helm releases", () => {
     ]);
     renderPage();
     fireEvent.click(await screen.findByText("redis"));
+    fireEvent.click(screen.getByRole("tab", { name: "History" }));
     const rev1 = (await screen.findByText("rev 1")).closest(".tl-item") as HTMLElement;
     const rev2 = screen.getByText("rev 2").closest(".tl-item") as HTMLElement;
     expect(within(rev1).getByText("client-side apply")).toBeInTheDocument();
@@ -158,6 +173,7 @@ describe("Helm releases", () => {
     vi.mocked(helmApi.history).mockResolvedValue([at(3, "deployed"), at(2, "superseded")]);
     renderPage();
     fireEvent.click(await screen.findByText("redis"));
+    fireEvent.click(screen.getByRole("tab", { name: "History" }));
     await screen.findByText("rev 3");
 
     vi.mocked(helmApi.releases).mockResolvedValue(list([at(4, "failed")]));
@@ -178,6 +194,27 @@ describe("Helm releases", () => {
     await act(() => qc.invalidateQueries({ queryKey: ["helm-releases"] }));
     expect(await screen.findByText("This release is no longer in the cluster: it was uninstalled.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Uninstall" })).toBeNull();
+  });
+
+  // A release opened from the keyboard (Enter on its row) while another's
+  // drawer is open: no press reaches the page behind, so the drawer isn't
+  // closed first. It must not keep the other release's chart or edited values:
+  // "Save & upgrade" would install them over this release.
+  it("a release opened while another's drawer is open starts from its own chart, not the last one's", async () => {
+    vi.mocked(helmApi.releases).mockResolvedValue(list(releases));
+    vi.mocked(helmApi.history).mockResolvedValue([]);
+    vi.mocked(helmApi.valuesText).mockResolvedValue("replicas: 1\n");
+    renderPage();
+    fireEvent.click(await screen.findByText("redis"));
+    fireEvent.click(screen.getByRole("tab", { name: "Values" }));
+    expect(screen.getByPlaceholderText(/chart ref/)).toHaveValue("redis-18.1.0");
+
+    fireEvent.keyDown(within(screen.getByRole("table")).getByText("api").closest("tr")!, { key: "Enter" });
+    expect(screen.getByRole("dialog")).toHaveAccessibleName(/api/);
+    if (screen.getByRole("tab", { name: "Values" }).getAttribute("aria-selected") !== "true") {
+      fireEvent.click(screen.getByRole("tab", { name: "Values" }));
+    }
+    expect(screen.getByPlaceholderText(/chart ref/)).toHaveValue("api-2.0.0");
   });
 
   // ADR 0004 S5: rows come from the release Secrets at once; the list fills
@@ -249,3 +286,4 @@ describe("Helm releases", () => {
     expect(screen.queryByText("You can't list Helm releases here.")).toBeNull();
   });
 });
+

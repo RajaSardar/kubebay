@@ -390,6 +390,7 @@ func Router(d Deps, token string) http.Handler {
 		r.Get("/api/helm/history", d.Helm.HandleHistory)
 		r.Get("/api/helm/values", d.Helm.HandleValues)
 		r.Get("/api/helm/manifest", d.Helm.HandleManifest)
+		r.Get("/api/helm/release", d.Helm.HandleRelease)
 		r.Post("/api/action/cordon", func(w http.ResponseWriter, r *http.Request) {
 			var body struct {
 				Cluster     string `json:"cluster"`

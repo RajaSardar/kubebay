@@ -414,6 +414,38 @@ export interface HelmRelease {
   applyMethod?: string;
 }
 
+/** An object a Helm release created, by reference only (ADR 0004). */
+export interface ReleaseResource {
+  apiVersion: string;
+  kind: string;
+  /** The kind's plural, from the cluster's discovery; absent when it isn't served. */
+  resource?: string;
+  namespace?: string;
+  name: string;
+  namespaced: boolean;
+  /** False when the cluster no longer serves the kind (a CRD removed since). */
+  served: boolean;
+}
+
+/** One of a release's hooks and its last run, from the release's record. */
+export interface ReleaseHook {
+  kind: string;
+  name: string;
+  events: string[];
+  phase?: string;
+  startedAt?: string;
+  completedAt?: string;
+  deletePolicies?: string[];
+}
+
+/** A release as its drawer's Overview shows it. */
+export interface ReleaseDetails {
+  release: HelmRelease;
+  notes?: string;
+  resources: ReleaseResource[];
+  hooks: ReleaseHook[];
+}
+
 /** The release list: the releases, and the named namespaces RBAC refused (ADR 0004). */
 export interface HelmReleaseList {
   releases: HelmRelease[];
@@ -427,6 +459,8 @@ export const helmApi = {
     for (const ns of namespaces ?? []) q.append("ns", ns);
     return get<HelmReleaseList>(`/api/helm/releases?${q}`);
   },
+  details: (cluster: string, ns: string, name: string) =>
+    get<ReleaseDetails>(`/api/helm/release?${new URLSearchParams({ cluster, ns, name })}`),
   history: (cluster: string, ns: string, name: string) =>
     get<HelmRelease[]>(`/api/helm/history?cluster=${encodeURIComponent(cluster)}&ns=${encodeURIComponent(ns)}&name=${encodeURIComponent(name)}`),
   valuesText: async (cluster: string, ns: string, name: string): Promise<string> => {
