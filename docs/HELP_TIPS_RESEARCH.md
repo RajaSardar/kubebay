@@ -2,6 +2,8 @@
 
 Root `BACKLOG.md` #18: "do an indepth research and find if we need to add info small button on each feature on hover of each it should explain what is it and how this feature works".
 
+**Status:** built. Pages in #201, insight cards after it.
+
 ## Verdict
 
 **Yes, add them, but one per feature, not one per control, and opened by a click or tap rather than only by hover.**

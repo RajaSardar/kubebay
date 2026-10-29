@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { PAGE_HELP, docsUrl } from "../help";
+import { CARD_HELP, PAGE_HELP, docsUrl, type PageHelpEntry } from "../help";
 
 // Root backlog #18 (docs/HELP_TIPS_RESEARCH.md): every page of the app has an
 // ⓘ saying what it is and how it works, with a link to its page in the user
@@ -45,6 +45,23 @@ function headingSlug(text: string): string {
     .replace(/ /g, "-");
 }
 
+/** A sentence on what it is and one on how it works, linking to a docs page and heading that exist. */
+function checkEntries(entries: Record<string, PageHelpEntry>) {
+  for (const [key, h] of Object.entries(entries)) {
+    for (const text of [h.what, h.how]) {
+      expect(text.length, `${key}: ${text}`).toBeLessThanOrEqual(170);
+      expect(text, key).toMatch(/[.)]$/);
+    }
+    const [slug, anchor] = h.docs.split("#");
+    const file = join(DOCS, `${slug}.md`);
+    expect(existsSync(file), `${key}: no website/src/content/docs/${slug}.md`).toBe(true);
+    if (anchor) {
+      const anchors = [...readFileSync(file, "utf8").matchAll(/^#{2,4} (.+)$/gm)].map((m) => headingSlug(m[1]!));
+      expect(anchors, `${key}: no #${anchor} in ${slug}.md`).toContain(anchor);
+    }
+  }
+}
+
 describe("docsUrl", () => {
   it("links a manual page, and a heading on it", () => {
     expect(docsUrl("helm")).toBe("https://kubebay.sardar.dev/docs/helm/");
@@ -58,30 +75,27 @@ describe("page help", () => {
     expect(missing, "add the page to PAGE_HELP in src/lib/help.ts").toEqual([]);
   });
 
-  it("is short: a sentence on what it is and one on how it works", () => {
-    for (const [route, h] of Object.entries(PAGE_HELP)) {
-      for (const text of [h.what, h.how]) {
-        expect(text.length, `${route}: ${text}`).toBeLessThanOrEqual(170);
-        expect(text, route).toMatch(/[.)]$/);
-      }
-    }
-  });
-
-  it("links to a page of the manual that exists, and a heading on it that exists", () => {
-    for (const [route, h] of Object.entries(PAGE_HELP)) {
-      const [slug, anchor] = h.docs.split("#");
-      const file = join(DOCS, `${slug}.md`);
-      expect(existsSync(file), `${route}: no website/src/content/docs/${slug}.md`).toBe(true);
-      if (anchor) {
-        const anchors = [...readFileSync(file, "utf8").matchAll(/^#{2,4} (.+)$/gm)].map((m) => headingSlug(m[1]!));
-        expect(anchors, `${route}: no #${anchor} in ${slug}.md`).toContain(anchor);
-      }
-    }
+  it("is short, and links to a page and heading of the manual that exist", () => {
+    checkEntries(PAGE_HELP);
   });
 
   it("is shown on its page", () => {
     const src = sourceFiles(SRC).map((f) => readFileSync(f, "utf8")).join("\n");
     const unshown = Object.keys(PAGE_HELP).filter((r) => !src.includes(`route="${r}"`));
     expect(unshown, 'render <PageHelp route="…" /> in the page header').toEqual([]);
+  });
+});
+
+// The insight cards (RBAC, Cost / Waste) and the Overview's views get the
+// same ⓘ beside their title, under the same rules.
+describe("card help", () => {
+  it("is short, and links to a page and heading of the manual that exist", () => {
+    checkEntries(CARD_HELP);
+  });
+
+  it("is shown on its card", () => {
+    const src = sourceFiles(SRC).map((f) => readFileSync(f, "utf8")).join("\n");
+    const unshown = Object.keys(CARD_HELP).filter((id) => !src.includes(`card="${id}"`));
+    expect(unshown, 'render <CardHelp card="…" /> beside the card\'s title').toEqual([]);
   });
 });

@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Badge, Card, DataTable, InlineBanner, NsPill, Row, SkeletonLines, Stack, type BadgeTone } from "@kubebay/ui";
+import { CardHelp } from "./PageHelp";
 import { promApi, PromNotConfiguredError } from "../lib/api";
 import type { GpuPod } from "../lib/gpuCapacity";
 import {
@@ -51,6 +52,7 @@ export function GpuUtilisationCard({ cluster, pods }: { cluster: string; pods: G
       <Stack gap={3}>
         <Row align="center" gap={2} wrap>
           <strong>GPU utilisation</strong>
+          <CardHelp card="gpu-utilisation" />
           {underused > 0 && <Badge tone="warn">{`${underused} underused`}</Badge>}
         </Row>
         <div className="muted small">

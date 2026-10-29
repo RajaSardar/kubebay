@@ -1,4 +1,5 @@
 import { Badge, Card, DataTable, NsPill, Row, Stack } from "@kubebay/ui";
+import { CardHelp } from "./PageHelp";
 import type { UnusedServiceAccount } from "../lib/unusedServiceAccounts";
 import { fmtAge } from "../lib/resources";
 
@@ -9,6 +10,7 @@ export function UnusedServiceAccountsCard({ accounts }: { accounts: UnusedServic
     <Card style={{ marginBottom: 16 }}>
       <Row align="center" gap={2} className="rbac-section-title">
         Unused ServiceAccounts
+        <CardHelp card="unused-service-accounts" />
         <Badge tone={accounts.length > 0 ? "warn" : "ok"}>{accounts.length}</Badge>
         {withPermissions > 0 && <Badge tone="warn">{`${withPermissions} with permissions`}</Badge>}
       </Row>

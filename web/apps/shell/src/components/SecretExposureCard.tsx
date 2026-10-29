@@ -1,4 +1,5 @@
 import { Badge, Card, Row, Stack } from "@kubebay/ui";
+import { CardHelp } from "./PageHelp";
 import type { SecretExposureFinding } from "../lib/secretExposure";
 import { ControlTags } from "./ControlTags";
 import { controlsFor } from "../lib/controlIds";
@@ -14,6 +15,7 @@ export function SecretExposureCard({ findings }: { findings: SecretExposureFindi
     <Card style={{ marginBottom: 16 }}>
       <Row align="center" gap={2} className="rbac-section-title">
         Secrets exposed via environment variables
+        <CardHelp card="secret-exposure" />
         <Badge tone={findings.length > 0 ? "err" : "ok"}>{findings.length}</Badge>
         <ControlTags controls={controlsFor("secret-env")} />
       </Row>

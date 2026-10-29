@@ -7,7 +7,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 ## [Unreleased]
 
 ### Added
-- **An ⓘ on every page**: beside each page's title, it says in a sentence what the page is and in another how it works, and links to that page of the [user manual](https://kubebay.sardar.dev/docs/). It opens on a click, Enter or Space, so keyboard and touch reach it, and closes on Escape or a click elsewhere. CI fails when a new page has no ⓘ, or one links to a docs page or heading that doesn't exist. See `docs/HELP_TIPS_RESEARCH.md` for why it's a click, not a hover.
+- **An ⓘ on every page and insight card**: beside each page's title, and each insight card's on Overview, RBAC and Cost / Waste, it says in a sentence what the page or card is and in another how it works, and links to that page of the [user manual](https://kubebay.sardar.dev/docs/). It opens on a click, Enter or Space, so keyboard and touch reach it, and closes on Escape or a click elsewhere. CI fails when a new page has no ⓘ, or one links to a docs page or heading that doesn't exist. See `docs/HELP_TIPS_RESEARCH.md` for why it's a click, not a hover.
 - **A Helm release opens on its Overview**: a release's drawer now opens on an Overview tab that shows:
   - what the release is: chart, app version, revision, status, when and how it last changed;
   - everything it created, grouped (Workloads, Networking, Config, Storage, Scaling, Access, Other), each linked to its own page. A kind the cluster no longer serves is marked so instead of linked;

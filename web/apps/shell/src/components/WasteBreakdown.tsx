@@ -1,4 +1,5 @@
 import { Badge, Card, DataTable, Row, Stack } from "@kubebay/ui";
+import { CardHelp } from "./PageHelp";
 import { formatCpuMillis, formatMemBytes } from "../lib/rightsizing";
 import type { ClusterWaste } from "../lib/waste";
 
@@ -60,7 +61,10 @@ export function WasteBreakdown({ waste }: { waste: ClusterWaste }) {
       )}
 
       <Card>
-        <div className="rbac-section-title">Requested by namespace</div>
+        <Row align="center" gap={2} className="rbac-section-title">
+          Requested by namespace
+          <CardHelp card="capacity" />
+        </Row>
         <DataTable
           rows={byNamespace}
           rowKey={(n) => n.ns}

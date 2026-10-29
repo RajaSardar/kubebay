@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { Badge, Button, Card, DataTable, InlineBanner, Row, Select, SkeletonLines, Stack, TextField, type BadgeTone } from "@kubebay/ui";
+import { CardHelp } from "./PageHelp";
 import { securityApi, type AuditCloudSource, type AuditEventsResponse, type AuditSecurityEvent } from "../lib/api";
 import { auditObjectHref } from "../lib/auditLinks";
 
@@ -91,6 +92,7 @@ export function AuditSecurityFeedCard({ cluster }: { cluster: string }) {
       <Stack gap={3}>
         <Row align="center" gap={2} wrap>
           <strong>Audit-log security events</strong>
+          <CardHelp card="audit-security-feed" />
           <Badge>read-only</Badge>
           {data?.configured && !data.error && (
             <span className="small">{`${data.events.length} event${data.events.length === 1 ? "" : "s"} in the newest part of the log.`}</span>
