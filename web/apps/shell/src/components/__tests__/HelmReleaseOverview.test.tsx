@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import type { HelmRelease, ReleaseDetails } from "../../lib/api";
@@ -124,13 +124,14 @@ describe("ReleaseOverview", () => {
       "rbac.authorization.k8s.io/v1/clusterroles": synced([]),
     };
     renderOverview();
+    // Statuses fill in on the render after the streams report: wait for them.
     const workloads = await screen.findByRole("region", { name: "Workloads" });
-    expect(within(workloads).getByText("ready")).toBeInTheDocument();
+    expect(await within(workloads).findByText("ready")).toBeInTheDocument();
     // The drawer is narrow: the full reason is the cell's tooltip.
     expect(within(workloads).getByText("2 of 2 ready").closest("td")).toHaveAttribute("title", "2 of 2 ready");
-    expect(within(screen.getByRole("region", { name: "Networking" })).getByText("present")).toBeInTheDocument();
-    expect(within(screen.getByRole("region", { name: "Access" })).getByText("missing")).toBeInTheDocument();
-    expect(within(screen.getByRole("region", { name: "Release" })).getByText("1 missing · 2 ok")).toBeInTheDocument();
+    expect(await within(screen.getByRole("region", { name: "Networking" })).findByText("present")).toBeInTheDocument();
+    expect(await within(screen.getByRole("region", { name: "Access" })).findByText("missing")).toBeInTheDocument();
+    expect(await within(screen.getByRole("region", { name: "Release" })).findByText("1 missing · 2 ok")).toBeInTheDocument();
     // Streamed in the release's namespace; no pods while its workloads are ready, nothing for a kind not served.
     expect(useResourceStream).toHaveBeenCalledWith("c1", "apps/v1/deployments", { mode: "full", ns: ["shop"] });
     const gvrs = vi.mocked(useResourceStream).mock.calls.map(([, gvr]) => gvr);
@@ -149,7 +150,10 @@ describe("ReleaseOverview", () => {
     };
     renderOverview();
     expect(await screen.findByText("0 of 2 available")).toBeInTheDocument();
-    expect(useResourceStream).toHaveBeenCalledWith("c1", "v1/pods", { mode: "full", ns: ["shop"] });
+    // Pods join on the render after the one that found the workload not ready
+    // (an effect sets which namespaces need them), so wait for it rather than
+    // assert on the same tick: under load, CI used to look too early.
+    await waitFor(() => expect(useResourceStream).toHaveBeenCalledWith("c1", "v1/pods", { mode: "full", ns: ["shop"] }));
   });
 
   it("can't check what the identity can't list, and doesn't call it missing", async () => {
@@ -158,7 +162,7 @@ describe("ReleaseOverview", () => {
     live.streams = { "rbac.authorization.k8s.io/v1/clusterroles": { rows: [], synced: false, connected: true, forbidden: refused } };
     renderOverview();
     const access = await screen.findByRole("region", { name: "Access" });
-    expect(within(access).getByText("can't check")).toHaveAttribute("title", refused);
+    expect(await within(access).findByText("can't check")).toHaveAttribute("title", refused);
     expect(within(access).queryByText("missing")).toBeNull();
   });
 
