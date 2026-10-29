@@ -10,6 +10,7 @@ import { ForbiddenState, NamespacesDeniedBanner } from "../components/ForbiddenS
 import { useCluster } from "../lib/useCluster";
 import { useMonacoTheme } from "../lib/theme";
 import { ChartsTab } from "../components/HelmCharts";
+import { ReleaseOverview } from "../components/HelmReleaseOverview";
 import { NamespaceFilter } from "../components/NamespaceFilter";
 import { PageLoader } from "../components/PageLoader";
 import { useSelectedNamespaces } from "../lib/namespace-store";
@@ -61,7 +62,7 @@ function ReleaseDrawer({
 }) {
   const qc = useQueryClient();
   const monacoTheme = useMonacoTheme();
-  const [tab, setTab] = useState<"history" | "values" | "manifest">("history");
+  const [tab, setTab] = useState<"overview" | "history" | "values" | "manifest">("overview");
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleteInput, setDeleteInput] = useState("");
   const [err, setErr] = useState("");
@@ -72,6 +73,7 @@ function ReleaseDrawer({
   const history = useQuery({
     queryKey: ["helm-history", cluster, rel.namespace, rel.name, rel.revision, rel.status],
     queryFn: () => helmApi.history(cluster, rel.namespace, rel.name),
+    enabled: tab === "history",
   });
   const valuesQ = useQuery({
     queryKey: ["helm-values", cluster, rel.namespace, rel.name],
@@ -200,11 +202,13 @@ function ReleaseDrawer({
       )}
 
       <Tabs
-        tabs={["history", "values", "manifest"] as const}
+        tabs={["overview", "history", "values", "manifest"] as const}
         active={tab}
-        labels={{ history: "History", values: "Values", manifest: "Manifest" }}
+        labels={{ overview: "Overview", history: "History", values: "Values", manifest: "Manifest" }}
         onChange={setTab}
       />
+
+      {tab === "overview" && <ReleaseOverview cluster={cluster} rel={rel} />}
 
       {tab === "history" && (
         <div className="log-view" style={{ background: "var(--kb-bg-surface)" }}>
@@ -482,7 +486,15 @@ export default function Helm() {
       )}
 
       {selected && (live ?? lastSeen.current) && (
-        <ReleaseDrawer cluster={effectiveCluster} rel={(live ?? lastSeen.current)!} gone={gone} onClose={() => setSelected(null)} />
+        // Keyed by release: its chart ref and edited values belong to one release,
+        // and "Save & upgrade" must never apply them to the next one opened.
+        <ReleaseDrawer
+          key={`${selected.namespace}/${selected.name}`}
+          cluster={effectiveCluster}
+          rel={(live ?? lastSeen.current)!}
+          gone={gone}
+          onClose={() => setSelected(null)}
+        />
       )}
       </>
       )}
