@@ -37,7 +37,7 @@ Every revision, newest first, with its status, chart version, how it was applied
 
 ### Values
 
-The release's values, in an editor. Change them, then **Save & upgrade** runs a `helm upgrade` with your values. Leave the chart ref as it is to stay on the same chart, or set it to `repo/name` or a `.tgz` URL. Set a version, or leave it empty for the latest. **Discard** throws your edits away. Your edits, chart ref and version stay with that release: open another release and it starts from its own.
+The release's values, in an editor. Change them, then **Save & upgrade** runs a `helm upgrade` with your values. Leave the chart ref as it is to stay on the same chart, or set it to `repo/name` or a `.tgz` URL. Set a version, or leave it empty for the latest. **Discard** throws your edits away. Your edits, chart ref and version stay with that release: open another release and it starts from its own. Like the `helm` CLI, an upgrade keeps the release's last 10 revisions.
 
 ### Manifest
 
@@ -58,6 +58,10 @@ A store of the charts in your Helm repositories. Kubebay reads your local Helm c
 - Pick **All repos** or one, and **Search charts…** by name.
 - **Update indexes** fetches each repo's latest index, like `helm repo update`.
 - Click a chart, set the release name, namespace and version (the latest by default), then **Install**. Open another chart and the form starts again from that chart.
+
+## Who Helm acts as
+
+Helm uses the same connection as the rest of Kubebay. On your machine that's your kubeconfig's identity. In a cluster with OIDC sign-in, Helm acts as the person signed in, so the cluster's RBAC decides what they can install, upgrade or remove. Installs, upgrades, rollbacks and uninstalls are all recorded in the [Audit Log](/docs/audit-log/).
 
 ## Changes to objects a release installed
 

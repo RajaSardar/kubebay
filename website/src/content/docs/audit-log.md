@@ -11,7 +11,7 @@ appRoutes: ["/audit"]
 Recorded actions include:
 
 - changes: apply, create, delete, scale, restart, resize, cordon, drain;
-- Helm installs and upgrades;
+- Helm installs, upgrades, rollbacks and uninstalls;
 - sessions: a container shell, the local terminal, a port-forward, a network diagnostic pod;
 - revealing a Secret's value;
 - a change an admission policy rejected, marked as rejected;
