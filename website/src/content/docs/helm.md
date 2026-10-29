@@ -37,7 +37,7 @@ Every revision, newest first, with its status, chart version, how it was applied
 
 ### Values
 
-The release's values, in an editor. Change them, then **Save & upgrade** runs a `helm upgrade` with your values. Leave the chart ref as it is to stay on the same chart, or set it to `repo/name` or a `.tgz` URL. Set a version, or leave it empty for the latest. **Discard** throws your edits away.
+The release's values, in an editor. Change them, then **Save & upgrade** runs a `helm upgrade` with your values. Leave the chart ref as it is to stay on the same chart, or set it to `repo/name` or a `.tgz` URL. Set a version, or leave it empty for the latest. **Discard** throws your edits away. Your edits, chart ref and version stay with that release: open another release and it starts from its own.
 
 ### Manifest
 
@@ -57,7 +57,7 @@ A store of the charts in your Helm repositories. Kubebay reads your local Helm c
 
 - Pick **All repos** or one, and **Search charts…** by name.
 - **Update indexes** fetches each repo's latest index, like `helm repo update`.
-- Click a chart, set the release name, namespace and version (the latest by default), then **Install**.
+- Click a chart, set the release name, namespace and version (the latest by default), then **Install**. Open another chart and the form starts again from that chart.
 
 ## Changes to objects a release installed
 

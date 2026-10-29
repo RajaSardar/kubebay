@@ -196,6 +196,27 @@ describe("Helm releases", () => {
     expect(screen.queryByRole("button", { name: "Uninstall" })).toBeNull();
   });
 
+  // A release opened from the keyboard (Enter on its row) while another's
+  // drawer is open: no press reaches the page behind, so the drawer isn't
+  // closed first. It must not keep the other release's chart or edited values:
+  // "Save & upgrade" would install them over this release.
+  it("a release opened while another's drawer is open starts from its own chart, not the last one's", async () => {
+    vi.mocked(helmApi.releases).mockResolvedValue(list(releases));
+    vi.mocked(helmApi.history).mockResolvedValue([]);
+    vi.mocked(helmApi.valuesText).mockResolvedValue("replicas: 1\n");
+    renderPage();
+    fireEvent.click(await screen.findByText("redis"));
+    fireEvent.click(screen.getByRole("tab", { name: "Values" }));
+    expect(screen.getByPlaceholderText(/chart ref/)).toHaveValue("redis-18.1.0");
+
+    fireEvent.keyDown(within(screen.getByRole("table")).getByText("api").closest("tr")!, { key: "Enter" });
+    expect(screen.getByRole("dialog")).toHaveAccessibleName(/api/);
+    if (screen.getByRole("tab", { name: "Values" }).getAttribute("aria-selected") !== "true") {
+      fireEvent.click(screen.getByRole("tab", { name: "Values" }));
+    }
+    expect(screen.getByPlaceholderText(/chart ref/)).toHaveValue("api-2.0.0");
+  });
+
   // ADR 0004 S5: rows come from the release Secrets at once; the list fills
   // in the chart and is asked for again only when a release changes.
   it("shows releases from their Secrets before the list arrives", async () => {
@@ -265,3 +286,4 @@ describe("Helm releases", () => {
     expect(screen.queryByText("You can't list Helm releases here.")).toBeNull();
   });
 });
+
