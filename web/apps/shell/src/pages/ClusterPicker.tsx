@@ -50,7 +50,7 @@ import {
 } from "@kubebay/ui";
 import { PageHelp } from "../components/PageHelp";
 
-const APP_VERSION = "v0.6.0";
+const APP_VERSION = "v0.7.0";
 const HEADERS = ["Name", "Session", "API", "Version", "Pods", "Nodes", "CPU · 7 days", "Requests"] as const;
 
 /** Reachability from the engine probe, separate from the user's session. */
