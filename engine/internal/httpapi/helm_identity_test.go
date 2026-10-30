@@ -98,7 +98,11 @@ func TestHelmNeedsNoKubeconfigFile(t *testing.T) {
 }
 
 func TestHelmRollbackAndUninstallAreAudited(t *testing.T) {
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	// os.UserConfigDir reads XDG_CONFIG_HOME on Linux but $HOME/Library/Application Support on macOS;
+	// redirect both so the audit log never lands in the real one.
+	cfg := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", cfg)
+	t.Setenv("HOME", cfg)
 	lg, err := audit.New(slog.New(slog.NewTextHandler(io.Discard, nil)))
 	if err != nil {
 		t.Fatal(err)

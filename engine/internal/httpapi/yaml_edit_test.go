@@ -63,7 +63,11 @@ func (c capR) Patch(ctx context.Context, name string, pt types.PatchType, data [
 
 func editChannels(t *testing.T, live ...runtime.Object) (*Channels, *capturedPatch) {
 	t.Helper()
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	// os.UserConfigDir reads XDG_CONFIG_HOME on Linux but $HOME/Library/Application Support on macOS;
+	// redirect both so the audit log never lands in the real one.
+	cfg := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", cfg)
+	t.Setenv("HOME", cfg)
 	lg, err := audit.New(slog.New(slog.NewTextHandler(io.Discard, nil)))
 	if err != nil {
 		t.Fatal(err)
