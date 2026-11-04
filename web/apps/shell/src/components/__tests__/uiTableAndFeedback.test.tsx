@@ -44,6 +44,13 @@ describe("Button", () => {
   });
 });
 
+describe("Button size", () => {
+  it("has a small size for a status bar or a dense header (ADR 0005)", () => {
+    render(<Button variant="ghost" size="sm">Terminal</Button>);
+    expect(screen.getByRole("button")).toHaveClass("kb-btn", "kb-btn-ghost", "kb-btn-sm");
+  });
+});
+
 describe("EmptyState", () => {
   it("renders a title and a muted hint", () => {
     render(<EmptyState title="No pods match." hint="Loosen the filters." />);

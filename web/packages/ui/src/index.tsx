@@ -5,14 +5,16 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   /** primary = the one action a view is for; ghost = everything else; danger = a confirmed destructive action;
    *  danger-ghost = the first, unconfirmed step of one. */
   variant?: "primary" | "ghost" | "danger" | "danger-ghost";
+  /** sm: a dense header or the status bar. */
+  size?: "sm";
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  { children, variant = "primary", className, type = "button", ...props },
+  { children, variant = "primary", size, className, type = "button", ...props },
   ref,
 ) {
   const v = variant === "danger-ghost" ? "ghost kb-btn-danger-ghost" : variant;
-  const cls = `kb-btn kb-btn-${v}${className ? " " + className : ""}`;
+  const cls = `kb-btn kb-btn-${v}${size ? ` kb-btn-${size}` : ""}${className ? " " + className : ""}`;
   return (
     <button ref={ref} type={type} className={cls} {...props}>
       {children}

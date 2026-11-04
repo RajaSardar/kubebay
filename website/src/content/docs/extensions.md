@@ -67,7 +67,7 @@ When a row doesn't have a value an action needs, such as a label it lacks, the a
 
 A **link**'s values are percent-encoded, so a value can't add a query parameter or change the path. The scheme and host come from your template.
 
-A **command** never runs by itself. Kubebay opens the Terminal on the row's cluster and types the command at the prompt, without pressing <kbd>Enter</kbd>. Each value is quoted as one shell argument, so a name, label or annotation can't add a second command, whatever characters it holds.
+A **command** never runs by itself. Kubebay opens the [Terminal dock](/docs/terminal/#commands-from-extensions) and, with no shell running, opens one on the row's cluster and types the command at the prompt, without pressing <kbd>Enter</kbd>. With a shell already running, it never types into it: it offers **Copy** and **Type into this shell** instead. Each value is quoted as one shell argument, so a name, label or annotation can't add a second command, whatever characters it holds.
 
 Because Kubebay quotes each value itself, a placeholder in a `run` template must stand outside quotes, and not right after `\` or `$`. `echo '{{name}}'` is refused with an error that says so. A value with a newline or another control character isn't typed at all: the action is greyed out with the reason.
 

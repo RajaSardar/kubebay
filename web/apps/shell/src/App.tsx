@@ -1,11 +1,14 @@
-import { createContext, lazy, Suspense, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, lazy, Suspense, useContext, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useSmokeReady } from "./lib/smoke";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { APIResourceEntry, ClusterInfo } from "./lib/api";
 import { NavLink, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { useClusterStore } from "./lib/cluster-store";
 import { resolveActiveCluster, shouldRedirectToPicker } from "./lib/clusterPickerLogic";
-import { Button, DisclosureButton, EmptyState, Kbd, KubebayMark, navItemClass, Spinner, StatusDot } from "@kubebay/ui";
+import { Button, DisclosureButton, DrawerInset, EmptyState, Kbd, KubebayMark, navItemClass, Spinner, StatusDot } from "@kubebay/ui";
+import { TerminalDock } from "./components/TerminalDock";
+import { DockToggle, SidebarTerminal, useDockInset, useDockShortcut } from "./components/DockEntryPoints";
+import { useTerminalDock } from "./lib/terminalDock";
 import {
   IconArgoCD,
   IconCube,
@@ -21,7 +24,6 @@ import {
   IconSearch,
   IconShield,
   IconSliders,
-  IconTerminal,
   IconTimeline,
   IconTopology,
 } from "@kubebay/ui/src/icons";
@@ -214,7 +216,6 @@ const GROUPS: NavGroupDef[] = [
 ];
 
 const TOOLS = [
-  { to: "/terminal", label: "Terminal", icon: <IconTerminal /> },
   { to: "/create-resource", label: "Create Resource", icon: <IconPlus /> },
   { to: "/crds", label: "CRDs", icon: <IconGrid /> },
   { to: "/ports", label: "Ports", icon: <IconForward /> },
@@ -488,6 +489,7 @@ function Sidebar({ onOpenPalette, sidebar }: { onOpenPalette: () => void; sideba
         <SavedViewsSidebar />
 
         <div className="nav-section">Tools</div>
+        <SidebarTerminal />
         {TOOLS.map((t) => (
           <NavLink key={t.to} to={t.to} className={({ isActive }) => navItemClass({ active: isActive })}>
             <span className="nav-icon">{t.icon}</span>
@@ -588,6 +590,14 @@ function AppInner() {
     }
   }, [switching, activeCluster?.status, ws.connected]);
 
+  // ADR 0005: the terminal dock under the page. Ctrl+` opens it from anywhere,
+  // and drawers end above it and ignore presses in it.
+  useDockShortcut();
+  const dockRef = useRef<HTMLElement>(null);
+  const dockOpen = useTerminalDock((s) => s.open);
+  const dockHeight = useTerminalDock((s) => s.height);
+  const dockInset = useDockInset(dockRef, dockOpen, dockHeight);
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -610,7 +620,11 @@ function AppInner() {
 
   return (
     <ClusterCtx.Provider value={{ switching, setActive }}>
-      <div className={sidebar.hidden ? "app sidebar-hidden" : "app"}>
+      <DrawerInset bottom={dockInset} keepOpenIn={dockRef}>
+      <div
+        className={sidebar.hidden ? "app sidebar-hidden" : "app"}
+        style={dockInset ? ({ "--kb-dock-inset": `${dockInset}px` } as CSSProperties) : undefined}
+      >
         <ClusterStrip sidebar={sidebar} />
         <Sidebar onOpenPalette={() => setPaletteOpen(true)} sidebar={sidebar} />
         <Palette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
@@ -671,6 +685,8 @@ function AppInner() {
           )}
         </main>
 
+        <TerminalDock selectedCluster={effectiveActive} clusters={list} dockRef={dockRef} />
+
         <footer className="statusbar">
           <span className="statusbar-left">
             <StatusDot status={up ? "connected" : "unreachable"} />
@@ -684,10 +700,12 @@ function AppInner() {
             </span>
           )}
           <span className="statusbar-right muted">
+            <DockToggle />
             <Kbd>⌘K</Kbd> palette
           </span>
         </footer>
       </div>
+      </DrawerInset>
     </ClusterCtx.Provider>
   );
 }

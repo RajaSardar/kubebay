@@ -227,11 +227,83 @@ export function navItemClass({ active, sub, extra }: { active?: boolean; sub?: b
 
 /** A sidebar row. */
 export function NavItem({ label, href, icon, active, sub, onClick }: NavItemProps) {
+  // Without somewhere to go, it's an action (Terminal opens the dock): a
+  // button, pressed while what it opens is open.
+  if (!href && onClick) {
+    return (
+      <button type="button" className={navItemClass({ active, sub })} onClick={onClick} aria-pressed={!!active}>
+        {icon && <span className="nav-icon">{icon}</span>}
+        <span>{label}</span>
+      </button>
+    );
+  }
   return (
     <a className={navItemClass({ active, sub })} href={href} onClick={onClick} aria-current={active ? "page" : undefined}>
       {icon && <span className="nav-icon">{icon}</span>}
       <span>{label}</span>
     </a>
+  );
+}
+
+// ── Splitter ──────────────────────────────────────────────────────────────────
+
+const SPLITTER_STEP = 16;
+
+export interface SplitterProps {
+  /** Accessible name, such as "Resize the terminal". */
+  label: string;
+  /** The height of the panel below the splitter, in px. */
+  value: number;
+  min: number;
+  max: number;
+  /** Where a double-click puts it back. */
+  defaultValue: number;
+  onChange: (value: number) => void;
+}
+
+/**
+ * The top edge of a panel docked under the page (ADR 0005: the terminal dock).
+ * Dragging it up or pressing ↑ grows the panel; ↓ shrinks it, 16 px a press;
+ * a double-click resets it. Never below `min`, even when `max` is smaller.
+ */
+export function Splitter({ label, value, min, max, defaultValue, onChange }: SplitterProps) {
+  const drag = useRef<{ y: number; from: number } | null>(null);
+  const clamp = (v: number) => Math.round(Math.max(min, Math.min(max, v)));
+  const onKeyDown = (e: ReactKeyboardEvent) => {
+    const step = e.key === "ArrowUp" ? SPLITTER_STEP : e.key === "ArrowDown" ? -SPLITTER_STEP : 0;
+    if (!step) return;
+    e.preventDefault();
+    onChange(clamp(value + step));
+  };
+  return (
+    <div
+      role="separator"
+      aria-orientation="horizontal"
+      aria-label={label}
+      aria-valuenow={value}
+      aria-valuemin={min}
+      aria-valuemax={max}
+      tabIndex={0}
+      className="kb-splitter"
+      onKeyDown={onKeyDown}
+      onDoubleClick={() => onChange(clamp(defaultValue))}
+      onPointerDown={(e) => {
+        if (e.button !== 0) return;
+        drag.current = { y: e.clientY, from: value };
+        e.currentTarget.setPointerCapture?.(e.pointerId);
+      }}
+      onPointerMove={(e) => {
+        const d = drag.current;
+        if (d) onChange(clamp(d.from + d.y - e.clientY));
+      }}
+      onPointerUp={(e) => {
+        drag.current = null;
+        e.currentTarget.releasePointerCapture?.(e.pointerId);
+      }}
+      onPointerCancel={() => {
+        drag.current = null;
+      }}
+    />
   );
 }
 

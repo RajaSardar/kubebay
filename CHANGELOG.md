@@ -7,6 +7,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 ## [Unreleased]
 
 ### Added
+- **The terminal lives in a dock under every page**: the local shell moves from its own page into a dock above the status bar, beside the sidebar, the way Freelens keeps it. The shell keeps running, with its scrollback, while you move between pages, open the Clusters page or hide the dock. Hiding it no longer resizes the program running in it.
+  - **Opening it:** <kbd>Ctrl</kbd>+<kbd>`</kbd> opens it from anywhere, focuses its shell, or hides it from inside the shell and gives focus back. The status bar's **Terminal** shows the key and the bound context. Tools → **Terminal** and `/terminal` links open the dock without leaving your page.
+  - **Size:** drag the dock's top edge, or use <kbd>↑</kbd>/<kbd>↓</kbd> on it, to resize it. The height is kept on this machine; a restart starts with the dock hidden and no shell.
+  - **Production:** a production-looking context shows a **production** pill in the dock's header and the status bar, and **Restart** asks first on it.
+  - **Drawers:** they end above the dock and stay open when you press in it.
+  - **Commands from extensions:** one is never typed into a shell that's already running. The dock offers **Copy** and **Type into this shell**, or **Open a shell on** the other cluster.
+  - **Disconnects:** what you type while the engine is unreachable is dropped, never sent later to a new shell.
+
+  ADR 0005 records the 20-expert debate behind it. Tabs, docked pod logs and pod shells follow behind their own engine fixes. `@kubebay/ui` gains a `Splitter`, a `DrawerInset`, a small `Button` size and a button form of `NavItem`.
 - **An ⓘ on every page and insight card**: beside each page's title, and each insight card's on Overview, RBAC and Cost / Waste, it says in a sentence what the page or card is and in another how it works, and links to that page of the [user manual](https://kubebay.sardar.dev/docs/). It opens on a click, Enter or Space, so keyboard and touch reach it, and closes on Escape or a click elsewhere. CI fails when a new page has no ⓘ, or one links to a docs page or heading that doesn't exist. See `docs/HELP_TIPS_RESEARCH.md` for why it's a click, not a hover.
 - **A Helm release opens on its Overview**: a release's drawer now opens on an Overview tab that shows:
   - what the release is: chart, app version, revision, status, when and how it last changed;
