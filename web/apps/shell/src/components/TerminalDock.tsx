@@ -89,11 +89,11 @@ export function TerminalDock({
         )}
         <span className="kb-dock-actions">
           {binding && (
-            <Button variant="ghost" onClick={endDockShell}>
+            <Button variant="ghost" size="sm" onClick={endDockShell}>
               End shell
             </Button>
           )}
-          <Button variant="ghost" onClick={closeDock}>
+          <Button variant="ghost" size="sm" onClick={closeDock}>
             Hide
           </Button>
           <PageHelp route="/terminal" align="end" />

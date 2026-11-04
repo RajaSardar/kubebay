@@ -82,6 +82,8 @@ body::before {
     "cluster-strip sidebar dock"
     "statusbar statusbar statusbar";
   height: var(--app-h, 100vh);
+  /* How far above the window's bottom the open dock begins (App sets it). */
+  --kb-dock-inset: 0px;
 }
 
 /* ── Cluster strip ── */
@@ -1210,7 +1212,7 @@ h2 {
 /* ──── Resource FAB ("+" button, bottom-left of page) ──── */
 .resource-fab {
   position: fixed;
-  bottom: 28px;
+  bottom: calc(28px + var(--kb-dock-inset));
   left: calc(56px + 210px + 20px); /* cluster strip + sidebar + margin */
   width: 40px;
   height: 40px;

@@ -1,4 +1,4 @@
-import { createContext, lazy, Suspense, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, lazy, Suspense, useContext, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useSmokeReady } from "./lib/smoke";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { APIResourceEntry, ClusterInfo } from "./lib/api";
@@ -621,7 +621,10 @@ function AppInner() {
   return (
     <ClusterCtx.Provider value={{ switching, setActive }}>
       <DrawerInset bottom={dockInset} keepOpenIn={dockRef}>
-      <div className={sidebar.hidden ? "app sidebar-hidden" : "app"}>
+      <div
+        className={sidebar.hidden ? "app sidebar-hidden" : "app"}
+        style={dockInset ? ({ "--kb-dock-inset": `${dockInset}px` } as CSSProperties) : undefined}
+      >
         <ClusterStrip sidebar={sidebar} />
         <Sidebar onOpenPalette={() => setPaletteOpen(true)} sidebar={sidebar} />
         <Palette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
