@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from "react";
+import { createContext, useContext, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { IconButton } from "./shell";
 import { IconInfo } from "./icons";
@@ -35,6 +35,32 @@ function pageOf(el: HTMLElement): HTMLElement {
   return n;
 }
 
+interface DrawerInsetValue {
+  bottom: number;
+  keepOpenIn?: RefObject<HTMLElement | null>;
+}
+
+const DrawerInsetContext = createContext<DrawerInsetValue>({ bottom: 0 });
+
+export interface DrawerInsetProps {
+  /** How far above the window's bottom edge drawers end, in px: the top of a
+   *  panel docked under the page. 0 leaves them full height. */
+  bottom: number;
+  /** A press in this element isn't a press on the page behind a drawer, so it
+   *  leaves the drawer open. */
+  keepOpenIn?: RefObject<HTMLElement | null>;
+  children: ReactNode;
+}
+
+/**
+ * Makes room for a panel docked under the page (ADR 0005: the terminal dock):
+ * every Drawer inside ends above it, and a press in it doesn't close them.
+ */
+export function DrawerInset({ bottom, keepOpenIn, children }: DrawerInsetProps) {
+  const value = useMemo(() => ({ bottom, keepOpenIn }), [bottom, keepOpenIn]);
+  return <DrawerInsetContext.Provider value={value}>{children}</DrawerInsetContext.Provider>;
+}
+
 export interface DrawerProps {
   /** Resource name or heading; also the panel's accessible name. */
   title: ReactNode;
@@ -61,6 +87,9 @@ export function Drawer({ title, subtitle, subtitleMono = true, leading, actions,
   useFocusReturn(ref, !embedded, () => null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+  const inset = useContext(DrawerInsetContext);
+  const insetRef = useRef(inset);
+  insetRef.current = inset;
 
   // A press on the page behind the panel closes it. A press inside it, or in
   // a menu or dialog it opened, is marked on the way down (React events pass
@@ -72,6 +101,7 @@ export function Drawer({ title, subtitle, subtitleMono = true, leading, actions,
       const panel = ref.current;
       if (!panel || e.button !== 0 || pressedInside.current === e) return;
       const target = e.target as Node;
+      if (insetRef.current.keepOpenIn?.current?.contains(target)) return;
       if (pageOf(panel).contains(target) && !panel.contains(target)) onCloseRef.current();
     };
     document.addEventListener("mousedown", onPress);
@@ -93,6 +123,7 @@ export function Drawer({ title, subtitle, subtitleMono = true, leading, actions,
       aria-modal={embedded ? undefined : false}
       aria-labelledby={titleId}
       tabIndex={-1}
+      style={!embedded && inset.bottom > 0 ? { bottom: inset.bottom } : undefined}
       onKeyDown={onKeyDown}
       onMouseDownCapture={(e) => {
         pressedInside.current = e.nativeEvent;

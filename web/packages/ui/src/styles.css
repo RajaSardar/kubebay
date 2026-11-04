@@ -1715,6 +1715,39 @@ tr.row-clickable:active {
 }
 
 /* ── Drawer: the side panel for one resource ── */
+/* ── Splitter: the top edge of a panel docked under the page ── */
+.kb-splitter {
+  position: relative;
+  flex: none;
+  height: 6px;
+  margin-top: -3px;
+  margin-bottom: -3px;
+  cursor: row-resize;
+  touch-action: none;
+  z-index: 1;
+  outline: none;
+}
+
+.kb-splitter::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 2px;
+  height: 2px;
+  background: transparent;
+  transition: background var(--kb-dur);
+}
+
+.kb-splitter:hover::after,
+.kb-splitter:active::after {
+  background: var(--kb-border-strong);
+}
+
+.kb-splitter:focus-visible::after {
+  background: var(--kb-accent);
+}
+
 .drawer {
   position: fixed;
   top: 0;
