@@ -16,6 +16,12 @@
     transform var(--kb-dur-fast) var(--kb-ease);
 }
 
+.kb-btn.kb-btn-sm {
+  font-size: var(--kb-text-xs);
+  padding: 1px 8px;
+  gap: 4px;
+}
+
 .kb-btn:focus-visible {
   outline: none;
   box-shadow: var(--kb-focus-ring);
@@ -315,6 +321,16 @@ kbd {
   transition:
     background var(--kb-dur-fast) var(--kb-ease),
     color var(--kb-dur-fast) var(--kb-ease);
+}
+
+/* A nav row that does something instead of going somewhere (NavItem with no href). */
+button.nav-item {
+  width: 100%;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
 .nav-icon {

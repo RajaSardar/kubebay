@@ -15,8 +15,8 @@ https://claude.ai/artifact/J35D45QQ7X6Sgd7mwfRSnF
 | Colour, shadow and focus tokens for all 12 themes | `web/packages/ui/src/tokens.css` | `--kb-*` custom properties, one block per `data-theme` |
 | Type scale, spacing, radii, motion, layers | `web/packages/ui/src/tokens.css` (`:root`) | `--kb-text-*`, `--kb-space-*`, `--kb-radius-*`, `--kb-dur*`, `--kb-ease*`, `--kb-z-*` |
 | Component styles | `web/packages/ui/src/styles.css` | the only CSS for package classes |
-| Core components | `web/packages/ui/src/index.tsx` | `Button`, `ArmedButton`, `Card`, `Badge`, `StatusDot`, `Skeleton`, `chartColor()` |
-| Shell components | `web/packages/ui/src/shell.tsx` | `StatusPill`/`phaseTone`, `Tabs` (with `trailing` controls), `Splitter` (the keyboard-resizable top edge of a panel docked under the page), `SegmentedControl`, `IconButton`, `NavItem`/`NavSection`/`navItemClass`, `DisclosureButton`, `ChoiceCard`, `TextField`, `Select`, `Kbd`, `PageHeader`, `ContextMenu` |
+| Core components | `web/packages/ui/src/index.tsx` | `Button` (`size="sm"` for the status bar or a dense header), `ArmedButton`, `Card`, `Badge`, `StatusDot`, `Skeleton`, `chartColor()` |
+| Shell components | `web/packages/ui/src/shell.tsx` | `StatusPill`/`phaseTone`, `Tabs` (with `trailing` controls), `Splitter` (the keyboard-resizable top edge of a panel docked under the page), `SegmentedControl`, `IconButton`, `NavItem` (a button, pressed while what it opens is open, when it has an `onClick` and no `href`)/`NavSection`/`navItemClass`, `DisclosureButton`, `ChoiceCard`, `TextField`, `Select`, `Kbd`, `PageHeader`, `ContextMenu` |
 | Layout | `web/packages/ui/src/layout.tsx` | `Row`, `Stack` (`gap` on the `--kb-space-*` scale, `align`, `justify`, `wrap`, `as`) |
 | Tables and feedback | `web/packages/ui/src/table.tsx` | `DataTable`, `TableWrap` (`busy` refresh bar), `Table`, `SortHeader`, `SelectAllHeader`, `SelectCell`, `TableRow`, `NsPill`, `SkeletonRows`, `SkeletonTable`, `SkeletonLines`, `EmptyState`, `InlineBanner` |
 | Loading | `web/packages/ui/src/spinner.tsx`, `icons.tsx` | `Spinner` (the helm `IconLoader` turning, `role="status"`) |

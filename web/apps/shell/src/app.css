@@ -74,9 +74,12 @@ body::before {
 .app {
   display: grid;
   grid-template-columns: 56px 210px minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr) auto auto;
+  /* The terminal dock (ADR 0005) is a row of the content column only: the
+     cluster strip and sidebar keep their full height beside it. */
   grid-template-areas:
     "cluster-strip sidebar content"
+    "cluster-strip sidebar dock"
     "statusbar statusbar statusbar";
   height: var(--app-h, 100vh);
 }
@@ -377,6 +380,13 @@ h2 {
     color-mix(in srgb, var(--kb-accent) 10%, transparent) 70%,
     transparent
   );
+}
+
+.statusbar-dock {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 6px;
 }
 
 .statusbar-left,
@@ -1029,19 +1039,6 @@ h2 {
 .crd-tree-kind { font-weight: 500; min-width: 160px; }
 
 .crd-tree-meta { display: flex; align-items: center; gap: 6px; margin-left: auto; }
-
-/* ──── Local shell ──── */
-.local-shell {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  flex: 1;
-  padding-top: var(--kb-space-3);
-}
-.local-shell .term-host {
-  margin: 0 var(--kb-gutter) var(--kb-gutter);
-  min-height: 0;
-}
 
 /* ──── Terminal dock (ADR 0005) ──── */
 .kb-dock {

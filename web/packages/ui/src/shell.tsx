@@ -227,6 +227,16 @@ export function navItemClass({ active, sub, extra }: { active?: boolean; sub?: b
 
 /** A sidebar row. */
 export function NavItem({ label, href, icon, active, sub, onClick }: NavItemProps) {
+  // Without somewhere to go, it's an action (Terminal opens the dock): a
+  // button, pressed while what it opens is open.
+  if (!href && onClick) {
+    return (
+      <button type="button" className={navItemClass({ active, sub })} onClick={onClick} aria-pressed={!!active}>
+        {icon && <span className="nav-icon">{icon}</span>}
+        <span>{label}</span>
+      </button>
+    );
+  }
   return (
     <a className={navItemClass({ active, sub })} href={href} onClick={onClick} aria-current={active ? "page" : undefined}>
       {icon && <span className="nav-icon">{icon}</span>}

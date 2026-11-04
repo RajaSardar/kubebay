@@ -66,6 +66,18 @@ describe("NavItem", () => {
     expect(pods).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Jobs" })).toHaveClass("nav-item", "sub");
   });
+
+  it("is a button when it does something instead of going somewhere (ADR 0005: Terminal opens the dock)", () => {
+    const onClick = vi.fn();
+    render(<NavItem label="Terminal" icon={<span data-testid="icon" />} active onClick={onClick} />);
+    const item = screen.getByRole("button", { name: "Terminal" });
+    expect(item).toHaveClass("nav-item", "active");
+    expect(item).toHaveAttribute("type", "button");
+    expect(item).toHaveAttribute("aria-pressed", "true");
+    expect(item).toContainElement(screen.getByTestId("icon"));
+    fireEvent.click(item);
+    expect(onClick).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("inputs", () => {

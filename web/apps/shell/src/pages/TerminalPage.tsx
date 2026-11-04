@@ -1,11 +1,11 @@
 import { useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "react-router-dom";
-import { LocalShellTerm } from "../components/LocalShellTerm";
-import { useActiveCluster } from "../App";
-import { api } from "../lib/api";
 import type { ShellPrefill } from "../lib/useExtensions";
-import { EmptyState, Stack } from "@kubebay/ui";
+import { useTerminalDock } from "../lib/terminalDock";
+
+// ADR 0005: the terminal lives in the dock. /terminal (a bookmark, an
+// extension's command action) opens the dock and goes back to where you were,
+// or to the Overview on a link opened cold.
 
 /** A command action's line from the route state (KB-13), if that's what it holds. */
 function prefillOf(state: unknown): ShellPrefill | undefined {
@@ -16,33 +16,26 @@ function prefillOf(state: unknown): ShellPrefill | undefined {
 }
 
 export default function TerminalPage() {
-  const { active } = useActiveCluster();
-  const clusters = useQuery({ queryKey: ["clusters"], queryFn: api.clusters });
   const location = useLocation();
   const navigate = useNavigate();
-  const prefill = prefillOf(location.state);
 
-  // The shell takes the command when it opens. Drop it from history so going
-  // back to this page, or reloading it, doesn't type it again.
   useEffect(() => {
-    if (prefill) navigate(location.pathname, { replace: true, state: null });
-  }, [prefill, navigate, location.pathname]);
+    const prefill = prefillOf(location.state);
+    const dock = useTerminalDock.getState();
+    if (prefill) {
+      // The dock types it into a new shell, or offers it beside a running
+      // one; either way the shell isn't focused for you.
+      dock.offerPrefill(prefill);
+      dock.openDock({ focus: false });
+    } else {
+      dock.openDock({ focus: true });
+    }
+    // The first entry of a history has the key "default": a link opened cold.
+    if (location.key === "default") navigate("/workloads-overview", { replace: true });
+    else navigate(-1);
+    // Runs once per visit to /terminal.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const cluster = prefill?.cluster || active;
-  if (!cluster) {
-    return (
-      <div className="page">
-        <EmptyState>
-          <p>No cluster selected.</p>
-          <p className="muted small">Select a cluster to open a terminal.</p>
-        </EmptyState>
-      </div>
-    );
-  }
-
-  return (
-    <Stack className="page" style={{ padding: 0, height: "100%" }}>
-      <LocalShellTerm selectedCluster={cluster} clusters={clusters.data ?? []} prefill={prefill} />
-    </Stack>
-  );
+  return null;
 }
