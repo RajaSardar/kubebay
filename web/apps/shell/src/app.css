@@ -1043,6 +1043,53 @@ h2 {
   min-height: 0;
 }
 
+/* ──── Terminal dock (ADR 0005) ──── */
+.kb-dock {
+  grid-area: dock;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-top: 1px solid var(--kb-border-strong);
+  background: var(--kb-bg-surface);
+}
+.kb-dock-head {
+  display: flex;
+  align-items: center;
+  gap: var(--kb-space-2);
+  padding: var(--kb-space-1) var(--kb-gutter);
+  border-bottom: 1px solid var(--kb-border-subtle);
+  font-size: var(--kb-text-sm);
+}
+.kb-dock-title {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.kb-dock-actions {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--kb-space-1);
+}
+.kb-dock-body,
+.kb-dock-shell {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.kb-dock-term {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  padding: var(--kb-space-1) var(--kb-gutter) var(--kb-space-2);
+  background: var(--kb-bg-inset);
+}
+.kb-dock-term[hidden] {
+  display: none;
+}
+
 /* ──── Favorites sidebar ──── */
 .favorites-sidebar {
   margin-top: 8px;

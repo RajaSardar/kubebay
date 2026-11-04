@@ -67,7 +67,7 @@ describe("keys the shell doesn't take", () => {
 describe("useTerminalDock", () => {
   beforeEach(() => {
     localStorage.clear();
-    useTerminalDock.setState({ open: false, focusTick: 0, prefill: null, binding: null, phase: null });
+    useTerminalDock.setState({ open: false, wantFocus: false, prefill: null, binding: null, phase: null });
     document.body.innerHTML = "";
   });
 
@@ -79,15 +79,23 @@ describe("useTerminalDock", () => {
     const button = document.body.appendChild(document.createElement("button"));
     button.focus();
     useTerminalDock.getState().openDock({ focus: false });
-    expect(useTerminalDock.getState()).toMatchObject({ open: true, focusTick: 0 });
+    expect(useTerminalDock.getState()).toMatchObject({ open: true, wantFocus: false });
     useTerminalDock.getState().openDock({ focus: true });
-    expect(useTerminalDock.getState().focusTick).toBe(1);
+    expect(useTerminalDock.getState().wantFocus).toBe(true);
+    useTerminalDock.getState().focusDone();
+    expect(useTerminalDock.getState().wantFocus).toBe(false);
     // The shell takes focus; closing the dock hands it back.
     const shell = document.body.appendChild(document.createElement("textarea"));
     shell.focus();
     useTerminalDock.getState().closeDock();
     expect(useTerminalDock.getState().open).toBe(false);
     expect(document.activeElement).toBe(button);
+  });
+
+  it("opens its first shell by itself until you end one", () => {
+    useTerminalDock.setState({ autoOpen: true, binding: { cluster: "kind-test", context: "kind-dev" }, phase: { at: "live" } });
+    useTerminalDock.getState().shellEnded();
+    expect(useTerminalDock.getState()).toMatchObject({ autoOpen: false, binding: null, phase: null });
   });
 
   it("keeps its height on this machine", () => {

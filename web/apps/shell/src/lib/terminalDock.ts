@@ -72,12 +72,19 @@ interface DockState {
   phase: ShellPhase | null;
   /** A command from an extension, waiting to be typed or copied. */
   prefill: ShellPrefill | null;
-  /** Bumped to ask the dock to focus its shell. Nothing else focuses it. */
-  focusTick: number;
+  /** Set to ask the dock to focus its shell; nothing else focuses it. The
+   *  shell clears it once it has focus. */
+  wantFocus: boolean;
+  /** The first shell of a run opens by itself (not on production); once
+   *  you've ended one, the next waits for you. */
+  autoOpen: boolean;
   openDock(opts: { focus: boolean }): void;
   closeDock(): void;
+  focusDone(): void;
   setHeight(h: number): void;
   setShell(binding: ShellBinding | null, phase: ShellPhase | null): void;
+  /** You ended the shell: forget it, and don't open the next by itself. */
+  shellEnded(): void;
   offerPrefill(p: ShellPrefill): void;
   clearPrefill(): void;
 }
@@ -91,19 +98,23 @@ export const useTerminalDock = create<DockState>()((set, get) => ({
   binding: null,
   phase: null,
   prefill: null,
-  focusTick: 0,
+  wantFocus: false,
+  autoOpen: true,
   openDock({ focus }) {
     if (focus) {
       const active = document.activeElement as HTMLElement | null;
       if (active && active !== document.body && !active.closest(".kb-dock")) returnFocus = active;
     }
-    set({ open: true, focusTick: get().focusTick + (focus ? 1 : 0) });
+    set({ open: true, wantFocus: focus || get().wantFocus });
   },
   closeDock() {
-    set({ open: false });
+    set({ open: false, wantFocus: false });
     const back = returnFocus;
     returnFocus = null;
     if (back && document.contains(back)) back.focus();
+  },
+  focusDone() {
+    set({ wantFocus: false });
   },
   setHeight(h) {
     const height = clampHeight(h, windowHeight());
@@ -116,6 +127,9 @@ export const useTerminalDock = create<DockState>()((set, get) => ({
   },
   setShell(binding, phase) {
     set({ binding, phase });
+  },
+  shellEnded() {
+    set({ binding: null, phase: null, autoOpen: false });
   },
   offerPrefill(p) {
     set({ prefill: p });
