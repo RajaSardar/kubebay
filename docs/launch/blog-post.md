@@ -12,7 +12,7 @@ So I built **Kubebay**: a free, MIT-licensed, local-first Kubernetes IDE. This p
 
 ## Showing the cluster vs. telling you what's wrong
 
-[GIF: Overview]
+![The Workloads Overview on a demo cluster](media/workloads-overview.png)
 
 Kubebay's Overview opens on what's broken and *why*, in words ("1 of 2 available: keeps crashing on start"), and then on what's fragile even though it works today:
 
@@ -22,6 +22,10 @@ Kubebay's Overview opens on what's broken and *why*, in words ("1 of 2 available
 - **Waste.** Requests compared with real usage, ranked, with a dry-run patch to right-size.
 - **Upgrade readiness.** APIs your cluster serves that the next Kubernetes release removes.
 
+![SPOF Radar on a demo cluster](media/workloads-overview-spof-radar.png)
+
+![Attack paths and RBAC findings on a demo cluster](media/rbac.png)
+
 There's more on top: Argo CD and Flux drift without logging into either, KEDA and Karpenter in plain words, and Trivy-Operator CVEs per workload.
 
 ## The everyday parts
@@ -30,7 +34,7 @@ Every kind and CRD is a live table, and none of them has a Refresh button. Logs,
 
 ## How it works
 
-[Diagram: engine → informers → WebSocket → UI]
+[Diagram: engine → informers → WebSocket → UI. Still to draw; see docs/ARCHITECTURE.md.]
 
 One Go engine watches each cluster **once** using shared informers, lists metadata only where full objects aren't needed, and streams changes to the UI over a single multiplexed WebSocket. The same engine runs three ways:
 

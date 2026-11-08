@@ -7,20 +7,20 @@
 1. Lens wants an account. The Kubernetes Dashboard was archived. So I built a free, local-first Kubernetes IDE.
 
    Kubebay: Go engine, Tauri app, MIT. No account, no telemetry.
-   🧵 [hero GIF]
+   🧵 [media/kubebay-tour.gif]
 
 2. Every view is a live watch stream. One Go process watches each cluster once and streams changes over one WebSocket, so there's no Refresh button anywhere.
 
-   Budgets measured in CI on every PR: ≤150 MB idle, ≤1.5 s cold start. [GIF: tables updating live]
+   Budgets measured in CI on every PR: ≤150 MB idle, ≤1.5 s cold start. [media/workloads.png]
 
 3. The part I care about most: it tells you what's fragile.
    - single points of failure
    - NetworkPolicy gaps + "can A reach B?"
    - attack paths: exposed → vulnerable → over-privileged
    - requests vs. real usage
-   [GIF: Overview / SPOF radar]
+   [media/workloads-overview-spof-radar.png]
 
-4. It also does Helm, Argo CD and Flux drift, KEDA, Karpenter and port-forwards, plus an MCP server (off by default) so Claude can read the clusters you pick and propose changes you approve one by one. [GIF: MCP approval]
+4. It also does Helm, Argo CD and Flux drift, KEDA, Karpenter and port-forwards, plus an MCP server (off by default) so Claude can read the clusters you pick and propose changes you approve one by one. [media/rbac.png: attack paths; an MCP approval clip is still to record]
 
 5. It's v0.7, built by one person (with a lot of Claude Code). I'd love bug reports from real clusters.
    ⭐ github.com/RajaSardar/kubebay

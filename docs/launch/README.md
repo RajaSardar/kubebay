@@ -1,7 +1,34 @@
 # Kubebay launch kit
 
-> **Status:** drafted 2026-11-08, nothing published yet. This is the working plan for [KB-06](../BACKLOG.md).
-> Every post here is a draft for Raja to edit **into his own voice** and publish from his own accounts. Nothing in this folder posts itself.
+> **Status: ON HOLD. Ready, not launched.** Prepared 2026-11-08. Nothing has been posted, submitted or announced anywhere, and nothing in this folder posts itself. Raja picks the launch date; until then, nothing goes out.
+> This is the working plan for [KB-06](../BACKLOG.md). Every post here is a draft for Raja to edit **into his own voice** and publish from his own accounts.
+
+## What's ready
+
+| Piece | File |
+|---|---|
+| The plan, the gate and the sequence | this file |
+| Show HN post, first comment, prepared answers | [show-hn.md](show-hn.md) |
+| Reddit posts, one angle per subreddit | [reddit.md](reddit.md) |
+| X / Bluesky thread, Mastodon, LinkedIn | [social.md](social.md) |
+| Launch article (for the site, dev.to and newsletters) | [blog-post.md](blog-post.md) |
+| Paste-ready text: AlternativeTo, awesome lists, Product Hunt, newsletter blurbs, outreach note, package managers | [submissions.md](submissions.md) |
+| Checklist of every other channel | [directories.md](directories.md) |
+| CNCF Landscape PR (at ≥ 300 stars) | [cncf-landscape.md](cncf-landscape.md) |
+| **Media:** 8 screenshots, a 26 s tour GIF and MP4, a 1280×640 social preview | [media/](media/) |
+| How the media was made, to regenerate it each release | [demo/](demo/) |
+
+The media comes from v0.7.0 running against a **synthetic demo cluster** (see [demo/README.md](demo/README.md)). Label it "demo cluster" wherever it's used.
+
+![Kubebay tour](media/kubebay-tour.gif)
+
+## Launch day: switch these on (in this order)
+
+1. Repo **Settings → General → Social preview:** upload `media/social-preview.png`.
+2. Repo **About:** Website `https://kubebay.sardar.dev`, plus the topics listed in G3.
+3. **Settings → Features → Discussions:** on, with the two seed threads.
+4. **README:** add the tour GIF under the title (`docs/launch/media/kubebay-tour.gif`) and two screenshots in "What you get". It's a separate small PR; merge it the morning of launch.
+5. Then post in the order of the [sequence](#sequence).
 
 ## Where things stand (checked 2026-11-08)
 
@@ -34,9 +61,9 @@ These are ordered by how badly each one hurts if it's missing on launch day.
 
 | # | Item | Why | Who / how |
 |---|---|---|---|
-| G1 | **README hero GIF + 4 feature GIFs** (Overview with SPOF radar, NetworkPolicy reachability, attack paths, Cost/Waste) and a 60 s video | Every channel rewards visuals, and a K8s UI with no screenshot gets scrolled past. HN readers click the repo, and the first screen decides the star. | Record on a kind cluster seeded with a demo app. Use [Kap](https://getkap.co) or `ffmpeg`, keep each GIF ≤ 5 MB, and put the video on YouTube for embeds. |
+| G1 | **README hero GIF + feature screenshots** and a short video | Every channel rewards visuals, and a K8s UI with no screenshot gets scrolled past. HN readers click the repo, and the first screen decides the star. | ✅ **Done 2026-11-08:** [media/](media/) has the tour GIF (3 MB) and MP4, eight 2× screenshots and the social preview. Still open: a desktop-app window shot on macOS (these are the browser UI), and a narrated 60 s version for YouTube. |
 | G2 | **macOS Developer ID signing + notarization (KB-03)** | The README tells users to run `xattr -dr com.apple.quarantine`. "Bypass Gatekeeper for a tool that holds your prod kubeconfig" will be the top HN comment. | $99/yr Apple Developer account, then the secrets in `release.yml`. If this can't land first, address it head-on in the post (see the HN draft). |
-| G3 | **Repo metadata** | Topics are how GitHub search and "Explore" find repos. | Settings → About: Website `https://kubebay.sardar.dev`; topics `kubernetes, kubernetes-ide, k8s, lens-alternative, kubernetes-dashboard, devops, tauri, golang, react, desktop-app, sre, platform-engineering, mcp`. Upload a 1280×640 social preview image (Settings → General → Social preview); without one every share shows a blank card. |
+| G3 | **Repo metadata** | Topics are how GitHub search and "Explore" find repos. | Settings → About: Website `https://kubebay.sardar.dev`; topics `kubernetes, kubernetes-ide, k8s, lens-alternative, kubernetes-dashboard, devops, tauri, golang, react, desktop-app, sre, platform-engineering, mcp`. Social preview: **ready** in `media/social-preview.png`; upload it in Settings → General → Social preview (without one, every share shows a blank card). These are settings only Raja can change. |
 | G4 | **Turn on GitHub Discussions** | Launch-day questions need a home that isn't an issue. | Settings → Features → Discussions. Seed one "Welcome / roadmap feedback" thread and one "Show us your setup" thread. |
 | G5 | **Refresh the website feature grid** (`website/src/components/Features.astro`) | It undersells the product: no SPOF radar, attack paths, waste, NetworkPolicy, MCP, Argo CD/Flux. | A separate PR, done through the design system and docs rules. |
 | G6 | **A "good first issue" set** | Launch traffic converts to contributors only when there's a door. | Label 5–10 small, real issues. |
