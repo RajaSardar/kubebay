@@ -164,7 +164,8 @@ LATER (post-1.0; demand- or decision-gated)
   - Kubebay's own image-signature check (#45) shows the Kubebay in-cluster image as signed.
 
 ### KB-06 · Launch kit: M (depends on KB-02, KB-03; ideally KB-04)
-- **Why:** 0 stars. `docs/reddit-launch-post.md` and `docs/cncf-landscape-submission.md` are drafted and unpublished. The analysis's positioning is "cluster-intelligence IDE", with "free, local, no account" as the reason to believe and "the best client for Rancher-managed clusters" as a channel (§3.6).
+- **Launch kit:** [docs/launch/](launch/README.md) (2026-11-08) has the plan, the pre-launch gate, the sequence and drafts for every channel.
+- **Why:** 0 stars. `docs/launch/reddit.md` and `docs/launch/cncf-landscape.md` are drafted and unpublished. The analysis's positioning is "cluster-intelligence IDE", with "free, local, no account" as the reason to believe and "the best client for Rancher-managed clusters" as a channel (§3.6).
 - **Scope:**
   - Refresh and publish the r/kubernetes post. Open the CNCF Landscape PR. Post a Show HN.
   - A 60-second demo video plus GIFs on the website: SPOF radar, NetworkPolicy reachability, attack paths, waste.
