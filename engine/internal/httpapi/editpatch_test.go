@@ -12,7 +12,7 @@ import (
 const deployYAML = `apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: debugging-apis-fml-in
+  name: debugging-apis-demo
   namespace: debug
   annotations:
     meta.helm.sh/release-name: api-consumers-in
@@ -144,7 +144,7 @@ func TestEditPatchNoChangeIsEmpty(t *testing.T) {
 
 func TestEditPatchRejectsIdentityChanges(t *testing.T) {
 	for _, e := range [][2]string{
-		{"name: debugging-apis-fml-in", "name: other"},
+		{"name: debugging-apis-demo", "name: other"},
 		{"namespace: debug", "namespace: prod"},
 		{"kind: Deployment", "kind: StatefulSet"},
 		{"apiVersion: apps/v1", "apiVersion: apps/v1beta2"},

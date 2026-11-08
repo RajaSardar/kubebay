@@ -9,7 +9,7 @@ vi.mock("../../lib/api", () => ({
         time: "2026-10-06T10:00:00Z",
         action: "delete",
         cluster: "prod-eks",
-        namespace: "platform-consumers",
+        namespace: "example-consumers",
         resource: "device-testing-consumer-xyz",
         detail: "pod deleted by user admin",
         userAgent: "kubectl/v1.28.0",
@@ -28,7 +28,7 @@ vi.mock("@tanstack/react-query", async (importOriginal) => {
           time: "2026-10-06T10:00:00Z",
           action: "delete",
           cluster: "prod-eks",
-          namespace: "platform-consumers",
+          namespace: "example-consumers",
           resource: "device-testing-consumer-xyz",
           detail: "pod deleted by user admin",
           userAgent: "kubectl/v1.28.0",
@@ -56,7 +56,7 @@ describe("AuditLog — row click shows full details (backlog #4)", () => {
     fireEvent.click(screen.getByText("delete"));
     const dialog = screen.getByRole("dialog");
     expect(dialog).toHaveTextContent("prod-eks");
-    expect(dialog).toHaveTextContent("platform-consumers");
+    expect(dialog).toHaveTextContent("example-consumers");
     expect(dialog).toHaveTextContent("device-testing-consumer-xyz");
     expect(dialog).toHaveTextContent("pod deleted by user admin");
     expect(dialog).toHaveTextContent("kubectl/v1.28.0");

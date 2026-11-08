@@ -3,7 +3,7 @@ import { detectDistro, providerBadge, clusterDisplayName } from "../clusterDistr
 
 describe("detectDistro", () => {
   it("detects EKS from ARN", () => {
-    expect(detectDistro("arn:aws:eks:ap-south-1:294202164463:cluster/prod")).toBe("eks");
+    expect(detectDistro("arn:aws:eks:ap-south-1:111122223333:cluster/prod")).toBe("eks");
   });
 
   it("detects kind from prefix", () => {
@@ -40,8 +40,8 @@ describe("clusterDisplayName", () => {
   // Real-world: id = sanitized (colons/slashes → dashes), context = original ARN
   it("extracts short name from EKS context ARN", () => {
     expect(clusterDisplayName(
-      "arn-aws-eks-ap-south-1-294202164463-cluster-prod-us-east-1",
-      "arn:aws:eks:ap-south-1:294202164463:cluster/prod-us-east-1",
+      "arn-aws-eks-ap-south-1-111122223333-cluster-prod-us-east-1",
+      "arn:aws:eks:ap-south-1:111122223333:cluster/prod-us-east-1",
       undefined
     )).toBe("prod-us-east-1");
   });
