@@ -22,8 +22,10 @@ const DOCS = [
   "docs/TECH_STACK.md",
   "docs/SECURITY.md",
   "docs/INSTALL.md",
-  "docs/reddit-launch-post.md",
-  "docs/cncf-landscape-submission.md",
+  // Launch drafts are copy meant to be posted publicly, so every one is checked.
+  ...readdirSync(join(root, "docs/launch"))
+    .filter((f) => f.endsWith(".md"))
+    .map((f) => `docs/launch/${f}`),
 ];
 const SITE = readdirSync(join(root, "website/src/components"))
   .filter((f) => f.endsWith(".astro"))

@@ -33,7 +33,7 @@ after "Kube" projects that sort before "Kubebay").
 ```yaml
       - item:
           name: Kubebay
-          homepage_url: https://github.com/RajaSardar/kubebay
+          homepage_url: https://kubebay.sardar.dev
           repo_url: https://github.com/RajaSardar/kubebay
           logo: kubebay.svg
           license: MIT
@@ -46,8 +46,7 @@ after "Kube" projects that sort before "Kubebay").
 
 **Field notes:**
 
-- `homepage_url` — point to the GitHub repo until a dedicated website exists; update to
-  `https://kubebay.dev` (or similar) once live.
+- `homepage_url` — use `https://kubebay.sardar.dev`, the project website.
 - `repo_url` — must be a public GitHub/GitLab/etc. repo; used to pull star count and activity.
 - `logo` — filename only; the actual SVG file goes into `hosted_logos/` in the landscape repo
   (see section 3 below).
@@ -224,9 +223,10 @@ filing the PR.
 
 ### Star Count
 
-There is no enforced minimum, but landscape reviewers do informally apply a quality bar. Projects
-with fewer than ~25–50 GitHub stars are occasionally asked to wait for more community traction.
-Kubebay should aim for at least 50 stars before filing the PR for the smoothest experience. If
+The landscape README's guideline is that cloud native projects with **at least 300 GitHub stars**
+that clearly fit an existing category are generally included (checked 2026-11-08; confirm in the
+live README before filing). Kubebay had 1 star on that date, so this PR is a **post-launch
+milestone** in the [launch plan](README.md), not a launch channel. Filing early wastes reviewer goodwill. If
 stars are below that at submission time, it helps to include a short note in the PR body about
 active external users or usage signals (downloads, Homebrew installs, etc.).
 
@@ -271,7 +271,7 @@ check the rendered URL by clicking on the Kubebay card on the live site.)
 | Category | Kubernetes |
 | Subcategory | Kubernetes Tools |
 | Name | Kubebay |
-| Homepage URL | https://github.com/RajaSardar/kubebay |
+| Homepage URL | https://kubebay.sardar.dev |
 | Repo URL | https://github.com/RajaSardar/kubebay |
 | Logo file | `hosted_logos/kubebay.svg` |
 | License | MIT |

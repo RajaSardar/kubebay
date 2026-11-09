@@ -49,8 +49,8 @@
 |---|-------|--------|--------|--------|-------|-------|
 | P4-1 | `GOVERNANCE.md` (one page, BDFL-lite) | High trust signal | Low | 🟢 Done | docs-agent | GOVERNANCE.md + expanded CONTRIBUTING.md |
 | P4-2 | `CONTRIBUTING.md` (comprehensive) | Medium | Low | 🟢 Done | docs-agent | Arch diagram, 4 dev modes, PR guidelines, what-not-to-contribute |
-| P4-3 | r/kubernetes launch post draft | High acquisition | Low | 🟢 Done | docs-agent | docs/reddit-launch-post.md — ~560 words + pinned comment draft |
-| P4-4 | CNCF Landscape submission | Medium discovery | Low | 🟢 Done | docs-agent | docs/cncf-landscape-submission.md — landscape.yml block + step-by-step PR guide |
+| P4-3 | r/kubernetes launch post draft | High acquisition | Low | 🟢 Done | docs-agent | docs/launch/reddit.md — ~560 words + pinned comment draft |
+| P4-4 | CNCF Landscape submission | Medium discovery | Low | 🟢 Done | docs-agent | docs/launch/cncf-landscape.md — landscape.yml block + step-by-step PR guide |
 
 ---
 
@@ -88,8 +88,8 @@
 | 2026-09-16 | P1-2 useSyncExternalStore | ✅ Done (was already in code) — epoch debounce 100ms, 62→10 re-renders/sec |
 | 2026-09-16 | P4-2 CONTRIBUTING.md | ✅ Done (was already in code) — arch diagram, 4 dev modes, full PR guide |
 | 2026-09-16 | P3-1 Orphan engine fix (re-applied) | ✅ Done — ctrlc handler + WindowEvent::Destroyed, RunEvent::Exit all kill engine |
-| 2026-09-16 | P4-3 Reddit launch post | ✅ Done — docs/reddit-launch-post.md ready to post |
-| 2026-09-16 | P4-4 CNCF Landscape submission | ✅ Done — docs/cncf-landscape-submission.md with exact landscape.yml entry |
+| 2026-09-16 | P4-3 Reddit launch post | ✅ Done — docs/launch/reddit.md ready to post |
+| 2026-09-16 | P4-4 CNCF Landscape submission | ✅ Done — docs/launch/cncf-landscape.md with exact landscape.yml entry |
 | 2026-09-16 | Advanced caching (queryKeys.ts) | ✅ Done — centralized QK factory, cluster-keyed queries, STALE/GC constants |
 | 2026-09-16 | Context-switch invalidation | ✅ Done — queryClient.invalidateQueries on setActive for background revalidation |
 | 2026-09-16 | Pod terminal tab | ✅ Done — GenericDrawer now has Terminal tab for pods, multi-container selector |
