@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Badge, Row, Stack, StatusDot } from "@kubebay/ui";
+import { Badge, CopyButton, Row, Stack, StatusDot } from "@kubebay/ui";
 import { ResourceLink } from "./ResourceLink";
 import { useOwnerChain } from "../lib/useOwnerChain";
 import { PodEnvValue } from "./PodEnvValue";
@@ -33,6 +33,16 @@ function KV({ k, v }: { k: string; v: React.ReactNode }) {
       <span className="muted small">{k}</span>
       <span className="small">{v}</span>
     </div>
+  );
+}
+
+/** An IP address with a button that copies it. */
+function Address({ ip, label }: { ip: string; label: string }) {
+  return (
+    <Row as="span" gap={1} align="center">
+      <span className="mono">{ip}</span>
+      <CopyButton text={ip} label={label} />
+    </Row>
   );
 }
 
@@ -79,6 +89,9 @@ export function PodSummary({
     const nodeName = str(spec.nodeName);
     const phase = str(status.phase);
     const podIP = str(status.podIP);
+    const podIPs = arr(status.podIPs).map((p) => str(p.ip)).filter(Boolean);
+    const hostIPs = arr(status.hostIPs).map((p) => str(p.ip)).filter(Boolean);
+    const hostIP = str(status.hostIP);
     const qos = str(status.qosClass);
     const scheduler = str(spec.schedulerName) || "default-scheduler";
     const sa = str(spec.serviceAccountName) || "default";
@@ -134,6 +147,8 @@ export function PodSummary({
       claims: podResourceClaims(obj),
       phase,
       podIP,
+      podIPs,
+      hostIPs: hostIPs.length > 0 ? hostIPs : hostIP ? [hostIP] : [],
       nodeName,
       qos,
       scheduler,
@@ -158,7 +173,6 @@ export function PodSummary({
         <Row align="center" gap={2} wrap>
           <StatusDot status={data.phase === "Running" ? "connected" : data.phase === "Succeeded" ? "pending" : data.phase === "Failed" ? "unreachable" : "degraded"} />
           <strong>{data.phase}</strong>
-          {data.podIP && <Badge>{data.podIP}</Badge>}
           {data.qos && <Badge>{data.qos}</Badge>}
           {data.deletionTimestamp && <Badge tone="err">terminating</Badge>}
         </Row>
@@ -183,6 +197,34 @@ export function PodSummary({
           />
         )}
         <KV k="Node" v={data.nodeName ? <ResourceLink kind="nodes" name={data.nodeName}><span className="mono">{data.nodeName}</span></ResourceLink> : null} />
+        <KV
+          k="Pod IP"
+          v={data.podIP ? <Address ip={data.podIP} label="Copy Pod IP" /> : <span className="muted">not assigned yet</span>}
+        />
+        {data.podIPs.length > 1 && (
+          <KV
+            k="Pod IPs"
+            v={
+              <Stack gap={1}>
+                {data.podIPs.map((ip) => (
+                  <Address key={ip} ip={ip} label={`Copy ${ip}`} />
+                ))}
+              </Stack>
+            }
+          />
+        )}
+        {data.hostIPs.length > 0 && (
+          <KV
+            k="Host IP"
+            v={
+              <Stack gap={1}>
+                {data.hostIPs.map((ip) => (
+                  <Address key={ip} ip={ip} label={data.hostIPs.length > 1 ? `Copy ${ip}` : "Copy Host IP"} />
+                ))}
+              </Stack>
+            }
+          />
+        )}
         <KV
           k="Service Account"
           v={

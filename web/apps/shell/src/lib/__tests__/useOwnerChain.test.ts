@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { renderHook } from "@testing-library/react";
-import { useOwnerChain } from "../useOwnerChain";
+import { ownerSlug, useOwnerChain } from "../useOwnerChain";
 
 // We'll mock useResourceStream so the hook can resolve owner objects in memory.
 // Each call maps gvr → rows.
@@ -96,5 +96,33 @@ describe("useOwnerChain", () => {
       useOwnerChain("kind", "prod", [{ apiVersion: "batch/v1", kind: "Job", name: "backup-xyz" }]),
     );
     expect(result.current.map((o) => o.kind)).toEqual(["Job", "CronJob"]);
+  });
+
+  // Root backlog #20: a pod of an Argo Rollout links to the Rollout, which
+  // opens: a custom resource's page is its ext-- route, built from the
+  // owner's apiVersion, not a guess from the kind ("rollouts", unknown).
+  it("links a custom-resource owner to its CRD page", () => {
+    streamMap["apps/v1/replicasets"] = [
+      { metadata: { name: "web-6d4f", namespace: "prod", ownerReferences: [{ apiVersion: "argoproj.io/v1alpha1", kind: "Rollout", name: "web", controller: true }] } },
+    ];
+    const { result } = renderHook(() =>
+      useOwnerChain("kind", "prod", [{ apiVersion: "apps/v1", kind: "ReplicaSet", name: "web-6d4f" }]),
+    );
+    expect(result.current[1]).toMatchObject({ kind: "Rollout", name: "web", slug: "ext--argoproj.io--v1alpha1--rollouts" });
+  });
+});
+
+describe("ownerSlug", () => {
+  it.each([
+    ["apps/v1", "ReplicaSet", "replicasets"],
+    ["batch/v1", "CronJob", "cronjobs"],
+    ["v1", "Node", "nodes"],
+    ["argoproj.io/v1alpha1", "Rollout", "ext--argoproj.io--v1alpha1--rollouts"],
+    ["kyverno.io/v1", "Policy", "ext--kyverno.io--v1--policies"],
+    ["networking.istio.io/v1", "Gateway", "ext--networking.istio.io--v1--gateways"],
+    ["example.com/v1", "Mesh", "ext--example.com--v1--meshes"],
+    ["keda.sh/v1alpha1", "ScaledJob", "ext--keda.sh--v1alpha1--scaledjobs"],
+  ])("%s %s → %s", (apiVersion, kind, slug) => {
+    expect(ownerSlug(apiVersion, kind)).toBe(slug);
   });
 });

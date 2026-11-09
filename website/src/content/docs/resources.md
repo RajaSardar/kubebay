@@ -29,6 +29,8 @@ Each kind shows the columns that matter for it, such as Ready and Up-to-date for
 
 ## Row actions
 
+Hover a row and a copy button appears after its name: click it to copy the name without opening the row. It's on every table, for every kind.
+
 The **⋮** at the end of a row has:
 
 - **View details** opens the [drawer](/docs/resource-details/), and **Edit YAML** opens it on the YAML tab.

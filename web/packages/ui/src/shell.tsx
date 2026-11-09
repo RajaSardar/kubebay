@@ -2,6 +2,7 @@ import {
   forwardRef,
   useEffect,
   useRef,
+  useState,
   type ButtonHTMLAttributes,
   type CSSProperties,
   type InputHTMLAttributes,
@@ -10,6 +11,7 @@ import {
   type SelectHTMLAttributes,
 } from "react";
 import { createPortal } from "react-dom";
+import { IconCheck, IconCopy } from "./icons";
 
 // ── Icon button ───────────────────────────────────────────────────────────────
 
@@ -40,6 +42,72 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
     </button>
   );
 });
+
+// ── Copy button ───────────────────────────────────────────────────────────────
+
+export interface CopyButtonProps {
+  /** What goes on the clipboard. */
+  text: string;
+  /** Accessible name and tooltip: "Copy name", "Copy Pod IP". */
+  label: string;
+  className?: string;
+}
+
+// One polite live region for the whole page, made when the first copy button
+// mounts (a region must exist before its text changes to be read out): a
+// list of rows with a copy button each must not hold a region per row.
+let announcer: HTMLElement | null = null;
+function announcerRegion(): HTMLElement | null {
+  if (typeof document === "undefined") return null;
+  if (announcer?.isConnected) return announcer;
+  announcer = document.createElement("div");
+  announcer.setAttribute("aria-live", "polite");
+  announcer.setAttribute("data-kb-announcer", "");
+  announcer.className = "kb-visually-hidden";
+  document.body.appendChild(announcer);
+  return announcer;
+}
+
+/**
+ * An icon button that copies `text` to the clipboard, then shows a tick and
+ * says "Copied" for a moment. Its press stays with it: a row or card around it
+ * doesn't open.
+ */
+export function CopyButton({ text, label, className }: CopyButtonProps) {
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    announcerRegion();
+  }, []);
+  useEffect(() => {
+    if (!copied) return;
+    const t = setTimeout(() => {
+      setCopied(false);
+      const region = announcerRegion();
+      if (region?.textContent === "Copied") region.textContent = "";
+    }, 1500);
+    return () => clearTimeout(t);
+  }, [copied]);
+  return (
+    <IconButton
+      label={label}
+      title={copied ? "Copied" : label}
+      className={`kb-copy-btn${copied ? " copied" : ""}${className ? " " + className : ""}`}
+      onClick={(e) => {
+        e.stopPropagation();
+        void navigator.clipboard?.writeText(text).then(
+          () => {
+            setCopied(true);
+            const region = announcerRegion();
+            if (region) region.textContent = "Copied";
+          },
+          () => {},
+        );
+      }}
+    >
+      {copied ? <IconCheck size={13} /> : <IconCopy size={13} />}
+    </IconButton>
+  );
+}
 
 // ── Segmented control ─────────────────────────────────────────────────────────
 

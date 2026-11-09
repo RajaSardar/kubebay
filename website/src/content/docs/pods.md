@@ -10,21 +10,22 @@ appRoutes: ["/workloads"]
 
 ## The list
 
-Columns: Name, Namespace, Ready, Status, Restarts, Node, CPU, Memory and Age. CPU and memory show a bar against the pod's limit, or its request when it has no limit. [Filter and sort](/docs/interface/#filtering-a-table) as on any table. For example, `status:crash` finds crashing pods, and `node:worker-2` finds the pods on one node.
+Columns: Name, Namespace, Ready, Status, Restarts, Node, IP, CPU, Memory and Age. CPU and memory show a bar against the pod's limit, or its request when it has no limit. [Filter and sort](/docs/interface/#filtering-a-table) as on any table. For example, `status:crash` finds crashing pods, `node:worker-2` finds the pods on one node, and `ip:10.244.1` finds pods by address.
 
-The **⋮** at the end of a row has **View details**, **Logs**, **Shell**, **Edit YAML**, **Copy name** and **Delete**.
+Hover a row and a copy button appears after its name: click it to copy the pod's name. The **⋮** at the end of a row has **View details**, **Logs**, **Shell**, **Edit YAML**, **Copy name** and **Delete**.
 
 **Show pods** in the row menu of a Deployment, StatefulSet, DaemonSet, ReplicaSet or Job lists just that workload's pods. A bar above the table names the selector. **Show all pods** goes back to the full list.
 
 ## A pod's drawer
 
-Click a pod to open its drawer. It always opens on **Summary**, unless you chose a tab from the row menu.
+Click a pod to open its drawer. It always opens on **Summary**, unless you chose a tab from the row menu. The copy button beside the pod's name in the drawer's head copies the name.
 
 ### Summary
 
 The pod's metadata, conditions, each container (image, state, ports, environment), resource claims and volumes.
 
-- **Owned by** shows the whole chain of owners, each one a link. For example: Helm release → Deployment → ReplicaSet → pod.
+- **Owned by** shows the whole chain of owners, each one a link. For example: Helm release → Deployment → ReplicaSet → pod. A custom resource that owns pods, such as an Argo Rollout, links to its page too.
+- **Pod IP** is the pod's address, with a button to copy it. It says *not assigned yet* until the pod is scheduled and its network is set up. A dual-stack pod also lists **Pod IPs**, one for each address family. **Host IP** is the address of the node the pod runs on.
 - An environment variable from a Secret stays hidden until you click to reveal it.
 - Click a container's port to forward it to your machine. See [Port forwarding](/docs/port-forwarding/).
 
@@ -37,6 +38,19 @@ Logs stream as the container writes them.
 - **follow** keeps the newest line in view.
 - **previous** shows the run before the last restart, which is where a crash's cause usually is.
 - **Filter lines…** narrows what's shown, and **Download** saves the lines as a `.log` file.
+
+Each line is coloured by the level it was logged at, so the ones that matter stand out while you scroll:
+
+| Level | Looks like |
+|---|---|
+| Fatal, panic, critical | Red and bold, with a red strip down its left edge |
+| Error, or an exception or traceback | Red, with a red strip |
+| Warning | Amber, with an amber strip |
+| Success: *succeeded*, *successfully*, *listening on*, *ready to accept* | Green, with a green strip |
+| Info | Full-strength text |
+| Debug and trace | Dimmed |
+
+Kubebay reads the level from a structured log's level field first (`"level":"error"` in JSON, `level=warn` in logfmt, `severity`, `lvl`), then from a Kubernetes-style prefix (`E1109 10:00:00` is an error, `W…` a warning). Otherwise it looks for the level word in capitals (`ERROR`, `[WARN]`, `DEBUG`). Lines with none of these stay plain. When an app prints its own terminal colours, they show in the theme's colours instead of as escape codes.
 
 ### Terminal
 

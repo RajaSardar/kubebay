@@ -1383,6 +1383,42 @@ kbd {
   opacity: 1;
 }
 
+/* ── Copy button: a small icon button; a tick in the success colour once copied ── */
+.kb-copy-btn {
+  min-width: 22px;
+  height: 22px;
+}
+
+.kb-copy-btn.copied {
+  color: var(--kb-status-ok-fg);
+}
+
+/* On a list row it waits at the end of the Name cell until the row is hovered. */
+.td-name-wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--kb-space-1);
+  min-width: 0;
+}
+
+.td-name-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.row-copy-btn {
+  opacity: 0;
+  transition: opacity var(--kb-dur-fast) var(--kb-ease);
+}
+
+.kb-table tbody tr:hover .row-copy-btn,
+.kb-table tbody tr.hovered .row-copy-btn,
+.row-copy-btn:focus-visible,
+.row-copy-btn.copied {
+  opacity: 1;
+}
+
 /* ──── Column header: slightly softer treatment (match FreeLens weight) ──── */
 /* Override the all-caps + heavy weight to mixed-case + medium for readability */
 .kb-table th.th-sortable {
@@ -1760,7 +1796,15 @@ tr.row-clickable:active {
   overflow: hidden;
 }
 
+.drawer-name-row {
+  display: flex;
+  align-items: center;
+  gap: var(--kb-space-1);
+  min-width: 0;
+}
+
 .drawer-name {
+  min-width: 0;
   font-family: var(--kb-font-mono);
   font-size: var(--kb-text-sm);
   font-weight: 600;

@@ -12,6 +12,8 @@ import { ImageSignatureCheck } from "../components/ImageSignatureCheck";
 import { TriageTab } from "../components/TriageTab";
 import { useTriageAllowed } from "../lib/useTriageAllowed";
 import { EventsDrawer } from "../components/EventsDrawer";
+import { LogLine } from "../components/LogLine";
+import { stripAnsi } from "../lib/logLines";
 
 export interface SelectedPod {
   cluster: string;
@@ -24,12 +26,6 @@ export interface SelectedPod {
 }
 
 const TAILS = [200, 2000, 10000];
-
-function classify(line: string): "" | "err" | "warn" {
-  if (/\b(FATAL|ERROR|Error|E\d{4})\b/.test(line)) return "err";
-  if (/\b(WARN|Warning|W\d{4})\b/.test(line)) return "warn";
-  return "";
-}
 
 const POD_TABS = ["summary", "logs", "triage", "shell", "graphs", "size", "vulnerabilities", "signatures", "events", "yaml"] as const;
 type PodTab = (typeof POD_TABS)[number];
@@ -91,7 +87,7 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
     }
   }, [lines, follow, tab]);
 
-  const shown = filter ? lines.filter((l) => l.includes(filter)) : lines;
+  const shown = useMemo(() => (filter ? lines.filter((l) => stripAnsi(l).includes(filter)) : lines), [lines, filter]);
 
   function download() {
     const blob = new Blob([lines.join("\n") + "\n"], { type: "text/plain" });
@@ -133,6 +129,7 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
   return (
     <Drawer
       title={pod.pod}
+      copyName={pod.pod}
       subtitle={pod.namespace}
       leading={<StatusDot status="connected" pulse={status === "streaming"} />}
       onClose={onClose}
@@ -270,9 +267,7 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
               </div>
             )}
             {shown.map((l, i) => (
-              <div key={i} className={`log-line ${classify(l)}`}>
-                {l}
-              </div>
+              <LogLine key={i} line={l} />
             ))}
           </div>
         </>
