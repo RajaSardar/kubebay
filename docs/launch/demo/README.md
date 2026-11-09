@@ -43,7 +43,7 @@ node docs/launch/demo/tour.js /tmp/kubebay-video            # ~28 s tour as .web
 
 Wait a minute after seeding before you shoot, so the pods have been bound and the events posted.
 
-Turn the tour into the README GIF and MP4. Cut the first ~2 s after the cluster list: for a moment after connecting, the Overview banner reads "Healthy · All 0 pods healthy" before pods load (a bug, tracked separately). Check the frames and adjust the cut:
+Turn the tour into the README GIF and MP4. The v0.7.0 media cuts about 2 s after the cluster list: in that build the Overview banner briefly read "Healthy · All 0 pods healthy" before the pods loaded. That's fixed after v0.7.0 (it now says "Checking"), so from the next release no cut is needed: the first command becomes `ffmpeg -i tour.webm -c:v libx264 -pix_fmt yuv420p -crf 24 kubebay-tour.mp4`. The v0.7.0 commands, for reference:
 
 ```bash
 ffmpeg -i tour.webm -filter_complex "[0:v]trim=0:1.5,setpts=PTS-STARTPTS[a];[0:v]trim=start=3.8,setpts=PTS-STARTPTS[b];[a][b]concat=n=2:v=1[v]" -map "[v]" -c:v libx264 -pix_fmt yuv420p -crf 24 kubebay-tour.mp4

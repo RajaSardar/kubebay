@@ -13,6 +13,8 @@ appRoutes: ["/workloads-overview"]
 The tab reads from the top down, worst news first.
 
 - **Cluster health** is a single line you can read aloud or paste into a chat: a verdict, how many workloads are broken out of how many, the worst one by name, and whether warnings are rising. If you've picked namespaces in the namespace filter, it judges those first and says how much is wrong outside them. **All namespaces** widens it.
+
+  It gives no verdict until the pods, workloads and nodes it judges have loaded. Until then it says **Checking** (*Loading pods, workloads and nodes…*), and so does **Needs attention**. If your access doesn't allow listing them, it says **Unknown**, such as *Can't check pod health: listing pods is forbidden*, and never **Healthy**.
 - **Needs attention** lists every broken workload, worst first. Each row has:
   - the problem in plain words, with the Kubernetes term beside it, such as *Keeps crashing on start (CrashLoopBackOff)* or *Runs out of memory (OOMKilled)*;
   - ready of desired replicas, and when it started;

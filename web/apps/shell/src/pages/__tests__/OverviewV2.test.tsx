@@ -10,6 +10,9 @@ import WorkloadsOverview from "../WorkloadsOverview";
 const now = new Date().toISOString();
 type Obj = Record<string, unknown>;
 let streams: Record<string, Obj[]> = {};
+// Streams that haven't delivered their first list yet, and ones RBAC forbids.
+let unsynced = new Set<string>();
+let forbidden: Record<string, string> = {};
 let selectedNs: string[] = [];
 
 vi.mock("../../lib/useCluster", () => ({
@@ -24,7 +27,11 @@ vi.mock("../../lib/namespace-store", async (orig) => ({
   useSelectedNamespaces: () => selectedNs,
 }));
 vi.mock("../../lib/useResourceStream", () => ({
-  useResourceStream: (_c: string, gvr: string) => ({ rows: streams[gvr] ?? [], synced: true }),
+  useResourceStream: (_c: string, gvr: string) => ({
+    rows: streams[gvr] ?? [],
+    synced: !unsynced.has(gvr) && !forbidden[gvr],
+    forbidden: forbidden[gvr],
+  }),
   shouldShowSkeleton: () => false,
 }));
 
@@ -36,20 +43,25 @@ function crashing(name: string): Obj {
   };
 }
 
-function renderPage() {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
+function page(qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })) {
+  return (
     <QueryClientProvider client={qc}>
       <MemoryRouter>
         <WorkloadsOverview />
       </MemoryRouter>
-    </QueryClientProvider>,
+    </QueryClientProvider>
   );
+}
+
+function renderPage() {
+  return render(page());
 }
 
 describe("Overview v2", () => {
   beforeEach(() => {
     selectedNs = [];
+    unsynced = new Set();
+    forbidden = {};
     streams = {
       "v1/pods": [crashing("api-7f9-a")],
       "apps/v1/deployments": [{ metadata: { name: "api", namespace: "shop" }, spec: { replicas: 2, selector: { matchLabels: { app: "api" } } }, status: { readyReplicas: 1 } }],
@@ -120,5 +132,46 @@ describe("Overview v2", () => {
     renderPage();
     const section = screen.getByRole("region", { name: /Namespaces/ });
     expect(within(section).getByText("1 broken · 0 warnings · 1 pods")).toBeInTheDocument();
+  });
+
+  // Regression: right after connecting, the verdict said "Healthy · All 0 pods
+  // healthy" and "Nothing needs attention" before the pods had loaded.
+  it("claims nothing about health until the pods have loaded", () => {
+    unsynced = new Set(["v1/pods"]);
+    streams["v1/pods"] = [];
+    renderPage();
+    const region = screen.getByRole("region", { name: "Cluster health" });
+    expect(within(region).queryByText("Healthy")).not.toBeInTheDocument();
+    expect(within(region).queryByText(/pods healthy/)).not.toBeInTheDocument();
+    expect(within(region).getByText("Checking")).toBeInTheDocument();
+    const attention = screen.getByRole("region", { name: /Needs attention/ });
+    expect(within(attention).queryByText("Nothing needs attention")).not.toBeInTheDocument();
+    expect(within(attention).getByText(/Loading pods/)).toBeInTheDocument();
+  });
+
+  it("gives the verdict as soon as the pods load, not a throttle window later", () => {
+    unsynced = new Set(["v1/pods"]);
+    const loaded = streams["v1/pods"]!;
+    streams["v1/pods"] = [];
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { rerender } = render(page(qc));
+    unsynced = new Set();
+    streams["v1/pods"] = loaded;
+    rerender(page(qc));
+    const region = screen.getByRole("region", { name: "Cluster health" });
+    expect(within(region).getByText("Failing")).toBeInTheDocument();
+    expect(within(region).getByText("1 of 1 pods need attention · shop/api: Keeps crashing on start")).toBeInTheDocument();
+  });
+
+  it("says it can't judge, never Healthy, when RBAC forbids listing pods", () => {
+    forbidden = { "v1/pods": "pods is forbidden: User \"dev\" cannot list resource \"pods\"" };
+    streams["v1/pods"] = [];
+    renderPage();
+    const region = screen.getByRole("region", { name: "Cluster health" });
+    expect(within(region).queryByText("Healthy")).not.toBeInTheDocument();
+    expect(within(region).getByText("Unknown")).toBeInTheDocument();
+    expect(within(region).getByText("Can't check pod health: listing pods is forbidden")).toBeInTheDocument();
+    const attention = screen.getByRole("region", { name: /Needs attention/ });
+    expect(within(attention).queryByText("Nothing needs attention")).not.toBeInTheDocument();
   });
 });
