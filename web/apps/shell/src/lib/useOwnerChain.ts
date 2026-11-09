@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useResourceStream } from "./useResourceStream";
+import { DEFS, EXTRA_DEFS, extSlug } from "./resources";
 
 export interface OwnerLink {
   kind: string;
@@ -19,15 +20,29 @@ const OWNER_GVR: Record<string, string> = {
   "batch/v1/CronJob": "batch/v1/cronjobs",
 };
 
-/** Derives a URL slug from a Kubernetes Kind string. */
-export function kindSlug(kind: string): string {
-  const overrides: Record<string, string> = {
-    StatefulSet: "statefulsets",
-    DaemonSet: "daemonsets",
-    ReplicaSet: "replicasets",
-    CronJob: "cronjobs",
-  };
-  return overrides[kind] ?? kind.toLowerCase() + "s";
+/** The plural Kubernetes gives a Kind by default (Policy → policies, Mesh → meshes). */
+function pluralOf(kind: string): string {
+  const k = kind.toLowerCase();
+  if (/[^aeiou]y$/.test(k)) return `${k.slice(0, -1)}ies`;
+  if (/(s|x|z|ch|sh)$/.test(k)) return `${k}es`;
+  return `${k}s`;
+}
+
+const SLUG_BY_GROUP_KIND = new Map(
+  [...Object.values(DEFS), ...Object.values(EXTRA_DEFS)].map((d) => [`${d.group}/${d.kind}`, d.slug]),
+);
+
+/**
+ * The route slug of an owner's page, from its ownerReference: the app's own
+ * page for a kind it lists (ReplicaSet → replicasets), else the CRD page of
+ * its group and version (argoproj.io Rollout → ext--argoproj.io--v1alpha1--rollouts).
+ */
+export function ownerSlug(apiVersion: string, kind: string): string {
+  const [group, version] = apiVersion.includes("/") ? (apiVersion.split("/") as [string, string]) : ["", apiVersion];
+  const own = SLUG_BY_GROUP_KIND.get(`${group}/${kind}`);
+  if (own) return own;
+  if (!group) return pluralOf(kind);
+  return `ext--${extSlug(`${group}/${version}/${pluralOf(kind)}`)}`;
 }
 
 interface RawOwnerRef {
@@ -89,7 +104,7 @@ export function useOwnerChain(
       chain.push({
         kind: ownerRef.kind,
         name: ownerRef.name,
-        slug: kindSlug(ownerRef.kind),
+        slug: ownerSlug(ownerRef.apiVersion ?? "", ownerRef.kind),
         ns: namespace,
       });
 

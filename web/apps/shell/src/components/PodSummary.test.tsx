@@ -190,4 +190,32 @@ describe("PodSummary", () => {
     renderSummary(basePod);
     expect(screen.queryByText(/Resource claims/)).toBeNull();
   });
+
+  // Root backlog #19: the pod's addresses, labelled, as Lens and Freelens show them.
+  it("shows the Pod IP, every Pod IP of a dual-stack pod, and the Host IP", () => {
+    renderSummary({
+      ...basePod,
+      status: {
+        ...basePod.status,
+        podIP: "10.244.1.7",
+        podIPs: [{ ip: "10.244.1.7" }, { ip: "fd00:10:244:1::7" }],
+        hostIP: "172.18.0.3",
+      },
+    });
+    expect(screen.getByText("Pod IP").nextElementSibling).toHaveTextContent("10.244.1.7");
+    expect(screen.getByText("Pod IPs").nextElementSibling).toHaveTextContent(/10\.244\.1\.7.*fd00:10:244:1::7/);
+    expect(screen.getByText("Host IP").nextElementSibling).toHaveTextContent("172.18.0.3");
+    expect(screen.getByRole("button", { name: "Copy Pod IP" })).toBeInTheDocument();
+  });
+
+  it("has one Pod IP row for a single-stack pod, and none before the pod has an address", () => {
+    renderSummary({ ...basePod, status: { ...basePod.status, podIP: "10.244.1.7", podIPs: [{ ip: "10.244.1.7" }] } });
+    expect(screen.getByText("Pod IP")).toBeInTheDocument();
+    expect(screen.queryByText("Pod IPs")).toBeNull();
+  });
+
+  it("says the pod has no IP yet while it is pending", () => {
+    renderSummary({ ...basePod, status: { phase: "Pending" } });
+    expect(screen.getByText("Pod IP").nextElementSibling).toHaveTextContent("not assigned yet");
+  });
 });

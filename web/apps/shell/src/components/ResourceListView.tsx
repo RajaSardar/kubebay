@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
-import { Badge, Button, ColumnChooser, EmptyState, IconButton, InlineBanner, NsPill, PageHeader, SelectAllHeader, SelectCell, SelectionBar, SkeletonTable, SortHeader, Table, TableRow, TableWrap, TextField, VisuallyHidden } from "@kubebay/ui";
+import { Badge, Button, ColumnChooser, CopyButton, EmptyState, IconButton, InlineBanner, NsPill, PageHeader, SelectAllHeader, SelectCell, SelectionBar, SkeletonTable, SortHeader, Table, TableRow, TableWrap, TextField, VisuallyHidden } from "@kubebay/ui";
 import { shouldShowSkeleton } from "../lib/useResourceStream";
 import { ForbiddenState, NamespacesDeniedBanner } from "./ForbiddenState";
 import type { NamespaceDenial } from "../lib/useResourceStream";
@@ -445,7 +445,12 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
                     onContextMenu={(e) => { e.preventDefault(); setCtx({ x: e.clientX, y: e.clientY, row: r }); }}
                   >
                     <SelectCell checked={isSelected} onChange={() => toggleRow(key)} label={`Select ${name}`} />
-                    <td className="mono td-name" title={name}><span>{name}</span></td>
+                    <td className="mono td-name" title={name}>
+                      <span className="td-name-wrap">
+                        <span className="td-name-text">{name}</span>
+                        <CopyButton text={name} label={`Copy name ${name}`} className="row-copy-btn" />
+                      </span>
+                    </td>
                     {prefs.visible.map((id) => {
                       if (id === "Namespace")
                         return (

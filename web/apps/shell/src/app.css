@@ -489,19 +489,58 @@ h2 {
   padding: 10px 14px 18px;
 }
 
+/* A log line in its level's colour, with a strip down its left edge for the
+   levels worth spotting while scrolling (root backlog #22). Plain lines stay
+   muted; info is full strength; debug and trace step back. */
 .log-line {
+  padding-left: 8px;
+  border-left: 2px solid transparent;
   white-space: pre-wrap;
   word-break: break-all;
   color: var(--kb-fg-muted);
 }
 
-.log-line.err {
-  color: var(--kb-status-err);
+.log-line.log-fatal {
+  border-left-color: var(--kb-status-err);
+  color: var(--kb-status-err-fg);
+  font-weight: 600;
 }
 
-.log-line.warn {
-  color: var(--kb-status-warn);
+.log-line.log-error {
+  border-left-color: var(--kb-status-err);
+  color: var(--kb-status-err-fg);
 }
+
+.log-line.log-warn {
+  border-left-color: var(--kb-status-warn);
+  color: var(--kb-status-warn-fg);
+}
+
+.log-line.log-success {
+  border-left-color: var(--kb-status-ok);
+  color: var(--kb-status-ok-fg);
+}
+
+.log-line.log-info {
+  color: var(--kb-fg-default);
+}
+
+.log-line.log-debug,
+.log-line.log-trace {
+  color: var(--kb-fg-subtle);
+}
+
+/* The colours the app printed (ANSI), in the theme's colours. */
+.ansi-red { color: var(--kb-status-err-fg); }
+.ansi-green { color: var(--kb-status-ok-fg); }
+.ansi-yellow { color: var(--kb-status-warn-fg); }
+.ansi-blue,
+.ansi-cyan,
+.ansi-magenta { color: var(--kb-status-pending-fg); }
+.ansi-black,
+.ansi-dim { color: var(--kb-fg-subtle); }
+.ansi-white { color: var(--kb-fg-default); }
+.ansi-bold { font-weight: 600; }
 
 .term-wrap {
   flex: 1;

@@ -164,4 +164,16 @@ describe("ResourceListView", () => {
     expect(cell).toHaveAttribute("title", "10 failed");
     expect(screen.getByText("9").closest("td")).not.toHaveClass("warn");
   });
+
+  // Root backlog #21: every list's rows copy their name, whatever the kind.
+  it("copies a row's name from the button in its Name cell, without opening the row", async () => {
+    const writeText = vi.fn(() => Promise.resolve());
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+    const p = renderView();
+    const button = screen.getByRole("button", { name: "Copy name job-9" });
+    expect(button.closest("td")).toHaveClass("td-name");
+    fireEvent.click(button);
+    expect(writeText).toHaveBeenCalledWith("job-9");
+    expect(p.onOpen).not.toHaveBeenCalled();
+  });
 });

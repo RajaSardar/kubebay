@@ -162,6 +162,7 @@ export default function Vulnerabilities() {
       {openRow && (
         <Drawer
           title={openRow.name}
+          copyName={openRow.name}
           subtitle={`${openRow.kind} · ${openRow.ns}`}
           onClose={close}
           actions={

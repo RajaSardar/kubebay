@@ -65,6 +65,7 @@ function InstallPanel({
   return (
     <Drawer
       title={chart.name}
+      copyName={chart.name}
       subtitle={chart.description?.slice(0, 90)}
       subtitleMono={false}
       onClose={onClose}

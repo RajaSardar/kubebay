@@ -6,7 +6,7 @@ order: 4
 appRoutes: ["/detail/:kind/:ns/:name"]
 ---
 
-Click a row in any [resource table](/docs/resources/) to open its drawer. A drawer closes with <kbd>Esc</kbd>, the **×**, or a click anywhere outside it.
+Click a row in any [resource table](/docs/resources/) to open its drawer. A drawer closes with <kbd>Esc</kbd>, the **×**, or a click anywhere outside it. The copy button beside the name in the drawer's head copies the resource's name. Every drawer has one, whatever the kind: Helm releases, charts and vulnerability findings included.
 
 - **Open full page** (<kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>Enter</kbd>) shows the resource on a page of its own, with a link you can share.
 - **Split view** (<kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>S</kbd>) shows two tabs side by side, such as Events beside YAML. Drag the divider to resize them. Kubebay remembers the split for each kind.
@@ -17,7 +17,7 @@ Every resource has **Summary**, **YAML** and **Events**. Workloads get more.
 
 | Tab | For | Shows |
 |---|---|---|
-| Summary | all | Created, labels, annotations, conditions, and **Owned by**: every owner up the chain, each a link |
+| Summary | all | Created, labels, annotations, conditions, and **Owned by**: every owner up the chain, each a link. An owner that's a custom resource, such as an Argo Rollout, opens on its CRD's page |
 | Rollout | Deployments, StatefulSets, DaemonSets | Ready replicas per revision, new against old, so a stuck rollout shows which ReplicaSet it's stuck on |
 | Timeline | Deployments, StatefulSets, DaemonSets | Events, rollout revisions, condition changes and container terminations on one timeline |
 | Autoscaling | Deployments, StatefulSets | Every HPA, VPA and KEDA ScaledObject that targets it, with min, max and current. **New ScaledObject** creates one. See [KEDA](/docs/keda/) |
