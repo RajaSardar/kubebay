@@ -124,11 +124,14 @@ export function AutoscalingTab({
   ns,
   name,
   kind,
+  replicas,
 }: {
   cluster: string;
   ns: string;
   name: string;
   kind: string;
+  /** The workload's spec.replicas, for the wizard's paused-replicas. */
+  replicas?: number;
 }) {
   const crds = useQuery({
     queryKey: ["crds", cluster],
@@ -188,6 +191,7 @@ export function AutoscalingTab({
                 targetName={name}
                 hpas={myHpas}
                 services={services.rows}
+                currentReplicas={replicas}
                 onApplied={() => setShowWizard(false)}
               />
             </Card>

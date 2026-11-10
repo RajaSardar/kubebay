@@ -59,9 +59,19 @@ describe("buildScaledObjectYaml", () => {
     expect(yaml).toContain('desiredReplicas: "5"');
   });
 
-  it("always ships paused, per the backlog's what-if-mode safety rule", () => {
+  // KEDA pauses through annotations. The wizard used to write
+  // spec.advanced.paused, which isn't a KEDA field: the API server dropped it
+  // and the new ScaledObject started scaling at once.
+  it("always ships paused, per the backlog's what-if-mode safety rule, with KEDA's annotation", () => {
     const yaml = buildScaledObjectYaml(baseInput());
-    expect(yaml).toContain('paused: "true"');
+    expect(yaml).toContain('  annotations:\n    autoscaling.keda.sh/paused: "true"');
+    expect(yaml).not.toContain("advanced:");
+  });
+
+  it("also holds the workload at its current replicas, for KEDA before 2.13", () => {
+    const yaml = buildScaledObjectYaml({ ...baseInput(), currentReplicas: 3 });
+    expect(yaml).toContain('autoscaling.keda.sh/paused-replicas: "3"');
+    expect(yaml).toContain('autoscaling.keda.sh/paused: "true"');
   });
 });
 

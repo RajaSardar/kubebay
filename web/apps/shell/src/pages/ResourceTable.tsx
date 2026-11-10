@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { useNavigate, useParams, useSearchParams, useLocation } from "react-router-dom";
 import { CellLink, EmptyState, StatusDot } from "@kubebay/ui";
 import { api, crdApi, type PrinterColumn } from "../lib/api";
@@ -341,7 +341,46 @@ const HAS_PODS = new Set(["deployments", "statefulsets", "daemonsets", "replicas
 export default function ResourceTable() {
   const { kind = "" } = useParams();
   const [sp] = useSearchParams();
+  const location = useLocation();
   const def: ResourceDef | undefined = lookupDef(kind, sp);
+  if (!def) {
+    return (
+      <div className="page">
+        <EmptyState>
+          <p>Unknown resource "{kind}".</p>
+        </EmptyState>
+      </div>
+    );
+  }
+  return <ResourceTableView key={kind} kind={kind} def={def} above={isWorkloadRoute(location.pathname) && <WorkloadTabBar />} />;
+}
+
+export interface ResourceTableViewProps {
+  /** The /r/:kind slug: where the sort, columns and saved views are kept. */
+  kind: string;
+  def: ResourceDef;
+  /** Columns before the kind's own and the CRD's printer columns. */
+  leadColumns?: readonly ListColumn<Row>[];
+  /** CRD printer columns to leave out (a lead column shows the same thing). */
+  hidePrinterColumns?: readonly string[];
+  /** Above the list: the Workloads tab bar, the KEDA page's kind tabs. */
+  above?: ReactNode;
+  /** Under the header: a banner about these rows. */
+  banner?: ReactNode;
+  /** The title, the kind's label and its star when unset. */
+  title?: ReactNode;
+  titleCount?: ReactNode;
+  /** The ⓘ beside the title, the resource table's when unset. */
+  help?: ReactNode;
+}
+
+/**
+ * A kind's live table: the one every /r/:kind route renders, and pages that
+ * list a kind of their own (KEDA) reuse, so they search, filter, sort, pick
+ * columns, save views and open drawers the same way.
+ */
+export function ResourceTableView({ kind, def, leadColumns, hidePrinterColumns, above, banner, title, titleCount, help }: ResourceTableViewProps) {
+  const [sp] = useSearchParams();
   const navigate = useNavigate();
 
   const location = useLocation();
@@ -354,12 +393,12 @@ export default function ResourceTable() {
   const [selected, setSelected] = useState<{ ns: string; name: string; tab?: "yaml" } | null>(null);
   const [rowAction, setRowAction] = useState<{ action: "scale" | "restart"; obj: Row } | null>(null);
 
-  const stream = useResourceStream(effectiveCluster || undefined, def?.gvr ?? "v1/configmaps", {
-    mode: ext.needsFull ? "full" : def?.mode,
-    ns: def && !def.scoped && nsFilter.length > 0 ? nsFilter : undefined,
+  const stream = useResourceStream(effectiveCluster || undefined, def.gvr, {
+    mode: ext.needsFull || leadColumns?.length ? "full" : def.mode,
+    ns: !def.scoped && nsFilter.length > 0 ? nsFilter : undefined,
   });
 
-  const { nodeUsage, podsPerNode } = useNodeExtras(effectiveCluster, def?.slug === "nodes");
+  const { nodeUsage, podsPerNode } = useNodeExtras(effectiveCluster, def.slug === "nodes");
 
   // Fetch CRD metadata (printer columns) for ext-- resources
   const isCRD = kind.startsWith("ext--");
@@ -371,16 +410,18 @@ export default function ResourceTable() {
     retry: 1,
   });
   const printerColumns = useMemo<PrinterColumn[]>(() => {
-    if (!isCRD || !crdListQ.data || !def) return [];
+    if (!isCRD || !crdListQ.data) return [];
     const match = crdListQ.data.find((c) => c.gvr === def.gvr);
-    return match?.columns ?? [];
-  }, [isCRD, crdListQ.data, def]);
+    // The table has its own Age; most CRDs declare one too.
+    return (match?.columns ?? []).filter((pc) => pc.jsonPath !== ".metadata.creationTimestamp" && !hidePrinterColumns?.includes(pc.name));
+  }, [isCRD, crdListQ.data, def, hidePrinterColumns]);
 
   // The kind's columns, then CRD printer columns, then Owner. The filter
   // matches, and headers sort by, every one of them.
   const columns = useMemo<ListColumn<Row>[]>(() => {
-    const extra = def ? extraColumns(def.slug, { nodeUsage, podsPerNode }) : {};
+    const extra = extraColumns(def.slug, { nodeUsage, podsPerNode });
     return [
+      ...(leadColumns ?? []),
       ...Object.entries(extra).map(([col, cellOf]): ListColumn<Row> => ({
         id: col,
         header: col,
@@ -444,25 +485,15 @@ export default function ResourceTable() {
         filterKey: "owner",
       },
     ];
-  }, [def, nodeUsage, podsPerNode, printerColumns, ext.columns, navigate]);
+  }, [def, nodeUsage, podsPerNode, printerColumns, ext.columns, navigate, leadColumns]);
 
   const onOpen = useCallback((r: Row) => setSelected({ ns: nsOf(r), name: nameOf(r) }), []);
-
-  if (!def) {
-    return (
-      <div className="page">
-        <EmptyState>
-          <p>Unknown resource "{kind}".</p>
-        </EmptyState>
-      </div>
-    );
-  }
 
   const createKind = templateKindFor(def.slug);
 
   return (
     <div className="page">
-      {isWorkloadRoute(location.pathname) && <WorkloadTabBar />}
+      {above}
       <ResourceListView<Row>
         // A saved view (?view=) or a new ?q= link starts the list afresh, so it
         // reads the view's filter, columns and sort.
@@ -470,13 +501,17 @@ export default function ResourceTable() {
         initialFilter={sp.get("q") ?? ""}
         onFilterChange={setFilterText}
         headerActions={<SaveViewButton cluster={effectiveCluster} kind={kind} namespaces={def.scoped ? [] : nsFilter} filter={filterText} label={def.label} />}
-        help={<PageHelp route="/r/:kind" name={def.label} />}
+        help={help ?? <PageHelp route="/r/:kind" name={def.label} />}
         title={
-          <>
-            {def.label}
-            <StarButton path={`/r/${kind}`} />
-          </>
+          title ?? (
+            <>
+              {def.label}
+              <StarButton path={`/r/${kind}`} />
+            </>
+          )
         }
+        titleCount={titleCount}
+        notice={banner}
         label={def.label}
         rows={stream.rows}
         objects={stream.rows}

@@ -32,7 +32,13 @@ vi.mock("../../lib/api", async () => {
     ...actual,
     crdApi: {
       list: vi.fn(async () => [
-        { gvr: "example.com/v1/widgets", columns: [{ name: "Phase", jsonPath: ".status.phase", type: "string" }] },
+        {
+          gvr: "example.com/v1/widgets",
+          columns: [
+            { name: "Phase", jsonPath: ".status.phase", type: "string" },
+            { name: "Age", jsonPath: ".metadata.creationTimestamp", type: "date" },
+          ],
+        },
       ]),
     },
   };
@@ -90,5 +96,12 @@ describe("resource tables use every column they show", () => {
     const row = screen.getByText("gamma").closest("tr")!;
     expect(within(row).getByRole("button", { name: "Actions for gamma" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Row actions" })).toBeNull();
+  });
+
+  // Most CRDs declare an Age printer column; the table has its own.
+  it("shows one Age column for a CRD that declares its own", async () => {
+    renderWidgets();
+    await screen.findByRole("columnheader", { name: "Phase" });
+    expect(screen.getAllByRole("columnheader", { name: "Age" })).toHaveLength(1);
   });
 });

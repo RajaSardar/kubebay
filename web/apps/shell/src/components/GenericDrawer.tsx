@@ -180,7 +180,8 @@ function PaneContent({
     );
   }
   if (!isNode && !isService && genTab === "autoscaling") {
-    return <AutoscalingTab cluster={cluster} ns={ns} name={name} kind={def.kind} />;
+    const replicas = obj?.spec && typeof (obj.spec as Record<string, unknown>).replicas === "number" ? ((obj.spec as Record<string, unknown>).replicas as number) : undefined;
+    return <AutoscalingTab cluster={cluster} ns={ns} name={name} kind={def.kind} replicas={replicas} />;
   }
   if (!isNode && !isService && genTab === "policy") {
     return <PolicyFindingsTab cluster={cluster} ns={ns} name={name} kind={def.kind} />;

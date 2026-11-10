@@ -95,6 +95,8 @@ export interface ResourceListViewProps<R> {
   headerActions?: ReactNode;
   /** The page's ⓘ beside its title (`PageHelp`). */
   help?: ReactNode;
+  /** A banner about these rows, under the header (KEDA's HPA conflicts). */
+  notice?: ReactNode;
 }
 
 /** "api, etl, run-0, run-1, run-2 +4 more, across 3 namespaces": what a bulk delete hits. */
@@ -314,6 +316,8 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
           </>
         }
       />
+
+      {p.notice}
 
       {bulkDelete.pending && (
         <InlineBanner>

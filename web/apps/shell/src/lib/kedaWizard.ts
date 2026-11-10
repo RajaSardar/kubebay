@@ -31,6 +31,8 @@ export interface KedaWizardInput {
   minReplicaCount: number;
   maxReplicaCount: number;
   trigger: KedaTrigger;
+  /** The workload's replicas now: paused-replicas holds it there on KEDA before 2.13. */
+  currentReplicas?: number;
 }
 
 function yamlString(s: string): string {
@@ -42,9 +44,11 @@ function yamlString(s: string): string {
  * manifest from a handful of known, controlled fields — a hand-rolled
  * template rather than a YAML serializer, since every value here is a
  * simple string/number under our control, not arbitrary user content.
- * Always ships `advanced.paused: "true"` per the backlog's safety rule: the
- * first apply reconciles and reports desired metrics without acting, and
- * unpausing is a deliberate, separate action.
+ * Always ships paused per the backlog's safety rule: the first apply
+ * reconciles and reports desired metrics without acting, and unpausing is a
+ * deliberate, separate action. KEDA pauses through annotations
+ * (`autoscaling.keda.sh/paused`, 2.13+; `paused-replicas`, 2.7+, which also
+ * holds the workload at its current count); spec.advanced has no "paused".
  */
 function triggerYamlFor(trigger: KedaTrigger): string {
   if (trigger.type === "cron") {
@@ -76,14 +80,14 @@ kind: ScaledObject
 metadata:
   name: ${input.scaledObjectName}
   namespace: ${input.namespace}
+  annotations:
+    autoscaling.keda.sh/paused: "true"${input.currentReplicas !== undefined ? `\n    autoscaling.keda.sh/paused-replicas: "${input.currentReplicas}"` : ""}
 spec:
   scaleTargetRef:
     name: ${input.targetName}
     kind: ${input.targetKind}
   minReplicaCount: ${input.minReplicaCount}
   maxReplicaCount: ${input.maxReplicaCount}
-  advanced:
-    paused: "true"
   triggers:
 ${triggerYaml}
 `;
