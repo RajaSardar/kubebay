@@ -124,16 +124,20 @@ function makeColumns(capacity: ClusterCapacity | null | undefined, cluster: stri
  * Overview v2's focal point: every broken workload, worst first, with what
  * broke in plain words (the Kubernetes term kept beside it), ready of desired,
  * when it started, and one click to its pods or its worst pod's logs. Calm
- * when nothing is broken.
+ * when nothing is broken. While `pending`, it says what it is waiting for and
+ * gives no count and no all-clear.
  */
 export function NeedsAttention({
   rows,
   checkedAt,
   capacity,
   cluster,
+  pending,
 }: {
   rows: AttentionRow[];
   checkedAt: number;
+  /** Why there is no answer yet (still loading, or not allowed to list). */
+  pending?: string;
   /** The cluster the rows are from; without it no log lines are fetched. */
   cluster?: string;
   /** Shown on rows that can't find room, so the cause sits beside the symptom. */
@@ -149,22 +153,33 @@ export function NeedsAttention({
       <Stack gap={2}>
         <Row gap={2} align="center">
           <strong id={id}>Needs attention</strong>
-          <Badge tone={rows.length ? (rows.some((r) => r.severity === "err") ? "err" : "warn") : undefined}>{rows.length}</Badge>
+          {!pending && <Badge tone={rows.length ? (rows.some((r) => r.severity === "err") ? "err" : "warn") : undefined}>{rows.length}</Badge>}
         </Row>
         <DataTable
           columns={columns}
-          rows={shown}
+          rows={pending ? [] : shown}
           rowKey={(r) => r.key}
           empty={
-            <EmptyState
-              title={
-                <Row gap={2} align="center" as="span">
-                  <StatusDot status="ok" />
-                  <span>Nothing needs attention</span>
-                </Row>
-              }
-              hint={`Checked ${new Date(checkedAt).toLocaleTimeString()}`}
-            />
+            pending ? (
+              <EmptyState
+                title={
+                  <Row gap={2} align="center" as="span">
+                    <StatusDot status="pending" />
+                    <span>{pending}</span>
+                  </Row>
+                }
+              />
+            ) : (
+              <EmptyState
+                title={
+                  <Row gap={2} align="center" as="span">
+                    <StatusDot status="ok" />
+                    <span>Nothing needs attention</span>
+                  </Row>
+                }
+                hint={`Checked ${new Date(checkedAt).toLocaleTimeString()}`}
+              />
+            )
           }
         />
         {rows.length > SHOW_FIRST && (

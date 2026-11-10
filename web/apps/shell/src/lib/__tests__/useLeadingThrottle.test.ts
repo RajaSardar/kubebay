@@ -35,4 +35,18 @@ describe("useLeadingThrottle", () => {
     act(() => vi.advanceTimersByTime(2000));
     expect(result.current).toBe("d");
   });
+
+  it("applies a value at once when flush says the change matters, then throttles again", () => {
+    type V = { ready: boolean; n: number };
+    const changedReady = (prev: V, next: V) => prev.ready !== next.ready;
+    const { result, rerender } = renderHook(({ v }) => useLeadingThrottle(v, 2000, changedReady), {
+      initialProps: { v: { ready: false, n: 0 } as V },
+    });
+    rerender({ v: { ready: true, n: 5 } }); // inside the window, but readiness changed
+    expect(result.current).toEqual({ ready: true, n: 5 });
+    rerender({ v: { ready: true, n: 6 } }); // an ordinary update inside the window is held
+    expect(result.current).toEqual({ ready: true, n: 5 });
+    act(() => vi.advanceTimersByTime(2000));
+    expect(result.current).toEqual({ ready: true, n: 6 });
+  });
 });

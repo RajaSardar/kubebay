@@ -1,5 +1,6 @@
 import type { AttentionRow } from "./attention";
 import type { ClusterCapacity } from "./capacity";
+import { listKinds, type Denied } from "./forbidden";
 
 type Obj = Record<string, unknown>;
 
@@ -7,19 +8,38 @@ function rec(v: unknown): Obj {
   return (v ?? {}) as Obj;
 }
 
-export type VerdictTone = "ok" | "warn" | "err";
+/** "pending": no verdict yet, because what it judges hasn't loaded or can't be listed. */
+export type VerdictTone = "ok" | "warn" | "err" | "pending";
 
 export interface HealthVerdict {
   tone: VerdictTone;
   /** The word that sits beside the colour. */
-  word: "Healthy" | "Degraded" | "Failing";
+  word: "Healthy" | "Degraded" | "Failing" | "Checking" | "Unknown";
   /** One line a manager can paste: the count with its denominator and the worst thing by name. */
   sentence: string;
   /** Workloads needing attention outside the namespaces in scope. */
   outside: number;
 }
 
-const WORD: Record<VerdictTone, HealthVerdict["word"]> = { ok: "Healthy", warn: "Degraded", err: "Failing" };
+const WORD: Record<Exclude<VerdictTone, "pending">, HealthVerdict["word"]> = { ok: "Healthy", warn: "Degraded", err: "Failing" };
+
+/**
+ * The verdict before there is one. Until the pods, workloads and nodes it
+ * judges have loaded, it claims nothing: an empty list read as "All 0 pods
+ * healthy" would tell someone whose cluster is broken that all is well. When
+ * RBAC forbids listing them, it says it can't judge, for good.
+ */
+export function verdictNotYet(denied: readonly Denied[]): HealthVerdict {
+  if (denied.length) {
+    return {
+      tone: "pending",
+      word: "Unknown",
+      sentence: `Can't check pod health: listing ${listKinds(denied.map((d) => d.what))} is forbidden`,
+      outside: 0,
+    };
+  }
+  return { tone: "pending", word: "Checking", sentence: "Loading pods, workloads and nodes…", outside: 0 };
+}
 
 /**
  * Overview v2's verdict: red when something has failed, amber for warnings or
@@ -41,7 +61,7 @@ export function healthVerdict(input: {
   }).length;
 
   const full = input.capacity ? [input.capacity.cpu.over && `CPU ${input.capacity.cpu.pct}%`, input.capacity.memory.over && `memory ${input.capacity.memory.pct}%`].filter(Boolean) : [];
-  const tone: VerdictTone = rows.some((r) => r.severity === "err") ? "err" : rows.length > 0 || full.length > 0 ? "warn" : "ok";
+  const tone: Exclude<VerdictTone, "pending"> = rows.some((r) => r.severity === "err") ? "err" : rows.length > 0 || full.length > 0 ? "warn" : "ok";
 
   const parts: string[] = [];
   if (rows.length === 0) {

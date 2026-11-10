@@ -25,7 +25,7 @@ import { findAttention } from "../lib/attention";
 import { CapacityLine } from "../components/CapacityLine";
 import { clusterCapacity } from "../lib/capacity";
 import { HealthVerdictLine } from "../components/HealthVerdictLine";
-import { healthVerdict, warningTrend } from "../lib/verdict";
+import { healthVerdict, verdictNotYet, warningTrend } from "../lib/verdict";
 import { useNamespaceStore, useSelectedNamespaces } from "../lib/namespace-store";
 import { useNamespaceAccess } from "../lib/namespaceAccess";
 import { RolloutsInProgress } from "../components/RolloutsInProgress";
@@ -35,6 +35,15 @@ import { podStatusSegments } from "../lib/podStatusBar";
 import { NamespacesRanked, type NamespaceRankBy } from "../components/NamespacesRanked";
 import { rankNamespaces } from "../lib/namespaceRanking";
 import { detectGatewayApi, resolveHttpRoutes, resolveIngressRoutes } from "../lib/routeResolution";
+
+/**
+ * Whether a stream has delivered a full list at least once. The engine sends a
+ * whole list before any rows show, so rows mean it has; and a reconnect, which
+ * clears `synced` but keeps the rows, doesn't count as not loaded.
+ */
+function loaded(s: { synced: boolean; rows: unknown[] }): boolean {
+  return s.synced || s.rows.length > 0;
+}
 
 function useKindCounts(
   pods: ReturnType<typeof useResourceStream>,
@@ -60,6 +69,7 @@ function useKindCounts(
       // What RBAC forbids of these: they never sync, so the page says so.
       denied: deniedStreams({ pods, nodes, deployments: deps, statefulsets: stss, daemonsets: dss, jobs }),
       daemonSets: dss.rows,
+      daemonSetsLoaded: loaded(dss),
     }),
     [pods, deps, stss, dss, jobs, nodes],
   );
@@ -88,7 +98,7 @@ export default function WorkloadsOverview() {
   const [showAllNs, setShowAllNs] = useState(false);
   const scope = useMemo(() => (showAllNs ? [] : selectedNs), [showAllNs, selectedNs]);
 
-  const { kinds, synced, denied, daemonSets } = useKindCounts(pods, nodes, deployments, statefulSets, effectiveCluster || undefined);
+  const { kinds, synced, denied, daemonSets, daemonSetsLoaded } = useKindCounts(pods, nodes, deployments, statefulSets, effectiveCluster || undefined);
 
   // ADR 0003: this page reads the whole cluster, so an identity that can't
   // list namespaces is sent to its Pods, in the namespaces it named.
@@ -186,21 +196,30 @@ export default function WorkloadsOverview() {
   );
 
   // Overview v2: what's broken and why. O(pods), so throttled like Pressure.
+  // `ready`: everything it judges has loaded. Until then the verdict claims
+  // nothing, and the moment it turns true the snapshot is applied at once,
+  // not up to a throttle window later.
+  const attentionReady = loaded(pods) && loaded(deployments) && loaded(statefulSets) && daemonSetsLoaded && loaded(nodes);
   const attentionInputs = useLeadingThrottle(
     useMemo(
-      () => ({ pods: pods.rows, deployments: deployments.rows, statefulSets: statefulSets.rows, daemonSets, nodes: nodes.rows }),
-      [pods.rows, deployments.rows, statefulSets.rows, daemonSets, nodes.rows],
+      () => ({ pods: pods.rows, deployments: deployments.rows, statefulSets: statefulSets.rows, daemonSets, nodes: nodes.rows, ready: attentionReady }),
+      [pods.rows, deployments.rows, statefulSets.rows, daemonSets, nodes.rows, attentionReady],
     ),
     2000,
+    (applied, next) => applied.ready !== next.ready,
   );
+  const attentionDenied = useMemo(() => denied.filter((d) => d.what !== "jobs"), [denied]);
   const attention = useMemo(() => ({ rows: findAttention(attentionInputs), at: Date.now() }), [attentionInputs]);
   const capacity = useMemo(
     () => clusterCapacity({ pods: pressureInputs.pods, nodes: pressureInputs.nodes, usage: pressureInputs.usage }),
     [pressureInputs],
   );
   const verdict = useMemo(
-    () => healthVerdict({ attention: attention.rows, pods: attentionInputs.pods, capacity, scope }),
-    [attention.rows, attentionInputs.pods, capacity, scope],
+    () =>
+      attentionInputs.ready
+        ? healthVerdict({ attention: attention.rows, pods: attentionInputs.pods, capacity, scope })
+        : verdictNotYet(attentionDenied),
+    [attentionInputs.ready, attention.rows, attentionInputs.pods, capacity, scope, attentionDenied],
   );
   const attentionShown = useMemo(
     () => (scope.length ? attention.rows.filter((r) => scope.includes(r.namespace)) : attention.rows),
@@ -311,7 +330,13 @@ export default function WorkloadsOverview() {
       ) : (
         <Stack gap={5}>
         <HealthVerdictLine verdict={verdict} trend={trend} scope={selectedNs} showingAll={showAllNs} onToggleScope={() => setShowAllNs((v) => !v)} />
-        <NeedsAttention rows={attentionShown} checkedAt={attention.at} capacity={capacity} cluster={effectiveCluster} />
+        <NeedsAttention
+          rows={attentionShown}
+          checkedAt={attention.at}
+          capacity={capacity}
+          cluster={effectiveCluster}
+          pending={attentionInputs.ready ? undefined : verdict.sentence}
+        />
         <RolloutsInProgress rows={rollouts} />
         <PodStatusBar segments={statusSegments} />
         <div className="cluster-grid">

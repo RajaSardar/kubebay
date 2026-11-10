@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { healthVerdict, warningTrend } from "../verdict";
+import { healthVerdict, verdictNotYet, warningTrend } from "../verdict";
 import type { AttentionRow } from "../attention";
 import type { ClusterCapacity } from "../capacity";
 
@@ -91,5 +91,22 @@ describe("warningTrend", () => {
     expect(warningTrend([warning(5, 3), warning(40, 2)], NOW)).toBe("steady");
     expect(warningTrend([{ type: "Normal", lastTimestamp: minAgo(5), count: 9 }], NOW)).toBeUndefined();
     expect(warningTrend([], NOW)).toBeUndefined();
+  });
+});
+
+describe("verdictNotYet", () => {
+  it("makes no claim while the pods are loading", () => {
+    expect(verdictNotYet([])).toEqual({ tone: "pending", word: "Checking", sentence: "Loading pods, workloads and nodes…", outside: 0 });
+  });
+
+  it("says what it can't list when RBAC forbids it", () => {
+    expect(verdictNotYet([{ what: "pods", reason: "forbidden" }])).toMatchObject({
+      tone: "pending",
+      word: "Unknown",
+      sentence: "Can't check pod health: listing pods is forbidden",
+    });
+    expect(verdictNotYet([{ what: "pods", reason: "x" }, { what: "nodes", reason: "y" }]).sentence).toBe(
+      "Can't check pod health: listing pods and nodes is forbidden",
+    );
   });
 });
