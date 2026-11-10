@@ -22,6 +22,7 @@ export function KedaWizard({
   targetName,
   hpas,
   services = [],
+  currentReplicas,
   onApplied,
 }: {
   cluster: string;
@@ -31,6 +32,8 @@ export function KedaWizard({
   hpas: Record<string, unknown>[];
   /** Already-open Services stream, used only to suggest in-cluster Prometheus candidates. */
   services?: Record<string, unknown>[];
+  /** The workload's replicas now, so the paused ScaledObject holds it there. */
+  currentReplicas?: number;
   onApplied?: () => void;
 }) {
   const monacoTheme = useMonacoTheme();
@@ -64,8 +67,8 @@ export function KedaWizard({
   }, [triggerType, cronStart, cronEnd, cronTimezone, cronDesiredReplicas, averageUtilization, promServerAddress, promQuery, promThreshold]);
 
   const input: KedaWizardInput = useMemo(
-    () => ({ namespace: ns, targetKind, targetName, scaledObjectName, minReplicaCount, maxReplicaCount, trigger }),
-    [ns, targetKind, targetName, scaledObjectName, minReplicaCount, maxReplicaCount, trigger],
+    () => ({ namespace: ns, targetKind, targetName, scaledObjectName, minReplicaCount, maxReplicaCount, trigger, currentReplicas }),
+    [ns, targetKind, targetName, scaledObjectName, minReplicaCount, maxReplicaCount, trigger, currentReplicas],
   );
 
   const errors = useMemo(() => validateKedaWizardInput(input, hpas), [input, hpas]);

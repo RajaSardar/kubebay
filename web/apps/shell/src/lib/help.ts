@@ -128,8 +128,8 @@ export const PAGE_HELP: Record<string, PageHelpEntry> = {
   },
   "/keda": {
     name: "KEDA",
-    what: "Every KEDA ScaledObject in plain words, HPAs that fight them, and scale-to-zero workloads.",
-    how: "Read from KEDA's ScaledObjects and TriggerAuthentications and the cluster's HPAs.",
+    what: "Every KEDA object in a searchable table: ScaledObjects, ScaledJobs and their authentications, which are paused, fight an HPA or go unused.",
+    how: "A tab per KEDA kind, filtered like any table (paused:yes). Paused reads KEDA's annotations; conflicts compare HPA targets.",
     docs: "keda",
   },
   "/upgrade-readiness": {

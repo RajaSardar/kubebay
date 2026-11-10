@@ -51,6 +51,39 @@ function describeTrigger(t: Trigger): string {
   return label ? `on ${label}` : `on its "${t.type}" trigger`;
 }
 
+export interface KedaPause {
+  paused: boolean;
+  /** For the Paused column: "Yes", "Yes, at 0 replicas" or "No". */
+  label: string;
+  /** The count paused-replicas holds the workload at. */
+  replicas?: number;
+}
+
+/** The annotations KEDA reads to pause a ScaledObject or ScaledJob. */
+export const KEDA_PAUSED = "autoscaling.keda.sh/paused";
+export const KEDA_PAUSED_REPLICAS = "autoscaling.keda.sh/paused-replicas";
+
+/**
+ * Whether KEDA has stopped scaling this ScaledObject or ScaledJob (root
+ * backlog #24). KEDA pauses through annotations: paused-replicas holds the
+ * workload at that count (KEDA 2.7+), paused: "true" holds it where it stands
+ * (2.13+). The Paused condition KEDA reports counts too.
+ */
+export function kedaPause(obj: Record<string, unknown>): KedaPause {
+  const ann = rec(rec(obj.metadata).annotations);
+  const at = str(ann[KEDA_PAUSED_REPLICAS]).trim();
+  if (at !== "" && Number.isInteger(Number(at))) {
+    const n = Number(at);
+    return { paused: true, label: `Yes, at ${n} replica${n === 1 ? "" : "s"}`, replicas: n };
+  }
+  if (str(ann[KEDA_PAUSED]).toLowerCase() === "true") return { paused: true, label: "Yes" };
+  const conditions = rec(obj.status).conditions;
+  if (Array.isArray(conditions) && conditions.some((c) => str(rec(c).type) === "Paused" && str(rec(c).status) === "True")) {
+    return { paused: true, label: "Yes" };
+  }
+  return { paused: false, label: "No" };
+}
+
 export interface ScaledObjectExplain {
   name: string;
   ns: string;
@@ -82,7 +115,7 @@ export function explainScaledObject(so: Record<string, unknown>): ScaledObjectEx
   const triggerDescriptions = trigs.map(describeTrigger);
   const targetName = str(targetRef.name);
   const targetKind = str(targetRef.kind) || "Deployment";
-  const paused = str(rec(spec.advanced).paused) === "true";
+  const paused = kedaPause(so).paused;
 
   const triggerClause = triggerDescriptions.length > 0 ? ` ${triggerDescriptions.join(" and ")}` : "";
   const summary = `Scales ${targetKind.toLowerCase()} "${targetName}" ${minReplicas}→${maxReplicas}${triggerClause}`;
@@ -118,12 +151,17 @@ export function hpaConflictsWithScaledObject(so: Record<string, unknown>, hpas: 
   });
 }
 
+/** The KEDA kinds the KEDA page lists, by their resource name. */
+export type KedaKind = "scaledobjects" | "scaledjobs" | "triggerauthentications" | "clustertriggerauthentications";
+
 export interface KedaDetection {
+  /** KEDA is installed: its ScaledObject CRD is served. */
   installed: boolean;
-  scaledObjectGvr?: string;
-  triggerAuthGvr?: string;
-  clusterTriggerAuthGvr?: string;
+  /** The GVR of each KEDA kind the cluster serves. */
+  gvrs: Partial<Record<KedaKind, string>>;
 }
+
+const KEDA_KINDS: KedaKind[] = ["scaledobjects", "scaledjobs", "triggerauthentications", "clustertriggerauthentications"];
 
 /**
  * Fleet-wide KEDA detection (backlog: KEDA nav placement). Same free,
@@ -131,23 +169,15 @@ export interface KedaDetection {
  * no engine changes, no new resource kind.
  */
 export function detectKeda(crds: CRDEntry[]): KedaDetection {
-  const scaledObject = crds.find((c) => c.group === "keda.sh" && c.resource === "scaledobjects");
-  const triggerAuth = crds.find((c) => c.group === "keda.sh" && c.resource === "triggerauthentications");
-  const clusterTriggerAuth = crds.find((c) => c.group === "keda.sh" && c.resource === "clustertriggerauthentications");
-  return {
-    installed: !!scaledObject,
-    scaledObjectGvr: scaledObject?.gvr,
-    triggerAuthGvr: triggerAuth?.gvr,
-    clusterTriggerAuthGvr: clusterTriggerAuth?.gvr,
-  };
+  const gvrs: Partial<Record<KedaKind, string>> = {};
+  for (const kind of KEDA_KINDS) {
+    const crd = crds.find((c) => c.group === "keda.sh" && c.resource === kind);
+    if (crd) gvrs[kind] = crd.gvr;
+  }
+  return { installed: !!gvrs.scaledobjects, gvrs };
 }
 
-interface AuthRef {
-  name: string;
-  kind: string;
-}
-
-function referencedAuths(so: Record<string, unknown>): AuthRef[] {
+function referencedAuths(so: Record<string, unknown>): { name: string; kind: string }[] {
   const trigs = rec(so.spec).triggers;
   if (!Array.isArray(trigs)) return [];
   return trigs
@@ -156,45 +186,18 @@ function referencedAuths(so: Record<string, unknown>): AuthRef[] {
     .map((r) => ({ name: str(r.name), kind: str(r.kind) || "TriggerAuthentication" }));
 }
 
-export interface OrphanedTriggerAuth {
-  name: string;
-  /** Empty for a cluster-scoped ClusterTriggerAuthentication. */
-  ns: string;
-  /** true for a namespaced TriggerAuthentication, false for cluster-scoped. */
-  scoped: boolean;
-}
-
 /**
- * A TriggerAuthentication/ClusterTriggerAuthentication no ScaledObject in
- * the cluster references at all -- the "no way to see this today" gap the
- * KEDA-nav-placement research identified: the per-workload Autoscaling tab
- * only ever looks at one workload's own ScaledObjects, so nothing anywhere
- * in the app previously cross-referenced auth objects against their users.
+ * How many of `users` (ScaledObjects and ScaledJobs) reference this
+ * TriggerAuthentication, or with `cluster` this ClusterTriggerAuthentication.
+ * A namespaced one is only reachable from its own namespace. 0 is one left
+ * over from a removed ScaledObject: the KEDA page's In use column.
  */
-export function findOrphanedTriggerAuths(
-  scaledObjects: Record<string, unknown>[],
-  triggerAuths: Record<string, unknown>[],
-  clusterTriggerAuths: Record<string, unknown>[],
-): OrphanedTriggerAuth[] {
-  const used = new Set<string>();
-  for (const so of scaledObjects) {
-    const ns = str(rec(so.metadata).namespace);
-    for (const ref of referencedAuths(so)) {
-      const key = ref.kind === "ClusterTriggerAuthentication" ? `cluster:${ref.name}` : `ns:${ns}:${ref.name}`;
-      used.add(key);
-    }
-  }
-
-  const orphanedNamespaced: OrphanedTriggerAuth[] = triggerAuths
-    .filter((ta) => {
-      const meta = rec(ta.metadata);
-      return !used.has(`ns:${str(meta.namespace)}:${str(meta.name)}`);
-    })
-    .map((ta) => ({ name: str(rec(ta.metadata).name), ns: str(rec(ta.metadata).namespace), scoped: true }));
-
-  const orphanedCluster: OrphanedTriggerAuth[] = clusterTriggerAuths
-    .filter((ta) => !used.has(`cluster:${str(rec(ta.metadata).name)}`))
-    .map((ta) => ({ name: str(rec(ta.metadata).name), ns: "", scoped: false }));
-
-  return [...orphanedNamespaced, ...orphanedCluster];
+export function authUsers(auth: Record<string, unknown>, cluster: boolean, users: Record<string, unknown>[]): number {
+  const meta = rec(auth.metadata);
+  const name = str(meta.name);
+  const ns = str(meta.namespace);
+  const kind = cluster ? "ClusterTriggerAuthentication" : "TriggerAuthentication";
+  return users.filter(
+    (u) => (cluster || str(rec(u.metadata).namespace) === ns) && referencedAuths(u).some((r) => r.kind === kind && r.name === name),
+  ).length;
 }

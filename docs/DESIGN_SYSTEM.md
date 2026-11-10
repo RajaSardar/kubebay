@@ -76,6 +76,9 @@ https://claude.ai/artifact/J35D45QQ7X6Sgd7mwfRSnF
    when a table needs virtualisation, column resizing or expandable rows.
    A list of Kubernetes resources renders through the shell's
    `ResourceListView` (see `docs/TABLE_UNIFICATION.md`), not its own table.
+   A page that lists a kind of its own (KEDA) renders `ResourceTableView`
+   from `pages/ResourceTable.tsx`, the /r/:kind table itself, with its own
+   lead columns, so it searches, saves views and opens drawers the same way.
    `SortHeader` is focusable and sorts on Enter or Space as well as a click.
    Name cells take `className="mono td-name"`, secondary facts `cell-secondary`,
    namespaces `NsPill`, phases `StatusPill` (with `phaseTone` for pods).

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { explainScaledObject, hpaConflictsWithScaledObject } from "../keda";
+import { explainScaledObject, hpaConflictsWithScaledObject, kedaPause } from "../keda";
 
 function scaledObject(overrides: Record<string, unknown> = {}) {
   return {
@@ -71,17 +71,37 @@ describe("explainScaledObject", () => {
     expect(e.triggerDescriptions[0]).toMatch(/postgresql/i);
   });
 
-  it("flags paused via spec.advanced.paused", () => {
-    const so = scaledObject({
-      spec: {
-        scaleTargetRef: { name: "app", kind: "Deployment" },
-        minReplicaCount: 1,
-        maxReplicaCount: 20,
-        triggers: [],
-        advanced: { paused: "true" },
-      },
-    });
-    expect(explainScaledObject(so).paused).toBe(true);
+  // KEDA pauses through annotations, not a spec field: spec.advanced has no
+  // "paused", and the API server drops it. (Root backlog #24.)
+  it("reads paused from KEDA's annotations, not a spec field", () => {
+    const base = { scaleTargetRef: { name: "app", kind: "Deployment" }, minReplicaCount: 1, maxReplicaCount: 20, triggers: [] };
+    expect(explainScaledObject(scaledObject({ metadata: { name: "so", namespace: "prod", annotations: { "autoscaling.keda.sh/paused": "true" } }, spec: base })).paused).toBe(true);
+    expect(explainScaledObject(scaledObject({ spec: { ...base, advanced: { paused: "true" } } })).paused).toBe(false);
+  });
+});
+
+describe("kedaPause", () => {
+  const obj = (annotations: Record<string, string> = {}, conditions: { type: string; status: string }[] = []) => ({
+    metadata: { name: "so", namespace: "prod", annotations },
+    status: { conditions },
+  });
+
+  it("is paused at a replica count with paused-replicas (KEDA 2.7+)", () => {
+    expect(kedaPause(obj({ "autoscaling.keda.sh/paused-replicas": "0" }))).toEqual({ paused: true, label: "Yes, at 0 replicas", replicas: 0 });
+    expect(kedaPause(obj({ "autoscaling.keda.sh/paused-replicas": "1" })).label).toBe("Yes, at 1 replica");
+  });
+
+  it("is paused where it stands with paused: true (KEDA 2.13+)", () => {
+    expect(kedaPause(obj({ "autoscaling.keda.sh/paused": "true" }))).toEqual({ paused: true, label: "Yes" });
+  });
+
+  it("is paused when KEDA reports the Paused condition", () => {
+    expect(kedaPause(obj({}, [{ type: "Paused", status: "True" }])).paused).toBe(true);
+  });
+
+  it("isn't paused otherwise, or once paused is set back to false", () => {
+    expect(kedaPause(obj())).toEqual({ paused: false, label: "No" });
+    expect(kedaPause(obj({ "autoscaling.keda.sh/paused": "false" }, [{ type: "Paused", status: "False" }]))).toEqual({ paused: false, label: "No" });
   });
 });
 
