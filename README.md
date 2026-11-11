@@ -11,6 +11,12 @@ A free, open-source, **local-first Kubernetes IDE** — cleaner than Lens, frien
 [![Latest Release](https://img.shields.io/github/v/release/RajaSardar/kubebay?color=22d3ee)](https://github.com/RajaSardar/kubebay/releases/latest)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-ef5f68.svg)](CONTRIBUTING.md)
 
+<br/>
+
+<img src="docs/launch/media/kubebay-tour.gif" alt="Kubebay tour: open a cluster, the Overview flags a crash-looping deployment, SPOF Radar lists single points of failure, RBAC traces an attack path, the NetworkPolicy matrix shows who can reach whom" width="860">
+
+<sub>Kubebay v0.7.0 on a demo cluster. The workloads and their problems are synthetic.</sub>
+
 </div>
 
 ---
