@@ -81,7 +81,7 @@ func TestEditReleasesAStaleApplyOwnership(t *testing.T) {
 		u := &unstructured.Unstructured{}
 		u.SetAPIVersion("apps/v1")
 		u.SetKind("Deployment")
-		u.SetName("debugging-apis-fml-in")
+		u.SetName("debugging-apis-demo")
 		u.SetNamespace("debug")
 		if p.PatchType != types.JSONPatchType {
 			u.SetManagedFields([]metav1.ManagedFieldsEntry{

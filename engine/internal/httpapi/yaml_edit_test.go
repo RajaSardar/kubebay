@@ -81,7 +81,7 @@ func editChannels(t *testing.T, live ...runtime.Object) (*Channels, *capturedPat
 		u := &unstructured.Unstructured{}
 		u.SetAPIVersion("apps/v1")
 		u.SetKind("Deployment")
-		u.SetName("debugging-apis-fml-in")
+		u.SetName("debugging-apis-demo")
 		u.SetNamespace("debug")
 		return true, u, nil
 	})
@@ -102,7 +102,7 @@ func putYAML(t *testing.T, c *Channels, body map[string]interface{}) (*httptest.
 
 func editBody(original, modified string, dryRun bool) map[string]interface{} {
 	return map[string]interface{}{
-		"cluster": "c1", "gvr": "apps/v1/deployments", "ns": "debug", "name": "debugging-apis-fml-in",
+		"cluster": "c1", "gvr": "apps/v1/deployments", "ns": "debug", "name": "debugging-apis-demo",
 		"yaml": modified, "original": original, "dryRun": dryRun, "force": false,
 	}
 }
@@ -170,7 +170,7 @@ func TestApplyYAMLEditWithNoChangesSendsNothing(t *testing.T) {
 
 func TestApplyYAMLEditRejectsRenames(t *testing.T) {
 	c, got := editChannels(t)
-	rr, _ := putYAML(t, c, editBody(deployYAML, edit(deployYAML, "name: debugging-apis-fml-in", "name: other"), false))
+	rr, _ := putYAML(t, c, editBody(deployYAML, edit(deployYAML, "name: debugging-apis-demo", "name: other"), false))
 	if rr.Code != http.StatusBadRequest || got.called {
 		t.Errorf("status = %d, patched = %v; want 400 and no patch", rr.Code, got.called)
 	}
@@ -179,7 +179,7 @@ func TestApplyYAMLEditRejectsRenames(t *testing.T) {
 const resizePatch = `apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: debugging-apis-fml-in
+  name: debugging-apis-demo
   namespace: debug
 spec:
   template:

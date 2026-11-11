@@ -1,5 +1,5 @@
 - [Never touch prod clusters](feedback_never_touch_prod.md) — CRITICAL: always use dedicated kind kubeconfigs, never default ~/.kube/config
-- [User profile](user_raja.md) — Raja Sardar, Kubebay creator, Go/React/K8s, runs production EKS
+- [User profile](user_raja.md) — Raja Sardar, Kubebay creator, Go/React/K8s, runs production clusters
 - [Kubebay state](project_kubebay_state.md) — v0.2.0 released, stream cache + pod terminal tab + Helm fixes implemented
 - [No Claude co-author](feedback_commit_author.md) — never add Co-Authored-By Claude in commits, use user's git identity
 - [Tab re-render performance](feedback_tab_performance.md) — Module-level stream cache prevents loading flash on tab navigation

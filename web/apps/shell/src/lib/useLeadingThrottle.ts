@@ -6,18 +6,27 @@ import { useEffect, useRef, useState } from "react";
  * stream flush. The first value is returned immediately; a value passed
  * while the window is still open is held and applied once the window
  * elapses, coalescing any updates that arrived in between.
+ *
+ * `flush(applied, next)` returning true applies `next` at once, inside the
+ * window: for a change that must not wait, such as the data becoming ready.
  */
-export function useLeadingThrottle<T>(value: T, ms: number): T {
+export function useLeadingThrottle<T>(value: T, ms: number, flush?: (applied: T, next: T) => boolean): T {
   const [throttled, setThrottled] = useState(value);
   const lastAppliedAt = useRef(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingRef = useRef(value);
+  const appliedRef = useRef(value);
+  appliedRef.current = throttled;
 
   pendingRef.current = value;
 
   useEffect(() => {
     const elapsed = Date.now() - lastAppliedAt.current;
-    if (elapsed >= ms) {
+    if (elapsed >= ms || flush?.(appliedRef.current, value)) {
+      if (timerRef.current !== null) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
       lastAppliedAt.current = Date.now();
       setThrottled(value);
       return;

@@ -22,10 +22,10 @@ const api: AttentionRow = {
   workload: { metadata: { name: "api", namespace: "shop" }, spec: { selector: { matchLabels: { app: "api" } } } },
 };
 
-function renderIt(rows: AttentionRow[], checkedAt = NOW) {
+function renderIt(rows: AttentionRow[], checkedAt = NOW, pending?: string) {
   return render(
     <MemoryRouter>
-      <NeedsAttention rows={rows} checkedAt={checkedAt} />
+      <NeedsAttention rows={rows} checkedAt={checkedAt} pending={pending} />
     </MemoryRouter>,
   );
 }
@@ -97,5 +97,13 @@ describe("NeedsAttention", () => {
     expect(within(section).getByText("Nothing needs attention")).toBeInTheDocument();
     expect(within(section).getByText(/Checked .*9:15/)).toBeInTheDocument();
     expect(within(section).queryByRole("table")).not.toBeInTheDocument();
+  });
+
+  it("says what it is waiting for, with no count and no all-clear, while pending", () => {
+    renderIt([], NOW, "Loading pods, workloads and nodes…");
+    const section = screen.getByRole("region", { name: /Needs attention/ });
+    expect(within(section).getByText("Loading pods, workloads and nodes…")).toBeInTheDocument();
+    expect(within(section).queryByText("Nothing needs attention")).not.toBeInTheDocument();
+    expect(within(section).queryByText("0")).not.toBeInTheDocument();
   });
 });
