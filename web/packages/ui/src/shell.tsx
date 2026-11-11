@@ -2,6 +2,7 @@ import {
   forwardRef,
   useEffect,
   useRef,
+  useState,
   type ButtonHTMLAttributes,
   type CSSProperties,
   type InputHTMLAttributes,
@@ -10,6 +11,7 @@ import {
   type SelectHTMLAttributes,
 } from "react";
 import { createPortal } from "react-dom";
+import { IconCheck, IconCopy } from "./icons";
 
 // ── Icon button ───────────────────────────────────────────────────────────────
 
@@ -242,6 +244,40 @@ export function NavItem({ label, href, icon, active, sub, onClick }: NavItemProp
       {icon && <span className="nav-icon">{icon}</span>}
       <span>{label}</span>
     </a>
+  );
+}
+
+// ── Copy button ───────────────────────────────────────────────────────────────
+
+export interface CopyButtonProps {
+  /** What it copies. */
+  text: string;
+  /** Its accessible name and tooltip, naming what it copies ("Copy pod IP 10.244.0.5"). */
+  label: string;
+}
+
+/** A small icon button that copies `text`, then says "Copied" for a moment. */
+export function CopyButton({ text, label }: CopyButtonProps) {
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!copied) return;
+    const t = setTimeout(() => setCopied(false), 1500);
+    return () => clearTimeout(t);
+  }, [copied]);
+  return (
+    <IconButton
+      label={copied ? "Copied" : label}
+      className="kb-copy-btn"
+      onClick={(e) => {
+        e.stopPropagation();
+        void navigator.clipboard?.writeText(text).then(
+          () => setCopied(true),
+          () => {},
+        );
+      }}
+    >
+      {copied ? <IconCheck size={13} /> : <IconCopy size={13} />}
+    </IconButton>
   );
 }
 

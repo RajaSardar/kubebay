@@ -177,6 +177,14 @@
   cursor: default;
 }
 
+/* A CopyButton beside a value: a step smaller than an icon button. */
+.kb-icon-btn.kb-copy-btn {
+  min-width: 20px;
+  height: 20px;
+  padding: 0;
+  vertical-align: middle;
+}
+
 /* ── Segmented control: one choice from a short list ── */
 .kb-segmented {
   display: inline-flex;

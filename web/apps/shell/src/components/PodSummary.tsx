@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Badge, Row, Stack, StatusDot } from "@kubebay/ui";
+import { Badge, CopyButton, Row, Stack, StatusDot } from "@kubebay/ui";
 import { ResourceLink } from "./ResourceLink";
 import { useOwnerChain } from "../lib/useOwnerChain";
 import { PodEnvValue } from "./PodEnvValue";
@@ -51,6 +51,30 @@ function Probe({ probe }: { probe?: Record<string, unknown> }) {
   return <span className="mono small">{parts.join(" · ")}</span>;
 }
 
+/** A pod's or its host's addresses: every family from the plural field, else the single one older servers send. */
+function ipsOf(status: Record<string, unknown>, plural: string, single: string): string[] {
+  const many = arr(status[plural])
+    .map((x) => str(x.ip))
+    .filter(Boolean);
+  if (many.length) return many;
+  const one = str(status[single]);
+  return one ? [one] : [];
+}
+
+/** IPs in the mono face, each with a copy button named for what it copies. */
+function IpList({ ips, what }: { ips: string[]; what: string }) {
+  return (
+    <Row gap={1} wrap align="center">
+      {ips.map((ip) => (
+        <Row key={ip} gap={1} align="center">
+          <span className="mono">{ip}</span>
+          <CopyButton text={ip} label={`Copy ${what} ${ip}`} />
+        </Row>
+      ))}
+    </Row>
+  );
+}
+
 function str(v: unknown): string {
   if (v === null || v === undefined) return "";
   if (typeof v === "string") return v;
@@ -79,6 +103,8 @@ export function PodSummary({
     const nodeName = str(spec.nodeName);
     const phase = str(status.phase);
     const podIP = str(status.podIP);
+    const podIPs = ipsOf(status, "podIPs", "podIP");
+    const hostIPs = ipsOf(status, "hostIPs", "hostIP");
     const qos = str(status.qosClass);
     const scheduler = str(spec.schedulerName) || "default-scheduler";
     const sa = str(spec.serviceAccountName) || "default";
@@ -134,6 +160,8 @@ export function PodSummary({
       claims: podResourceClaims(obj),
       phase,
       podIP,
+      podIPs,
+      hostIPs,
       nodeName,
       qos,
       scheduler,
@@ -183,6 +211,11 @@ export function PodSummary({
           />
         )}
         <KV k="Node" v={data.nodeName ? <ResourceLink kind="nodes" name={data.nodeName}><span className="mono">{data.nodeName}</span></ResourceLink> : null} />
+        <KV
+          k={data.podIPs.length > 1 ? "Pod IPs" : "Pod IP"}
+          v={data.podIPs.length ? <IpList ips={data.podIPs} what="pod IP" /> : <span className="muted">not assigned yet</span>}
+        />
+        <KV k={data.hostIPs.length > 1 ? "Host IPs" : "Host IP"} v={data.hostIPs.length ? <IpList ips={data.hostIPs} what="host IP" /> : null} />
         <KV
           k="Service Account"
           v={

@@ -25,6 +25,7 @@ Click a pod to open its drawer. It always opens on **Summary**, unless you chose
 The pod's metadata, conditions, each container (image, state, ports, environment), resource claims and volumes.
 
 - **Owned by** shows the whole chain of owners, each one a link. For example: Helm release → Deployment → ReplicaSet → pod.
+- **Pod IP** shows the pod's address, or **Pod IPs** with both on a dual-stack pod. It says "not assigned yet" until the pod has one. **Host IP** is the address of the node it runs on. Each address has a copy button.
 - An environment variable from a Secret stays hidden until you click to reveal it.
 - Click a container's port to forward it to your machine. See [Port forwarding](/docs/port-forwarding/).
 

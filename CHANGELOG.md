@@ -7,6 +7,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 ## [Unreleased]
 
 ### Added
+- **A pod shows its IPs**: a pod's Summary lists its **Pod IP**, or **Pod IPs** for both families on a dual-stack pod, and the **Host IP** of the node it runs on, like Lens and Freelens. Each has a copy button. A pod without an address yet says "not assigned yet". `@kubebay/ui` gains a `CopyButton` (backlog #19)
 - **The terminal lives in a dock under every page**: the local shell moves from its own page into a dock above the status bar, beside the sidebar, the way Freelens keeps it. The shell keeps running, with its scrollback, while you move between pages, open the Clusters page or hide the dock. Hiding it no longer resizes the program running in it.
   - **Opening it:** <kbd>Ctrl</kbd>+<kbd>`</kbd> opens it from anywhere, focuses its shell, or hides it from inside the shell and gives focus back. The status bar's **Terminal** shows the key and the bound context. Tools → **Terminal** and `/terminal` links open the dock without leaving your page.
   - **Size:** drag the dock's top edge, or use <kbd>↑</kbd>/<kbd>↓</kbd> on it, to resize it. The height is kept on this machine; a restart starts with the dock hidden and no shell.
