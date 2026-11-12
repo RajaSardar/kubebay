@@ -96,7 +96,7 @@ export function ClusterIconPicker({ clusterId, current, onSave, onReset, onClose
                   key={p.bg}
                   className={`icon-swatch${bg === p.bg ? " selected" : ""}`}
                   style={{ background: p.bg }}
-                  onClick={() => { setBg(p.bg); setLabel(p.label); }}
+                  onClick={() => setBg(p.bg)}
                   title={p.label}
                 />
               ))}
