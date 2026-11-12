@@ -203,3 +203,34 @@ describe("YamlTab — stale edits", () => {
   });
 });
 
+
+describe("YamlTab — a Secret's values", () => {
+  const secret = { cluster: "kind-test", gvr: "v1/secrets", ns: "shop", name: "db-creds" };
+
+  it("says a Secret's values are hidden and offers to reveal them", async () => {
+    render(<YamlTab {...secret} />);
+    await screen.findByTestId("editor");
+    expect(screen.getByText(/values are hidden/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reveal values" })).toBeInTheDocument();
+  });
+
+  it("asks the server for the real values only when you click Reveal values, then drops the banner", async () => {
+    vi.mocked(api.getYamlText).mockClear();
+    render(<YamlTab {...secret} />);
+    await screen.findByTestId("editor");
+    expect(api.getYamlText).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(api.getYamlText).mock.calls[0]?.[4]).toBeUndefined();
+
+    fireEvent.click(screen.getByRole("button", { name: "Reveal values" }));
+    await screen.findByTestId("editor");
+    expect(api.getYamlText).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(api.getYamlText).mock.calls[1]?.[4]).toEqual({ reveal: true });
+    expect(screen.queryByRole("button", { name: "Reveal values" })).toBeNull();
+  });
+
+  it("shows no such banner for any other kind", async () => {
+    render(<YamlTab {...props} />);
+    await screen.findByTestId("editor");
+    expect(screen.queryByRole("button", { name: "Reveal values" })).toBeNull();
+  });
+});

@@ -27,6 +27,7 @@ Features that only make sense on your own machine are off in a cluster: the loca
 
 - Secret values aren't loaded into tables. A Secret table shows names and metadata only.
 - An environment variable from a Secret stays masked until you click to show it, and every reveal is recorded in the [Audit Log](/docs/audit-log/).
+- A Secret opened in its drawer shows its keys with the values hidden, and so does its `last-applied-configuration` annotation, which would otherwise hold a second copy. **Reveal values** on the YAML tab loads them, and that is recorded in the Audit Log too. Until you reveal them, you can edit the Secret's labels and other fields, but not its values.
 - The [security checks](/docs/rbac/) that look for unused Secrets read only their names and metadata.
 - AI features never see Secrets. MCP doesn't list them, and triage masks credentials in the evidence before you send it.
 

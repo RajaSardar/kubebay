@@ -143,6 +143,14 @@ func (c *Channels) HandleGetYAML(w http.ResponseWriter, r *http.Request) {
 		b, _ := json.Marshal(obj)
 		_ = json.Unmarshal(b, &doc)
 	}
+	// A Secret's values are shown only on request, and the request is audited.
+	if isSecret(doc) {
+		if q.Get("reveal") == "true" {
+			c.auditSecretReveal(r, cluster, ns, name)
+		} else {
+			maskSecret(doc)
+		}
+	}
 	// The drawer summaries and ResizePanel need a structured object, and shipping a
 	// YAML parser to the browser just to read back what we serialized here is waste.
 	// They read, never apply, it: the drawer matches owned ReplicaSets by uid and
@@ -210,6 +218,10 @@ func (c *Channels) HandleApplyYAML(w http.ResponseWriter, r *http.Request) {
 		}
 		if p.Empty() {
 			writeJSON(w, map[string]interface{}{"applied": false, "dryRun": req.DryRun, "noop": true, "changedPaths": []string{}})
+			return
+		}
+		if editsMaskedSecretValue(doc, req.Original, p.ChangedPaths) {
+			http.Error(w, "this Secret's values are hidden: choose Reveal values, then edit them", http.StatusBadRequest)
 			return
 		}
 		edit = &p

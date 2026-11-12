@@ -169,8 +169,12 @@ export const api = {
     gitopsOwner?: string;
   }) => send<{ ok: boolean }>("POST", "/api/action/resize-pod", b),
 
-  getYamlText: async (cluster: string, gvr: string, ns: string, name: string): Promise<string> => {
-    return fetchObject(cluster, gvr, ns, name, "yaml");
+  /**
+   * A Secret's values come back hidden unless `reveal` is set, and the engine
+   * audits that request.
+   */
+  getYamlText: async (cluster: string, gvr: string, ns: string, name: string, opts: { reveal?: boolean } = {}): Promise<string> => {
+    return fetchObject(cluster, gvr, ns, name, "yaml", opts.reveal);
   },
   /** Same object as getYamlText, but served as JSON so callers get a parsed object. */
   getObject: async (
@@ -231,9 +235,11 @@ async function fetchObject(
   ns: string,
   name: string,
   format: "yaml" | "json",
+  reveal?: boolean,
 ): Promise<string> {
   const q = new URLSearchParams({ cluster, gvr, ns, name });
   if (format === "json") q.set("format", "json");
+  if (reveal) q.set("reveal", "true");
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 10_000);
   try {

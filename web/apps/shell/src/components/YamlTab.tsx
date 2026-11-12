@@ -46,15 +46,19 @@ export function YamlTab({
   const [confirmText, setConfirmText] = useState("");
   // Fields the user edited that someone else changed after this editor loaded.
   const [staleFields, setStaleFields] = useState<string[] | null>(null);
+  // A Secret's values stay hidden until asked for; asking is audited by the engine.
+  const isSecret = gvr === "v1/secrets";
+  const [revealed, setRevealed] = useState(false);
+  useEffect(() => setRevealed(false), [cluster, gvr, ns, name]);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (reveal = revealed) => {
     setLoading(true);
     setMsg(null);
     setPolicyRejection(null);
     setServerPreview(null);
     setStaleFields(null);
     try {
-      const y = await api.getYamlText(cluster, gvr, ns, name);
+      const y = await (reveal ? api.getYamlText(cluster, gvr, ns, name, { reveal: true }) : api.getYamlText(cluster, gvr, ns, name));
       setOriginal(y);
       setModified(y);
     } catch (e) {
@@ -62,11 +66,15 @@ export function YamlTab({
     } finally {
       setLoading(false);
     }
-  }, [cluster, gvr, ns, name]);
+  }, [cluster, gvr, ns, name, revealed]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  function reveal() {
+    setRevealed(true); // load() runs again with the real values
+  }
 
   const dirty = modified !== original;
   const dangerousChanges = dangerousChangeCheck ? dangerousChangeCheck(original, modified) : [];
@@ -206,6 +214,15 @@ export function YamlTab({
         </Row>
       </div>
       {impactBanner}
+      {isSecret && !revealed && (
+        <InlineBanner
+          tone="warn"
+          flush
+          actions={<Button onClick={reveal}>Reveal values</Button>}
+        >
+          This Secret's values are hidden. Reveal them to read or edit them; the reveal is recorded in the Audit Log.
+        </InlineBanner>
+      )}
       {helmRelease && (
         <InlineBanner tone="warn" flush>
           {`Managed by Helm release ${helmRelease}. Edits apply now and only touch the fields you change, but the next helm upgrade or rollback of this release restores the chart's values. Change the release values to make an edit permanent.`}

@@ -49,6 +49,7 @@ The YAML tab is an editor for the live object.
 - **Dry-run** sends your change to the API server without saving it. **diff view** then compares the live object with what the server would store, including defaults and webhook changes. Without a dry-run, it compares your edits with the original.
 - **Apply** sends only the fields you changed, as a patch, not the whole object.
 - **Revert** throws your edits away. **Reload** fetches the latest version from the cluster.
+- A **Secret** opens with its values hidden. **Reveal values** loads them, and the Audit Log records that.
 - If someone else changed a field you edited since you opened the editor, Kubebay doesn't apply. It lists those fields so you can **Reload current version** and make your edit again.
 
 Kubebay warns you before an edit that won't last:
