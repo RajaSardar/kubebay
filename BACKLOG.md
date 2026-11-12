@@ -18,5 +18,5 @@
 ~~18. do an indepth research and find if we need to add info small button on each feature on hover of each it should explain what is it and how this feature works~~ 🔎 Researched (see [docs/HELP_TIPS_RESEARCH.md](docs/HELP_TIPS_RESEARCH.md)): one ⓘ per page and insight card, opened by a click, linking to the manual. ✅ Done: every page and insight card has one.
 ~~19. In pod i can not see the ips of the pod like lens /freelens~~ ✅ Done (a pod's Summary shows its Pod IP(s), both families on a dual-stack pod, and its Host IP, each with a copy button)
 ~~20. for rollout in pods i can not going back to the controlled by rollout when i am clicking on the rollout it is not able to load~~ ✅ Done (a pod's owner chain links a custom resource owner, such as an Argo Rollout, to its own page by its CRD's plural; it used to link to a page that couldn't load)
-21. give copy name button for any kind like deployment name, pod name, statefulsets name, service name all kind of names 
+~~21. give copy name button for any kind like deployment name, pod name, statefulsets name, service name all kind of names~~ ✅ Done (every drawer, for every kind, has a copy button beside its title for the resource's name; tables keep Copy name in the row menu)
 22. In pods logs can you make the logs text colorized based on the industry like for error, and warning, and success 

@@ -203,6 +203,23 @@ describe("Drawer", () => {
     });
   });
 
+  // Backlog #21: every drawer offers to copy the name of what it shows.
+  it("offers to copy the name it shows, beside the title, without renaming the panel", async () => {
+    const writeText = vi.fn(async () => {});
+    Object.assign(navigator, { clipboard: { writeText } });
+    render(<Drawer title="api-7f9c" copyName="api-7f9c" onClose={() => {}}>body</Drawer>);
+    expect(screen.getByRole("dialog", { name: "api-7f9c" })).toBeInTheDocument();
+    const copy = screen.getByRole("button", { name: "Copy name api-7f9c" });
+    expect(copy.closest(".drawer-head")).not.toBeNull();
+    fireEvent.click(copy);
+    expect(writeText).toHaveBeenCalledWith("api-7f9c");
+  });
+
+  it("has no copy button without a name to copy", () => {
+    render(<Drawer title="api" onClose={() => {}}>body</Drawer>);
+    expect(screen.queryByRole("button", { name: /^Copy name/ })).toBeNull();
+  });
+
   it("can set the subtitle in the proportional face", () => {
     render(<Drawer title="nginx" subtitle="A web server" subtitleMono={false} onClose={() => {}} />);
     expect(screen.getByText("A web server")).toHaveClass("drawer-subtitle");

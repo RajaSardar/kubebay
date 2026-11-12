@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
-import { IconButton } from "./shell";
+import { CopyButton, IconButton } from "./shell";
 import { IconInfo } from "./icons";
 
 // Keys typed here belong to the control, not the panel: Escape in a field
@@ -77,11 +77,13 @@ export interface DrawerProps {
   onClose: () => void;
   /** Fill the page instead of sliding over it (the full-page resource view). */
   embedded?: boolean;
+  /** The name of what it shows, offered as a copy button beside the title. */
+  copyName?: string;
   children?: ReactNode;
 }
 
 /** The side panel for one resource: a head (status, title, actions) over its content. */
-export function Drawer({ title, subtitle, subtitleMono = true, leading, actions, onClose, embedded, children }: DrawerProps) {
+export function Drawer({ title, subtitle, subtitleMono = true, leading, actions, onClose, embedded, copyName, children }: DrawerProps) {
   const ref = useRef<HTMLElement>(null);
   const titleId = useId();
   useFocusReturn(ref, !embedded, () => null);
@@ -132,8 +134,11 @@ export function Drawer({ title, subtitle, subtitleMono = true, leading, actions,
       <div className="drawer-head">
         {leading}
         <div className="drawer-title">
-          <div id={titleId} className="drawer-name">
-            {title}
+          <div className="drawer-name-row">
+            <div id={titleId} className="drawer-name">
+              {title}
+            </div>
+            {copyName && <CopyButton text={copyName} label={`Copy name ${copyName}`} />}
           </div>
           {subtitle != null && subtitle !== false && (
             <div className={`drawer-subtitle${subtitleMono ? " drawer-subtitle-mono" : ""}`}>{subtitle}</div>

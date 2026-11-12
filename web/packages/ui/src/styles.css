@@ -1836,6 +1836,13 @@ tr.row-clickable:active {
   font-family: var(--kb-font-mono);
 }
 
+.drawer-name-row {
+  display: flex;
+  align-items: center;
+  gap: var(--kb-space-1);
+  min-width: 0;
+}
+
 .drawer-head-actions {
   display: flex;
   align-items: center;

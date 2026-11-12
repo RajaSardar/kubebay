@@ -127,3 +127,13 @@ describe("PodPanel — Triage tab (backlog #13)", () => {
     expect(screen.queryByRole("tab", { name: "Triage" })).toBeNull();
   });
 });
+
+describe("PodPanel — copy the pod's name (backlog #21)", () => {
+  it("offers to copy the pod's name beside its title", () => {
+    const writeText = vi.fn(async () => {});
+    Object.assign(navigator, { clipboard: { writeText } });
+    render(<PodPanel pod={pod} onClose={() => {}} />);
+    fireEvent.click(screen.getByRole("button", { name: "Copy name web-abc-xyz" }));
+    expect(writeText).toHaveBeenCalledWith("web-abc-xyz");
+  });
+});
