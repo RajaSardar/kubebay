@@ -265,7 +265,9 @@ jobs:
   # with a dry-run diff, applied. See docs/E2E.md.
   e2e:
     name: e2e (kind)
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest became 26.04, where Playwright 1.56 can't install
+    # Chromium ("does not support chromium on ubuntu26.04-x64").
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
       KUBEBAY_TOKEN: e2e-token
@@ -345,7 +347,9 @@ jobs:
   # gets --fail. Method: docs/PERFORMANCE.md.
   perf:
     name: perf (kind)
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest became 26.04, where Playwright 1.56 can't install
+    # Chromium ("does not support chromium on ubuntu26.04-x64").
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -395,7 +399,9 @@ jobs:
   # cluster config (feature gates, CDI), which this job uses as it is.
   e2e-dra:
     name: e2e dra (kind, Kubernetes 1.37)
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest became 26.04, where Playwright 1.56 can't install
+    # Chromium ("does not support chromium on ubuntu26.04-x64").
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
       KUBEBAY_TOKEN: e2e-token
