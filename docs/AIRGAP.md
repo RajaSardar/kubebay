@@ -1,16 +1,16 @@
 # Installing Kubebay in an air-gapped cluster
 
-Each release from v0.8 has a `kubebay-airgap-<version>.tar.gz` asset with everything the in-cluster deployment needs and nothing it has to download. Kubebay has no account, licence server or phone-home, so once the image is inside it runs as it would anywhere else.
+Each release from v0.7 has a `kubebay-airgap-<version>.tar.gz` asset with everything the in-cluster deployment needs and nothing it has to download. Kubebay has no account, licence server or telemetry, so once the image is inside it runs as it would anywhere else.
 
 ## What's in the bundle
 
 ```text
-kubebay-airgap-v0.8.0/
+kubebay-airgap-v0.7.0/
   README.md                                this guide
-  chart/kubebay-0.8.0.tgz                  the Helm chart, its image pinned to v0.8.0
-  images/kubebay-v0.8.0.oci.tar            the image for every platform (linux/amd64, linux/arm64)
-  images/kubebay-v0.8.0-linux-amd64.tar    the image for one platform, for docker load or ctr import
-  images/kubebay-v0.8.0-linux-arm64.tar
+  chart/kubebay-0.7.0.tgz                  the Helm chart, its image pinned to v0.7.0
+  images/kubebay-v0.7.0.oci.tar            the image for every platform (linux/amd64, linux/arm64)
+  images/kubebay-v0.7.0-linux-amd64.tar    the image for one platform, for docker load or ctr import
+  images/kubebay-v0.7.0-linux-arm64.tar
   SHA256SUMS                               a checksum of every file above
   SHA256SUMS.cosign.bundle                 a keyless signature of SHA256SUMS
 ```
@@ -20,18 +20,18 @@ kubebay-airgap-v0.8.0/
 Check the tarball before you carry it across, the same way as any Kubebay release asset (see [Verify your download](INSTALL.md#verify-your-download)):
 
 ```bash
-cosign verify-blob kubebay-airgap-v0.8.0.tar.gz \
-  --bundle kubebay-airgap-v0.8.0.tar.gz.cosign.bundle \
+cosign verify-blob kubebay-airgap-v0.7.0.tar.gz \
+  --bundle kubebay-airgap-v0.7.0.tar.gz.cosign.bundle \
   --certificate-identity-regexp '^https://github\.com/RajaSardar/kubebay/\.github/workflows/release\.yml@refs/tags/v' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
-gh attestation verify kubebay-airgap-v0.8.0.tar.gz --repo RajaSardar/kubebay
+gh attestation verify kubebay-airgap-v0.7.0.tar.gz --repo RajaSardar/kubebay
 ```
 
 ## 2. Inside: check what arrived
 
 ```bash
-tar -xzf kubebay-airgap-v0.8.0.tar.gz
-cd kubebay-airgap-v0.8.0
+tar -xzf kubebay-airgap-v0.7.0.tar.gz
+cd kubebay-airgap-v0.7.0
 sha256sum -c SHA256SUMS          # macOS: shasum -a 256 -c SHA256SUMS
 ```
 
@@ -42,25 +42,25 @@ sha256sum -c SHA256SUMS          # macOS: shasum -a 256 -c SHA256SUMS
 Either push it to the registry your cluster pulls from, keeping every platform:
 
 ```bash
-skopeo copy --all oci-archive:images/kubebay-v0.8.0.oci.tar docker://registry.example.internal/kubebay:v0.8.0
+skopeo copy --all oci-archive:images/kubebay-v0.7.0.oci.tar docker://registry.example.internal/kubebay:v0.7.0
 ```
 
 Or, without a registry, import the archive for your nodes' platform on each node:
 
 ```bash
-docker load -i images/kubebay-v0.8.0-linux-amd64.tar                    # Docker
-sudo ctr -n k8s.io images import images/kubebay-v0.8.0-linux-amd64.tar  # containerd
-sudo k3s ctr images import images/kubebay-v0.8.0-linux-amd64.tar        # k3s
+docker load -i images/kubebay-v0.7.0-linux-amd64.tar                    # Docker
+sudo ctr -n k8s.io images import images/kubebay-v0.7.0-linux-amd64.tar  # containerd
+sudo k3s ctr images import images/kubebay-v0.7.0-linux-amd64.tar        # k3s
 ```
 
-The per-platform archives name the image `ghcr.io/rajasardar/kubebay:v0.8.0`, as the chart does by default. Importing on each node needs `image.pullPolicy=IfNotPresent` (the chart's default), so the kubelet uses the image it has instead of going to ghcr.io.
+The per-platform archives name the image `ghcr.io/rajasardar/kubebay:v0.7.0`, as the chart does by default. Importing on each node needs `image.pullPolicy=IfNotPresent` (the chart's default), so the kubelet uses the image it has instead of going to ghcr.io.
 
 ## 4. Install the chart
 
 The chart in the bundle already uses this release's image tag, never `latest`. With a private registry, point it there:
 
 ```bash
-helm install kubebay chart/kubebay-0.8.0.tgz \
+helm install kubebay chart/kubebay-0.7.0.tgz \
   --namespace kubebay --create-namespace \
   --set image.repository=registry.example.internal/kubebay
 ```

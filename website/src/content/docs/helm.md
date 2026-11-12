@@ -53,7 +53,7 @@ If your identity can't read Helm's release records across the cluster, the page 
 
 ## Charts — install
 
-A store of the charts in your Helm repositories. Kubebay reads your local Helm config, so the repos you added with `helm repo add` are already there. If you have none, it says so.
+The charts in the Helm repositories you already added. Kubebay reads your local Helm config, so the repos you added with `helm repo add` are already there. If you have none, it says so.
 
 - Pick **All repos** or one, and **Search charts…** by name.
 - **Update indexes** fetches each repo's latest index, like `helm repo update`.

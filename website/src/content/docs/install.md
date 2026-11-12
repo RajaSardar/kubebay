@@ -8,7 +8,7 @@ appRoutes: []
 
 Kubebay comes in three forms. They're the same engine and the same app:
 
-- **The desktop app.** A native window on macOS, Windows and Linux. Most people want this.
+- **The desktop app.** A native window on macOS, with Windows and Linux builds in Preview (see below). Most people want this.
 - **The engine on its own.** One binary that serves the app to your browser. Use it on a server, in a container, or when you'd rather not install a desktop app.
 - **In a cluster.** A Helm chart that runs the engine for a team, behind your own sign-in.
 
@@ -91,7 +91,7 @@ The chart's values cover OIDC, TLS and resources. In a cluster, Kubebay turns of
 
 ## Verify a download
 
-Every release asset has a `.sha256`, a keyless [cosign](https://docs.sigstore.dev/cosign/) signature (`.cosign.bundle`, from v0.8) and a GitHub build-provenance attestation:
+Every release asset has a keyless [cosign](https://docs.sigstore.dev/cosign/) signature (`.cosign.bundle`, from v0.7) and a GitHub build-provenance attestation. The engine tarballs also have a `.sha256`:
 
 ```bash
 shasum -a 256 -c kubebay-linux-amd64.tar.gz.sha256
