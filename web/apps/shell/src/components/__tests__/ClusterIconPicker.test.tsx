@@ -100,3 +100,13 @@ describe("stripAvatarLook", () => {
     expect(stripAvatarLook({ broken: true }).opacity).toBeLessThan(0.5);
   });
 });
+
+describe("ClusterIconPicker – colour swatches", () => {
+  it("changing the colour keeps a custom label", () => {
+    const onSave = vi.fn();
+    renderPicker({ bg: "#F90", label: "PRX" }, onSave);
+    fireEvent.click(screen.getByTitle("DEV"));
+    fireEvent.click(screen.getByRole("button", { name: /apply/i }));
+    expect(onSave).toHaveBeenCalledWith({ bg: "#41c98e", label: "PRX" });
+  });
+});
