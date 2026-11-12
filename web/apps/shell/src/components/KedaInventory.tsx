@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Badge, Button, Card, EmptyState, InlineBanner, Row, Stack } from "@kubebay/ui";
+import { Badge, Button, Card, EmptyState, InlineBanner, Row, Stack, StatusPill } from "@kubebay/ui";
 import { ResourceLink } from "./ResourceLink";
 import { explainScaledObject, hpaConflictsWithScaledObject } from "../lib/keda";
 import type { OrphanedTriggerAuth } from "../lib/keda";
@@ -83,7 +83,7 @@ export function KedaInventory({
                   <span className="mono strong small">{explain.name}</span>
                 )}
                 <span className="muted small">{explain.ns}</span>
-                {explain.paused && <Badge>paused</Badge>}
+                {explain.paused ? <StatusPill tone="warn">Paused</StatusPill> : <StatusPill tone="ok">Active</StatusPill>}
               </Row>
               <div className="small" style={{ marginTop: 8 }}>
                 {explain.summary} — target{" "}

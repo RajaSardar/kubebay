@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { EmptyState, PageHeader } from "@kubebay/ui";
 import { PageHelp } from "../components/PageHelp";
-import { KedaInventory } from "../components/KedaInventory";
+import { KedaBrowser } from "../components/KedaBrowser";
 import { PageLoader } from "../components/PageLoader";
 import { crdApi } from "../lib/api";
 import { useResourceStream } from "../lib/useResourceStream";
@@ -17,7 +17,8 @@ import { detectKeda, findOrphanedTriggerAuths } from "../lib/keda";
  * list). ScaledJobs are deliberately out of scope for this pass: their spec
  * scales a Job template directly (no scaleTargetRef), a different enough
  * shape that explainScaledObject/hpaConflictsWithScaledObject don't apply to
- * them -- ScaledObjects only, same as what this page's own detection checks.
+ * them -- the rich inventory is ScaledObjects only; ScaledJobs and the auth
+ * kinds appear in KedaBrowser's flat All / per-kind views.
  */
 export default function Keda() {
   const { cluster: effectiveCluster } = useCluster();
@@ -35,6 +36,10 @@ export default function Keda() {
   const scaledObjects = useResourceStream(detection.scaledObjectGvr ? effectiveCluster : undefined, detection.scaledObjectGvr ?? "", {
     mode: "full",
     enabled: !!detection.scaledObjectGvr,
+  });
+  const scaledJobs = useResourceStream(detection.scaledJobGvr ? effectiveCluster : undefined, detection.scaledJobGvr ?? "", {
+    mode: "full",
+    enabled: !!detection.scaledJobGvr,
   });
   const hpas = useResourceStream(effectiveCluster || undefined, "autoscaling/v2/horizontalpodautoscalers", {
     mode: "full",
@@ -96,11 +101,15 @@ export default function Keda() {
     <div className="page">
       <PageHeader help={<PageHelp route="/keda" />} level={2} title="KEDA" count={`· ${scaledObjects.rows.length} ScaledObjects`} />
       <div className="page-body">
-        <KedaInventory
+        <KedaBrowser
           scaledObjects={scaledObjects.rows}
+          scaledJobs={scaledJobs.rows}
+          triggerAuths={triggerAuths.rows}
+          clusterTriggerAuths={clusterTriggerAuths.rows}
           hpas={hpas.rows}
           orphanedTriggerAuths={orphanedTriggerAuths}
           scaledObjectGvr={detection.scaledObjectGvr}
+          scaledJobGvr={detection.scaledJobGvr}
           triggerAuthGvr={detection.triggerAuthGvr}
           clusterTriggerAuthGvr={detection.clusterTriggerAuthGvr}
         />

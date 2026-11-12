@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { explainScaledObject, hpaConflictsWithScaledObject } from "../keda";
+import { explainScaledObject, hpaConflictsWithScaledObject, scaledObjectPauseState, detectKeda, filterKedaRows } from "../keda";
 
 function scaledObject(overrides: Record<string, unknown> = {}) {
   return {
@@ -71,17 +71,62 @@ describe("explainScaledObject", () => {
     expect(e.triggerDescriptions[0]).toMatch(/postgresql/i);
   });
 
-  it("flags paused via spec.advanced.paused", () => {
-    const so = scaledObject({
-      spec: {
-        scaleTargetRef: { name: "app", kind: "Deployment" },
-        minReplicaCount: 1,
-        maxReplicaCount: 20,
-        triggers: [],
-        advanced: { paused: "true" },
-      },
-    });
+  it("flags paused via the autoscaling.keda.sh/paused annotation", () => {
+    const so = scaledObject({ metadata: { name: "so", namespace: "prod", annotations: { "autoscaling.keda.sh/paused": "true" } } });
     expect(explainScaledObject(so).paused).toBe(true);
+  });
+});
+
+describe("scaledObjectPauseState", () => {
+  const withMeta = (annotations: Record<string, string>, conditions?: unknown[]) => ({
+    metadata: { name: "so", namespace: "prod", annotations },
+    spec: {},
+    status: conditions ? { conditions } : undefined,
+  });
+
+  it("is active with no annotation or condition", () => {
+    expect(scaledObjectPauseState(withMeta({}))).toEqual({ paused: false, replicas: undefined });
+  });
+  it("is paused by the paused annotation", () => {
+    expect(scaledObjectPauseState(withMeta({ "autoscaling.keda.sh/paused": "true" })).paused).toBe(true);
+  });
+  it("is not paused when the annotation is false", () => {
+    expect(scaledObjectPauseState(withMeta({ "autoscaling.keda.sh/paused": "false" })).paused).toBe(false);
+  });
+  it("is paused by paused-replicas and reports the count", () => {
+    expect(scaledObjectPauseState(withMeta({ "autoscaling.keda.sh/paused-replicas": "3" }))).toEqual({ paused: true, replicas: 3 });
+  });
+  it("is paused by a Paused=True status condition", () => {
+    expect(scaledObjectPauseState(withMeta({}, [{ type: "Paused", status: "True" }])).paused).toBe(true);
+  });
+  it("is not paused by a Paused=False condition", () => {
+    expect(scaledObjectPauseState(withMeta({}, [{ type: "Paused", status: "False" }])).paused).toBe(false);
+  });
+});
+
+describe("detectKeda", () => {
+  const crd = (resource: string) => ({ group: "keda.sh", resource, gvr: `keda.sh/v1alpha1/${resource}` }) as never;
+  it("detects ScaledJobs", () => {
+    const d = detectKeda([crd("scaledobjects"), crd("scaledjobs")]);
+    expect(d.scaledJobGvr).toBe("keda.sh/v1alpha1/scaledjobs");
+  });
+});
+
+describe("filterKedaRows", () => {
+  const rows = [
+    { kind: "ScaledObject" as const, name: "orders", ns: "prod", gvr: "g" },
+    { kind: "ScaledJob" as const, name: "batch", ns: "prod", gvr: "g" },
+    { kind: "ClusterTriggerAuthentication" as const, name: "aws", ns: "", gvr: "g" },
+  ];
+  it("returns everything for All with empty search", () => {
+    expect(filterKedaRows(rows, "all", "")).toHaveLength(3);
+  });
+  it("narrows by kind", () => {
+    expect(filterKedaRows(rows, "ScaledJob", "").map((r) => r.name)).toEqual(["batch"]);
+  });
+  it("searches name, namespace and kind case-insensitively", () => {
+    expect(filterKedaRows(rows, "all", "PROD")).toHaveLength(2);
+    expect(filterKedaRows(rows, "all", "clustertrigger").map((r) => r.name)).toEqual(["aws"]);
   });
 });
 
