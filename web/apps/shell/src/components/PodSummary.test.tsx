@@ -190,4 +190,30 @@ describe("PodSummary", () => {
     renderSummary(basePod);
     expect(screen.queryByText(/Resource claims/)).toBeNull();
   });
+
+  it("lists every pod IP of a dual-stack pod and the host IPs in Metadata", () => {
+    renderSummary({
+      ...basePod,
+      status: {
+        ...basePod.status,
+        podIP: "10.0.0.5",
+        podIPs: [{ ip: "10.0.0.5" }, { ip: "fd00::5" }],
+        hostIP: "192.168.1.10",
+        hostIPs: [{ ip: "192.168.1.10" }, { ip: "2001:db8::a" }],
+      },
+    });
+    expect(screen.getByText("Pod IPs")).toBeTruthy();
+    expect(screen.getByText("fd00::5")).toBeTruthy();
+    expect(screen.getByText("Host IPs")).toBeTruthy();
+    expect(screen.getByText("192.168.1.10")).toBeTruthy();
+    expect(screen.getByText("2001:db8::a")).toBeTruthy();
+  });
+
+  it("uses singular labels and falls back to podIP/hostIP when the list fields are absent", () => {
+    renderSummary({ ...basePod, status: { ...basePod.status, podIP: "10.0.0.5", hostIP: "192.168.1.10" } });
+    expect(screen.getByText("Pod IP")).toBeTruthy();
+    expect(screen.getByText("Host IP")).toBeTruthy();
+    expect(screen.getByText("192.168.1.10")).toBeTruthy();
+    expect(screen.queryByText("Pod IPs")).toBeNull();
+  });
 });

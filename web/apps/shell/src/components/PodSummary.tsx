@@ -58,6 +58,22 @@ function str(v: unknown): string {
   return JSON.stringify(v);
 }
 
+/** status.podIPs / hostIPs (dual-stack) as plain addresses, falling back to the single legacy field. */
+function ipList(list: unknown, single: string): string[] {
+  const ips = arr(list).map((e) => str(e.ip)).filter(Boolean);
+  return ips.length > 0 ? ips : single ? [single] : [];
+}
+
+function IPs({ ips }: { ips: string[] }) {
+  return (
+    <Stack gap={1}>
+      {ips.map((ip) => (
+        <span key={ip} className="mono small">{ip}</span>
+      ))}
+    </Stack>
+  );
+}
+
 export function PodSummary({
   obj,
   cluster,
@@ -79,6 +95,8 @@ export function PodSummary({
     const nodeName = str(spec.nodeName);
     const phase = str(status.phase);
     const podIP = str(status.podIP);
+    const podIPs = ipList(status.podIPs, podIP);
+    const hostIPs = ipList(status.hostIPs, str(status.hostIP));
     const qos = str(status.qosClass);
     const scheduler = str(spec.schedulerName) || "default-scheduler";
     const sa = str(spec.serviceAccountName) || "default";
@@ -134,6 +152,8 @@ export function PodSummary({
       claims: podResourceClaims(obj),
       phase,
       podIP,
+      podIPs,
+      hostIPs,
       nodeName,
       qos,
       scheduler,
@@ -191,6 +211,8 @@ export function PodSummary({
             </ResourceLink>
           }
         />
+        <KV k={data.podIPs.length > 1 ? "Pod IPs" : "Pod IP"} v={data.podIPs.length > 0 ? <IPs ips={data.podIPs} /> : null} />
+        <KV k={data.hostIPs.length > 1 ? "Host IPs" : "Host IP"} v={data.hostIPs.length > 0 ? <IPs ips={data.hostIPs} /> : null} />
         <KV k="Scheduler" v={<span className="mono">{data.scheduler}</span>} />
         <KV k="Restart Policy" v={data.restartPolicy} />
         <KV k="DNS Policy" v={data.dnsPolicy} />
