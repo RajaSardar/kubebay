@@ -1,5 +1,14 @@
 ---
-import { COLUMNS, COLUMN_NAMES, rows, type Cell } from "../data/comparison";
+import {
+  COLUMNS,
+  COLUMN_NAMES,
+  rows,
+  standoutRows,
+  STANDOUT_COLUMNS,
+  STANDOUT_GROUP_TITLES,
+  type Cell,
+  type StandoutGroup,
+} from "../data/comparison";
 
 function cellSymbol(v: Cell): string {
   if (v.kind === "yes") return "✓";
@@ -9,13 +18,15 @@ function cellSymbol(v: Cell): string {
 }
 
 const others = COLUMNS.filter((c) => c !== "kubebay");
+const standoutOthers = STANDOUT_COLUMNS.filter((c) => c !== "kubebay");
+const groups: StandoutGroup[] = ["paid-in-lens", "undocumented"];
 ---
 
 <section class="comparison" id="comparison">
   <div class="comparison__inner">
     <div class="comparison__header">
       <h2 class="comparison__title">How Kubebay compares</h2>
-      <p class="comparison__sub">Every cell links to its source. Each was checked on 13 October 2026.</p>
+      <p class="comparison__sub">Every cell links to its source and shows the day it was checked.</p>
     </div>
 
     <div class="table-wrap">
@@ -62,7 +73,59 @@ const others = COLUMNS.filter((c) => c !== "kubebay");
         </tbody>
       </table>
     </div>
+    <h3 class="comparison__subtitle" id="goes-further">Where Kubebay goes further</h3>
+    <p class="comparison__sub comparison__sub--tight">
+      What Kubebay does that Lens and Freelens don't document, or keep behind a paid plan.
+    </p>
+
+    <div class="table-wrap">
+      <table class="compare-table compare-table--wrap" aria-label="Features where Kubebay goes further than Lens and Freelens">
+        <thead>
+          <tr>
+            <th class="col-feature" scope="col">Feature</th>
+            <th class="col-kubebay" scope="col">
+              <span class="col-kubebay__label">Kubebay</span>
+            </th>
+            {standoutOthers.map((c) => <th scope="col">{COLUMN_NAMES[c]}</th>)}
+          </tr>
+        </thead>
+        {groups.map((group) => (
+          <tbody>
+            <tr class="group-row">
+              <th colspan={STANDOUT_COLUMNS.length + 1} scope="colgroup">{STANDOUT_GROUP_TITLES[group]}</th>
+            </tr>
+            {standoutRows.filter((r) => r.group === group).map((row) => (
+              <tr>
+                <td class="col-feature">{row.feature}</td>
+                {STANDOUT_COLUMNS.map((col) => {
+                  const v = row[col];
+                  return (
+                    <td class={col === "kubebay" ? "col-kubebay" : undefined}>
+                      <span class={`cell cell--${v.kind}`}>
+                        <span class="cell__sym" aria-hidden="true">{cellSymbol(v)}</span>
+                        {v.label && <span class="cell__text">{v.label}</span>}
+                        <a
+                          class="cell__src"
+                          href={v.source.url}
+                          title={v.source.note ? `${v.source.note} (checked ${v.source.checked})` : `Checked ${v.source.checked}`}
+                          aria-label={`Source for ${COLUMN_NAMES[col]}, ${row.feature}`}
+                          rel="noopener"
+                          target="_blank"
+                        >
+                          source
+                        </a>
+                      </span>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        ))}
+      </table>
+    </div>
     <p class="comparison__note">
+      &ldquo;Not documented&rdquo; means the tool's own documentation, README, releases and extensions don't describe it. It doesn't mean the tool can't do it.
       Memory, start-up time and installer size are left out until Kubebay measures every tool with the same script.
     </p>
   </div>
@@ -96,6 +159,42 @@ const others = COLUMNS.filter((c) => c !== "kubebay");
     font-size: 1rem;
     color: var(--muted);
     margin: 0;
+  }
+
+
+  .comparison__subtitle {
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: #fff;
+    margin: 56px 0 8px;
+    letter-spacing: -0.01em;
+    text-align: center;
+  }
+
+  .comparison__sub--tight {
+    text-align: center;
+    margin: 0 0 24px;
+  }
+
+  /* Feature names here are sentences, so let them wrap. */
+  .compare-table--wrap .col-feature {
+    white-space: normal;
+    min-width: 200px;
+  }
+
+  .compare-table--wrap {
+    min-width: 760px;
+  }
+
+  .compare-table .group-row th {
+    padding: 12px 20px;
+    text-align: left;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 6%, transparent);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
   }
 
   /* ── Scroll wrapper ── */
