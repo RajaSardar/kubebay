@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Badge, Button, InlineBanner, Row, Select, Spinner, StatusDot, Tabs, TextField, Drawer } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { usePodLogs, type PodLogsSpec } from "../lib/usePodLogs";
+import { ansiSegments, logLevel, stripAnsi, type LogLevel, type LogTone } from "../lib/logLevels";
 import { ExecTerm, YamlTab } from "../components/heavy";
 import { forceDeleteEffect, forceDeleteLabel } from "../lib/podDelete";
 import { PodSummary } from "../components/PodSummary";
@@ -25,10 +26,35 @@ export interface SelectedPod {
 
 const TAILS = [200, 2000, 10000];
 
-function classify(line: string): "" | "err" | "warn" {
-  if (/\b(FATAL|ERROR|Error|E\d{4})\b/.test(line)) return "err";
-  if (/\b(WARN|Warning|W\d{4})\b/.test(line)) return "warn";
-  return "";
+// Backlog #22: a log line's class from its level (lib/logLevels).
+const LEVEL_CLASS: Record<LogLevel, string> = { error: "err", warn: "warn", success: "ok", info: "info", debug: "debug", "": "" };
+const ANSI_CLASS: Record<LogTone, string> = {
+  err: "log-ansi-err",
+  warn: "log-ansi-warn",
+  ok: "log-ansi-ok",
+  info: "log-ansi-info",
+  muted: "log-ansi-muted",
+};
+
+/** A log line, coloured by its level, with an app's own ANSI colours as theme tones. */
+function LogLine({ line }: { line: string }) {
+  const level = LEVEL_CLASS[logLevel(line)];
+  const segments = ansiSegments(line);
+  return (
+    <div className={level ? `log-line ${level}` : "log-line"}>
+      {segments
+        ? segments.map((seg, i) =>
+            seg.tone || seg.bold ? (
+              <span key={i} className={[seg.tone && ANSI_CLASS[seg.tone], seg.bold && "log-ansi-bold"].filter(Boolean).join(" ")}>
+                {seg.text}
+              </span>
+            ) : (
+              seg.text
+            ),
+          )
+        : line}
+    </div>
+  );
 }
 
 const POD_TABS = ["summary", "logs", "triage", "shell", "graphs", "size", "vulnerabilities", "signatures", "events", "yaml"] as const;
@@ -91,7 +117,8 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
     }
   }, [lines, follow, tab]);
 
-  const shown = filter ? lines.filter((l) => l.includes(filter)) : lines;
+  // Filter on the text you see, not on an app's escape codes.
+  const shown = filter ? lines.filter((l) => stripAnsi(l).includes(filter)) : lines;
 
   function download() {
     const blob = new Blob([lines.join("\n") + "\n"], { type: "text/plain" });
@@ -271,9 +298,7 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
               </div>
             )}
             {shown.map((l, i) => (
-              <div key={i} className={`log-line ${classify(l)}`}>
-                {l}
-              </div>
+              <LogLine key={i} line={l} />
             ))}
           </div>
         </>

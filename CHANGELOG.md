@@ -7,6 +7,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 ## [Unreleased]
 
 ### Added
+- **Pod logs in colour**: the Logs tab colours each line by its level, the way log tools do: errors red, warnings amber, success green, debug and trace dimmed. The level comes from the line's own structure, so "0 errors" in prose no longer turns a line red, and JSON and logfmt levels are no longer missed:
+  - JSON (`"level":"error"`, `"severity":"WARNING"`, pino's numbers);
+  - logfmt (`level=warn`);
+  - klog's `E`/`W`/`I`/`F` prefixes;
+  - bracketed or capitalised level words;
+  - exceptions at the start of a line.
+
+  Lines with no level that say something failed or succeeded are coloured too. An app's own ANSI colours show in the theme's colours instead of as raw escape codes, and the filter matches the text you see (backlog #22)
 - **Copy the name of anything you open**: every drawer has a copy button beside its title that copies the resource's name. That covers pods, Deployments, StatefulSets, Services and every other kind, Helm releases and charts, and a workload's vulnerabilities. A guard test keeps every new drawer offering it (backlog #21)
 - **A pod shows its IPs**: a pod's Summary lists its **Pod IP**, or **Pod IPs** for both families on a dual-stack pod, and the **Host IP** of the node it runs on, like Lens and Freelens. Each has a copy button. A pod without an address yet says "not assigned yet". `@kubebay/ui` gains a `CopyButton` (backlog #19)
 - **The terminal lives in a dock under every page**: the local shell moves from its own page into a dock above the status bar, beside the sidebar, the way Freelens keeps it. The shell keeps running, with its scrollback, while you move between pages, open the Clusters page or hide the dock. Hiding it no longer resizes the program running in it.

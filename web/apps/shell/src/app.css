@@ -515,6 +515,44 @@ h2 {
   color: var(--kb-status-warn);
 }
 
+/* Backlog #22: success green, info at full strength, debug dimmed. */
+.log-line.ok {
+  color: var(--kb-status-ok);
+}
+
+.log-line.info {
+  color: var(--kb-fg-default);
+}
+
+.log-line.debug {
+  color: var(--kb-fg-subtle);
+}
+
+/* An app's own ANSI colours, as theme tones. */
+.log-ansi-err {
+  color: var(--kb-status-err);
+}
+
+.log-ansi-warn {
+  color: var(--kb-status-warn);
+}
+
+.log-ansi-ok {
+  color: var(--kb-status-ok);
+}
+
+.log-ansi-info {
+  color: var(--kb-status-info);
+}
+
+.log-ansi-muted {
+  color: var(--kb-fg-subtle);
+}
+
+.log-ansi-bold {
+  font-weight: 600;
+}
+
 .term-wrap {
   flex: 1;
   display: flex;
