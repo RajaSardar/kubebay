@@ -13,8 +13,14 @@ function loadFavorites(): string[] {
   }
 }
 
+const FAV_EVENT = "kb:favorites-changed";
+
+// Every useFavorites() caller (the sidebar, each star) holds its own copy, so a
+// save announces itself and the others reload; otherwise a new star would not
+// reach the sidebar until the next launch.
 function saveFavorites(favs: string[]) {
   localStorage.setItem(FAV_KEY, JSON.stringify(favs));
+  window.dispatchEvent(new Event(FAV_EVENT));
 }
 
 const ROUTE_LABELS: Record<string, string> = {
@@ -32,14 +38,17 @@ const ROUTE_LABELS: Record<string, string> = {
 
 function labelFor(path: string): string {
   if (ROUTE_LABELS[path]) return ROUTE_LABELS[path];
+  const g = path.match(/^\/crds\?(.*)$/);
+  const group = g ? new URLSearchParams(g[1]).get("group") : null;
+  if (group) return group;
   const m = path.match(/^\/r\/([^?]+)/);
   if (m && m[1]) {
     const slug = m[1];
     const def = DEFS[slug] ?? EXTRA_DEFS[slug];
     if (def) return def.label;
+    // A CRD shortcut is labelled by its plural, e.g. "applications".
+    if (slug.startsWith("ext--")) return slug.split("--").pop() || slug;
     return slug
-      .replace(/^ext--/, "")
-      .replace(/--/g, "/")
       .replace(/([a-z])([A-Z])/g, "$1 $2")
       .replace(/\b\w/g, (c) => c.toUpperCase());
   }
@@ -49,38 +58,19 @@ function labelFor(path: string): string {
 export function useFavorites() {
   const [favorites, setFavorites] = useState(loadFavorites);
 
-  const add = useCallback(
-    (path: string) => {
-      setFavorites((prev) => {
-        if (prev.includes(path)) return prev;
-        const next = [...prev, path];
-        saveFavorites(next);
-        return next;
-      });
-    },
-    [],
-  );
+  // Read-modify-write against storage (the source of truth) and announce it, so
+  // every other useFavorites() caller reloads.
+  const update = useCallback((fn: (prev: string[]) => string[]) => {
+    saveFavorites(fn(loadFavorites()));
+  }, []);
 
-  const remove = useCallback(
-    (path: string) => {
-      setFavorites((prev) => {
-        const next = prev.filter((f) => f !== path);
-        saveFavorites(next);
-        return next;
-      });
-    },
-    [],
-  );
+  const add = useCallback((path: string) => update((prev) => (prev.includes(path) ? prev : [...prev, path])), [update]);
+
+  const remove = useCallback((path: string) => update((prev) => prev.filter((f) => f !== path)), [update]);
 
   const toggle = useCallback(
-    (path: string) => {
-      setFavorites((prev) => {
-        const next = prev.includes(path) ? prev.filter((f) => f !== path) : [...prev, path];
-        saveFavorites(next);
-        return next;
-      });
-    },
-    [],
+    (path: string) => update((prev) => (prev.includes(path) ? prev.filter((f) => f !== path) : [...prev, path])),
+    [update],
   );
 
   const has = useCallback(
@@ -89,7 +79,10 @@ export function useFavorites() {
   );
 
   useEffect(() => {
-    setFavorites(loadFavorites());
+    const reload = () => setFavorites(loadFavorites());
+    reload();
+    window.addEventListener(FAV_EVENT, reload);
+    return () => window.removeEventListener(FAV_EVENT, reload);
   }, []);
 
   return { favorites, add, remove, toggle, has };
@@ -129,13 +122,14 @@ export function FavoritesSidebar({ favorites, onRemove }: { favorites: string[];
   );
 }
 
-export function StarButton({ path }: { path: string }) {
+/** `name` says what the star is for ("Add Application to favorites"); without it the label is generic. */
+export function StarButton({ path, name }: { path: string; name?: string }) {
   const { favorites, toggle } = useFavorites();
   const isFav = favorites.includes(path);
 
   return (
     <IconButton
-      label={isFav ? "Remove from favorites" : "Add to favorites"}
+      label={isFav ? (name ? `Remove ${name} from favorites` : "Remove from favorites") : name ? `Add ${name} to favorites` : "Add to favorites"}
       className="star-btn"
       active={isFav}
       onClick={() => toggle(path)}

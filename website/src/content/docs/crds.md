@@ -8,6 +8,8 @@ appRoutes: ["/crds"]
 
 **CRDs** in the sidebar's Tools lists every CustomResourceDefinition on the cluster, grouped by API group. **Search kinds…** narrows the list. A badge says how many printer columns a kind declares. Hover over it to see their names.
 
+Click the **☆** beside a kind, or beside an API group, to add it to **Favorites** in the sidebar. A group shortcut opens this page showing only that group (**Show all groups** clears it). Click **★** there, on the kind's own table title, or the **×** on the sidebar entry to remove it. Favorites are shared across clusters, so a shortcut to a CRD the current cluster lacks opens an empty table.
+
 Click a kind to open its table. It works like any [resource table](/docs/resources/): live rows, filter, sort, row actions, a drawer with YAML and events. Its columns are the ones the CRD declares as printer columns, so a cert-manager `Certificate` shows Ready and Secret, as `kubectl get` would.
 
 The same kinds are also in the sidebar under **Custom Resources**, grouped by API group. A long group shows its first kinds and a **Show all** with the count.

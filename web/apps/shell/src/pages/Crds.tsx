@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { NavLink } from "react-router-dom";
+import { NavLink, useSearchParams } from "react-router-dom";
 import { crdApi, type CRDEntry } from "../lib/api";
 import { extSlug } from "../lib/resources";
 import { useCluster } from "../lib/useCluster";
-import { Badge, Button, InlineBanner, PageHeader, SkeletonLines, TextField } from "@kubebay/ui";
+import { Badge, Button, InlineBanner, PageHeader, Row, SkeletonLines, TextField } from "@kubebay/ui";
+import { StarButton } from "../components/Favorites";
 import { PageHelp } from "../components/PageHelp";
 
 function extPath(r: CRDEntry) {
@@ -21,6 +22,9 @@ export default function Crds() {
     retry: 2,
   });
 
+  const [sp, setSp] = useSearchParams();
+  // /crds?group=… is a group shortcut from the sidebar's Favorites.
+  const onlyGroup = sp.get("group") ?? "";
   const [search, setSearch] = useState("");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
@@ -43,13 +47,14 @@ export default function Crds() {
 
   const filtered = useMemo(() => {
     const lc = search.toLowerCase();
-    if (!lc) return groups;
-    return groups
+    const scoped = onlyGroup ? groups.filter(([g]) => g === onlyGroup) : groups;
+    if (!lc) return scoped;
+    return scoped
       .map(([g, rows]) => [g, rows.filter(
         (r) => r.kind.toLowerCase().includes(lc) || r.resource.toLowerCase().includes(lc) || r.group.toLowerCase().includes(lc),
       )] as [string, CRDEntry[]])
       .filter(([, rows]) => rows.length > 0);
-  }, [groups, search]);
+  }, [groups, search, onlyGroup]);
 
   const totalCount = (q.data ?? []).length;
 
@@ -81,6 +86,11 @@ export default function Crds() {
           spellCheck={false}
           style={{ maxWidth: 280 }}
         />
+        {onlyGroup && (
+          <Button variant="ghost" onClick={() => setSp({}, { replace: true })}>
+            Showing {onlyGroup} only. Show all groups
+          </Button>
+        )}
         {q.isLoading && <SkeletonLines lines={10} label="Loading custom resource definitions…" />}
         {!q.isLoading && search && (
           <span className="muted small">
@@ -100,23 +110,27 @@ export default function Crds() {
           const open = !collapsed.has(group);
           return (
             <div key={group} className="crd-tree-group">
-              <button
-                className="crd-tree-group-header"
-                onClick={() => toggleGroup(group)}
-                aria-expanded={open}
-              >
-                <span className="crd-tree-chevron">{open ? "▾" : "▸"}</span>
-                <span className="crd-tree-group-name">{group}</span>
-                <span className="crd-tree-count">{rows.length}</span>
-              </button>
+              <Row align="center" gap={1}>
+                <button
+                  className="crd-tree-group-header"
+                  onClick={() => toggleGroup(group)}
+                  aria-expanded={open}
+                >
+                  <span className="crd-tree-chevron">{open ? "▾" : "▸"}</span>
+                  <span className="crd-tree-group-name">{group}</span>
+                  <span className="crd-tree-count">{rows.length}</span>
+                </button>
+                <StarButton path={`/crds?group=${encodeURIComponent(group)}`} name={group} />
+              </Row>
 
               {open && (
                 <div className="crd-tree-rows">
                   {rows.map((r) => (
+                    <Row key={r.gvr} align="center" gap={1}>
                     <NavLink
-                      key={r.gvr}
                       to={extPath(r)}
                       className={({ isActive }) => `crd-tree-row${isActive ? " active" : ""}`}
+                      style={{ flex: 1 }}
                     >
                       <span className="crd-tree-kind">{r.kind}</span>
                       <span className="crd-tree-meta">
@@ -127,6 +141,8 @@ export default function Crds() {
                         )}
                       </span>
                     </NavLink>
+                    <StarButton path={extPath(r)} name={r.kind} />
+                    </Row>
                   ))}
                 </div>
               )}

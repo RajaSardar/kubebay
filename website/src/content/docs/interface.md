@@ -72,7 +72,7 @@ Keys are ignored while you're typing in a field, or while a drawer or dialog is 
 
 ## Favourites
 
-Click the **☆** next to a resource table's title to add it to **Favorites** in the sidebar. Click **★** to remove it.
+Click the **☆** next to a resource table's title to add it to **Favorites** in the sidebar. Click **★** to remove it. You can star a [custom resource kind or a whole API group](/docs/crds/) too.
 
 ## Saved views
 
