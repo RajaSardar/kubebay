@@ -27,7 +27,7 @@ The media comes from v0.7.0 running against a **synthetic demo cluster** (see [d
 1. Repo **Settings → General → Social preview:** upload `media/social-preview.png`.
 2. Repo **About:** Website `https://kubebay.sardar.dev`, plus the topics listed in G3.
 3. **Settings → Features → Discussions:** on, with the two seed threads.
-4. **README:** add the tour GIF under the title (`docs/launch/media/kubebay-tour.gif`) and two screenshots in "What you get". It's a separate small PR; merge it the morning of launch.
+4. **README:** the tour GIF is under the title (added 2026-11-11). Still to add: two screenshots in "What you get".
 5. Then post in the order of the [sequence](#sequence).
 
 ## Where things stand (checked 2026-11-08)
