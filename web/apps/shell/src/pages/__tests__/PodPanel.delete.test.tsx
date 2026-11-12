@@ -82,3 +82,10 @@ describe("PodPanel: plain delete confirmation", () => {
     expect(del).not.toHaveBeenCalled();
   });
 });
+
+describe("PodPanel: Logs tab", () => {
+  it("renders its line filter (the delete dialog change must not break the tab)", () => {
+    render(<PodPanel pod={{ ...pod, tab: "logs" }} onClose={() => {}} />);
+    expect(screen.getByPlaceholderText("Filter lines…")).toBeInTheDocument();
+  });
+});
