@@ -21,6 +21,8 @@ Each row is one context:
 - **CPU · 7 days**: hourly peaks over the last week, from [usage history](/docs/settings/#usage-history).
 - **Requests**: how much of the nodes' allocatable CPU and memory the pods request.
 
+Drag the right edge of a column header to resize it, as in the Pods table. The Name column starts wide enough to show a full cluster name.
+
 Search by name, context or server to narrow a long list. Click a row to connect and open the cluster's [Overview](/docs/workloads-overview/). A row with a config error opens its error instead.
 
 ### A cluster's menu
@@ -30,7 +32,7 @@ The **⋮** at the end of a row has:
 - **Connect in background** keeps a cluster streaming without switching to it. **Disconnect** stops it. **Disconnect all**, above the list, stops every cluster.
 - **Pin to top** keeps a cluster first in the list.
 - **Rename…** sets a display name. Your kubeconfig isn't changed.
-- **Change icon…** picks the icon shown in the cluster rail.
+- **Change icon…** picks the icon shown in the cluster rail. Choosing a colour changes only the colour; edit the **Label** (up to three letters) separately.
 - **Copy context name** and **Copy server URL**.
 - **Configure Prometheus…** sets this cluster's Prometheus URL, for history graphs. See [Settings](/docs/settings/#prometheus).
 - **Open in Rancher** appears for clusters Rancher manages.

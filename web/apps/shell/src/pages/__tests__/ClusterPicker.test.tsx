@@ -74,6 +74,21 @@ beforeEach(() => {
 });
 
 describe("ClusterPicker", () => {
+  it("has drag-to-resize column headers and a wide default Name column", async () => {
+    const { container } = renderPage([dev]);
+    await screen.findByText("kind-dev", { selector: "[data-cluster-name]" });
+    const handles = container.querySelectorAll("th .col-resize-handle");
+    expect(handles.length).toBeGreaterThanOrEqual(8);
+    const cols = container.querySelectorAll("colgroup col");
+    expect(parseInt((cols[0] as HTMLElement).style.width)).toBeGreaterThanOrEqual(280);
+    const before = (cols[1] as HTMLElement).style.width;
+    fireEvent.mouseDown(handles[1]!, { clientX: 100 });
+    fireEvent.mouseMove(document, { clientX: 160 });
+    fireEvent.mouseUp(document);
+    const after = (container.querySelectorAll("colgroup col")[1] as HTMLElement).style.width;
+    expect(parseInt(after)).toBe(parseInt(before) + 60);
+  });
+
   it("says a cluster is being checked before its first probe, not that it is disconnected", async () => {
     renderPage([fresh]);
     expect(await screen.findByText("Checking…")).toBeInTheDocument();

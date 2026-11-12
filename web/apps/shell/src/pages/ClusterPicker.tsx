@@ -2,6 +2,7 @@ import { useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, historyApi, type ClusterHistorySummary, type ClusterInfo } from "../lib/api";
+import { useColumnWidths } from "../lib/useColumnWidths";
 import { announceDisconnect } from "../lib/clusterChannel";
 import { headroom, lastOpenedLabel, sparkline } from "../lib/clusterUsage";
 import { dropClusterLocally } from "../lib/useRemoteDisconnects";
@@ -51,6 +52,8 @@ import {
 import { PageHelp } from "../components/PageHelp";
 
 const APP_VERSION = "v0.7.0";
+/** Default column widths (px); the Name column holds the icon, name and provider badge. */
+const COLUMN_WIDTHS: Readonly<Record<string, number>> = { Name: 320, Session: 130, API: 110, Version: 110, Pods: 150, Nodes: 80, "CPU · 7 days": 150, Requests: 150 };
 const HEADERS = ["Name", "Session", "API", "Version", "Pods", "Nodes", "CPU · 7 days", "Requests"] as const;
 
 /** Reachability from the engine probe, separate from the user's session. */
@@ -197,6 +200,7 @@ function RowMenu({ cluster, connected, pinned, ...a }: RowMenuProps) {
 }
 
 export default function ClusterPicker() {
+  const { widthOf, getResizeHandleProps } = useColumnWidths(COLUMN_WIDTHS);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const activeId = useClusterStore((s) => s.active);
@@ -340,10 +344,19 @@ export default function ClusterPicker() {
             !clusters.isError && (
               <TableWrap>
                 <Table>
+                  <colgroup>
+                    {HEADERS.map((h) => (
+                      <col key={h} style={{ width: widthOf(h) }} />
+                    ))}
+                    <col style={{ width: 36 }} />
+                  </colgroup>
                   <thead>
                     <tr>
                       {HEADERS.map((h) => (
-                        <th key={h}>{h}</th>
+                        <th key={h} style={{ width: widthOf(h), position: "relative" }}>
+                          {h}
+                          <div className="col-resize-handle" {...getResizeHandleProps(h)} />
+                        </th>
                       ))}
                       <th className="col-row-menu" />
                     </tr>
