@@ -1,5 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import Workloads from "../Workloads";
@@ -71,12 +71,16 @@ describe("Pods on the shared list view", () => {
     expect(rowOf("web-b")).not.toHaveAttribute("data-terminating");
   });
 
-  it("highlights the row under the mouse", () => {
+  // Root #23: the mouse's row is CSS :hover's job. Keeping it in React state
+  // re-rendered the whole table on every row the pointer crossed.
+  it("leaves the row under the mouse to CSS, and marks the keyboard's row and the one whose menu is open", () => {
     renderPods();
     fireEvent.mouseEnter(rowOf("redis-a"));
-    expect(rowOf("redis-a")).toHaveClass("hovered");
-    fireEvent.mouseLeave(rowOf("redis-a"));
     expect(rowOf("redis-a")).not.toHaveClass("hovered");
+    act(() => void fireEvent.keyDown(window, { key: "j" }));
+    expect(document.querySelector("tbody tr.hovered")).toHaveAttribute("aria-current", "true");
+    fireEvent.click(within(rowOf("web-b")).getByRole("button", { name: "Actions for web-b" }));
+    expect(rowOf("web-b")).toHaveClass("hovered");
   });
 
   it("says why the list is empty in the resource tables' words", () => {

@@ -102,6 +102,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 - **Pending has its own colour**: Pending pods use each theme's info hue instead of the warning orange, so they no longer read as warnings
 
 ### Fixed
+- **Lighter on every page (root backlog #23, slice 1 of 4)**:
+  - **Background streams:** the pods, events and workload streams Kubebay keeps warm no longer re-render the sidebar, the cluster strip and the page on every update. With pods changing 20 times a second, the main thread did a third of the work (449 → 165 ms over 3 s).
+  - **Hover:** hovering a table row no longer re-renders the table.
+  - **Header blur:** sticky table headers no longer blur the rows scrolling under them. The blur was invisible and redone every frame. Scrolling 3,000 pods took 19% less main-thread time.
+  - **Command palette:** while closed, it no longer turns every pod into a search entry on each update.
+  - **Wheel listener:** on macOS 11 and later, the window's bounce guard no longer adds one that made every scroll wait on the main thread.
+
+  The measurements, the four-panel debate and the next three slices are in `docs/PERFORMANCE.md`.
 - **The Overview no longer says "Healthy" before it has looked**: right after you opened a cluster, Cluster health read *Healthy · All 0 pods healthy* and Needs attention *Nothing needs attention* for about two seconds, even on a cluster with crashing pods, because the page showed its verdict once any kind had loaded, and a 2 s throttle then held back the pods when they arrived. It now says **Checking** until the pods, workloads and nodes it judges have loaded, and gives the verdict the moment they do. When RBAC forbids listing them it says **Unknown** with the reason, never Healthy.
 - **A Helm release's drawer never upgrades another release with its chart or values**: with one release open, opening another from the keyboard (Enter on its row) kept the first release's chart ref, version and edited values, so **Save & upgrade** would have installed them over the second. The chart store's install form had the same flaw: opening another chart kept the first chart's release name, version and values. Each now starts from the release or chart it opens
 - **Helm releases list about 10× faster**: Helm's list fetched and decoded every revision of every release before keeping the newest. Kubebay now asks the API server only for revisions Helm hasn't superseded, with the same rows: 60 releases with 10 revisions each went from 2.3–3.1 s to about 0.2 s on a local API server. Upgrades from Kubebay keep 10 revisions, as the helm CLI does (they kept every one) (ADR 0004)

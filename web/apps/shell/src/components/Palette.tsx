@@ -173,17 +173,19 @@ function deriveLivePod(obj: Record<string, unknown>, cluster: string): LivePod |
   };
 }
 
-function useLivePods(): { pods: LivePod[]; connected: boolean; loading: boolean } {
+function useLivePods(open: boolean): { pods: LivePod[]; connected: boolean; loading: boolean } {
   const cluster = useClusterStore((s) => s.active) || undefined;
 
   const stream = useResourceStream(cluster, "v1/pods", { mode: "full", enabled: !!cluster });
 
+  // Only while open: closed, it would turn every pod into a search entry on
+  // every stream update for nothing (root #23).
   const pods = useMemo(() => {
-    if (!cluster) return [];
+    if (!cluster || !open) return [];
     return stream.rows
       .map((row) => deriveLivePod(row as Record<string, unknown>, cluster))
       .filter((p): p is LivePod => p !== null);
-  }, [stream.rows, cluster]);
+  }, [stream.rows, cluster, open]);
 
   return {
     pods,
@@ -215,7 +217,7 @@ export function Palette({
   const staticItems = usePaletteItems();
   const dynamicItems = useDynamicItems();
   const navItems = useMemo(() => [...staticItems, ...dynamicItems], [staticItems, dynamicItems]);
-  const { pods, connected, loading } = useLivePods();
+  const { pods, connected, loading } = useLivePods(open);
   const nav = useNavigate();
   const [q, setQ] = useState("");
   const [idx, setIdx] = useState(0);

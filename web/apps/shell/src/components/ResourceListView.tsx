@@ -133,7 +133,6 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLTableSectionElement>(null);
   const [ctx, setCtx] = useState<{ x: number; y: number; row: R } | null>(null);
-  const [hoveredKey, setHoveredKey] = useState<string | null>(null);
 
   // Every column the user may show, hide or move (all but Name, which stays
   // first), in the page's order, and the user's layout of them (#21).
@@ -435,13 +434,13 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
                     ref={virtualizer.measureElement}
                     clickable
                     selected={isSelected}
-                    hovered={hoveredKey === key || activeRow === virtualRow.index}
+                    // The mouse's row is CSS :hover's (root #23); .hovered marks the
+                    // keyboard's row and the one whose menu is open.
+                    hovered={activeRow === virtualRow.index || ctx?.row === r}
                     aria-current={activeRow === virtualRow.index ? "true" : undefined}
                     dimmed={p.isDimmed?.(r) ?? false}
                     changed={changedKeys.has(key)}
                     onClick={() => onOpen(r)}
-                    onMouseEnter={() => setHoveredKey(key)}
-                    onMouseLeave={() => setHoveredKey(null)}
                     onContextMenu={(e) => { e.preventDefault(); setCtx({ x: e.clientX, y: e.clientY, row: r }); }}
                   >
                     <SelectCell checked={isSelected} onChange={() => toggleRow(key)} label={`Select ${name}`} />

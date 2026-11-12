@@ -217,3 +217,22 @@ describe("overlays and buttons go through @kubebay/ui", () => {
     expect(over).toEqual([]);
   });
 });
+
+// Root #23: a blur under a sticky header is redone on every frame the table
+// scrolls (worst in WebKit), and these headers' backgrounds are solid, so it
+// showed nothing. Sticky cells are opaque instead.
+describe("sticky table cells", () => {
+  const sticky = (css: string) => new Set(declarations(css, /^position$/).filter((d) => d.value === "sticky").map((d) => d.sel));
+  it("never blur what scrolls under them", () => {
+    for (const [name, css] of Object.entries(sheets)) {
+      const stuck = sticky(css);
+      const blurred = declarations(css, /^(-webkit-)?backdrop-filter$/).filter((d) => d.value !== "none" && (stuck.has(d.sel) || /\bth\b|\.np-(corner|col-header|row-header)\b/.test(d.sel)));
+      expect(blurred.map((d) => `${name}: ${d.sel}`)).toEqual([]);
+    }
+  });
+
+  it("show the row menu on hover from CSS alone", () => {
+    expect(stylesCss).toMatch(/\.kb-table tbody tr:hover \.row-menu-btn/);
+  });
+});
+

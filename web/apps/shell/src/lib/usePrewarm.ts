@@ -5,8 +5,11 @@
  * visit. With pre-warming, by the time the user clicks "Workloads" the backend
  * has already fetched and cached the data.
  *
- * Called at the AppInner level (not inside any page component) so it fires
+ * Rendered as <Prewarm> by AppInner (not inside any page component) so it fires
  * unconditionally regardless of which route opens first — including deep-links.
+ * A component of its own, not a hook in AppInner: each stream re-renders its
+ * caller on every update, and on a busy cluster that is many times a second
+ * (root #23).
  *
  * React's rules-of-hooks require a fixed number of hook calls per render, so
  * each GVR is listed explicitly. Add new GVRs here to cover more first visits.
@@ -42,4 +45,10 @@ export function usePrewarm(cluster: string | undefined): void {
   useEffect(() => {
     if (cluster && hasReleases) void qc.prefetchQuery(helmReleasesQuery(cluster));
   }, [cluster, hasReleases, qc]);
+}
+
+/** The pre-warmed streams, in a component that renders nothing, so their updates re-render only it. */
+export function Prewarm({ cluster }: { cluster: string | undefined }): null {
+  usePrewarm(cluster);
+  return null;
 }

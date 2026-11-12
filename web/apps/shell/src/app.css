@@ -1759,8 +1759,6 @@ h2 {
   left: 0;
   z-index: 3;
   background: color-mix(in srgb, var(--kb-bg-surface) 95%, var(--kb-bg-inset));
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
   font-size: var(--kb-text-2xs);
   font-weight: 600;
   text-transform: uppercase;
@@ -1779,8 +1777,6 @@ h2 {
   top: 0;
   z-index: 2;
   background: color-mix(in srgb, var(--kb-bg-surface) 95%, var(--kb-bg-inset));
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--kb-border-strong);
   border-right: 1px solid var(--kb-border-subtle);
   padding: 5px 8px;
@@ -1794,8 +1790,6 @@ h2 {
   left: 0;
   z-index: 1;
   background: color-mix(in srgb, var(--kb-bg-surface) 95%, var(--kb-bg-inset));
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
   border-right: 1px solid var(--kb-border-strong);
   border-bottom: 1px solid var(--kb-border-subtle);
   padding: 4px 8px;
