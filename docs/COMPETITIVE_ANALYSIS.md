@@ -3,6 +3,7 @@
 > **Date:** 2026-10-09 · **Versions compared:** Kubebay v0.6.0 (+ `main`), SUSE Rancher Manager v2.15.x / Rancher Prime, Lens K8S IDE 2026.9.x
 > **Method:** desk research (vendor docs, release notes, press releases, GitHub data) plus a code-level read of this repository. It is one author's analysis. The cross-challenge round in §7 argues against its own first conclusions before the verdicts are final.
 > **Confidence markers:** claims sourced only from a vendor's own marketing are marked *(vendor claim)*. Claims sourced from a competitor's blog are marked *(competitor-sourced)*. Everything about Kubebay was checked against the code or GitHub on the date above.
+> **Update 2026-11-12:** a later, cross-checked pass over Lens and Freelens is in [research/2026-11-12-lens-freelens/](research/2026-11-12-lens-freelens/README.md). It corrects this analysis in places: Lens documents a paid **Security Center** (CVE reporting) and Cost Monitoring, so "not a focus" below is out of date, and Freelens has official Resource Map, Karpenter, Flux CD and AI extensions.
 > **Companion:** the backlog this analysis produces is in [BACKLOG.md](BACKLOG.md).
 
 ---
