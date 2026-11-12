@@ -16,16 +16,19 @@
 ~~16. I think fr vulnerabilities / cves/ these should move from each individual pods/deployment to single page nav and show everything there~~ ✅ Done (Vulnerabilities in the sidebar: every workload's CVEs, worst first; a pod's or workload's tab counts them and links there) 
 ~~17. Create a documentation website in the existing kubebay.sardar.dev make it like /doc or what you think is corrent and do document each and eevrything all the useage manual and feature documentation in this also make sure all the future task should also include the update of doc here along with task/features/bug fix which can modify the feature functions/ manual/~~ ✅ Done (the manual at kubebay.sardar.dev/docs, from `website/src/content/docs`; CLAUDE.md's docs rule and a CI guard keep it current: a new page of the app fails CI until it has a docs page)
 ~~18. do an indepth research and find if we need to add info small button on each feature on hover of each it should explain what is it and how this feature works~~ 🔎 Researched (see [docs/HELP_TIPS_RESEARCH.md](docs/HELP_TIPS_RESEARCH.md)): one ⓘ per page and insight card, opened by a click, linking to the manual. ✅ Done: every page and insight card has one.
-19. In pod i can not see the ips of the pod like lens /freelens 
-20. for rollout in pods i can not going back to the controlled by rollout when i am clicking on the rollout it is not able to load 
-21. give copy name button for any kind like deployment name, pod name, statefulsets name, service name all kind of names 
+~~19. In pod i can not see the ips of the pod like lens /freelens~~ ✅ Done (the pod drawer's Summary lists Pod IP(s) and Host IP(s), dual-stack included)
+~~20. for rollout in pods i can not going back to the controlled by rollout when i am clicking on the rollout it is not able to load~~ ✅ Done (an Argo Rollout or other CRD owner in "Owned by" now opens its detail page)
+~~21. give copy name button for any kind like deployment name, pod name, statefulsets name, service name all kind of names~~ ✅ Done (a Copy name button in the header of every resource drawer: pods, workloads, services, nodes, CRD instances, Helm releases)
 22. In pods logs can you make the logs text colorized based on  page and other page, pod list check and make it smooth 
 23. the app feels heavy and laggy and feels not as smooth and faster like freelens for all the pages, can you do and indepth 20 experts agents to realtime debate with each other and fix this. 
-24. for KEDA scaledobject also add a pause collom which will show if it is pause or not.
-25. also make the keda nav similer like keda in CRD like all search and all 
+~~24. for KEDA scaledobject also add a pause collom which will show if it is pause or not.~~ ✅ Done (each ScaledObject shows a Paused or Active pill, read from the `autoscaling.keda.sh/paused` annotation, `paused-replicas` or the Paused condition)
+~~25. also make the keda nav similer like keda in CRD like all search and all~~ ✅ Done (the smaller version: a search box and an All view across ScaledObjects, ScaledJobs and the TriggerAuthentications; no grouped sidebar tree)
 26. Do research add a multi window/profile capability like vscode / google crome 
-26. when i am clicking delete in pod then it is asking to put the name in input box, can we remove that instead ask for confirmation and then delete it, 
-27. In Cluster list main menu i am not able to drag the collaumn, and its not vissible, make the collaumn expandable like pods and other tables, and make the name visible properly 
-28. in Cluster icon colur change it was also changing the slug/shortname that should not happen if i change the colour then only colour should change 
-29. for the CRDs give options to add to favorite / shortcuts, if we add this to shortcut then the CRD parent or the specific will get add to the left nav, along with other main navs and we can directly access that and also give option to remove from the shortcut/favorite.
-30.
+~~26. when i am clicking delete in pod then it is asking to put the name in input box, can we remove that instead ask for confirmation and then delete it,~~ ✅ Done (deleting a pod from its drawer asks a plain Delete / Cancel; other kinds still ask for the name)
+~~27. In Cluster list main menu i am not able to drag the collaumn, and its not vissible, make the collaumn expandable like pods and other tables, and make the name visible properly~~ ✅ Done (the cluster list's columns resize by dragging, like Pods, and Name is wider)
+~~28. in Cluster icon colur change it was also changing the slug/shortname that should not happen if i change the colour then only colour should change~~ ✅ Done (changing a cluster icon's colour no longer overwrites its short name)
+~~29. for the CRDs give options to add to favorite / shortcuts, if we add this to shortcut then the CRD parent or the specific will get add to the left nav, along with other main navs and we can directly access that and also give option to remove from the shortcut/favorite.~~ ✅ Done (a star on each CRD and each API group adds it to the sidebar Favorites; the same star removes it)
+30. Fix and it should auto detect promethous and auto configure it for individual cluster and start showing in pods and all other usegae check how freelens and openlens are doing it. 
+31. Double age col has been added in keda scaled object,
+32. CMD+K search is not searching all it should search all including deployments, crds, statefulsets, services and everything from everywhere is it possible ? if yes and if we build it will it make a major impact in any where in bad way ? do research and suggst what we should do. this can be a major feature for us. 
+33. 
