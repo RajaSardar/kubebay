@@ -27,4 +27,5 @@
 26. when i am clicking delete in pod then it is asking to put the name in input box, can we remove that instead ask for confirmation and then delete it, 
 27. In Cluster list main menu i am not able to drag the collaumn, and its not vissible, make the collaumn expandable like pods and other tables, and make the name visible properly 
 28. in Cluster icon colur change it was also changing the slug/shortname that should not happen if i change the colour then only colour should change 
-29. 
+29. for the CRDs give options to add to favorite / shortcuts, if we add this to shortcut then the CRD parent or the specific will get add to the left nav, along with other main navs and we can directly access that and also give option to remove from the shortcut/favorite.
+30.
