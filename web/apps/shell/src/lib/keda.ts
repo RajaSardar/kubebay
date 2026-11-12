@@ -65,6 +65,29 @@ export interface ScaledObjectExplain {
   summary: string;
 }
 
+export interface ScaledObjectPauseState {
+  paused: boolean;
+  /** Replica count the object is pinned to (paused-replicas annotation), if set. */
+  replicas: number | undefined;
+}
+
+/**
+ * Whether KEDA has paused autoscaling for a ScaledObject. KEDA's documented
+ * switches are the `autoscaling.keda.sh/paused: "true"` annotation and
+ * `autoscaling.keda.sh/paused-replicas` (pins the workload to that count);
+ * KEDA also reports it as a `Paused` status condition, which we honour too.
+ */
+export function scaledObjectPauseState(so: Record<string, unknown>): ScaledObjectPauseState {
+  const annotations = rec(rec(so.metadata).annotations);
+  const pausedReplicasRaw = str(annotations["autoscaling.keda.sh/paused-replicas"]);
+  const replicas = pausedReplicasRaw !== "" && !Number.isNaN(Number(pausedReplicasRaw)) ? Number(pausedReplicasRaw) : undefined;
+  const conditions = rec(so.status).conditions;
+  const conditionPaused =
+    Array.isArray(conditions) && conditions.some((c) => str(rec(c).type) === "Paused" && str(rec(c).status) === "True");
+  const paused = str(annotations["autoscaling.keda.sh/paused"]) === "true" || replicas !== undefined || conditionPaused;
+  return { paused, replicas };
+}
+
 /**
  * Decodes a KEDA ScaledObject into a plain-English summary — backlog #2's
  * P2 "read-only explain" ("scales 1→20 on cron Mon-Fri 09:00"). Anything not
@@ -82,7 +105,7 @@ export function explainScaledObject(so: Record<string, unknown>): ScaledObjectEx
   const triggerDescriptions = trigs.map(describeTrigger);
   const targetName = str(targetRef.name);
   const targetKind = str(targetRef.kind) || "Deployment";
-  const paused = str(rec(spec.advanced).paused) === "true";
+  const paused = scaledObjectPauseState(so).paused;
 
   const triggerClause = triggerDescriptions.length > 0 ? ` ${triggerDescriptions.join(" and ")}` : "";
   const summary = `Scales ${targetKind.toLowerCase()} "${targetName}" ${minReplicas}→${maxReplicas}${triggerClause}`;
@@ -121,6 +144,7 @@ export function hpaConflictsWithScaledObject(so: Record<string, unknown>, hpas: 
 export interface KedaDetection {
   installed: boolean;
   scaledObjectGvr?: string;
+  scaledJobGvr?: string;
   triggerAuthGvr?: string;
   clusterTriggerAuthGvr?: string;
 }
@@ -132,11 +156,13 @@ export interface KedaDetection {
  */
 export function detectKeda(crds: CRDEntry[]): KedaDetection {
   const scaledObject = crds.find((c) => c.group === "keda.sh" && c.resource === "scaledobjects");
+  const scaledJob = crds.find((c) => c.group === "keda.sh" && c.resource === "scaledjobs");
   const triggerAuth = crds.find((c) => c.group === "keda.sh" && c.resource === "triggerauthentications");
   const clusterTriggerAuth = crds.find((c) => c.group === "keda.sh" && c.resource === "clustertriggerauthentications");
   return {
     installed: !!scaledObject,
     scaledObjectGvr: scaledObject?.gvr,
+    scaledJobGvr: scaledJob?.gvr,
     triggerAuthGvr: triggerAuth?.gvr,
     clusterTriggerAuthGvr: clusterTriggerAuth?.gvr,
   };
@@ -197,4 +223,30 @@ export function findOrphanedTriggerAuths(
     .map((ta) => ({ name: str(rec(ta.metadata).name), ns: "", scoped: false }));
 
   return [...orphanedNamespaced, ...orphanedCluster];
+}
+
+export type KedaKind = "ScaledObject" | "ScaledJob" | "TriggerAuthentication" | "ClusterTriggerAuthentication";
+
+export interface KedaRow {
+  kind: KedaKind;
+  name: string;
+  /** Empty for cluster-scoped kinds. */
+  ns: string;
+  /** GVR of the kind, for building the resource link. Undefined if not detected. */
+  gvr: string | undefined;
+}
+
+/** Flattens one KEDA kind's objects into rows for the All view. */
+export function toKedaRows(kind: KedaKind, objs: Record<string, unknown>[], gvr: string | undefined): KedaRow[] {
+  return objs.map((o) => ({ kind, name: str(rec(o.metadata).name), ns: str(rec(o.metadata).namespace), gvr }));
+}
+
+/** Kind filter + search box, as on the CRDs page: case-insensitive match on kind, name or namespace. */
+export function filterKedaRows(rows: KedaRow[], kind: KedaKind | "all", search: string): KedaRow[] {
+  const lc = search.trim().toLowerCase();
+  return rows.filter(
+    (r) =>
+      (kind === "all" || r.kind === kind) &&
+      (!lc || r.kind.toLowerCase().includes(lc) || r.name.toLowerCase().includes(lc) || r.ns.toLowerCase().includes(lc)),
+  );
 }

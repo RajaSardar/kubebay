@@ -101,4 +101,11 @@ describe("KedaInventory", () => {
     renderInventory({ scaledObjects: [so("so-a", "prod")], orphanedTriggerAuths: [] });
     expect(screen.queryAllByText(/orphan/i).length).toBe(0);
   });
+
+  it("shows Paused for a paused ScaledObject and Active for others", () => {
+    const paused = { ...so("so-p", "prod"), metadata: { name: "so-p", namespace: "prod", annotations: { "autoscaling.keda.sh/paused": "true" } } };
+    renderInventory({ scaledObjects: [paused, so("so-a", "prod")] });
+    expect(screen.getAllByText("Paused")).toHaveLength(1);
+    expect(screen.getAllByText("Active")).toHaveLength(1);
+  });
 });

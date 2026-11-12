@@ -128,7 +128,7 @@ export const PAGE_HELP: Record<string, PageHelpEntry> = {
   },
   "/keda": {
     name: "KEDA",
-    what: "Every KEDA ScaledObject in plain words, HPAs that fight them, and scale-to-zero workloads.",
+    what: "Every KEDA ScaledObject in plain words, whether it is paused, HPAs that fight them, and scale-to-zero workloads. Search across all KEDA kinds.",
     how: "Read from KEDA's ScaledObjects and TriggerAuthentications and the cluster's HPAs.",
     docs: "keda",
   },

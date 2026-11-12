@@ -12,7 +12,14 @@ appRoutes: ["/keda"]
 
 Each one is explained in plain words, such as *scales 1→20 on cron Mon–Fri 09:00*, with its target workload linked. A trigger type Kubebay doesn't know is shown by its raw name rather than dropped.
 
-Filter with the buttons above the list:
+Each ScaledObject shows a **Paused** or **Active** pill. KEDA marks a paused ScaledObject with the `autoscaling.keda.sh/paused: "true"` annotation, or with `autoscaling.keda.sh/paused-replicas`, which pins the workload to that replica count. Kubebay also treats a `Paused` status condition of `True` as paused.
+
+Above the list, **Search KEDA resources…** filters by kind, name or namespace, and a row of buttons picks which kind to show:
+
+- **All**: ScaledObjects, ScaledJobs, TriggerAuthentications and ClusterTriggerAuthentications together, each linked to its detail view;
+- **ScaledObjects** (the default), **ScaledJobs**, **TriggerAuthentications** and **ClusterTriggerAuthentications**: one kind each.
+
+In the ScaledObjects view, filter further with the buttons above the list:
 
 - **All**;
 - **Conflicts**: ScaledObjects whose workload also has its own HorizontalPodAutoscaler. The two fight over the replica count, and this is the most common way KEDA setups go wrong;
