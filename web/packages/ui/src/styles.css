@@ -16,6 +16,12 @@
     transform var(--kb-dur-fast) var(--kb-ease);
 }
 
+.kb-btn.kb-btn-sm {
+  font-size: var(--kb-text-xs);
+  padding: 1px 8px;
+  gap: 4px;
+}
+
 .kb-btn:focus-visible {
   outline: none;
   box-shadow: var(--kb-focus-ring);
@@ -171,6 +177,14 @@
   cursor: default;
 }
 
+/* A CopyButton beside a value: a step smaller than an icon button. */
+.kb-icon-btn.kb-copy-btn {
+  min-width: 20px;
+  height: 20px;
+  padding: 0;
+  vertical-align: middle;
+}
+
 /* ── Segmented control: one choice from a short list ── */
 .kb-segmented {
   display: inline-flex;
@@ -315,6 +329,16 @@ kbd {
   transition:
     background var(--kb-dur-fast) var(--kb-ease),
     color var(--kb-dur-fast) var(--kb-ease);
+}
+
+/* A nav row that does something instead of going somewhere (NavItem with no href). */
+button.nav-item {
+  width: 100%;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
 .nav-icon {
@@ -1715,6 +1739,39 @@ tr.row-clickable:active {
 }
 
 /* ── Drawer: the side panel for one resource ── */
+/* ── Splitter: the top edge of a panel docked under the page ── */
+.kb-splitter {
+  position: relative;
+  flex: none;
+  height: 6px;
+  margin-top: -3px;
+  margin-bottom: -3px;
+  cursor: row-resize;
+  touch-action: none;
+  z-index: 1;
+  outline: none;
+}
+
+.kb-splitter::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 2px;
+  height: 2px;
+  background: transparent;
+  transition: background var(--kb-dur);
+}
+
+.kb-splitter:hover::after,
+.kb-splitter:active::after {
+  background: var(--kb-border-strong);
+}
+
+.kb-splitter:focus-visible::after {
+  background: var(--kb-accent);
+}
+
 .drawer {
   position: fixed;
   top: 0;
@@ -1777,6 +1834,13 @@ tr.row-clickable:active {
 
 .drawer-subtitle-mono {
   font-family: var(--kb-font-mono);
+}
+
+.drawer-name-row {
+  display: flex;
+  align-items: center;
+  gap: var(--kb-space-1);
+  min-width: 0;
 }
 
 .drawer-head-actions {

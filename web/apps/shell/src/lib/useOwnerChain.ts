@@ -1,5 +1,8 @@
 import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useResourceStream } from "./useResourceStream";
+import { crdApi, type CRDEntry } from "./api";
+import { DEFS, extSlug } from "./resources";
 
 export interface OwnerLink {
   kind: string;
@@ -30,6 +33,39 @@ export function kindSlug(kind: string): string {
   return overrides[kind] ?? kind.toLowerCase() + "s";
 }
 
+/** A Kind's plural, the way Kubernetes forms most of them. Only a fallback for a CRD not listed yet. */
+function guessPlural(kind: string): string {
+  const k = kind.toLowerCase();
+  if (/[^aeiou]y$/.test(k)) return `${k.slice(0, -1)}ies`;
+  if (/(s|x|z|ch|sh)$/.test(k)) return `${k}es`;
+  return `${k}s`;
+}
+
+/**
+ * The page an owner reference opens on: a built-in kind's own page (only when
+ * the apiVersion is that kind's group too), else a custom resource's, by the
+ * plural its CRD declares, or by the usual plural while the CRDs load.
+ */
+export function ownerSlug(ref: { apiVersion?: string; kind: string }, crds?: CRDEntry[]): string {
+  const apiVersion = ref.apiVersion ?? "";
+  const builtin = Object.values(DEFS).find((d) => d.kind === ref.kind && d.gvr.startsWith(`${apiVersion}/`));
+  if (builtin) return builtin.slug;
+  const [group, version] = apiVersion.includes("/") ? apiVersion.split("/") : ["", apiVersion];
+  const crd = crds?.find((c) => c.kind === ref.kind && c.group === group && c.version === version);
+  if (crd) return `ext--${extSlug(crd.gvr)}`;
+  if (!apiVersion) return kindSlug(ref.kind);
+  return `ext--${extSlug(`${apiVersion}/${guessPlural(ref.kind)}`)}`;
+}
+
+/** Whether an owner lives in a namespace: a Node or a cluster-scoped custom resource doesn't. */
+function ownerNamespaced(ref: { apiVersion?: string; kind: string }, crds?: CRDEntry[]): boolean {
+  const apiVersion = ref.apiVersion ?? "";
+  const builtin = Object.values(DEFS).find((d) => d.kind === ref.kind && d.gvr.startsWith(`${apiVersion}/`));
+  if (builtin) return !builtin.scoped;
+  const crd = crds?.find((c) => c.kind === ref.kind && apiVersion === (c.group ? `${c.group}/${c.version}` : c.version));
+  return crd ? crd.namespaced : true;
+}
+
 interface RawOwnerRef {
   apiVersion?: string;
   kind: string;
@@ -58,6 +94,15 @@ export function useOwnerChain(
   const daemonsets = useResourceStream(cluster, "apps/v1/daemonsets", { ns: [namespace], mode: "full" });
   const jobs = useResourceStream(cluster, "batch/v1/jobs", { ns: [namespace], mode: "full" });
   const cronjobs = useResourceStream(cluster, "batch/v1/cronjobs", { ns: [namespace], mode: "full" });
+  // Shared with every page that lists CRDs: a custom resource owner (an Argo
+  // Rollout) links by the plural its CRD declares.
+  const crds = useQuery({
+    queryKey: ["crds", cluster],
+    queryFn: () => crdApi.list(cluster),
+    enabled: !!cluster,
+    staleTime: 5 * 60_000,
+    retry: false,
+  });
 
   return useMemo(() => {
     const streams: Record<string, Record<string, unknown>[]> = {
@@ -89,8 +134,8 @@ export function useOwnerChain(
       chain.push({
         kind: ownerRef.kind,
         name: ownerRef.name,
-        slug: kindSlug(ownerRef.kind),
-        ns: namespace,
+        slug: ownerSlug(ownerRef, crds.data),
+        ns: ownerNamespaced(ownerRef, crds.data) ? namespace : "",
       });
 
       // Look up this owner's object to read its ownerReferences
@@ -114,5 +159,6 @@ export function useOwnerChain(
     daemonsets.rows,
     jobs.rows,
     cronjobs.rows,
+    crds.data,
   ]);
 }

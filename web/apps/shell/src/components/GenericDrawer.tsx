@@ -21,6 +21,7 @@ import { TimelineTab } from "./TimelineTab";
 import { RightSizingBanner } from "./RightSizingBanner";
 import type { ResourceDef } from "../lib/resources";
 import { helmReleaseOf, ownerOf } from "../lib/gitops";
+import { drawerChord } from "../lib/drawerKeys";
 
 // ── Tab types per resource kind ──────────────────────────────────────────────
 type NodeTab = "summary" | "shell" | "yaml";
@@ -354,7 +355,7 @@ export default function GenericDrawer({
   useEffect(() => {
     if (!onPopOut) return;
     function onKey(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === "Enter") {
+      if (drawerChord(e) === "pop-out") {
         e.preventDefault();
         onPopOut!();
       }
@@ -366,7 +367,7 @@ export default function GenericDrawer({
   // ⌘⇧S → toggle split
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === "S") {
+      if (drawerChord(e) === "split") {
         e.preventDefault();
         toggleSplit();
       }
@@ -463,6 +464,7 @@ export default function GenericDrawer({
   return (
     <Drawer
       title={name}
+      copyName={name}
       subtitle={def.scoped ? def.label : ns}
       leading={<StatusDot status="connected" />}
       onClose={onClose}

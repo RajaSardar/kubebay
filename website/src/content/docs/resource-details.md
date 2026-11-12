@@ -8,6 +8,8 @@ appRoutes: ["/detail/:kind/:ns/:name"]
 
 Click a row in any [resource table](/docs/resources/) to open its drawer. A drawer closes with <kbd>Esc</kbd>, the **×**, or a click anywhere outside it.
 
+The copy button beside the drawer's title copies the resource's name. Every drawer has one: pods, Deployments, StatefulSets, Services and every other kind, Helm releases and charts, and a workload's vulnerabilities. A row's menu in a table also has **Copy name**.
+
 - **Open full page** (<kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>Enter</kbd>) shows the resource on a page of its own, with a link you can share.
 - **Split view** (<kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>S</kbd>) shows two tabs side by side, such as Events beside YAML. Drag the divider to resize them. Kubebay remembers the split for each kind.
 

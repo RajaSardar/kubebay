@@ -74,11 +74,16 @@ body::before {
 .app {
   display: grid;
   grid-template-columns: 56px 210px minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr) auto auto;
+  /* The terminal dock (ADR 0005) is a row of the content column only: the
+     cluster strip and sidebar keep their full height beside it. */
   grid-template-areas:
     "cluster-strip sidebar content"
+    "cluster-strip sidebar dock"
     "statusbar statusbar statusbar";
   height: var(--app-h, 100vh);
+  /* How far above the window's bottom the open dock begins (App sets it). */
+  --kb-dock-inset: 0px;
 }
 
 /* ── Cluster strip ── */
@@ -379,6 +384,13 @@ h2 {
   );
 }
 
+.statusbar-dock {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 6px;
+}
+
 .statusbar-left,
 .statusbar-right {
   display: inline-flex;
@@ -501,6 +513,44 @@ h2 {
 
 .log-line.warn {
   color: var(--kb-status-warn);
+}
+
+/* Backlog #22: success green, info at full strength, debug dimmed. */
+.log-line.ok {
+  color: var(--kb-status-ok);
+}
+
+.log-line.info {
+  color: var(--kb-fg-default);
+}
+
+.log-line.debug {
+  color: var(--kb-fg-subtle);
+}
+
+/* An app's own ANSI colours, as theme tones. */
+.log-ansi-err {
+  color: var(--kb-status-err);
+}
+
+.log-ansi-warn {
+  color: var(--kb-status-warn);
+}
+
+.log-ansi-ok {
+  color: var(--kb-status-ok);
+}
+
+.log-ansi-info {
+  color: var(--kb-status-info);
+}
+
+.log-ansi-muted {
+  color: var(--kb-fg-subtle);
+}
+
+.log-ansi-bold {
+  font-weight: 600;
 }
 
 .term-wrap {
@@ -1030,17 +1080,51 @@ h2 {
 
 .crd-tree-meta { display: flex; align-items: center; gap: 6px; margin-left: auto; }
 
-/* ──── Local shell ──── */
-.local-shell {
+/* ──── Terminal dock (ADR 0005) ──── */
+.kb-dock {
+  grid-area: dock;
   display: flex;
   flex-direction: column;
   min-height: 0;
-  flex: 1;
-  padding-top: var(--kb-space-3);
+  border-top: 1px solid var(--kb-border-strong);
+  background: var(--kb-bg-surface);
 }
-.local-shell .term-host {
-  margin: 0 var(--kb-gutter) var(--kb-gutter);
+.kb-dock-head {
+  display: flex;
+  align-items: center;
+  gap: var(--kb-space-2);
+  padding: var(--kb-space-1) var(--kb-gutter);
+  border-bottom: 1px solid var(--kb-border-subtle);
+  font-size: var(--kb-text-sm);
+}
+.kb-dock-title {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.kb-dock-actions {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--kb-space-1);
+}
+.kb-dock-body,
+.kb-dock-shell {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
   min-height: 0;
+}
+.kb-dock-term {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  padding: var(--kb-space-1) var(--kb-gutter) var(--kb-space-2);
+  background: var(--kb-bg-inset);
+}
+.kb-dock-term[hidden] {
+  display: none;
 }
 
 /* ──── Favorites sidebar ──── */
@@ -1166,7 +1250,7 @@ h2 {
 /* ──── Resource FAB ("+" button, bottom-left of page) ──── */
 .resource-fab {
   position: fixed;
-  bottom: 28px;
+  bottom: calc(28px + var(--kb-dock-inset));
   left: calc(56px + 210px + 20px); /* cluster strip + sidebar + margin */
   width: 40px;
   height: 40px;

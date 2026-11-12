@@ -1,10 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import { createRef } from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import {
   ContextMenu,
   Kbd,
   NavItem,
+  CopyButton,
   NavSection,
   PageHeader,
   Select,
@@ -65,6 +66,36 @@ describe("NavItem", () => {
     expect(pods).toHaveClass("nav-item", "active");
     expect(pods).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Jobs" })).toHaveClass("nav-item", "sub");
+  });
+
+  it("is a button when it does something instead of going somewhere (ADR 0005: Terminal opens the dock)", () => {
+    const onClick = vi.fn();
+    render(<NavItem label="Terminal" icon={<span data-testid="icon" />} active onClick={onClick} />);
+    const item = screen.getByRole("button", { name: "Terminal" });
+    expect(item).toHaveClass("nav-item", "active");
+    expect(item).toHaveAttribute("type", "button");
+    expect(item).toHaveAttribute("aria-pressed", "true");
+    expect(item).toContainElement(screen.getByTestId("icon"));
+    fireEvent.click(item);
+    expect(onClick).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("CopyButton", () => {
+  it("copies its text, says so for a moment, and is named for what it copies", async () => {
+    vi.useFakeTimers();
+    const writeText = vi.fn(async () => {});
+    Object.assign(navigator, { clipboard: { writeText } });
+    render(<CopyButton text="10.244.0.5" label="Copy pod IP 10.244.0.5" />);
+    const button = screen.getByRole("button", { name: "Copy pod IP 10.244.0.5" });
+    await act(async () => {
+      fireEvent.click(button);
+    });
+    expect(writeText).toHaveBeenCalledWith("10.244.0.5");
+    expect(screen.getByRole("button", { name: "Copied" })).toBeInTheDocument();
+    act(() => vi.advanceTimersByTime(2000));
+    expect(screen.getByRole("button", { name: "Copy pod IP 10.244.0.5" })).toBeInTheDocument();
+    vi.useRealTimers();
   });
 });
 

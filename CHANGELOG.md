@@ -7,6 +7,25 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 ## [Unreleased]
 
 ### Added
+- **Pod logs in colour**: the Logs tab colours each line by its level, the way log tools do: errors red, warnings amber, success green, debug and trace dimmed. The level comes from the line's own structure, so "0 errors" in prose no longer turns a line red, and JSON and logfmt levels are no longer missed:
+  - JSON (`"level":"error"`, `"severity":"WARNING"`, pino's numbers);
+  - logfmt (`level=warn`);
+  - klog's `E`/`W`/`I`/`F` prefixes;
+  - bracketed or capitalised level words;
+  - exceptions at the start of a line.
+
+  Lines with no level that say something failed or succeeded are coloured too. An app's own ANSI colours show in the theme's colours instead of as raw escape codes, and the filter matches the text you see (backlog #22)
+- **Copy the name of anything you open**: every drawer has a copy button beside its title that copies the resource's name. That covers pods, Deployments, StatefulSets, Services and every other kind, Helm releases and charts, and a workload's vulnerabilities. A guard test keeps every new drawer offering it (backlog #21)
+- **A pod shows its IPs**: a pod's Summary lists its **Pod IP**, or **Pod IPs** for both families on a dual-stack pod, and the **Host IP** of the node it runs on, like Lens and Freelens. Each has a copy button. A pod without an address yet says "not assigned yet". `@kubebay/ui` gains a `CopyButton` (backlog #19)
+- **The terminal lives in a dock under every page**: the local shell moves from its own page into a dock above the status bar, beside the sidebar, the way Freelens keeps it. The shell keeps running, with its scrollback, while you move between pages, open the Clusters page or hide the dock. Hiding it no longer resizes the program running in it.
+  - **Opening it:** <kbd>Ctrl</kbd>+<kbd>`</kbd> opens it from anywhere, focuses its shell, or hides it from inside the shell and gives focus back. The status bar's **Terminal** shows the key and the bound context. Tools → **Terminal** and `/terminal` links open the dock without leaving your page.
+  - **Size:** drag the dock's top edge, or use <kbd>↑</kbd>/<kbd>↓</kbd> on it, to resize it. The height is kept on this machine; a restart starts with the dock hidden and no shell.
+  - **Production:** a production-looking context shows a **production** pill in the dock's header and the status bar, and **Restart** asks first on it.
+  - **Drawers:** they end above the dock and stay open when you press in it.
+  - **Commands from extensions:** one is never typed into a shell that's already running. The dock offers **Copy** and **Type into this shell**, or **Open a shell on** the other cluster.
+  - **Disconnects:** what you type while the engine is unreachable is dropped, never sent later to a new shell.
+
+  ADR 0005 records the 20-expert debate behind it. Tabs, docked pod logs and pod shells follow behind their own engine fixes. `@kubebay/ui` gains a `Splitter`, a `DrawerInset`, a small `Button` size and a button form of `NavItem`.
 - **An ⓘ on every page and insight card**: beside each page's title, and each insight card's on Overview, RBAC and Cost / Waste, it says in a sentence what the page or card is and in another how it works, and links to that page of the [user manual](https://kubebay.sardar.dev/docs/). It opens on a click, Enter or Space, so keyboard and touch reach it, and closes on Escape or a click elsewhere. CI fails when a new page has no ⓘ, or one links to a docs page or heading that doesn't exist. See `docs/HELP_TIPS_RESEARCH.md` for why it's a click, not a hover.
 - **A Helm release opens on its Overview**: a release's drawer now opens on an Overview tab that shows:
   - what the release is: chart, app version, revision, status, when and how it last changed;
@@ -102,6 +121,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 - **Pending has its own colour**: Pending pods use each theme's info hue instead of the warning orange, so they no longer read as warnings
 
 ### Fixed
+- **A pod's Argo Rollout opens from its owner chain** (backlog #20). "Owned by" linked every owner by its kind alone, so a custom resource owner, such as a Rollout above a ReplicaSet, led to `/detail/rollouts/…`, a page that can't load. Owners now link by the plural their CRD declares, guessing the usual plural only while the CRD list loads. A built-in kind keeps its own page only when its apiVersion matches. A static pod's Node links without the pod's namespace. The same fix applies to every drawer's owner chain.
 - **The Overview no longer says "Healthy" before it has looked**: right after you opened a cluster, Cluster health read *Healthy · All 0 pods healthy* and Needs attention *Nothing needs attention* for about two seconds, even on a cluster with crashing pods, because the page showed its verdict once any kind had loaded, and a 2 s throttle then held back the pods when they arrived. It now says **Checking** until the pods, workloads and nodes it judges have loaded, and gives the verdict the moment they do. When RBAC forbids listing them it says **Unknown** with the reason, never Healthy.
 - **A Helm release's drawer never upgrades another release with its chart or values**: with one release open, opening another from the keyboard (Enter on its row) kept the first release's chart ref, version and edited values, so **Save & upgrade** would have installed them over the second. The chart store's install form had the same flaw: opening another chart kept the first chart's release name, version and values. Each now starts from the release or chart it opens
 - **Helm releases list about 10× faster**: Helm's list fetched and decoded every revision of every release before keeping the newest. Kubebay now asks the API server only for revisions Helm hasn't superseded, with the same rows: 60 releases with 10 revisions each went from 2.3–3.1 s to about 0.2 s on a local API server. Upgrades from Kubebay keep 10 revisions, as the helm CLI does (they kept every one) (ADR 0004)

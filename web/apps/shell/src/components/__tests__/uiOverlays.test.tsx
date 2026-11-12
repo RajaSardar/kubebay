@@ -2,10 +2,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { Button, Drawer, Modal } from "@kubebay/ui";
+import { Button, Drawer, DrawerInset, Modal } from "@kubebay/ui";
 
 describe("Drawer", () => {
   it("is a labelled side panel with a title, subtitle, leading slot and actions", () => {
@@ -165,6 +165,59 @@ describe("Drawer", () => {
       fireEvent.click(web);
       expect(screen.getByRole("dialog", { name: "web" })).toBeInTheDocument();
     });
+  });
+
+  // ADR 0005: while the terminal dock is open, a drawer ends above it, and a
+  // press in the dock is not a press on the page behind the drawer.
+  describe("inside a DrawerInset", () => {
+    function Host({ onClose }: { onClose: () => void }) {
+      const dock = useRef<HTMLDivElement>(null);
+      return (
+        <DrawerInset bottom={260} keepOpenIn={dock}>
+          <button type="button">Row</button>
+          <Drawer title="api" onClose={onClose}>body</Drawer>
+          <div ref={dock}>
+            <button type="button">In the dock</button>
+          </div>
+        </DrawerInset>
+      );
+    }
+
+    it("ends above the dock", () => {
+      render(<Host onClose={() => {}} />);
+      expect(screen.getByRole("dialog", { name: "api" })).toHaveStyle({ bottom: "260px" });
+    });
+
+    it("stays open on a press in the dock, and still closes on a press on the page", () => {
+      const onClose = vi.fn();
+      render(<Host onClose={onClose} />);
+      fireEvent.mouseDown(screen.getByRole("button", { name: "In the dock" }));
+      expect(onClose).not.toHaveBeenCalled();
+      fireEvent.mouseDown(screen.getByRole("button", { name: "Row" }));
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+
+    it("changes nothing without one", () => {
+      render(<Drawer title="api" onClose={() => {}}>body</Drawer>);
+      expect(screen.getByRole("dialog", { name: "api" }).style.bottom).toBe("");
+    });
+  });
+
+  // Backlog #21: every drawer offers to copy the name of what it shows.
+  it("offers to copy the name it shows, beside the title, without renaming the panel", async () => {
+    const writeText = vi.fn(async () => {});
+    Object.assign(navigator, { clipboard: { writeText } });
+    render(<Drawer title="api-7f9c" copyName="api-7f9c" onClose={() => {}}>body</Drawer>);
+    expect(screen.getByRole("dialog", { name: "api-7f9c" })).toBeInTheDocument();
+    const copy = screen.getByRole("button", { name: "Copy name api-7f9c" });
+    expect(copy.closest(".drawer-head")).not.toBeNull();
+    fireEvent.click(copy);
+    expect(writeText).toHaveBeenCalledWith("api-7f9c");
+  });
+
+  it("has no copy button without a name to copy", () => {
+    render(<Drawer title="api" onClose={() => {}}>body</Drawer>);
+    expect(screen.queryByRole("button", { name: /^Copy name/ })).toBeNull();
   });
 
   it("can set the subtitle in the proportional face", () => {

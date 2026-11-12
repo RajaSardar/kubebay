@@ -68,8 +68,8 @@ export const PAGE_HELP: Record<string, PageHelpEntry> = {
   },
   "/terminal": {
     name: "Terminal",
-    what: "A shell on your own machine, with kubectl and your other tools, bound to one cluster's context.",
-    how: "The shell gets a kubeconfig that only sets the context, so your credentials stay where they are.",
+    what: "A shell on your own machine, with kubectl and your other tools, bound to one cluster's context. It lives in a dock under every page: Ctrl+` opens it from anywhere.",
+    how: "The shell keeps running while you move between pages or hide the dock. It gets a kubeconfig that only sets the context, so your credentials stay where they are.",
     docs: "terminal",
   },
   "/ports": {

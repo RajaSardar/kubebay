@@ -24,7 +24,8 @@ Click a pod to open its drawer. It always opens on **Summary**, unless you chose
 
 The pod's metadata, conditions, each container (image, state, ports, environment), resource claims and volumes.
 
-- **Owned by** shows the whole chain of owners, each one a link. For example: Helm release → Deployment → ReplicaSet → pod.
+- **Owned by** shows the whole chain of owners, each one a link. For example: Helm release → Deployment → ReplicaSet → pod. An owner that's a custom resource, such as an Argo Rollout, opens its own page too.
+- **Pod IP** shows the pod's address, or **Pod IPs** with both on a dual-stack pod. It says "not assigned yet" until the pod has one. **Host IP** is the address of the node it runs on. Each address has a copy button.
 - An environment variable from a Secret stays hidden until you click to reveal it.
 - Click a container's port to forward it to your machine. See [Port forwarding](/docs/port-forwarding/).
 
@@ -37,6 +38,14 @@ Logs stream as the container writes them.
 - **follow** keeps the newest line in view.
 - **previous** shows the run before the last restart, which is where a crash's cause usually is.
 - **Filter lines…** narrows what's shown, and **Download** saves the lines as a `.log` file.
+- Lines are coloured by their level: errors red, warnings amber, success green, debug and trace dimmed. Kubebay reads the level from the line itself:
+  - a JSON field such as `"level":"error"`, including pino's numeric levels;
+  - `level=warn` in logfmt;
+  - a klog prefix such as `E1112`;
+  - `[error]` in brackets, or `ERROR` in capitals;
+  - an exception at the start of the line, such as `Error:`, `panic:` or `Traceback`.
+
+  A line with no level that says something failed is an error, and one that says something succeeded is a success. "error" in the middle of a sentence doesn't count. A line that carries its own colours (ANSI codes) shows them in the theme's colours rather than as escape codes. The filter matches the text you see, and **Download** keeps the lines as the container wrote them.
 
 ### Terminal
 
