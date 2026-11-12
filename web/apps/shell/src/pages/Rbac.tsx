@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useLeadingThrottle } from "../lib/useLeadingThrottle";
 import { useQuery } from "@tanstack/react-query";
 import { Badge, Button, Card, PageHeader, Select, StatusDot, TextField } from "@kubebay/ui";
 import { PageHelp } from "../components/PageHelp";
@@ -115,14 +116,9 @@ export default function Rbac() {
   // client-side detector this session uses.
   const automountPods = useResourceStream(effectiveCluster || undefined, "v1/pods", { mode: "full" });
   const automountSAs = useResourceStream(effectiveCluster || undefined, "v1/serviceaccounts", { mode: "full" });
-  const automountFindings = useMemo(
-    () => findDefaultServiceAccountAutomounts(automountPods.rows, automountSAs.rows),
-    [automountPods.rows, automountSAs.rows],
-  );
 
   // Backlog #29: independent of the rbacApi.all snapshot -- pod env specs
   // aren't part of that server-computed RBAC analysis.
-  const secretExposureFindings = useMemo(() => findSecretEnvExposures(automountPods.rows), [automountPods.rows]);
 
   // Backlog #32: signature-verification policies, streamed only for the engines the cluster actually has.
   const crds = useQuery({
@@ -143,20 +139,6 @@ export default function Rbac() {
   const ratifyConstraints = useResourceStream(ratifyGvr ? effectiveCluster || undefined : undefined, ratifyGvr ?? "", { mode: "full", enabled: !!ratifyGvr });
   // Connaisseur has no CRD; its validating webhook is how it shows up.
   const validatingWebhooks = useResourceStream(effectiveCluster || undefined, "admissionregistration.k8s.io/v1/validatingwebhookconfigurations", { mode: "full" });
-  const imageSignatureReport = useMemo(
-    () =>
-      summarizeImageSignaturePolicies({
-        kyverno: [...kyvernoClusterPolicies.rows, ...kyvernoPolicies.rows],
-        sigstore: sigstorePolicies.rows,
-        namespaces: namespaces.rows,
-        ratifyConstraints: ratifyConstraints.rows,
-        validatingWebhooks: validatingWebhooks.rows,
-      }),
-    [kyvernoClusterPolicies.rows, kyvernoPolicies.rows, sigstorePolicies.rows, namespaces.rows, ratifyConstraints.rows, validatingWebhooks.rows],
-  );
-  const sigEnginesInstalled =
-    !!(sigEngines.kyvernoClusterPolicyGvr || sigEngines.kyvernoPolicyGvr || sigEngines.sigstoreClusterImagePolicyGvr || sigEngines.ratifyInstalled) ||
-    imageSignatureReport.policies.some((p) => p.engine === "connaisseur");
 
   // Backlog #35: unreferenced Secret finder. Secrets stay in metadata mode —
   // the finder needs names/labels/annotations only, not values.
@@ -165,32 +147,10 @@ export default function Rbac() {
   const deployments = useResourceStream(effectiveCluster || undefined, "apps/v1/deployments", { mode: "full" });
   const statefulSets = useResourceStream(effectiveCluster || undefined, "apps/v1/statefulsets", { mode: "full" });
   const cronJobs = useResourceStream(effectiveCluster || undefined, "batch/v1/cronjobs", { mode: "full" });
-  const orphanedSecrets = useMemo(
-    () =>
-      findOrphanedSecrets({
-        secrets: secrets.rows,
-        pods: automountPods.rows,
-        workloads: [...deployments.rows, ...statefulSets.rows, ...cronJobs.rows],
-        serviceAccounts: automountSAs.rows,
-        ingresses: ingresses.rows,
-      }),
-    [secrets.rows, automountPods.rows, deployments.rows, statefulSets.rows, cronJobs.rows, automountSAs.rows, ingresses.rows],
-  );
 
   // Backlog #13's deferred check: ServiceAccounts nothing runs as. A DaemonSet
   // whose nodeSelector matches no node has no pods but still uses its account.
   const daemonSets = useResourceStream(effectiveCluster || undefined, "apps/v1/daemonsets", { mode: "full" });
-  const unusedServiceAccounts = useMemo(
-    () =>
-      findUnusedServiceAccounts({
-        serviceAccounts: automountSAs.rows,
-        pods: automountPods.rows,
-        workloads: [...deployments.rows, ...statefulSets.rows, ...daemonSets.rows, ...cronJobs.rows],
-        bindings: [...(data?.roleBindings ?? []), ...(data?.clusterRoleBindings ?? [])],
-        secrets: secrets.rows,
-      }),
-    [automountSAs.rows, automountPods.rows, deployments.rows, statefulSets.rows, daemonSets.rows, cronJobs.rows, data, secrets.rows],
-  );
 
   // Roadmap Tier 3 #24: the findings above joined into chains from outside traffic.
   const services = useResourceStream(effectiveCluster || undefined, "v1/services", { mode: "full" });
@@ -207,20 +167,95 @@ export default function Rbac() {
     trivy.vulnerabilityReportGvr ?? "",
     { mode: "full", enabled: !!trivy.vulnerabilityReportGvr },
   );
+  // The analyses below walk every pod, Service, Secret and report. A busy
+  // cluster's streams flush every 16 ms, and re-running them each time kept
+  // the main thread pegged, so they all read one snapshot of those streams
+  // that refreshes at most every 2 s.
+  const heavyNow = useMemo(
+    () => ({
+      pods: automountPods.rows,
+      serviceAccounts: automountSAs.rows,
+      services: services.rows,
+      ingresses: ingresses.rows,
+      networkPolicies: networkPolicies.rows,
+      vulnReports: vulnReports.rows,
+      namespaces: namespaces.rows,
+      httpRoutes: httpRoutes.rows,
+      deployments: deployments.rows,
+      statefulSets: statefulSets.rows,
+      daemonSets: daemonSets.rows,
+      cronJobs: cronJobs.rows,
+      secrets: secrets.rows,
+      kyvernoClusterPolicies: kyvernoClusterPolicies.rows,
+      kyvernoPolicies: kyvernoPolicies.rows,
+      sigstorePolicies: sigstorePolicies.rows,
+      ratifyConstraints: ratifyConstraints.rows,
+      validatingWebhooks: validatingWebhooks.rows,
+    }),
+    [
+      automountPods.rows, automountSAs.rows, services.rows, ingresses.rows, networkPolicies.rows, vulnReports.rows, namespaces.rows, httpRoutes.rows,
+      deployments.rows, statefulSets.rows, daemonSets.rows, cronJobs.rows, secrets.rows, kyvernoClusterPolicies.rows, kyvernoPolicies.rows,
+      sigstorePolicies.rows, ratifyConstraints.rows, validatingWebhooks.rows,
+    ],
+  );
+  // The first pods to arrive show at once; only later churn waits.
+  const heavy = useLeadingThrottle(heavyNow, 2000, (applied, next) => applied.pods.length === 0 && next.pods.length > 0);
+
+  const automountFindings = useMemo(
+    () => findDefaultServiceAccountAutomounts(heavy.pods, heavy.serviceAccounts),
+    [heavy.pods, heavy.serviceAccounts],
+  );
+  const secretExposureFindings = useMemo(() => findSecretEnvExposures(heavy.pods), [heavy.pods]);
+  const imageSignatureReport = useMemo(
+    () =>
+      summarizeImageSignaturePolicies({
+        kyverno: [...heavy.kyvernoClusterPolicies, ...heavy.kyvernoPolicies],
+        sigstore: heavy.sigstorePolicies,
+        namespaces: heavy.namespaces,
+        ratifyConstraints: heavy.ratifyConstraints,
+        validatingWebhooks: heavy.validatingWebhooks,
+      }),
+    [heavy.kyvernoClusterPolicies, heavy.kyvernoPolicies, heavy.sigstorePolicies, heavy.namespaces, heavy.ratifyConstraints, heavy.validatingWebhooks],
+  );
+  const sigEnginesInstalled =
+    !!(sigEngines.kyvernoClusterPolicyGvr || sigEngines.kyvernoPolicyGvr || sigEngines.sigstoreClusterImagePolicyGvr || sigEngines.ratifyInstalled) ||
+    imageSignatureReport.policies.some((p) => p.engine === "connaisseur");
+  const orphanedSecrets = useMemo(
+    () =>
+      findOrphanedSecrets({
+        secrets: heavy.secrets,
+        pods: heavy.pods,
+        workloads: [...heavy.deployments, ...heavy.statefulSets, ...heavy.cronJobs],
+        serviceAccounts: heavy.serviceAccounts,
+        ingresses: heavy.ingresses,
+      }),
+    [heavy.secrets, heavy.pods, heavy.deployments, heavy.statefulSets, heavy.cronJobs, heavy.serviceAccounts, heavy.ingresses],
+  );
+  const unusedServiceAccounts = useMemo(
+    () =>
+      findUnusedServiceAccounts({
+        serviceAccounts: heavy.serviceAccounts,
+        pods: heavy.pods,
+        workloads: [...heavy.deployments, ...heavy.statefulSets, ...heavy.daemonSets, ...heavy.cronJobs],
+        bindings: [...(data?.roleBindings ?? []), ...(data?.clusterRoleBindings ?? [])],
+        secrets: heavy.secrets,
+      }),
+    [heavy.serviceAccounts, heavy.pods, heavy.deployments, heavy.statefulSets, heavy.daemonSets, heavy.cronJobs, data, heavy.secrets],
+  );
   const attackPaths = useMemo(
     () =>
       findAttackPaths({
-        pods: automountPods.rows,
-        services: services.rows,
-        ingresses: ingresses.rows,
-        networkPolicies: networkPolicies.rows,
-        vulnReports: vulnReports.rows,
+        pods: heavy.pods,
+        services: heavy.services,
+        ingresses: heavy.ingresses,
+        networkPolicies: heavy.networkPolicies,
+        vulnReports: heavy.vulnReports,
         rbacFindings: data?.findings ?? [],
-        namespaces: namespaces.rows,
-        httpRoutes: httpRoutes.rows,
+        namespaces: heavy.namespaces,
+        httpRoutes: heavy.httpRoutes,
         ...(data ? { rbac: data } : {}),
       }),
-    [automountPods.rows, services.rows, ingresses.rows, networkPolicies.rows, vulnReports.rows, data, namespaces.rows, httpRoutes.rows],
+    [heavy.pods, heavy.services, heavy.ingresses, heavy.networkPolicies, heavy.vulnReports, data, heavy.namespaces, heavy.httpRoutes],
   );
 
   // KB-15: what the export reuses from this page. System bindings are left
@@ -236,8 +271,8 @@ export default function Rbac() {
     [data, attackPaths, secretExposureFindings, automountFindings, imageSignatureReport.uncovered],
   );
   const exportRows = useMemo(
-    () => ({ pods: automountPods.rows, deployments: deployments.rows, statefulSets: statefulSets.rows, services: services.rows, networkPolicies: networkPolicies.rows }),
-    [automountPods.rows, deployments.rows, statefulSets.rows, services.rows, networkPolicies.rows],
+    () => ({ pods: heavy.pods, deployments: heavy.deployments, statefulSets: heavy.statefulSets, services: heavy.services, networkPolicies: heavy.networkPolicies }),
+    [heavy.pods, heavy.deployments, heavy.statefulSets, heavy.services, heavy.networkPolicies],
   );
   const exportReady =
     !!data &&

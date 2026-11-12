@@ -10,6 +10,7 @@ import { VulnFindingsSummary } from "../components/PodVulnerabilitiesTab";
 import { crdApi } from "../lib/api";
 import { useCluster } from "../lib/useCluster";
 import { useResourceStream } from "../lib/useResourceStream";
+import { useLeadingThrottle } from "../lib/useLeadingThrottle";
 import { useSelectedNamespaces } from "../lib/namespace-store";
 import { detectTrivyOperator } from "../lib/trivyOperator";
 import { absoluteTime } from "../lib/tableUx";
@@ -78,10 +79,17 @@ export default function Vulnerabilities() {
   // Metadata is enough to map a ReplicaSet to its Deployment.
   const replicaSets = useResourceStream(gvr ? cluster : undefined, "apps/v1/replicasets", { ns, mode: "metadata", enabled: !!gvr });
 
-  const all = useMemo(() => vulnWorkloads(reports.rows, replicaSets.rows), [reports.rows, replicaSets.rows]);
+  // Rebuilding every CVE of every report is the costly part; a scanned cluster
+  // flushes its stream every 16 ms, so read a snapshot that refreshes at most
+  // every 2 s instead.
+  const streamed = useMemo(() => ({ reports: reports.rows, replicaSets: replicaSets.rows }), [reports.rows, replicaSets.rows]);
+  // The first rows to arrive show at once; only later churn waits.
+  const snapshot = useLeadingThrottle(streamed, 2000, (applied, next) => applied.reports.length === 0 && next.reports.length > 0);
+
+  const all = useMemo(() => vulnWorkloads(snapshot.reports, snapshot.replicaSets), [snapshot]);
   const rows = useMemo(() => all.filter((w) => matchesVulnQuery(w, query)), [all, query]);
   const totals = useMemo(() => severityCounts(rows.flatMap((w) => w.findings)), [rows]);
-  const rsDeployment = useMemo(() => replicaSetDeployments(replicaSets.rows), [replicaSets.rows]);
+  const rsDeployment = useMemo(() => replicaSetDeployments(snapshot.replicaSets), [snapshot.replicaSets]);
   const openRow = open ? all.find((w) => w.key === rowKeyFor(open, rsDeployment)) : undefined;
 
   const close = () => {

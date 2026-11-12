@@ -3,8 +3,14 @@ import { render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import Rbac, { ruleAllows } from "../Rbac";
+import * as attackPaths from "../../lib/attackPaths";
 import { useResourceStream } from "../../lib/useResourceStream";
 import { rbacApi } from "../../lib/api";
+
+vi.mock("../../lib/attackPaths", async (orig) => {
+  const m = await orig<typeof import("../../lib/attackPaths")>();
+  return { ...m, findAttackPaths: vi.fn(m.findAttackPaths) };
+});
 
 vi.mock("../../lib/useCluster", () => ({
   useCluster: () => ({ cluster: "c1", setCluster: vi.fn(), list: [{ id: "c1" }], isLoading: false }),
@@ -133,5 +139,29 @@ describe("ruleAllows", () => {
 
   it("still matches an ordinary rule", () => {
     expect(ruleAllows({ verbs: ["get"], apiGroups: [""], resources: ["secrets"] } as never, "get", "", "secrets")).toBe(true);
+  });
+});
+
+describe("Rbac under a busy stream", () => {
+  it("does not redo the attack-path analysis on every flush of the streams it reads", async () => {
+    const spy = vi.mocked(attackPaths.findAttackPaths);
+    // Every render hands back fresh rows, as a stream does on each 16 ms flush.
+    vi.mocked(useResourceStream).mockImplementation(((_c: string, gvr: string) => ({
+      rows: gvr === "v1/pods" ? [{ metadata: { name: `p${Math.random()}`, namespace: "shop" } }] : [],
+      synced: true,
+    })) as never);
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const tree = () => (
+      <QueryClientProvider client={qc}>
+        <MemoryRouter>
+          <Rbac />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+    const { rerender } = render(tree());
+    await screen.findByText("Who can …");
+    spy.mockClear();
+    for (let i = 0; i < 20; i++) rerender(tree());
+    expect(spy.mock.calls.length).toBeLessThanOrEqual(1);
   });
 });

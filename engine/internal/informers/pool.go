@@ -449,9 +449,17 @@ func (p *Pool) entryFor(key poolKey) (*entry, error) {
 // second copy of the manifest on anything made with `kubectl apply`. Its key
 // stays, so the drawer still lists it; the YAML tab reads the live object, not
 // this cache.
+//
+// A Trivy VulnerabilityReport goes further: each CVE keeps the six fields the
+// Vulnerabilities page, pod and workload tabs and attack paths read. Its
+// description, links and CVSS are most of a report, and a cluster holds
+// thousands of them.
 func trimManagedFields(obj any) (any, error) {
 	switch o := obj.(type) {
 	case *unstructured.Unstructured:
+		if o.GetKind() == "VulnerabilityReport" {
+			trimVulnerabilities(o.Object)
+		}
 		md, _ := o.Object["metadata"].(map[string]any)
 		if ann, _ := md["annotations"].(map[string]any); ann != nil {
 			if _, has := ann[lastAppliedAnnotation]; has {
@@ -473,6 +481,26 @@ func trimManagedFields(obj any) (any, error) {
 		}
 	}
 	return obj, nil
+}
+
+var keptVulnerabilityFields = []string{"vulnerabilityID", "severity", "resource", "installedVersion", "fixedVersion", "primaryLink"}
+
+func trimVulnerabilities(obj map[string]any) {
+	report, _ := obj["report"].(map[string]any)
+	vulns, _ := report["vulnerabilities"].([]any)
+	for i, v := range vulns {
+		m, ok := v.(map[string]any)
+		if !ok {
+			continue
+		}
+		kept := make(map[string]any, len(keptVulnerabilityFields))
+		for _, k := range keptVulnerabilityFields {
+			if val, has := m[k]; has {
+				kept[k] = val
+			}
+		}
+		vulns[i] = kept
+	}
 }
 
 func unwrap(obj any) map[string]any {

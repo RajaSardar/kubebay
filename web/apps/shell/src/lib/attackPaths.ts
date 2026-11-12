@@ -121,16 +121,58 @@ function ingressBackends(ing: Obj): { service: string; host: string }[] {
   return out;
 }
 
-function entriesFor(pod: Obj, input: AttackPathInput): AttackEntry[] {
+/**
+ * What the per-pod steps look things up by. Built once per call: scanning every
+ * Service, policy, report and pod for each pod made one call minutes long on a
+ * big cluster.
+ */
+interface Index {
+  servicesByNs: Map<string, Obj[]>;
+  ingressesByNs: Map<string, Obj[]>;
+  policiesByNs: Map<string, Obj[]>;
+  reportsByOwner: Map<string, Obj[]>;
+  ingressSources?: Obj[];
+  gatewaySources: Map<string, Obj[]>;
+}
+
+function groupByNs(objs: Obj[]): Map<string, Obj[]> {
+  const out = new Map<string, Obj[]>();
+  for (const o of objs) {
+    const ns = nsOf(o);
+    const list = out.get(ns);
+    if (list) list.push(o);
+    else out.set(ns, [o]);
+  }
+  return out;
+}
+
+function buildIndex(input: AttackPathInput): Index {
+  const reportsByOwner = new Map<string, Obj[]>();
+  for (const r of input.vulnReports) {
+    const l = labels(r);
+    const key = `${l["trivy-operator.resource.kind"] ?? ""}/${l["trivy-operator.resource.name"] ?? ""}`;
+    const list = reportsByOwner.get(key);
+    if (list) list.push(r);
+    else reportsByOwner.set(key, [r]);
+  }
+  return {
+    servicesByNs: groupByNs(input.services),
+    ingressesByNs: groupByNs(input.ingresses),
+    policiesByNs: groupByNs(input.networkPolicies),
+    reportsByOwner,
+    gatewaySources: new Map(),
+  };
+}
+
+function entriesFor(pod: Obj, input: AttackPathInput, idx: Index): AttackEntry[] {
   const out: AttackEntry[] = [];
-  const selecting = input.services.filter((s) => selects(s, pod));
+  const selecting = (idx.servicesByNs.get(nsOf(pod)) ?? []).filter((s) => selects(s, pod));
   for (const s of selecting) {
     const type = str(rec(s.spec).type);
     if (type === "LoadBalancer" || type === "NodePort") out.push({ via: type, name: nameOf(s) });
   }
   const selectingNames = new Set(selecting.map(nameOf));
-  for (const ing of input.ingresses) {
-    if (nsOf(ing) !== nsOf(pod)) continue;
+  for (const ing of idx.ingressesByNs.get(nsOf(pod)) ?? []) {
     const hit = ingressBackends(ing).filter((b) => selectingNames.has(b.service));
     if (hit.length === 0) continue;
     const hosts = [...new Set(hit.map((b) => b.host).filter(Boolean))];
@@ -159,9 +201,8 @@ function entriesFor(pod: Obj, input: AttackPathInput): AttackEntry[] {
   return out;
 }
 
-function selectingPolicies(pod: Obj, policies: Obj[]): Obj[] {
-  return policies.filter((p) => {
-    if (nsOf(p) !== nsOf(pod)) return false;
+function selectingPolicies(pod: Obj, policiesByNs: Map<string, Obj[]>): Obj[] {
+  return (policiesByNs.get(nsOf(pod)) ?? []).filter((p) => {
     const spec = rec(p.spec);
     const types = Array.isArray(spec.policyTypes) ? (spec.policyTypes as string[]) : ["Ingress"];
     return types.includes("Ingress") && matchesSelector(labels(pod), rec(spec.podSelector) as LabelSelector);
@@ -231,7 +272,7 @@ function peerAdmitsPod(peer: Obj, policyNs: string, src: Obj, nsLabels: (ns: str
 type Admission = "admits" | "unknown" | "denies";
 
 /** Whether a policy's ingress rules let in the traffic an entry delivers. Ports are not considered. */
-function admission(policy: Obj, e: AttackEntry, input: AttackPathInput, nsLabels: (ns: string) => Record<string, string>): Admission {
+function admission(policy: Obj, e: AttackEntry, input: AttackPathInput, idx: Index, nsLabels: (ns: string) => Record<string, string>): Admission {
   const rules = arr(rec(policy.spec).ingress);
   const fromOf = (r: Obj) => (Array.isArray(r.from) ? arr(r.from) : []);
   if (rules.some((r) => fromOf(r).length === 0)) return "admits";
@@ -239,7 +280,14 @@ function admission(policy: Obj, e: AttackEntry, input: AttackPathInput, nsLabels
     // Client and node addresses aren't known here, so any ipBlock may cover them.
     return rules.some((r) => fromOf(r).some((p) => Object.keys(rec(p.ipBlock)).length > 0)) ? "admits" : "denies";
   }
-  const sources = e.via === "Ingress" ? ingressControllerPods(input.pods) : gatewayPods(input.pods, e.gateway ?? "");
+  let sources: Obj[];
+  if (e.via === "Ingress") {
+    sources = idx.ingressSources ??= ingressControllerPods(input.pods);
+  } else {
+    const gw = e.gateway ?? "";
+    sources = idx.gatewaySources.get(gw) ?? [];
+    if (!idx.gatewaySources.has(gw)) idx.gatewaySources.set(gw, (sources = gatewayPods(input.pods, gw)));
+  }
   if (sources.length === 0) return rules.length === 0 ? "denies" : "unknown";
   return rules.some((r) => fromOf(r).some((p) => sources.some((src) => peerAdmitsPod(p, nsOf(policy), src, nsLabels)))) ? "admits" : "denies";
 }
@@ -328,12 +376,13 @@ export function findAttackPaths(input: AttackPathInput): AttackPath[] {
     nodeEscape: Set<string>;
   }
   const byWorkload = new Map<string, Acc>();
+  const idx = buildIndex(input);
   const nsByName = new Map((input.namespaces ?? []).map((n) => [nameOf(n), labels(n)]));
   // Namespaces carry this label automatically, so it holds even unstreamed.
   const nsLabels = (ns: string) => ({ "kubernetes.io/metadata.name": ns, ...(nsByName.get(ns) ?? {}) });
 
   for (const pod of input.pods) {
-    const entries = entriesFor(pod, input);
+    const entries = entriesFor(pod, input, idx);
     if (entries.length === 0) continue;
     const ns = nsOf(pod);
     const w = workloadOf(pod);
@@ -355,11 +404,11 @@ export function findAttackPaths(input: AttackPathInput): AttackPath[] {
         nodeEscape: new Set(),
       } as Acc);
     for (const e of entries) acc.entry.set(`${e.via}/${e.name}/${e.gateway ?? ""}`, e);
-    const policies = selectingPolicies(pod, input.networkPolicies);
+    const policies = selectingPolicies(pod, idx.policiesByNs);
     policies.forEach((p) => acc.isolating.add(`${nsOf(p)}/${nameOf(p)}`));
     let podIso: Isolation = policies.length === 0 ? "open" : "restricted";
     for (const e of policies.length ? entries : []) {
-      const verdicts = policies.map((p) => admission(p, e, input, nsLabels));
+      const verdicts = policies.map((p) => admission(p, e, input, idx, nsLabels));
       if (verdicts.includes("admits")) {
         acc.admittedFrom.add(sourceName(e));
         podIso = "admits";
@@ -371,7 +420,7 @@ export function findAttackPaths(input: AttackPathInput): AttackPath[] {
     if (ISOLATION_ORDER.indexOf(podIso) < ISOLATION_ORDER.indexOf(acc.isolation)) acc.isolation = podIso;
     nodeEscapes(spec).forEach((x) => acc.nodeEscape.add(x));
     const containers = arr(spec.containers).map((c) => str(c.name));
-    for (const f of findingsForPod(input.vulnReports, { ns, ownerKind: w.ownerKind, ownerName: w.ownerName, containers })) {
+    for (const f of findingsForPod(idx.reportsByOwner.get(`${w.ownerKind}/${w.ownerName}`) ?? [], { ns, ownerKind: w.ownerKind, ownerName: w.ownerName, containers })) {
       acc.cves.set(`${f.container}/${f.id}`, f.severity);
     }
     if (spec.automountServiceAccountToken !== false) acc.tokenMounted = true;
@@ -379,6 +428,12 @@ export function findAttackPaths(input: AttackPathInput): AttackPath[] {
   }
 
   const out: AttackPath[] = [];
+  const secretsBySa = new Map<string, string[]>();
+  const secretsFor = (sa: string) => {
+    let v = secretsBySa.get(sa);
+    if (!v) secretsBySa.set(sa, (v = secretAccess(sa, input.rbac)));
+    return v;
+  };
   for (const acc of byWorkload.values()) {
     const critical = [...acc.cves.values()].filter((s) => s === "CRITICAL").length;
     const high = [...acc.cves.values()].filter((s) => s === "HIGH").length;
@@ -391,7 +446,7 @@ export function findAttackPaths(input: AttackPathInput): AttackPath[] {
       }
     }
     const nodeEscape = [...acc.nodeEscape];
-    const secrets = acc.tokenMounted ? secretAccess(acc.serviceAccount, input.rbac) : [];
+    const secrets = acc.tokenMounted ? secretsFor(acc.serviceAccount) : [];
     const foothold = critical + high > 0;
     const payoff = privileges.length > 0 || nodeEscape.length > 0 || secrets.length > 0;
     if (!foothold && !payoff) continue;

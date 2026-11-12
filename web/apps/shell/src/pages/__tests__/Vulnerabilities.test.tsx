@@ -4,6 +4,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import Vulnerabilities from "../Vulnerabilities";
 import { crdApi } from "../../lib/api";
+import * as vulnFindings from "../../lib/vulnFindings";
+import { useResourceStream } from "../../lib/useResourceStream";
 
 // Root backlog #16: every CVE on one page, rather than a tab on each pod and workload.
 
@@ -48,6 +50,10 @@ const reports = [
 ];
 const replicaSets = [{ metadata: { name: "web-7f9c", namespace: "shop", ownerReferences: [{ kind: "Deployment", name: "web", controller: true }] } }];
 
+vi.mock("../../lib/vulnFindings", async (orig) => {
+  const m = await orig<typeof import("../../lib/vulnFindings")>();
+  return { ...m, vulnWorkloads: vi.fn(m.vulnWorkloads) };
+});
 vi.mock("../../lib/useCluster", () => ({
   useCluster: () => ({ cluster: "c1", setCluster: vi.fn(), list: [{ id: "c1" }], isLoading: false }),
 }));
@@ -128,5 +134,28 @@ describe("Vulnerabilities", () => {
     expect(await screen.findByText(/Trivy-Operator not detected/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /install trivy-operator/i })).toBeInTheDocument();
     expect(screen.queryByRole("table")).toBeNull();
+  });
+
+  it("does not rebuild every workload's CVE list on every flush of the report stream", async () => {
+    const spy = vi.mocked(vulnFindings.vulnWorkloads);
+    // A fresh array each render, as the stream hands over on every 16 ms flush.
+    vi.mocked(useResourceStream).mockImplementation(((_c: string, gvr: string) => ({
+      rows: gvr === VULN_GVR ? [...reports] : gvr === "apps/v1/replicasets" ? [...replicaSets] : [],
+      synced: true,
+      connected: true,
+    })) as never);
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const tree = () => (
+      <QueryClientProvider client={qc}>
+        <MemoryRouter initialEntries={["/vulnerabilities"]}>
+          <Vulnerabilities />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+    const { rerender } = render(tree());
+    await screen.findByRole("table");
+    spy.mockClear();
+    for (let i = 0; i < 20; i++) rerender(tree());
+    expect(spy.mock.calls.length).toBeLessThanOrEqual(1);
   });
 });
