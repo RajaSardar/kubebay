@@ -74,6 +74,15 @@ beforeEach(() => {
 });
 
 describe("ClusterPicker", () => {
+  it("truncates a long name with an ellipsis and a tooltip, so the badge beside it is never clipped", async () => {
+    const long: ClusterInfo = { ...stage, id: "acme-production-cluster-default", context: "arn:aws:eks:ap-south-1:123:cluster/acme-production-cluster-default" };
+    renderPage([long]);
+    const name = await screen.findByText("acme-production-cluster-default", { selector: "[data-cluster-name]" });
+    expect(name).toHaveStyle({ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" });
+    expect(name).toHaveAttribute("title", "acme-production-cluster-default");
+    expect(within(name.closest("td")!).getByText("AWS EKS")).toBeInTheDocument();
+  });
+
   it("has drag-to-resize column headers and a wide default Name column", async () => {
     const { container } = renderPage([dev]);
     await screen.findByText("kind-dev", { selector: "[data-cluster-name]" });

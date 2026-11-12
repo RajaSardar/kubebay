@@ -407,16 +407,25 @@ export default function ClusterPicker() {
                                   onBlur={saveRename}
                                 />
                               ) : (
-                                <span className="mono" data-cluster-name>
+                                <span
+                                  className="mono"
+                                  data-cluster-name
+                                  title={name}
+                                  style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                                >
                                   {name}
                                 </span>
                               )}
                               {m.pinned && (
-                                <span className="catalog-pin-dot" title="Pinned">
+                                <span className="catalog-pin-dot" title="Pinned" style={{ flexShrink: 0 }}>
                                   ★
                                 </span>
                               )}
-                              {provider !== "–" && <Badge>{provider}</Badge>}
+                              {provider !== "–" && (
+                                <span style={{ flexShrink: 0 }}>
+                                  <Badge>{provider}</Badge>
+                                </span>
+                              )}
                             </span>
                           </td>
                           <td>
