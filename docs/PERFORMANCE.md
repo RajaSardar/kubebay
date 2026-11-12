@@ -214,6 +214,55 @@ caching less of each pod, a design choice of its own.
   key on every render, with nothing selected. With both fixed, two runs gave
   58.8 and 55.0 fps (p95 frame 16.8 and 33.3 ms).
 
+## Why it felt heavy next to Freelens (root backlog #23)
+
+Measured first (2026-11-09), in headless Chromium against the engine-served
+build, with 3,000 synthetic pods on the Pods page:
+
+- scrolling the table kept the main thread 73% busy at 60 fps;
+- hovering cost about 11 ms per row;
+- filtering cost 34 ms per keystroke;
+- a pod drawer opened in 77 ms, and going back to Pods took 275 ms.
+
+Four panels, 20 personas in all, debated the measurements and CPU profiles:
+
+- React rendering;
+- WebKit, CSS and the desktop shell;
+- data and streams, with a Freelens maintainer and an on-call SRE;
+- product and the perf budgets.
+
+A judge then checked each panel's claims against the code and wrote the plan.
+It rejected some proposals:
+
+- dropping row measurement, because rows aren't a fixed height at the largest font size with relaxed density;
+- `useFlushSync: false` and a smaller overscan, which move the work to a later frame instead of removing it.
+
+The plan, in four slices:
+
+1. **Stop needless work.**
+   - The 13 pre-warmed streams render in a `<Prewarm>` component of their own. As hooks in the app's root, each update re-rendered the sidebar, the cluster strip, the palette and the page.
+   - The mouse's row is CSS `:hover`'s job. Holding it in React state re-rendered the whole table on each row crossed.
+   - Sticky table headers no longer blur what scrolls under them. Their background is solid, so the blur showed nothing, yet it was recomposited every frame.
+   - The closed palette no longer turns every pod into a search entry on each update.
+   - The bounce guard's wheel listener is installed only where CSS `overscroll-behavior` can't stop the bounce.
+2. **Memoised table rows and stable row identities.**
+   - Each pod row is built once per object, kept when an update leaves its resourceVersion alone, and not rebuilt by the metrics poll.
+   - New budget: the main thread's share of a scroll.
+3. **Sort apart from filtering, and one shared stream per spec**, kept for 60 s after its last user.
+4. **The drawer swaps its content instead of sliding in again; logs stay live while it's open; route chunks preload on hover**, with interaction budgets: hover, keystroke, drawer open, warm navigation.
+
+Slice 1, same benchmark, median of 3 runs (main → slice 1):
+
+| Main-thread time | main | slice 1 |
+|---|---|---|
+| Pods changing 20 times a second, while you're on another page (3 s) | 449 ms | 165 ms |
+| Scrolling the Pods table (3 s) | 2,152 ms | 1,737 ms |
+| Back to Pods | 314 ms | 264 ms |
+| JavaScript per 25 rows hovered | ~80 ms | ~10 ms |
+
+The header blur's cost is mostly in WebKit, which this benchmark can't show:
+confirm it on a Mac in Safari's Web Inspector, Timelines.
+
 ## On your machine
 
 Linux only (the harness reads `/proc`). Use a dedicated cluster:

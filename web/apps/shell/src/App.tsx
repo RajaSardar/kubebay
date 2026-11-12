@@ -69,7 +69,7 @@ import { connectCluster, isClusterConnected } from "./lib/clusterConnections";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { ClusterConnectingOverlay } from "./components/ClusterConnectingOverlay";
 import { PageSkeleton } from "./components/PageSkeleton";
-import { usePrewarm } from "./lib/usePrewarm";
+import { Prewarm } from "./lib/usePrewarm";
 import { useNamespaceFallback } from "./lib/namespaceAccess";
 import { useRemoteDisconnects } from "./lib/useRemoteDisconnects";
 import { useSidebar, type SidebarState } from "./lib/useSidebar";
@@ -545,9 +545,6 @@ function AppInner() {
   // Only ever a cluster the user chose: no fallback to the first reachable one.
   const effectiveActive = active;
 
-  // Pre-warm backend informers for the most-visited GVRs so first renders are
-  // instant — same technique as FreeLens's persistent KubeObjectStore subscriptions.
-  usePrewarm(effectiveActive || undefined);
   // An identity that can't list namespaces starts in the ones it named (ADR 0003).
   useNamespaceFallback(effectiveActive || undefined);
   const activeCluster = list.find((c) => c.id === effectiveActive);
@@ -613,6 +610,10 @@ function AppInner() {
       <div className={sidebar.hidden ? "app sidebar-hidden" : "app"}>
         <ClusterStrip sidebar={sidebar} />
         <Sidebar onOpenPalette={() => setPaletteOpen(true)} sidebar={sidebar} />
+        {/* Pre-warm backend informers for the most-visited GVRs so first renders are
+            instant — same technique as FreeLens's persistent KubeObjectStore
+            subscriptions. A component, so stream updates don't re-render the app. */}
+        <Prewarm cluster={effectiveActive || undefined} />
         <Palette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
         <McpProposals />
 
