@@ -25,8 +25,11 @@ import (
 )
 
 const (
-	evictAfter = 5 * time.Minute
+	evictAfter = 2 * time.Minute
 	sweepEvery = time.Minute
+
+	lastAppliedAnnotation = "kubectl.kubernetes.io/last-applied-configuration"
+	lastAppliedTrimmed    = "(omitted by Kubebay)"
 
 	ModeMetadata = "metadata"
 	ModeFull     = "full"
@@ -441,10 +444,20 @@ func (p *Pool) entryFor(key poolKey) (*entry, error) {
 // of the 51 in a pod's metadata) and so most of what the cache and every
 // snapshot cost; nothing in Kubebay reads them. The entries themselves stay:
 // the Rollout tab reads when each manager last wrote.
+//
+// The last-applied-configuration annotation goes the same way: it is a whole
+// second copy of the manifest on anything made with `kubectl apply`. Its key
+// stays, so the drawer still lists it; the YAML tab reads the live object, not
+// this cache.
 func trimManagedFields(obj any) (any, error) {
 	switch o := obj.(type) {
 	case *unstructured.Unstructured:
 		md, _ := o.Object["metadata"].(map[string]any)
+		if ann, _ := md["annotations"].(map[string]any); ann != nil {
+			if _, has := ann[lastAppliedAnnotation]; has {
+				ann[lastAppliedAnnotation] = lastAppliedTrimmed
+			}
+		}
 		entries, _ := md["managedFields"].([]any)
 		for _, e := range entries {
 			if m, ok := e.(map[string]any); ok {
@@ -452,6 +465,9 @@ func trimManagedFields(obj any) (any, error) {
 			}
 		}
 	case *metav1.PartialObjectMetadata:
+		if _, has := o.Annotations[lastAppliedAnnotation]; has {
+			o.Annotations[lastAppliedAnnotation] = lastAppliedTrimmed
+		}
 		for i := range o.ManagedFields {
 			o.ManagedFields[i].FieldsV1 = nil
 		}

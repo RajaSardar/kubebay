@@ -57,6 +57,8 @@ func main() {
 		return
 	}
 
+	applyMemoryLimit(os.Getenv("GOMEMLIMIT"))
+
 	log := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 
 	var mgr *clusters.Manager

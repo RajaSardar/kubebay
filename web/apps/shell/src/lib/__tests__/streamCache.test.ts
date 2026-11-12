@@ -3,6 +3,7 @@ import {
   clearAllStreamCache,
   clearStreamCacheForCluster,
   getStreamCache,
+  MAX_CACHED_ROWS,
   setStreamCache,
   streamCacheSize,
 } from "../streamCache";
@@ -114,5 +115,39 @@ describe("streamCacheSize", () => {
     setStreamCache(key3, sampleEntries, true);
     clearStreamCacheForCluster("prod");
     expect(streamCacheSize()).toBe(1);
+  });
+});
+
+describe("row budget", () => {
+  const rows = (n: number): [string, Record<string, unknown>][] =>
+    Array.from({ length: n }, (_, i) => [`ns/p${i}`, { metadata: { name: `p${i}` } }]);
+
+  it("evicts the least recently used stream once the total rows pass the budget", () => {
+    setStreamCache("a", rows(MAX_CACHED_ROWS / 2), true);
+    setStreamCache("b", rows(MAX_CACHED_ROWS / 2), true);
+    setStreamCache("c", rows(10), true);
+    expect(getStreamCache("a")).toBeNull();
+    expect(getStreamCache("b")).not.toBeNull();
+    expect(getStreamCache("c")).not.toBeNull();
+  });
+
+  it("counts a read as use, so a stream you just revisited outlives an idle one", () => {
+    setStreamCache("a", rows(MAX_CACHED_ROWS / 2), true);
+    setStreamCache("b", rows(MAX_CACHED_ROWS / 2), true);
+    getStreamCache("a");
+    setStreamCache("c", rows(10), true);
+    expect(getStreamCache("a")).not.toBeNull();
+    expect(getStreamCache("b")).toBeNull();
+  });
+
+  it("replacing a stream does not count its old rows twice", () => {
+    setStreamCache("a", rows(MAX_CACHED_ROWS - 5), true);
+    setStreamCache("a", rows(MAX_CACHED_ROWS - 5), true);
+    expect(getStreamCache("a")).not.toBeNull();
+  });
+
+  it("keeps a single stream larger than the budget rather than caching nothing", () => {
+    setStreamCache("big", rows(MAX_CACHED_ROWS + 100), true);
+    expect(getStreamCache("big")).not.toBeNull();
   });
 });
