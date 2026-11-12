@@ -49,13 +49,27 @@ export interface DrawerProps {
   /** Escape closes the panel (not while typing in a field, editor or terminal),
    *  and so does a press on the page behind it. */
   onClose: () => void;
+  /** The resource's bare name: adds a "Copy name" button after the title that copies it. */
+  copyName?: string;
   /** Fill the page instead of sliding over it (the full-page resource view). */
   embedded?: boolean;
   children?: ReactNode;
 }
 
 /** The side panel for one resource: a head (status, title, actions) over its content. */
-export function Drawer({ title, subtitle, subtitleMono = true, leading, actions, onClose, embedded, children }: DrawerProps) {
+export function Drawer({ title, subtitle, subtitleMono = true, leading, actions, onClose, copyName, embedded, children }: DrawerProps) {
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!copied) return;
+    const t = setTimeout(() => setCopied(false), 1500);
+    return () => clearTimeout(t);
+  }, [copied]);
+  const copy = () => {
+    void navigator.clipboard?.writeText(copyName ?? "").then(
+      () => setCopied(true),
+      () => {},
+    );
+  };
   const ref = useRef<HTMLElement>(null);
   const titleId = useId();
   useFocusReturn(ref, !embedded, () => null);
@@ -108,6 +122,20 @@ export function Drawer({ title, subtitle, subtitleMono = true, leading, actions,
             <div className={`drawer-subtitle${subtitleMono ? " drawer-subtitle-mono" : ""}`}>{subtitle}</div>
           )}
         </div>
+        {copyName && (
+          <IconButton label={copied ? "Copied" : "Copy name"} onClick={copy}>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+              {copied ? (
+                <path d="M2.5 7.5l3 3 6-7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+              ) : (
+                <>
+                  <rect x="4.5" y="4.5" width="8" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.4" />
+                  <path d="M9.5 2.5h-6a1 1 0 0 0-1 1v6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                </>
+              )}
+            </svg>
+          </IconButton>
+        )}
         {actions != null && actions !== false && <div className="drawer-head-actions">{actions}</div>}
       </div>
       {children}

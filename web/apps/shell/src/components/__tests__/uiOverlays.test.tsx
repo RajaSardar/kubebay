@@ -4,8 +4,26 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { Button, Drawer, Modal } from "@kubebay/ui";
+
+describe("Drawer copyName", () => {
+  it("offers a Copy name button that copies just the given name and says Copied", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    render(<Drawer title="api-7f9c" subtitle="default" copyName="api-7f9c" onClose={() => {}} />);
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Copy name" }));
+    });
+    expect(writeText).toHaveBeenCalledWith("api-7f9c");
+    expect(screen.getByRole("button", { name: "Copied" })).toBeInTheDocument();
+  });
+
+  it("has no copy button unless copyName is given", () => {
+    render(<Drawer title="x" onClose={() => {}} />);
+    expect(screen.queryByRole("button", { name: "Copy name" })).toBeNull();
+  });
+});
 
 describe("Drawer", () => {
   it("is a labelled side panel with a title, subtitle, leading slot and actions", () => {

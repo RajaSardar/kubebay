@@ -149,6 +149,7 @@ function ReleaseDrawer({
   return (
     <Drawer
       title={rel.name}
+      copyName={rel.name}
       subtitle={rel.namespace}
       leading={<StatusDot status={tone.dot} />}
       onClose={onClose}

@@ -463,6 +463,7 @@ export default function GenericDrawer({
   return (
     <Drawer
       title={name}
+      copyName={name}
       subtitle={def.scoped ? def.label : ns}
       leading={<StatusDot status="connected" />}
       onClose={onClose}

@@ -133,6 +133,7 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
   return (
     <Drawer
       title={pod.pod}
+      copyName={pod.pod}
       subtitle={pod.namespace}
       leading={<StatusDot status="connected" pulse={status === "streaming"} />}
       onClose={onClose}
