@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
-import Rbac from "../Rbac";
+import Rbac, { ruleAllows } from "../Rbac";
 import { useResourceStream } from "../../lib/useResourceStream";
 import { rbacApi } from "../../lib/api";
 
@@ -122,5 +122,16 @@ describe("Rbac", () => {
       expect(enabled("gateway.networking.k8s.io/v1/httproutes")).toBe(true);
       expect(enabled("v1/namespaces")).toBe(true);
     });
+  });
+});
+
+describe("ruleAllows", () => {
+  it("does not throw on a nonResourceURLs-only rule, which the API sends with null apiGroups and resources", () => {
+    const rule = { verbs: ["get"], apiGroups: null, resources: null, nonResourceURLs: ["/healthz"] } as never;
+    expect(ruleAllows(rule, "get", "", "secrets")).toBe(false);
+  });
+
+  it("still matches an ordinary rule", () => {
+    expect(ruleAllows({ verbs: ["get"], apiGroups: [""], resources: ["secrets"] } as never, "get", "", "secrets")).toBe(true);
   });
 });

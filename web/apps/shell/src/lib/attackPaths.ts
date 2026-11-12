@@ -266,7 +266,10 @@ function nodeEscapes(spec: Obj): string[] {
 const READ_VERBS = ["get", "list", "watch", "*"];
 
 function readsSecrets(r: RBACRule): boolean {
-  return r.verbs.some((v) => READ_VERBS.includes(v)) && (r.apiGroups.includes("") || r.apiGroups.includes("*")) && (r.resources.includes("secrets") || r.resources.includes("*"));
+  // nonResourceURLs-only rules arrive with null apiGroups and resources.
+  const groups = r.apiGroups ?? [];
+  const resources = r.resources ?? [];
+  return (r.verbs ?? []).some((v) => READ_VERBS.includes(v)) && (groups.includes("") || groups.includes("*")) && (resources.includes("secrets") || resources.includes("*"));
 }
 
 /** Secrets the ServiceAccount "ns/name" can read through its bindings, groups included. */

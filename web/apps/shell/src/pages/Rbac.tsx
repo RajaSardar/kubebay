@@ -72,9 +72,12 @@ const KIND_OPTIONS = [
     .sort(),
 ];
 
-function ruleAllows(rule: Rule, verb: string, group: string, resource: string): boolean {
-  const vOk = rule.verbs.includes("*") || rule.verbs.includes(verb);
-  const gOk = rule.apiGroups.includes("*") || rule.apiGroups.includes(group);
+export function ruleAllows(rule: Rule, verb: string, group: string, resource: string): boolean {
+  // nonResourceURLs-only rules arrive with null apiGroups and resources.
+  const verbs = rule.verbs ?? [];
+  const groups = rule.apiGroups ?? [];
+  const vOk = verbs.includes("*") || verbs.includes(verb);
+  const gOk = groups.includes("*") || groups.includes(group);
   const base = resource.split("/")[0] ?? "";
   const rOk =
     !rule.resources ||

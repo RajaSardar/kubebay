@@ -259,6 +259,13 @@ describe("findAttackPaths", () => {
       expect(() => findAttackPaths(base({ vulnReports: [], rbacFindings: [], rbac: nulled }))).not.toThrow();
     });
 
+    it("survives rules the API sends with null apiGroups or resources (nonResourceURLs-only rules)", () => {
+      const nonResource = { verbs: ["get"], apiGroups: null as never, resources: null as never, nonResourceURLs: ["/healthz"] };
+      const snap = rbacSnap([{ cluster: true, role: "ClusterRole:reader", subject: sa }], { "ClusterRole:reader": [nonResource, readSecrets()] });
+      const p = findAttackPaths(base({ vulnReports: [], rbacFindings: [], rbac: snap }))[0]!;
+      expect(p.secretAccess).toEqual(["every namespace"]);
+    });
+
     it("counts groups every ServiceAccount is in, and ignores write-only or other-resource rules", () => {
       const snap = rbacSnap(
         [
