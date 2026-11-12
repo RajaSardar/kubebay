@@ -19,4 +19,12 @@
 19. In pod i can not see the ips of the pod like lens /freelens 
 20. for rollout in pods i can not going back to the controlled by rollout when i am clicking on the rollout it is not able to load 
 21. give copy name button for any kind like deployment name, pod name, statefulsets name, service name all kind of names 
-22. In pods logs can you make the logs text colorized based on the industry like for error, and warning, and success 
+22. In pods logs can you make the logs text colorized based on  page and other page, pod list check and make it smooth 
+23. the app feels heavy and laggy and feels not as smooth and faster like freelens for all the pages, can you do and indepth 20 experts agents to realtime debate with each other and fix this. 
+24. for KEDA scaledobject also add a pause collom which will show if it is pause or not.
+25. also make the keda nav similer like keda in CRD like all search and all 
+26. Do research add a multi window/profile capability like vscode / google crome 
+26. when i am clicking delete in pod then it is asking to put the name in input box, can we remove that instead ask for confirmation and then delete it, 
+27. In Cluster list main menu i am not able to drag the collaumn, and its not vissible, make the collaumn expandable like pods and other tables, and make the name visible properly 
+28. in Cluster icon colur change it was also changing the slug/shortname that should not happen if i change the colour then only colour should change 
+29. 
