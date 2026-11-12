@@ -65,4 +65,4 @@ Asks an AI model what's wrong with the pod. It sends the pod's evidence: status,
 
 ## Deleting a pod
 
-**Delete** asks you to type the pod's name. A pod that's finished, or never scheduled, is deleted at once. If a finalizer holds it, such as a Job's tracking finalizer, Kubebay offers to **force** the delete and says exactly what that does: skip the grace period, remove finalizers, or both.
+**Delete** asks for a plain confirmation that names the pod: click **Delete** to go ahead or **Cancel** to keep it. You don't type the name; pods are recreated by their controller, and every other kind still asks you to type its name. A pod that's finished, or never scheduled, is deleted at once. If a finalizer holds it, such as a Job's tracking finalizer, Kubebay offers to **force** the delete and says exactly what that does: skip the grace period, remove finalizers, or both.
