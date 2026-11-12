@@ -474,7 +474,7 @@ export default function ResourceTable() {
         title={
           <>
             {def.label}
-            <StarButton path={`/r/${kind}`} />
+            <StarButton path={kind.startsWith("ext--") ? `/r/${kind}?scoped=${sp.get("scoped") ?? 1}` : `/r/${kind}`} name={def.label} />
           </>
         }
         label={def.label}

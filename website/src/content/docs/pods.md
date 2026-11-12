@@ -22,7 +22,7 @@ Click a pod to open its drawer. It always opens on **Summary**, unless you chose
 
 ### Summary
 
-The pod's metadata, conditions, each container (image, state, ports, environment), resource claims and volumes.
+The pod's metadata (including its **Pod IP** and **Host IP**, or **Pod IPs** and **Host IPs** on a dual-stack cluster), conditions, each container (image, state, ports, environment), resource claims and volumes.
 
 - **Owned by** shows the whole chain of owners, each one a link. For example: Helm release → Deployment → ReplicaSet → pod. An owner that is a custom resource, such as an Argo Rollout, opens like any other owner.
 - An environment variable from a Secret stays hidden until you click to reveal it.
