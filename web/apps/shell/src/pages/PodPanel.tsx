@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Badge, Button, InlineBanner, Row, Select, Spinner, StatusDot, Tabs, TextField, Drawer } from "@kubebay/ui";
+import { Badge, Button, InlineBanner, Modal, Row, Stack, Select, Spinner, StatusDot, Tabs, Drawer } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { usePodLogs, type PodLogsSpec } from "../lib/usePodLogs";
 import { ExecTerm, YamlTab } from "../components/heavy";
@@ -63,7 +63,6 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
   const [previous, setPrevious] = useState(false);
   const [filter, setFilter] = useState("");
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const [deleteInput, setDeleteInput] = useState("");
   const [deleteErr, setDeleteErr] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [force, setForce] = useState(false);
@@ -106,10 +105,6 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
   const forceLabel = forceDeleteLabel(forceEffect);
 
   async function doDelete() {
-    if (deleteInput !== pod.pod) {
-      setDeleteErr("Name does not match.");
-      return;
-    }
     setDeleting(true);
     setDeleteErr("");
     try {
@@ -140,49 +135,55 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
         <>
           {status === "closed" && <Badge tone="err">ended</Badge>}
           {error && <span className="error-text small">{error}</span>}
-          {!confirmingDelete ? (
-            <>
-              <Button variant="danger-ghost" onClick={() => setConfirmingDelete(true)}>
-                Delete
-              </Button>
-              <Button variant="ghost" onClick={onClose}>
-                Close
-              </Button>
-            </>
-          ) : (
-            <>
-              <TextField
-                style={{ maxWidth: 180 }}
-                placeholder={`type "${pod.pod}"`}
-                value={deleteInput}
-                onChange={(e) => setDeleteInput(e.target.value)}
-                spellCheck={false}
-              />
-              {forceLabel && (
-                <label className="ctl" style={{ cursor: "pointer" }}>
-                  <input type="checkbox" checked={force} onChange={(e) => setForce(e.target.checked)} />
-                  {forceLabel}
-                </label>
-              )}
-              <Button variant="danger" disabled={deleting} onClick={() => void doDelete()}>
-                Confirm
-              </Button>
+          <Button variant="danger-ghost" onClick={() => setConfirmingDelete(true)}>
+            Delete
+          </Button>
+          <Button variant="ghost" onClick={onClose}>
+            Close
+          </Button>
+        </>
+      }
+    >
+      {confirmingDelete && (
+        <Modal
+          label={`Delete ${pod.pod}?`}
+          title={`Delete ${pod.pod}?`}
+          onClose={() => {
+            setConfirmingDelete(false);
+            setDeleteErr("");
+          }}
+          placement="center"
+        >
+          <Stack gap={3}>
+            <span className="muted small">
+              A pod is recreated by its controller, if it has one. A pod without one is gone for good.
+            </span>
+            {forceLabel && (
+              <label className="ctl" style={{ cursor: "pointer" }}>
+                <input type="checkbox" checked={force} onChange={(e) => setForce(e.target.checked)} />
+                {forceLabel}
+              </label>
+            )}
+            {deleteErr && <InlineBanner flush>{deleteErr}</InlineBanner>}
+            <Row justify="end" gap={2}>
               <Button
                 variant="ghost"
+                disabled={deleting}
                 onClick={() => {
                   setConfirmingDelete(false);
-                  setDeleteInput("");
                   setDeleteErr("");
                 }}
               >
                 Cancel
               </Button>
-            </>
-          )}
-        </>
-      }
-    >
-      {deleteErr && (
+              <Button variant="danger" disabled={deleting} onClick={() => void doDelete()}>
+                {deleting ? "Deleting…" : "Delete"}
+              </Button>
+            </Row>
+          </Stack>
+        </Modal>
+      )}
+      {!confirmingDelete && deleteErr && (
         <InlineBanner flush style={{ margin: "10px 14px 0" }}>
           {deleteErr}
         </InlineBanner>
