@@ -265,7 +265,11 @@ jobs:
   # with a dry-run diff, applied. See docs/E2E.md.
   e2e:
     name: e2e (kind)
-    runs-on: ubuntu-latest
+    # Ubuntu 24.04, not ubuntu-latest (26.04 since 2026-11-11): the pinned
+    # Playwright 1.56.1 can't install Chromium on 26.04, which needs >= 1.61.0.
+    # scripts/playwright-runners.test.mjs checks this; it allows ubuntu-latest
+    # again once e2e/ and perf/ pin Playwright >= 1.61.0.
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
       KUBEBAY_TOKEN: e2e-token
@@ -345,7 +349,11 @@ jobs:
   # gets --fail. Method: docs/PERFORMANCE.md.
   perf:
     name: perf (kind)
-    runs-on: ubuntu-latest
+    # Ubuntu 24.04, not ubuntu-latest (26.04 since 2026-11-11): the pinned
+    # Playwright 1.56.1 can't install Chromium on 26.04, which needs >= 1.61.0.
+    # scripts/playwright-runners.test.mjs checks this; it allows ubuntu-latest
+    # again once e2e/ and perf/ pin Playwright >= 1.61.0.
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -395,7 +403,11 @@ jobs:
   # cluster config (feature gates, CDI), which this job uses as it is.
   e2e-dra:
     name: e2e dra (kind, Kubernetes 1.37)
-    runs-on: ubuntu-latest
+    # Ubuntu 24.04, not ubuntu-latest (26.04 since 2026-11-11): the pinned
+    # Playwright 1.56.1 can't install Chromium on 26.04, which needs >= 1.61.0.
+    # scripts/playwright-runners.test.mjs checks this; it allows ubuntu-latest
+    # again once e2e/ and perf/ pin Playwright >= 1.61.0.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
       KUBEBAY_TOKEN: e2e-token
