@@ -9,7 +9,7 @@ vi.mock("react-router-dom", async () => {
   return { ...actual, useNavigate: () => navigateMock };
 });
 
-vi.mock("../lib/useOwnerChain", () => ({
+vi.mock("../../lib/useOwnerChain", () => ({
   useOwnerChain: (_cluster: string, _ns: string, refs: { kind: string; name: string }[]) =>
     refs.map((r) => ({ kind: r.kind, name: r.name, slug: r.kind.toLowerCase() + "s", ns: "prod" })),
 }));

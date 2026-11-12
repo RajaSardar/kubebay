@@ -1,6 +1,21 @@
 import { describe, it, expect, vi } from "vitest";
-import { renderHook } from "@testing-library/react";
-import { useOwnerChain } from "../useOwnerChain";
+import { createElement, type ReactNode } from "react";
+import { renderHook as renderHookBare, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ownerSlug, useOwnerChain } from "../useOwnerChain";
+import type { CRDEntry } from "../api";
+
+// The CRDs the cluster serves, as /api/crds lists them.
+const crds = vi.hoisted(() => ({ list: [] as unknown[] }));
+vi.mock("../api", async (orig) => ({
+  ...(await orig<typeof import("../api")>()),
+  crdApi: { list: vi.fn(async () => crds.list) },
+}));
+
+function renderHook<T>(cb: () => T) {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return renderHookBare(cb, { wrapper: ({ children }: { children: ReactNode }) => createElement(QueryClientProvider, { client: qc }, children) });
+}
 
 // We'll mock useResourceStream so the hook can resolve owner objects in memory.
 // Each call maps gvr → rows.
@@ -96,5 +111,62 @@ describe("useOwnerChain", () => {
       useOwnerChain("kind", "prod", [{ apiVersion: "batch/v1", kind: "Job", name: "backup-xyz" }]),
     );
     expect(result.current.map((o) => o.kind)).toEqual(["Job", "CronJob"]);
+  });
+});
+
+// Backlog #20: a pod of an Argo Rollout links up its chain to the Rollout, and
+// that link opens the Rollout's page, a custom resource's, not a dead
+// "/detail/rollouts/…".
+const rollouts: CRDEntry = {
+  name: "rollouts.argoproj.io",
+  group: "argoproj.io",
+  version: "v1alpha1",
+  resource: "rollouts",
+  kind: "Rollout",
+  namespaced: true,
+  gvr: "argoproj.io/v1alpha1/rollouts",
+  columns: [],
+};
+
+describe("ownerSlug", () => {
+  it("is a built-in kind's own page", () => {
+    expect(ownerSlug({ apiVersion: "apps/v1", kind: "ReplicaSet" })).toBe("replicasets");
+    expect(ownerSlug({ apiVersion: "batch/v1", kind: "Job" })).toBe("jobs");
+  });
+
+  it("is a custom resource's page by the plural its CRD declares", () => {
+    expect(ownerSlug({ apiVersion: "argoproj.io/v1alpha1", kind: "Rollout" }, [rollouts])).toBe("ext--argoproj.io--v1alpha1--rollouts");
+    const odd = { ...rollouts, resource: "oddities", kind: "Oddity", gvr: "example.com/v1/oddities", group: "example.com", version: "v1" };
+    expect(ownerSlug({ apiVersion: "example.com/v1", kind: "Oddity" }, [odd])).toBe("ext--example.com--v1--oddities");
+  });
+
+  it("guesses the plural the usual way before the CRDs have loaded", () => {
+    expect(ownerSlug({ apiVersion: "argoproj.io/v1alpha1", kind: "Rollout" })).toBe("ext--argoproj.io--v1alpha1--rollouts");
+    expect(ownerSlug({ apiVersion: "example.com/v1", kind: "Policy" })).toBe("ext--example.com--v1--policies");
+    expect(ownerSlug({ apiVersion: "example.com/v1", kind: "Address" })).toBe("ext--example.com--v1--addresses");
+  });
+
+  it("doesn't mistake a custom kind for a built-in one of the same name", () => {
+    expect(ownerSlug({ apiVersion: "example.com/v1", kind: "Deployment" })).toBe("ext--example.com--v1--deployments");
+  });
+});
+
+describe("useOwnerChain and custom resources", () => {
+  it("links a pod's Argo Rollout, through its ReplicaSet, to the Rollout's page", async () => {
+    crds.list = [rollouts];
+    streamMap["apps/v1/replicasets"] = [
+      { metadata: { name: "web-6d4f", namespace: "prod", ownerReferences: [{ apiVersion: "argoproj.io/v1alpha1", kind: "Rollout", name: "web", controller: true }] } },
+    ];
+    const { result } = renderHook(() => useOwnerChain("kind", "prod", [{ apiVersion: "apps/v1", kind: "ReplicaSet", name: "web-6d4f" }]));
+    await waitFor(() =>
+      expect(result.current[1]).toMatchObject({ kind: "Rollout", name: "web", ns: "prod", slug: "ext--argoproj.io--v1alpha1--rollouts" }),
+    );
+  });
+});
+
+describe("useOwnerChain and cluster-scoped owners", () => {
+  it("links a static pod's Node without the pod's namespace, so its page loads", () => {
+    const { result } = renderHook(() => useOwnerChain("kind", "kube-system", [{ apiVersion: "v1", kind: "Node", name: "node-a" }]));
+    expect(result.current[0]).toMatchObject({ kind: "Node", name: "node-a", slug: "nodes", ns: "" });
   });
 });
