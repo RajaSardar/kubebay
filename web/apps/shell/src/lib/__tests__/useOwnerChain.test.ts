@@ -97,4 +97,21 @@ describe("useOwnerChain", () => {
     );
     expect(result.current.map((o) => o.kind)).toEqual(["Job", "CronJob"]);
   });
+
+  it("links an Argo Rollout owner to its CRD detail route, not the unknown slug 'rollouts'", () => {
+    const { result } = renderHook(() =>
+      useOwnerChain("kind", "prod", [{ apiVersion: "argoproj.io/v1alpha1", kind: "Rollout", name: "web", controller: true } as never]),
+    );
+    expect(result.current[0]).toMatchObject({ kind: "Rollout", name: "web", slug: "ext--argoproj.io--v1alpha1--rollouts" });
+  });
+
+  it("links a ReplicaSet owned by a Rollout through to the Rollout", () => {
+    streamMap["apps/v1/replicasets"] = [
+      { metadata: { name: "web-abc", namespace: "prod", ownerReferences: [{ apiVersion: "argoproj.io/v1alpha1", kind: "Rollout", name: "web", controller: true }] } },
+    ];
+    const { result } = renderHook(() =>
+      useOwnerChain("kind", "prod", [{ apiVersion: "apps/v1", kind: "ReplicaSet", name: "web-abc" }]),
+    );
+    expect(result.current.map((o) => o.slug)).toEqual(["replicasets", "ext--argoproj.io--v1alpha1--rollouts"]);
+  });
 });
