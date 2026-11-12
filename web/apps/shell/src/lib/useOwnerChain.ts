@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useResourceStream } from "./useResourceStream";
+import { extSlug, lookupDef, slugForKind } from "./resources";
 
 export interface OwnerLink {
   kind: string;
@@ -19,15 +20,26 @@ const OWNER_GVR: Record<string, string> = {
   "batch/v1/CronJob": "batch/v1/cronjobs",
 };
 
-/** Derives a URL slug from a Kubernetes Kind string. */
-export function kindSlug(kind: string): string {
-  const overrides: Record<string, string> = {
-    StatefulSet: "statefulsets",
-    DaemonSet: "daemonsets",
-    ReplicaSet: "replicasets",
-    CronJob: "cronjobs",
-  };
-  return overrides[kind] ?? kind.toLowerCase() + "s";
+function pluralOf(kind: string): string {
+  const k = kind.toLowerCase();
+  if (k.endsWith("y")) return `${k.slice(0, -1)}ies`;
+  if (/(s|x|ch|sh)$/.test(k)) return `${k}es`;
+  return `${k}s`;
+}
+
+/**
+ * Derives the /detail route slug for an owner. A built-in kind uses its
+ * registered slug; a CRD kind (e.g. Argo's Rollout, argoproj.io/v1alpha1) has
+ * no registered def, so it gets the synthesized `ext--group--version--plural`
+ * slug that ResourceDetail resolves for any CRD.
+ */
+export function kindSlug(kind: string, apiVersion?: string): string {
+  const known = slugForKind(kind);
+  const [group, version] = apiVersion?.includes("/") ? apiVersion.split("/") : ["", apiVersion ?? ""];
+  const knownGroup = known ? (lookupDef(known, new URLSearchParams())?.group ?? "") : "";
+  if (known && (!apiVersion || knownGroup === group)) return known;
+  if (!version) return known ?? pluralOf(kind);
+  return `ext--${extSlug(group ? `${group}/${version}/${pluralOf(kind)}` : `${version}/${pluralOf(kind)}`)}`;
 }
 
 interface RawOwnerRef {
@@ -89,7 +101,7 @@ export function useOwnerChain(
       chain.push({
         kind: ownerRef.kind,
         name: ownerRef.name,
-        slug: kindSlug(ownerRef.kind),
+        slug: kindSlug(ownerRef.kind, ownerRef.apiVersion),
         ns: namespace,
       });
 

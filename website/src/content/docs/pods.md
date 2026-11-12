@@ -24,7 +24,7 @@ Click a pod to open its drawer. It always opens on **Summary**, unless you chose
 
 The pod's metadata, conditions, each container (image, state, ports, environment), resource claims and volumes.
 
-- **Owned by** shows the whole chain of owners, each one a link. For example: Helm release → Deployment → ReplicaSet → pod.
+- **Owned by** shows the whole chain of owners, each one a link. For example: Helm release → Deployment → ReplicaSet → pod. An owner that is a custom resource, such as an Argo Rollout, opens like any other owner.
 - An environment variable from a Secret stays hidden until you click to reveal it.
 - Click a container's port to forward it to your machine. See [Port forwarding](/docs/port-forwarding/).
 
