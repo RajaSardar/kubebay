@@ -46,6 +46,8 @@ type Deps struct {
 	Waste     wasteSnapshotter
 	History   *HistoryAPI
 	Discovery *DiscoveryAPI
+	// Search finds objects by name across kinds the app does not hold in memory.
+	Search *SearchAPI
 	// Extensions serves ~/.kubebay/extensions.yaml (KB-13); nil = off.
 	Extensions *ExtensionsAPI
 }
@@ -342,6 +344,9 @@ func Router(d Deps, token string) http.Handler {
 		r.Put("/api/yaml", d.Channels.HandleApplyYAML)
 		r.Post("/api/yaml/create", d.Channels.HandleCreateResource)
 		r.Get("/api/metrics/pods", d.Metrics.HandlePodMetrics)
+		if d.Search != nil {
+			r.Get("/api/search", d.Search.HandleSearch)
+		}
 		r.Get("/api/apis", d.Metrics.HandleDiscovery)
 		r.Get("/api/apiversions", d.Metrics.HandleAPIVersions)
 		r.Get("/api/crds", d.Metrics.HandleCRDs)

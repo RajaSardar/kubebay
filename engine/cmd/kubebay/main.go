@@ -164,6 +164,9 @@ func main() {
 		}
 	}()
 
+	searchAPI := httpapi.NewSearchAPI(httpapi.NewPoolSearchBackend(registry, mgr))
+	defer searchAPI.Close()
+
 	handler := httpapi.Router(httpapi.Deps{
 		Version:    version,
 		Log:        log,
@@ -187,6 +190,7 @@ func main() {
 		Audit:      auditLog,
 		Waste:      wasteSampler,
 		History:    historyAPI,
+		Search:     searchAPI,
 		Discovery: &httpapi.DiscoveryAPI{
 			Settings: settingsMgr,
 			Clusters: mgr,

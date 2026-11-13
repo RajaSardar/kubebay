@@ -92,6 +92,12 @@ export function parseQuery(raw: string): { slug: string | null; terms: string[] 
   return { slug: null, terms: tokens };
 }
 
+// Code-unit order, not the locale's: the engine's ranker compares bytes, and
+// a result must not depend on whose machine answered it.
+function cmp(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
 function inOrder(hay: string, needle: string): boolean {
   let j = 0;
   for (let i = 0; i < hay.length && j < needle.length; i++) if (hay[i] === needle[j]) j++;
@@ -150,18 +156,15 @@ export function search(index: Index, raw: string, opts: { perGroup?: number; max
   for (const [s, hits] of buckets) {
     hits.sort((a, b) =>
       listing
-        ? a.obj.name.localeCompare(b.obj.name) || a.obj.ns.localeCompare(b.obj.ns)
-        : b.score - a.score ||
-          a.obj.name.length - b.obj.name.length ||
-          a.obj.name.localeCompare(b.obj.name) ||
-          a.obj.ns.localeCompare(b.obj.ns),
+        ? cmp(a.obj.name, b.obj.name) || cmp(a.obj.ns, b.obj.ns)
+        : b.score - a.score || a.obj.name.length - b.obj.name.length || cmp(a.obj.name, b.obj.name) || cmp(a.obj.ns, b.obj.ns),
     );
     groups.push({ slug: s, label: labelOf(s), total: hits.length, hits: hits.slice(0, perGroup) });
   }
 
   groups.sort(
     (a, b) =>
-      (b.hits[0]?.score ?? 0) - (a.hits[0]?.score ?? 0) || (KIND_ORDER.get(a.slug) ?? 99) - (KIND_ORDER.get(b.slug) ?? 99),
+      (b.hits[0]?.score ?? 0) - (a.hits[0]?.score ?? 0) || (KIND_ORDER.get(a.slug) ?? 99) - (KIND_ORDER.get(b.slug) ?? 99) || cmp(a.slug, b.slug),
   );
   return groups.slice(0, maxGroups);
 }
