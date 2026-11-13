@@ -26,6 +26,9 @@ type Kind struct {
 	Tier    Tier     `json:"tier"`
 	// Synthetic kinds have entries from the catalogue (CRD definitions), not an informer.
 	Synthetic bool `json:"synthetic"`
+	// ClusterScoped marks a custom resource kind with no namespace, which the UI
+	// must say in the route it opens.
+	ClusterScoped bool `json:"clusterScoped"`
 	// Local kinds are ones the app already holds in memory and searches itself.
 	// The index knows their words, so "deploy api" is read as a kind and a
 	// word, but it never follows them.
@@ -204,6 +207,8 @@ func CRDKinds(crds []CRD, taken map[string]string, covered map[string]bool) []Ki
 			Label:   pluralLabel(c.Kind, c.Plural),
 			Aliases: aliases,
 			Tier:    tier,
+
+			ClusterScoped: !c.Namespaced,
 		})
 	}
 	return out

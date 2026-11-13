@@ -10,7 +10,8 @@ import { openCluster } from "../lib/openCluster";
 import { getConnectedClusters, isClusterSynced } from "../lib/clusterConnections";
 import { useSavedViews } from "../lib/savedViews";
 import { DEFS, EXTRA_DEFS } from "../lib/resources";
-import { buildIndex, parseQuery, search, type SearchGroup, type SearchObject } from "../lib/paletteSearch";
+import { buildIndex, mergeGroups, parseQuery, search, type SearchGroup, type SearchObject } from "../lib/paletteSearch";
+import { usePaletteRemote } from "../lib/usePaletteRemote";
 import { usePaletteObjects } from "../lib/usePaletteObjects";
 import { pushRecent, readRecents, type Recent } from "../lib/paletteRecents";
 
@@ -223,15 +224,21 @@ function PaletteRow({
 // ──── Opening a result ────────────────────────────────────────────────────────
 
 /** Where an object opens. Pods have no detail page: their list opens the drawer. */
-function targetFor(o: { slug: string; ns: string; name: string }): string {
+function targetFor(o: { slug: string; ns: string; name: string; clusterScoped?: boolean }): string {
   if (o.slug === "pods") return `/workloads?pod=${encodeURIComponent(`${o.ns}/${o.name}`)}`;
-  return `/detail/${o.slug}/${o.ns || "_"}/${o.name}`;
+  // A CRD opens the CRDs page at its API group: its name is "plural.group".
+  if (o.slug === "crds") return `/crds?group=${encodeURIComponent(o.name.slice(o.name.indexOf(".") + 1))}`;
+  const base = `/detail/${o.slug}/${o.ns || "_"}/${o.name}`;
+  // A custom resource with no namespace must say so; the route cannot tell.
+  return o.slug.startsWith("ext--") && !o.ns ? `${base}?scoped=0` : base;
 }
 
 /** The kind's list, filtered to what was typed. */
-function listTargetFor(slug: string, terms: string): string {
+function listTargetFor(slug: string, terms: string, clusterScoped = false): string {
   const q = encodeURIComponent(terms);
-  return slug === "pods" ? `/workloads?q=${q}` : `/r/${slug}?q=${q}`;
+  if (slug === "pods") return `/workloads?q=${q}`;
+  if (slug === "crds") return `/crds`;
+  return `/r/${slug}?q=${q}${clusterScoped ? "&scoped=0" : ""}`;
 }
 
 type Scope = "active" | "all";
@@ -318,7 +325,15 @@ export function Palette({
   );
   const objects = usePaletteObjects(open, clusters);
   const index = useMemo(() => buildIndex(objects), [objects]);
-  const groups = useMemo(() => (q.trim() ? search(index, q) : []), [index, q]);
+  const localGroups = useMemo(() => (q.trim() ? search(index, q) : []), [index, q]);
+  // The engine answers for the kinds the app does not hold in memory.
+  const remote = usePaletteRemote(open, clusters, q);
+  const groups = useMemo(() => {
+    // A query naming a kind the engine knows ("rollouts api") is about that
+    // kind alone: a Deployment called rollouts-api is not an answer to it.
+    const local = remote.filter ? localGroups.filter((g) => g.slug === remote.filter) : localGroups;
+    return mergeGroups(local, remote.groups, { listing: parseQuery(q).terms.length === 0 });
+  }, [localGroups, remote.groups, remote.filter, q]);
   const showCluster = scope === "all" && several;
   const loading = open && clusters.some((c) => !isClusterSynced(c));
 
@@ -360,7 +375,7 @@ export function Palette({
       count: g.total,
       entries: [
         ...g.hits.map((h): Entry => ({ kind: "hit", obj: h.obj })),
-        ...(g.total > g.hits.length ? [{ kind: "more", group: g, to: listTargetFor(g.slug, termText) } as Entry] : []),
+        ...(g.total > g.hits.length ? [{ kind: "more", group: g, to: listTargetFor(g.slug, termText, g.hits[0]?.obj.clusterScoped) } as Entry] : []),
       ],
     }));
     const clusterSection: Section[] = clusterRows.length
@@ -374,6 +389,27 @@ export function Palette({
       : [...navSection, ...objectSections, ...clusterSection, ...recentSection];
   }, [filteredNav, groups, clusterRows, clusterMatch.intent, recents, q, termText]);
   const flatEntries = useMemo(() => sections.flatMap((s) => s.entries), [sections]);
+
+  const notes = useMemo(() => {
+    const out: { key: string; text: string; title?: string }[] = [];
+    if (loading) out.push({ key: "local", text: "Still loading this cluster, so results may be incomplete." });
+    if (remote.pending.length > 0) out.push({ key: "pending", text: `Still loading ${remote.pending.join(", ")}. More may appear.` });
+    if (remote.denied.length > 0) {
+      out.push({
+        key: "denied",
+        text: `Can't list ${remote.denied.map((d) => d.label).join(", ")} with your access.`,
+        title: remote.denied.map((d) => `${d.label}: ${d.reason}`).join("\n"),
+      });
+    }
+    if (remote.truncated.length > 0) out.push({ key: "truncated", text: `Too many ${remote.truncated.join(", ")} to search them all.` });
+    if (remote.error) out.push({ key: "error", text: `Couldn't search other kinds: ${remote.error}` });
+    if (remote.onDemand.length > 0 && !remote.filter && q.trim().length >= 2) {
+      const shown = remote.onDemand.slice(0, 6).join(", ") + (remote.onDemand.length > 6 ? "…" : "");
+      const word = remote.onDemand[0]!.toLowerCase();
+      out.push({ key: "ondemand", text: `Not searched unless you name them: ${shown}. Try: ${word} ${q.trim().split(/\s+/)[0]}` });
+    }
+    return out;
+  }, [loading, remote, q]);
 
   // Clamp idx whenever the list changes
   useEffect(() => {
@@ -523,12 +559,13 @@ export function Palette({
             </div>
           ))}
 
-          {/* Early results from a cluster still listing are partial: say so */}
-          {loading && q.trim() !== "" && (
-            <div className="muted small" style={{ padding: "8px 14px" }}>
-              Still loading this cluster, so results may be incomplete.
-            </div>
-          )}
+          {/* Say what was not searched, so a short list is never mistaken for the whole cluster */}
+          {q.trim() !== "" &&
+            notes.map((n) => (
+              <div key={n.key} className="muted small" style={{ padding: "6px 14px" }} title={n.title}>
+                {n.text}
+              </div>
+            ))}
 
           {/* Empty state */}
           {q.trim() !== "" && flatEntries.length === 0 && <div className="muted small" style={{ padding: "10px 14px" }}>No matches.</div>}

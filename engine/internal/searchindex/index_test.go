@@ -418,3 +418,17 @@ func TestReservedWordsAndPathsCoverEveryKindAlreadyHandled(t *testing.T) {
 		}
 	}
 }
+
+func TestAGroupCarriesItsKindsScopeToTheCaller(t *testing.T) {
+	f := newFake()
+	kinds := []Kind{{GVR: "acme.example/v1/widgets", Slug: "ext--acme.example--v1--widgets", Label: "Widgets", Aliases: []string{"widget", "widgets"}, ClusterScoped: true}}
+	ix := New(f, kinds, DefaultLimits)
+	defer ix.Close()
+	ix.Search("widget x", SearchOptions{})
+	eventually(t, "subscription", func() bool { return f.sub("acme.example/v1/widgets") != nil })
+	f.sub("acme.example/v1/widgets").snap <- stream.OpsSnapshot([]stream.Op{obj(stream.OpAdd, "", "x-1")})
+	eventually(t, "the widget", func() bool {
+		g := find(ix.Search("widget x", SearchOptions{}), "ext--acme.example--v1--widgets")
+		return g != nil && g.ClusterScoped
+	})
+}

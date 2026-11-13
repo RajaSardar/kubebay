@@ -1,6 +1,8 @@
 # Global search in ⌘K: can we, what would it cost, what should we build
 
 > Backlog item 32. Researched 2026-11-13 against `main` at v0.7.0 + unreleased.
+>
+> **Status:** phase 1 and phase 2 are built (see the commits `feat(palette)` and `feat(engine): a search index`). §6 below is the design they follow, with these differences: the scope switch defaults to the current cluster; every built-in kind is searched, with the high-churn ones (Events, Leases, Endpoints, EndpointSlices, ControllerRevisions, report objects) on demand when a query names them; and custom resources from unfamiliar groups are on demand too, so nothing is out of reach. Phase 3 (field search, actions) is not started.
 > Numbers marked **measured** were produced for this note with a throwaway benchmark; **estimated** means arithmetic from a measurement; **not measured** is said where it applies.
 
 ## 1. The question

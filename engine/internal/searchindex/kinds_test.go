@@ -1,6 +1,8 @@
 package searchindex
 
 import (
+	"encoding/json"
+	"os"
 	"strings"
 	"testing"
 )
@@ -156,5 +158,46 @@ func TestCRDDefinitionsAreSearchableByName(t *testing.T) {
 	}
 	if got := CRDNames([]CRD{rollouts()}); len(got) != 1 || got[0] != "rollouts.argoproj.io" {
 		t.Errorf("names = %v", got)
+	}
+}
+
+func TestAClusterScopedCustomResourceSaysSoSoTheUICanOpenIt(t *testing.T) {
+	widgets := CRD{Name: "widgets.acme.example", Group: "acme.example", Version: "v1", Plural: "widgets", Kind: "Widget", Namespaced: false}
+	k := bySlug(CRDKinds([]CRD{widgets, rollouts()}, nil, nil))
+	if !k["ext--acme.example--v1--widgets"].ClusterScoped {
+		t.Error("a cluster-scoped kind must be marked, or the UI will look for its objects in a namespace")
+	}
+	if k["ext--argoproj.io--v1alpha1--rollouts"].ClusterScoped {
+		t.Error("rollouts are namespaced")
+	}
+}
+
+// The palette recognises these words too (web/apps/shell/src/lib/paletteSearch.ts),
+// so it can tell "svc api" is about Services before the engine answers. Both
+// are tested against testdata/words.json. Regenerate it after changing the
+// catalogue, with UPDATE_WORDS=1.
+func TestTheKindWordsTheUIKnowsAreTheCataloguesOwn(t *testing.T) {
+	words := map[string]string{}
+	for _, k := range append(append(LocalKinds(), BuiltinKinds()...), CRDDefinitionsKind()) {
+		for _, a := range k.Aliases {
+			words[a] = k.Slug
+		}
+	}
+	want, err := json.MarshalIndent(words, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want = append(want, '\n')
+	if os.Getenv("UPDATE_WORDS") == "1" {
+		if err := os.WriteFile("testdata/words.json", want, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := os.ReadFile("testdata/words.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != string(want) {
+		t.Fatal("testdata/words.json is out of date: run with UPDATE_WORDS=1, then the TypeScript palette test")
 	}
 }

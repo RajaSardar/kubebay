@@ -254,6 +254,40 @@ async function fetchObject(
   }
 }
 
+/** One kind's matches in an engine search. */
+export interface SearchResponseGroup {
+  slug: string;
+  label: string;
+  total: number;
+  /** A custom resource kind with no namespace: its route needs ?scoped=0. */
+  clusterScoped: boolean;
+  hits: { ns: string; name: string; score: number }[];
+}
+
+/** The engine's answer to a search, with enough to tell a whole answer from a partial one. */
+export interface SearchResponse {
+  groups: SearchResponseGroup[];
+  /** The kind the query named, if any. */
+  filter: string;
+  indexed: number;
+  /** Kinds still listing: what is shown may be incomplete. */
+  pending: string[];
+  /** Kinds not searched until a query names them. */
+  onDemand: string[];
+  truncated: string[];
+  denied: { label: string; reason: string }[];
+}
+
+/** Find objects by name across the kinds the app does not hold in memory. */
+export const searchApi = {
+  search: async (cluster: string, q: string, signal?: AbortSignal): Promise<SearchResponse> => {
+    const params = new URLSearchParams({ cluster, q });
+    const res = await fetch(`/api/search?${params}`, { signal, headers: { "X-Kubebay-Token": getToken() } });
+    if (!res.ok) throw new Error(`${res.status} ${(await res.text()).trim() || res.statusText}`);
+    return (await res.json()) as SearchResponse;
+  },
+};
+
 /** Short-lived network diagnostic pod (roadmap Tier 2 #23); delete it with api.deleteResource when done. */
 export const netdiagApi = {
   start: (b: { cluster: string; namespace: string; node?: string; image?: string }) =>

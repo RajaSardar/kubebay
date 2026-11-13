@@ -35,7 +35,7 @@ Press <kbd>⌘</kbd> <kbd>K</kbd> (<kbd>Ctrl</kbd> <kbd>K</kbd>) anywhere to ope
 - your saved views;
 - your clusters, to switch to one (see below);
 - active port-forwards;
-- the pods, Deployments, StatefulSets, DaemonSets, Jobs, nodes and namespaces of the current cluster, by name or namespace.
+- the objects of the current cluster, by name or namespace: pods, Deployments, StatefulSets, DaemonSets, Jobs, nodes and namespaces at once; Services, Ingresses, ConfigMaps, Secrets (names only, never their values), PVCs, ServiceAccounts, Roles, CronJobs, ReplicaSets and the other built-in kinds; custom resources such as Argo Rollouts, Flux, KEDA, Karpenter, Gateway API and cert-manager; and the CRDs themselves.
 
 Objects come in groups, one per kind, with how many matched. Pick one to open that object. A pod opens in the Pods list with its drawer open; the rest open on their own page. If a kind has more matches than rows, **Show all** opens its list filtered to what you typed.
 
@@ -46,7 +46,13 @@ Objects come in groups, one per kind, with how many matched. Pick one to open th
 
 When you have more than one cluster connected, **This cluster** and **All clusters** at the top choose where to search. It starts on the current cluster. A result from another cluster names it, and opening it switches to that cluster.
 
-The palette searches what Kubebay already holds for your connected clusters, so it opens nothing of its own and costs nothing while it's closed. Just after you open a cluster, what it holds is still arriving, so the palette says **Still loading this cluster** and its results may be incomplete. Kinds Kubebay doesn't follow in the background, such as Services and ConfigMaps, aren't in it yet; their pages are in the list of pages and kinds.
+**What is searched, and what you have to name.** The first seven kinds come from what Kubebay already holds, so they answer at once. The others are followed by the engine, as your account, the first time you search a cluster, so their results fill in over a few seconds and the palette says **Still loading** until they have. Kinds your account may not list are skipped, and named. After about five minutes without a search Kubebay stops following them.
+
+Some kinds are only searched when you name them: Events, Leases, Endpoints, EndpointSlices, ControllerRevisions, report objects such as Vulnerability Reports, and custom resources from groups Kubebay doesn't know. They are large or change constantly, so following them in advance would cost more than it's worth. Name one and it is followed for as long as you keep searching: `events crashloop`, `endpoints api`, `certificate web`. When there are such kinds, the palette lists them under your results.
+
+The words that name a kind are the usual short names: `svc`, `ing`, `cm`, `pvc`, `sa`, `cj`, `rs`, `hpa`, `crd`, `event`. For a custom resource it is the plural, the singular, a short name, or `plural.group`, such as `rollouts.argoproj.io`. A very large kind is searched up to a limit, and the palette says when it hit it.
+
+A CRD opens the CRDs page at its API group. A Service, Ingress, ConfigMap or custom resource opens on its own page.
 
 ### Switching cluster
 

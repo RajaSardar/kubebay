@@ -7,6 +7,7 @@
  * every other word must match the object's name or namespace.
  */
 import { DEFS, EXTRA_DEFS } from "./resources";
+import kindWords from "./kindWords.json";
 
 export interface SearchObject {
   cluster: string;
@@ -17,6 +18,8 @@ export interface SearchObject {
   name: string;
   /** The live row this came from, kept by reference so a hit can show its status. */
   row?: Record<string, unknown>;
+  /** A custom resource kind with no namespace: its route must say so. */
+  clusterScoped?: boolean;
 }
 
 export interface SearchHit {
@@ -44,18 +47,21 @@ export interface Index {
 }
 
 // The kinds the app follows in the background for every connected cluster, in
-// the order ties between groups are broken, with the words that name them.
-const KINDS: { slug: string; aliases: string[] }[] = [
-  { slug: "pods", aliases: ["pod", "pods", "po"] },
-  { slug: "deployments", aliases: ["deployment", "deployments", "deploy", "dep"] },
-  { slug: "statefulsets", aliases: ["statefulset", "statefulsets", "sts"] },
-  { slug: "daemonsets", aliases: ["daemonset", "daemonsets", "ds"] },
-  { slug: "jobs", aliases: ["job", "jobs"] },
-  { slug: "nodes", aliases: ["node", "nodes", "no"] },
-  { slug: "namespaces", aliases: ["namespace", "namespaces", "ns"] },
+// the order ties between groups are broken.
+const KINDS: { slug: string }[] = [
+  { slug: "pods" },
+  { slug: "deployments" },
+  { slug: "statefulsets" },
+  { slug: "daemonsets" },
+  { slug: "jobs" },
+  { slug: "nodes" },
+  { slug: "namespaces" },
 ];
 
-const ALIASES = new Map(KINDS.flatMap((k) => k.aliases.map((a) => [a, k.slug] as const)));
+// Every word that names a kind, including the kinds the engine answers for
+// (services, ingresses...): recognising them stops "svc api" being read as two
+// words and matched against pods. Generated from the engine's catalogue.
+const ALIASES = new Map<string, string>(Object.entries(kindWords as Record<string, string>));
 const KIND_ORDER = new Map(KINDS.map((k, i) => [k.slug, i] as const));
 
 function labelOf(slug: string): string {
@@ -96,6 +102,18 @@ export function parseQuery(raw: string): { slug: string | null; terms: string[] 
 // a result must not depend on whose machine answered it.
 function cmp(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0;
+}
+
+// Best score first, then the shorter name, then alphabetical; a plain listing is alphabetical.
+function hitOrder(listing: boolean): (a: SearchHit, b: SearchHit) => number {
+  return (a, b) =>
+    listing
+      ? cmp(a.obj.name, b.obj.name) || cmp(a.obj.ns, b.obj.ns) || cmp(a.obj.cluster, b.obj.cluster)
+      : b.score - a.score ||
+        a.obj.name.length - b.obj.name.length ||
+        cmp(a.obj.name, b.obj.name) ||
+        cmp(a.obj.ns, b.obj.ns) ||
+        cmp(a.obj.cluster, b.obj.cluster);
 }
 
 function inOrder(hay: string, needle: string): boolean {
@@ -154,17 +172,46 @@ export function search(index: Index, raw: string, opts: { perGroup?: number; max
 
   const groups: SearchGroup[] = [];
   for (const [s, hits] of buckets) {
-    hits.sort((a, b) =>
-      listing
-        ? cmp(a.obj.name, b.obj.name) || cmp(a.obj.ns, b.obj.ns)
-        : b.score - a.score || a.obj.name.length - b.obj.name.length || cmp(a.obj.name, b.obj.name) || cmp(a.obj.ns, b.obj.ns),
-    );
+    hits.sort(hitOrder(listing));
     groups.push({ slug: s, label: labelOf(s), total: hits.length, hits: hits.slice(0, perGroup) });
   }
 
   groups.sort(
     (a, b) =>
       (b.hits[0]?.score ?? 0) - (a.hits[0]?.score ?? 0) || (KIND_ORDER.get(a.slug) ?? 99) - (KIND_ORDER.get(b.slug) ?? 99) || cmp(a.slug, b.slug),
+  );
+  return groups.slice(0, maxGroups);
+}
+
+/**
+ * Joins groups from several places (the palette's own search, the engine's
+ * answer for each cluster) into one list: one group per kind, hits best first,
+ * totals added, groups ordered by their best hit with the kinds the app follows
+ * winning a tie.
+ */
+export function mergeGroups(
+  a: SearchGroup[],
+  b: SearchGroup[],
+  opts: { perGroup?: number; maxGroups?: number; listing?: boolean } = {},
+): SearchGroup[] {
+  const perGroup = opts.perGroup ?? (opts.listing ? 25 : 5);
+  const maxGroups = opts.maxGroups ?? 8;
+  const bySlug = new Map<string, SearchGroup>();
+  for (const g of [...a, ...b]) {
+    const cur = bySlug.get(g.slug);
+    if (!cur) bySlug.set(g.slug, { ...g, hits: [...g.hits] });
+    else {
+      cur.total += g.total;
+      cur.hits.push(...g.hits);
+    }
+  }
+  const groups = [...bySlug.values()];
+  for (const g of groups) {
+    g.hits.sort(hitOrder(!!opts.listing));
+    g.hits = g.hits.slice(0, perGroup);
+  }
+  groups.sort(
+    (x, y) => (y.hits[0]?.score ?? 0) - (x.hits[0]?.score ?? 0) || (KIND_ORDER.get(x.slug) ?? 99) - (KIND_ORDER.get(y.slug) ?? 99) || cmp(x.slug, y.slug),
   );
   return groups.slice(0, maxGroups);
 }

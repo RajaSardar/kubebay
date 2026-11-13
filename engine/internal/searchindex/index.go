@@ -163,6 +163,8 @@ type Group struct {
 	Label string `json:"label"`
 	Total int    `json:"total"`
 	Hits  []Hit  `json:"hits"`
+	// ClusterScoped is set for a custom resource kind with no namespace.
+	ClusterScoped bool `json:"clusterScoped"`
 }
 
 // Denial is a kind the identity may not list.
@@ -248,7 +250,7 @@ func (ix *Index) Search(raw string, opts SearchOptions) Result {
 		if len(hits) > opts.PerGroup {
 			hits = hits[:opts.PerGroup]
 		}
-		res.Groups = append(res.Groups, Group{Slug: s, Label: st.kind.Label, Total: total, Hits: hits})
+		res.Groups = append(res.Groups, Group{Slug: s, Label: st.kind.Label, Total: total, Hits: hits, ClusterScoped: st.kind.ClusterScoped})
 	}
 	sortGroups(res.Groups)
 	if len(res.Groups) > opts.MaxGroups {

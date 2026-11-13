@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { buildIndex, parseQuery, search, type SearchObject } from "../paletteSearch";
+import { buildIndex, mergeGroups, parseQuery, search, type SearchGroup, type SearchObject } from "../paletteSearch";
+import kindWords from "../kindWords.json";
 
 const o = (slug: string, ns: string, name: string, cluster = "prod"): SearchObject => ({ cluster, slug, ns, name });
 
@@ -174,5 +175,64 @@ describe("parity with the engine's ranker", () => {
     const now = parityNow();
     if (process.env["UPDATE_PARITY"] === "1") writeFileSync(FIXTURE, JSON.stringify(now, null, 2) + "\n");
     expect(JSON.parse(readFileSync(FIXTURE, "utf8"))).toEqual(now);
+  });
+});
+
+
+describe("kinds the app does not hold in memory", () => {
+  it("are named by the same words the engine's catalogue uses", () => {
+    const engine = resolve(__dirname, "../../../../../../engine/internal/searchindex/testdata/words.json");
+    if (process.env["UPDATE_WORDS"] === "1") writeFileSync(resolve(__dirname, "../kindWords.json"), readFileSync(engine, "utf8"));
+    expect(kindWords).toEqual(JSON.parse(readFileSync(engine, "utf8")));
+  });
+
+  it("are recognised as a kind, so a lookalike name isn't returned for them", () => {
+    expect(parseQuery("svc api")).toEqual({ slug: "services", terms: ["api"] });
+    expect(parseQuery("cm:app-config")).toEqual({ slug: "configmaps", terms: ["app-config"] });
+    expect(parseQuery("crd rollouts")).toEqual({ slug: "crds", terms: ["rollouts"] });
+    const idx = buildIndex([o("pods", "shop", "svc-api-1"), o("deployments", "shop", "svc-api")]);
+    // "svc api" is about Services: neither the pod nor the deployment answers it.
+    expect(search(idx, "svc api")).toEqual([]);
+  });
+
+  it("still leave a lone word alone until you press space", () => {
+    expect(parseQuery("svc")).toEqual({ slug: null, terms: ["svc"] });
+    expect(parseQuery("svc ")).toEqual({ slug: "services", terms: [] });
+  });
+});
+
+describe("mergeGroups", () => {
+  const g = (slug: string, label: string, hits: [string, number, string?][], total = hits.length): SearchGroup => ({
+    slug,
+    label,
+    total,
+    hits: hits.map(([name, score, cluster = "prod"]) => ({ obj: { cluster, slug, ns: "shop", name }, score })),
+  });
+
+  it("combines groups of the same kind from several sources, best hit first, and sums the totals", () => {
+    const merged = mergeGroups([g("services", "Services", [["api", 100, "prod"]])], [g("services", "Services", [["api-v2", 90, "stage"], ["apiary", 55, "stage"]], 7)]);
+    expect(merged).toHaveLength(1);
+    expect(merged[0]!.total).toBe(8);
+    expect(merged[0]!.hits.map((h) => h.obj.name)).toEqual(["api", "api-v2", "apiary"]);
+  });
+
+  it("caps the rows of a group but not its total", () => {
+    const many = g("services", "Services", Array.from({ length: 9 }, (_, i) => [`s${i}`, 50] as [string, number]));
+    expect(mergeGroups([many], [], { perGroup: 4 })[0]!.hits).toHaveLength(4);
+    expect(mergeGroups([many], [], { perGroup: 4 })[0]!.total).toBe(9);
+  });
+
+  it("orders groups by their best hit, local kinds winning a tie", () => {
+    const merged = mergeGroups([g("pods", "Pods", [["web", 90]])], [g("services", "Services", [["web", 100]]), g("deployments", "Deployments", [["web", 90]])]);
+    expect(merged.map((m) => m.slug)).toEqual(["services", "pods", "deployments"]);
+  });
+
+  it("limits the number of groups", () => {
+    const groups = Array.from({ length: 12 }, (_, i) => g(`kind${i}`, `K${i}`, [["x", 50 - i]]));
+    expect(mergeGroups(groups, [], { maxGroups: 8 })).toHaveLength(8);
+  });
+
+  it("returns nothing for nothing", () => {
+    expect(mergeGroups([], [])).toEqual([]);
   });
 });
