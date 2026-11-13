@@ -45,3 +45,24 @@ func TestCRDsFromDiscoveryIgnoresAGroupVersionItCannotRead(t *testing.T) {
 		t.Errorf("got %+v", got)
 	}
 }
+
+// When the CRD names can't be read (no permission to list CRDs, say), discovery
+// alone still tells the custom resources from the built-in kinds by their group.
+func TestCRDsFromDiscoveryWithoutCRDNamesTellsCustomResourcesByGroup(t *testing.T) {
+	lists := []*metav1.APIResourceList{
+		{GroupVersion: "argoproj.io/v1alpha1", APIResources: []metav1.APIResource{{Name: "rollouts", SingularName: "rollout", Kind: "Rollout", Namespaced: true, Verbs: metav1.Verbs{"list", "watch"}}}},
+		{GroupVersion: "gateway.networking.k8s.io/v1", APIResources: []metav1.APIResource{{Name: "gateways", Kind: "Gateway", Namespaced: true, Verbs: metav1.Verbs{"list", "watch"}}}},
+		{GroupVersion: "apps/v1", APIResources: []metav1.APIResource{{Name: "deployments", Kind: "Deployment", Namespaced: true, Verbs: metav1.Verbs{"list", "watch"}}}},
+		{GroupVersion: "networking.k8s.io/v1", APIResources: []metav1.APIResource{{Name: "ingresses", Kind: "Ingress", Namespaced: true, Verbs: metav1.Verbs{"list", "watch"}}}},
+		{GroupVersion: "metrics.k8s.io/v1beta1", APIResources: []metav1.APIResource{{Name: "pods", Kind: "PodMetrics", Namespaced: true, Verbs: metav1.Verbs{"list"}}}},
+		{GroupVersion: "v1", APIResources: []metav1.APIResource{{Name: "services", Kind: "Service", Namespaced: true, Verbs: metav1.Verbs{"list", "watch"}}}},
+	}
+	got := crdsFromDiscovery(lists, nil)
+	names := []string{}
+	for _, c := range got {
+		names = append(names, c.Name)
+	}
+	if len(names) != 2 || names[0] != "gateways.gateway.networking.k8s.io" || names[1] != "rollouts.argoproj.io" {
+		t.Fatalf("got %v; want the gateway and the rollout, not apps, networking, metrics or core", names)
+	}
+}

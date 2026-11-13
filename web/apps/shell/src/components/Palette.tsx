@@ -253,7 +253,7 @@ function readScope(): Scope {
 
 const NAV_WHEN_SEARCHING = 5;
 const NAV_WITH_OBJECTS = 3;
-const NAV_WHEN_EMPTY = 8;
+const NAV_WHEN_EMPTY = 6;
 
 type Entry =
   | { kind: "nav"; item: PaletteItem }
@@ -383,10 +383,11 @@ export function Palette({
       : [];
     const recentSection: Section[] =
       !q.trim() && recents.length ? [{ key: "recent", title: "Recent", entries: recents.map((recent) => ({ kind: "recent", recent })) }] : [];
-    // Asking for a cluster ("switch ...", "@...") puts the clusters first.
-    return clusterMatch.intent
-      ? [...clusterSection, ...navSection, ...objectSections]
-      : [...navSection, ...objectSections, ...clusterSection, ...recentSection];
+    // Asking for a cluster ("switch ...", "@...") puts the clusters first, and
+    // so does an empty box: the pages list is long enough to push them off screen.
+    if (clusterMatch.intent) return [...clusterSection, ...navSection, ...objectSections];
+    if (!q.trim()) return [...clusterSection, ...recentSection, ...navSection];
+    return [...navSection, ...objectSections, ...clusterSection];
   }, [filteredNav, groups, clusterRows, clusterMatch.intent, recents, q, termText]);
   const flatEntries = useMemo(() => sections.flatMap((s) => s.entries), [sections]);
 
@@ -395,9 +396,11 @@ export function Palette({
     if (loading) out.push({ key: "local", text: "Still loading this cluster, so results may be incomplete." });
     if (remote.pending.length > 0) out.push({ key: "pending", text: `Still loading ${remote.pending.join(", ")}. More may appear.` });
     if (remote.denied.length > 0) {
+      // The reason is text, not a tooltip: "can't list" with no why is not something to act on.
+      const why = remote.denied.map((d) => d.reason.slice(0, 160)).join(" · ");
       out.push({
         key: "denied",
-        text: `Can't list ${remote.denied.map((d) => d.label).join(", ")} with your access.`,
+        text: `Can't list ${remote.denied.map((d) => d.label).join(", ")} with your access. ${why}`,
         title: remote.denied.map((d) => `${d.label}: ${d.reason}`).join("\n"),
       });
     }
@@ -405,8 +408,10 @@ export function Palette({
     if (remote.error) out.push({ key: "error", text: `Couldn't search other kinds: ${remote.error}` });
     if (remote.onDemand.length > 0 && !remote.filter && q.trim().length >= 2) {
       const shown = remote.onDemand.slice(0, 6).join(", ") + (remote.onDemand.length > 6 ? "…" : "");
-      const word = remote.onDemand[0]!.toLowerCase();
-      out.push({ key: "ondemand", text: `Not searched unless you name them: ${shown}. Try: ${word} ${q.trim().split(/\s+/)[0]}` });
+      // An example the user can type: a kind whose label is one word ("Events").
+      const word = remote.onDemand.find((l) => !/\s/.test(l))?.toLowerCase();
+      const example = word ? ` Try: ${word} ${q.trim().split(/\s+/)[0]}` : "";
+      out.push({ key: "ondemand", text: `Not searched unless you name them: ${shown}.${example}` });
     }
     return out;
   }, [loading, remote, q]);
@@ -569,6 +574,12 @@ export function Palette({
 
           {/* Empty state */}
           {q.trim() !== "" && flatEntries.length === 0 && <div className="muted small" style={{ padding: "10px 14px" }}>No matches.</div>}
+        </div>
+
+        {/* Outside the scrolling list, so it is always in view */}
+        <div className="palette-hint muted small" style={{ padding: "6px 14px" }}>
+          {choices.length > 1 && <span>@ to switch cluster · </span>}
+          <span>a kind and a space limits the search: deploy api, svc, crd</span>
         </div>
       </div>
     </div>

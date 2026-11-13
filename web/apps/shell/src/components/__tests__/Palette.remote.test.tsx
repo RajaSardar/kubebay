@@ -164,6 +164,23 @@ describe("Palette: saying what it could not search", () => {
     expect(note.textContent).toMatch(/events crash/i);
   });
 
+  it("gives a real, one-word example, not a two-word kind glued to your text", async () => {
+    vi.mocked(searchApi.search).mockResolvedValue(reply({ onDemand: ["CSI Capacities", "Events", "Leases"] }));
+    renderPalette();
+    type("rollout");
+    const note = await screen.findByText(/not searched unless you name them/i);
+    expect(note.textContent).toMatch(/try: events rollout/i);
+    expect(note.textContent).not.toMatch(/csi capacities rollout/i);
+  });
+
+  it("shows why a kind could not be listed, as text and not only in a tooltip", async () => {
+    vi.mocked(searchApi.search).mockResolvedValue(reply({ denied: [{ label: "Custom resources", reason: "API discovery: the server is too slow" }] }));
+    renderPalette();
+    type("api");
+    expect(await screen.findByText(/can't list custom resources/i)).toBeInTheDocument();
+    expect(screen.getByText(/too slow/i)).toBeInTheDocument();
+  });
+
   it("keeps the local results and says so when the engine cannot be reached", async () => {
     vi.mocked(searchApi.search).mockRejectedValue(new Error("502 bad gateway"));
     renderPalette();

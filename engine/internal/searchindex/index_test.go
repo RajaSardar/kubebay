@@ -432,3 +432,17 @@ func TestAGroupCarriesItsKindsScopeToTheCaller(t *testing.T) {
 		return g != nil && g.ClusterScoped
 	})
 }
+
+func TestOnDemandKindsAreListedInTheCataloguesOrderSoTheUsefulOnesComeFirst(t *testing.T) {
+	kinds := []Kind{
+		{GVR: "v1/events", Slug: "events", Label: "Events", Tier: TierOnDemand, Aliases: []string{"events"}},
+		{GVR: "v1/leases", Slug: "leases", Label: "Leases", Tier: TierOnDemand, Aliases: []string{"leases"}},
+		{GVR: "a/v1/csi", Slug: "csi", Label: "CSI Capacities", Tier: TierOnDemand, Aliases: []string{"csi"}},
+	}
+	ix := New(newFake(), kinds, DefaultLimits)
+	defer ix.Close()
+	got := ix.Search("crash", SearchOptions{}).OnDemand
+	if len(got) != 3 || got[0] != "Events" || got[1] != "Leases" || got[2] != "CSI Capacities" {
+		t.Fatalf("OnDemand = %v; want Events, Leases, CSI Capacities (alphabetical would lead with CSI)", got)
+	}
+}

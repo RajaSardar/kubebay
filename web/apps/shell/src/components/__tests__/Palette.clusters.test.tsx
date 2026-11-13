@@ -93,6 +93,32 @@ describe("Palette: switch cluster", () => {
     expect(screen.getByTestId("at").textContent).toBe("/clusters");
   });
 
+  it("puts the clusters above the page list when the box is empty, so they are not hidden below it", async () => {
+    await renderPalette();
+    const headers = Array.from(document.querySelectorAll(".palette-section-header")).map((h) => h.textContent);
+    expect(headers.indexOf("Switch cluster")).toBe(0);
+    expect(headers.indexOf("Navigate")).toBeGreaterThan(headers.indexOf("Switch cluster"));
+  });
+
+  it("always says how to switch, in a line that does not scroll away", async () => {
+    await renderPalette();
+    const hint = screen.getByText(/switch cluster/i, { selector: ".palette-hint, .palette-hint *" });
+    expect(hint.textContent).toMatch(/@/);
+  });
+
+  it("does not hint at switching when there is no other cluster", async () => {
+    vi.mocked(api.clusters).mockResolvedValue([info("prod", "prod")]);
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter>
+          <Palette open onClose={() => {}} />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    await waitFor(() => expect(api.clusters).toHaveBeenCalled());
+    expect(screen.queryByText(/@ to switch/i)).toBeNull();
+  });
+
   it("shows no switch section when there is no other cluster", async () => {
     vi.mocked(api.clusters).mockResolvedValue([info("prod", "prod")]);
     render(

@@ -9,7 +9,6 @@ package searchindex
 
 import (
 	"context"
-	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -256,7 +255,6 @@ func (ix *Index) Search(raw string, opts SearchOptions) Result {
 	if len(res.Groups) > opts.MaxGroups {
 		res.Groups = res.Groups[:opts.MaxGroups]
 	}
-	sort.Strings(res.OnDemand)
 	return res
 }
 

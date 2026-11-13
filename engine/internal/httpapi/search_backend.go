@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sort"
 	"strings"
 
@@ -58,35 +59,37 @@ var crdGVR = schema.GroupVersionResource{Group: "apiextensions.k8s.io", Version:
 
 // ListCRDs finds the cluster's custom resources cheaply. It reads only the
 // names of the CRDs (metadata, no schemas, which run to megabytes) and takes the
-// kind, scope and short names from API discovery.
+// kind, scope and short names from API discovery. If the names can't be read
+// (no permission to list CRDs, say) discovery alone is used: it still tells a
+// custom resource from a built-in kind by its group. Only when discovery itself
+// fails is there nothing to report, and the error says which call failed.
 func (b poolBackend) ListCRDs(ctx context.Context, cluster string) ([]searchindex.CRD, error) {
 	if b.mgr == nil {
 		return nil, errors.New("no cluster manager")
 	}
 	cfg, err := b.mgr.RestConfigWithIdentity(cluster, clusters.IdentityFromContext(ctx))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cluster config: %w", err)
 	}
-	md, err := metadata.NewForConfig(cfg)
-	if err != nil {
-		return nil, err
+
+	var names map[string]bool // nil: not known, use the group instead
+	if md, err := metadata.NewForConfig(cfg); err == nil {
+		if list, err := md.Resource(crdGVR).List(ctx, metav1.ListOptions{}); err == nil {
+			names = make(map[string]bool, len(list.Items))
+			for _, it := range list.Items {
+				names[it.Name] = true
+			}
+		}
 	}
-	list, err := md.Resource(crdGVR).List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return nil, err
-	}
-	names := make(map[string]bool, len(list.Items))
-	for _, it := range list.Items {
-		names[it.Name] = true
-	}
+
 	dc, err := discovery.NewDiscoveryClientForConfig(cfg)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("API discovery: %w", err)
 	}
 	// Partial results are normal: one broken aggregated API fails its group, not the rest.
 	_, lists, err := dc.ServerGroupsAndResources()
 	if len(lists) == 0 && err != nil {
-		return nil, err
+		return nil, fmt.Errorf("API discovery: %w", err)
 	}
 	return crdsFromDiscovery(lists, names), nil
 }
@@ -100,8 +103,21 @@ func hasVerb(verbs metav1.Verbs, v string) bool {
 	return false
 }
 
-// crdsFromDiscovery keeps the resources that are custom resources (their
-// "plural.group" is a CRD's name) and can be listed and watched.
+// Groups the API server itself serves. Anything else is a custom resource when
+// the CRD names are not known.
+var builtinGroups = map[string]bool{
+	"apps": true, "batch": true, "autoscaling": true, "policy": true,
+	"networking.k8s.io": true, "rbac.authorization.k8s.io": true, "storage.k8s.io": true,
+	"scheduling.k8s.io": true, "node.k8s.io": true, "discovery.k8s.io": true,
+	"coordination.k8s.io": true, "certificates.k8s.io": true, "admissionregistration.k8s.io": true,
+	"apiregistration.k8s.io": true, "apiextensions.k8s.io": true, "events.k8s.io": true,
+	"flowcontrol.apiserver.k8s.io": true, "resource.k8s.io": true, "authentication.k8s.io": true,
+	"authorization.k8s.io": true, "internal.apiserver.k8s.io": true, "storagemigration.k8s.io": true,
+}
+
+// crdsFromDiscovery keeps the resources that are custom resources and can be
+// listed and watched. With crdNames, a custom resource is one whose
+// "plural.group" is a CRD's name; with nil, one whose group is not a built-in one.
 func crdsFromDiscovery(lists []*metav1.APIResourceList, crdNames map[string]bool) []searchindex.CRD {
 	var out []searchindex.CRD
 	seen := map[string]bool{}
@@ -118,7 +134,7 @@ func crdsFromDiscovery(lists []*metav1.APIResourceList, crdNames map[string]bool
 				continue
 			}
 			name := r.Name + "." + gv.Group
-			if !crdNames[name] || seen[name] {
+			if crdNames != nil && !crdNames[name] || crdNames == nil && builtinGroups[gv.Group] || seen[name] {
 				continue
 			}
 			seen[name] = true

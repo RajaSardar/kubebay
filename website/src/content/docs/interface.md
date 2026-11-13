@@ -58,7 +58,7 @@ A CRD opens the CRDs page at its API group. A Service, Ingress, ConfigMap or cus
 
 The palette is the fastest way to change cluster.
 
-- **With the box empty**, **Switch cluster** lists the clusters you used last, pinned ones first. The current cluster isn't in it.
+- **With the box empty**, **Switch cluster** is the first thing listed: the clusters you used last, pinned ones first. The current cluster isn't in it. A line under the list always reminds you: `@ to switch cluster`.
 - **Type part of a cluster's name**, or its alias, and it appears: `stag` finds *Staging*.
 - **`switch `, `cluster `, `ctx ` or `@`** followed by words lists clusters first: `switch prod`, `@stage`. A bare `@` lists them all.
 
