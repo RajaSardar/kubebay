@@ -111,6 +111,16 @@ export function clusterSummary(cluster: string): ClusterSummary | null {
   };
 }
 
+/**
+ * The rows a connected cluster's background stream holds right now, read from
+ * the live store. It opens nothing: callers such as the palette's search read
+ * what is already in memory.
+ */
+export function getClusterRows(cluster: string, gvr: string, mode: "metadata" | "full"): Record<string, unknown>[] {
+  const store = connections.get(cluster)?.stores.get(specKey(cluster, gvr, mode));
+  return store ? Array.from(store.values()) : [];
+}
+
 // Single shared WS listener that dispatches to all active connections.
 let detach: (() => void) | null = null;
 

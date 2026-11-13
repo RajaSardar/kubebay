@@ -198,7 +198,7 @@ describe("overlays and buttons go through @kubebay/ui", () => {
     "App.tsx": 3,
     "components/ClusterIconPicker.tsx": 2,
     "components/NamespaceFilter.tsx": 4,
-    "components/Palette.tsx": 2,
+    "components/Palette.tsx": 1,
     "components/PodGraphs.tsx": 2,
     "pages/Crds.tsx": 1,
     "pages/ResourceDetail.tsx": 1,

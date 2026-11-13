@@ -1,12 +1,15 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Kbd, StatusDot } from "@kubebay/ui";
+import { Kbd, SegmentedControl, StatusDot } from "@kubebay/ui";
 import { api } from "../lib/api";
-import { useResourceStream } from "../lib/useResourceStream";
 import { useClusterStore } from "../lib/cluster-store";
+import { getConnectedClusters } from "../lib/clusterConnections";
 import { useSavedViews } from "../lib/savedViews";
 import { DEFS, EXTRA_DEFS } from "../lib/resources";
+import { buildIndex, parseQuery, search, type SearchGroup, type SearchObject } from "../lib/paletteSearch";
+import { usePaletteObjects } from "../lib/usePaletteObjects";
+import { pushRecent, readRecents, type Recent } from "../lib/paletteRecents";
 
 // ──── Nav items (static routes) ──────────────────────────────────────────────
 
@@ -83,9 +86,11 @@ export function usePaletteItems(): PaletteItem[] {
   );
 }
 
-function useDynamicItems(): PaletteItem[] {
-  const clusters = useQuery({ queryKey: ["clusters"], queryFn: api.clusters, staleTime: 30_000 });
-  const pfs = useQuery({ queryKey: ["pf-palette"], queryFn: api.pfList, staleTime: 10_000, refetchInterval: 30_000 });
+function useDynamicItems(open: boolean): PaletteItem[] {
+  // Fetched and polled only while the palette is open: it is mounted for the
+  // whole session, and a closed palette should cost nothing.
+  const clusters = useQuery({ queryKey: ["clusters"], queryFn: api.clusters, staleTime: 30_000, enabled: open });
+  const pfs = useQuery({ queryKey: ["pf-palette"], queryFn: api.pfList, staleTime: 10_000, refetchInterval: open ? 30_000 : false, enabled: open });
   const views = useSavedViews((s) => s.views);
   return useMemo(() => {
     // KB-16: saved views first, they're what the user named.
@@ -173,25 +178,6 @@ function deriveLivePod(obj: Record<string, unknown>, cluster: string): LivePod |
   };
 }
 
-function useLivePods(): { pods: LivePod[]; connected: boolean; loading: boolean } {
-  const cluster = useClusterStore((s) => s.active) || undefined;
-
-  const stream = useResourceStream(cluster, "v1/pods", { mode: "full", enabled: !!cluster });
-
-  const pods = useMemo(() => {
-    if (!cluster) return [];
-    return stream.rows
-      .map((row) => deriveLivePod(row as Record<string, unknown>, cluster))
-      .filter((p): p is LivePod => p !== null);
-  }, [stream.rows, cluster]);
-
-  return {
-    pods,
-    connected: stream.connected,
-    loading: !stream.synced && stream.connected,
-  };
-}
-
 // ──── Status dot mapping ──────────────────────────────────────────────────────
 
 type DotStatus = "connected" | "degraded" | "unreachable" | "pending";
@@ -203,6 +189,70 @@ function podStatusDot(kind: LivePod["statusKind"]): DotStatus {
   return "pending";
 }
 
+// ──── One result row ──────────────────────────────────────────────────────────
+
+function PaletteRow({
+  active,
+  label,
+  className = "",
+  onHover,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  /** The accessible name, when the visible text alone would run together. */
+  label?: string;
+  className?: string;
+  onHover: () => void;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      aria-label={label}
+      className={`palette-item${className ? " " + className : ""}${active ? " active" : ""}`}
+      onMouseEnter={onHover}
+      onClick={onClick}
+    >
+      {children}
+      <Kbd>↵</Kbd>
+    </button>
+  );
+}
+
+// ──── Opening a result ────────────────────────────────────────────────────────
+
+/** Where an object opens. Pods have no detail page: their list opens the drawer. */
+function targetFor(o: { slug: string; ns: string; name: string }): string {
+  if (o.slug === "pods") return `/workloads?pod=${encodeURIComponent(`${o.ns}/${o.name}`)}`;
+  return `/detail/${o.slug}/${o.ns || "_"}/${o.name}`;
+}
+
+/** The kind's list, filtered to what was typed. */
+function listTargetFor(slug: string, terms: string): string {
+  const q = encodeURIComponent(terms);
+  return slug === "pods" ? `/workloads?q=${q}` : `/r/${slug}?q=${q}`;
+}
+
+type Scope = "active" | "all";
+const SCOPE_KEY = "kb.paletteScope";
+function readScope(): Scope {
+  try {
+    return localStorage.getItem(SCOPE_KEY) === "all" ? "all" : "active";
+  } catch {
+    return "active";
+  }
+}
+
+const NAV_WHEN_SEARCHING = 5;
+const NAV_WHEN_EMPTY = 8;
+
+type Entry =
+  | { kind: "nav"; item: PaletteItem }
+  | { kind: "hit"; obj: SearchObject }
+  | { kind: "recent"; recent: Recent }
+  | { kind: "more"; group: SearchGroup; to: string };
+
 // ──── Palette component ───────────────────────────────────────────────────────
 
 export function Palette({
@@ -213,58 +263,58 @@ export function Palette({
   onClose: () => void;
 }) {
   const staticItems = usePaletteItems();
-  const dynamicItems = useDynamicItems();
+  const dynamicItems = useDynamicItems(open);
   const navItems = useMemo(() => [...staticItems, ...dynamicItems], [staticItems, dynamicItems]);
-  const { pods, connected, loading } = useLivePods();
+  const active = useClusterStore((s) => s.active);
+  const setActive = useClusterStore((s) => s.setActive);
   const nav = useNavigate();
   const [q, setQ] = useState("");
   const [idx, setIdx] = useState(0);
+  const [scope, setScope] = useState<Scope>(readScope);
+  const [recents, setRecents] = useState<Recent[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (open) {
       setQ("");
       setIdx(0);
+      setRecents(readRecents());
       setTimeout(() => inputRef.current?.focus(), 10);
     }
   }, [open]);
 
-  // Filter nav items
+  // Closed, the palette reads no rows and opens no stream: everything below is
+  // empty until it opens. Open, it searches what the connection manager holds.
+  const connected = open ? [...getConnectedClusters()].sort() : [];
+  const several = connected.length > 1;
+  const clusterKey = open ? `${scope}|${active}|${connected.join(",")}` : "";
+  const clusters = useMemo(
+    () => (!open ? [] : scope === "all" && several ? connected : active ? [active] : []),
+    [clusterKey], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+  const objects = usePaletteObjects(open, clusters);
+  const index = useMemo(() => buildIndex(objects), [objects]);
+  const groups = useMemo(() => (q.trim() ? search(index, q) : []), [index, q]);
+  const showCluster = scope === "all" && several;
+
   const filteredNav = useMemo(() => {
-    if (!q) return navItems.slice(0, 8);
+    if (!q) return navItems.slice(0, NAV_WHEN_EMPTY);
     const ql = q.toLowerCase();
-    return navItems.filter((i) => i.label.toLowerCase().includes(ql)).slice(0, 8);
+    return navItems.filter((i) => i.label.toLowerCase().includes(ql)).slice(0, NAV_WHEN_SEARCHING);
   }, [q, navItems]);
 
-  // Filter live pods — search across name, namespace, statusLabel
-  const filteredPods = useMemo(() => {
-    if (!q) return pods.slice(0, 5);
-    const ql = q.toLowerCase();
-    return pods
-      .filter(
-        (p) =>
-          p.name.toLowerCase().includes(ql) ||
-          p.namespace.toLowerCase().includes(ql) ||
-          p.statusLabel.toLowerCase().includes(ql) ||
-          p.cluster.toLowerCase().includes(ql),
-      )
-      .slice(0, 8);
-  }, [q, pods]);
-
-  // Unified flat list for keyboard nav: nav items first, then pod items
-  // Each entry carries a type so we can dispatch the right action
-  type FlatNav = { kind: "nav"; item: PaletteItem };
-  type FlatPod = { kind: "pod"; pod: LivePod };
-  type FlatEntry = FlatNav | FlatPod;
-
-  const flatEntries = useMemo<FlatEntry[]>(() => {
-    const out: FlatEntry[] = [];
-    for (const item of filteredNav) out.push({ kind: "nav", item });
-    for (const pod of filteredPods) out.push({ kind: "pod", pod });
+  const termText = parseQuery(q).terms.join(" ");
+  const flatEntries = useMemo<Entry[]>(() => {
+    const out: Entry[] = filteredNav.map((item) => ({ kind: "nav", item }));
+    for (const g of groups) {
+      for (const h of g.hits) out.push({ kind: "hit", obj: h.obj });
+      if (g.total > g.hits.length) out.push({ kind: "more", group: g, to: listTargetFor(g.slug, termText) });
+    }
+    if (!q.trim()) for (const recent of recents) out.push({ kind: "recent", recent });
     return out;
-  }, [filteredNav, filteredPods]);
+  }, [filteredNav, groups, recents, q, termText]);
 
-  // Clamp idx whenever flat list changes
+  // Clamp idx whenever the list changes
   useEffect(() => {
     setIdx((i) => Math.min(i, Math.max(0, flatEntries.length - 1)));
   }, [flatEntries.length]);
@@ -276,12 +326,53 @@ export function Palette({
     nav(to);
   }
 
-  function activate(entry: FlatEntry) {
-    if (entry.kind === "nav") go(entry.item.to);
-    else go(entry.pod.to);
+  function openObject(o: { cluster: string; slug: string; ns: string; name: string }) {
+    pushRecent({ cluster: o.cluster, slug: o.slug, ns: o.ns, name: o.name });
+    if (o.cluster !== active) setActive(o.cluster);
+    go(targetFor(o));
   }
 
-  const showLiveSection = connected || loading || pods.length > 0;
+  function activate(entry: Entry) {
+    if (entry.kind === "nav") go(entry.item.to);
+    else if (entry.kind === "hit") openObject(entry.obj);
+    else if (entry.kind === "recent") openObject(entry.recent);
+    else go(entry.to);
+  }
+
+  function changeScope(next: Scope) {
+    setScope(next);
+    try {
+      localStorage.setItem(SCOPE_KEY, next);
+    } catch {
+      /* storage blocked: the choice lasts until the palette closes */
+    }
+  }
+
+  // One result row: a status dot for pods, the name, where it lives.
+  function objectRow(o: SearchObject, globalIdx: number, key: string) {
+    const pod = o.slug === "pods" && o.row ? deriveLivePod(o.row, o.cluster) : null;
+    const label = [o.name, o.ns && `in ${o.ns}`, showCluster && `on ${o.cluster}`].filter(Boolean).join(" ");
+    return (
+      <PaletteRow
+        key={key}
+        label={label}
+        className="palette-item--pod"
+        active={globalIdx === idx}
+        onHover={() => setIdx(globalIdx)}
+        onClick={() => openObject(o)}
+      >
+        <span className="palette-pod-row">
+          {pod && <StatusDot status={podStatusDot(pod.statusKind)} />}
+          <span className="palette-pod-name">{o.name}</span>
+          {o.ns && <span className="palette-pod-ns">{o.ns}</span>}
+          {showCluster && <span className="palette-pod-ns">{o.cluster}</span>}
+          {pod && <span className={`palette-pod-status palette-pod-status--${pod.statusKind}`}>{pod.statusLabel}</span>}
+        </span>
+      </PaletteRow>
+    );
+  }
+
+  let n = filteredNav.length; // running index into flatEntries for hover and highlight
 
   return (
     <div className="palette-overlay" onClick={onClose}>
@@ -289,7 +380,7 @@ export function Palette({
         <input
           ref={inputRef}
           className="palette-input"
-          placeholder="Search pods, namespaces, pages…"
+          placeholder="Search deployments, pods, nodes, pages…  (try: deploy api)"
           value={q}
           onChange={(e) => {
             setQ(e.target.value);
@@ -304,82 +395,63 @@ export function Palette({
           spellCheck={false}
         />
 
+        {several && (
+          <div style={{ padding: "6px 14px" }}>
+            <SegmentedControl<Scope>
+              label="Search scope"
+              value={scope}
+              onChange={changeScope}
+              options={[
+                { value: "active", label: "This cluster" },
+                { value: "all", label: "All clusters" },
+              ]}
+            />
+          </div>
+        )}
+
         <div className="palette-list">
           {/* ── Navigate section ── */}
           {filteredNav.length > 0 && (
             <>
               <div className="palette-section-header">Navigate</div>
-              {filteredNav.map((item, i) => {
-                const globalIdx = i;
-                return (
-                  <button
-                    key={`nav:${item.to}:${item.label}`}
-                    className={`palette-item${globalIdx === idx ? " active" : ""}`}
-                    onMouseEnter={() => setIdx(globalIdx)}
-                    onClick={() => go(item.to)}
-                  >
-                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {item.label}
-                    </span>
-                    <Kbd>↵</Kbd>
-                  </button>
-                );
-              })}
+              {filteredNav.map((item, i) => (
+                <PaletteRow key={`nav:${item.to}:${item.label}`} active={i === idx} onHover={() => setIdx(i)} onClick={() => go(item.to)}>
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</span>
+                </PaletteRow>
+              ))}
             </>
           )}
 
-          {/* ── Live: Pods section ── */}
-          {showLiveSection && (
-            <>
-              <div className="palette-section-header palette-section-header--live">
-                <span>Live: Pods</span>
-                {loading && (
-                  <span className="palette-section-loading">syncing…</span>
+          {/* ── Objects, grouped by kind ── */}
+          {groups.map((g) => {
+            const rows = g.hits.map((h) => objectRow(h.obj, n++, `hit:${h.obj.cluster}/${h.obj.slug}/${h.obj.ns}/${h.obj.name}`));
+            const moreIdx = g.total > g.hits.length ? n++ : -1;
+            return (
+              <div key={g.slug}>
+                <div className="palette-section-header palette-section-header--live">
+                  <span>{g.label}</span>
+                  <span className="palette-section-loading">{g.total}</span>
+                </div>
+                {rows}
+                {moreIdx >= 0 && (
+                  <PaletteRow active={moreIdx === idx} onHover={() => setIdx(moreIdx)} onClick={() => go(listTargetFor(g.slug, termText))}>
+                    <span>{`Show all ${g.total} ${g.label}`}</span>
+                  </PaletteRow>
                 )}
               </div>
+            );
+          })}
 
-              {!connected && !loading && pods.length === 0 && (
-                <div className="muted small" style={{ padding: "8px 14px" }}>
-                  No cluster connected
-                </div>
-              )}
-
-              {connected && pods.length === 0 && !loading && (
-                <div className="muted small" style={{ padding: "8px 14px" }}>
-                  {q ? "No pods match." : "No pods found."}
-                </div>
-              )}
-
-              {filteredPods.map((pod, i) => {
-                const globalIdx = filteredNav.length + i;
-                return (
-                  <button
-                    key={`pod:${pod.key}`}
-                    className={`palette-item palette-item--pod${globalIdx === idx ? " active" : ""}`}
-                    onMouseEnter={() => setIdx(globalIdx)}
-                    onClick={() => go(pod.to)}
-                  >
-                    <span className="palette-pod-row">
-                      <StatusDot status={podStatusDot(pod.statusKind)} />
-                      <span className="palette-pod-name">{pod.name}</span>
-                      <span className="palette-pod-ns">{pod.namespace}</span>
-                      <span className={`palette-pod-status palette-pod-status--${pod.statusKind}`}>
-                        {pod.statusLabel}
-                      </span>
-                    </span>
-                    <Kbd>↵</Kbd>
-                  </button>
-                );
-              })}
+          {/* ── Recently opened ── */}
+          {!q.trim() && recents.length > 0 && (
+            <>
+              <div className="palette-section-header">Recent</div>
+              {recents.map((r) => objectRow({ ...r }, n++, `recent:${r.cluster}/${r.slug}/${r.ns}/${r.name}`))}
             </>
           )}
 
           {/* Empty state */}
-          {flatEntries.length === 0 && !loading && (
-            <div className="muted small" style={{ padding: "10px 14px" }}>
-              No matches.
-            </div>
-          )}
+          {q.trim() !== "" && flatEntries.length === 0 && <div className="muted small" style={{ padding: "10px 14px" }}>No matches.</div>}
         </div>
       </div>
     </div>

@@ -35,7 +35,18 @@ Press <kbd>⌘</kbd> <kbd>K</kbd> (<kbd>Ctrl</kbd> <kbd>K</kbd>) anywhere to ope
 - your saved views;
 - your clusters, to switch to one;
 - active port-forwards;
-- the live pods of the current cluster, by name, namespace or status.
+- the pods, Deployments, StatefulSets, DaemonSets, Jobs, nodes and namespaces of the current cluster, by name or namespace.
+
+Objects come in groups, one per kind, with how many matched. Pick one to open that object. A pod opens in the Pods list with its drawer open; the rest open on their own page. If a kind has more matches than rows, **Show all** opens its list filtered to what you typed.
+
+- **Several words** must all match, in the name or the namespace: `shop gateway`. `shop/api` means namespace `shop`, name `api`.
+- **A kind word, then a space** limits the search to that kind: `deploy api`, `pod web`, `sts db`. `pod:web` and `ns:` work too. The words are `pod`, `deploy`, `sts`, `ds`, `job`, `node` and `ns`, singular or plural. A kind word and a space with nothing after it lists that kind alphabetically, with **Show all** for the rest.
+- **Matches are ranked**: an exact name first, then names that start with what you typed, then words inside a name, then anywhere in the name, then the namespace.
+- **With nothing typed**, the palette lists what you opened last under **Recent**.
+
+When you have more than one cluster connected, **This cluster** and **All clusters** at the top choose where to search. It starts on the current cluster. A result from another cluster names it, and opening it switches to that cluster.
+
+The palette searches what Kubebay already holds for your connected clusters, so it opens nothing of its own and costs nothing while it's closed. Kinds Kubebay doesn't follow in the background, such as Services and ConfigMaps, aren't in it yet; their pages are in the list of pages and kinds.
 
 Use <kbd>↑</kbd> and <kbd>↓</kbd> to move, <kbd>Enter</kbd> to open, and <kbd>Esc</kbd> to close.
 

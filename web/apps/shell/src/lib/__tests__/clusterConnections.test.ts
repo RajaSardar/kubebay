@@ -26,6 +26,7 @@ import {
   getConnectionsVersion,
   connectionError,
   clusterSummary,
+  getClusterRows,
 } from "../clusterConnections";
 
 const CORE_GVR_COUNT = 7;
@@ -142,3 +143,25 @@ describe("clusterConnections is observable", () => {
   });
 });
 
+describe("getClusterRows", () => {
+  it("returns the live rows of a connected cluster's stream, as deltas keep them", () => {
+    connectCluster("c1");
+    const handlers = vi.mocked(ws.attach).mock.calls.at(-1)![0];
+    const subOf = (gvr: string) => vi.mocked(ws.subscribe).mock.calls.find(([s]) => s.gvr === gvr)![0].id;
+    handlers.onItems?.(subOf("apps/v1/deployments"), [
+      { op: "a", key: "shop/api", obj: { metadata: { name: "api", namespace: "shop" } } },
+      { op: "a", key: "shop/web", obj: { metadata: { name: "web", namespace: "shop" } } },
+    ]);
+    handlers.onSync?.(subOf("apps/v1/deployments"));
+    expect(getClusterRows("c1", "apps/v1/deployments", "full").map((r) => (r.metadata as { name: string }).name)).toEqual(["api", "web"]);
+
+    handlers.onDelta?.(subOf("apps/v1/deployments"), [{ op: "d", key: "shop/web" }]);
+    expect(getClusterRows("c1", "apps/v1/deployments", "full")).toHaveLength(1);
+  });
+
+  it("is empty for a cluster that is not connected, and for a stream it does not follow", () => {
+    expect(getClusterRows("nope", "v1/pods", "full")).toEqual([]);
+    connectCluster("c1");
+    expect(getClusterRows("c1", "v1/services", "full")).toEqual([]);
+  });
+});
