@@ -6,6 +6,7 @@ import { useColumnWidths } from "../lib/useColumnWidths";
 import { announceDisconnect } from "../lib/clusterChannel";
 import { headroom, lastOpenedLabel, sparkline } from "../lib/clusterUsage";
 import { dropClusterLocally } from "../lib/useRemoteDisconnects";
+import { openCluster } from "../lib/openCluster";
 import { useClusterMeta } from "../lib/cluster-meta-store";
 import { useClusterIcons } from "../lib/useClusterIcons";
 import { useClusterStore } from "../lib/cluster-store";
@@ -255,11 +256,7 @@ export default function ClusterPicker() {
       setErrorOpen((cur) => (cur === c.id ? null : c.id));
       return;
     }
-    bgConnect(c.id);
-    useClusterStore.getState().setActive(c.id);
-    useClusterMeta.getState().touchLastUsed(c.id);
-    void queryClient.invalidateQueries({ queryKey: [c.id] });
-    navigate({ pathname: "/", search: `cluster=${encodeURIComponent(c.id)}` });
+    openCluster(c.id, queryClient, navigate);
   }
 
   async function disconnect(id: string) {

@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Kbd, SegmentedControl, StatusDot } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { useClusterStore } from "../lib/cluster-store";
+import { useClusterMeta } from "../lib/cluster-meta-store";
+import { clusterChoices, matchClusters, type ClusterChoice } from "../lib/paletteClusters";
+import { openCluster } from "../lib/openCluster";
 import { getConnectedClusters, isClusterSynced } from "../lib/clusterConnections";
 import { useSavedViews } from "../lib/savedViews";
 import { DEFS, EXTRA_DEFS } from "../lib/resources";
@@ -89,15 +92,12 @@ export function usePaletteItems(): PaletteItem[] {
 function useDynamicItems(open: boolean): PaletteItem[] {
   // Fetched and polled only while the palette is open: it is mounted for the
   // whole session, and a closed palette should cost nothing.
-  const clusters = useQuery({ queryKey: ["clusters"], queryFn: api.clusters, staleTime: 30_000, enabled: open });
   const pfs = useQuery({ queryKey: ["pf-palette"], queryFn: api.pfList, staleTime: 10_000, refetchInterval: open ? 30_000 : false, enabled: open });
   const views = useSavedViews((s) => s.views);
   return useMemo(() => {
-    // KB-16: saved views first, they're what the user named.
+    // KB-16: saved views first, they're what the user named. Clusters are not
+    // here: the palette's "Switch cluster" section lists them.
     const out: PaletteItem[] = views.map((v) => ({ label: `View: ${v.name}`, hint: `${v.kind} · ${v.cluster}`, to: `/view/${v.id}` }));
-    for (const c of clusters.data ?? []) {
-      out.push({ label: `Cluster: ${c.id}`, hint: c.status, to: `/workloads?cluster=${encodeURIComponent(c.id)}` });
-    }
     for (const f of pfs.data ?? []) {
       out.push({
         label: `Port-forward 127.0.0.1:${f.localPort} → ${f.namespace}/${f.pod}:${f.podPort}`,
@@ -105,7 +105,7 @@ function useDynamicItems(open: boolean): PaletteItem[] {
       });
     }
     return out;
-  }, [clusters.data, pfs.data, views]);
+  }, [pfs.data, views]);
 }
 
 // ──── Live pod items ──────────────────────────────────────────────────────────
@@ -252,7 +252,27 @@ type Entry =
   | { kind: "nav"; item: PaletteItem }
   | { kind: "hit"; obj: SearchObject }
   | { kind: "recent"; recent: Recent }
-  | { kind: "more"; group: SearchGroup; to: string };
+  | { kind: "more"; group: SearchGroup; to: string }
+  | { kind: "cluster"; choice: ClusterChoice };
+
+interface Section {
+  key: string;
+  title: string;
+  /** How many matched, for a group of objects. */
+  count?: number;
+  entries: Entry[];
+}
+
+const CLUSTERS_PLAIN = 3;
+const CLUSTERS_ASKED = 8;
+const CLUSTERS_EMPTY = 4;
+
+function clusterDot(c: ClusterChoice): "connected" | "unreachable" | "pending" | "degraded" {
+  if (c.status === "unreachable" || c.status === "misconfigured") return "unreachable";
+  if (c.status === "checking") return "pending";
+  if (c.status === "degraded") return "degraded";
+  return "connected";
+}
 
 // ──── Palette component ───────────────────────────────────────────────────────
 
@@ -268,6 +288,9 @@ export function Palette({
   const navItems = useMemo(() => [...staticItems, ...dynamicItems], [staticItems, dynamicItems]);
   const active = useClusterStore((s) => s.active);
   const setActive = useClusterStore((s) => s.setActive);
+  const meta = useClusterMeta((s) => s.meta);
+  const queryClient = useQueryClient();
+  const clusterList = useQuery({ queryKey: ["clusters"], queryFn: api.clusters, staleTime: 30_000, enabled: open });
   const nav = useNavigate();
   const [q, setQ] = useState("");
   const [idx, setIdx] = useState(0);
@@ -317,16 +340,40 @@ export function Palette({
       .map((x) => x.item);
   }, [q, navItems, groups.length]);
 
+  // Which clusters to offer switching to: typed words ("switch prod", "@stage"
+  // or just part of a name), or your most recent ones when the box is empty.
+  const choices = useMemo(() => clusterChoices(clusterList.data ?? [], meta, active), [clusterList.data, meta, active]);
+  const clusterMatch = useMemo(() => (open ? matchClusters(choices, q, CLUSTERS_ASKED) : { intent: false, list: [] }), [open, choices, q]);
+  const clusterRows = useMemo(
+    () => clusterMatch.list.slice(0, clusterMatch.intent ? CLUSTERS_ASKED : q.trim() ? CLUSTERS_PLAIN : CLUSTERS_EMPTY),
+    [clusterMatch, q],
+  );
+
   const termText = parseQuery(q).terms.join(" ");
-  const flatEntries = useMemo<Entry[]>(() => {
-    const out: Entry[] = filteredNav.map((item) => ({ kind: "nav", item }));
-    for (const g of groups) {
-      for (const h of g.hits) out.push({ kind: "hit", obj: h.obj });
-      if (g.total > g.hits.length) out.push({ kind: "more", group: g, to: listTargetFor(g.slug, termText) });
-    }
-    if (!q.trim()) for (const recent of recents) out.push({ kind: "recent", recent });
-    return out;
-  }, [filteredNav, groups, recents, q, termText]);
+  const sections = useMemo<Section[]>(() => {
+    const navSection: Section[] = filteredNav.length
+      ? [{ key: "nav", title: "Navigate", entries: filteredNav.map((item) => ({ kind: "nav", item })) }]
+      : [];
+    const objectSections: Section[] = groups.map((g) => ({
+      key: `g:${g.slug}`,
+      title: g.label,
+      count: g.total,
+      entries: [
+        ...g.hits.map((h): Entry => ({ kind: "hit", obj: h.obj })),
+        ...(g.total > g.hits.length ? [{ kind: "more", group: g, to: listTargetFor(g.slug, termText) } as Entry] : []),
+      ],
+    }));
+    const clusterSection: Section[] = clusterRows.length
+      ? [{ key: "clusters", title: "Switch cluster", entries: clusterRows.map((choice) => ({ kind: "cluster", choice })) }]
+      : [];
+    const recentSection: Section[] =
+      !q.trim() && recents.length ? [{ key: "recent", title: "Recent", entries: recents.map((recent) => ({ kind: "recent", recent })) }] : [];
+    // Asking for a cluster ("switch ...", "@...") puts the clusters first.
+    return clusterMatch.intent
+      ? [...clusterSection, ...navSection, ...objectSections]
+      : [...navSection, ...objectSections, ...clusterSection, ...recentSection];
+  }, [filteredNav, groups, clusterRows, clusterMatch.intent, recents, q, termText]);
+  const flatEntries = useMemo(() => sections.flatMap((s) => s.entries), [sections]);
 
   // Clamp idx whenever the list changes
   useEffect(() => {
@@ -346,10 +393,18 @@ export function Palette({
     go(targetFor(o));
   }
 
+  function switchTo(c: ClusterChoice) {
+    // A cluster whose kubeconfig is broken can't open: the Clusters page says why.
+    if (!c.usable) return go("/clusters");
+    onClose();
+    openCluster(c.id, queryClient, nav);
+  }
+
   function activate(entry: Entry) {
     if (entry.kind === "nav") go(entry.item.to);
     else if (entry.kind === "hit") openObject(entry.obj);
     else if (entry.kind === "recent") openObject(entry.recent);
+    else if (entry.kind === "cluster") switchTo(entry.choice);
     else go(entry.to);
   }
 
@@ -362,19 +417,11 @@ export function Palette({
     }
   }
 
-  // One result row: a status dot for pods, the name, where it lives.
-  function objectRow(o: SearchObject, globalIdx: number, key: string) {
+  function objectRow(o: SearchObject, i: number, key: string) {
     const pod = o.slug === "pods" && o.row ? deriveLivePod(o.row, o.cluster) : null;
     const label = [o.name, o.ns && `in ${o.ns}`, showCluster && `on ${o.cluster}`].filter(Boolean).join(" ");
     return (
-      <PaletteRow
-        key={key}
-        label={label}
-        className="palette-item--pod"
-        active={globalIdx === idx}
-        onHover={() => setIdx(globalIdx)}
-        onClick={() => openObject(o)}
-      >
+      <PaletteRow key={key} label={label} className="palette-item--pod" active={i === idx} onHover={() => setIdx(i)} onClick={() => openObject(o)}>
         <span className="palette-pod-row">
           {pod && <StatusDot status={podStatusDot(pod.statusKind)} />}
           <span className="palette-pod-name">{o.name}</span>
@@ -386,7 +433,45 @@ export function Palette({
     );
   }
 
-  let n = filteredNav.length; // running index into flatEntries for hover and highlight
+  function renderEntry(e: Entry, i: number) {
+    switch (e.kind) {
+      case "nav":
+        return (
+          <PaletteRow key={`nav:${e.item.to}:${e.item.label}`} active={i === idx} onHover={() => setIdx(i)} onClick={() => go(e.item.to)}>
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.item.label}</span>
+          </PaletteRow>
+        );
+      case "hit":
+        return objectRow(e.obj, i, `hit:${e.obj.cluster}/${e.obj.slug}/${e.obj.ns}/${e.obj.name}`);
+      case "recent":
+        return objectRow({ ...e.recent }, i, `recent:${e.recent.cluster}/${e.recent.slug}/${e.recent.ns}/${e.recent.name}`);
+      case "more":
+        return (
+          <PaletteRow key={`more:${e.group.slug}`} active={i === idx} onHover={() => setIdx(i)} onClick={() => go(e.to)}>
+            <span>{`Show all ${e.group.total} ${e.group.label}`}</span>
+          </PaletteRow>
+        );
+      case "cluster":
+        return (
+          <PaletteRow
+            key={`cluster:${e.choice.id}`}
+            label={`Switch to ${e.choice.name}`}
+            className="palette-item--pod"
+            active={i === idx}
+            onHover={() => setIdx(i)}
+            onClick={() => switchTo(e.choice)}
+          >
+            <span className="palette-pod-row">
+              <StatusDot status={clusterDot(e.choice)} />
+              <span className="palette-pod-name">{e.choice.name}</span>
+              <span className="palette-pod-ns">{e.choice.usable ? (e.choice.connected ? "connected" : e.choice.status) : "can't open: see Clusters"}</span>
+            </span>
+          </PaletteRow>
+        );
+    }
+  }
+
+  let at = 0; // index of the next entry in the flat list, for hover and highlight
 
   return (
     <div className="palette-overlay" onClick={onClose}>
@@ -394,7 +479,7 @@ export function Palette({
         <input
           ref={inputRef}
           className="palette-input"
-          placeholder="Search deployments, pods, nodes, pages…  (try: deploy api)"
+          placeholder="Search deployments, pods, nodes, pages… or switch cluster  (try: deploy api, @prod)"
           value={q}
           onChange={(e) => {
             setQ(e.target.value);
@@ -424,45 +509,19 @@ export function Palette({
         )}
 
         <div className="palette-list">
-          {/* ── Navigate section ── */}
-          {filteredNav.length > 0 && (
-            <>
-              <div className="palette-section-header">Navigate</div>
-              {filteredNav.map((item, i) => (
-                <PaletteRow key={`nav:${item.to}:${item.label}`} active={i === idx} onHover={() => setIdx(i)} onClick={() => go(item.to)}>
-                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</span>
-                </PaletteRow>
-              ))}
-            </>
-          )}
-
-          {/* ── Objects, grouped by kind ── */}
-          {groups.map((g) => {
-            const rows = g.hits.map((h) => objectRow(h.obj, n++, `hit:${h.obj.cluster}/${h.obj.slug}/${h.obj.ns}/${h.obj.name}`));
-            const moreIdx = g.total > g.hits.length ? n++ : -1;
-            return (
-              <div key={g.slug}>
+          {sections.map((sec) => (
+            <div key={sec.key}>
+              {sec.count !== undefined ? (
                 <div className="palette-section-header palette-section-header--live">
-                  <span>{g.label}</span>
-                  <span className="palette-section-loading">{g.total}</span>
+                  <span>{sec.title}</span>
+                  <span className="palette-section-loading">{sec.count}</span>
                 </div>
-                {rows}
-                {moreIdx >= 0 && (
-                  <PaletteRow active={moreIdx === idx} onHover={() => setIdx(moreIdx)} onClick={() => go(listTargetFor(g.slug, termText))}>
-                    <span>{`Show all ${g.total} ${g.label}`}</span>
-                  </PaletteRow>
-                )}
-              </div>
-            );
-          })}
-
-          {/* ── Recently opened ── */}
-          {!q.trim() && recents.length > 0 && (
-            <>
-              <div className="palette-section-header">Recent</div>
-              {recents.map((r) => objectRow({ ...r }, n++, `recent:${r.cluster}/${r.slug}/${r.ns}/${r.name}`))}
-            </>
-          )}
+              ) : (
+                <div className="palette-section-header">{sec.title}</div>
+              )}
+              {sec.entries.map((e) => renderEntry(e, at++))}
+            </div>
+          ))}
 
           {/* Early results from a cluster still listing are partial: say so */}
           {loading && q.trim() !== "" && (
