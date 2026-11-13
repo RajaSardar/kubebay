@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Kbd, SegmentedControl, StatusDot } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { useClusterStore } from "../lib/cluster-store";
-import { getConnectedClusters } from "../lib/clusterConnections";
+import { getConnectedClusters, isClusterSynced } from "../lib/clusterConnections";
 import { useSavedViews } from "../lib/savedViews";
 import { DEFS, EXTRA_DEFS } from "../lib/resources";
 import { buildIndex, parseQuery, search, type SearchGroup, type SearchObject } from "../lib/paletteSearch";
@@ -245,6 +245,7 @@ function readScope(): Scope {
 }
 
 const NAV_WHEN_SEARCHING = 5;
+const NAV_WITH_OBJECTS = 3;
 const NAV_WHEN_EMPTY = 8;
 
 type Entry =
@@ -296,12 +297,25 @@ export function Palette({
   const index = useMemo(() => buildIndex(objects), [objects]);
   const groups = useMemo(() => (q.trim() ? search(index, q) : []), [index, q]);
   const showCluster = scope === "all" && several;
+  const loading = open && clusters.some((c) => !isClusterSynced(c));
 
+  // Entries that start with what was typed come first, then ones with a word
+  // that does, then the rest. With objects to show, fewer pages crowd them out.
   const filteredNav = useMemo(() => {
     if (!q) return navItems.slice(0, NAV_WHEN_EMPTY);
     const ql = q.toLowerCase();
-    return navItems.filter((i) => i.label.toLowerCase().includes(ql)).slice(0, NAV_WHEN_SEARCHING);
-  }, [q, navItems]);
+    const rank = (label: string) => {
+      const l = label.toLowerCase();
+      const at = l.indexOf(ql);
+      return at < 0 ? -1 : at === 0 ? 0 : /[\s:\-/]/.test(l[at - 1] ?? "") ? 1 : 2;
+    };
+    return navItems
+      .map((item) => ({ item, r: rank(item.label) }))
+      .filter((x) => x.r >= 0)
+      .sort((a, b) => a.r - b.r)
+      .slice(0, groups.length > 0 ? NAV_WITH_OBJECTS : NAV_WHEN_SEARCHING)
+      .map((x) => x.item);
+  }, [q, navItems, groups.length]);
 
   const termText = parseQuery(q).terms.join(" ");
   const flatEntries = useMemo<Entry[]>(() => {
@@ -448,6 +462,13 @@ export function Palette({
               <div className="palette-section-header">Recent</div>
               {recents.map((r) => objectRow({ ...r }, n++, `recent:${r.cluster}/${r.slug}/${r.ns}/${r.name}`))}
             </>
+          )}
+
+          {/* Early results from a cluster still listing are partial: say so */}
+          {loading && q.trim() !== "" && (
+            <div className="muted small" style={{ padding: "8px 14px" }}>
+              Still loading this cluster, so results may be incomplete.
+            </div>
           )}
 
           {/* Empty state */}

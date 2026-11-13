@@ -46,7 +46,7 @@ Objects come in groups, one per kind, with how many matched. Pick one to open th
 
 When you have more than one cluster connected, **This cluster** and **All clusters** at the top choose where to search. It starts on the current cluster. A result from another cluster names it, and opening it switches to that cluster.
 
-The palette searches what Kubebay already holds for your connected clusters, so it opens nothing of its own and costs nothing while it's closed. Kinds Kubebay doesn't follow in the background, such as Services and ConfigMaps, aren't in it yet; their pages are in the list of pages and kinds.
+The palette searches what Kubebay already holds for your connected clusters, so it opens nothing of its own and costs nothing while it's closed. Just after you open a cluster, what it holds is still arriving, so the palette says **Still loading this cluster** and its results may be incomplete. Kinds Kubebay doesn't follow in the background, such as Services and ConfigMaps, aren't in it yet; their pages are in the list of pages and kinds.
 
 Use <kbd>↑</kbd> and <kbd>↓</kbd> to move, <kbd>Enter</kbd> to open, and <kbd>Esc</kbd> to close.
 

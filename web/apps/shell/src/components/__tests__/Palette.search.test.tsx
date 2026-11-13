@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { Palette } from "../Palette";
 import { useClusterStore } from "../../lib/cluster-store";
-import { getClusterRows, getConnectedClusters } from "../../lib/clusterConnections";
+import { getClusterRows, getConnectedClusters, isClusterSynced } from "../../lib/clusterConnections";
 import { useResourceStream } from "../../lib/useResourceStream";
 import { api } from "../../lib/api";
 
@@ -12,6 +12,7 @@ vi.mock("../../lib/useResourceStream", () => ({ useResourceStream: vi.fn(() => (
 vi.mock("../../lib/clusterConnections", () => ({
   getConnectedClusters: vi.fn(() => new Set(["prod"])),
   getClusterRows: vi.fn(() => []),
+  isClusterSynced: vi.fn(() => true),
   subscribeConnections: () => () => {},
 }));
 vi.mock("../../lib/api", async (orig) => {
@@ -63,6 +64,7 @@ beforeEach(() => {
   vi.mocked(useResourceStream).mockClear();
   vi.mocked(getClusterRows).mockReset().mockImplementation((cluster, gvr) => data[cluster]?.[gvr] ?? []);
   vi.mocked(getConnectedClusters).mockReturnValue(new Set(["prod"]));
+  vi.mocked(isClusterSynced).mockReturnValue(true);
 });
 
 describe("Palette: search everything the app already holds", () => {
@@ -132,6 +134,36 @@ describe("Palette: search everything the app already holds", () => {
     renderPalette();
     expect(screen.getByText("Recent")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /api-gateway/ })).toBeInTheDocument();
+  });
+});
+
+describe("Palette: results you can trust", () => {
+  it("puts navigation entries that start with what you typed ahead of ones that merely contain it", () => {
+    renderPalette();
+    type("ap");
+    const first = screen.getAllByRole("button")[0]!.textContent!.toLowerCase();
+    expect(first.startsWith("ap")).toBe(true);
+  });
+
+  it("shows only a few navigation entries once objects matched, so the objects stay in view", () => {
+    renderPalette();
+    type("e"); // matches dozens of pages and kinds, and web-1 and others
+    const nav = screen.getAllByRole("button").filter((b) => !b.getAttribute("aria-label"));
+    expect(nav.length).toBeLessThanOrEqual(3);
+    expect(screen.getByRole("button", { name: /web-1/ })).toBeInTheDocument();
+  });
+
+  it("says when the cluster is still loading, so a short list isn't mistaken for the whole cluster", () => {
+    vi.mocked(isClusterSynced).mockReturnValue(false);
+    renderPalette();
+    type("api");
+    expect(screen.getByText(/still loading/i)).toBeInTheDocument();
+  });
+
+  it("says nothing of the kind once it has synced", () => {
+    renderPalette();
+    type("api");
+    expect(screen.queryByText(/still loading/i)).toBeNull();
   });
 });
 

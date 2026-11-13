@@ -27,6 +27,7 @@ import {
   connectionError,
   clusterSummary,
   getClusterRows,
+  isClusterSynced,
 } from "../clusterConnections";
 
 const CORE_GVR_COUNT = 7;
@@ -163,5 +164,19 @@ describe("getClusterRows", () => {
     expect(getClusterRows("nope", "v1/pods", "full")).toEqual([]);
     connectCluster("c1");
     expect(getClusterRows("c1", "v1/services", "full")).toEqual([]);
+  });
+});
+
+describe("isClusterSynced", () => {
+  it("is true only once every followed stream of the cluster has synced", () => {
+    expect(isClusterSynced("nope")).toBe(false);
+    connectCluster("c1");
+    const handlers = vi.mocked(ws.attach).mock.calls.at(-1)![0];
+    const subs = vi.mocked(ws.subscribe).mock.calls.map(([s]) => s.id);
+    expect(isClusterSynced("c1")).toBe(false);
+    for (const id of subs.slice(0, -1)) handlers.onSync?.(id);
+    expect(isClusterSynced("c1")).toBe(false);
+    handlers.onSync?.(subs.at(-1)!);
+    expect(isClusterSynced("c1")).toBe(true);
   });
 });

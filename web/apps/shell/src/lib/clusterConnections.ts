@@ -121,6 +121,16 @@ export function getClusterRows(cluster: string, gvr: string, mode: "metadata" | 
   return store ? Array.from(store.values()) : [];
 }
 
+/**
+ * Whether every stream Kubebay follows for the cluster has delivered its first
+ * full list. Cheap: it reads flags, not rows (unlike clusterSummary).
+ */
+export function isClusterSynced(cluster: string): boolean {
+  const conn = connections.get(cluster);
+  if (!conn || conn.subs.length === 0) return false;
+  return conn.subs.every((s) => conn.synced.get(specKey(cluster, s.gvr, s.mode)) === true);
+}
+
 // Single shared WS listener that dispatches to all active connections.
 let detach: (() => void) | null = null;
 
