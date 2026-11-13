@@ -66,6 +66,23 @@ describe("usePaletteRemote", () => {
     expect(result.current.groups[0]!.label).toBe("Widgets");
   });
 
+  it("keeps what a CRD result needs to open its objects, and the filter for 'show all'", async () => {
+    vi.mocked(searchApi.search).mockResolvedValue(
+      reply({
+        groups: [
+          { slug: "crds", label: "CRDs", total: 1, clusterScoped: false, listQuery: "", hits: [{ ns: "", name: "scaledobjects.keda.sh", score: 90, ref: "ext--keda.sh--v1alpha1--scaledobjects", clusterScoped: false }] },
+          { slug: "ext--keda.sh--v1alpha1--scaledobjects", label: "ScaledObjects", total: 9, clusterScoped: false, listQuery: "orders", hits: [{ ns: "shop", name: "orders-api", score: 90 }] },
+        ],
+      }),
+    );
+    const { result } = renderHook(() => usePaletteRemote(true, ["prod"], "scaled orders"));
+    await settle();
+    const crd = result.current.groups.find((g) => g.slug === "crds")!;
+    expect(crd.hits[0]!.obj.ref).toBe("ext--keda.sh--v1alpha1--scaledobjects");
+    const so = result.current.groups.find((g) => g.slug === "ext--keda.sh--v1alpha1--scaledobjects")!;
+    expect(so.listQuery).toBe("orders");
+  });
+
   it("asks every cluster in scope and merges the answers", async () => {
     vi.mocked(searchApi.search).mockImplementation(async (cluster) => reply({ groups: services([cluster === "prod" ? "api" : "api-stage"]) }));
     const { result } = renderHook(() => usePaletteRemote(true, ["prod", "stage"], "api"));

@@ -292,7 +292,7 @@ func TestSyntheticKindsAnswerFromTheCatalogueWithoutAWatch(t *testing.T) {
 	kinds = append(kinds, Kind{Slug: "crds", Label: "CRDs", Aliases: []string{"crd", "crds"}, Synthetic: true})
 	ix := New(f, kinds, DefaultLimits)
 	defer ix.Close()
-	ix.SetEntries("crds", []string{"certificates.cert-manager.io", "rollouts.argoproj.io"})
+	ix.SetEntries("crds", []Named{{Name: "certificates.cert-manager.io"}, {Name: "rollouts.argoproj.io"}})
 	r := ix.Search("cert", SearchOptions{})
 	g := find(r, "crds")
 	if g == nil || g.Total != 1 || names(*g)[0] != "certificates.cert-manager.io" {
@@ -444,5 +444,113 @@ func TestOnDemandKindsAreListedInTheCataloguesOrderSoTheUsefulOnesComeFirst(t *t
 	got := ix.Search("crash", SearchOptions{}).OnDemand
 	if len(got) != 3 || got[0] != "Events" || got[1] != "Leases" || got[2] != "CSI Capacities" {
 		t.Fatalf("OnDemand = %v; want Events, Leases, CSI Capacities (alphabetical would lead with CSI)", got)
+	}
+}
+
+// A word that names a kind or its API group lists that kind's objects, so
+// "scaled" finds the ScaledObjects, whose own names rarely contain it.
+func kedaKinds() []Kind {
+	return []Kind{
+		{GVR: "keda.sh/v1alpha1/scaledobjects", Slug: "ext--keda.sh--v1alpha1--scaledobjects", Label: "ScaledObjects", Aliases: []string{"scaledobject", "scaledobjects", "so", "scaledobjects.keda.sh"}},
+		{GVR: "keda.sh/v1alpha1/scaledjobs", Slug: "ext--keda.sh--v1alpha1--scaledjobs", Label: "ScaledJobs", Aliases: []string{"scaledjob", "scaledjobs", "scaledjobs.keda.sh"}},
+		{GVR: "v1/services", Slug: "services", Label: "Services", Aliases: []string{"service", "services", "svc"}},
+	}
+}
+
+func seeded(t *testing.T) (*Index, *fakeSubscriber) {
+	t.Helper()
+	f := newFake()
+	ix := New(f, kedaKinds(), DefaultLimits)
+	ix.Search("x", SearchOptions{})
+	eventually(t, "subscriptions", func() bool { return len(f.gvrs()) == 3 })
+	f.sub("keda.sh/v1alpha1/scaledobjects").snap <- stream.OpsSnapshot([]stream.Op{obj(stream.OpAdd, "shop", "orders-api"), obj(stream.OpAdd, "shop", "billing")})
+	f.sub("keda.sh/v1alpha1/scaledjobs").snap <- stream.OpsSnapshot([]stream.Op{obj(stream.OpAdd, "ops", "nightly")})
+	f.sub("v1/services").snap <- stream.OpsSnapshot([]stream.Op{obj(stream.OpAdd, "shop", "scaled-gateway"), obj(stream.OpAdd, "shop", "web")})
+	eventually(t, "all synced", func() bool { return len(ix.Search("x", SearchOptions{}).Pending) == 0 })
+	return ix, f
+}
+
+func TestAWordNamingAKindListsItsObjects(t *testing.T) {
+	ix, _ := seeded(t)
+	defer ix.Close()
+	r := ix.Search("scaledobj", SearchOptions{})
+	g := find(r, "ext--keda.sh--v1alpha1--scaledobjects")
+	if g == nil || g.Total != 2 {
+		t.Fatalf("want both ScaledObjects for the kind word; got %+v", r.Groups)
+	}
+	if g.ListQuery != "" {
+		t.Errorf("ListQuery = %q; the word named the kind, so the list needs no filter", g.ListQuery)
+	}
+	if find(r, "ext--keda.sh--v1alpha1--scaledjobs") != nil {
+		t.Error("ScaledJobs is not named by 'scaledobj'")
+	}
+}
+
+func TestAnAPIGroupWordListsEveryKindInTheGroup(t *testing.T) {
+	ix, _ := seeded(t)
+	defer ix.Close()
+	r := ix.Search("keda", SearchOptions{})
+	if find(r, "ext--keda.sh--v1alpha1--scaledobjects") == nil || find(r, "ext--keda.sh--v1alpha1--scaledjobs") == nil {
+		t.Fatalf("'keda' is the group of both kinds; got %+v", r.Groups)
+	}
+	if find(r, "services") != nil {
+		t.Error("Services is not in the keda group")
+	}
+}
+
+func TestAKindWordAndANameNarrowTheKind(t *testing.T) {
+	ix, _ := seeded(t)
+	defer ix.Close()
+	r := ix.Search("scaled orders", SearchOptions{})
+	g := find(r, "ext--keda.sh--v1alpha1--scaledobjects")
+	if g == nil || g.Total != 1 || names(*g)[0] != "orders-api" {
+		t.Fatalf("got %+v", r.Groups)
+	}
+	if g.ListQuery != "orders" {
+		t.Errorf("ListQuery = %q; only the name word should filter the list", g.ListQuery)
+	}
+}
+
+func TestANameMatchOutranksAKindOnlyMatch(t *testing.T) {
+	ix, _ := seeded(t)
+	defer ix.Close()
+	r := ix.Search("scaled", SearchOptions{})
+	svc := find(r, "services")
+	if svc == nil || svc.Total != 1 || names(*svc)[0] != "scaled-gateway" {
+		t.Fatalf("a Service whose name has the word still shows; got %+v", r.Groups)
+	}
+	if r.Groups[0].Slug != "services" {
+		t.Errorf("a name match should lead; groups = %v", groupSlugs(r.Groups))
+	}
+}
+
+func TestShortWordsDoNotNameAKindBeyondTheirExactShortName(t *testing.T) {
+	ix, _ := seeded(t)
+	defer ix.Close()
+	if g := find(ix.Search("ser", SearchOptions{}), "services"); g != nil {
+		t.Errorf("three letters are too few to mean 'Services': %+v", g)
+	}
+	if g := find(ix.Search("svc", SearchOptions{}), "services"); g == nil || g.Total != 2 {
+		t.Errorf("an exact short name does name the kind; got %+v", g)
+	}
+}
+
+func TestCRDDefinitionsOpenTheirObjects(t *testing.T) {
+	f := newFake()
+	kinds := []Kind{CRDDefinitionsKind()}
+	ix := New(f, kinds, DefaultLimits)
+	defer ix.Close()
+	ix.SetEntries("crds", []Named{
+		{Name: "scaledobjects.keda.sh", Ref: "ext--keda.sh--v1alpha1--scaledobjects"},
+		{Name: "widgets.acme.example", Ref: "ext--acme.example--v1--widgets", ClusterScoped: true},
+	})
+	r := ix.Search("scaledobj", SearchOptions{})
+	g := find(r, "crds")
+	if g == nil || g.Hits[0].Ref != "ext--keda.sh--v1alpha1--scaledobjects" || g.Hits[0].ClusterScoped {
+		t.Fatalf("got %+v", r.Groups)
+	}
+	w := find(ix.Search("widgets", SearchOptions{}), "crds")
+	if w == nil || !w.Hits[0].ClusterScoped {
+		t.Errorf("a cluster-scoped CRD must say so: %+v", w)
 	}
 }

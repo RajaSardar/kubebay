@@ -129,7 +129,7 @@ func (a *SearchAPI) discover(ctx context.Context, cluster string, ix *searchinde
 		return
 	}
 	aliases, covered := searchindex.Reserved()
-	ix.SetEntries("crds", searchindex.CRDNames(crds))
+	ix.SetEntries("crds", searchindex.CRDEntries(crds, searchindex.CoveredSlugs()))
 	ix.AddKinds(searchindex.CRDKinds(crds, aliases, covered))
 	ix.SetCatalog(false, "")
 }

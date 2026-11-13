@@ -25,12 +25,13 @@ vi.mock("../../lib/api", async (orig) => {
 });
 
 const reply = (over: Partial<SearchResponse> = {}): SearchResponse => ({ groups: [], filter: "", indexed: 0, pending: [], onDemand: [], truncated: [], denied: [], ...over });
-const group = (slug: string, label: string, hits: [string, string][], extra: { clusterScoped?: boolean; total?: number } = {}) => ({
+const group = (slug: string, label: string, hits: [string, string][], extra: { clusterScoped?: boolean; total?: number; listQuery?: string; ref?: string } = {}) => ({
   slug,
   label,
   total: extra.total ?? hits.length,
   clusterScoped: extra.clusterScoped ?? false,
-  hits: hits.map(([ns, name]) => ({ ns, name, score: 90 })),
+  ...(extra.listQuery !== undefined ? { listQuery: extra.listQuery } : {}),
+  hits: hits.map(([ns, name]) => ({ ns, name, score: 90, ...(extra.ref ? { ref: extra.ref, clusterScoped: extra.clusterScoped ?? false } : {}) })),
 });
 
 function Where() {
@@ -107,6 +108,46 @@ describe("Palette: kinds the app does not hold in memory", () => {
     type("crd rollouts");
     fireEvent.click(await screen.findByRole("button", { name: /rollouts\.argoproj\.io/ }));
     expect(screen.getByTestId("at").textContent).toBe("/crds?group=argoproj.io");
+  });
+
+  it("opens a CRD's objects, not the CRDs page, when the engine says which kind it defines", async () => {
+    vi.mocked(searchApi.search).mockResolvedValue(
+      reply({ groups: [group("crds", "CRDs", [["", "scaledobjects.keda.sh"]], { ref: "ext--keda.sh--v1alpha1--scaledobjects" })] }),
+    );
+    renderPalette();
+    type("scaled");
+    fireEvent.click(await screen.findByRole("button", { name: /scaledobjects\.keda\.sh/ }));
+    expect(screen.getByTestId("at").textContent).toBe("/r/ext--keda.sh--v1alpha1--scaledobjects");
+  });
+
+  it("opens a cluster-scoped CRD's objects with the scope in the route", async () => {
+    vi.mocked(searchApi.search).mockResolvedValue(
+      reply({ groups: [group("crds", "CRDs", [["", "widgets.acme.example"]], { ref: "ext--acme.example--v1--widgets", clusterScoped: true })] }),
+    );
+    renderPalette();
+    type("widget");
+    fireEvent.click(await screen.findByRole("button", { name: /widgets\.acme\.example/ }));
+    expect(screen.getByTestId("at").textContent).toBe("/r/ext--acme.example--v1--widgets?scoped=0");
+  });
+
+  it("opens the whole list, unfiltered, when the word only named the kind", async () => {
+    vi.mocked(searchApi.search).mockResolvedValue(
+      reply({ groups: [group("ext--keda.sh--v1alpha1--scaledobjects", "ScaledObjects", [["shop", "orders-api"], ["shop", "billing"]], { total: 12, listQuery: "" })] }),
+    );
+    renderPalette();
+    type("scaled");
+    fireEvent.click(await screen.findByRole("button", { name: /show all 12 scaledobjects/i }));
+    expect(screen.getByTestId("at").textContent).toBe("/r/ext--keda.sh--v1alpha1--scaledobjects");
+  });
+
+  it("filters the list by the words that were not the kind", async () => {
+    vi.mocked(searchApi.search).mockResolvedValue(
+      reply({ groups: [group("ext--keda.sh--v1alpha1--scaledobjects", "ScaledObjects", [["shop", "orders-api"]], { total: 7, listQuery: "orders" })] }),
+    );
+    renderPalette();
+    type("scaled orders");
+    fireEvent.click(await screen.findByRole("button", { name: /show all 7 scaledobjects/i }));
+    expect(screen.getByTestId("at").textContent).toBe("/r/ext--keda.sh--v1alpha1--scaledobjects?q=orders");
   });
 
   it("offers 'show all' for an engine kind and opens that kind's list filtered", async () => {

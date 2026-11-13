@@ -39,6 +39,9 @@ var DefaultLimits = Limits{PerKind: 100_000, Total: 400_000}
 type entry struct {
 	ns, name          string
 	nsL, nameL, fullL string
+	// ref is set on a CRD entry: the kind whose objects it opens.
+	ref           string
+	clusterScoped bool
 }
 
 func newEntry(ns, name string) *entry {
@@ -126,17 +129,19 @@ func (ix *Index) SetCatalog(loading bool, errText string) {
 
 // SetEntries replaces the entries of a synthetic kind, one whose objects come
 // from the catalogue itself (the CRD definitions) rather than an informer.
-func (ix *Index) SetEntries(slug string, names []string) {
+func (ix *Index) SetEntries(slug string, items []Named) {
 	ix.mu.Lock()
 	defer ix.mu.Unlock()
 	st := ix.kinds[slug]
 	if st == nil {
 		return
 	}
-	ix.total.Add(int64(len(names) - len(st.entries)))
-	st.entries = make(map[string]*entry, len(names))
-	for _, n := range names {
-		st.entries[n] = newEntry("", n)
+	ix.total.Add(int64(len(items) - len(st.entries)))
+	st.entries = make(map[string]*entry, len(items))
+	for _, it := range items {
+		e := newEntry("", it.Name)
+		e.ref, e.clusterScoped = it.Ref, it.ClusterScoped
+		st.entries["/"+it.Name] = e
 	}
 }
 
@@ -154,6 +159,9 @@ type Hit struct {
 	NS    string `json:"ns"`
 	Name  string `json:"name"`
 	Score int    `json:"score"`
+	// Ref and ClusterScoped are set on a CRD: the kind whose objects it opens.
+	Ref           string `json:"ref,omitempty"`
+	ClusterScoped bool   `json:"clusterScoped,omitempty"`
 }
 
 // Group is one kind's matches.
@@ -164,6 +172,9 @@ type Group struct {
 	Hits  []Hit  `json:"hits"`
 	// ClusterScoped is set for a custom resource kind with no namespace.
 	ClusterScoped bool `json:"clusterScoped"`
+	// ListQuery is the filter for opening this kind's whole list: the words that
+	// were not satisfied by naming the kind. "scaled orders" leaves "orders".
+	ListQuery string `json:"listQuery"`
 }
 
 // Denial is a kind the identity may not list.
@@ -235,10 +246,19 @@ func (ix *Index) Search(raw string, opts SearchOptions) Result {
 		if st.started && !st.synced && st.denied == "" {
 			res.Pending = append(res.Pending, st.kind.Label)
 		}
+		// Which words name this kind: those need no match in an object's name.
+		kindHit := make([]bool, len(terms))
+		var rest []string
+		for i, t := range terms {
+			kindHit[i] = st.kind.matchesWord(t)
+			if !kindHit[i] {
+				rest = append(rest, t)
+			}
+		}
 		hits := make([]Hit, 0, 8)
 		for _, e := range st.entries {
-			if score := scoreAll(e, terms); score > 0 {
-				hits = append(hits, Hit{NS: e.ns, Name: e.name, Score: score})
+			if score := scoreAll(e, terms, kindHit); score > 0 {
+				hits = append(hits, Hit{NS: e.ns, Name: e.name, Score: score, Ref: e.ref, ClusterScoped: e.clusterScoped})
 			}
 		}
 		if len(hits) == 0 {
@@ -249,7 +269,7 @@ func (ix *Index) Search(raw string, opts SearchOptions) Result {
 		if len(hits) > opts.PerGroup {
 			hits = hits[:opts.PerGroup]
 		}
-		res.Groups = append(res.Groups, Group{Slug: s, Label: st.kind.Label, Total: total, Hits: hits, ClusterScoped: st.kind.ClusterScoped})
+		res.Groups = append(res.Groups, Group{Slug: s, Label: st.kind.Label, Total: total, Hits: hits, ClusterScoped: st.kind.ClusterScoped, ListQuery: strings.Join(rest, " ")})
 	}
 	sortGroups(res.Groups)
 	if len(res.Groups) > opts.MaxGroups {

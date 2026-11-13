@@ -126,13 +126,83 @@ func CRDDefinitionsKind() Kind {
 	}
 }
 
-// CRDNames are the names a definitions search matches: "rollouts.argoproj.io".
-func CRDNames(crds []CRD) []string {
-	out := make([]string, 0, len(crds))
+// Named is an entry of a synthetic kind: a CRD, with the kind whose objects it
+// opens, so a result can take you to the objects and not just the definition.
+type Named struct {
+	Name string
+	// Ref is the slug of the kind this defines ("ext--keda.sh--v1alpha1--scaledobjects").
+	Ref           string
+	ClusterScoped bool
+}
+
+// CRDEntries are the CRDs as entries. covered maps a resource path to the
+// built-in kind that already follows it, so such a CRD opens that kind.
+func CRDEntries(crds []CRD, covered map[string]string) []Named {
+	out := make([]Named, 0, len(crds))
 	for _, c := range crds {
-		out = append(out, c.Name)
+		gvr := c.Group + "/" + c.Version + "/" + c.Plural
+		ref := covered[gvr]
+		if ref == "" && c.Version != "" && c.Plural != "" {
+			ref = "ext--" + strings.ReplaceAll(gvr, "/", "--")
+		}
+		out = append(out, Named{Name: c.Name, Ref: ref, ClusterScoped: !c.Namespaced})
 	}
 	return out
+}
+
+// CoveredSlugs maps the resource paths other kinds already follow to their slugs.
+func CoveredSlugs() map[string]string {
+	out := map[string]string{}
+	for _, k := range append(LocalKinds(), BuiltinKinds()...) {
+		if k.GVR != "" {
+			out[k.GVR] = k.Slug
+		}
+	}
+	return out
+}
+
+// words are what a query word can name this kind by: its aliases, the words of
+// its label, and its API group. A word that names the kind lists its objects.
+func (k Kind) words() (aliases []string, prefixes []string) {
+	for _, a := range k.Aliases {
+		aliases = append(aliases, strings.ToLower(a))
+	}
+	prefixes = append(prefixes, aliases...)
+	for _, w := range strings.FieldsFunc(strings.ToLower(k.Label), func(r rune) bool { return !(r >= 'a' && r <= 'z' || r >= '0' && r <= '9') }) {
+		prefixes = append(prefixes, w)
+	}
+	// "keda.sh/v1alpha1/scaledobjects": the group, "keda.sh", and its first label, "keda".
+	if parts := strings.Split(k.GVR, "/"); len(parts) == 3 && parts[0] != "" {
+		prefixes = append(prefixes, parts[0])
+		if dot := strings.Index(parts[0], "."); dot > 0 {
+			prefixes = append(prefixes, parts[0][:dot])
+		}
+	}
+	return aliases, prefixes
+}
+
+// matchesWord reports whether a query word names the kind: an exact short name
+// ("svc"), or, from four letters, the start of one of its words ("scaled",
+// "keda"). Fewer letters would name half the kinds.
+func (k Kind) matchesWord(term string) bool {
+	if strings.Contains(term, "/") {
+		return false
+	}
+	aliases, prefixes := k.words()
+	for _, a := range aliases {
+		if a == term {
+			return true
+		}
+	}
+	if len(term) < 4 {
+		return false
+	}
+	for _, w := range prefixes {
+		if strings.HasPrefix(w, term) {
+			return true
+		}
+	}
+	return false
 }
 
 // Groups whose custom resources are commonly looked for and modest in number.

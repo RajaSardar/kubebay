@@ -20,6 +20,8 @@ export interface SearchObject {
   row?: Record<string, unknown>;
   /** A custom resource kind with no namespace: its route must say so. */
   clusterScoped?: boolean;
+  /** On a CRD: the kind whose objects it opens ("ext--keda.sh--v1alpha1--scaledobjects"). */
+  ref?: string;
 }
 
 export interface SearchHit {
@@ -33,6 +35,8 @@ export interface SearchGroup {
   /** Every match, not just the rows returned. */
   total: number;
   hits: SearchHit[];
+  /** The filter for this kind's whole list, when the engine knows it. */
+  listQuery?: string;
 }
 
 interface Indexed {
@@ -203,6 +207,7 @@ export function mergeGroups(
     else {
       cur.total += g.total;
       cur.hits.push(...g.hits);
+      if (cur.listQuery === undefined) cur.listQuery = g.listQuery;
     }
   }
   const groups = [...bySlug.values()];

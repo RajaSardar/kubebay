@@ -156,8 +156,14 @@ func TestCRDDefinitionsAreSearchableByName(t *testing.T) {
 	if !k.Synthetic || k.Slug != "crds" {
 		t.Fatalf("%+v", k)
 	}
-	if got := CRDNames([]CRD{rollouts()}); len(got) != 1 || got[0] != "rollouts.argoproj.io" {
-		t.Errorf("names = %v", got)
+	got := CRDEntries([]CRD{rollouts()}, map[string]string{})
+	if len(got) != 1 || got[0].Name != "rollouts.argoproj.io" || got[0].Ref != "ext--argoproj.io--v1alpha1--rollouts" || got[0].ClusterScoped {
+		t.Errorf("entries = %+v", got)
+	}
+	// A CRD another kind already covers points at that kind.
+	vpa := CRD{Name: "verticalpodautoscalers.autoscaling.k8s.io", Group: "autoscaling.k8s.io", Version: "v1", Plural: "verticalpodautoscalers", Kind: "VerticalPodAutoscaler", Namespaced: true}
+	if e := CRDEntries([]CRD{vpa}, map[string]string{"autoscaling.k8s.io/v1/verticalpodautoscalers": "verticalpodautoscalers"}); e[0].Ref != "verticalpodautoscalers" {
+		t.Errorf("a covered CRD should open the built-in kind: %+v", e)
 	}
 }
 

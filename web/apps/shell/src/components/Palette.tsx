@@ -224,10 +224,14 @@ function PaletteRow({
 // ──── Opening a result ────────────────────────────────────────────────────────
 
 /** Where an object opens. Pods have no detail page: their list opens the drawer. */
-function targetFor(o: { slug: string; ns: string; name: string; clusterScoped?: boolean }): string {
+function targetFor(o: { slug: string; ns: string; name: string; clusterScoped?: boolean; ref?: string }): string {
   if (o.slug === "pods") return `/workloads?pod=${encodeURIComponent(`${o.ns}/${o.name}`)}`;
-  // A CRD opens the CRDs page at its API group: its name is "plural.group".
-  if (o.slug === "crds") return `/crds?group=${encodeURIComponent(o.name.slice(o.name.indexOf(".") + 1))}`;
+  if (o.slug === "crds") {
+    // A CRD opens the objects it defines (the ScaledObjects, for scaledobjects.keda.sh)...
+    if (o.ref) return `/r/${o.ref}${o.clusterScoped ? "?scoped=0" : ""}`;
+    // ...or, not knowing which kind that is, the CRDs page at its API group: its name is "plural.group".
+    return `/crds?group=${encodeURIComponent(o.name.slice(o.name.indexOf(".") + 1))}`;
+  }
   const base = `/detail/${o.slug}/${o.ns || "_"}/${o.name}`;
   // A custom resource with no namespace must say so; the route cannot tell.
   return o.slug.startsWith("ext--") && !o.ns ? `${base}?scoped=0` : base;
@@ -236,9 +240,11 @@ function targetFor(o: { slug: string; ns: string; name: string; clusterScoped?: 
 /** The kind's list, filtered to what was typed. */
 function listTargetFor(slug: string, terms: string, clusterScoped = false): string {
   const q = encodeURIComponent(terms);
-  if (slug === "pods") return `/workloads?q=${q}`;
+  if (slug === "pods") return terms ? `/workloads?q=${q}` : "/workloads";
   if (slug === "crds") return `/crds`;
-  return `/r/${slug}?q=${q}${clusterScoped ? "&scoped=0" : ""}`;
+  // No words left to filter by: the word only named the kind, so show all of it.
+  const params = [terms ? `q=${q}` : "", clusterScoped ? "scoped=0" : ""].filter(Boolean).join("&");
+  return `/r/${slug}${params ? `?${params}` : ""}`;
 }
 
 type Scope = "active" | "all";
@@ -375,7 +381,7 @@ export function Palette({
       count: g.total,
       entries: [
         ...g.hits.map((h): Entry => ({ kind: "hit", obj: h.obj })),
-        ...(g.total > g.hits.length ? [{ kind: "more", group: g, to: listTargetFor(g.slug, termText, g.hits[0]?.obj.clusterScoped) } as Entry] : []),
+        ...(g.total > g.hits.length ? [{ kind: "more", group: g, to: listTargetFor(g.slug, g.listQuery ?? termText, g.hits[0]?.obj.clusterScoped) } as Entry] : []),
       ],
     }));
     const clusterSection: Section[] = clusterRows.length

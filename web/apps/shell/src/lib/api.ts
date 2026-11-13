@@ -261,7 +261,9 @@ export interface SearchResponseGroup {
   total: number;
   /** A custom resource kind with no namespace: its route needs ?scoped=0. */
   clusterScoped: boolean;
-  hits: { ns: string; name: string; score: number }[];
+  /** The filter for opening this kind's whole list: the words that did not just name the kind. */
+  listQuery?: string;
+  hits: { ns: string; name: string; score: number; ref?: string; clusterScoped?: boolean }[];
 }
 
 /** The engine's answer to a search, with enough to tell a whole answer from a partial one. */

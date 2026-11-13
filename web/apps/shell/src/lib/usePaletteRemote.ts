@@ -39,7 +39,11 @@ function combine(answers: { cluster: string; res: SearchResponse }[], listing: b
       slug: g.slug,
       label: g.label,
       total: g.total,
-      hits: g.hits.map((h) => ({ score: h.score, obj: { cluster, slug: g.slug, ns: h.ns, name: h.name, clusterScoped: g.clusterScoped } })),
+      ...(g.listQuery !== undefined ? { listQuery: g.listQuery } : {}),
+      hits: g.hits.map((h) => ({
+        score: h.score,
+        obj: { cluster, slug: g.slug, ns: h.ns, name: h.name, clusterScoped: h.clusterScoped ?? g.clusterScoped, ...(h.ref ? { ref: h.ref } : {}) },
+      })),
     })),
   );
   const all = answers.map((a) => a.res);

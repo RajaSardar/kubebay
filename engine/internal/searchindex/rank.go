@@ -85,13 +85,22 @@ func scoreTerm(e *entry, t string) int {
 	return 0
 }
 
-func scoreAll(e *entry, terms []string) int {
+// kindOnlyScore is what an object scores for a word that names its kind but is
+// not in its own name: below any match in the name or namespace.
+const kindOnlyScore = 18
+
+// scoreAll scores an object for every word. A word the object's kind answers
+// (kindHit) counts even if the name does not contain it.
+func scoreAll(e *entry, terms []string, kindHit []bool) int {
 	if len(terms) == 0 {
 		return 1
 	}
 	sum := 0
-	for _, t := range terms {
+	for i, t := range terms {
 		s := scoreTerm(e, t)
+		if s == 0 && i < len(kindHit) && kindHit[i] {
+			s = kindOnlyScore
+		}
 		if s == 0 {
 			return 0
 		}

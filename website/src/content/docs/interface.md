@@ -52,7 +52,9 @@ Some kinds are only searched when you name them: Events, Leases, Endpoints, Endp
 
 The words that name a kind are the usual short names: `svc`, `ing`, `cm`, `pvc`, `sa`, `cj`, `rs`, `hpa`, `crd`, `event`. For a custom resource it is the plural, the singular, a short name, or `plural.group`, such as `rollouts.argoproj.io`. A very large kind is searched up to a limit, and the palette says when it hit it.
 
-A CRD opens the CRDs page at its API group. A Service, Ingress, ConfigMap or custom resource opens on its own page.
+**A word that names a kind lists that kind's objects**, so you don't need to know what they're called. `scaled` finds your ScaledObjects and ScaledJobs, `keda` every KEDA kind, `rollout` the Rollouts, `config` the ConfigMaps. From four letters it matches the start of the kind's name, its short name or its API group, and an exact short name such as `svc` works at any length. Add a name to narrow it: `scaled orders`. An object whose name contains the word still ranks above one that only belongs to the kind, and **Show all** opens the whole list.
+
+A CRD result opens the objects it defines, such as the ScaledObjects for `scaledobjects.keda.sh`. A Service, Ingress, ConfigMap or custom resource opens on its own page.
 
 ### Switching cluster
 
