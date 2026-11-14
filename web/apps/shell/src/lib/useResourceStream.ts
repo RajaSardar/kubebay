@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { attach, subscribe, unsubscribe, type Op } from "./ws";
 import { getStreamCache, setStreamCache } from "./streamCache";
+import { isHidden, onVisible } from "./visibility";
 
 export interface StreamState {
   rows: Record<string, unknown>[];
@@ -85,13 +86,31 @@ export function useResourceStream(
   // keeping live updates feeling instantaneous (vs the old 100 ms which was
   // perceptibly laggy on fast-changing clusters).
   const scheduleFlushRef = useRef<() => void>(() => {});
+  // Set when an update arrived while the window was hidden: nobody can see a
+  // re-render, so it waits for the window to be shown.
+  const flushOnVisibleRef = useRef(false);
   scheduleFlushRef.current = () => {
+    if (isHidden()) {
+      flushOnVisibleRef.current = true;
+      return;
+    }
     if (flushTimerRef.current !== null) return; // already pending
     flushTimerRef.current = setTimeout(() => {
       flushTimerRef.current = null;
       setEpoch((e) => e + 1);
     }, 16);
   };
+
+  useEffect(
+    () =>
+      onVisible(() => {
+        if (flushOnVisibleRef.current) {
+          flushOnVisibleRef.current = false;
+          scheduleFlushRef.current();
+        }
+      }),
+    [],
+  );
 
   useEffect(() => {
     // A re-sync buffer belongs to one subscription. Left over from the previous

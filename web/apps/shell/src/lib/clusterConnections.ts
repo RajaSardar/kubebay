@@ -11,6 +11,7 @@
 import { subscribe, unsubscribe, attach, type Op } from "./ws";
 import { clearStreamCacheForCluster, getStreamCache, setStreamCache } from "./streamCache";
 import { derivePod } from "./pods";
+import { isHidden, onVisible } from "./visibility";
 
 // The 7 GVRs always subscribed in the background for every connected cluster.
 const CORE_GVRS: Array<{ gvr: string; mode: "metadata" | "full" }> = [
@@ -58,13 +59,55 @@ function notify() {
   for (const l of listeners) l();
 }
 
-// Row data changes many times a second; listeners hear about it at most 1 Hz.
+// Row data changes many times a second; listeners hear about it at most 1 Hz,
+// and not at all while the window is hidden: nobody can see what they would
+// draw, so they hear once, when it is shown.
+let notifyWhenVisible = false;
+let stopWatchingVisibility: (() => void) | null = null;
+
+function deferUntilVisible() {
+  notifyWhenVisible = true;
+  stopWatchingVisibility ??= onVisible(() => {
+    if (notifyWhenVisible) {
+      notifyWhenVisible = false;
+      notify();
+    }
+  });
+}
+
 function notifyData() {
+  if (isHidden()) return deferUntilVisible();
   if (dataTimer) return;
   dataTimer = setTimeout(() => {
     dataTimer = null;
-    notify();
+    // The window may have been hidden while the timer ran.
+    if (isHidden()) deferUntilVisible();
+    else notify();
   }, 1000);
+}
+
+// A stream's rows are copied into the stream cache (for the next page that
+// opens it) at most once every two seconds. Copying a whole store, thousands
+// of pods, on every update batch was O(rows) of allocation for something read
+// only when a page opens.
+const CACHE_WRITE_MS = 2000;
+const cacheDirty = new Map<string, string>(); // stream key -> cluster
+let cacheTimer: ReturnType<typeof setTimeout> | null = null;
+
+function writeCacheSoon(cluster: string, key: string) {
+  cacheDirty.set(key, cluster);
+  if (cacheTimer) return;
+  cacheTimer = setTimeout(flushCache, CACHE_WRITE_MS);
+}
+
+function flushCache() {
+  cacheTimer = null;
+  for (const [key, cluster] of cacheDirty) {
+    const conn = connections.get(cluster);
+    const store = conn?.stores.get(key);
+    if (conn && store) setStreamCache(key, Array.from(store.entries()), conn.synced.get(key) ?? false);
+  }
+  cacheDirty.clear();
 }
 
 /** Subscribe to connection and data changes; returns the unsubscribe. */
@@ -171,8 +214,8 @@ function ensureListener() {
         const store = conn.stores.get(key) ?? new Map();
         applyOps(ops, store);
         conn.stores.set(key, store);
-        // Write through to cache so components see live deltas
-        setStreamCache(key, Array.from(store.entries()), conn.synced.get(key) ?? false);
+        // So a page opened later sees live data (at most a moment old).
+        writeCacheSoon(conn.subs[0]?.cluster ?? "", key);
         notifyData();
       }
     },
@@ -285,4 +328,10 @@ export function resetConnections(): void {
   }
   connections.clear();
   if (detach) { detach(); detach = null; }
+  // Pending timers belong to the connections just dropped.
+  if (dataTimer) { clearTimeout(dataTimer); dataTimer = null; }
+  if (cacheTimer) { clearTimeout(cacheTimer); cacheTimer = null; }
+  cacheDirty.clear();
+  notifyWhenVisible = false;
+  if (stopWatchingVisibility) { stopWatchingVisibility(); stopWatchingVisibility = null; }
 }

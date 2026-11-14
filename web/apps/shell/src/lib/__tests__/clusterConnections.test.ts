@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
 // Mock ws module
 vi.mock("../ws", () => ({
@@ -178,5 +178,59 @@ describe("isClusterSynced", () => {
     expect(isClusterSynced("c1")).toBe(false);
     handlers.onSync?.(subs.at(-1)!);
     expect(isClusterSynced("c1")).toBe(true);
+  });
+});
+
+describe("the background streams' cost", () => {
+  const setup = () => {
+    connectCluster("c1");
+    const handlers = vi.mocked(ws.attach).mock.calls.at(-1)![0];
+    const subOf = (gvr: string) => vi.mocked(ws.subscribe).mock.calls.find(([s]) => s.gvr === gvr)![0].id;
+    const id = subOf("apps/v1/deployments");
+    handlers.onItems?.(id, [{ op: "a", key: "shop/api", obj: { metadata: { name: "api", namespace: "shop" } } }]);
+    handlers.onSync?.(id);
+    vi.mocked(cache.setStreamCache).mockClear();
+    return { handlers, id };
+  };
+  const setVisibility = (state: "visible" | "hidden") => {
+    Object.defineProperty(document, "visibilityState", { value: state, configurable: true });
+    document.dispatchEvent(new Event("visibilitychange"));
+  };
+
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => {
+    setVisibility("visible");
+    vi.useRealTimers();
+  });
+
+  it("copies a stream's rows into the cache once for a burst of updates, not once for each", () => {
+    const { handlers, id } = setup();
+    for (let i = 0; i < 50; i++) handlers.onDelta?.(id, [{ op: "u", key: `shop/p${i}`, obj: { metadata: { name: `p${i}`, namespace: "shop" } } }]);
+    expect(cache.setStreamCache).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(2100);
+    const calls = vi.mocked(cache.setStreamCache).mock.calls.filter(([k]) => String(k).includes("deployments"));
+    expect(calls).toHaveLength(1);
+    expect(calls[0]![1]).toHaveLength(51); // the cache has all of them by then
+  });
+
+  it("tells listeners about new data about once a second, but not while the window is hidden", () => {
+    const { handlers, id } = setup();
+    const listener = vi.fn();
+    subscribeConnections(listener);
+    setVisibility("hidden");
+    handlers.onDelta?.(id, [{ op: "u", key: "shop/x", obj: { metadata: { name: "x", namespace: "shop" } } }]);
+    vi.advanceTimersByTime(3000);
+    expect(listener).not.toHaveBeenCalled();
+    setVisibility("visible");
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+
+  it("still tells listeners within a second while the window is visible", () => {
+    const { handlers, id } = setup();
+    const listener = vi.fn();
+    subscribeConnections(listener);
+    handlers.onDelta?.(id, [{ op: "u", key: "shop/x", obj: { metadata: { name: "x", namespace: "shop" } } }]);
+    vi.advanceTimersByTime(1100);
+    expect(listener).toHaveBeenCalledTimes(1);
   });
 });

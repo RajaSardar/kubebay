@@ -82,8 +82,11 @@
   flex-shrink: 0;
 }
 
+/* Pulses three times when it appears, then rests. A looping animation keeps
+   the window compositing every frame for as long as it is visible (see
+   web/apps/shell/src/__tests__/animations.test.ts). */
 .kb-dot-pulse {
-  animation: kb-pulse 1.6s ease-in-out infinite;
+  animation: kb-pulse 1.6s ease-in-out 3;
 }
 
 @keyframes kb-pulse {
@@ -1506,7 +1509,8 @@ kbd {
   border-radius: var(--kb-radius-pill);
   background: currentColor;
   flex-shrink: 0;
-  animation: kb-pulse 1.6s ease-in-out infinite;
+  /* Three pulses, then still: the word "live" says the rest. */
+  animation: kb-pulse 1.6s ease-in-out 3;
 }
 
 /* ── Feedback, rows and drawer tabs (moved from web/apps/shell/src/app.css) ── */
