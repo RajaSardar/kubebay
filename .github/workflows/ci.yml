@@ -149,6 +149,18 @@ jobs:
       - name: Build the desktop app
         working-directory: desktop/src-tauri
         run: cargo build --release --locked
+      - name: Put the engine next to the app
+        # tauri-build copies the sidecar beside the app only when its build
+        # script runs; a restored cache can skip that, and the app then fails
+        # to start ("No such file or directory") for a reason that is the
+        # cache's, not the code's.
+        shell: bash
+        env:
+          SIDECAR: ${{ matrix.sidecar }}
+        run: |
+          dest=desktop/src-tauri/target/release/kubebay-engine
+          [ "$RUNNER_OS" = Windows ] && dest="$dest.exe"
+          if [ -f "$dest" ]; then echo "engine already beside the app"; else echo "engine was missing beside the app; copying"; cp "desktop/src-tauri/binaries/$SIDECAR" "$dest"; fi
       - name: Launch it (Linux)
         if: runner.os == 'Linux'
         env:
