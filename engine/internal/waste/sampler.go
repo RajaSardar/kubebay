@@ -13,7 +13,9 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/rest"
 	metricsv "k8s.io/metrics/pkg/client/clientset/versioned"
 
@@ -104,11 +106,16 @@ type Sampler struct {
 	// gate, when set, limits polling to clusters it accepts (connected by the
 	// user or enrolled in usage history). Set before Start.
 	gate func(clusterID string) bool
+	// connected says whether the user has a cluster open. Open ones are sampled
+	// every tick; ones only enrolled in history every idleSampleInterval. Unset,
+	// every cluster is sampled every tick.
+	connected func(clusterID string) bool
 
-	mu        sync.Mutex
-	buffers   map[WorkloadKey]*ringBuffer
-	requested map[WorkloadKey]reqTotals
-	tierA     map[WorkloadKey]tierAEntry
+	mu          sync.Mutex
+	lastSampled map[string]time.Time
+	buffers     map[WorkloadKey]*ringBuffer
+	requested   map[WorkloadKey]reqTotals
+	tierA       map[WorkloadKey]tierAEntry
 }
 
 func NewSampler(mgr *clusters.Manager, log *slog.Logger) *Sampler {
@@ -122,6 +129,7 @@ func NewSampler(mgr *clusters.Manager, log *slog.Logger) *Sampler {
 		buffers:      make(map[WorkloadKey]*ringBuffer),
 		requested:    make(map[WorkloadKey]reqTotals),
 		tierA:        make(map[WorkloadKey]tierAEntry),
+		lastSampled:  make(map[string]time.Time),
 	}
 }
 
@@ -143,6 +151,35 @@ func (s *Sampler) SetRecorder(filter func(clusterID string) bool, rec UsageRecor
 // SetGate limits which reachable clusters are polled. Call before Start.
 func (s *Sampler) SetGate(gate func(clusterID string) bool) {
 	s.gate = gate
+}
+
+// SetConnected tells the sampler which clusters the user has open. Call before Start.
+func (s *Sampler) SetConnected(connected func(clusterID string) bool) {
+	s.connected = connected
+}
+
+// idleSampleInterval is how often a cluster that is only enrolled in usage
+// history (not open) is sampled. A tick lists every pod and ReplicaSet, which
+// for a cluster of a few thousand pods is megabytes of JSON to decode; doing it
+// every minute for every cluster ever opened kept the engine busy all day. The
+// history it feeds is bucketed in hours.
+const idleSampleInterval = 10 * time.Minute
+
+func (s *Sampler) markSampled(clusterID string, at time.Time) {
+	s.mu.Lock()
+	s.lastSampled[clusterID] = at
+	s.mu.Unlock()
+}
+
+// dueNow reports whether a cluster should be sampled on this tick.
+func (s *Sampler) dueNow(clusterID string, now time.Time) bool {
+	if s.connected == nil || s.connected(clusterID) {
+		return true
+	}
+	s.mu.Lock()
+	last, ok := s.lastSampled[clusterID]
+	s.mu.Unlock()
+	return !ok || now.Sub(last) >= idleSampleInterval
 }
 
 func (s *Sampler) shouldSample(c clusters.Cluster) bool {
@@ -387,6 +424,30 @@ func replicaSetOwners(ctx context.Context, cs kubernetes.Interface) (map[string]
 	}
 }
 
+var replicaSetGVR = schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "replicasets"}
+
+// replicaSetOwnersMeta is replicaSetOwners from a metadata-only list: each
+// ReplicaSet's UID and owner references, without its pod template.
+func replicaSetOwnersMeta(ctx context.Context, md metadata.Interface) (map[string]ownerRef, error) {
+	owners := map[string]ownerRef{}
+	opts := metav1.ListOptions{Limit: listPageSize}
+	for {
+		page, err := md.Resource(replicaSetGVR).List(ctx, opts)
+		if err != nil {
+			return nil, err
+		}
+		for _, rs := range page.Items {
+			if ref := controllerOwner(rs.OwnerReferences); ref != nil {
+				owners[string(rs.UID)] = *ref
+			}
+		}
+		if page.Continue == "" {
+			return owners, nil
+		}
+		opts.Continue = page.Continue
+	}
+}
+
 // Start runs the sampler loop until ctx is cancelled. It samples immediately
 // on start (rather than waiting a full interval) so the first UI load after
 // engine startup isn't gratuitously empty.
@@ -408,9 +469,12 @@ func (s *Sampler) Start(ctx context.Context) {
 
 func (s *Sampler) tick(ctx context.Context) {
 	for _, c := range s.mgr.List() {
-		if !s.shouldSample(c) {
+		if !s.shouldSample(c) || !s.dueNow(c.ID, time.Now()) {
 			continue
 		}
+		// Marked before the work, so a cluster that errors is retried at its
+		// normal cadence and not on every tick.
+		s.markSampled(c.ID, time.Now())
 		cfg, err := s.mgr.RestConfig(c.ID)
 		if err != nil {
 			continue // e.g. a misconfigured entry mid-list — skip, don't fail the whole tick
@@ -425,7 +489,20 @@ func (s *Sampler) tick(ctx context.Context) {
 			s.log.Warn("waste sampler: metrics client init failed", "cluster", c.ID, "err", err)
 			continue
 		}
-		if err := s.sampleCluster(ctx, c.ID, cs, mc); err != nil {
+		md, err := metadata.NewForConfig(samplerConfig(cfg))
+		if err != nil {
+			s.log.Warn("waste sampler: metadata client init failed", "cluster", c.ID, "err", err)
+			continue
+		}
+		tctx, cancel := context.WithTimeout(ctx, tickTimeout)
+		// Which Deployment owns each ReplicaSet needs only their owner
+		// references, so the list is metadata only: a fraction of the bytes.
+		owners, err := replicaSetOwnersMeta(tctx, md)
+		if err == nil {
+			err = s.sampleWithOwners(tctx, c.ID, cs, mc, owners)
+		}
+		cancel()
+		if err != nil {
 			s.log.Warn("waste sampler: sample failed", "cluster", c.ID, "err", err)
 		}
 	}
@@ -440,15 +517,21 @@ const tickTimeout = 20 * time.Second
 func (s *Sampler) sampleCluster(ctx context.Context, clusterID string, cs kubernetes.Interface, mc metricsv.Interface) error {
 	tctx, cancel := context.WithTimeout(ctx, tickTimeout)
 	defer cancel()
-
-	// A full-cluster Pod/ReplicaSet list every tick is real API-server load on
-	// a very large cluster — an accepted tradeoff for v1's honesty-first,
-	// no-history-store design. It goes a page at a time (eachPod), so the
-	// engine never holds the whole list.
 	rsOwners, err := replicaSetOwners(tctx, cs)
 	if err != nil {
 		return err
 	}
+	return s.sampleWithOwners(tctx, clusterID, cs, mc, rsOwners)
+}
+
+// sampleWithOwners is a tick with the ReplicaSet owners already known. The pod
+// list is a full-cluster list every tick, which is real API-server load on a
+// very large cluster, an accepted tradeoff for v1's honesty-first,
+// no-history-store design; it goes a page at a time (eachPod), so the engine
+// never holds the whole list.
+func (s *Sampler) sampleWithOwners(ctx context.Context, clusterID string, cs kubernetes.Interface, mc metricsv.Interface, rsOwners map[string]ownerRef) error {
+	tctx := ctx
+	var err error
 
 	metricsByPod := map[string]podUsage{}
 	pmList, merr := mc.MetricsV1beta1().PodMetricses(metav1.NamespaceAll).List(tctx, metav1.ListOptions{})

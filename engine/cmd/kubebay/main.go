@@ -121,6 +121,7 @@ func main() {
 	// Poll workloads only on clusters the user connected to or enrolled in
 	// usage history, never on every context that answers /version.
 	wasteSampler.SetGate(func(id string) bool { return mgr.IsConnected(id) || settingsMgr.HistoryEnabled(id) })
+	wasteSampler.SetConnected(mgr.IsConnected)
 	historyAPI, closeHistory := setupHistory(log, mgr, settingsMgr, wasteSampler, *inCluster, wasteCtx)
 	defer closeHistory()
 	// Started only now, after the history recorder is set, so the sampler
