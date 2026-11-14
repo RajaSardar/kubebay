@@ -338,6 +338,8 @@ const rawRow = (r: Row) => r;
 /** Kinds whose row menu offers "Show pods" (they select pods by label). */
 const HAS_PODS = new Set(["deployments", "statefulsets", "daemonsets", "replicasets", "jobs"]);
 
+const BUILT_IN_COLUMNS = new Set(["name", "namespace", "age"]);
+
 export default function ResourceTable() {
   const { kind = "" } = useParams();
   const [sp] = useSearchParams();
@@ -373,7 +375,8 @@ export default function ResourceTable() {
   const printerColumns = useMemo<PrinterColumn[]>(() => {
     if (!isCRD || !crdListQ.data || !def) return [];
     const match = crdListQ.data.find((c) => c.gvr === def.gvr);
-    return match?.columns ?? [];
+    // The table already has Name, Namespace and Age; a printer column of the same name would repeat one.
+    return (match?.columns ?? []).filter((c) => !BUILT_IN_COLUMNS.has(c.name.toLowerCase()));
   }, [isCRD, crdListQ.data, def]);
 
   // The kind's columns, then CRD printer columns, then Owner. The filter

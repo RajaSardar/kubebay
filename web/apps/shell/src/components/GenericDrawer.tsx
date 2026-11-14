@@ -536,9 +536,9 @@ export default function GenericDrawer({
       )}
 
       {/* ── Actions bar ── */}
-      {["deployments", "statefulsets", "daemonsets", "cronjobs", "nodes"].includes(def.slug) && (
+      {(["deployments", "statefulsets", "daemonsets", "cronjobs", "nodes"].includes(def.slug) || def.gvr === "argoproj.io/v1alpha1/rollouts") && (
         <ActionsBar
-          slug={def.slug as "deployments"}
+          slug={(def.gvr === "argoproj.io/v1alpha1/rollouts" ? "rollouts" : def.slug) as "deployments"}
           cluster={cluster}
           ns={ns}
           name={name}

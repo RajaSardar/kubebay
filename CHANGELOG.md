@@ -105,6 +105,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 - **Pending has its own colour**: Pending pods use each theme's info hue instead of the warning orange, so they no longer read as warnings
 
 ### Fixed
+- **KEDA ScaledObjects showed Age twice**: a custom resource whose printer columns repeat Name, Namespace or Age (KEDA's does) now shows each once.
+- **Argo Rollouts can be scaled** from their drawer with **−**, **+** and **Apply scale**, like Deployments and StatefulSets.
 - **Windows: no console window.** The app opened a black console window beside it, printed the engine's logs there, and closing it closed the app. It is now a normal windowed app. (Not tried on a Windows machine yet: the Windows CI smoke run exercises it.)
 - **Less background work, so less battery.** Four causes:
   - The usage sampler listed every pod and ReplicaSet of **every cluster you had ever opened, every minute**, even ones you weren't looking at (a benchmark with realistically sized objects, for a cluster of about 2,760 pods and 4,000 ReplicaSets, came to around 13 MB and 120 ms of decoding a minute, per cluster, before network and garbage collection). Clusters you have open are still sampled every minute; the others every ten minutes, and ReplicaSets are listed by owner only, which is about a seventh of the data.

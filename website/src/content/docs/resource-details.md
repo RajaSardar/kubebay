@@ -35,6 +35,7 @@ Services have **Summary** (ports, selector, traffic) and **YAML**. Nodes have th
 Above the tabs:
 
 - **Deployments and StatefulSets**: set the replicas with **−** and **+**, then **Apply scale**. **Restart** rolls the pods.
+- **Argo Rollouts**: the same **−**, **+** and **Apply scale** set a Rollout's replicas. There is no Restart on a Rollout.
 - **DaemonSets**: **Restart**.
 - **CronJobs**: **Trigger now** runs a Job from it at once. **Suspend** and **Resume** stop and restart its schedule.
 - **Nodes**: **Cordon**, **Uncordon** and **Drain**. See [Nodes](/docs/nodes/).

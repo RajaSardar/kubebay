@@ -5,12 +5,13 @@ import { ownerLabel, ownerWarning, type GitOpsOwner } from "../lib/gitops";
 import { PolicyRejectionError, type PolicyRejectionDetail } from "../lib/policyRejection";
 import { PolicyRejectionCard } from "./PolicyRejectionCard";
 
-type Slug = "deployments" | "statefulsets" | "daemonsets" | "cronjobs" | "nodes";
+type Slug = "deployments" | "statefulsets" | "daemonsets" | "cronjobs" | "nodes" | "rollouts";
 
 const GVR: Partial<Record<Slug, string>> = {
   deployments: "apps/v1/deployments",
   statefulsets: "apps/v1/statefulsets",
   daemonsets: "apps/v1/daemonsets",
+  rollouts: "argoproj.io/v1alpha1/rollouts",
 };
 
 function useFeedback() {
@@ -61,7 +62,7 @@ export function ActionsBar({
   const setReplicas = (fn: (r: number) => number) => setEdited(fn(replicas));
   const ownerDetail = gitopsOwner ? ownerLabel(gitopsOwner) : undefined;
 
-  const showScale = slug === "deployments" || slug === "statefulsets";
+  const showScale = slug === "deployments" || slug === "statefulsets" || slug === "rollouts";
   const showRestart = slug === "deployments" || slug === "statefulsets" || slug === "daemonsets";
 
   return (

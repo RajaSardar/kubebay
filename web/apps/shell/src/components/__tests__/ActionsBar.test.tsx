@@ -111,3 +111,18 @@ describe("ActionsBar — structured policy rejection (backlog #17)", () => {
     expect(await screen.findByText(/connection refused/)).toBeTruthy();
   });
 });
+
+describe("ActionsBar — Argo Rollouts (backlog #33)", () => {
+  it("scales a Rollout like a Deployment, and offers no restart", async () => {
+    vi.mocked(api.scale).mockResolvedValue(undefined as never);
+    render(<ActionsBar slug="rollouts" cluster="kind-test" ns="default" name="web" currentReplicas={2} />);
+    fireEvent.click(screen.getByRole("button", { name: "Increase replicas" }));
+    fireEvent.click(screen.getByRole("button", { name: "Apply scale" }));
+    await waitFor(() =>
+      expect(api.scale).toHaveBeenCalledWith(
+        expect.objectContaining({ gvr: "argoproj.io/v1alpha1/rollouts", ns: "default", name: "web", replicas: 3 }),
+      ),
+    );
+    expect(screen.queryByRole("button", { name: /restart/i })).toBeNull();
+  });
+});
