@@ -1,3 +1,7 @@
+// A release build on Windows is a GUI app. Without this Windows gives it a
+// console window, and closing that window closes the app.
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 use std::io::Write;
 use std::net::TcpStream;
 use std::path::{Path, PathBuf};
@@ -530,4 +534,22 @@ fn main() {
             }
             _ => {}
         });
+}
+
+#[cfg(test)]
+mod tests {
+    /// Without this attribute the Windows build is a console program: Windows
+    /// opens a console window beside the app, prints the engine's logs in it,
+    /// and closing that window closes the app. (The engine sidecar is already
+    /// started without a window of its own.)
+    #[test]
+    fn the_windows_build_is_a_gui_app_not_a_console_one() {
+        let attr = concat!("#![cfg_attr(not(debug_assertions), ", "windows_subsystem = \"windows\")]");
+        let first_code_line = include_str!("main.rs")
+            .lines()
+            .map(str::trim)
+            .find(|l| !l.is_empty() && !l.starts_with("//"))
+            .unwrap_or("");
+        assert_eq!(first_code_line, attr, "main.rs must start with the windows_subsystem attribute");
+    }
 }
