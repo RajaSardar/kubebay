@@ -38,3 +38,8 @@ export const Row = forwardRef<HTMLElement, FlexProps>(function Row(props, ref) {
 export const Stack = forwardRef<HTMLElement, FlexProps>(function Stack(props, ref) {
   return flex("kb-stack", props, ref);
 });
+
+/** Pins its children to the window's bottom-right corner, above the page. */
+export function Corner({ children }: { children: React.ReactNode }) {
+  return <div className="kb-corner">{children}</div>;
+}

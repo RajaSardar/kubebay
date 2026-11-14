@@ -292,12 +292,12 @@ describe("ClusterPicker: Rancher (KB-08)", () => {
 describe("ClusterPicker: updates (KB-04)", () => {
   // The cluster list is outside the shell, and it's where the app opens, so
   // it shows the update banner too.
-  it("shows the Update ready banner in the desktop app", async () => {
+  it("shows the Update available button in the desktop app", async () => {
     const w = window as unknown as { __TAURI_INTERNALS__?: { invoke: () => Promise<unknown> } };
-    w.__TAURI_INTERNALS__ = { invoke: async () => ({ state: "ready", version: "0.8.1", notes: null, currentVersion: "0.8.0", autoCheck: true }) };
+    w.__TAURI_INTERNALS__ = { invoke: async () => ({ state: "available", version: "0.8.1", notes: null, currentVersion: "0.8.0", autoCheck: true }) };
     try {
       renderPage();
-      expect(await screen.findByText("Kubebay 0.8.1 is ready to install.")).toBeInTheDocument();
+      expect(await screen.findByRole("button", { name: "Update available: 0.8.1" })).toBeInTheDocument();
     } finally {
       delete w.__TAURI_INTERNALS__;
     }

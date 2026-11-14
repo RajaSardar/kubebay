@@ -6,6 +6,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-11-14
+
+### Added
+- **Releases carry the update signing key, so the desktop app can update itself.** An **Update available** button appears in the bottom-right corner when a newer version exists; it opens a popup with what changed, and **Update now** downloads, verifies and installs it. Nothing downloads or installs by itself. v0.7.0 and v0.7.1 were built without the key and can't update themselves: install v0.7.2 once by hand.
+
 ## [0.7.1] - 2026-11-14
 
 ### Added
@@ -34,7 +39,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
   - idle memory and CPU with three clusters connected and one open.
   
   After three stable runs on main, watch-to-paint and the three-cluster rows fail the build like the first four. Scrolling, within its budget but only just (57.4 to 60 fps against 55), still warns. The engine's memory with 100,000 pods, which CI doesn't run, was measured once by hand. `docs/PERFORMANCE.md` has the method and the numbers
-- **The desktop app updates itself** (once releases carry the update signing key): 30 seconds after launch and once a day it checks the latest release, downloads a newer version in the background and verifies its signature, then shows an **Update ready** banner. **Restart to update** installs it, but never while a terminal, port-forward or change is in flight; the banner says which. Settings → Updates turns the checks off, shows the one URL they fetch (with no identifiers), and has **Check now**. A Homebrew cask install is told to `brew upgrade` instead. Builds without the key never check. The engine gains `GET /api/activity`, which reports what a restart would interrupt
+- **The desktop app updates itself** (once releases carry the update signing key): 30 seconds after launch and once a day it checks the latest release, looks for a newer version and, if there is one, shows an **Update available** button in the window's corner. Nothing downloads on its own: the button opens a popup with what changed, and **Update now** downloads it, verifies its signature, installs it and restarts, but never while a terminal, port-forward or change is in flight; the banner says which. Settings → Updates turns the checks off, shows the one URL they fetch (with no identifiers), and has **Check now**. A Homebrew cask install is told to `brew upgrade` instead. Builds without the key never check. The engine gains `GET /api/activity`, which reports what a restart would interrupt
 - **Monthly download report**: a scheduled `download report` workflow writes, on the 1st of each month, how many times each release and channel (macOS, Windows and Linux apps, the engine tarballs that Homebrew installs, the air-gapped bundle) was downloaded, all time and since the previous report, plus stars and forks. It reads public GitHub data only: nothing in the app changes and nothing is sent from anyone's machine (`scripts/download-report.mjs`)
 - **A ResourceClaim's page shows its allocation**: the Summary tab of a DRA ResourceClaim, opened from the ResourceClaims table or a pod's "Resource claims" link, now shows:
   - the claim's state and the device class it asks for;

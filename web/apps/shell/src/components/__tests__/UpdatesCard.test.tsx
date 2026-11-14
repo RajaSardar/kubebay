@@ -79,4 +79,14 @@ describe("UpdatesCard (KB-04)", () => {
     renderCard();
     expect(await screen.findByText(/The last check failed: Network request failed/)).toBeInTheDocument();
   });
+
+  it("offers Update now when one is found, and downloads nothing before it", async () => {
+    const invoke = desktop({ ...base, state: "available", version: "0.8.1", notes: null });
+    renderCard();
+    expect(await screen.findByText(/Nothing is downloaded until you press Update now/)).toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalledWith("install_update", expect.anything());
+    fireEvent.click(screen.getByRole("button", { name: "Update now" }));
+    await act(async () => {});
+    expect(invoke).toHaveBeenCalledWith("install_update", {});
+  });
 });

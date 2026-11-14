@@ -106,7 +106,7 @@ gh attestation verify kubebay-linux-amd64.tar.gz --repo RajaSardar/kubebay
 
 ## Updates
 
-The desktop app can update itself. It checks 30 seconds after launch, then once a day, and when you click **Check now** in [Settings → Updates](/docs/settings/#updates). The check is one request for `latest.json` on GitHub releases. A new version downloads in the background and is verified against Kubebay's signing key. Nothing installs until you click **Restart to update**, and the app won't restart while a terminal, port-forward or change is still running.
+The desktop app can update itself. It checks 30 seconds after launch, then once a day, and when you click **Check now** in [Settings → Updates](/docs/settings/#updates). The check is one request for `latest.json` on GitHub releases. When there's a newer version, an **Update available** button appears in the bottom-right corner of the window. Nothing downloads or installs on its own: click the button to read what changed, then **Update now**. The download is verified against Kubebay's signing key, and the app restarts. It won't restart while a terminal, port-forward or change is still running, and it says which. Copies installed before v0.7.2 carry no signing key and can't update themselves: install v0.7.2 once by hand and every later version updates from the app.
 
 Homebrew installs update with `brew upgrade`, and `.deb` installs through your package manager.
 

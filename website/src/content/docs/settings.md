@@ -54,7 +54,7 @@ Where `~/.kubebay/extensions.yaml` is, what Kubebay loaded from it, and why it s
 
 ## Updates
 
-In the desktop app only. **Check for updates automatically** turns the daily check on or off. **Check now** checks at once, and **Restart to update** installs a downloaded update. See [Install](/docs/install/#updates).
+In the desktop app only. **Check for updates automatically** turns the daily check on or off; the check only looks for a new version, it never downloads one. **Check now** checks at once, and **Update now** downloads and installs a version that was found. See [Install](/docs/install/#updates).
 
 ## Saved views
 

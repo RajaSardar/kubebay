@@ -158,7 +158,7 @@ The desktop app updates itself once its releases carry an updater key (KB-04). B
 
 - **When it checks:** 30 seconds after launch, then once a day while it stays open, or when you click **Check now** in Settings → Updates.
 - **What it sends:** one request, `GET https://github.com/RajaSardar/kubebay/releases/latest/download/latest.json`, with no query string, cookies or custom headers. It's the only request Kubebay makes on its own.
-- **What it installs:** a newer version is downloaded in the background. The app verifies it against Kubebay's update signing key and against the version it was signed for, then shows an **Update ready** banner. Nothing installs until you click **Restart to update**. The app won't restart while a terminal, port-forward or change is in flight, and it says which.
+- **What it installs:** nothing, until you ask. A newer version shows an **Update available** button in the window's bottom-right corner; **Update now** downloads it, verifies it against Kubebay's update signing key and against the version it was signed for, installs it and restarts. The app won't restart while a terminal, port-forward or change is in flight, and it says which.
 - **Turning it off:** Settings → Updates → *Check for updates automatically*.
 - **Homebrew:** the formula installs the engine CLI, and `brew upgrade` updates it. A desktop app installed with a Homebrew cask is told to `brew upgrade --cask kubebay` instead of updating itself.
 - **.deb and .rpm installs:** these update through your package manager, or from the releases page.

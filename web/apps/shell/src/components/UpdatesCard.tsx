@@ -15,8 +15,10 @@ function stateLine(s: UpdateStatus): string {
       return "Checking…";
     case "up-to-date":
       return `Up to date (checked ${fmtTime(s.checkedAt)}).`;
-    case "ready":
-      return `Kubebay ${s.version} is downloaded and ready to install.`;
+    case "available":
+      return `Kubebay ${s.version} is available. Nothing is downloaded until you press Update now.`;
+    case "downloading":
+      return `Downloading Kubebay ${s.version}…`;
     case "homebrew":
       return `Kubebay ${s.version} is out. Homebrew installed this copy: update it with brew upgrade --cask kubebay.`;
     case "manual":
@@ -76,7 +78,7 @@ export function UpdatesCard() {
           <div className="muted small">
             At launch and once a day, Kubebay fetches <span className="mono">{UPDATE_ENDPOINT.replace("https://", "")}</span>. It&apos;s
             the only request Kubebay makes on its own, and it sends nothing about you or your clusters. An update is
-            checked against Kubebay&apos;s signing key before it&apos;s installed, and it installs only when you restart.
+            checked against Kubebay&apos;s signing key before it&apos;s installed. It downloads and installs only when you press Update now.
           </div>
           <Row gap={2} align="center">
             <span className="small">
@@ -87,9 +89,9 @@ export function UpdatesCard() {
             <Button variant="ghost" disabled={busy || st.state === "checking"} onClick={() => void run(updatesApi.checkNow)}>
               Check now
             </Button>
-            {st.state === "ready" && (
+            {st.state === "available" && (
               <Button disabled={busy} onClick={() => void run(updatesApi.install)}>
-                Restart to update
+                Update now
               </Button>
             )}
           </Row>

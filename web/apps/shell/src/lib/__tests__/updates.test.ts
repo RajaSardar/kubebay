@@ -8,7 +8,7 @@ function desktop(invoke: (cmd: string, args?: unknown) => Promise<unknown>) {
   return (window as unknown as W).__TAURI_INTERNALS__!.invoke as ReturnType<typeof vi.fn>;
 }
 
-const ready: UpdateStatus = { state: "ready", version: "0.8.1", notes: null, currentVersion: "0.8.0", autoCheck: true };
+const ready: UpdateStatus = { state: "available", version: "0.8.1", notes: null, currentVersion: "0.8.0", autoCheck: true };
 
 afterEach(() => {
   delete (window as unknown as W).__TAURI_INTERNALS__;

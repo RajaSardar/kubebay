@@ -9,7 +9,8 @@ export type UpdateState =
   | { state: "idle" }
   | { state: "checking" }
   | { state: "up-to-date"; checkedAt: number }
-  | { state: "ready"; version: string; notes: string | null }
+  | { state: "available"; version: string; notes: string | null }
+  | { state: "downloading"; version: string }
   | { state: "homebrew"; version: string }
   | { state: "manual" }
   | { state: "failed"; error: string; checkedAt: number };
@@ -43,7 +44,7 @@ export const updatesApi = {
   status: (): Promise<UpdateStatus | null> => (ipc() ? call<UpdateStatus>("update_status") : Promise.resolve(null)),
   setChecks: (enabled: boolean) => call<UpdateStatus>("set_update_checks", { enabled }),
   checkNow: () => call<UpdateStatus>("check_for_updates"),
-  /** Installs the downloaded update and restarts; rejects with why it didn't. */
+  /** Downloads the update, installs it and restarts; rejects with why it didn't. */
   install: () => call<void>("install_update"),
 };
 

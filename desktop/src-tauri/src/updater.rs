@@ -80,8 +80,10 @@ pub enum Status {
     Checking,
     #[serde(rename_all = "camelCase")]
     UpToDate { checked_at: u64 },
-    /// Downloaded and verified; installs when the user asks.
-    Ready { version: String, notes: Option<String> },
+    /// A newer version exists. Nothing is downloaded until the user asks.
+    Available { version: String, notes: Option<String> },
+    /// The user asked: downloading and verifying it, then it installs and restarts.
+    Downloading { version: String },
     /// A newer version exists, but Homebrew installed this copy: `brew upgrade` it.
     Homebrew { version: String },
     /// The release has no update bundle for this kind of install (a .deb, say).
@@ -90,14 +92,20 @@ pub enum Status {
     Failed { error: String, checked_at: u64 },
 }
 
-/// A downloaded, verified update waiting for the user.
+/// An update found but not downloaded: it waits for the user.
 pub struct Pending {
     pub update: tauri_plugin_updater::Update,
-    pub bytes: Vec<u8>,
 }
 
-/// Checks `endpoint` once and, if there's a newer version, downloads and
-/// verifies it. A copy installed by Homebrew only reports the version.
+/// Downloads the update; the plugin verifies the signature, and the version
+/// it was signed for, before it returns the bytes.
+pub async fn download_update(p: &Pending) -> Result<Vec<u8>, String> {
+    p.update.download(|_, _| {}, || {}).await.map_err(|e| e.to_string())
+}
+
+/// Checks `endpoint` once and reports whether there's a newer version. It
+/// downloads nothing: that waits for the user. A copy installed by Homebrew
+/// only reports the version.
 pub async fn check_once<R: Runtime>(
     app: &AppHandle<R>,
     endpoint: &str,
@@ -126,15 +134,8 @@ pub async fn check_once<R: Runtime>(
     if homebrew {
         return (Status::Homebrew { version: update.version.clone() }, None);
     }
-    // download() verifies the signature, and the version it was signed for,
-    // before it returns the bytes.
-    match update.download(|_, _| {}, || {}).await {
-        Ok(bytes) => {
-            let status = Status::Ready { version: update.version.clone(), notes: update.body.clone() };
-            (status, Some(Pending { update, bytes }))
-        }
-        Err(e) => (failed(e.to_string()), None),
-    }
+    let status = Status::Available { version: update.version.clone(), notes: update.body.clone() };
+    (status, Some(Pending { update }))
 }
 
 /// What the page reads with `update_status`.
@@ -194,12 +195,16 @@ impl Updates {
     pub fn begin_check(&self) -> bool {
         let mut inner = self.lock();
         match inner.status {
-            Status::Unavailable | Status::Checking | Status::Ready { .. } => false,
+            Status::Unavailable | Status::Checking | Status::Downloading { .. } | Status::Available { .. } => false,
             _ => {
                 inner.status = Status::Checking;
                 true
             }
         }
+    }
+
+    pub fn set_status(&self, status: Status) {
+        self.lock().status = status;
     }
 
     pub fn finish_check(&self, status: Status, pending: Option<Pending>) {
@@ -395,7 +400,7 @@ mod tests {
     }
 
     #[test]
-    fn one_check_at_a_time_and_none_once_an_update_is_ready() {
+    fn one_check_at_a_time_and_none_once_an_update_is_found() {
         let u = Updates::new(true, None);
         assert_eq!(serde_json::to_value(u.view("0.8.0")).unwrap()["state"], "idle");
         assert!(u.begin_check());
@@ -406,8 +411,8 @@ mod tests {
         assert_eq!(v["state"], "up-to-date");
         assert_eq!(v["checkedAt"], 7);
         assert!(u.begin_check(), "checks again once the last one finished");
-        u.finish_check(Status::Ready { version: "0.8.1".into(), notes: None }, None);
-        assert!(!u.begin_check(), "an update is ready: don't download it again");
+        u.finish_check(Status::Available { version: "0.8.1".into(), notes: None }, None);
+        assert!(!u.begin_check(), "an update is waiting for the user: don't look again");
     }
 
     #[test]
@@ -490,6 +495,10 @@ mod tests {
         format!("{}-{}", if cfg!(target_os = "macos") { "darwin" } else if cfg!(windows) { "windows" } else { "linux" }, std::env::consts::ARCH)
     }
 
+    fn download(p: Pending) -> Result<Vec<u8>, String> {
+        tauri::async_runtime::block_on(download_update(&p))
+    }
+
     fn check(app: &tauri::App<tauri::test::MockRuntime>, base: &str, homebrew: bool) -> (Status, Option<Pending>) {
         tauri::async_runtime::block_on(check_once(app.handle(), &format!("{base}/latest.json"), homebrew, 42))
     }
@@ -517,10 +526,11 @@ mod tests {
         let keys = Keys::new();
         let bundle = b"kubebay 0.8.1".to_vec();
         let sig = keys.sign(&bundle, "0.8.1");
-        let (base, _) = serve_with_self(vec![("/latest.json", 200, manifest("{base}", "0.8.1", &here(), &sig)), ("/bundle.tar.gz", 200, bundle.clone())]);
+        let (base, seen) = serve_with_self(vec![("/latest.json", 200, manifest("{base}", "0.8.1", &here(), &sig)), ("/bundle.tar.gz", 200, bundle.clone())]);
         let (status, pending) = check(&app(&keys.pubkey(), "0.8.0"), &base, false);
-        assert_eq!(status, Status::Ready { version: "0.8.1".into(), notes: Some("https://github.com/RajaSardar/kubebay/releases/tag/v0.8.1".into()) });
-        assert_eq!(pending.expect("pending").bytes, bundle);
+        assert_eq!(status, Status::Available { version: "0.8.1".into(), notes: Some("https://github.com/RajaSardar/kubebay/releases/tag/v0.8.1".into()) });
+        assert_eq!(seen.lock().unwrap().len(), 1, "finding an update downloads nothing");
+        assert_eq!(download(pending.expect("pending")).expect("verified bytes"), bundle);
     }
 
     #[test]
@@ -528,9 +538,9 @@ mod tests {
         let keys = Keys::new();
         let sig = keys.sign(b"kubebay 0.8.1", "0.8.1");
         let (base, _) = serve_with_self(vec![("/latest.json", 200, manifest("{base}", "0.8.1", &here(), &sig)), ("/bundle.tar.gz", 200, b"something else".to_vec())]);
-        let (status, pending) = check(&app(&keys.pubkey(), "0.8.0"), &base, false);
-        assert!(matches!(&status, Status::Failed { error, .. } if error.to_lowercase().contains("signature")), "{status:?}");
-        assert!(pending.is_none());
+        let (_, pending) = check(&app(&keys.pubkey(), "0.8.0"), &base, false);
+        let err = download(pending.expect("pending")).unwrap_err();
+        assert!(err.to_lowercase().contains("signature"), "{err}");
     }
 
     #[test]
@@ -539,9 +549,9 @@ mod tests {
         let other = Keys::new();
         let bundle = b"kubebay 0.8.1".to_vec();
         let (base, _) = serve_with_self(vec![("/latest.json", 200, manifest("{base}", "0.8.1", &here(), &other.sign(&bundle, "0.8.1"))), ("/bundle.tar.gz", 200, bundle)]);
-        let (status, pending) = check(&app(&keys.pubkey(), "0.8.0"), &base, false);
-        assert!(matches!(&status, Status::Failed { error, .. } if error.contains("different key")), "{status:?}");
-        assert!(pending.is_none());
+        let (_, pending) = check(&app(&keys.pubkey(), "0.8.0"), &base, false);
+        let err = download(pending.expect("pending")).unwrap_err();
+        assert!(err.contains("different key"), "{err}");
     }
 
     #[test]
@@ -550,9 +560,9 @@ mod tests {
         let keys = Keys::new();
         let bundle = b"kubebay 0.8.1".to_vec();
         let (base, _) = serve_with_self(vec![("/latest.json", 200, manifest("{base}", "0.9.0", &here(), &keys.sign(&bundle, "0.8.1"))), ("/bundle.tar.gz", 200, bundle)]);
-        let (status, pending) = check(&app(&keys.pubkey(), "0.8.0"), &base, false);
-        assert!(matches!(&status, Status::Failed { error, .. } if error.contains("signed for version 0.8.1")), "{status:?}");
-        assert!(pending.is_none());
+        let (_, pending) = check(&app(&keys.pubkey(), "0.8.0"), &base, false);
+        let err = download(pending.expect("pending")).unwrap_err();
+        assert!(err.contains("signed for version 0.8.1"), "{err}");
     }
 
     #[test]

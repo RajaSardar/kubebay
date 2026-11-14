@@ -1916,3 +1916,11 @@ tr.row-clickable:active {
 .kb-choice-card:focus-visible {
   box-shadow: var(--kb-focus-ring);
 }
+
+/* Corner: a control pinned to the window's bottom-right (the update button). */
+.kb-corner {
+  position: fixed;
+  right: var(--kb-space-4);
+  bottom: 40px;
+  z-index: var(--kb-z-sticky);
+}

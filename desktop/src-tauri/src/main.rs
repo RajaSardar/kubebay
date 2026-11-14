@@ -105,28 +105,41 @@ async fn check_for_updates(
     Ok(updates.view(&app.package_info().version.to_string()))
 }
 
-/// "Restart to update": installs the downloaded update and restarts, unless
-/// the engine reports something a restart would cut off.
+/// "Update now": downloads and verifies the update the user chose, installs it
+/// and restarts, unless the engine reports something a restart would cut off.
+/// Nothing is downloaded before this.
 #[tauri::command]
-fn install_update(app: tauri::AppHandle, updates: tauri::State<'_, updater::Updates>) -> Result<(), String> {
+async fn install_update(app: tauri::AppHandle, updates: tauri::State<'_, updater::Updates>) -> Result<(), String> {
     let (addr, token) = ENGINE_SESSION.get().ok_or("The engine isn't running yet.")?;
     let activity = updater::fetch_activity(addr, token)?;
     if let Some(why) = updater::restart_blocker(&activity) {
         return Err(why);
     }
-    let pending = updates.take_pending().ok_or("No update is ready to install.")?;
+    let pending = updates.take_pending().ok_or("No update is waiting.")?;
+    let version = pending.update.version.clone();
+    let notes = pending.update.body.clone();
+    updates.set_status(updater::Status::Downloading { version: version.clone() });
+    let bytes = match updater::download_update(&pending).await {
+        Ok(b) => b,
+        Err(e) => {
+            updates.set_status(updater::Status::Available { version, notes });
+            updates.put_back(pending);
+            return Err(format!("The update didn't download: {e}"));
+        }
+    };
     // The Windows installer replaces the engine binary, which can't be done
     // while it runs; elsewhere it stops when the app restarts.
     #[cfg(windows)]
     kill_engine();
-    if let Err(e) = pending.update.install(&pending.bytes) {
+    if let Err(e) = pending.update.install(&bytes) {
+        updates.set_status(updater::Status::Available { version, notes });
         updates.put_back(pending);
         return Err(format!("The update didn't install: {e}"));
     }
     app.restart();
 }
 
-/// One check, and download if there's an update. Does nothing if the build
+/// One check; an update it finds waits for the user. Does nothing if the build
 /// can't update itself or a check is already running.
 async fn run_update_check(app: &tauri::AppHandle) {
     let updates = app.state::<updater::Updates>();

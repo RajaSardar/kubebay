@@ -1,34 +1,23 @@
 import { useState } from "react";
-import { Button, InlineBanner } from "@kubebay/ui";
+import { Button, Corner, InlineBanner, Modal, Row, Stack } from "@kubebay/ui";
 import { updatesApi, useUpdateStatus } from "../lib/updates";
 
 /**
- * KB-04: a non-modal banner once the desktop app has downloaded an update.
- * It installs and restarts only when asked, and the app refuses while a
- * terminal, port-forward or change is in flight, which the banner then says.
+ * KB-04: a button in the corner once a newer version exists. It opens a popup
+ * with what changed; nothing downloads or installs until "Update now", and the
+ * app refuses while a terminal, port-forward or change is in flight, which the
+ * popup then says.
  */
 export function UpdateBanner() {
   const status = useUpdateStatus().data;
-  const [dismissed, setDismissed] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  if (!status || (status.state !== "ready" && status.state !== "homebrew") || dismissed === status.version) return null;
-  const later = (
-    <Button variant="ghost" onClick={() => setDismissed(status.version)}>
-      Later
-    </Button>
-  );
+  if (!status || (status.state !== "available" && status.state !== "downloading" && status.state !== "homebrew")) return null;
+  const { version } = status;
 
-  if (status.state === "homebrew") {
-    return (
-      <InlineBanner tone="ok" actions={later}>
-        Kubebay {status.version} is out. Homebrew installed this copy: update it with <code className="mono">brew upgrade --cask kubebay</code>
-      </InlineBanner>
-    );
-  }
-
-  const restart = async () => {
+  const update = async () => {
     setBusy(true);
     setError(null);
     try {
@@ -39,19 +28,45 @@ export function UpdateBanner() {
       setBusy(false);
     }
   };
+  const working = busy || status.state === "downloading";
+
   return (
-    <InlineBanner
-      tone={error ? "warn" : "ok"}
-      actions={
-        <>
-          <Button disabled={busy} onClick={() => void restart()}>
-            {busy ? "Restarting…" : "Restart to update"}
-          </Button>
-          {later}
-        </>
-      }
-    >
-      {error ?? `Kubebay ${status.version} is ready to install.`}
-    </InlineBanner>
+    <>
+      <Corner>
+        <Button variant="primary" onClick={() => setOpen(true)} aria-label={`Update available: ${version}`}>
+          Update available
+        </Button>
+      </Corner>
+      {open && (
+        <Modal label={`Kubebay ${version} is available`} title={`Kubebay ${version} is available`} onClose={() => setOpen(false)} placement="center">
+          <Stack gap={3}>
+            <span className="small muted">You're on {status.currentVersion}.</span>
+            {status.state === "homebrew" ? (
+              <span className="small">
+                Homebrew installed this copy: update it with <code className="mono">brew upgrade --cask kubebay</code>
+              </span>
+            ) : (
+              <>
+                {status.state === "available" && status.notes && <span className="small">{status.notes}</span>}
+                <span className="small muted">
+                  It downloads when you press Update now, is checked against Kubebay's signing key, then Kubebay restarts.
+                </span>
+              </>
+            )}
+            {error && <InlineBanner flush tone="warn">{error}</InlineBanner>}
+            <Row justify="end" gap={2}>
+              <Button variant="ghost" onClick={() => setOpen(false)}>
+                Not now
+              </Button>
+              {status.state !== "homebrew" && (
+                <Button disabled={working} onClick={() => void update()}>
+                  {working ? "Updating…" : "Update now"}
+                </Button>
+              )}
+            </Row>
+          </Stack>
+        </Modal>
+      )}
+    </>
   );
 }
