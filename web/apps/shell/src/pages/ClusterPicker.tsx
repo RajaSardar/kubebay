@@ -52,7 +52,7 @@ import {
 } from "@kubebay/ui";
 import { PageHelp } from "../components/PageHelp";
 
-const APP_VERSION = "v0.7.0";
+const APP_VERSION = "v0.7.1";
 /** Default column widths (px); the Name column holds the icon, name and provider badge. */
 const COLUMN_WIDTHS: Readonly<Record<string, number>> = { Name: 320, Session: 130, API: 110, Version: 110, Pods: 150, Nodes: 80, "CPU · 7 days": 150, Requests: 150 };
 const HEADERS = ["Name", "Session", "API", "Version", "Pods", "Nodes", "CPU · 7 days", "Requests"] as const;

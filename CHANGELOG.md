@@ -6,6 +6,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-11-14
+
 ### Added
 - **⌘K searches everything in a cluster**: Services, Ingresses, ConfigMaps, Secrets (names only), PVCs, ServiceAccounts, Roles, CronJobs, ReplicaSets and the other built-in kinds, custom resources (Argo Rollouts, Flux, KEDA, Karpenter, Gateway API, cert-manager), and the CRDs themselves, as well as the objects Kubebay already held. The engine follows them as your account the first time you search, so a kind you can't list is skipped and named. Events, Leases, EndpointSlices, report objects and custom resources from unfamiliar groups are searched when you name them (`events crashloop`). The palette says what is still loading, what you can't list and what is only searched by name. New `GET /api/search`.
 - **Switch cluster from ⌘K**: with the box empty it lists the clusters you used last; typing part of a name or alias finds one; `switch prod`, `ctx stage` or `@stage` puts clusters first. Picking one opens it exactly as the Clusters page does. The palette and the Clusters page now share one function for that, so they can't drift apart.
