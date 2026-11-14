@@ -321,11 +321,11 @@ jobs:
           echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
           echo "$GH_TOKEN" | skopeo login ghcr.io -u "$GH_ACTOR" --password-stdin
           # publish.yml builds and pushes it from the same tag.
-          for _ in $(seq 1 60); do
+          for _ in $(seq 1 120); do
             skopeo inspect --raw "docker://$IMAGE:$TAG" > /dev/null 2>&1 && exit 0
             sleep 30
           done
-          echo "::error::$IMAGE:$TAG didn't appear within 30 minutes"
+          echo "::error::$IMAGE:$TAG didn't appear within 60 minutes"
           exit 1
       - name: Build the bundle
         env:
