@@ -26,8 +26,7 @@ func buildPromURL(base, path string, params map[string]string) (string, error) {
 	return up.String(), nil
 }
 
-func proxyToPrometheus(w http.ResponseWriter, r *http.Request, target string) {
-	client := &http.Client{Timeout: 10 * time.Second}
+func proxyToPrometheus(w http.ResponseWriter, r *http.Request, target string, client *http.Client) {
 	req, _ := http.NewRequestWithContext(r.Context(), http.MethodGet, target, nil)
 	resp, err := client.Do(req)
 	if err != nil {
@@ -74,7 +73,7 @@ func (s *SettingsManager) HandlePromQueryRange(w http.ResponseWriter, r *http.Re
 		http.Error(w, "bad prometheus url", http.StatusInternalServerError)
 		return
 	}
-	proxyToPrometheus(w, r, target)
+	proxyToPrometheus(w, r, target, s.Outbound.Client(10*time.Second))
 }
 
 // HandlePromQuery proxies an instant PromQL query (GET /api/prom/query).
@@ -112,7 +111,7 @@ func (s *SettingsManager) HandlePromQuery(w http.ResponseWriter, r *http.Request
 		http.Error(w, "bad prometheus url", http.StatusInternalServerError)
 		return
 	}
-	proxyToPrometheus(w, r, target)
+	proxyToPrometheus(w, r, target, s.Outbound.Client(10*time.Second))
 }
 
 func writeJSONStatus(w http.ResponseWriter, code int, v interface{}) {

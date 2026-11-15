@@ -39,6 +39,7 @@ import (
 
 	"github.com/RajaSardar/kubebay/engine/internal/audit"
 	"github.com/RajaSardar/kubebay/engine/internal/clusters"
+	"github.com/RajaSardar/kubebay/engine/internal/netguard"
 	"github.com/RajaSardar/kubebay/engine/internal/redact"
 )
 
@@ -71,6 +72,9 @@ func (s *stripComplianceSpecs) Run(renderedManifests *bytes.Buffer) (*bytes.Buff
 type HelmManager struct {
 	Clusters *clusters.Manager
 	Audit    *audit.Logger
+	// Outbound limits what a Helm repository URL may reach. Fixed at startup by
+	// main; the zero value is the desktop's, where loopback is fine.
+	Outbound netguard.Policy
 	// config, when set, replaces actionCfg: tests hand the handlers Helm's
 	// in-memory storage.
 	config func(r *http.Request, cluster, ns string) (*action.Configuration, error)

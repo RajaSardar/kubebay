@@ -24,6 +24,8 @@ appRoutes: ["/settings"]
 
 Kubebay reads Prometheus for a pod's [graphs](/docs/pods/#graphs), right-sizing over 7 days, and GPU utilisation. Set **the default Prometheus URL** here, such as `http://localhost:9090`, for clusters that don't have their own. Set a cluster's own URL from its **⋮** menu on the [Clusters page](/docs/connect-clusters/#a-clusters-menu), since a port-forward usually reaches one cluster's Prometheus.
 
+Kubebay refuses a Prometheus URL that points at a cloud metadata or link-local address (such as `http://169.254.169.254`), at an address that isn't `http` or `https`, or that carries a user name and password, and the setting isn't saved. That keeps the engine from being aimed at a cloud node's credentials. A local address such as `http://localhost:9090` is fine on your own machine. When Kubebay runs in a cluster, loopback is refused too, since it's the engine's own pod.
+
 ## Kubeconfig sources
 
 Kubeconfig files are added and removed on the Clusters page, next to the clusters they bring in. **Manage kubeconfig files** takes you there. See [Connect your clusters](/docs/connect-clusters/#adding-kubeconfig-files).

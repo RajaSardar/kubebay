@@ -13,6 +13,7 @@ import (
 	"helm.sh/helm/v4/pkg/action"
 	"helm.sh/helm/v4/pkg/chart"
 	"helm.sh/helm/v4/pkg/chart/loader"
+	"helm.sh/helm/v4/pkg/cli"
 	"helm.sh/helm/v4/pkg/getter"
 	repo "helm.sh/helm/v4/pkg/repo/v1"
 )
@@ -45,7 +46,6 @@ func (h *HelmManager) HandleUpdateRepos(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, "no repositories configured (run: helm repo add …)", http.StatusBadRequest)
 		return
 	}
-	getters := getter.All(settings)
 	type result struct {
 		name string
 		msg  string
@@ -53,7 +53,11 @@ func (h *HelmManager) HandleUpdateRepos(w http.ResponseWriter, r *http.Request) 
 	done := make(chan result, len(f.Repositories))
 	for _, entry := range f.Repositories {
 		go func(e *repo.Entry) {
-			cr, cerr := repo.NewChartRepository(e, getters)
+			if verr := h.Outbound.ValidateURL(e.URL); verr != nil {
+				done <- result{e.Name, "error: not fetched: " + verr.Error()}
+				return
+			}
+			cr, cerr := repo.NewChartRepository(e, h.getters(settings, e))
 			if cerr != nil {
 				done <- result{e.Name, "error: " + cerr.Error()}
 				return
@@ -105,6 +109,10 @@ func (h *HelmManager) HandleAddRepo(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "name and url required", http.StatusBadRequest)
 		return
 	}
+	if err := h.Outbound.ValidateURL(req.URL); err != nil {
+		http.Error(w, "repository URL: "+err.Error(), http.StatusBadRequest)
+		return
+	}
 
 	settings := h.settings()
 	f, err := repo.LoadFile(settings.RepositoryConfig)
@@ -118,8 +126,7 @@ func (h *HelmManager) HandleAddRepo(w http.ResponseWriter, r *http.Request) {
 
 	entry, changed := addOrUpdateRepoEntry(f, req.Name, req.URL)
 
-	getters := getter.All(settings)
-	cr, cerr := repo.NewChartRepository(entry, getters)
+	cr, cerr := repo.NewChartRepository(entry, h.getters(settings, entry))
 	if cerr != nil {
 		http.Error(w, fmt.Sprintf("repo config: %v", cerr), http.StatusBadRequest)
 		return
@@ -131,11 +138,11 @@ func (h *HelmManager) HandleAddRepo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if changed {
-		if err := os.MkdirAll(filepath.Dir(settings.RepositoryConfig), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(settings.RepositoryConfig), 0o700); err != nil {
 			http.Error(w, fmt.Sprintf("mkdir: %v", err), http.StatusInternalServerError)
 			return
 		}
-		if err := f.WriteFile(settings.RepositoryConfig, 0644); err != nil {
+		if err := f.WriteFile(settings.RepositoryConfig, 0o600); err != nil {
 			http.Error(w, fmt.Sprintf("write repo file: %v", err), http.StatusInternalServerError)
 			return
 		}
@@ -230,4 +237,23 @@ func (h *HelmManager) HandleChartValues(w http.ResponseWriter, r *http.Request) 
 	}
 	w.Header().Set("Content-Type", "text/yaml; charset=utf-8")
 	_, _ = w.Write(out)
+}
+
+// getters picks how Helm fetches one repository. An ordinary repository goes through
+// the guarded transport, which refuses at connection time to reach a metadata or
+// link-local address (or loopback in-cluster) whatever redirect or DNS answer got it
+// there. Helm ignores a repository's own TLS settings when it is handed a transport,
+// so a repository with a custom CA, client certificate or skip-verify keeps Helm's
+// own; its URL has already been checked.
+func (h *HelmManager) getters(settings *cli.EnvSettings, e *repo.Entry) getter.Providers {
+	if e.CAFile != "" || e.CertFile != "" || e.KeyFile != "" || e.InsecureSkipTLSVerify {
+		return getter.All(settings)
+	}
+	t := h.Outbound.Transport()
+	return getter.Providers{{
+		Schemes: []string{"http", "https"},
+		New: func(opts ...getter.Option) (getter.Getter, error) {
+			return getter.NewHTTPGetter(append(opts, getter.WithTransport(t))...)
+		},
+	}}
 }

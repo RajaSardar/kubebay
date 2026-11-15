@@ -57,6 +57,7 @@ The charts in the Helm repositories you already added. Kubebay reads your local 
 
 - Pick **All repos** or one, and **Search charts…** by name.
 - **Update indexes** fetches each repo's latest index, like `helm repo update`.
+- Kubebay won't fetch a repo whose URL points at a cloud metadata or link-local address, isn't `http` or `https`, or carries a user name and password; **Update indexes** reports that repo as not fetched.
 - Click a chart, set the release name, namespace and version (the latest by default), then **Install**. Open another chart and the form starts again from that chart.
 
 ## Who Helm acts as

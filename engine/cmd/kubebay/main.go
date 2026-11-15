@@ -15,6 +15,7 @@ import (
 	"github.com/RajaSardar/kubebay/engine/internal/audit"
 	"github.com/RajaSardar/kubebay/engine/internal/clusters"
 	"github.com/RajaSardar/kubebay/engine/internal/httpapi"
+	"github.com/RajaSardar/kubebay/engine/internal/netguard"
 	"github.com/RajaSardar/kubebay/engine/internal/informers"
 	"github.com/RajaSardar/kubebay/engine/internal/sigcheck"
 	"github.com/RajaSardar/kubebay/engine/internal/stream"
@@ -106,6 +107,11 @@ func main() {
 	wasteSampler := waste.NewSampler(mgr, log)
 	helmMgr := httpapi.NewHelm(mgr, auditLog)
 	settingsMgr := httpapi.NewSettingsManager(mgr)
+	// A user-supplied URL (Prometheus, a Helm repo) must never reach cloud metadata or a
+	// link-local address; in-cluster it must not reach the pod's own loopback either.
+	outbound := netguard.Policy{BlockLoopback: *inCluster}
+	settingsMgr.Outbound = outbound
+	helmMgr.Outbound = outbound
 	settingsMgr.LocalShell = localShellStatus
 	settingsMgr.AuditFeedDisabled = httpapi.AuditFeedBlockReason(*inCluster, auth.Enabled())
 	// Tier A (Prometheus) is a no-op until a cluster actually has one

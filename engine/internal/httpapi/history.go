@@ -301,7 +301,8 @@ func (h *HistoryAPI) promSeries(w http.ResponseWriter, r *http.Request, c, ns st
 func (h *HistoryAPI) fetchMatrix(ctx context.Context, u string, scale float64) (map[time.Time]float64, error) {
 	client := h.HTTP
 	if client == nil {
-		client = &http.Client{Timeout: 30 * time.Second}
+		// The same guard as the Prometheus proxy: no metadata or link-local address.
+		client = h.Settings.Outbound.Client(30 * time.Second)
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {

@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/RajaSardar/kubebay/engine/internal/clusters"
+	"github.com/RajaSardar/kubebay/engine/internal/netguard"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -87,6 +88,27 @@ type SettingsManager struct {
 	AuditFeedDisabled string
 	// AuditRunner runs aws/gcloud for cloud audit sources (nil = os/exec).
 	AuditRunner auditfeed.Runner
+	// Outbound limits what a user-supplied URL (Prometheus) may reach. Fixed at
+	// startup by main; the zero value is the desktop's, where loopback is fine.
+	Outbound netguard.Policy
+}
+
+// validatePrometheusURLs refuses an endpoint the engine must never be aimed at.
+func (s *SettingsManager) validatePrometheusURLs(fallback string, perCluster map[string]string) error {
+	if fallback != "" {
+		if err := s.Outbound.ValidateURL(fallback); err != nil {
+			return fmt.Errorf("prometheusUrl: %w", err)
+		}
+	}
+	for cluster, u := range perCluster {
+		if u == "" {
+			continue
+		}
+		if err := s.Outbound.ValidateURL(u); err != nil {
+			return fmt.Errorf("prometheusUrls[%s]: %w", cluster, err)
+		}
+	}
+	return nil
 }
 
 func NewSettingsManager(mgr *clusters.Manager) *SettingsManager {
@@ -193,6 +215,14 @@ func (s *SettingsManager) HandleSave(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := decodeBody(r, &incoming); err != nil {
 		http.Error(w, "bad body: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	var perCluster map[string]string
+	if incoming.PrometheusURLs != nil {
+		perCluster = *incoming.PrometheusURLs
+	}
+	if err := s.validatePrometheusURLs(incoming.PrometheusURL, perCluster); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 

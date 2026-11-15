@@ -6,6 +6,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ## [Unreleased]
 
+### Security
+- **A Prometheus or Helm repo URL can't aim Kubebay at a cloud metadata service.** An address in the link-local range (`169.254.0.0/16`, where cloud nodes serve their credentials), the carrier-grade NAT range some clouds use, an unspecified or multicast address, or a URL with a user name and password is refused when you save it, and again when Kubebay connects, so a redirect or a DNS name that changes its answer can't get past it. Running in a cluster also refuses loopback, the engine's own pod. Private addresses and, on your own machine, `localhost` still work.
+- **The Helm chart gives the engine less.** The impersonation role and its binding are created only when OIDC is set, cover users and groups only (the engine never impersonates a service account), and can be narrowed to your IdP's groups with `impersonation.groups`. The pod runs as non-root with a read-only root filesystem, every capability dropped and the default seccomp profile.
+- **Dependencies past six reachable vulnerabilities.** Go 1.26.11 (`net/http`, `crypto/x509`), `go-tuf` 2.4.1, DOMPurify 3.4.18 in the editor, React Router 7.18 and Astro 7.3.8 for the website, which now builds on Node 22.12.
+
 ### Added
 - **Pod logs in colour**: the Logs tab colours each line by its level, the way log tools do: errors red, warnings amber, success green, debug and trace dimmed. The level comes from the line's own structure, so "0 errors" in prose no longer turns a line red, and JSON and logfmt levels are no longer missed:
   - JSON (`"level":"error"`, `"severity":"WARNING"`, pino's numbers);
