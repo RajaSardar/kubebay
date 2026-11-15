@@ -6,7 +6,7 @@ RUN cd web && pnpm install --frozen-lockfile && pnpm build
 
 # The Go release go.mod's toolchain line names, so the image's engine and the
 # release binaries come from the same compiler (scripts/engine-builds.test.mjs).
-FROM golang:1.26.9-alpine AS engine
+FROM golang:1.26.11-alpine AS engine
 WORKDIR /src
 COPY engine/ ./engine/
 COPY --from=web /src/web/apps/shell/dist ./engine/internal/httpapi/static/dist
