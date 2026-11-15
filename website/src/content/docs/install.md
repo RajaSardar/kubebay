@@ -22,6 +22,14 @@ brew install rajasardar/tap/kubebay
 
 Or download the `.dmg` from the release and drag Kubebay to Applications. It's a universal build, for Apple Silicon and Intel.
 
+Or install from the command line with the release's script:
+
+```bash
+curl -fsSL https://github.com/RajaSardar/kubebay/releases/latest/download/install-mac.sh | bash
+```
+
+The script checks the download before it replaces the app. It compares the `.dmg` with the SHA-256 the release publishes next to it, and also checks the release's cosign signature if `cosign` is installed. If the checksum doesn't match, or the release publishes none, it stops and changes nothing. Only after the checks does it clear the quarantine flag that would otherwise make macOS refuse the first launch. Set `KUBEBAY_INSTALL_UNVERIFIED=1` to install a release that has no published checksum (older releases do not).
+
 If macOS says **"Kubebay" Not Opened**, open it from **System Settings → Privacy & Security → Open Anyway**, or run:
 
 ```bash

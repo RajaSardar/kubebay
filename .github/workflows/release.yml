@@ -371,6 +371,17 @@ jobs:
         run: |
           gh api "repos/$REPO/releases/latest" --jq '{tag: .tag_name, assets: [.assets[] | {name, size}]}' > previous.json || echo '{}' > previous.json
           node scripts/installer-sizes.mjs --dir dist --tag "$TAG" --previous previous.json --out dist/installer-sizes.json
+      # install-mac.sh checks the DMG against this before it replaces the app, and refuses
+      # a release without it. It is written before the attestation and signing below, so
+      # both cover it.
+      - name: Checksum the desktop installers
+        working-directory: dist
+        run: |
+          for f in Kubebay_*; do
+            case "$f" in *.sha256|*.cosign.bundle) continue ;; esac
+            [ -f "$f" ] && shasum -a 256 "$f" > "$f.sha256"
+          done
+          ls -1 Kubebay_*.sha256
       # KB-05: SLSA build provenance for every asset (gh attestation verify),
       # then a keyless cosign signature bundle next to each one.
       - uses: actions/attest-build-provenance@v2

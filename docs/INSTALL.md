@@ -22,6 +22,14 @@ brew services start rajasardar/tap/kubebay
 
 Supports Apple Silicon (arm64) and Intel (amd64).
 
+### Install script
+
+```bash
+curl -fsSL https://github.com/RajaSardar/kubebay/releases/latest/download/install-mac.sh | bash
+```
+
+It checks the `.dmg` against the SHA-256 the release publishes next to it, and against the release's cosign signature too when `cosign` is installed, before it replaces `/Applications/Kubebay.app` or clears the quarantine flag. A bad checksum, or a release that publishes none, stops it with nothing changed; `KUBEBAY_INSTALL_UNVERIFIED=1` overrides the second case (older releases have no checksum for the `.dmg`).
+
 ### Manual
 
 Download from [releases](https://github.com/RajaSardar/kubebay/releases):
