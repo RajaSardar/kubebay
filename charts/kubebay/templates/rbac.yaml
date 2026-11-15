@@ -1,11 +1,28 @@
+{{- if .Values.oidc.issuerUrl }}
+# With OIDC on, the engine acts as the signed-in user: it sends that user's name and
+# groups as impersonation headers, so cluster RBAC decides what they may do. It never
+# impersonates a service account, so the role covers users and groups only.
+#
+# Impersonation is a powerful verb: whoever holds this role's binding can act as any
+# user or group it names, system:masters included. Name the groups your IdP issues in
+# `impersonation.groups` (and users in `impersonation.users`) to narrow it.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: {{ include "kubebay.name" . }}-impersonator
 rules:
   - apiGroups: [""]
-    resources: ["users", "groups", "serviceaccounts"]
+    resources: ["users"]
     verbs: ["impersonate"]
+    {{- with .Values.impersonation.users }}
+    resourceNames: {{ toYaml . | nindent 6 }}
+    {{- end }}
+  - apiGroups: [""]
+    resources: ["groups"]
+    verbs: ["impersonate"]
+    {{- with .Values.impersonation.groups }}
+    resourceNames: {{ toYaml . | nindent 6 }}
+    {{- end }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -19,3 +36,4 @@ subjects:
   - kind: ServiceAccount
     name: {{ include "kubebay.name" . }}
     namespace: {{ .Release.Namespace }}
+{{- end }}

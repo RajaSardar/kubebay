@@ -21,3 +21,25 @@ gh attestation verify oci://ghcr.io/rajasardar/kubebay:v0.7.0 --repo RajaSardar/
 ```
 
 To enforce it, give Kyverno or Sigstore policy-controller the same identity, for example a Kyverno `verifyImages` keyless attestor with that subject regexp and issuer. Once it runs, Kubebay's own "Running image signatures" check on the RBAC page shows the image as verified against that policy.
+
+## Security
+
+- **Impersonation only with OIDC.** The engine needs the right to impersonate users and groups
+  only to act as the signed-in user, so the chart creates that ClusterRole and its binding only
+  when `oidc.issuerUrl` is set. Without OIDC the engine uses its own service account and has no
+  impersonation rights.
+- **Narrow it.** Impersonation is unrestricted by default, which means the engine could act as
+  any group, `system:masters` included. Set `impersonation.groups` (and `impersonation.users`)
+  to the names your IdP issues, and anything else is refused by the API server:
+
+  ```yaml
+  impersonation:
+    groups: [platform-team, developers]
+  ```
+- **A locked-down pod.** It runs as non-root with the runtime's default seccomp profile, no
+  privilege escalation, every Linux capability dropped and a read-only root filesystem. Settings
+  and the audit log are written to a 64Mi `emptyDir` mounted at `/tmp`, so they do not survive a
+  restart.
+- The in-cluster deployment already turns off the local shell, MCP, AI triage, extensions, cloud
+  discovery and the cloud audit feed.
+

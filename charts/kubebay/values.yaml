@@ -11,6 +11,12 @@ oidc:
   clientSecret: ""
   redirectUrl: ""
 
+# Who the engine may impersonate once OIDC is on. Empty means any user or group, which
+# includes system:masters; list the groups (and users) your IdP issues to narrow it.
+impersonation:
+  users: []
+  groups: []
+
 ingress:
   enabled: false
   className: nginx

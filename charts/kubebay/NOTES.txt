@@ -6,8 +6,10 @@ engine's own identity — for evaluation only, do not expose publicly.
 With OIDC (set oidc.* values): every user logs in via your IdP and all
 API traffic impersonates them — cluster RBAC decides everything.
 
-Required ClusterRole for the release SA: impersonate users/groups/
-serviceaccounts (installed by this chart).
+The chart installs a ClusterRole that lets the engine impersonate users and groups,
+only when OIDC is set (it never impersonates service accounts). That is a powerful
+permission: it can act as any user or group it names, system:masters included. List
+the groups your IdP issues in `impersonation.groups` to narrow it.
 
 Build/push the image first:
   docker build -t ghcr.io/rajasardar/kubebay:<tag> .

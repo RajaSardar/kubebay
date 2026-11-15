@@ -12,12 +12,26 @@ spec:
       labels: { app: kubebay }
     spec:
       serviceAccountName: {{ include "kubebay.name" . }}
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: engine
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args: ["--addr", "0.0.0.0:8080", "--in-cluster"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
           env:
+            # The root filesystem is read-only; settings and the audit log go to /tmp.
+            - name: HOME
+              value: /tmp
+            - name: XDG_CONFIG_HOME
+              value: /tmp/.config
             {{- if .Values.oidc.issuerUrl }}
             - name: KUBEBAY_OIDC_ISSUER
               value: {{ .Values.oidc.issuerUrl | quote }}
@@ -33,9 +47,19 @@ spec:
             {{- end }}
           ports:
             - containerPort: 8080
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           readinessProbe:
             httpGet: { path: /api/healthz, port: 8080 }
+          livenessProbe:
+            httpGet: { path: /api/healthz, port: 8080 }
+            initialDelaySeconds: 10
           resources: {{ toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi
 {{- if .Values.oidc.issuerUrl }}
 ---
 apiVersion: v1
