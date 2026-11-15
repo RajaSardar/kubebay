@@ -6,6 +6,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ## [Unreleased]
 
+### Fixed
+- **The desktop app now updates itself.** Settings → Updates said "This build doesn't update itself", and for releases it was true: `release.yml` read the update public key only from a repository *variable*, so a key kept as a *secret* was ignored and the release shipped without an updater (the build log carried only a warning). It now accepts either. `make desktop` builds the macOS app with the key from `~/.tauri/kubebay-updater.key.pub` when it exists, so an app you build yourself updates too; without the file it says the build won't update itself.
+
 ### Security
 - **A Prometheus or Helm repo URL can't aim Kubebay at a cloud metadata service.** An address in the link-local range (`169.254.0.0/16`, where cloud nodes serve their credentials), the carrier-grade NAT range some clouds use, an unspecified or multicast address, or a URL with a user name and password is refused when you save it, and again when Kubebay connects, so a redirect or a DNS name that changes its answer can't get past it. Running in a cluster also refuses loopback, the engine's own pod. Private addresses and, on your own machine, `localhost` still work.
 - **The UI is served under a Content-Security-Policy.** Scripts, styles, fonts, images, workers and connections may come only from the engine's own origin and its WebSocket; the theme script on the page is allowed by its SHA-256, and nothing may use `eval` or be framed. A script injected into the page now doesn't run, and so can't call the engine's API with the page's token. Every response also carries `X-Content-Type-Options`, `Referrer-Policy` and `X-Frame-Options`. Checked against the built engine in a real browser: the cluster picker, settings, audit log and the code editor load with no violations, an injected script is blocked, and the editor still works.

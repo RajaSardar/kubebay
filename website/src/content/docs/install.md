@@ -118,6 +118,8 @@ The desktop app can update itself. It checks 30 seconds after launch, then once 
 
 Homebrew installs update with `brew upgrade`, and `.deb` installs through your package manager.
 
+Only builds that carry Kubebay's update key can do this, and every release does. Settings → Updates says **This build doesn't update itself** when the key is missing, as in an app you built from source without it. Each update is signed, and the app installs it only if the signature matches the key it was built with.
+
 ## Build from source
 
 You need Go 1.26 or later and Node 20 or later (`corepack enable pnpm`):
@@ -127,4 +129,4 @@ git clone https://github.com/RajaSardar/kubebay && cd kubebay
 make run    # builds the app and the engine, serves http://127.0.0.1:9898
 ```
 
-The desktop app also needs a Rust toolchain: `cd desktop && corepack pnpm install && corepack pnpm tauri build`. [CONTRIBUTING.md](https://github.com/RajaSardar/kubebay/blob/main/CONTRIBUTING.md) has the rest.
+The desktop app also needs a Rust toolchain: `cd desktop && corepack pnpm install`, then `make desktop` from the repository root. If `~/.tauri/kubebay-updater.key.pub` exists, `make desktop` builds the app with that update key, so it can update itself; without it the app doesn't. (`corepack pnpm tauri build` in `desktop` builds without the key.) [CONTRIBUTING.md](https://github.com/RajaSardar/kubebay/blob/main/CONTRIBUTING.md) has the rest.
