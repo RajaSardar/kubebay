@@ -48,3 +48,26 @@ test("every DOMPurify the web app resolves is past the template and IN_PLACE byp
   assert.ok(found.length > 0, "dompurify is in the lockfile");
   for (const v of found) assert.ok(atLeast(v, "3.4.17"), `dompurify@${v} is below 3.4.17`);
 });
+
+test("the website uses an Astro past its advisories, and CI runs it on a Node it supports", () => {
+  const lock = JSON.parse(read("website/package-lock.json"));
+  const astro = lock.packages["node_modules/astro"];
+  assert.ok(astro, "astro is in the website lockfile");
+  // 7.3.8 fixes the X-Forwarded-Host reflection and URL manipulation advisories
+  // and carries patched vite, sharp and zod.
+  assert.ok(atLeast(astro.version, "7.3.8"), `astro ${astro.version} is below 7.3.8`);
+
+  const need = (astro.engines?.node ?? "").match(/>=(\d+)\.(\d+)/);
+  assert.ok(need, "astro declares a minimum Node");
+  const nodeVersions = [
+    ...read(".github/workflows/deploy-website.yml").matchAll(/node-version:\s*"?(\d+)(?:\.(\d+))?/g),
+  ].map((m) => [Number(m[1]), Number(m[2] ?? 0)]);
+  // the website job in ci.yml sets up Node under its own name
+  const ci = read(".github/workflows/ci.yml");
+  const job = ci.slice(ci.indexOf("  website:"));
+  nodeVersions.push(...[...job.slice(0, job.indexOf("\n  scripts:") > 0 ? job.indexOf("\n  scripts:") : undefined).matchAll(/node-version:\s*"?(\d+)(?:\.(\d+))?/g)].map((m) => [Number(m[1]), Number(m[2] ?? 0)]));
+  assert.ok(nodeVersions.length >= 2, "both website workflows set a Node version");
+  for (const [maj, min] of nodeVersions) {
+    assert.ok(maj > Number(need[1]) || (maj === Number(need[1]) && min >= Number(need[2])), `Node ${maj}.${min} is below astro's ${need[1]}.${need[2]}`);
+  }
+});

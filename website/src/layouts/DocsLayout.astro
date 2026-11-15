@@ -15,7 +15,7 @@ interface Props {
 
 const { title, description, slug, headings = [] } = Astro.props;
 const all = await getCollection('docs');
-const groups = sidebar(all.map((d) => ({ slug: d.slug, title: d.data.title, section: d.data.section, order: d.data.order })));
+const groups = sidebar(all.map((d) => ({ slug: d.id, title: d.data.title, section: d.data.section, order: d.data.order })));
 const flat = groups.flatMap((g) => g.items);
 const at = flat.findIndex((d) => d.slug === slug);
 const prev = at > 0 ? flat[at - 1] : undefined;
