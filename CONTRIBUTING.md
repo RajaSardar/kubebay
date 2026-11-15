@@ -154,6 +154,7 @@ Also:
 - CI also runs the golden-path E2E (`e2e (kind)`): Playwright against the built engine and a kind cluster. To run it locally, see [docs/E2E.md](docs/E2E.md).
 - If your change touches the informer path, a hot rendering path, or any stream, verify the performance budgets in [docs/PRODUCT_REQUIREMENTS.md](docs/PRODUCT_REQUIREMENTS.md) are unaffected.
 - If your change touches an architectural decision, update or add an ADR in `docs/adr/`.
+- Actions in `.github/workflows` are pinned to a full commit SHA with a `# vX.Y.Z` comment, never a tag or branch (`scripts/workflow-pins.test.mjs` checks it). To add one, resolve the release's commit with `gh api repos/OWNER/REPO/commits/TAG --jq .sha`. Dependabot opens the weekly updates.
 
 ---
 

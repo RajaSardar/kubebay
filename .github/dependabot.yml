@@ -1,0 +1,14 @@
+# Actions are pinned to full commit SHAs (scripts/workflow-pins.test.mjs). A pin never
+# moves on its own, so Dependabot opens a pull request when an action has a new release,
+# with the new SHA and the release it is.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: "chore(ci)"
