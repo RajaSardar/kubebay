@@ -72,7 +72,7 @@ test("release.yml builds update bundles only with the key, and publishes latest.
   const { readFileSync } = await import("node:fs");
   const yml = readFileSync(new URL("../.github/workflows/release.yml", import.meta.url), "utf8");
   assert.match(yml, /TAURI_SIGNING_PRIVATE_KEY: \$\{\{ secrets\.TAURI_SIGNING_PRIVATE_KEY \}\}/);
-  assert.match(yml, /TAURI_UPDATER_PUBKEY: \$\{\{ vars\.TAURI_UPDATER_PUBKEY \}\}/);
+  assert.match(yml, /TAURI_UPDATER_PUBKEY: \$\{\{ vars\.TAURI_UPDATER_PUBKEY( \|\| secrets\.TAURI_UPDATER_PUBKEY)? \}\}/);
   assert.match(yml, /if \[ -n "\$TAURI_SIGNING_PRIVATE_KEY" \] && \[ -n "\$TAURI_UPDATER_PUBKEY" \]/);
   assert.match(yml, /"createUpdaterArtifacts":true/);
   assert.match(yml, /"requireSignedVersion":true/);
