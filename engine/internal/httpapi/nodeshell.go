@@ -20,6 +20,9 @@ import (
 
 // DefaultNodeShellImage is used when nothing overrides it.  It must stay the
 // historical value so existing installs are unaffected.
+// nodeShellMaxLifetime is how long a node-shell pod may run before the kubelet stops it.
+const nodeShellMaxLifetime = time.Hour
+
 const DefaultNodeShellImage = "registry.k8s.io/e2e-test-images/busybox:1.29-2"
 
 type NodeShellManager struct {
@@ -69,6 +72,7 @@ func priv(b bool) *bool { return &b }
 // before: without nsenter, `sh` only ever saw this container's own
 // filesystem, never the node's.
 func buildNodeShellPod(name, node, image string) *corev1.Pod {
+	deadline := int64(nodeShellMaxLifetime / time.Second)
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -76,12 +80,16 @@ func buildNodeShellPod(name, node, image string) *corev1.Pod {
 			Labels:    map[string]string{"app.kubernetes.io/managed-by": "kubebay", "kubebay.io/role": "node-shell"},
 		},
 		Spec: corev1.PodSpec{
-			NodeName:      node,
-			HostPID:       true,
-			HostIPC:       true,
-			HostNetwork:   true,
-			RestartPolicy: corev1.RestartPolicyNever,
-			Tolerations:   []corev1.Toleration{{Operator: corev1.TolerationOpExists}},
+			NodeName: node,
+			// The browser deletes this pod when the session ends. If the app or the engine
+			// dies first nothing does, and a privileged pod on the node's namespaces would
+			// run on, so the kubelet stops it after a fixed time whatever happens.
+			ActiveDeadlineSeconds: &deadline,
+			HostPID:               true,
+			HostIPC:               true,
+			HostNetwork:           true,
+			RestartPolicy:         corev1.RestartPolicyNever,
+			Tolerations:           []corev1.Toleration{{Operator: corev1.TolerationOpExists}},
 			Containers: []corev1.Container{
 				{
 					Name:            "shell",

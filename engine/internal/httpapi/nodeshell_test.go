@@ -40,3 +40,20 @@ func TestBuildNodeShellPod(t *testing.T) {
 		t.Errorf("Stdin/StdinOnce/TTY = %v/%v/%v, want all true", c.Stdin, c.StdinOnce, c.TTY)
 	}
 }
+
+// The helper pod is privileged and shares the node's PID, IPC and network
+// namespaces. The browser deletes it when the session ends, but if the app or the
+// engine dies first nothing does, so the pod has to stop itself.
+func TestNodeShellPodStopsItselfAfterAnHour(t *testing.T) {
+	pod := buildNodeShellPod("kubebay-node-shell-abcd1234", "node-1", "alpine")
+	d := pod.Spec.ActiveDeadlineSeconds
+	if d == nil {
+		t.Fatal("the privileged node-shell pod has no activeDeadlineSeconds, so a crashed session leaves it running")
+	}
+	if *d <= 0 || *d > 3600 {
+		t.Errorf("activeDeadlineSeconds = %d, want between 1 and 3600", *d)
+	}
+	if pod.Spec.RestartPolicy != "Never" {
+		t.Errorf("restartPolicy = %q; a stopped pod must not be restarted", pod.Spec.RestartPolicy)
+	}
+}

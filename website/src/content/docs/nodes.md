@@ -20,7 +20,7 @@ Open a node's **Terminal** tab and click **Start node shell**.
 
 Kubebay starts a short-lived helper pod pinned to that node. The pod is privileged, uses the host's PID, IPC and network namespaces, and tolerates every taint. It runs `nsenter -t 1 -m -u -i -n -p` to enter the node's own namespaces. That gives you a real root shell on the node: its filesystem, processes and network, not the helper pod's. It's the same approach Freelens takes.
 
-The helper pod is deleted when you close the drawer.
+The helper pod is deleted when you close the drawer. If Kubebay or your browser stops before that, the pod stops itself: it carries a one-hour deadline, after which the cluster ends it, so a privileged pod is never left running. A shell session ends at that deadline too; start another to continue.
 
 The helper pod runs in the `default` namespace. Its image is `registry.k8s.io/e2e-test-images/busybox:1.29-2` unless you change it in [Settings](/docs/settings/#node-shell-image), for example to a mirror your cluster can pull from. `KUBEBAY_NODE_SHELL_IMAGE` sets it for an engine without Settings, such as one in a cluster. The image needs `nsenter`.
 
