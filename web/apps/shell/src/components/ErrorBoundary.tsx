@@ -1,0 +1,59 @@
+import { Component, type ErrorInfo, type ReactNode } from "react";
+import { Button, EmptyState, Row } from "@kubebay/ui";
+
+interface Props {
+  children: ReactNode;
+  /** Remounts the boundary's children (and clears the error) whenever this changes. */
+  resetKey?: string;
+}
+
+interface State {
+  error: Error | null;
+}
+
+// Without this, any uncaught render error unmounts the whole React tree and
+// leaves a blank screen with no way to recover short of a full app restart.
+export class ErrorBoundary extends Component<Props, State> {
+  state: State = { error: null };
+
+  static getDerivedStateFromError(error: Error): State {
+    return { error };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error("[kubebay] render crash", error, info.componentStack);
+  }
+
+  componentDidUpdate(prevProps: Props) {
+    if (this.state.error && prevProps.resetKey !== this.props.resetKey) {
+      this.setState({ error: null });
+    }
+  }
+
+  render() {
+    const { error } = this.state;
+    if (!error) return this.props.children;
+
+    return (
+      <Row align="center" justify="center" className="page">
+        <EmptyState style={{ maxWidth: 600 }}>
+          <p>⚠️ Something went wrong rendering this view</p>
+          <p className="muted small mono" style={{ wordBreak: "break-word", marginTop: 8, padding: "8px 12px", backgroundColor: "var(--kb-bg-inset)", borderRadius: "var(--kb-radius-xs)" }}>
+            {error.message || "Unknown error"}
+          </p>
+          {error.stack && (
+            <p className="muted small mono" style={{ wordBreak: "break-all", marginTop: 12, fontSize: "var(--kb-text-2xs)", maxHeight: "200px", overflowY: "auto" }}>
+              {error.stack}
+            </p>
+          )}
+          <Row gap={2} style={{ marginTop: 16 }}>
+            <Button onClick={() => this.setState({ error: null })}>Try again</Button>
+            <Button variant="ghost" onClick={() => (window.location.href = "/")}>
+              Go home
+            </Button>
+          </Row>
+        </EmptyState>
+      </Row>
+    );
+  }
+}

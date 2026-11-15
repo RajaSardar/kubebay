@@ -1,0 +1,390 @@
+---
+import {
+  COLUMNS,
+  COLUMN_NAMES,
+  rows,
+  standoutRows,
+  STANDOUT_COLUMNS,
+  STANDOUT_GROUP_TITLES,
+  type Cell,
+  type StandoutGroup,
+} from "../data/comparison";
+
+function cellSymbol(v: Cell): string {
+  if (v.kind === "yes") return "✓";
+  if (v.kind === "no")  return "✗";
+  if (v.kind === "partial") return "~";
+  return "";
+}
+
+const others = COLUMNS.filter((c) => c !== "kubebay");
+const standoutOthers = STANDOUT_COLUMNS.filter((c) => c !== "kubebay");
+const groups: StandoutGroup[] = ["paid-in-lens", "undocumented"];
+---
+
+<section class="comparison" id="comparison">
+  <div class="comparison__inner">
+    <div class="comparison__header">
+      <h2 class="comparison__title">How Kubebay compares</h2>
+      <p class="comparison__sub">Every cell links to its source and shows the day it was checked.</p>
+    </div>
+
+    <div class="table-wrap">
+      <table class="compare-table" aria-label="Feature comparison of Kubernetes tools">
+        <thead>
+          <tr>
+            <th class="col-feature" scope="col">Feature</th>
+            <th class="col-kubebay" scope="col">
+              <span class="col-kubebay__label">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+                Kubebay
+              </span>
+            </th>
+            {others.map((c) => <th scope="col">{COLUMN_NAMES[c]}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr>
+              <td class="col-feature">{row.feature}</td>
+              {COLUMNS.map((col) => {
+                const v = row[col];
+                return (
+                  <td class={col === "kubebay" ? "col-kubebay" : undefined}>
+                    <span class={`cell cell--${v.kind}`}>
+                      <span class="cell__sym" aria-hidden="true">{cellSymbol(v)}</span>
+                      {v.label && <span class="cell__text">{v.label}</span>}
+                      <a
+                        class="cell__src"
+                        href={v.source.url}
+                        title={v.source.note ? `${v.source.note} (checked ${v.source.checked})` : `Checked ${v.source.checked}`}
+                        aria-label={`Source for ${COLUMN_NAMES[col]}, ${row.feature}`}
+                        rel="noopener"
+                        target="_blank"
+                      >
+                        source
+                      </a>
+                    </span>
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    <h3 class="comparison__subtitle" id="goes-further">Where Kubebay goes further</h3>
+    <p class="comparison__sub comparison__sub--tight">
+      What Kubebay does that Lens and Freelens don't document, or keep behind a paid plan.
+    </p>
+
+    <div class="table-wrap">
+      <table class="compare-table compare-table--wrap" aria-label="Features where Kubebay goes further than Lens and Freelens">
+        <thead>
+          <tr>
+            <th class="col-feature" scope="col">Feature</th>
+            <th class="col-kubebay" scope="col">
+              <span class="col-kubebay__label">Kubebay</span>
+            </th>
+            {standoutOthers.map((c) => <th scope="col">{COLUMN_NAMES[c]}</th>)}
+          </tr>
+        </thead>
+        {groups.map((group) => (
+          <tbody>
+            <tr class="group-row">
+              <th colspan={STANDOUT_COLUMNS.length + 1} scope="colgroup">{STANDOUT_GROUP_TITLES[group]}</th>
+            </tr>
+            {standoutRows.filter((r) => r.group === group).map((row) => (
+              <tr>
+                <td class="col-feature">{row.feature}</td>
+                {STANDOUT_COLUMNS.map((col) => {
+                  const v = row[col];
+                  return (
+                    <td class={col === "kubebay" ? "col-kubebay" : undefined}>
+                      <span class={`cell cell--${v.kind}`}>
+                        <span class="cell__sym" aria-hidden="true">{cellSymbol(v)}</span>
+                        {v.label && <span class="cell__text">{v.label}</span>}
+                        <a
+                          class="cell__src"
+                          href={v.source.url}
+                          title={v.source.note ? `${v.source.note} (checked ${v.source.checked})` : `Checked ${v.source.checked}`}
+                          aria-label={`Source for ${COLUMN_NAMES[col]}, ${row.feature}`}
+                          rel="noopener"
+                          target="_blank"
+                        >
+                          source
+                        </a>
+                      </span>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        ))}
+      </table>
+    </div>
+    <p class="comparison__note">
+      &ldquo;Not documented&rdquo; means the tool's own documentation, README, releases and extensions don't describe it. It doesn't mean the tool can't do it.
+      Memory, start-up time and installer size are left out until Kubebay measures every tool with the same script.
+    </p>
+  </div>
+</section>
+
+<style>
+  .comparison {
+    background: var(--bg);
+    padding: 96px 24px;
+  }
+
+  .comparison__inner {
+    max-width: 1040px;
+    margin: 0 auto;
+  }
+
+  .comparison__header {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+
+  .comparison__title {
+    font-size: clamp(1.75rem, 4vw, 2.5rem);
+    font-weight: 700;
+    color: #fff;
+    margin: 0 0 12px;
+    letter-spacing: -0.02em;
+  }
+
+  .comparison__sub {
+    font-size: 1rem;
+    color: var(--muted);
+    margin: 0;
+  }
+
+
+  .comparison__subtitle {
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: #fff;
+    margin: 56px 0 8px;
+    letter-spacing: -0.01em;
+    text-align: center;
+  }
+
+  .comparison__sub--tight {
+    text-align: center;
+    margin: 0 0 24px;
+  }
+
+  /* Feature names here are sentences, so let them wrap. */
+  .compare-table--wrap .col-feature {
+    white-space: normal;
+    min-width: 200px;
+  }
+
+  .compare-table--wrap {
+    min-width: 760px;
+  }
+
+  .compare-table .group-row th {
+    padding: 12px 20px;
+    text-align: left;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 6%, transparent);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  /* ── Scroll wrapper ── */
+  .table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  /* ── Table ── */
+  .compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 680px;
+    font-size: 0.875rem;
+  }
+
+  /* Header row */
+  .compare-table thead tr {
+    background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 8%, transparent) 0%, color-mix(in srgb, var(--accent) 3%, transparent) 100%);
+    border-bottom: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
+  }
+
+  .compare-table thead th {
+    padding: 14px 20px;
+    text-align: left;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  /* Kubebay column header */
+  .compare-table thead th.col-kubebay {
+    color: var(--accent);
+  }
+
+  .col-kubebay__label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* Body rows */
+  .compare-table tbody tr {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    transition: background 0.15s;
+  }
+
+  .compare-table tbody tr:last-child {
+    border-bottom: none;
+  }
+
+  .compare-table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .compare-table tbody td {
+    padding: 14px 20px;
+    color: #e5e5e5;
+    vertical-align: middle;
+  }
+
+  /* Feature (first) column — sticky on mobile */
+  .col-feature {
+    font-weight: 500;
+    color: #c0c0c0 !important;
+    white-space: nowrap;
+    position: sticky;
+    left: 0;
+    background: var(--surface);
+    z-index: 1;
+  }
+
+  .compare-table thead .col-feature {
+    background: var(--surface);
+  }
+
+  /* Kubebay (second) column highlight */
+  .col-kubebay {
+    background: color-mix(in srgb, var(--accent) 4%, transparent) !important;
+    border-left: 2px solid color-mix(in srgb, var(--accent) 30%, transparent);
+    border-right: 2px solid color-mix(in srgb, var(--accent) 10%, transparent);
+  }
+
+  .compare-table thead th.col-kubebay {
+    border-left: 2px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  }
+
+  /* ── Cell values ── */
+  .cell {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .cell__sym {
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+
+  .cell__text {
+    font-size: 0.82rem;
+    color: inherit;
+    opacity: 0.85;
+  }
+
+  /* yes = green */
+  .cell--yes .cell__sym {
+    color: #4ade80;
+  }
+  .cell--yes .cell__text {
+    color: #a3e8bc;
+  }
+
+  /* no = muted red */
+  .cell--no .cell__sym {
+    color: #f87171;
+  }
+  .cell--no .cell__text {
+    color: #fca5a5;
+    opacity: 0.7;
+  }
+
+  /* partial = amber */
+  .cell--partial .cell__sym {
+    color: #fbbf24;
+  }
+  .cell--partial .cell__text {
+    color: #fde68a;
+    opacity: 0.8;
+  }
+
+  /* plain text */
+  .cell__src {
+    margin-left: 6px;
+    font-size: 0.72em;
+    color: var(--muted);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .cell__src:hover,
+  .cell__src:focus-visible {
+    color: var(--accent);
+  }
+
+  .comparison__note {
+    margin-top: 16px;
+    font-size: 0.85rem;
+    color: var(--muted);
+    text-align: center;
+  }
+
+  .cell--text {
+    color: #c0c0c0;
+  }
+
+  /* Kubebay column — slightly brighter text */
+  .col-kubebay .cell--yes .cell__sym  { color: var(--accent); }
+  .col-kubebay .cell--yes .cell__text { color: #a5f3fc; }
+
+  /* ── Responsive ── */
+  @media (max-width: 640px) {
+    .comparison {
+      padding: 64px 0;
+    }
+
+    .comparison__header {
+      padding: 0 24px;
+    }
+
+    .table-wrap {
+      border-radius: 0;
+      border-left: none;
+      border-right: none;
+    }
+
+    .compare-table {
+      font-size: 0.82rem;
+    }
+
+    .compare-table tbody td,
+    .compare-table thead th {
+      padding: 12px 14px;
+    }
+  }
+</style>

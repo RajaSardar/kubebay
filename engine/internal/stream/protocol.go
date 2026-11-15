@@ -1,0 +1,166 @@
+package stream
+
+import (
+	"encoding/json"
+	"fmt"
+
+	"github.com/vmihailenco/msgpack/v5"
+)
+
+const (
+	TypeSub    = "sub"
+	TypeUnsub  = "unsub"
+	TypeResync = "resync"
+	TypePing   = "ping"
+
+	TypeChanOpen   = "chan-open"
+	TypeChanClose  = "chan-close"
+	TypeChanResize = "chan-resize"
+
+	TypeAck        = "ack"
+	TypeError      = "error"
+	TypeSync       = "sync"
+	TypeChanClosed = "chan-closed"
+	// TypeDenied names one namespace of a subscription that RBAC refuses;
+	// the subscription goes on for the others.
+	TypeDenied = "denied"
+
+	TypeBegin    = "begin"
+	TypeItems    = "items"
+	TypeDelta    = "delta"
+	TypeChanData = "chan-data"
+
+	ModeMetadata = "metadata"
+	ModeFull     = "full"
+
+	ChanKindLogs = "logs"
+	ChanKindExec = "exec"
+	// ChanKindLocalShell runs a PTY on the machine hosting the engine.  It is
+	// only ever accepted in binaries built with the "localshell" tag.
+	ChanKindLocalShell = "local-shell"
+)
+
+type ClientFrame struct {
+	Type          string   `json:"type"`
+	ID            string   `json:"id,omitempty"`
+	Cluster       string   `json:"cluster,omitempty"`
+	GVR           string   `json:"gvr,omitempty"`
+	Namespaces    []string `json:"ns,omitempty"`
+	LabelSelector string   `json:"labelSelector,omitempty"`
+	Mode          string   `json:"mode,omitempty"`
+
+	Kind      string   `json:"kind,omitempty"`
+	Namespace string   `json:"namespace,omitempty"`
+	Pod       string   `json:"pod,omitempty"`
+	Container string   `json:"container,omitempty"`
+	Tail      int64    `json:"tail,omitempty"`
+	Follow    bool     `json:"follow,omitempty"`
+	Previous  bool     `json:"previous,omitempty"`
+	Command   []string `json:"command,omitempty"`
+	Cols      uint16   `json:"cols,omitempty"`
+	Rows      uint16   `json:"rows,omitempty"`
+}
+
+type ControlFrame struct {
+	Type    string `json:"type"`
+	ID      string `json:"id,omitempty"`
+	Message string `json:"message,omitempty"`
+	RV      string `json:"rv,omitempty"`
+	// NS is the namespace a "denied" frame is about.
+	NS string `json:"ns,omitempty"`
+}
+
+// Denial is one namespace of a subscription that RBAC refuses: the
+// subscription goes on for its other namespaces.
+type Denial struct {
+	NS      string
+	Message string
+}
+
+const (
+	OpAdd    = "a"
+	OpModify = "m"
+	OpDelete = "d"
+)
+
+type Op struct {
+	Op  string         `msgpack:"op"`
+	Key string         `msgpack:"key"`
+	Obj map[string]any `msgpack:"obj,omitempty"`
+}
+
+type DataFrame struct {
+	Type string         `msgpack:"type"`
+	ID   string         `msgpack:"id"`
+	RV   string         `msgpack:"rv,omitempty"`
+	Ops  []Op           `msgpack:"ops,omitempty"`
+	Data []byte         `msgpack:"data,omitempty"`
+	Meta map[string]any `msgpack:"meta,omitempty"`
+}
+
+func EncodeControl(f ControlFrame) ([]byte, error) {
+	return json.Marshal(f)
+}
+
+func DecodeClient(b []byte) (*ClientFrame, error) {
+	var f ClientFrame
+	if err := json.Unmarshal(b, &f); err != nil {
+		return nil, err
+	}
+	switch f.Type {
+	case TypeSub, TypeUnsub, TypeResync, TypePing, TypeChanOpen, TypeChanClose, TypeChanResize:
+	default:
+		return nil, fmt.Errorf("unknown client frame type %q", f.Type)
+	}
+	if f.Type == TypeSub && (f.ID == "" || f.Cluster == "" || f.GVR == "") {
+		return nil, fmt.Errorf("sub requires id, cluster, gvr")
+	}
+	return &f, nil
+}
+
+func EncodeData(f *DataFrame) ([]byte, error) {
+	return msgpack.Marshal(f)
+}
+
+func DecodeData(b []byte) (*DataFrame, error) {
+	var f DataFrame
+	if err := msgpack.Unmarshal(b, &f); err != nil {
+		return nil, err
+	}
+	return &f, nil
+}
+
+func ObjectKey(obj map[string]any) (string, error) {
+	meta, ok := obj["metadata"].(map[string]any)
+	if !ok {
+		return "", fmt.Errorf("object missing metadata")
+	}
+	name, _ := meta["name"].(string)
+	ns, _ := meta["namespace"].(string)
+	if name == "" {
+		return "", fmt.Errorf("object missing name")
+	}
+	if ns == "" {
+		return name, nil
+	}
+	return ns + "/" + name, nil
+}
+
+func ObjectRV(obj map[string]any) string {
+	meta, ok := obj["metadata"].(map[string]any)
+	if !ok {
+		return ""
+	}
+	rv, _ := meta["resourceVersion"].(string)
+	return rv
+}
+
+// Why the engine ended a subscription, sent as the error frame's message.
+// The web client matches ReasonCredentialsChanged exactly and resubscribes.
+const (
+	ReasonDisconnected       = "cluster disconnected"
+	ReasonCredentialsChanged = "cluster credentials changed"
+	// ReasonForbidden prefixes the API server's message when RBAC doesn't
+	// let this identity list or watch the resource.
+	ReasonForbidden = "forbidden: "
+)

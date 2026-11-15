@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kubebay.name" . }}
+  labels: { app: kubebay }
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels: { app: kubebay }
+  template:
+    metadata:
+      labels: { app: kubebay }
+    spec:
+      serviceAccountName: {{ include "kubebay.name" . }}
+      containers:
+        - name: engine
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: ["--addr", "0.0.0.0:8080", "--in-cluster"]
+          env:
+            {{- if .Values.oidc.issuerUrl }}
+            - name: KUBEBAY_OIDC_ISSUER
+              value: {{ .Values.oidc.issuerUrl | quote }}
+            - name: KUBEBAY_OIDC_CLIENT_ID
+              value: {{ .Values.oidc.clientId | quote }}
+            - name: KUBEBAY_OIDC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "kubebay.name" . }}-oidc
+                  key: client-secret
+            - name: KUBEBAY_OIDC_REDIRECT
+              value: {{ printf "https://%s/api/auth/callback" .Values.ingress.host | quote }}
+            {{- end }}
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet: { path: /api/healthz, port: 8080 }
+          resources: {{ toYaml .Values.resources | nindent 12 }}
+{{- if .Values.oidc.issuerUrl }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "kubebay.name" . }}-oidc
+stringData:
+  client-secret: {{ .Values.oidc.clientSecret | quote }}
+{{- end }}

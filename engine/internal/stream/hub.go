@@ -1,0 +1,459 @@
+package stream
+
+import (
+	"context"
+	"encoding/binary"
+	"io"
+	"log/slog"
+	"net/http"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	"github.com/coder/websocket"
+)
+
+const (
+	writeTimeout  = 10 * time.Second
+	maxFrameSize  = 16 << 20
+	itemsPerFrame = 200
+)
+
+type Hub struct {
+	log      *slog.Logger
+	chandeps ChannelDeps
+	// terminals counts open exec and local-shell channels, across every
+	// connection: a restart would cut them off (KB-04).
+	terminals atomic.Int64
+}
+
+// Terminals is the number of exec and local-shell channels open right now.
+func (h *Hub) Terminals() int { return int(h.terminals.Load()) }
+
+type SubSource interface {
+	Subscribe(ctx context.Context, cluster, gvr string, namespaces []string, selector, mode string) (SubHandle, error)
+}
+
+type SubHandle interface {
+	ID() string
+	Snapshot() <-chan Snapshot
+	Deltas() <-chan []Op
+}
+
+type TermSize struct {
+	Cols uint16
+	Rows uint16
+}
+
+type ChanSpec struct {
+	Kind      string
+	Cluster   string
+	Namespace string
+	Pod       string
+	Container string
+	Tail      int64
+	Follow    bool
+	Previous  bool
+	Command   []string
+	Cols      uint16
+	Rows      uint16
+}
+
+type ChannelDeps interface {
+	OpenLogs(ctx context.Context, spec ChanSpec, write func([]byte) error) error
+	OpenExec(ctx context.Context, spec ChanSpec, write func([]byte) error, stdin io.Reader, resize <-chan TermSize) error
+}
+
+func NewHub(log *slog.Logger, deps ChannelDeps) *Hub { return &Hub{log: log, chandeps: deps} }
+
+type chanEntry struct {
+	cancel context.CancelFunc
+	stdin  io.Writer
+	resize chan<- TermSize
+}
+
+type subTable struct {
+	mu sync.Mutex
+	m  map[string]context.CancelFunc
+}
+
+func newSubTable() *subTable { return &subTable{m: map[string]context.CancelFunc{}} }
+
+func (t *subTable) put(id string, cancel context.CancelFunc) bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if _, exists := t.m[id]; exists {
+		return false
+	}
+	t.m[id] = cancel
+	return true
+}
+
+func (t *subTable) drop(id string) bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if cancel, ok := t.m[id]; ok {
+		cancel()
+		delete(t.m, id)
+		return true
+	}
+	return false
+}
+
+func (t *subTable) stopAll() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	for _, cancel := range t.m {
+		cancel()
+	}
+	t.m = map[string]context.CancelFunc{}
+}
+
+type connWriter struct {
+	mu sync.Mutex
+	c  *websocket.Conn
+}
+
+func (w *connWriter) write(typ websocket.MessageType, b []byte) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	wctx, cancel := context.WithTimeout(context.Background(), writeTimeout)
+	defer cancel()
+	return w.c.Write(wctx, typ, b)
+}
+
+func (w *connWriter) sendControl(f ControlFrame) error {
+	b, err := EncodeControl(f)
+	if err != nil {
+		return err
+	}
+	return w.write(websocket.MessageText, b)
+}
+
+func (w *connWriter) sendData(f *DataFrame) error {
+	b, err := EncodeData(f)
+	if err != nil {
+		return err
+	}
+	return w.write(websocket.MessageBinary, b)
+}
+
+func decodeChanEnvelope(payload []byte) (string, []byte, bool) {
+	if len(payload) < 4 {
+		return "", nil, false
+	}
+	n := binary.BigEndian.Uint32(payload[:4])
+	if int(n) > len(payload)-4 || n == 0 {
+		return "", nil, false
+	}
+	id := string(payload[4 : 4+n])
+	return id, payload[4+n:], true
+}
+
+func validChanKind(k string) bool {
+	return k == ChanKindLogs || k == ChanKindExec || (localShellBuilt && k == ChanKindLocalShell)
+}
+
+// Handle upgrades the request.  subprotocol, when non-empty, is the
+// token-bearing Sec-WebSocket-Protocol value the auth middleware accepted; it
+// must be offered back to Accept so the handshake echoes it, otherwise the
+// browser rejects a response that names no subprotocol it asked for.
+func (h *Hub) Handle(w http.ResponseWriter, r *http.Request, src SubSource, subprotocol string) {
+	var subprotocols []string
+	if subprotocol != "" {
+		subprotocols = []string{subprotocol}
+	}
+	c, err := websocket.Accept(w, r, &websocket.AcceptOptions{
+		Subprotocols: subprotocols,
+		// Accept always allows an Origin equal to the request Host, which is how
+		// the desktop webview (loaded from http://127.0.0.1:<port>) and any
+		// ingress deployment connect — so this list only has to cover genuine
+		// cross-origin callers. "localhost:*" used to grant that to every dev
+		// server on the machine: Jupyter, Grafana, webpack, anything the user
+		// happened to have open could open a socket into their clusters. Only
+		// Kubebay's own Vite dev server and the Tauri asset origin remain.
+		OriginPatterns: []string{"localhost:5173", "127.0.0.1:5173", "tauri.localhost"},
+	})
+	if err != nil {
+		return
+	}
+	defer c.Close(websocket.StatusNormalClosure, "")
+	c.SetReadLimit(maxFrameSize)
+
+	ctx := r.Context()
+	writer := &connWriter{c: c}
+	table := newSubTable()
+	chans := map[string]*chanEntry{}
+	var chanMu sync.Mutex
+
+	closeChan := func(id string, entry *chanEntry) {
+		entry.cancel()
+		if cw, ok := entry.stdin.(io.Closer); ok {
+			_ = cw.Close()
+		}
+		chanMu.Lock()
+		delete(chans, id)
+		chanMu.Unlock()
+	}
+	cleanupAll := func() {
+		table.stopAll()
+		chanMu.Lock()
+		snapshot := make(map[string]*chanEntry, len(chans))
+		for id, ch := range chans {
+			snapshot[id] = ch
+		}
+		chans = map[string]*chanEntry{}
+		chanMu.Unlock()
+		for _, ch := range snapshot {
+			ch.cancel()
+			if cw, ok := ch.stdin.(io.Closer); ok {
+				_ = cw.Close()
+			}
+		}
+	}
+	defer cleanupAll()
+
+	// Keepalive: send a WebSocket protocol-level PING every 25s.
+	// AWS ALB (and most proxies) have a ~60s idle-connection timeout.
+	// The browser's native WebSocket responds with PONG automatically,
+	// keeping the connection alive without any JS-side changes.
+	go func() {
+		t := time.NewTicker(25 * time.Second)
+		defer t.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				pingCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+				err := c.Ping(pingCtx)
+				cancel()
+				if err != nil {
+					return // connection already gone
+				}
+			}
+		}
+	}()
+
+	for {
+		msgType, data, err := c.Read(ctx)
+		if err != nil {
+			return
+		}
+
+		if msgType == websocket.MessageBinary {
+			if id, payload, ok := decodeChanEnvelope(data); ok {
+				chanMu.Lock()
+				ch, exists := chans[id]
+				chanMu.Unlock()
+				if exists && ch.stdin != nil {
+					if _, errw := ch.stdin.Write(payload); errw != nil {
+						h.log.Warn("stdin write failed", "chan", id, "err", errw)
+					}
+				}
+			}
+			continue
+		}
+
+		frame, err := DecodeClient(data)
+		if err != nil {
+			_ = writer.sendControl(ControlFrame{Type: TypeError, Message: err.Error()})
+			continue
+		}
+
+		switch frame.Type {
+		case TypePing:
+			_ = writer.sendControl(ControlFrame{Type: "pong", ID: frame.ID})
+
+		case TypeUnsub:
+			if !table.drop(frame.ID) {
+				_ = writer.sendControl(ControlFrame{Type: TypeError, ID: frame.ID, Message: "unknown subscription"})
+				continue
+			}
+			_ = writer.sendControl(ControlFrame{Type: TypeAck, ID: frame.ID, Message: "unsubscribed"})
+
+		case TypeResync:
+			table.drop(frame.ID)
+			h.start(ctx, frame, src, writer, table)
+
+		case TypeSub:
+			h.start(ctx, frame, src, writer, table)
+
+		case TypeChanOpen:
+			if !validChanKind(frame.Kind) {
+				_ = writer.sendControl(ControlFrame{Type: TypeError, ID: frame.ID, Message: "invalid channel kind"})
+				continue
+			}
+			chanMu.Lock()
+			_, dup := chans[frame.ID]
+			chanMu.Unlock()
+			if dup {
+				_ = writer.sendControl(ControlFrame{Type: TypeError, ID: frame.ID, Message: "channel id already open"})
+				continue
+			}
+
+			chCtx, cancel := context.WithCancel(context.Background())
+			entry := &chanEntry{cancel: cancel}
+
+			switch frame.Kind {
+			case ChanKindExec, ChanKindLocalShell:
+				pr, pw := io.Pipe()
+				entry.stdin = pw
+				if frame.Kind == ChanKindLocalShell {
+					// A local PTY can stop reading indefinitely (stopped shell,
+					// ^S), and this Write runs on the connection's only read
+					// loop — blocking here would freeze every watch and every
+					// other terminal on the socket.
+					entry.stdin = newStdinQueue(pw, stdinQueueDepth)
+				}
+				// Buffer 16: one slot for the initial size seed (written below)
+				// plus headroom for rapid resize events.  sizeQueue.Next() is
+				// a blocking read, so we must never let the channel fill up or
+				// the remotecommand goroutine will stall.
+				rz := make(chan TermSize, 16)
+				entry.resize = rz
+				// Seed initial terminal size so the k8s exec starts at the
+				// correct dimensions rather than the 80x24 default.
+				// frame.Cols/Rows are populated from the chan-open message.
+				if frame.Cols > 0 && frame.Rows > 0 {
+					rz <- TermSize{Cols: frame.Cols, Rows: frame.Rows}
+				}
+				// The runner calls finished exactly once, when the session ends.
+				h.terminals.Add(1)
+				finished := func() {
+					h.terminals.Add(-1)
+					closeChan(frame.ID, entry)
+				}
+				if frame.Kind == ChanKindLocalShell {
+					go h.runLocalShell(chCtx, frame, writer, pr, rz, finished)
+				} else {
+					go h.runExec(chCtx, frame, writer, pr, rz, finished)
+				}
+			default:
+				go h.runLogs(chCtx, frame, writer, func() { closeChan(frame.ID, entry) })
+			}
+
+			chanMu.Lock()
+			chans[frame.ID] = entry
+			chanMu.Unlock()
+			_ = writer.sendControl(ControlFrame{Type: TypeAck, ID: frame.ID, Message: "channel open"})
+
+		case TypeChanResize:
+			chanMu.Lock()
+			ch, exists := chans[frame.ID]
+			chanMu.Unlock()
+			if exists && ch.resize != nil {
+				select {
+				case ch.resize <- TermSize{Cols: frame.Cols, Rows: frame.Rows}:
+				default:
+				}
+			}
+
+		case TypeChanClose:
+			chanMu.Lock()
+			ch, exists := chans[frame.ID]
+			chanMu.Unlock()
+			if exists {
+				closeChan(frame.ID, ch)
+			}
+			_ = writer.sendControl(ControlFrame{Type: TypeAck, ID: frame.ID, Message: "channel closed"})
+		}
+	}
+}
+
+func (h *Hub) runLogs(ctx context.Context, frame *ClientFrame, writer *connWriter, finished func()) {
+	defer finished()
+	spec := ChanSpec{
+		Kind: ChanKindLogs, Cluster: frame.Cluster, Namespace: frame.Namespace,
+		Pod: frame.Pod, Container: frame.Container, Tail: frame.Tail,
+		Follow: frame.Follow, Previous: frame.Previous,
+	}
+	write := func(b []byte) error {
+		return writer.sendData(&DataFrame{Type: TypeChanData, ID: frame.ID, Data: b})
+	}
+	err := h.chandeps.OpenLogs(ctx, spec, write)
+	msg := "done"
+	if err != nil {
+		msg = err.Error()
+	}
+	_ = writer.sendControl(ControlFrame{Type: TypeChanClosed, ID: frame.ID, Message: msg})
+}
+
+func (h *Hub) runExec(ctx context.Context, frame *ClientFrame, writer *connWriter, stdin *io.PipeReader, resize chan TermSize, finished func()) {
+	defer finished()
+	defer stdin.Close()
+	spec := ChanSpec{
+		Kind: ChanKindExec, Cluster: frame.Cluster, Namespace: frame.Namespace,
+		Pod: frame.Pod, Container: frame.Container, Command: frame.Command,
+		Cols: frame.Cols, Rows: frame.Rows,
+	}
+	write := func(b []byte) error {
+		return writer.sendData(&DataFrame{Type: TypeChanData, ID: frame.ID, Data: b})
+	}
+	err := h.chandeps.OpenExec(ctx, spec, write, stdin, resize)
+	msg := "done"
+	if err != nil {
+		msg = err.Error()
+	}
+	_ = writer.sendControl(ControlFrame{Type: TypeChanClosed, ID: frame.ID, Message: msg})
+}
+
+func (h *Hub) start(parent context.Context, frame *ClientFrame, src SubSource, writer *connWriter, table *subTable) {
+	subCtx, cancel := context.WithCancel(parent)
+	handle, err := src.Subscribe(subCtx, frame.Cluster, frame.GVR, frame.Namespaces, frame.LabelSelector, frame.Mode)
+	if err != nil {
+		cancel()
+		_ = writer.sendControl(ControlFrame{Type: TypeError, ID: frame.ID, Message: err.Error()})
+		return
+	}
+	table.put(frame.ID, cancel)
+	_ = writer.sendControl(ControlFrame{Type: TypeAck, ID: frame.ID, Message: "subscribed"})
+
+	// A namespace RBAC refuses is named; the stream goes on for the others.
+	var denials <-chan Denial
+	if d, ok := handle.(interface{ Denials() <-chan Denial }); ok {
+		denials = d.Denials()
+	}
+	go func() {
+		synced := false
+		for {
+			select {
+			case <-subCtx.Done():
+				return
+			case d := <-denials:
+				_ = writer.sendControl(ControlFrame{Type: TypeDenied, ID: frame.ID, NS: d.NS, Message: d.Message})
+			case snap := <-handle.Snapshot():
+				_ = writer.sendData(&DataFrame{Type: TypeBegin, ID: frame.ID})
+				for ops := range snap.Frames(itemsPerFrame) {
+					_ = writer.sendData(&DataFrame{Type: TypeItems, ID: frame.ID, Ops: ops})
+				}
+				_ = writer.sendControl(ControlFrame{Type: TypeSync, ID: frame.ID})
+				synced = true
+			case batch, ok := <-handle.Deltas():
+				if !ok {
+					// Closed by the engine (the cluster was disconnected), not by
+					// the client unsubscribing: say so, or the rows look live.
+					if subCtx.Err() == nil {
+						msg := ReasonDisconnected
+						if r, ok := handle.(interface{ CloseReason() string }); ok && r.CloseReason() != "" {
+							msg = r.CloseReason()
+						}
+						_ = writer.sendControl(ControlFrame{Type: TypeError, ID: frame.ID, Message: msg})
+					}
+					return
+				}
+				typ := TypeDelta
+				if !synced && len(batch) > 0 && batch[0].Obj != nil && batch[0].Key != "" && batch[0].Op == OpAdd {
+					typ = TypeItems
+				}
+				rv := ""
+				if len(batch) > 0 && batch[len(batch)-1].Obj != nil {
+					rv = ObjectRV(batch[len(batch)-1].Obj)
+				}
+				if err := writer.sendData(&DataFrame{Type: typ, ID: frame.ID, RV: rv, Ops: batch}); err != nil {
+					return
+				}
+			}
+		}
+	}()
+}

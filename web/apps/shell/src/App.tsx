@@ -1,0 +1,753 @@
+import { createContext, lazy, Suspense, useContext, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useSmokeReady } from "./lib/smoke";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import type { APIResourceEntry, ClusterInfo } from "./lib/api";
+import { NavLink, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import { useClusterStore } from "./lib/cluster-store";
+import { resolveActiveCluster, shouldRedirectToPicker } from "./lib/clusterPickerLogic";
+import { Button, DisclosureButton, DrawerInset, EmptyState, Kbd, KubebayMark, navItemClass, Spinner, StatusDot } from "@kubebay/ui";
+import { TerminalDock } from "./components/TerminalDock";
+import { DockToggle, SidebarTerminal, useDockInset, useDockShortcut } from "./components/DockEntryPoints";
+import { useTerminalDock } from "./lib/terminalDock";
+import {
+  IconArgoCD,
+  IconCube,
+  IconDatabase,
+  IconForward,
+  IconGrid,
+  IconHelm,
+  IconHome,
+  IconNetwork,
+  IconLayers,
+  IconPlus,
+  IconRefresh,
+  IconSearch,
+  IconShield,
+  IconSliders,
+  IconTimeline,
+  IconTopology,
+} from "@kubebay/ui/src/icons";
+import { api } from "./lib/api";
+import ClusterPicker from "./pages/ClusterPicker";
+
+// ClusterPicker stays eager — it is the landing route, so lazying it would only
+// add a round-trip before first paint. Everything else is split out: Topology alone
+// pulls in @xyflow + d3 (~180 kB) and the pod shell pulls xterm (~330 kB),
+// neither of which most sessions ever open.
+const loadWorkloads = () => import("./pages/Workloads");
+const loadResourceTable = () => import("./pages/ResourceTable");
+const Settings = lazy(() => import("./pages/Settings"));
+const Workloads = lazy(loadWorkloads);
+const Ports = lazy(() => import("./pages/Ports"));
+const Timeline = lazy(() => import("./pages/Timeline"));
+const Topology = lazy(() => import("./pages/Topology"));
+const Rbac = lazy(() => import("./pages/Rbac"));
+const Vulnerabilities = lazy(() => import("./pages/Vulnerabilities"));
+const Helm = lazy(() => import("./pages/Helm"));
+const WorkloadsOverview = lazy(() => import("./pages/WorkloadsOverview"));
+const ResourceTable = lazy(loadResourceTable);
+const ResourceDetail = lazy(() => import("./pages/ResourceDetail"));
+const Crds = lazy(() => import("./pages/Crds"));
+const NetworkPolicy = lazy(() => import("./pages/NetworkPolicy"));
+const ArgoCD = lazy(() => import("./pages/ArgoCD"));
+const TerminalPage = lazy(() => import("./pages/TerminalPage"));
+const CreateResource = lazy(() => import("./pages/CreateResource"));
+const AuditLog = lazy(() => import("./pages/AuditLog"));
+const RightSizing = lazy(() => import("./pages/RightSizing"));
+const CostWaste = lazy(() => import("./pages/CostWaste"));
+const Karpenter = lazy(() => import("./pages/Karpenter"));
+const Keda = lazy(() => import("./pages/Keda"));
+const UpgradeReadiness = lazy(() => import("./pages/UpgradeReadiness"));
+const Flux = lazy(() => import("./pages/Flux"));
+import { Palette } from "./components/Palette";
+import { discoveryApi } from "./lib/api";
+import { KNOWN_GVRS, extSlug } from "./lib/resources";
+import { FavoritesSidebar, useFavorites } from "./components/Favorites";
+import { OpenSavedView, SavedViewsSidebar } from "./components/SavedViews";
+import { useClusterIcons } from "./lib/useClusterIcons";
+import { ClusterIconPicker, autoAvatar, avatarLabelColor, stripAvatarLook } from "./components/ClusterIconPicker";
+import { useWsStatus } from "./lib/useWsStatus";
+import { connectCluster, isClusterConnected } from "./lib/clusterConnections";
+import { ErrorBoundary } from "./components/ErrorBoundary";
+import { ClusterConnectingOverlay } from "./components/ClusterConnectingOverlay";
+import { PageSkeleton } from "./components/PageSkeleton";
+import { usePrewarm } from "./lib/usePrewarm";
+import { useNamespaceFallback } from "./lib/namespaceAccess";
+import { useRemoteDisconnects } from "./lib/useRemoteDisconnects";
+import { useSidebar, type SidebarState } from "./lib/useSidebar";
+import { HideSidebarButton, ShowSidebarButton } from "./components/SidebarToggle";
+import { McpChip } from "./components/McpChip";
+import { UpdateBanner } from "./components/UpdateBanner";
+import { McpProposals } from "./components/McpProposals";
+
+// ──── Cluster Context ────────────────────────────────────────────────────────
+// `active` and `setActive` now live in Zustand (cluster-store.ts).
+// ClusterCtx only carries UI-only `switching` state.
+
+const ClusterCtx = createContext<{ switching: boolean; setActive: (id: string) => void }>({
+  switching: false,
+  setActive: () => {},
+});
+
+export function useActiveCluster() {
+  const { active, setActive } = useClusterStore();
+  const { switching } = useContext(ClusterCtx);
+  return { active, setActive, switching };
+}
+
+// ──── Nav types ──────────────────────────────────────────────────────────────
+
+interface NavLeaf {
+  to: string;
+  label: string;
+}
+interface NavGroupDef {
+  label: string;
+  icon: JSX.Element;
+  leaves: NavLeaf[];
+}
+
+const GROUPS: NavGroupDef[] = [
+  {
+    label: "Workloads",
+    icon: <IconCube />,
+    leaves: [
+      { to: "/workloads-overview", label: "Overview" },
+      { to: "/workloads", label: "Pods" },
+      { to: "/r/deployments", label: "Deployments" },
+      { to: "/r/replicasets", label: "ReplicaSets" },
+      { to: "/r/statefulsets", label: "StatefulSets" },
+      { to: "/r/daemonsets", label: "DaemonSets" },
+      { to: "/r/jobs", label: "Jobs" },
+      { to: "/r/cronjobs", label: "CronJobs" },
+      { to: "/r/replicationcontrollers", label: "ReplicationControllers" },
+      { to: "/r/controllerrevisions", label: "ControllerRevisions" },
+    ],
+  },
+  {
+    label: "Configuration",
+    icon: <IconSliders />,
+    leaves: [
+      { to: "/r/configmaps", label: "ConfigMaps" },
+      { to: "/r/secrets", label: "Secrets" },
+      { to: "/r/resourcequotas", label: "ResourceQuotas" },
+      { to: "/r/limitranges", label: "LimitRanges" },
+      { to: "/r/horizontalpodautoscalers", label: "HPAs" },
+      { to: "/r/poddisruptionbudgets", label: "PDBs" },
+      { to: "/r/priorityclasses", label: "PriorityClasses" },
+    ],
+  },
+  {
+    label: "Network",
+    icon: <IconNetwork />,
+    leaves: [
+      { to: "/r/services", label: "Services" },
+      { to: "/r/endpoints", label: "Endpoints" },
+      { to: "/r/endpointslices", label: "EndpointSlices" },
+      { to: "/r/ingresses", label: "Ingresses" },
+      { to: "/r/ingressclasses", label: "IngressClasses" },
+      { to: "/network-policy", label: "NetworkPolicies" },
+    ],
+  },
+  {
+    label: "Storage",
+    icon: <IconDatabase />,
+    leaves: [
+      { to: "/r/persistentvolumeclaims", label: "PVCs" },
+      { to: "/r/persistentvolumes", label: "PVs" },
+      { to: "/r/storageclasses", label: "StorageClasses" },
+      { to: "/r/volumeattachments", label: "VolumeAttachments" },
+      { to: "/r/csidrivers", label: "CSI Drivers" },
+      { to: "/r/csinodes", label: "CSI Nodes" },
+      { to: "/r/csistoragecapacities", label: "CSI Capacities" },
+    ],
+  },
+  {
+    // Dynamic Resource Allocation: GPUs and other devices, GA in Kubernetes 1.34.
+    label: "Devices (DRA)",
+    icon: <IconLayers />,
+    leaves: [
+      { to: "/r/resourceclaims", label: "ResourceClaims" },
+      { to: "/r/resourceclaimtemplates", label: "ResourceClaimTemplates" },
+      { to: "/r/deviceclasses", label: "DeviceClasses" },
+      { to: "/r/resourceslices", label: "ResourceSlices" },
+    ],
+  },
+  {
+    label: "Access Control",
+    icon: <IconShield />,
+    leaves: [
+      { to: "/r/serviceaccounts", label: "ServiceAccounts" },
+      { to: "/r/roles", label: "Roles" },
+      { to: "/r/clusterroles", label: "ClusterRoles" },
+      { to: "/r/rolebindings", label: "RoleBindings" },
+      { to: "/r/clusterrolebindings", label: "ClusterRoleBindings" },
+    ],
+  },
+  {
+    label: "Admission",
+    icon: <IconShield />,
+    leaves: [
+      { to: "/r/mutatingwebhookconfigurations", label: "Mutating Webhooks" },
+      { to: "/r/validatingwebhookconfigurations", label: "Validating Webhooks" },
+      { to: "/r/validatingadmissionpolicies", label: "Admission Policies" },
+      { to: "/r/validatingadmissionpolicybindings", label: "Policy Bindings" },
+      { to: "/r/policyreports", label: "Policy Reports" },
+      { to: "/r/clusterpolicyreports", label: "Cluster Policy Reports" },
+      { to: "/r/vulnerabilityreports", label: "Vulnerability Reports" },
+      { to: "/r/clustervulnerabilityreports", label: "Cluster Vulnerability Reports" },
+    ],
+  },
+  {
+    label: "Cluster",
+    icon: <IconTopology />,
+    leaves: [
+      { to: "/r/nodes", label: "Nodes" },
+      { to: "/r/namespaces", label: "Namespaces" },
+      { to: "/r/events", label: "Events" },
+      { to: "/r/runtimeclasses", label: "RuntimeClasses" },
+      { to: "/r/leases", label: "Leases" },
+      { to: "/r/certificatesigningrequests", label: "CertSigningRequests" },
+      { to: "/r/apiservices", label: "API Services" },
+      { to: "/r/flowschemas", label: "FlowSchemas" },
+      { to: "/r/prioritylevelconfigurations", label: "Priority Levels" },
+    ],
+  },
+];
+
+const TOOLS = [
+  { to: "/create-resource", label: "Create Resource", icon: <IconPlus /> },
+  { to: "/crds", label: "CRDs", icon: <IconGrid /> },
+  { to: "/ports", label: "Ports", icon: <IconForward /> },
+  { to: "/helm", label: "Helm", icon: <IconHelm /> },
+  { to: "/argocd", label: "ArgoCD", icon: <IconArgoCD /> },
+  { to: "/flux", label: "Flux", icon: <IconRefresh /> },
+  { to: "/rbac", label: "RBAC", icon: <IconShield /> },
+  { to: "/vulnerabilities", label: "Vulnerabilities", icon: <IconShield /> },
+  { to: "/right-sizing", label: "Right-sizing", icon: <IconLayers /> },
+  { to: "/cost-waste", label: "Cost / Waste", icon: <IconDatabase /> },
+  { to: "/karpenter", label: "Karpenter", icon: <IconTopology /> },
+  { to: "/keda", label: "KEDA", icon: <IconLayers /> },
+  { to: "/upgrade-readiness", label: "Upgrade Readiness", icon: <IconShield /> },
+  { to: "/audit", label: "Audit Log", icon: <IconTimeline /> },
+  { to: "/timeline", label: "Timeline", icon: <IconTimeline /> },
+  { to: "/topology", label: "Topology", icon: <IconTopology /> },
+  { to: "/settings", label: "Settings", icon: <IconSliders /> },
+];
+
+function NavSub({ leaf }: { leaf: NavLeaf }) {
+  return (
+    <NavLink to={leaf.to} className={({ isActive }) => navItemClass({ active: isActive, sub: true })}>
+      {leaf.label}
+    </NavLink>
+  );
+}
+
+// How many custom resource kinds the sidebar renders before offering "Show all".
+// The cap keeps the collapsed-open sidebar readable on operator-heavy clusters;
+// the count next to it is what stops the remainder from vanishing silently.
+const CRD_NAV_PREVIEW = 40;
+
+function CrdGroupFolder({ group, entries }: { group: string; entries: APIResourceEntry[] }) {
+  const [open, setOpen] = useState(false);
+  const [showAll, setShowAll] = useState(false);
+  const hidden = showAll ? 0 : Math.max(0, entries.length - CRD_NAV_PREVIEW);
+  const visible = hidden > 0 ? entries.slice(0, CRD_NAV_PREVIEW) : entries;
+  return (
+    <div className={`nav-subgroup${open ? " open" : ""}`}>
+      {/* Zero-width space after each dot lets the group string (e.g.
+          "argoproj.io") wrap on a narrow sidebar without an ugly mid-word break. */}
+      <DisclosureButton level="sub" open={open} onToggle={() => setOpen((o) => !o)} count={entries.length}>
+        {group.replaceAll(".", "\u200b.")}
+      </DisclosureButton>
+      {/* Only mount the links while expanded — a CRD-heavy cluster is hundreds
+          of NavLinks, each of which re-renders on every navigation. */}
+      {open && (
+        <div className="nav-subgroup-items">
+          {visible.map((e) => (
+            <NavLink
+              key={e.gvr}
+              to={`/r/ext--${extSlug(e.gvr)}?scoped=${e.namespaced ? 1 : 0}`}
+              className={({ isActive }) => navItemClass({ active: isActive, sub: true })}
+              title={e.gvr}
+            >
+              {e.kind}
+            </NavLink>
+          ))}
+          {hidden > 0 && (
+            <button className={navItemClass({ sub: true, extra: "nav-group-more" })} onClick={() => setShowAll(true)}>
+              Show all {entries.length}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function CustomResourcesGroup() {
+  const cluster = useClusterStore((s) => s.active);
+  const disc = useQuery({
+    queryKey: ["apis", cluster],
+    queryFn: () => discoveryApi.apis(cluster),
+    enabled: !!cluster,
+    staleTime: 5 * 60_000, // API resource list changes only on CRD install/remove
+    retry: false,
+  });
+  const [open, setOpen] = useState(false);
+  // Grouped by raw API group string (e.g. "argoproj.io") rather than a
+  // hardcoded project→name mapping — a new CRD-based project shows up in its
+  // own folder automatically, the same way FreeLens groups by spec.group.
+  const groups = useMemo(() => {
+    const byGroup = new Map<string, APIResourceEntry[]>();
+    for (const e of disc.data ?? []) {
+      if (e.group === "" || KNOWN_GVRS.has(e.gvr)) continue;
+      if (!byGroup.has(e.group)) byGroup.set(e.group, []);
+      byGroup.get(e.group)!.push(e);
+    }
+    return [...byGroup.entries()]
+      .map(([group, entries]): [string, APIResourceEntry[]] => [
+        group,
+        // Discovery order is arbitrary, so without a sort the kinds that make
+        // the preview would change from one cluster/refresh to the next.
+        [...entries].sort((a, b) => a.kind.localeCompare(b.kind) || a.gvr.localeCompare(b.gvr)),
+      ])
+      .sort(([a], [b]) => a.localeCompare(b));
+  }, [disc.data]);
+  const totalCount = groups.reduce((n, [, entries]) => n + entries.length, 0);
+  if (!totalCount) return null;
+  return (
+    <div className={`nav-group${open ? " open" : ""}`}>
+      <DisclosureButton open={open} onToggle={() => setOpen((o) => !o)} icon={<IconCube />} count={totalCount}>
+        Custom Resources
+      </DisclosureButton>
+      {open && (
+        <div className="nav-group-items">
+          {groups.map(([group, entries]) => (
+            <CrdGroupFolder key={group} group={group} entries={entries} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ──── ClusterStrip ───────────────────────────────────────────────────────────
+
+function ClusterStrip({ sidebar }: { sidebar: SidebarState }) {
+  const { active } = useClusterStore();
+  const { switching, setActive } = useContext(ClusterCtx);
+  const clusters = useQuery({ queryKey: ["clusters"], queryFn: api.clusters, refetchInterval: 4_000 });
+  const list = clusters.data ?? [];
+  const effectiveActive = active;
+  // Re-render when clusters list changes so connected state stays fresh.
+  const connectedClusters = list.map((c) => c.id).filter(isClusterConnected);
+  const { icons, setIcon, resetIcon } = useClusterIcons();
+  const [picker, setPicker] = useState<string | null>(null);
+
+  return (
+    <div className="cluster-strip">
+      {/* Kubebay mini logo at top */}
+      <KubebayMark className="cluster-strip-logo" />
+      {list.map((c) => {
+        const auto = autoAvatar(c.id);
+        const { bg, label, imageUrl } = icons[c.id] ?? auto;
+        const broken = c.status === "misconfigured";
+        const isActive = !broken && c.id === effectiveActive;
+        const isStreaming = !broken && !isActive && connectedClusters.includes(c.id);
+        const isSwitching = isActive && switching;
+        return (
+          <div key={c.id} className={`cluster-strip-item${isActive ? " active" : isStreaming ? " streaming" : ""}`}>
+            <button
+              className={`cluster-strip-avatar${isActive ? " active" : ""}`}
+              disabled={broken}
+              title={broken ? `${c.id} — can't be loaded: ${c.error ?? "unknown error"}` : `${c.id} — right-click to customize icon`}
+              onClick={() => { if (!broken) setActive(c.id); }}
+              onContextMenu={(e) => { e.preventDefault(); setPicker(c.id); }}
+              style={{
+                background: imageUrl ? "transparent" : bg,
+                color: avatarLabelColor(bg),
+                ...stripAvatarLook({ broken, active: isActive, streaming: isStreaming }),
+              }}
+            >
+              {isSwitching ? (
+                <Spinner label={`Switching to ${c.id}…`} size={18} className="cluster-strip-spinner" />
+              ) : imageUrl ? (
+                <img src={imageUrl} alt={label} style={{ width: "100%", height: "100%", objectFit: "contain", borderRadius: "var(--kb-radius)" }} />
+              ) : label}
+              {/* Status dot */}
+              <span style={{
+                position: "absolute",
+                bottom: -2,
+                right: -2,
+                width: 9,
+                height: 9,
+                borderRadius: "50%",
+                background: c.status === "reachable" ? "var(--kb-status-ok)" : broken ? "var(--kb-fg-subtle)" : "var(--kb-status-err)",
+                border: "2px solid var(--kb-bg-sidebar)",
+              }} />
+            </button>
+          </div>
+        );
+      })}
+
+      {picker && (() => {
+        const auto = autoAvatar(picker);
+        const current = icons[picker] ?? auto;
+        return (
+          <ClusterIconPicker
+            clusterId={picker}
+            current={current}
+            onSave={(icon) => setIcon(picker, icon)}
+            onReset={() => resetIcon(picker)}
+            onClose={() => setPicker(null)}
+          />
+        );
+      })()}
+      {/* The left nav is hidden: the rail brings it back. */}
+      {sidebar.hidden && (
+        <div className="cluster-strip-foot">
+          <ShowSidebarButton sidebar={sidebar} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ──── Sidebar ────────────────────────────────────────────────────────────────
+
+function Sidebar({ onOpenPalette, sidebar }: { onOpenPalette: () => void; sidebar: SidebarState }) {
+  const initialOpen = () => {
+    const map: Record<string, boolean> = { Workloads: true };
+    for (const g of GROUPS) if (!map[g.label]) map[g.label] = false;
+    return map;
+  };
+  const [open, setOpen] = useState(initialOpen);
+  const { favorites, remove: removeFav } = useFavorites();
+  const { active } = useClusterStore();
+  const queryClient = useQueryClient();
+  const clusterList = queryClient.getQueryData<ClusterInfo[]>(["clusters"]) ?? [];
+  const activeCluster = clusterList.find((c) => c.id === active);
+
+  return (
+    <aside className="sidebar" id="kb-sidebar" hidden={sidebar.hidden}>
+      <div className="brand">
+        <KubebayMark className="brand-logo" />
+        <div className="brand-info">
+          <span className="brand-name">Kubebay</span>
+          {activeCluster && (
+            <span className="brand-cluster" title={activeCluster.id}>
+              <StatusDot status={activeCluster.status === "reachable" ? "connected" : activeCluster.status === "unreachable" ? "unreachable" : "pending"} />
+              <span className="brand-cluster-name">{activeCluster.id}</span>
+            </span>
+          )}
+          <McpChip />
+        </div>
+        <HideSidebarButton sidebar={sidebar} />
+      </div>
+
+      <NavLink to="/clusters" className="cp-back-btn" title="Switch cluster">
+        <svg viewBox="0 0 16 16" width="12" height="12" fill="none">
+          <path d="M10 3L5 8l5 5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+        <span>Clusters</span>
+      </NavLink>
+
+      <button className="palette-hint" onClick={onOpenPalette}>
+        <IconSearch size={13} />
+        <span>Search…</span>
+        <Kbd>⌘K</Kbd>
+      </button>
+
+      <nav className="nav">
+        <div className="nav-section">Navigate</div>
+        <NavLink to="/workloads-overview" className={({ isActive }) => navItemClass({ active: isActive })}>
+          <span className="nav-icon"><IconHome /></span>
+          <span>Overview</span>
+        </NavLink>
+
+        {GROUPS.map((g) => (
+          <div key={g.label} className={`nav-group${open[g.label] ? " open" : ""}`}>
+            <DisclosureButton
+              open={!!open[g.label]}
+              onToggle={() => setOpen((o) => ({ ...o, [g.label]: !o[g.label] }))}
+              icon={g.icon}
+            >
+              {g.label}
+            </DisclosureButton>
+            <div className="nav-group-items">
+              {g.leaves.map((l) => (
+                <NavSub key={l.to} leaf={l} />
+              ))}
+            </div>
+          </div>
+        ))}
+
+        <CustomResourcesGroup />
+
+        {favorites.length > 0 && <FavoritesSidebar favorites={favorites} onRemove={removeFav} />}
+        <SavedViewsSidebar />
+
+        <div className="nav-section">Tools</div>
+        <SidebarTerminal />
+        {TOOLS.map((t) => (
+          <NavLink key={t.to} to={t.to} className={({ isActive }) => navItemClass({ active: isActive })}>
+            <span className="nav-icon">{t.icon}</span>
+            <span>{t.label}</span>
+          </NavLink>
+        ))}
+      </nav>
+
+    </aside>
+  );
+}
+
+// ──── NotFound ───────────────────────────────────────────────────────────────
+// Catches stale/dead links (e.g. a favorited route removed in a later version)
+// so an unmatched path shows a recoverable message instead of a silent blank
+// content pane — Routes with no matching Route and no wildcard renders nothing.
+
+function NotFound() {
+  const navigate = useNavigate();
+  return (
+    <div className="page">
+      <EmptyState>
+        <p>This page doesn't exist.</p>
+        <p className="muted small">The link may be out of date — try Home or search with ⌘K.</p>
+        <Button variant="ghost" style={{ marginTop: 12 }} onClick={() => navigate("/")}>
+          Go home
+        </Button>
+      </EmptyState>
+    </div>
+  );
+}
+
+// ──── App ────────────────────────────────────────────────────────────────────
+
+function AppInner() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const queryClient = useQueryClient();
+  const health = useQuery({ queryKey: ["health"], queryFn: api.health, refetchInterval: 10_000 });
+  const clusters = useQuery({ queryKey: ["clusters"], queryFn: api.clusters, refetchInterval: 4_000 });
+  const up = health.data?.ok === true;
+  const ws = useWsStatus();
+  const { icons: clusterIcons } = useClusterIcons();
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const sidebar = useSidebar();
+  const [switching, setSwitching] = useState(false);
+  const [fastSwitch, setFastSwitch] = useState(false);
+  const safetyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [active, setActiveState] = useState<string>(() =>
+    resolveActiveCluster(new URLSearchParams(window.location.search).get("cluster") ?? "", useClusterStore.getState().active),
+  );
+
+  const list = clusters.data ?? [];
+  // Only ever a cluster the user chose: no fallback to the first reachable one.
+  const effectiveActive = active;
+
+  // Pre-warm backend informers for the most-visited GVRs so first renders are
+  // instant — same technique as FreeLens's persistent KubeObjectStore subscriptions.
+  usePrewarm(effectiveActive || undefined);
+  // An identity that can't list namespaces starts in the ones it named (ADR 0003).
+  useNamespaceFallback(effectiveActive || undefined);
+  const activeCluster = list.find((c) => c.id === effectiveActive);
+
+  const setActive = (id: string) => {
+    // Snapshot before connecting so we can tell if this is the first visit.
+    const alreadyStreaming = isClusterConnected(id);
+    // Open background stream for the new cluster if not already connected.
+    // We intentionally do NOT disconnect the previous cluster — multi-cluster
+    // streaming keeps all connected clusters' streams alive simultaneously.
+    connectCluster(id);
+
+    if (id !== effectiveActive) {
+      // Always show the switching overlay so the user sees the view is changing.
+      // For already-connected clusters (warm background stream) the overlay is
+      // dismissed quickly once connected; for fresh clusters we wait up to 15 s.
+      setSwitching(true);
+      setFastSwitch(alreadyStreaming);
+      if (safetyTimer.current) clearTimeout(safetyTimer.current);
+      safetyTimer.current = setTimeout(() => setSwitching(false), alreadyStreaming ? 800 : 15_000);
+      queryClient.invalidateQueries({ queryKey: [id], refetchType: "active" });
+      // Do NOT clear stream cache — background subs keep it warm for all clusters.
+    }
+    setActiveState(id);
+    useClusterStore.getState().setActive(id);
+    const sp = new URLSearchParams(window.location.search);
+    sp.set("cluster", id);
+    navigate({ search: sp.toString() }, { replace: true });
+  };
+
+  // Dismiss the switching overlay once the cluster is reachable + stream is up.
+  // For fast-switches (already connected) the 400 ms beat gives visual feedback.
+  useEffect(() => {
+    if (!switching) return;
+    if (activeCluster?.status === "reachable" && ws.connected) {
+      const t = setTimeout(() => { setSwitching(false); setFastSwitch(false); }, 400);
+      return () => clearTimeout(t);
+    }
+  }, [switching, activeCluster?.status, ws.connected]);
+
+  // ADR 0005: the terminal dock under the page. Ctrl+` opens it from anywhere,
+  // and drawers end above it and ignore presses in it.
+  useDockShortcut();
+  const dockRef = useRef<HTMLElement>(null);
+  const dockOpen = useTerminalDock((s) => s.open);
+  const dockHeight = useTerminalDock((s) => s.height);
+  const dockInset = useDockInset(dockRef, dockOpen, dockHeight);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPaletteOpen((o) => !o);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // Show overlay when: actively switching cluster, or WS dropped after first connect
+  const showSwitchOverlay = switching;
+  const showReconnectOverlay = ws.hasEverConnected && !ws.connected && !switching;
+  const showOverlay = showSwitchOverlay || showReconnectOverlay;
+
+  const overlayAvatar = activeCluster
+    ? (clusterIcons[activeCluster.id] ?? autoAvatar(activeCluster.id))
+    : { bg: "var(--kb-accent)", label: "…" };
+
+  return (
+    <ClusterCtx.Provider value={{ switching, setActive }}>
+      <DrawerInset bottom={dockInset} keepOpenIn={dockRef}>
+      <div
+        className={sidebar.hidden ? "app sidebar-hidden" : "app"}
+        style={dockInset ? ({ "--kb-dock-inset": `${dockInset}px` } as CSSProperties) : undefined}
+      >
+        <ClusterStrip sidebar={sidebar} />
+        <Sidebar onOpenPalette={() => setPaletteOpen(true)} sidebar={sidebar} />
+        <Palette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+        <McpProposals />
+
+        <main className="content">
+          <UpdateBanner />
+          <ErrorBoundary resetKey={location.pathname}>
+            {/* Empty page shell, not a spinner: chunks resolve in a few ms on
+                local disk and a spinner would flash more than it informs. */}
+            <Suspense fallback={<PageSkeleton />}>
+            <Routes>
+              <Route path="/" element={<Navigate to="/workloads-overview" replace />} />
+              <Route path="/workloads" element={<Workloads />} />
+              <Route path="/workloads-overview" element={<WorkloadsOverview />} />
+              <Route path="/r/:kind" element={<ResourceTable />} />
+              <Route path="/view/:id" element={<OpenSavedView />} />
+              <Route path="/detail/:kind/:ns/:name" element={<ResourceDetail />} />
+              <Route path="/ports" element={<Ports />} />
+              <Route path="/timeline" element={<Timeline />} />
+              <Route path="/topology" element={<Topology />} />
+              <Route path="/rbac" element={<Rbac />} />
+              <Route path="/vulnerabilities" element={<Vulnerabilities />} />
+              <Route path="/right-sizing" element={<RightSizing />} />
+              <Route path="/cost-waste" element={<CostWaste />} />
+              <Route path="/fleet" element={<Navigate to="/clusters" replace />} />
+              <Route path="/karpenter" element={<Karpenter />} />
+              <Route path="/keda" element={<Keda />} />
+              <Route path="/upgrade-readiness" element={<UpgradeReadiness />} />
+              <Route path="/helm" element={<Helm />} />
+              <Route path="/argocd" element={<ArgoCD />} />
+              <Route path="/flux" element={<Flux />} />
+              <Route path="/crds" element={<Crds />} />
+              <Route path="/network-policy" element={<NetworkPolicy />} />
+              <Route path="/terminal" element={<TerminalPage />} />
+              <Route path="/create-resource" element={<CreateResource />} />
+              <Route path="/audit" element={<AuditLog />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+            </Suspense>
+          </ErrorBoundary>
+
+          {showOverlay && (
+            <ClusterConnectingOverlay
+              key={showReconnectOverlay ? "reconnect" : effectiveActive}
+              clusterId={effectiveActive || "Connecting…"}
+              clusterStatus={activeCluster?.status ?? "unreachable"}
+              clusterError={activeCluster?.error}
+              clusterVersion={activeCluster?.version}
+              wsConnected={ws.connected}
+              wsRetry={ws.retryAttempt}
+              wsNextRetryMs={ws.nextRetryMs}
+              isReconnect={showReconnectOverlay}
+              fastSwitch={fastSwitch}
+              avatar={overlayAvatar}
+            />
+          )}
+        </main>
+
+        <TerminalDock selectedCluster={effectiveActive} clusters={list} dockRef={dockRef} />
+
+        <footer className="statusbar">
+          <span className="statusbar-left">
+            <StatusDot status={up ? "connected" : "unreachable"} />
+            <span>kubebay-engine</span>
+            <span className="muted">{up ? "listening" : "reconnecting…"}</span>
+          </span>
+          {!ws.connected && ws.hasEverConnected && (
+            <span className="statusbar-center muted" style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", display: "inline-flex", alignItems: "center", gap: 5 }}>
+              <Spinner label={null} size={11} />
+              WS reconnecting · attempt {ws.retryAttempt}
+            </span>
+          )}
+          <span className="statusbar-right muted">
+            <DockToggle />
+            <Kbd>⌘K</Kbd> palette
+          </span>
+        </footer>
+      </div>
+      </DrawerInset>
+    </ClusterCtx.Provider>
+  );
+}
+
+export default function App() {
+  const navigate = useNavigate();
+  useRemoteDisconnects();
+  // KB-14: a desktop CI smoke run exits once the shell has painted.
+  useSmokeReady();
+
+  // Warm the two routes users almost always reach from Home, once the main
+  // thread is idle, so splitting them out never costs a visible fallback.
+  useEffect(() => {
+    const warm = () => {
+      void loadResourceTable();
+      void loadWorkloads();
+    };
+    const ric = (window as unknown as { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback;
+    if (ric) {
+      ric(warm);
+      return;
+    }
+    const t = setTimeout(warm, 1500);
+    return () => clearTimeout(t);
+  }, []);
+
+  // On app mount: redirect to /clusters only when no cluster is active.
+  // The / → /workloads-overview redirect is handled declaratively in AppInner's routes.
+  // macOS does not quit the app on window close so the webview URL survives
+  // re-open; a full quit + relaunch falls back to localStorage.
+  useEffect(() => {
+    const active = useClusterStore.getState().active;
+    if (shouldRedirectToPicker(window.location.pathname, active)) {
+      navigate("/clusters", { replace: true });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <Routes>
+      <Route path="/clusters" element={<ClusterPicker />} />
+      <Route path="/*" element={<AppInner />} />
+    </Routes>
+  );
+}

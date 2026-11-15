@@ -1,0 +1,121 @@
+import { describe, it, expect } from "vitest";
+import { buildControllerRevisionRollout, buildRolloutProgress } from "../rollout";
+
+function deployment(overrides: Record<string, unknown> = {}) {
+  return {
+    metadata: { uid: "dep-uid-1", name: "my-app", namespace: "default" },
+    spec: { replicas: 3 },
+    status: { conditions: [] },
+    ...overrides,
+  };
+}
+
+function replicaSet(opts: {
+  name: string;
+  ownerUid?: string;
+  revision?: number;
+  ready?: number;
+  desired?: number;
+}) {
+  return {
+    metadata: {
+      name: opts.name,
+      annotations: opts.revision !== undefined ? { "deployment.kubernetes.io/revision": String(opts.revision) } : {},
+      ownerReferences: opts.ownerUid ? [{ kind: "Deployment", uid: opts.ownerUid, name: "my-app" }] : [],
+    },
+    spec: { replicas: opts.desired ?? 0 },
+    status: { readyReplicas: opts.ready ?? 0 },
+  };
+}
+
+describe("buildRolloutProgress", () => {
+  it("includes only ReplicaSets owned by this Deployment", () => {
+    const rs1 = replicaSet({ name: "rs-mine", ownerUid: "dep-uid-1", revision: 2, ready: 3, desired: 3 });
+    const rs2 = replicaSet({ name: "rs-other", ownerUid: "dep-uid-2", revision: 1, ready: 1, desired: 1 });
+    const result = buildRolloutProgress(deployment(), [rs1, rs2]);
+    expect(result.replicaSets.map((r) => r.name)).toEqual(["rs-mine"]);
+  });
+
+  it("marks the highest-revision ReplicaSet as new, others as old", () => {
+    const old = replicaSet({ name: "rs-old", ownerUid: "dep-uid-1", revision: 1, ready: 0, desired: 0 });
+    const current = replicaSet({ name: "rs-new", ownerUid: "dep-uid-1", revision: 2, ready: 3, desired: 3 });
+    const result = buildRolloutProgress(deployment(), [old, current]);
+    const byName = Object.fromEntries(result.replicaSets.map((r) => [r.name, r]));
+    expect(byName["rs-new"]!.isNew).toBe(true);
+    expect(byName["rs-old"]!.isNew).toBe(false);
+  });
+
+  it("sorts ReplicaSets newest-revision first", () => {
+    const r1 = replicaSet({ name: "rs-1", ownerUid: "dep-uid-1", revision: 1 });
+    const r3 = replicaSet({ name: "rs-3", ownerUid: "dep-uid-1", revision: 3 });
+    const r2 = replicaSet({ name: "rs-2", ownerUid: "dep-uid-1", revision: 2 });
+    const result = buildRolloutProgress(deployment(), [r1, r3, r2]);
+    expect(result.replicaSets.map((r) => r.name)).toEqual(["rs-3", "rs-2", "rs-1"]);
+  });
+
+  it("extracts the Progressing condition's reason and status", () => {
+    const dep = deployment({
+      status: { conditions: [{ type: "Progressing", status: "True", reason: "NewReplicaSetAvailable" }] },
+    });
+    const result = buildRolloutProgress(dep, []);
+    expect(result.progressingReason).toBe("NewReplicaSetAvailable");
+    expect(result.progressingStatus).toBe("True");
+    expect(result.stuck).toBe(false);
+  });
+
+  it("flags a stuck rollout on ProgressDeadlineExceeded and carries the condition message", () => {
+    const dep = deployment({
+      status: { conditions: [{ type: "Progressing", status: "False", reason: "ProgressDeadlineExceeded", message: "timed out" }] },
+    });
+    const result = buildRolloutProgress(dep, []);
+    expect(result.stuck).toBe(true);
+    expect(result.progressingMessage).toBe("timed out");
+  });
+
+  it("reads desiredReplicas from spec.replicas, defaulting to 0", () => {
+    expect(buildRolloutProgress(deployment({ spec: {} }), []).desiredReplicas).toBe(0);
+    expect(buildRolloutProgress(deployment({ spec: { replicas: 5 } }), []).desiredReplicas).toBe(5);
+  });
+
+  it("handles a Deployment with no owned ReplicaSets yet", () => {
+    const result = buildRolloutProgress(deployment(), []);
+    expect(result.replicaSets).toEqual([]);
+  });
+});
+
+// StatefulSets and DaemonSets: the same bar, per ControllerRevision, counting
+// the workload's pods by their controller-revision-hash label (a StatefulSet's
+// pods carry the revision's name, a DaemonSet's only its hash).
+describe("buildControllerRevisionRollout", () => {
+  function cr(name: string, revision: number, owner = "w-1") {
+    return { kind: "ControllerRevision", revision, metadata: { name, ownerReferences: [{ uid: owner }] } };
+  }
+  function pod(hash: string, ready: boolean, owner = "w-1") {
+    return {
+      metadata: { labels: { "controller-revision-hash": hash }, ownerReferences: [{ uid: owner }] },
+      status: { conditions: [{ type: "Ready", status: ready ? "True" : "False" }] },
+    };
+  }
+
+  it("counts a StatefulSet's ready pods per revision, newest first", () => {
+    const sts = { kind: "StatefulSet", metadata: { uid: "w-1", name: "db" }, spec: { replicas: 3 } };
+    const result = buildControllerRevisionRollout(
+      sts,
+      [cr("db-aaa", 1), cr("db-bbb", 2), cr("web-zzz", 7, "w-2")],
+      [pod("db-bbb", true), pod("db-bbb", false), pod("db-aaa", true), pod("db-bbb", true, "w-2")],
+    );
+    expect(result.desiredReplicas).toBe(3);
+    expect(result.stuck).toBe(false);
+    expect(result.replicaSets).toEqual([
+      { name: "db-bbb", revision: 2, ready: 1, desired: 3, isNew: true },
+      { name: "db-aaa", revision: 1, ready: 1, desired: 1, isNew: false },
+    ]);
+  });
+
+  it("matches a DaemonSet's pods by hash and wants one per scheduled node", () => {
+    const ds = { kind: "DaemonSet", metadata: { uid: "w-1", name: "agent" }, status: { desiredNumberScheduled: 4 } };
+    const result = buildControllerRevisionRollout(ds, [cr("agent-5f7c", 3)], [pod("5f7c", true), pod("5f7c", true)]);
+    expect(result.desiredReplicas).toBe(4);
+    expect(result.replicaSets).toEqual([{ name: "agent-5f7c", revision: 3, ready: 2, desired: 4, isNew: true }]);
+  });
+});

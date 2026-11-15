@@ -1,0 +1,14 @@
+{
+  "name": "kubebay-perf",
+  "private": true,
+  "type": "module",
+  "description": "KB-02: engine memory, watch load and cold start, measured against a real cluster",
+  "scripts": {
+    "harness": "node harness.mjs",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@msgpack/msgpack": "3.1.3",
+    "playwright-core": "1.56.1"
+  }
+}

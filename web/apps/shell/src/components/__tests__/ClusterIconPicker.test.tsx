@@ -1,0 +1,112 @@
+import { describe, it, expect, vi } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/react";
+import { ClusterIconPicker, autoAvatar } from "../ClusterIconPicker";
+import type { ClusterIcon } from "../../lib/useClusterIcons";
+
+const baseIcon: ClusterIcon = { bg: "#F90", label: "AWS" };
+
+function renderPicker(current: ClusterIcon = baseIcon, onSave = vi.fn(), onReset = vi.fn(), onClose = vi.fn()) {
+  return render(
+    <ClusterIconPicker
+      clusterId="arn-aws-eks-us-east-1-123-cluster-prod"
+      current={current}
+      onSave={onSave}
+      onReset={onReset}
+      onClose={onClose}
+    />
+  );
+}
+
+describe("ClusterIconPicker – image tab", () => {
+  it("shows Image tab alongside Colors tab", () => {
+    renderPicker();
+    expect(screen.getByRole("tab", { name: /image/i })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: /color/i })).toBeTruthy();
+  });
+
+  it("URL input in Image tab calls onSave with imageUrl set", () => {
+    const onSave = vi.fn();
+    renderPicker(baseIcon, onSave);
+    fireEvent.click(screen.getByRole("tab", { name: /image/i }));
+    const input = screen.getByPlaceholderText(/https:\/\//i);
+    fireEvent.change(input, { target: { value: "https://example.com/icon.png" } });
+    fireEvent.click(screen.getByRole("button", { name: /apply/i }));
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({ imageUrl: "https://example.com/icon.png" })
+    );
+  });
+
+  it("clearing the URL removes imageUrl from saved icon", () => {
+    const onSave = vi.fn();
+    const iconWithImage: ClusterIcon = { bg: "#F90", label: "AWS", imageUrl: "https://example.com/icon.png" };
+    renderPicker(iconWithImage, onSave);
+    fireEvent.click(screen.getByRole("tab", { name: /image/i }));
+    const input = screen.getByPlaceholderText(/https:\/\//i);
+    fireEvent.change(input, { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: /apply/i }));
+    const saved = onSave.mock.calls[0]?.[0] as ClusterIcon;
+    expect(saved.imageUrl).toBeFalsy();
+  });
+
+  it("shows existing imageUrl in input when icon already has one", () => {
+    const iconWithImage: ClusterIcon = { bg: "#F90", label: "AWS", imageUrl: "https://example.com/icon.png" };
+    renderPicker(iconWithImage);
+    fireEvent.click(screen.getByRole("tab", { name: /image/i }));
+    const input = screen.getByPlaceholderText(/https:\/\//i) as HTMLInputElement;
+    expect(input.value).toBe("https://example.com/icon.png");
+  });
+});
+
+describe("autoAvatar – sanitized IDs", () => {
+  it("detects AWS from sanitized EKS id (dashes not colons)", () => {
+    const a = autoAvatar("arn-aws-eks-us-east-1-123-cluster-prod");
+    expect(a.label).toBe("AWS");
+    expect(a.bg).toBe("#F90");
+  });
+
+  it("detects OrbStack", () => {
+    const a = autoAvatar("orbstack");
+    expect(a.label).toBe("ORB");
+  });
+});
+
+describe("avatarLabelColor", () => {
+  it("picks whichever of white or near-black reads better on the avatar colour", async () => {
+    const { avatarLabelColor } = await import("../ClusterIconPicker");
+    expect(avatarLabelColor("#4285F4")).toBe("#111111"); // GCP blue: white is only 3.6:1
+    expect(avatarLabelColor("#7C3AED")).toBe("#ffffff"); // kind purple
+    expect(avatarLabelColor("#22d3ee")).toBe("#111111"); // OrbStack cyan: white is 1.8:1
+    expect(avatarLabelColor("#41c98e")).toBe("#111111"); // DEV green
+    expect(avatarLabelColor("not-a-colour")).toBe("#ffffff");
+  });
+
+  it("reads the three-digit hex of the AWS preset and the theme accent of unknown clusters", async () => {
+    const { avatarLabelColor, autoAvatar } = await import("../ClusterIconPicker");
+    expect(avatarLabelColor("#F90")).toBe("#111111"); // white on AWS orange is 1.9:1
+    expect(avatarLabelColor(autoAvatar("arn:aws:eks:us-east-1:1:cluster/prod").bg)).toBe("#111111");
+    expect(avatarLabelColor(autoAvatar("my-cluster").bg)).toBe("var(--kb-accent-fg)");
+  });
+});
+
+describe("stripAvatarLook", () => {
+  it("keeps every clickable cluster at full opacity so its label stays readable", async () => {
+    const { stripAvatarLook } = await import("../ClusterIconPicker");
+    for (const state of [{ active: true }, { streaming: true }, {}]) {
+      expect(stripAvatarLook(state).opacity).toBe(1);
+    }
+    expect(stripAvatarLook({}).filter).toMatch(/saturate\(/);
+    expect(stripAvatarLook({ active: true }).filter).toBe("none");
+    // A broken cluster is a disabled button; it may fade.
+    expect(stripAvatarLook({ broken: true }).opacity).toBeLessThan(0.5);
+  });
+});
+
+describe("ClusterIconPicker – colour swatches", () => {
+  it("changing the colour keeps a custom label", () => {
+    const onSave = vi.fn();
+    renderPicker({ bg: "#F90", label: "PRX" }, onSave);
+    fireEvent.click(screen.getByTitle("DEV"));
+    fireEvent.click(screen.getByRole("button", { name: /apply/i }));
+    expect(onSave).toHaveBeenCalledWith({ bg: "#41c98e", label: "PRX" });
+  });
+});

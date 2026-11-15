@@ -1,0 +1,458 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+  id-token: write   # OIDC: anchore/sbom-action, keyless cosign signing, build provenance
+  attestations: write  # GitHub artifact attestations (KB-05)
+
+jobs:
+  # ── CLI engine tarballs (headless, all platforms) ──────────────────────────
+  engine-binaries:
+    strategy:
+      matrix:
+        include:
+          - { goos: darwin,  goarch: arm64 }
+          - { goos: darwin,  goarch: amd64 }
+          - { goos: linux,   goarch: amd64 }
+          - { goos: linux,   goarch: arm64 }
+          - { goos: windows, goarch: amd64 }
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - run: cd web && pnpm install --frozen-lockfile && pnpm build
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: engine/go.mod
+      - name: Build embedded engine binary
+        run: |
+          rm -rf engine/internal/httpapi/static/dist
+          mkdir -p engine/internal/httpapi/static
+          cp -R web/apps/shell/dist engine/internal/httpapi/static/dist
+          cd engine
+          CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \
+            go build -trimpath -ldflags "-s -w -X main.version=${{ github.ref_name }}" \
+            -o ../kubebay ./cmd/kubebay
+      - name: Package
+        run: |
+          DIR="kubebay-${{ matrix.goos }}-${{ matrix.goarch }}"
+          mkdir "$DIR"
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            mv kubebay "$DIR/kubebay.exe"
+          else
+            cp kubebay "$DIR/"
+          fi
+          cp README.md LICENSE "$DIR/"
+          tar czf "$DIR.tar.gz" "$DIR"
+          shasum -a 256 "$DIR.tar.gz" > "$DIR.tar.gz.sha256"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: engine-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: kubebay-*.tar.gz*
+
+  # ── Desktop app installers (native runners, Tauri) ────────────────────────
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest      # Universal — runs natively on Apple Silicon + Intel
+            rust-target: universal-apple-darwin
+            # app: the updater bundle (Kubebay.app.tar.gz) is made from it (KB-04).
+            bundles: app,dmg
+
+          - os: windows-latest
+            rust-target: x86_64-pc-windows-msvc
+            go-os: windows
+            go-arch: amd64
+            sidecar: kubebay-engine-x86_64-pc-windows-msvc.exe
+            bundles: nsis
+
+          - os: ubuntu-22.04
+            rust-target: x86_64-unknown-linux-gnu
+            go-os: linux
+            go-arch: amd64
+            sidecar: kubebay-engine-x86_64-unknown-linux-gnu
+            bundles: deb,appimage
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # ── Web + Desktop deps ────────────────────────────────────────────────
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - run: cd web && pnpm install --frozen-lockfile && pnpm build
+      - run: cd desktop && pnpm install --frozen-lockfile
+
+      # ── Embed SPA into engine source ───────────────────────────────────────
+      - name: Sync web assets into engine
+        shell: bash
+        run: |
+          rm -rf engine/internal/httpapi/static/dist
+          mkdir -p engine/internal/httpapi/static
+          cp -R web/apps/shell/dist engine/internal/httpapi/static/dist
+
+      # ── Build the Go engine sidecar(s) for this platform ─────────────────
+      # The desktop app's engine carries the local shell (-tags localshell): the
+      # app starts it with --local-shell for the terminal on your own machine.
+      # The standalone engine and the container image never do.
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: engine/go.mod
+      - name: Build engine sidecar (macOS universal)
+        if: matrix.rust-target == 'universal-apple-darwin'
+        shell: bash
+        env:
+          CGO_ENABLED: "0"
+          LDFLAGS: "-s -w -X main.version=${{ github.ref_name }}"
+        run: |
+          mkdir -p desktop/src-tauri/binaries
+          cd engine
+          GOOS=darwin GOARCH=arm64 go build -trimpath -tags localshell -ldflags "$LDFLAGS" \
+            -o ../desktop/src-tauri/binaries/kubebay-engine-aarch64-apple-darwin ./cmd/kubebay
+          GOOS=darwin GOARCH=amd64 go build -trimpath -tags localshell -ldflags "$LDFLAGS" \
+            -o ../desktop/src-tauri/binaries/kubebay-engine-x86_64-apple-darwin ./cmd/kubebay
+          # Tauri universal build expects a pre-lipo'd fat binary
+          lipo -create \
+            ../desktop/src-tauri/binaries/kubebay-engine-aarch64-apple-darwin \
+            ../desktop/src-tauri/binaries/kubebay-engine-x86_64-apple-darwin \
+            -output ../desktop/src-tauri/binaries/kubebay-engine-universal-apple-darwin
+
+      - name: Build engine sidecar
+        if: matrix.rust-target != 'universal-apple-darwin'
+        shell: bash
+        env:
+          GOOS: ${{ matrix.go-os }}
+          GOARCH: ${{ matrix.go-arch }}
+          CGO_ENABLED: "0"
+        run: |
+          mkdir -p desktop/src-tauri/binaries
+          cd engine
+          go build -trimpath -tags localshell \
+            -ldflags "-s -w -X main.version=${{ github.ref_name }}" \
+            -o "../desktop/src-tauri/binaries/${{ matrix.sidecar }}" \
+            ./cmd/kubebay
+
+      # ── Stamp version into tauri.conf.json ────────────────────────────────
+      - name: Set app version
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            sed -i '' "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" desktop/src-tauri/tauri.conf.json
+          else
+            sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" desktop/src-tauri/tauri.conf.json
+          fi
+
+      # ── Linux system dependencies for WebKit / GTK ────────────────────────
+      - name: Install Linux build deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf
+
+      # ── Rust + cache ──────────────────────────────────────────────────────
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust-target == 'universal-apple-darwin' && 'aarch64-apple-darwin,x86_64-apple-darwin' || matrix.rust-target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workdir: desktop/src-tauri
+
+      # ── macOS: import Developer ID certificate into a temporary keychain ──
+      # Activates only when the APPLE_CERTIFICATE secret is set.
+      # To enable: add APPLE_CERTIFICATE (base64 .p12), APPLE_CERTIFICATE_PASSWORD,
+      # APPLE_SIGNING_IDENTITY ("Developer ID Application: Name (TEAMID)"),
+      # APPLE_ID, APPLE_PASSWORD (app-specific), APPLE_TEAM_ID as repo secrets.
+      - name: Import Apple signing certificate
+        if: runner.os == 'macOS' && env.APPLE_CERTIFICATE != ''
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        shell: bash
+        run: |
+          echo "$APPLE_CERTIFICATE" | base64 --decode > /tmp/certificate.p12
+          security create-keychain -p "" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "" build.keychain
+          security import /tmp/certificate.p12 \
+            -k build.keychain \
+            -P "$APPLE_CERTIFICATE_PASSWORD" \
+            -T /usr/bin/codesign \
+            -T /usr/bin/productbuild
+          security set-key-partition-list -S apple-tool:,apple: -s -k "" build.keychain
+          rm /tmp/certificate.p12
+
+      # ── Tauri build ───────────────────────────────────────────────────────
+      - name: Build Tauri desktop app
+        shell: bash
+        working-directory: desktop
+        env:
+          # KB-04: with both set, the build makes signed update bundles and the
+          # app carries the public key, so it updates itself. Without them the
+          # app has no updater. Generate the pair with `pnpm tauri signer
+          # generate`; the private key is a secret, the public key a variable.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          TAURI_UPDATER_PUBKEY: ${{ vars.TAURI_UPDATER_PUBKEY }}
+          # macOS code signing: use real identity when secret is set, ad-hoc (-) otherwise
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY || '-' }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          # Unset notarization vars if empty — prevents Tauri from attempting notarization
+          [ -z "$APPLE_ID" ]       && unset APPLE_ID
+          [ -z "$APPLE_PASSWORD" ] && unset APPLE_PASSWORD
+          [ -z "$APPLE_TEAM_ID" ]  && unset APPLE_TEAM_ID
+          if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ] && [ -n "$TAURI_UPDATER_PUBKEY" ]; then
+            # The public key is base64, so it needs no JSON escaping.
+            UPDATER_CONFIG='{"bundle":{"createUpdaterArtifacts":true},"plugins":{"updater":{"pubkey":"'"$TAURI_UPDATER_PUBKEY"'","requireSignedVersion":true}}}'
+            pnpm tauri build --target ${{ matrix.rust-target }} --bundles ${{ matrix.bundles }} --config "$UPDATER_CONFIG"
+          else
+            echo "::warning::No updater key (secret TAURI_SIGNING_PRIVATE_KEY and variable TAURI_UPDATER_PUBKEY): this release won't update itself"
+            unset TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+            pnpm tauri build --target ${{ matrix.rust-target }} --bundles ${{ matrix.bundles }}
+          fi
+
+      # ── Collect installer artifacts ───────────────────────────────────────
+      - name: Collect artifacts
+        shell: bash
+        run: |
+          mkdir -p dist
+          find desktop/src-tauri/target -type f \( \
+            -name "*.dmg" \
+            -o -name "*-setup.exe" \
+            -o -name "*.msi" \
+            -o -name "*.deb" \
+            -o -name "*.AppImage" \
+            -o -name "*.app.tar.gz" \
+            -o -name "*-setup.exe.sig" \
+            -o -name "*.msi.sig" \
+            -o -name "*.deb.sig" \
+            -o -name "*.AppImage.sig" \
+            -o -name "*.app.tar.gz.sig" \
+          \) | while read f; do
+            cp "$f" dist/
+            echo "collected: $f"
+          done
+          # KB-04: the macOS update bundle is built as Kubebay.app.tar.gz; give it
+          # the version so it can't be mistaken for another release's.
+          VERSION="${GITHUB_REF_NAME#v}"
+          for f in dist/Kubebay.app.tar.gz dist/Kubebay.app.tar.gz.sig; do
+            [ -f "$f" ] && mv "$f" "${f/Kubebay.app/Kubebay_${VERSION}_universal.app}"
+          done
+          ls -lh dist/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.os }}
+          path: dist/*
+
+  # ── SBOM generation (whole repo + Go engine) ──────────────────────────────
+  sbom:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate repo-wide SBOM (CycloneDX JSON)
+        uses: anchore/sbom-action@v0
+        with:
+          path: .
+          format: cyclonedx-json
+          output-file: sbom.json
+          artifact-name: sbom.json
+
+      - name: Generate Go engine SBOM (CycloneDX JSON)
+        uses: anchore/sbom-action@v0
+        with:
+          path: ./engine
+          format: cyclonedx-json
+          output-file: sbom-go.json
+          artifact-name: sbom-go.json
+
+  # ── Air-gapped install bundle (KB-21) ─────────────────────────────────────
+  # The chart pinned to this tag, the image for every platform plus a
+  # docker-load tarball per platform, docs/AIRGAP.md and a signed SHA256SUMS.
+  airgap:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+      id-token: write   # keyless signature of SHA256SUMS
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.19.5
+      - uses: sigstore/cosign-installer@v3
+        with:
+          cosign-release: v2.6.0
+      - name: Wait for the release image
+        env:
+          TAG: ${{ github.ref_name }}
+          GH_ACTOR: ${{ github.actor }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          command -v skopeo > /dev/null || { sudo apt-get update -q && sudo apt-get install -y -q skopeo; }
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}"
+          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+          echo "$GH_TOKEN" | skopeo login ghcr.io -u "$GH_ACTOR" --password-stdin
+          # publish.yml builds and pushes it from the same tag.
+          for _ in $(seq 1 120); do
+            skopeo inspect --raw "docker://$IMAGE:$TAG" > /dev/null 2>&1 && exit 0
+            sleep 30
+          done
+          echo "::error::$IMAGE:$TAG didn't appear within 60 minutes"
+          exit 1
+      - name: Build the bundle
+        env:
+          TAG: ${{ github.ref_name }}
+        run: node scripts/airgap-bundle.mjs --version "$TAG" --image "docker://$IMAGE:$TAG" --chart charts/kubebay --docs docs/AIRGAP.md --out dist --sign
+      - uses: actions/upload-artifact@v4
+        with:
+          name: airgap
+          path: dist/*
+
+  # ── Single GitHub release combining everything ────────────────────────────
+  github-release:
+    needs: [engine-binaries, desktop, sbom, airgap]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+          path: dist
+      - name: Add install script to release
+        run: cp scripts/install-mac.sh dist/install-mac.sh
+      # KB-04: the manifest the desktop app's updater reads, from the bundles
+      # the build signed. No signatures (no updater key): no manifest.
+      - name: Updater manifest
+        env:
+          REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if ls dist/*.sig >/dev/null 2>&1; then
+            node scripts/updater-manifest.mjs --dir dist --tag "$TAG" --repo "$REPO" --out dist/latest.json
+          else
+            echo "No signed update bundles: this release has no latest.json"
+          fi
+      # KB-02: weigh every installer against the previous release's and warn
+      # on growth over 10% (a warning until the budgets have three stable
+      # runs). The report is attached to the release, and signed with it.
+      - name: Installer sizes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh api "repos/$REPO/releases/latest" --jq '{tag: .tag_name, assets: [.assets[] | {name, size}]}' > previous.json || echo '{}' > previous.json
+          node scripts/installer-sizes.mjs --dir dist --tag "$TAG" --previous previous.json --out dist/installer-sizes.json
+      # KB-05: SLSA build provenance for every asset (gh attestation verify),
+      # then a keyless cosign signature bundle next to each one.
+      - uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/*
+      - uses: sigstore/cosign-installer@v3
+        with:
+          cosign-release: v2.6.0
+      - name: Sign every release asset
+        working-directory: dist
+        run: |
+          for f in *; do
+            [ -f "$f" ] || continue
+            cosign sign-blob --yes --bundle "$f.cosign.bundle" "$f"
+          done
+      - name: List release artifacts
+        run: ls -lh dist/
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
+
+  # ── Homebrew tap update (CLI engine) ──────────────────────────────────────
+  homebrew-tap:
+    needs: github-release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update homebrew tap
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          VERSION="${TAG#v}"
+          gh repo clone RajaSardar/homebrew-tap tap || { echo "tap missing; create RajaSardar/homebrew-tap"; exit 1; }
+          cd tap
+          ARM=$(curl -sL "https://github.com/RajaSardar/kubebay/releases/download/$TAG/kubebay-darwin-arm64.tar.gz.sha256" | awk '{print $1}')
+          AMD=$(curl -sL "https://github.com/RajaSardar/kubebay/releases/download/$TAG/kubebay-darwin-amd64.tar.gz.sha256" | awk '{print $1}')
+          mkdir -p Formula
+          cat > Formula/kubebay.rb <<RUBY
+          class Kubebay < Formula
+            desc "Local-first Kubernetes IDE — engine + web UI in one binary"
+            homepage "https://github.com/RajaSardar/kubebay"
+            version "$VERSION"
+
+            on_macos do
+              if Hardware::CPU.arm?
+                url "https://github.com/RajaSardar/kubebay/releases/download/#{version}/kubebay-darwin-arm64.tar.gz"
+                sha256 "$ARM"
+              else
+                url "https://github.com/RajaSardar/kubebay/releases/download/#{version}/kubebay-darwin-amd64.tar.gz"
+                sha256 "$AMD"
+              end
+            end
+            on_linux do
+              if Hardware::CPU.arm? || Hardware::CPU.intel?
+                url "https://github.com/RajaSardar/kubebay/releases/download/#{version}/kubebay-linux-#{Hardware::CPU.arm? ? "arm64" : "amd64"}.tar.gz"
+                sha256 "LINUX_PLACEHOLDER"
+              end
+            end
+
+            def install
+              bin.install "kubebay"
+            end
+
+            service do
+              run [bin/"kubebay", "--addr", "127.0.0.1:9898", "--no-open"]
+              keep_alive true
+            end
+
+            def caveats
+              <<~EOS
+                Run directly:  kubebay
+                As a service:  brew services start rajasardar/tap/kubebay
+                The UI token is printed on first start.
+              EOS
+            end
+          end
+          RUBY
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/RajaSardar/homebrew-tap.git"
+          git config user.name "kubebay-release-bot"
+          git config user.email "bot@kubebay.local"
+          git add Formula/kubebay.rb
+          git commit -m "kubebay $VERSION" || echo "no changes"
+          git push

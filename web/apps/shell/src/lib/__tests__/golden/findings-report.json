@@ -1,0 +1,164 @@
+{
+  "tool": {
+    "name": "Kubebay",
+    "version": "v0.7.0"
+  },
+  "cluster": "kind-dev",
+  "generatedAt": "2026-10-13T10:00:00.000Z",
+  "findings": [
+    {
+      "ruleId": "kubebay.attack-path",
+      "detector": "Attack paths",
+      "severity": "high",
+      "title": "Attack path to Deployment shop/api",
+      "message": "Reachable from outside through LoadBalancer api-public → Its token can read Secrets in every namespace",
+      "resource": {
+        "kind": "Deployment",
+        "namespace": "shop",
+        "name": "api"
+      },
+      "controls": [
+        {
+          "framework": "CIS",
+          "id": "5.1.2",
+          "name": "Minimize access to secrets"
+        },
+        {
+          "framework": "ATT&CK",
+          "id": "T1552.007",
+          "name": "Unsecured Credentials: Container API"
+        }
+      ]
+    },
+    {
+      "ruleId": "kubebay.rbac.cluster-admin-binding",
+      "detector": "RBAC",
+      "severity": "high",
+      "title": "Bound to the built-in cluster-admin role",
+      "message": "ServiceAccount ci/deployer via ClusterRole:cluster-admin: cluster-admin can do anything in any namespace.",
+      "resource": {
+        "kind": "ServiceAccount",
+        "namespace": "ci",
+        "name": "deployer"
+      },
+      "controls": [
+        {
+          "framework": "CIS",
+          "id": "5.1.1",
+          "name": "Ensure that the cluster-admin role is only used where required"
+        }
+      ]
+    },
+    {
+      "ruleId": "kubebay.upgrade.removed-api",
+      "detector": "Upgrade readiness",
+      "severity": "high",
+      "title": "PodDisruptionBudget policy/v1beta1 is removed in Kubernetes 1.25",
+      "message": "This cluster still serves policy/v1beta1, 1 minor release before its removal. Move manifests to policy/v1.",
+      "controls": []
+    },
+    {
+      "ruleId": "kubebay.spof.no-pdb",
+      "detector": "Single points of failure",
+      "severity": "medium",
+      "title": "One replica and no PodDisruptionBudget",
+      "message": "Deployment shop/api: 1 replica and no PodDisruptionBudget",
+      "resource": {
+        "kind": "Deployment",
+        "namespace": "shop",
+        "name": "api"
+      },
+      "controls": []
+    },
+    {
+      "ruleId": "kubebay.netpol.uncovered",
+      "detector": "NetworkPolicy coverage",
+      "severity": "medium",
+      "title": "No NetworkPolicy selects these pods",
+      "message": "2 pods of app api in shop: the namespace has no NetworkPolicy.",
+      "resource": {
+        "kind": "App",
+        "namespace": "shop",
+        "name": "api"
+      },
+      "controls": [
+        {
+          "framework": "CIS",
+          "id": "5.3.2",
+          "name": "Ensure that all Namespaces have Network Policies defined"
+        }
+      ]
+    },
+    {
+      "ruleId": "kubebay.secret-env",
+      "detector": "Secret exposure",
+      "severity": "medium",
+      "title": "Secrets read into environment variables",
+      "message": "2 pods of app api in shop read Secret db-creds into environment variables.",
+      "resource": {
+        "kind": "App",
+        "namespace": "shop",
+        "name": "api"
+      },
+      "controls": [
+        {
+          "framework": "CIS",
+          "id": "5.4.1",
+          "name": "Prefer using Secrets as files over Secrets as environment variables"
+        }
+      ]
+    },
+    {
+      "ruleId": "kubebay.sa-token.automount",
+      "detector": "ServiceAccount tokens",
+      "severity": "medium",
+      "title": "Default ServiceAccount token mounted",
+      "message": "3 pods of app web in shop run as the default ServiceAccount with its API token mounted.",
+      "resource": {
+        "kind": "App",
+        "namespace": "shop",
+        "name": "web"
+      },
+      "controls": [
+        {
+          "framework": "CIS",
+          "id": "5.1.5",
+          "name": "Ensure that default service accounts are not actively used"
+        },
+        {
+          "framework": "CIS",
+          "id": "5.1.6",
+          "name": "Ensure that Service Account Tokens are only mounted where necessary"
+        },
+        {
+          "framework": "ATT&CK",
+          "id": "T1528",
+          "name": "Steal Application Access Token"
+        }
+      ]
+    },
+    {
+      "ruleId": "kubebay.signatures.unenforced",
+      "detector": "Image signatures",
+      "severity": "medium",
+      "title": "Image signatures aren't enforced",
+      "message": "Nothing enforces image signatures in namespace shop.",
+      "resource": {
+        "kind": "Namespace",
+        "name": "shop"
+      },
+      "controls": [
+        {
+          "framework": "CIS",
+          "id": "5.5.1",
+          "name": "Configure Image Provenance using ImagePolicyWebhook admission controller"
+        },
+        {
+          "framework": "ATT&CK",
+          "id": "T1525",
+          "name": "Implant Internal Image"
+        }
+      ]
+    }
+  ]
+}

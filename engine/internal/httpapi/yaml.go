@@ -1,0 +1,570 @@
+package httpapi
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"sort"
+	"strings"
+	"time"
+
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/yaml"
+
+	"github.com/RajaSardar/kubebay/engine/internal/audit"
+	"github.com/RajaSardar/kubebay/engine/internal/informers"
+)
+
+func (c *Channels) dynClient(ctx context.Context, cluster string) (dynamic.Interface, error) {
+	if c.dynOverride != nil {
+		return c.dynOverride(ctx, cluster)
+	}
+	cfg, err := c.Clusters.RestConfigWithIdentity(cluster, IdentityFromContext(ctx))
+	if err != nil {
+		return nil, fmt.Errorf("connect: %w", err)
+	}
+	return dynamic.NewForConfig(cfg)
+}
+
+func (c *Channels) discoClient(ctx context.Context, cluster string) (discovery.DiscoveryInterface, error) {
+	if c.discoOverride != nil {
+		return c.discoOverride(ctx, cluster)
+	}
+	cfg, err := c.Clusters.RestConfigWithIdentity(cluster, IdentityFromContext(ctx))
+	if err != nil {
+		return nil, fmt.Errorf("connect: %w", err)
+	}
+	return discovery.NewDiscoveryClientForConfig(cfg)
+}
+
+var _ = context.Background
+
+type ApplyYAMLRequest struct {
+	Cluster   string `json:"cluster"`
+	GVR       string `json:"gvr"`
+	Namespace string `json:"ns"`
+	Name      string `json:"name"`
+	YAML      string `json:"yaml"`
+	DryRun    bool   `json:"dryRun"`
+	// Force is ignored: edits are Update patches, which never conflict.
+	Force bool `json:"force"`
+	// Action overrides the audit log's Action field (default "apply") for
+	// callers that apply through this same endpoint for a more specific
+	// purpose, e.g. "rightsize" — never changes what's actually applied.
+	Action string `json:"action,omitempty"`
+	// Original is the YAML the editor loaded. When present, the edit is sent
+	// as an Update patch of only the changed fields (see editpatch.go)
+	// instead of a server-side apply of the whole object, which conflicted
+	// with any field another manager (Helm, kubectl) owned.
+	Original string `json:"original,omitempty"`
+	// Mode "strategic" sends YAML as a strategic merge patch of exactly the
+	// fields it names (RightSizing's resources-only document): containers
+	// merge by name and fields it leaves out, like limits, are kept.
+	Mode string `json:"mode,omitempty"`
+}
+
+// auditActionFor names the audit entry for an apply — "apply" by default, or
+// the caller's own override (e.g. "rightsize") when it names a specific,
+// narrower purpose than a raw YAML edit.
+func auditActionFor(req ApplyYAMLRequest) string {
+	if req.Action != "" {
+		return req.Action
+	}
+	return "apply"
+}
+
+func stripNoisyFields(obj map[string]interface{}) {
+	stripMetadata(obj, "managedFields", "resourceVersion", "uid", "selfLink", "generation", "creationTimestamp")
+}
+
+func stripMetadata(obj map[string]interface{}, keys ...string) {
+	if meta, ok := obj["metadata"].(map[string]interface{}); ok {
+		for _, k := range keys {
+			delete(meta, k)
+		}
+	}
+}
+
+func (c *Channels) resourceFor(ctx context.Context, cluster, gvrStr string) (dynamic.ResourceInterface, error) {
+	g, err := informers.ParseGVR(gvrStr)
+	if err != nil {
+		return nil, err
+	}
+	d, err := c.dynClient(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	ri := d.Resource(g)
+	return ri, nil
+}
+
+func (c *Channels) HandleGetYAML(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+	q := r.URL.Query()
+	cluster, gvr := q.Get("cluster"), q.Get("gvr")
+	ns, name := q.Get("ns"), q.Get("name")
+	if cluster == "" || gvr == "" || name == "" {
+		http.Error(w, "cluster, gvr, name required", http.StatusBadRequest)
+		return
+	}
+	g, err := informers.ParseGVR(gvr)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	d, err := c.dynClient(ctx, cluster)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	var obj interface{}
+	if ns != "" {
+		obj, err = d.Resource(g).Namespace(ns).Get(ctx, name, metav1.GetOptions{})
+	} else {
+		obj, err = d.Resource(g).Get(ctx, name, metav1.GetOptions{})
+	}
+	if err != nil {
+		http.Error(w, fmt.Sprintf("get: %v", err), http.StatusBadGateway)
+		return
+	}
+	u, ok := obj.(interface{ UnstructuredContent() map[string]interface{} })
+	var doc map[string]interface{}
+	if ok {
+		doc = u.UnstructuredContent()
+	} else {
+		b, _ := json.Marshal(obj)
+		_ = json.Unmarshal(b, &doc)
+	}
+	// A Secret's values are shown only on request, and the request is audited.
+	if isSecret(doc) {
+		if q.Get("reveal") == "true" {
+			c.auditSecretReveal(r, cluster, ns, name)
+		} else {
+			maskSecret(doc)
+		}
+	}
+	// The drawer summaries and ResizePanel need a structured object, and shipping a
+	// YAML parser to the browser just to read back what we serialized here is waste.
+	// They read, never apply, it: the drawer matches owned ReplicaSets by uid and
+	// shows when the object was created, so only the editor's text loses those.
+	if q.Get("format") == "json" {
+		stripMetadata(doc, "managedFields", "resourceVersion", "selfLink", "generation")
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(doc)
+		return
+	}
+	stripNoisyFields(doc)
+	out, err := yaml.Marshal(doc)
+	if err != nil {
+		http.Error(w, "marshal: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/yaml; charset=utf-8")
+	_, _ = w.Write(out)
+}
+
+func (c *Channels) HandleApplyYAML(w http.ResponseWriter, r *http.Request) {
+	var req ApplyYAMLRequest
+	if err := decodeBody(r, &req); err != nil {
+		http.Error(w, "bad body: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	g, err := informers.ParseGVR(req.GVR)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	var doc map[string]interface{}
+	if err := yaml.Unmarshal([]byte(req.YAML), &doc); err != nil {
+		http.Error(w, "invalid YAML: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	meta, _ := doc["metadata"].(map[string]interface{})
+	nameFromDoc, _ := meta["name"].(string)
+	if nameFromDoc != "" && req.Name != "" && nameFromDoc != req.Name {
+		http.Error(w, fmt.Sprintf("metadata.name mismatch: doc=%q target=%q", nameFromDoc, req.Name), http.StatusBadRequest)
+		return
+	}
+	if _, ok := doc["apiVersion"].(string); !ok {
+		http.Error(w, "doc missing apiVersion", http.StatusBadRequest)
+		return
+	}
+	if _, ok := doc["kind"].(string); !ok {
+		http.Error(w, "doc missing kind", http.StatusBadRequest)
+		return
+	}
+
+	// Every write here is an Update patch under manager "kubebay": Updates never
+	// conflict with other field managers and own only the fields they change.
+	// Server-side apply of whole objects conflicted with Helm/kubectl (#46).
+	var patchType types.PatchType
+	patchOpts := metav1.PatchOptions{FieldManager: "kubebay"}
+	var data []byte
+	var edit *EditPatch
+	switch {
+	case req.Original != "":
+		p, err := computeEditPatch([]byte(req.Original), []byte(req.YAML))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if p.Empty() {
+			writeJSON(w, map[string]interface{}{"applied": false, "dryRun": req.DryRun, "noop": true, "changedPaths": []string{}})
+			return
+		}
+		if editsMaskedSecretValue(doc, req.Original, p.ChangedPaths) {
+			http.Error(w, "this Secret's values are hidden: choose Reveal values, then edit them", http.StatusBadRequest)
+			return
+		}
+		edit = &p
+		patchType, data = p.Type, p.Data
+	case req.Mode == "strategic":
+		apiVersion, _ := doc["apiVersion"].(string)
+		docKind, _ := doc["kind"].(string)
+		if _, err := scheme.Scheme.New(schema.FromAPIVersionAndKind(apiVersion, docKind)); err != nil {
+			http.Error(w, fmt.Sprintf("strategic patches only apply to built-in kinds, not %s %s", apiVersion, docKind), http.StatusBadRequest)
+			return
+		}
+		converted, err := yaml.YAMLToJSON([]byte(req.YAML))
+		if err != nil {
+			http.Error(w, "convert: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		var tree map[string]interface{}
+		_ = json.Unmarshal(converted, &tree)
+		for _, k := range []string{"apiVersion", "kind", "metadata"} {
+			delete(tree, k) // identity is in the URL; only the fields to change are patched
+		}
+		paths := []string{}
+		collectPatchPaths(tree, "", true, &paths)
+		sort.Strings(paths)
+		data, _ = json.Marshal(tree)
+		patchType = types.StrategicMergePatchType
+		edit = &EditPatch{Type: patchType, Data: data, ChangedPaths: paths}
+	default:
+		http.Error(w, "send original (an edit) or mode=strategic (a patch); whole-object apply is no longer supported", http.StatusBadRequest)
+		return
+	}
+	if req.DryRun {
+		patchOpts.DryRun = []string{metav1.DryRunAll}
+	}
+
+	d, err := c.dynClient(r.Context(), req.Cluster)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	var applied interface{}
+	ri := d.Resource(schema.GroupVersionResource(g))
+
+	// An edit is diffed against what the editor loaded. If a field the user
+	// changed has also changed on the cluster since, refuse rather than
+	// silently overwrite it; other concurrent changes are left alone.
+	if req.Original != "" {
+		var live interface{ UnstructuredContent() map[string]interface{} }
+		if req.Namespace != "" {
+			live, err = ri.Namespace(req.Namespace).Get(r.Context(), req.Name, metav1.GetOptions{})
+		} else {
+			live, err = ri.Get(r.Context(), req.Name, metav1.GetOptions{})
+		}
+		if err != nil {
+			writePolicyRejectionOrError(w, err)
+			return
+		}
+		liveJSON, err := json.Marshal(live.UnstructuredContent())
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		drift, err := computeEditPatch([]byte(req.Original), liveJSON)
+		if err != nil {
+			http.Error(w, "compare with live: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if both := editOverlap(edit.ChangedPaths, drift.ChangedPaths); len(both) > 0 {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusConflict)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"error":   "changed-since-load",
+				"paths":   both,
+				"message": "these fields changed on the cluster since the editor loaded them",
+			})
+			return
+		}
+	}
+	if req.Namespace != "" {
+		applied, err = ri.Namespace(req.Namespace).Patch(r.Context(), req.Name, patchType, data, patchOpts)
+	} else {
+		applied, err = ri.Patch(r.Context(), req.Name, patchType, data, patchOpts)
+	}
+	kind, _ := doc["kind"].(string)
+	// Field names only, never values: an edited field may be a password.
+	editDetail := ""
+	if edit != nil {
+		editDetail = fmt.Sprintf(" patch=%s fields=%s", patchTypeName(edit.Type), strings.Join(edit.ChangedPaths, ","))
+	}
+	if err != nil {
+		if rejection := writePolicyRejectionOrError(w, err); rejection != nil {
+			detail := fmt.Sprintf("gvr=%s kind=%s dryRun=%t%s webhook=%s: %s", req.GVR, kind, req.DryRun, editDetail, rejection.Webhook, rejection.Message)
+			if owner := gitopsOwnerFromDoc(doc); owner != "" {
+				detail += " owner=" + owner
+			}
+			c.Audit.Record(audit.Entry{
+				Action:    auditActionFor(req),
+				Cluster:   req.Cluster,
+				Namespace: req.Namespace,
+				Resource:  req.Name,
+				Detail:    detail,
+				UserAgent: r.Header.Get("User-Agent"),
+				Outcome:   "rejected",
+			})
+		}
+		return
+	}
+	detail := fmt.Sprintf("gvr=%s kind=%s dryRun=%t%s", req.GVR, kind, req.DryRun, editDetail)
+	if owner := gitopsOwnerFromDoc(doc); owner != "" {
+		detail += " owner=" + owner
+	}
+	c.Audit.Record(audit.Entry{
+		Action:    auditActionFor(req),
+		Cluster:   req.Cluster,
+		Namespace: req.Namespace,
+		Resource:  req.Name,
+		Detail:    detail,
+		UserAgent: r.Header.Get("User-Agent"),
+	})
+	resp := map[string]interface{}{"applied": applied != nil, "dryRun": req.DryRun}
+	if u, ok := applied.(interface {
+		GetManagedFields() []metav1.ManagedFieldsEntry
+	}); ok && !req.DryRun {
+		if c.releaseStaleApplyOwner(r.Context(), ri, req.Namespace, req.Name, u.GetManagedFields()) {
+			resp["releasedApplyOwnership"] = true
+		}
+	}
+	if edit != nil {
+		resp["patchType"] = patchTypeName(edit.Type)
+		resp["changedPaths"] = edit.ChangedPaths
+	}
+	if req.DryRun && applied != nil {
+		if u, ok := applied.(interface{ UnstructuredContent() map[string]interface{} }); ok {
+			doc := u.UnstructuredContent()
+			stripNoisyFields(doc)
+			if yamlOut, err := yaml.Marshal(doc); err == nil {
+				resp["resultYaml"] = string(yamlOut)
+			}
+		}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(resp)
+}
+
+type CreateResourceRequest struct {
+	Cluster string `json:"cluster"`
+	YAML    string `json:"yaml"`
+	DryRun  bool   `json:"dryRun"`
+}
+
+// resolveGVR uses server-side discovery to map apiVersion+kind → GVR + namespaced flag.
+func resolveGVR(dc discovery.DiscoveryInterface, apiVersion, kind string) (schema.GroupVersionResource, bool, error) {
+	resList, err := dc.ServerResourcesForGroupVersion(apiVersion)
+	if err != nil {
+		return schema.GroupVersionResource{}, false, fmt.Errorf("discovery for %s: %w", apiVersion, err)
+	}
+	var group, version string
+	if idx := strings.Index(apiVersion, "/"); idx >= 0 {
+		group = apiVersion[:idx]
+		version = apiVersion[idx+1:]
+	} else {
+		version = apiVersion
+	}
+	for _, r := range resList.APIResources {
+		if r.Kind == kind {
+			return schema.GroupVersionResource{Group: group, Version: version, Resource: r.Name}, r.Namespaced, nil
+		}
+	}
+	return schema.GroupVersionResource{}, false, fmt.Errorf("kind %q not found in %s", kind, apiVersion)
+}
+
+// splitYAMLDocs splits a multi-document YAML string on `---` boundaries,
+// returning each non-empty document as a separate string.
+func splitYAMLDocs(raw string) []string {
+	var docs []string
+	for _, part := range strings.Split(raw, "\n---") {
+		trimmed := strings.TrimSpace(part)
+		// Strip leading `---` left by the first split
+		trimmed = strings.TrimPrefix(trimmed, "---")
+		trimmed = strings.TrimSpace(trimmed)
+		if trimmed != "" && trimmed != "---" {
+			docs = append(docs, trimmed)
+		}
+	}
+	if len(docs) == 0 {
+		// Fallback: treat the whole thing as one doc, but only if it is not
+		// a bare separator line (a "---"-only input contains no documents).
+		trimmedRaw := strings.TrimSpace(raw)
+		if trimmedRaw != "" && trimmedRaw != "---" {
+			docs = append(docs, trimmedRaw)
+		}
+	}
+	return docs
+}
+
+func (c *Channels) HandleCreateResource(w http.ResponseWriter, r *http.Request) {
+	var req CreateResourceRequest
+	if err := decodeBody(r, &req); err != nil {
+		http.Error(w, "bad body: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	if req.Cluster == "" || req.YAML == "" {
+		http.Error(w, "cluster and yaml required", http.StatusBadRequest)
+		return
+	}
+
+	dc, err := c.discoClient(r.Context(), req.Cluster)
+	if err != nil {
+		http.Error(w, "discovery client: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	d, err := c.dynClient(r.Context(), req.Cluster)
+	if err != nil {
+		http.Error(w, "dynamic client: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// No force: if the object already exists, fields other tools (Helm,
+	// kubectl, controllers) own stay theirs and the server reports a conflict.
+	patchOpts := metav1.PatchOptions{FieldManager: "kubebay"}
+	if req.DryRun {
+		patchOpts.DryRun = []string{metav1.DryRunAll}
+	}
+
+	docs := splitYAMLDocs(req.YAML)
+	applied := 0
+	for i, docYAML := range docs {
+		var doc map[string]interface{}
+		if err := yaml.Unmarshal([]byte(docYAML), &doc); err != nil {
+			http.Error(w, fmt.Sprintf("doc %d: invalid YAML: %v", i+1, err), http.StatusBadRequest)
+			return
+		}
+		apiVersion, _ := doc["apiVersion"].(string)
+		kind, _ := doc["kind"].(string)
+		if apiVersion == "" || kind == "" {
+			http.Error(w, fmt.Sprintf("doc %d: missing apiVersion or kind", i+1), http.StatusBadRequest)
+			return
+		}
+		meta, _ := doc["metadata"].(map[string]interface{})
+		name, _ := meta["name"].(string)
+		ns, _ := meta["namespace"].(string)
+		if name == "" {
+			http.Error(w, fmt.Sprintf("doc %d: metadata.name is required", i+1), http.StatusBadRequest)
+			return
+		}
+		gvr, namespaced, err := resolveGVR(dc, apiVersion, kind)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("doc %d: resolve GVR: %v", i+1, err), http.StatusBadRequest)
+			return
+		}
+		data, err := yaml.YAMLToJSON([]byte(docYAML))
+		if err != nil {
+			http.Error(w, fmt.Sprintf("doc %d: convert: %v", i+1, err), http.StatusBadRequest)
+			return
+		}
+		ri := d.Resource(gvr)
+		if namespaced && ns != "" {
+			_, err = ri.Namespace(ns).Patch(r.Context(), name, types.ApplyPatchType, data, patchOpts)
+		} else {
+			_, err = ri.Patch(r.Context(), name, types.ApplyPatchType, data, patchOpts)
+		}
+		if apierrors.IsConflict(err) {
+			who := kind + " " + name
+			if ns != "" {
+				who = kind + " " + ns + "/" + name
+			}
+			http.Error(w, fmt.Sprintf("doc %d: %s already exists and other tools manage fields you're changing (%v). Edit it from its YAML tab instead.", i+1, who, err), http.StatusConflict)
+			return
+		}
+		if err != nil {
+			if rejection := writePolicyRejectionOrError(w, err); rejection != nil {
+				c.Audit.Record(audit.Entry{
+					Action:    "create",
+					Cluster:   req.Cluster,
+					Namespace: ns,
+					Resource:  name,
+					Detail:    fmt.Sprintf("kind=%s doc=%d/%d webhook=%s: %s", kind, i+1, len(docs), rejection.Webhook, rejection.Message),
+					UserAgent: r.Header.Get("User-Agent"),
+					Outcome:   "rejected",
+				})
+			}
+			return
+		}
+		applied++
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{"applied": applied, "total": len(docs), "dryRun": req.DryRun})
+}
+
+func patchTypeName(t types.PatchType) string {
+	switch t {
+	case types.StrategicMergePatchType:
+		return "strategic"
+	case types.MergePatchType:
+		return "merge"
+	default:
+		return "apply"
+	}
+}
+
+// staleApplyOwnerPatch builds a JSON patch removing every managedFields entry
+// for manager "kubebay" with operation Apply: ownership the old force-apply
+// edit path claimed (backlog #46). Edits are Update patches now, so such an
+// entry only blocks later server-side appliers (Helm 4, Argo CD, Flux) with
+// conflicts against "kubebay". Each removal first tests that the index still
+// holds that entry, so a concurrent change fails the patch instead of
+// removing someone else's ownership. Indexes go highest first so earlier
+// removals don't shift later ones. Nil when there is nothing to remove.
+func staleApplyOwnerPatch(entries []metav1.ManagedFieldsEntry) []byte {
+	var ops []map[string]interface{}
+	for i := len(entries) - 1; i >= 0; i-- {
+		e := entries[i]
+		if e.Manager != "kubebay" || e.Operation != metav1.ManagedFieldsOperationApply {
+			continue
+		}
+		base := fmt.Sprintf("/metadata/managedFields/%d", i)
+		ops = append(ops,
+			map[string]interface{}{"op": "test", "path": base + "/manager", "value": "kubebay"},
+			map[string]interface{}{"op": "test", "path": base + "/operation", "value": "Apply"},
+			map[string]interface{}{"op": "remove", "path": base},
+		)
+	}
+	if len(ops) == 0 {
+		return nil
+	}
+	b, _ := json.Marshal(ops)
+	return b
+}
+
+// releaseStaleApplyOwner drops a stale kubebay Apply entry after a successful
+// edit. Removing an ownership entry changes no field values. Best effort: a
+// failure (a concurrent write moved the index) leaves the entry for the next
+// edit and never fails the edit itself.
+func (c *Channels) releaseStaleApplyOwner(ctx context.Context, ri dynamic.NamespaceableResourceInterface, ns, name string, entries []metav1.ManagedFieldsEntry) bool {
+	patch := staleApplyOwnerPatch(entries)
+	if patch == nil {
+		return false
+	}
+	var err error
+	if ns != "" {
+		_, err = ri.Namespace(ns).Patch(ctx, name, types.JSONPatchType, patch, metav1.PatchOptions{FieldManager: "kubebay"})
+	} else {
+		_, err = ri.Patch(ctx, name, types.JSONPatchType, patch, metav1.PatchOptions{FieldManager: "kubebay"})
+	}
+	return err == nil
+}

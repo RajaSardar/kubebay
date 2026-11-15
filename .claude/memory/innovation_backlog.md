@@ -1,0 +1,1505 @@
+---
+name: Innovation & enterprise-feature backlog
+description: Running list of proposed Kubebay features (visualizations, autoscaler wizards, MCP server, cost optimization, enterprise tier) with status and scoping notes
+type: roadmap
+---
+
+## How this file works
+
+- This is a living backlog, not a spec. Entries start as a one-paragraph `idea` and only grow into a real design once someone (Raja or an `innovation-scout` pass) commits time to it.
+- Status values: `idea` (raw, unscoped) → `scoping` (an innovation-scout pass produced a spec below the entry) → `building` (a branch/PR exists — link it) → `shipped` (merged — link the PR) → `parked` (explicitly deprioritized, with why).
+- Use the **`innovation-lab`** skill to add, triage, or list entries conversationally. Use the **`innovation-scout`** agent to turn one `idea` into a scoped spec (architecture fit + phased plan + effort) without committing to building it yet.
+- Entries tagged **[Enterprise]** are candidates for a paid/enterprise tier rather than the OSS core — see the split below before scoping one as free.
+- Adding an entry here is not permission to build it. Nothing in this file gets implemented without Raja explicitly asking for that specific item.
+
+## Open-core split (working assumption — confirm with Raja before monetizing anything)
+
+Kubebay OSS stays the complete local-first single/multi-cluster IDE — everything shipped through v0.2.0, plus straightforward additions in the same spirit (more resource kinds, more visualizations, more drawer tabs). Enterprise-tier candidates are the ones that need either:
+- (a) a control plane beyond one user's laptop — fleet-wide policy, SSO, centralized audit export, or
+- (b) opinionated automation on top of a complex third-party controller (KEDA, Karpenter, VPA) where a guided wizard + guardrails is genuinely worth paying for over hand-writing the CRD yourself.
+
+**Confirmed by competitive research, 2026-09-26:** Lens's paid tiers map almost exactly onto carve-out (a) — Lens Spaces/Teamwork (cloud team collaboration) and Lens Enterprise (SSO/SAML/SCIM/air-gapped/centralized audit export) both need a control plane Kubebay doesn't have and shouldn't grow speculatively. Also worth stating in Kubebay's own marketing, not just here: mandatory Lens ID login — required even on Lens's free tier — is the single most-repeated complaint in their own community history and is the entire reason Freelens's "no sign-in" pitch works. Kubebay already has zero accounts; that's a stated strength, not a gap to close.
+
+## Backlog
+
+### 1. More visualizations — status: shipped 2026-09-27 (all three items)
+**Namespace × node resource heatmap — SHIPPED 2026-09-27.** `lib/pressure.ts#aggregatePressure` (pure, unit-tested) joins `v1/pods` + `v1/nodes` (both already full-mode streamed) for zero-new-backend, no-Prometheus requests-vs-allocatable; layers `api.podMetrics`'s existing 15s poll on top when available, with `hasUsageData: false` telling the caller to degrade to a requests-only banner rather than ever rendering blank. `components/PressureGrid.tsx` is a hand-rolled SVG `<rect>` grid following `LineChart.tsx`'s zero-dependency precedent. Both axes cap at top-25 by consumption via the new `lib/useLeadingThrottle.ts` (2s leading-edge throttle on the O(pods) aggregation memo), with everything past the cutoff summed into a "+N others" bucket per axis rather than dropped. BestEffort pods (no requests on any container) get a distinct dashed/red-stroked cell. New "Pressure" tab on `/workloads-overview`, not a new nav item, exactly as scoped.
+**BUILD (small) — Warning-event heat strip on `/timeline` (1.5-2d, ~150 LOC) — SHIPPED 2026-09-27.** `v1/events` is already full-mode streamed, and each Event carries `count` + `firstTimestamp`/`lastTimestamp`, so flap *rate* is computable from one snapshot with no history store. Honest ceiling: the API server's event TTL (default 1h) means the time axis is ~1h, not 24h — labeled as such. `lib/eventHeatStrip.ts`'s `buildWarningHeatStrip` spreads each event's count across its own first..last span rather than dumping it all into the last-seen bucket; `components/EventHeatStrip.tsx` renders it above the (unfiltered) event list.
+**LATER — "what-if" capacity.** Not a separate feature: it's a mode toggle on the heatmap (same aggregation + a delta vector + taint/nodeSelector filter). A faithful simulation needs real scheduler predicates (affinity, topology spread, PDBs) — weeks of work, and a wrong projection at 2am is worse than none.
+**KILL — RBAC access graph.** `Rbac.tsx`'s existing `runWhoCan()` already answers the actual 2am question ("who can delete pods in prod?") as a table. A subject→role→resource graph on a real cluster (hundreds of bindings, `system:` roles) is an unreadable hairball — the canonical screenshot-once visualization. Better investment in that area is the least-privilege advisor, which is a *list*.
+**Rollout progress visualization — SHIPPED 2026-09-27.** `lib/rollout.ts`'s `buildRolloutProgress` matches owned ReplicaSets by owner UID, classes the highest-revision one new vs old, and surfaces the Progressing condition (including `ProgressDeadlineExceeded`). `components/RolloutProgress.tsx` renders it as a new "Rollout" tab on the Deployment drawer — `GenericDrawer.tsx`'s generic tab bar is now driven by a per-slug `genTabs` list rather than a hardcoded array, so this didn't need a new `isDeployment` special case.
+
+### 2. Easy KEDA enable — status: shipped 2026-09-27 (P1+P2+P3+P4 all shipped; installer stays parked) — **do NOT build the installer**
+**Detection is nearly free.** `engine/internal/httpapi/crds.go` already lists every CRD (group/kind/plural/printer columns); "is KEDA present" is a client-side filter on the existing `/api/crds` response. For version, crds.go currently drops CRD *labels* — add `Labels` so KEDA's `app.kubernetes.io/version` shows. Never ship a KEDA-version compatibility table: generate a minimal spec and let the existing SSA `DryRunAll` in `yaml.go` adjudicate against the live schema, surfacing the server's own error verbatim.
+**Installation — recommend NOT building it.** Three concrete blockers in the current Helm layer (`helm.go`, `helm_repo.go`): there is **no `helm repo add` endpoint** (install only works for repos already in the user's local `repositories.yaml`); `actionCfg` never sets `RegistryClient`, so `oci://ghcr.io/kedacore/charts/keda` — KEDA's primary distribution — fails outright; and there is **no dry-run anywhere in the Helm path**, so the product's core diff-before-mutate promise is absent exactly where blast radius is largest (≈10 CRDs, ClusterRoles, an admission webhook). Do detect-and-guide instead: a pre-flight panel plus copy-paste `helm repo add/install` commands, same pattern as `PodGraphs.tsx`'s port-forward hint.
+**Phases.** P1 detect & surface (~2d, OSS): an "Autoscaling" tab in `GenericDrawer.tsx` listing the ScaledObject/HPA/VPA that *own* this Deployment, with min/max/current and a "Managed by KEDA" badge (new `components/AutoscalingTab.tsx`). Note `App.tsx`'s `CustomResourcesGroup` truncates at `.slice(0,40)`, so KEDA CRDs may not even appear in the sidebar on CRD-heavy clusters — fix that. P2 read-only explain (~2d): decode an existing ScaledObject into plain English ("scales 1→20 on cron Mon-Fri 09:00"), flag HPA conflicts and `minReplicaCount: 0`. **P1+P2 is the 80/20 — build just these first.** P3 wizard, cron + CPU/memory only (~1wk): generate → Monaco diff (reuse `YamlTab.tsx`'s `DiffEditor`) → dry-run → apply. P4 Prometheus trigger (~4d). P5 install — only if the Helm layer is hardened first.
+**Safety.** Hard-default `minReplicaCount: 1`; scale-to-zero requires an explicit typed confirm. **Blocking check (not a warning) on an existing HPA targeting the same Deployment** — dual-ownership replica flapping is the #1 real-world KEDA failure. Ship the first apply with `spec.advanced.paused: "true"` so the ScaledObject reconciles and reports desired metrics without acting, with a second explicit action to unpause: that *is* a free read-only what-if mode.
+**Prometheus trigger gotcha.** `promquery.go` proxies `AppSettings.PrometheusURL` from the laptop (usually a port-forward to localhost); KEDA resolves its `serverAddress` **in-cluster**. Never prefill one from the other — resolve candidate in-cluster Services instead and label the local validation honestly.
+**Tier: push back on [Enterprise].** P1-P3 is ordinary OSS drawer work; gating it fragments the safety story. The Enterprise-shaped piece is fleet-wide autoscaling policy (org-wide "no min=0 in prod", multi-cluster ScaledObject inventory).
+
+**P1+P2 shipped 2026-09-27:** `components/AutoscalingTab.tsx` (data-fetching `AutoscalingTab` + pure `AutoscalingSummary`) wired into `GenericDrawer.tsx`'s new "Autoscaling" tab for Deployments/StatefulSets. Detection via `/api/crds` filtered client-side for `group === "keda.sh" && resource === "scaledobjects"` (no engine changes) — the ScaledObject GVR is only streamed once discovery confirms it exists, so an absent KEDA install degrades to an empty tab rather than a broken subscription. `lib/keda.ts#explainScaledObject` decodes target/min/max/current plus a per-trigger plain-English description (cron gets its schedule spelled out; unknown trigger types fall back to their raw name rather than being dropped). `hpaConflictsWithScaledObject` flags the HPA-vs-ScaledObject dual-ownership case; `minReplicaZero` flags scale-to-zero. The CustomResourcesGroup 40-item truncation this entry flagged turned out to already have a "Show all N" escape hatch with a passing regression test — nothing to fix there. P4 Prometheus trigger and P5 install remain open (and P5 stays a "do not build" per the Helm-layer blockers above).
+
+**P3 (cron + CPU/memory wizard) shipped 2026-09-27:** `lib/kedaWizard.ts#buildScaledObjectYaml` generates a ScaledObject manifest via a small hand-rolled template (not a YAML serializer — every field here is a simple string/number this codebase controls, consistent with the zero-new-deps pattern used throughout this backlog) for cron and CPU/memory triggers only, per this entry's own P3 scope note. It always ships `spec.advanced.paused: "true"`, exactly matching this entry's safety rule: the first apply reconciles and reports desired metrics without acting; unpausing is left as a distinct, separate action rather than bundled into the wizard. `validateKedaWizardInput` reuses `hpaConflictsWithScaledObject` from P1+P2 to make the HPA-conflict check a hard block, not a warning — the #1 real-world KEDA failure this entry calls out. `components/KedaWizard.tsx` renders the form plus a live preview via the same `DiffEditor` `YamlTab.tsx` uses (original `""` vs. the generated manifest, since this always creates a new object rather than editing one), then dry-runs/applies through the existing `/api/yaml/create` endpoint (`pages/CreateResource.tsx`'s own path for any brand-new resource — no new engine endpoint needed). Scale-to-zero (`minReplicaCount: 0`) gates Apply behind typing the target workload's name to confirm, same convention as the delete-confirm input already in `GenericDrawer.tsx` and the dangerous-change gate added to `YamlTab.tsx` for backlog #3. Wired into `components/AutoscalingTab.tsx` as a "+ Add ScaledObject" affordance, shown only when KEDA's CRDs are actually discovered. Routed through the existing `heavy.tsx` lazy-loading pattern (alongside `YamlTab`/`ExecTerm`) rather than a static import — a static import would have pulled `lib/theme.ts`'s module-level `window.matchMedia()` call into every test that transitively renders `GenericDrawer`, which jsdom doesn't implement; this was caught as a real failing test (`extraColumns.test.ts`) during this work, not a hypothetical, and fixed by lazy-loading rather than by patching `theme.ts`.
+
+**P4 (Prometheus trigger) shipped 2026-09-27:** `KedaTrigger` widened to a `PrometheusTrigger` variant (`serverAddress`, `query`, `threshold`); `buildScaledObjectYaml` emits the corresponding `type: prometheus` trigger block, `validateKedaWizardInput` requires all three fields non-empty/positive. Implements this entry's own "Prometheus trigger gotcha" verbatim: the server address is **never** prefilled from `AppSettings.PrometheusURL` (Kubebay's local proxy, usually a laptop port-forward) — `lib/prometheusServiceDiscovery.ts#findCandidatePrometheusServices` instead scans the already-open Services stream for plausible in-cluster candidates (by name or `app`/`app.kubernetes.io/name` label, preferring a `web`/`http` named port) and offers them as `<datalist>` suggestions the user still has to pick or override, and the wizard's dry-run success message is qualified specifically for this trigger type ("accepted the manifest shape" — not a claim that the query is valid or the address is reachable). Services are only streamed once the wizard is opened, not on every workload drawer render. **#2 is now fully shipped** (P5 installer stays parked per the Helm-layer analysis above).
+
+### 3. Easy Karpenter enable — status: shipped 2026-09-27 (P1 + P2 observability and safe editing shipped; installer stays parked) — **kill the installer, build the observability**
+**Value split: read-only observability ~75%, safe editing ~20%, installation ~5% and actively negative.**
+**The installer is incoherent and should not be built.** `engine/go.mod` has **zero AWS SDK** — no IAM, IRSA/Pod Identity, instance profile, SQS, or subnet/SG tagging capability, and no credential story beyond the kubeconfig exec plugin. Karpenter's Helm chart is the last 10% of an install whose other 90% lives in Terraform. Worse, `helm.go`'s `HandleUpgrade` *can* already install (it falls through to `action.NewInstall`), so Kubebay could ship a controller with no IAM, no queue and no tags — it comes up, reconciles nothing, and looks broken, leaving Kubebay owning an AWS-shaped support burden it has no tools to diagnose.
+**Build instead: a Karpenter page** following the existing ArgoCD detect-by-list pattern (`argocd.go:44` returns `{installed:false}` and the page renders an empty state). New `pages/Karpenter.tsx` (~450 LOC) streaming nodepools/nodeclaims/nodes/pods/events through existing hooks. Per NodePool: nodes provisioned (join `node.metadata.labels["karpenter.sh/nodepool"]`), pods and namespaces on them, spot-vs-on-demand mix (`karpenter.sh/capacity-type`), limits vs `.status.resources`, and a live disruption feed from NodeClaim/Node events. Second panel — **unschedulable pods** with the `FailedScheduling` message quoted verbatim, which is where the actual blocking constraint is. Plus `components/NodePoolSummary.tsx` (~200 LOC) and NodePool/capacity-type columns on the Nodes table. ~2 weeks.
+**Prerequisite refactor:** `GenericDrawer.tsx`'s hardcoded `isNode`/`isService`/`isPod` chain needs to become a summary registry keyed on slug before a fourth kind is added.
+**If editing ever ships (phase 2, ~1wk):** reuse `YamlTab`'s Monaco diff + `DryRunAll`, but add an **impact banner above the diff** computed from already-open streams — "backs N nodes / M pods / K namespaces; P pods have PDBs; Q are spot" — plus type-to-confirm for the three eviction-causing changes (shrinking limits, lowering `budgets[].nodes`, switching `consolidationPolicy` to `WhenEmptyOrUnderutilized`). Dry-run validates schema, not blast radius; without the impact banner, do not ship editing at all.
+**Tier: push back on [Enterprise].** This is DEFS registry + informer streams + a page, the same shape as the OSS ArgoCD and RBAC pages. Nobody pays for a table, and it's the strongest "Kubebay understands EKS" demo available. The paid surface, if any, is fleet-wide NodePool policy drift.
+**Risks:** false confidence (a green dry-run says nothing about capacity loss); event-stream cost (`EventsDrawer` already streams cluster-wide events in full mode and filters in JS — Raja has already flagged tab perf, see `feedback_tab_performance.md`); API churn (`v1beta1`→`v1` renamed fields — read the served version from `crdApi.list()`, never hardcode).
+
+**P1 shipped 2026-09-27:** `pages/Karpenter.tsx` nav'd at `/karpenter`, `lib/karpenter.ts` (`detectKarpenter`, `buildNodePoolRows`, `buildUnschedulablePods`), `components/NodePoolSummary.tsx`, `components/UnschedulablePods.tsx`. Detection via `/api/crds` filtered for `group === "karpenter.sh"` (same free pattern as KEDA) — GVR read from discovery, never hardcoded, so v1beta1-only installs detect the same as v1. Per-NodePool node/pod/namespace counts and spot-vs-on-demand mix come from joining nodes via the `karpenter.sh/nodepool` label; limits and current resources are read straight off the NodePool's own `spec.limits`/`status.resources` (Karpenter already aggregates those, no join needed). Unschedulable-pods panel surfaces `FailedScheduling` events with the apiserver's message quoted verbatim. Also added `NodePool`/`Capacity type` columns to the generic Nodes table (`extraColumns` in `ResourceTable.tsx`). Skipped the `GenericDrawer` summary-registry prerequisite refactor — not needed since this page doesn't give NodePool/NodeClaim a custom drawer tab. Installer stays parked per the analysis above.
+
+**P2 (safe editing with an impact banner) shipped 2026-09-27:** `lib/labelSelector.ts#matchesSelector` implements real Kubernetes LabelSelector semantics (matchLabels + matchExpressions: In/NotIn/Exists/DoesNotExist) so PDB coverage isn't a same-namespace guess. `lib/karpenterImpact.ts#computeNodePoolImpact` joins the page's already-open node/pod/PDB streams into the blast-radius figures the original note called for: nodes/pods/namespaces backed by the pool, spot-node count, and PDB-protected pod count via that real selector match. `lib/karpenterDangerousChange.ts#detectDangerousChanges` compares the original vs. edited NodePool YAML text for the three named eviction-causing edits (shrinking `spec.limits.cpu`/`memory`, lowering a `spec.disruption.budgets[].nodes` value, switching `consolidationPolicy` to `WhenEmptyOrUnderutilized`) via a small hand-rolled scoped-block text extractor — no YAML parsing dependency added, consistent with this codebase's zero-new-deps pattern. Rather than forking `YamlTab`, it gained two optional props (`impactBanner`, `dangerousChangeCheck`) so the existing dry-run/apply/policy-rejection flow stays single-sourced: when `dangerousChangeCheck` flags the current edit, Apply is disabled until the user types the resource's name to confirm — Dry-run is never gated since it can't mutate the cluster. `components/NodePoolEditor.tsx` wires the banner + gate together; `components/NodePoolSummary.tsx` gained an inline "Edit" toggle per NodePool card that expands `NodePoolEditor` in place (no new modal primitive built). `pages/Karpenter.tsx` now also streams `policy/v1/poddisruptionbudgets` so the PDB-coverage figure is real. **#3 is now fully shipped** (installer remains a deliberate non-goal, not a gap).
+
+### 4. Intelligent VPA / right-sizing — status: shipped 2026-09-27 (v1, v2 Tier B, v3 all shipped)
+**Verified:** `resources.ts` registers VPAs with `mode:"full"` and `ResourceTable` passes `def.mode`, so `.status.recommendation` *is* streamed today. The trap is elsewhere: `useResourceStream` defaults to `"metadata"` and `pool.go`'s `NormalizeMode` silently coerces anything ≠ `"full"` to metadata — **any new VPA hook must pass `{mode:"full"}` explicitly or the whole feature silently shows nothing.**
+**Blocker bug — fixed, 2026-09-27 (shipped in PR #9):** `GenericDrawer.tsx`/`ResizePanel.tsx` now source live objects via `api.getObject()`, a dedicated JSON endpoint, instead of `JSON.parse()`-ing YAML text. Summaries and ResizePanel's "current" values load correctly. v0 is done — v1 (ranked view) is next.
+**Recommendation logic.** Show all four values; apply `target` to **requests only**. `upperBound`/`lowerBound` are confidence bounds that widen with thin history — use them as a gate, not a value: if `upperBound/target > 3`, suppress the CTA ("still gathering history"). `uncappedTarget ≠ target` means `minAllowed`/`maxAllowed` or a LimitRange clipped it — surface as "capped by policy". **Memory is a cliff: use max/p99, not p95** (an OOM is an outage, not a tradeoff); CPU uses p95 of rate. **Never write CPU limits** (throttling); if limits exist, preserve the existing limit:request ratio. Materiality gate: ≥20% delta **and** ≥50m/64Mi absolute, else no restart is worth it. Exclude Jobs/CronJobs.
+**Most clusters have no VPA — ship our own recommender, it's the bigger win.** Tier A: Prometheus 7d percentiles. Tier B: metrics-server — one instantaneous sample, so label it "current usage vs requests", **never** "recommendation". Tier C: explain and stop. Always render a source + window + sample-count confidence badge. Don't build a local sampler: the desktop app isn't always running and gapped samples make percentiles lie. **Shipped 2026-09-27 as `internal/waste`, jointly with #6 (see that entry's Phase 1/Phase 2 notes for the full design) — Tier A's `promquery.go` instant-endpoint blocker is fixed, all three tiers are live.**
+**Apply path.** SSA doc containing only `spec.template.spec.containers[].resources` → `applyYaml({dryRun:true})` → Monaco `DiffEditor` → `ArmedButton` confirm naming blast radius ("12 pods will roll"). Per-container checkboxes; sidecars opt-in. **GitOps detection required:** if `argocd.argoproj.io/instance`, Flux annotations, or `managed-by=Helm` are present, demote the CTA to "Copy patch" — a direct patch will just be reverted and cause drift. For Pods specifically, route through the existing `/api/action/resize-pod` (in-place, no restart). Audit as `action:"rightsize"`.
+**Build the ranked view first** (`pages/RightSizing.tsx`, sorted by wasted cores/GiB × replicas) — a per-workload banner requires you to already be on the right page, so discovery is the value. The banner is a ~20-line follow-on.
+**Phases:** v0 blocker fix (2h) → v1 VPA-only ranked view + apply flow (4-5d) → v2 own recommender (5-7d) → v3 banner + in-place pod resize + patch export (3-4d).
+**Risks:** metadata-mode regression silently empties the feature; **HPA-on-CPU + VPA-on-CPU on the same workload is a known-broken combo — must detect and refuse**; a ranked list invites bulk-apply, so deliberately omit it in v1.
+
+**v1 shipped 2026-09-27:** `lib/rightsizing.ts` (`computeRightSizingRows`, `buildResizePatchYaml`, `gvrForWorkloadKind`) + `components/RightSizingTable.tsx` + `pages/RightSizing.tsx`, nav'd at `/right-sizing`. Streams VPAs/Deployments/StatefulSets/DaemonSets/HPAs with explicit `{mode:"full"}` (per the trap noted above). One row per (workload, container) with a VPA recommendation, ranked by fleet-wide wasted cores+GiB. Materiality gate (≥20% relative AND ≥50m CPU/64Mi memory absolute) applied per-dimension; a row with neither dimension material is dropped, not just de-emphasized. HPA-on-CPU conflict detected by matching `scaleTargetRef` against the VPA's `targetRef` and disabling the cpu checkbox on that row (memory can still move). Jobs/CronJobs excluded via an explicit supported-kind allowlist (Deployment/StatefulSet/DaemonSet). Apply path: per-workload SSA patch containing only `spec.template.spec.containers[].resources.requests` (never limits) → dry-run via the existing `/api/yaml` endpoint with the new `action:"rightsize"` override (`engine/internal/httpapi/yaml.go`'s `auditActionFor`) → Monaco `DiffEditor` preview → `ArmedButton` confirm. GitOps-owned workloads (via `gitops.ts#ownerOf`) get a "Copy patch" button instead of an apply button. No bulk-apply (per-workload only, as scoped).
+
+**v2 (own recommender, Tier B) shipped 2026-09-27:** new `engine/internal/waste` package — a background sampler polls every connected cluster every 60s via metrics-server, resolves each pod to its owning Deployment/StatefulSet/DaemonSet (ReplicaSet ownership resolved one hop for Deployments; Jobs/CronJobs and bare pods excluded, same scope as v1), and keeps an in-memory 3h rolling window per workload — dies on restart by design, per this entry's own warning against pretending a gapped history is a reliable percentile source. `GET /api/waste/workloads?cluster=X` exposes the current snapshot, labeled with its actual sample count/window ("observed over 3h, 180 samples"); a workload with requests but no usage sample yet is omitted rather than shown with a fabricated zero (Tier C: explain and stop). Never touches Prometheus — that's Tier A, tracked separately under #6 Phase 2. Frontend: `lib/rightsizing.ts#computeEngineRightSizingRows` turns each row into the same `RightSizingRow` shape as a VPA row (workload-level, since the sampler aggregates whole-workload rather than per-container) and `mergeRightSizingRows` combines both sources into one ranked list, VPA winning over the engine's own recommendation for the same workload. Engine-sourced rows render as view-only in `RightSizingTable.tsx` (no apply checkboxes) — the sampler's workload-level aggregation means there's no real per-container split to build an SSA patch from, so actuating on them is v3 scope, not v2's. Shares the recommender with #6 Phase 1 (`components/WorkloadUsageTable.tsx` on the Cost/Waste page) — one recommender, two renderers, as this entry's boundary note called for.
+
+**v3 (banner + in-place pod resize + patch export) shipped 2026-09-27:** `components/RightSizingBanner.tsx` puts the ranked view's own-workload opportunity on the resource's Summary tab (Deployments/StatefulSets/DaemonSets), linking to `/right-sizing` rather than duplicating its apply flow — `lib/rightsizing.ts#summarizeForWorkload` narrows a ranked list to one workload, returning null so the banner renders nothing when there's no opportunity. In-place pod resize already existed (`components/ResizePanel.tsx` → `/api/action/resize-pod`) but had no link to a recommendation; `lib/podOwner.ts#resolveWorkloadOwner` mirrors the engine sampler's own two-hop ReplicaSet→Deployment resolution so the panel can offer a "Use suggested" fill from whichever row (VPA or engine) covers the pod's owning workload — `suggestedRequestsFor` matches a VPA row by exact container name but an engine row by workload only (labeled "workload-level, not container-exact" so the UI never overclaims precision the sampler doesn't have). Patch export is a "Copy as patch" button next to Apply resize. Also fixed a real gap found along the way: `/api/action/resize-pod` recorded no audit entry at all — now matches every other mutating action.
+
+### 5. MCP server — status: shipped v1 (read-only, slices 1–3) and phase 2 (propose, then a person approves), 2026-10-10
+**Transport: Streamable HTTP mounted at `/mcp` on the engine's existing listener, inside the `requireToken` group — not stdio.** The engine is already one supervised localhost process holding a warm shared informer cache; a stdio subprocess would be a second client-go process opening duplicate watches against prod with a cold cache. Ship a thin stdio bridge (`engine/cmd/kubebay-mcp/main.go`) for Claude Desktop, which configures local servers as stdio commands, reading addr+token from a Tauri-written config. Use a **separate, rotatable MCP token** (not the UI token), validate `Origin` (DNS rebinding), keep the 127.0.0.1 bind.
+**No headless standalone mode in v1.** Without the window there is no confirm banner and no "MCP connected" indicator — a headless MCP server is kubectl with extra steps and forfeits the entire trust-boundary pitch.
+**Tool surface — 7 read-only tools, deliberately few.** `list_clusters`, `list_resources` (informer-cache rows only, never full objects), **`describe_resource` — the crashloop tool**: conditions + per-container image/state/`lastTerminationState` reason+exitCode + last 10 object events + owner chain, replacing what would otherwise be 4 round-trips; `get_logs` (reuses `Channels.OpenLogs` non-follow, dedup with repeat counts, ~40KB cap); `list_events` (aggregated by reason+object); `get_manifest` (explicit escape hatch, reusing `stripNoisyFields`); `get_cluster_health`. **Secrets excluded outright; env values redacted.** Design returns to be token-efficient — dumping raw Kubernetes YAML into a model's context is enormously wasteful.
+**The async-confirmation problem, solved without a blocking call.** v1 is read-only; writes in v1 would be dishonest. Phase 2 uses a two-call ceremony: `propose_change` runs the existing SSA dry-run and returns a diff + `proposalId` (5-min TTL) — it never mutates. The proposal is pushed to the UI over the existing `/ws` hub and rendered in the same confirm-banner language as `ActionsBar.tsx`. **There is deliberately no `apply_proposal` tool**: the human clicks Approve in Kubebay, Kubebay executes, the model polls `get_proposal_status`. If nobody answers, it expires and is audited — which is the correct production failure mode. Explicitly *not* MCP elicitation for approval: that routes consent through the AI client's UI, which is the wrong trust boundary.
+**Identity and scope.** `cluster` is a required argument on every tool — never inherit the kubeconfig's current-context, which per `feedback_never_touch_prod.md` is prod EKS. Audit **every** tool call including reads (add `Source`, `Client`, `SessionID` to `audit.Entry`). Scope config in `AppSettings`: `mcp: {enabled:false, clusters:[], namespaces:{}, writesEnabled:false}` — default deny, enforced in the MCP layer and re-checked per handler. Persistent header chip + tool-call log + kill switch in the shell.
+**Effort:** v1 2-3 weeks (~1500 LOC Go, rendering is the bulk); phase 2 ~2 weeks.
+**Risks:** an authenticated-but-local `/mcp` is full prod read for any local process or rebound browser page (hence separate token, Origin check, default-off); **prompt injection via cluster data** — a pod annotation or log line instructing the model — which read-only v1 caps at exfiltration, making the secrets exclusion load-bearing; wrong-cluster blast radius.
+**Competitive-urgency note (2026-09-26, Lens research pass):** Lens shipped a built-in MCP server in March 2026 (press: "first major Kubernetes management tool to ship a built-in MCP server") — read-only kubectl/PromQL, credentials described as staying local. From what's publicly documented, the design above is still *more* conservative: no direct-apply tool at all, a two-call propose/human-approve ceremony with a 5-min TTL, full read+write audit, default-deny per-cluster/namespace scoping. Treat this as a scheduling signal, not a design gap — worth moving up the queue given this repo's own AI-native SDLC framing, not worth reacting to theirs feature-for-feature.
+**Build debate (2026-10-10): hand-written server or the official Go SDK.** One agent argued each side, then a synthesis round cross-checked them against the spec and the repo. The SDK agent died on an API session limit, so its research was done in the synthesis round from the SDK's source and proxy metadata.
+- **Spec facts, read from the spec repo:**
+  - The newest revision is **2026-07-28**. It is stateless: no `initialize`, `notifications/initialized`, `ping`, sessions or GET stream.
+  - It requires `server/discover`.
+  - Every request carries its version in `_meta`. The `MCP-Protocol-Version`, `Mcp-Method` and `Mcp-Name` headers must match the body, or the server answers 400 with -32020.
+  - An unsupported version gets 400 with -32022 and the supported list. An unknown method gets 404 with -32601.
+  - Every result carries `resultType`; list results add `ttlMs` and `cacheScope`.
+  - Older clients (2025-03-26 to 2025-11-25) still use `initialize`.
+- **The SDK's cost.** `github.com/modelcontextprotocol/go-sdk` from v1.4 needs `go 1.25` (v1.0–v1.2 need 1.23). The engine is on go 1.22, and the Makefile builds with `GOTOOLCHAIN=local`, so a bump breaks `make build` (and the Mac ship) on any machine without Go 1.25. The SDK also pulls jsonschema-go, segmentio/encoding+asm, uritemplate, x/oauth2 and jwt, and raises x/tools, x/sys and x/oauth2 under client-go and Helm.
+- **Verdict: hand-write a stateless, JSON-only server, with no new dependencies, speaking both eras.** The protocol layer is about 500 lines; the tool layer is the same either way.
+  - Revisit the SDK if Kubebay needs SSE, progress, MRTR or OAuth.
+  - The Go bump is overdue (1.22 has been EOL since Feb 2025), but it is its own PR and needs the dev machine's toolchain updated first.
+- **Corrections to the design above, found in the synthesis:**
+  - **Not inside `requireToken`.** That group also accepts the UI token, OIDC cookies, and everything when no token is set. `/mcp` is mounted beside it and takes only its own Bearer token.
+  - **Any `Origin` header is refused (403).** No MCP client is a browser. The global loopback-`Host` guard still applies.
+  - **The audit fields change.** `SessionID` is obsolete with sessions gone. An entry carries the client's name and version plus the JSON-RPC request id, with `Source: "mcp"`.
+  - **`get_manifest` must strip `kubectl.kubernetes.io/last-applied-configuration`.** `stripNoisyFields` leaves it, and it holds the whole manifest, env values included.
+  - **Tools read the informer cache** by subscribing, taking the first snapshot and cancelling. There's no synchronous `Pool.List`.
+- **Slices:**
+  1. **Shipped in this PR:**
+     - the protocol layer (`internal/mcp`);
+     - auth;
+     - the switch and scope;
+     - the token in `~/.kubebay/mcp.json` (0600, minted on enable, revoked on disable or rotate);
+     - `list_clusters` and `list_resources`.
+  2. **Shipped (same PR, second commit): the remaining five tools.**
+     - **`describe_resource`** is the crashloop answer. For each container it gives the image, state, restarts and last termination (reason, exit code, finishedAt). It also gives conditions, the owner chain (Pod → ReplicaSet → Deployment, by live GET), and the last 10 events for the object, warnings first. Env values become `<redacted>`; names and `from` refs stay.
+     - **`get_logs`** reads the API server with `LimitBytes` (40KB), a default tail of 200 lines (max 1000), and `previous` for CrashLoopBackOff. Runs of identical lines collapse to `line  (×N)`.
+     - **`list_events`** groups events by namespace/object/reason with summed counts and the latest message. Warnings only by default, limited to the namespaces in scope.
+     - **`get_manifest`** returns YAML without managedFields and the last-applied annotation, with every literal env value redacted in pod specs, templates and job templates, capped at 40KB. ConfigMaps and Secrets are refused.
+     - **`get_cluster_health`** gives node readiness (only with cluster-wide scope), pods not Running+Ready or Succeeded (with reason, first 25), and the 10 most frequent warnings.
+     - Every tool checks scope (cluster, namespace, cluster-wide in a namespace-scoped cluster) before touching the cluster, and is audited.
+  3. **Shipped (follow-up PR): the stdio bridge and the UI.**
+     - **The bridge is a subcommand, not a second binary:** `kubebay-engine mcp-stdio`. The Tauri app ships one sidecar, so Claude Desktop launches the binary already inside `Kubebay.app`. It forwards newline-delimited JSON-RPC to `/mcp`, mirrors the 2026-07-28 headers from `_meta`, maps `notifications/cancelled` to cancelling the HTTP request, and reads `~/.kubebay/mcp.json` per message, so a rotated token never breaks a connected assistant. Anything that isn't an MCP answer becomes a short JSON-RPC error with the request id.
+     - **Settings → AI assistants (MCP):** per-cluster checkboxes with an optional namespace list, Turn on / Save scope / Turn off (the kill switch: off revokes the token), Rotate token behind a confirm, the Claude Desktop JSON and the `claude mcp add --scope user` command built from the engine's own path, and the last 10 assistant calls from the audit log (`source: "mcp"`). No snippet carries the token.
+     - **Sidebar chip:** "AI access on" under the cluster name while MCP is on, linking to the card. There is no top header bar, so the sidebar brand area is the persistent spot.
+     - **Found by running the real binary:** the SPA wrapper sent only `/ws` and `/api/*` to the router, so `POST /mcp` answered with `index.html`. Fixed on the slice 1–2 PR with a routing test. Unit tests couldn't see it because they mount the router directly.
+     - **Verified end to end** (Linux, real binary, throwaway HOME, dummy kubeconfig): discover, tools/list and tools/call through the bridge for a 2026-07-28 client and a 2025-06-18 `initialize` client; rotate mid-session; disable (the bridge reports the missing connection file); engine down; audit entries carry the client name. Not verified: Claude Desktop itself on macOS, which needs the Mac build.
+
+**Phase 2 shipped (2026-10-10, PR open): propose, then a person approves.** Built to the two-call design above, with three corrections found while building it:
+- **Not server-side apply.** Since #46 every write is an Update patch under the `kubebay` field manager. `propose_change` dry-runs a **strategic merge patch** (`PoolSource.Patch`, field manager **`kubebay-mcp`**, so approved changes are attributable in managedFields).
+- **Polling, not the `/ws` hub.** The hub multiplexes resource streams and has no channel for custom messages. The UI polls `GET /api/mcp/proposals` every 3s, only while proposals are on; the engine is on localhost, so that's as responsive.
+- **The approval is conditional on what was reviewed, not on the exact resourceVersion.** The first version pinned the approval to the resourceVersion seen at proposal time, and the kind CI test caught it going stale at once: the Deployment controller writes status right after a change, and every status write moves the resourceVersion. Now the store keeps the cleaned object the diff was computed from (spec and metadata, without status, managedFields, versions or controller annotations). At approval it re-reads the object and compares. If they differ, the proposal goes `stale` and the model is told to propose again. If they match, the patch is pinned to the resourceVersion just read, so a change landing between that read and the write still gets a 409.
+
+How it fits together:
+- **`internal/mcp/proposals`:** an in-memory store with a 5-minute TTL and at most 20 pending.
+  - Statuses: pending, applying, applied, rejected, expired, stale, failed.
+  - Audited with `source: mcp`: propose, apply (outcome stale/failed), reject, and expiry (once).
+  - The patch may touch only `spec` and metadata labels/annotations: no identity, owners, finalizers or status. A no-op patch is refused.
+  - Two diffs: the full one for the reviewer, and one for the model with env values `<redacted>` and the shared credential pass applied, because context lines would otherwise leak what the read tools hide.
+- **The tools:** `propose_change` (cluster, kind, namespace, name, patch, reason) on Deployments, StatefulSets, DaemonSets, CronJobs, Services and Ingresses only, scope-checked; `get_proposal_status`.
+  - With proposals off, the tool says to turn them on in Settings.
+  - There is still **no apply tool**.
+- **The HTTP side:** `writesEnabled` in the MCP settings, off by default.
+  - `GET /api/mcp/proposals`, `POST /api/mcp/proposals/{id}/approve`, `POST /api/mcp/proposals/{id}/reject`, inside the UI-token group, so the MCP token can't approve.
+  - The approval re-checks the scope as it is now.
+  - Turning MCP or proposals off rejects everything pending: the kill switch covers proposals.
+- **The UI:**
+  - an app-wide `McpProposals` dialog: who proposes, the object, the cluster, the assistant's reason, the changed fields, the tinted diff, a countdown; Approve and apply / Reject / Decide later;
+  - a "Let assistants propose changes" checkbox on the AI assistants card;
+  - turning MCP off also turns proposals off.
+- **Verified:**
+  - unit tests across the store, tools, HTTP and UI;
+  - the real binary (the tool is listed, refused while off, a clear error on an unreachable cluster, 404 for an unknown approval);
+  - `live_mcp_proposals_test.go` in the kind CI job: propose → unchanged → approve → applied as `kubebay-mcp` → a stale proposal is refused with 409.
+- **Not in phase 2:** creating or deleting objects, kinds beyond the six, and approving from the AI client (deliberately never).
+
+### 6. Cost optimization — status: shipped 2026-09-27 (Phase 0, 1, and 2 all shipped) — **ship "Waste", not "Cost"**
+**Strong recommendation: no bundled price table, and no dollars by default.** Kubebay shows CPU-core-hours and GiB-hours of reserved-but-unused capacity plus a requests:usage ratio. Dollars appear only if the user types their own `$/node-hour` in Settings (blank default) — their number, their liability. A bundled AWS/GCP/Azure table is wrong for every real buyer (reserved instances, savings plans, CUDs, spot, EDP discounts, region) and stale the day it ships; being confidently wrong about money to a finance-adjacent reader is worse than saying nothing. `NodeSummary.tsx` already parses `node.kubernetes.io/instance-type`, zone and region, so the join key is free if this is ever revisited.
+**Data-source tiers, labelled on every row.** Tier 0 (always, no metrics at all): `allocatable − Σ requests` per node from `v1/nodes` + `v1/pods` — exact, never stale; also flags containers with no requests. **`v1/nodes` must be `mode:"full"`** or `.status.allocatable` is stripped. Tier 1 (metrics-server): a point-in-time sample — **never render a recommendation from it**; an engine-side 60s ring buffer can label "observed over 3h, 180 samples" but dies on restart. Tier 2 (Prometheus): the only honest recommender, `quantile_over_time(0.95, …[7d])` vs `kube_pod_container_resource_requests`, gated behind ≥7d of *probed* coverage. **Blocker: `promquery.go` proxies only `query_range`; the instant endpoint is missing.**
+**Per-cluster Prometheus blocker — fixed, 2026-09-27 (shipped in PR #9):** `AppSettings.PrometheusURLFor(cluster)` now resolves per-cluster with a global fallback; `HandlePromQueryRange` requires a `cluster` param. Safe to build Tier 2 on top of now.
+**Attribution model.** Per node, each pod claims `max(requests, usage)`; the remainder is **node idle, shown as its own top-level line and never spread across namespaces** — spreading idle makes a team's number depend on unrelated teams and collapses trust the first time it's challenged. DaemonSets go to a "system overhead" bucket, not to kube-system's total.
+**Boundary with #4 (agreed by both architects):** one shared engine package `internal/waste` emits `WorkloadWaste{ns,kind,name,requested,p95,ratio,source,window}`. #4 renders one row as a banner and actuates; #6 renders the sorted table and deep-links into that flow. Two views, one recommender. The old "idle-resource finder" bullet was a duplicate of #4 and has been deleted.
+**Live bug found during this design (independently confirmed):** `AppSettings.PrometheusURL` is a single global string and `HandlePromQueryRange` takes no cluster parameter — switch clusters with a stale port-forward and you price cluster A with cluster B's data. Must go per-cluster before any cost claim ships.
+**Effort:** Phase 0 (Tier 0) 3-4d · Phase 1 (sampler + page) ~1wk · Phase 2 (Prometheus + gating) ~1wk. Zero new frontend deps — reuse `LineChart.tsx` and CSS grid.
+**Enterprise honesty: ship the multi-cluster rollup OSS.** It's a `for` loop over the per-cluster computation; withholding it is a revenue line, not an architecture line. The real tier boundary is *persistence beyond the laptop* — a store that keeps recording while the app is closed, plus scheduled export. Sell that.
+
+**Phase 0 shipped 2026-09-27:** `lib/waste.ts#computeClusterWaste` + `components/WasteBreakdown.tsx` + `pages/CostWaste.tsx`, nav'd at `/cost-waste`. Pure Tier 0 (allocatable − Σ requests) computed client-side from already-streamed `v1/nodes`/`v1/pods`, both explicitly `{mode:"full"}`. Node idle stays a standalone top-level line (never spread across namespaces); DaemonSet pod requests go to a system-overhead bucket instead of their actual namespace; containers with neither a cpu nor a memory request are flagged in their own table, separate from the per-namespace totals. No dollar figures anywhere, confirmed by a regression test asserting no `$` renders by default. Frontend-only — no engine changes, zero new deps, reused `lib/rightsizing.ts`'s quantity parsers/formatters rather than duplicating them. **Phase 1 (sampler + page) shipped 2026-09-27**, sharing the exact `internal/waste` engine package this entry called for building jointly with #4 — see #4's v2 note for the sampler's full design (metrics-server-only, 3h in-memory window, dies on restart, every result labeled with its real sample count). `components/WorkloadUsageTable.tsx` renders it as a plain read-only table on this page, below the Tier 0 breakdown — the same recommender #4's Right-sizing page renders as an actionable ranked list, per this entry's own "one recommender, two renderers" framing. **Phase 2 (Prometheus-gated Tier A recommender) shipped 2026-09-27.** Fixed the blocker first: `promquery.go` gained `HandlePromQuery` (`GET /api/prom/query`), an instant-query proxy alongside the existing `query_range` one. `internal/waste/prometheus.go` implements `quantile_over_time(0.95, ...[7d])` against cAdvisor's `container_cpu_usage_seconds_total` (rate()'d — it's a counter) and `container_memory_working_set_bytes` (not rate()'d — it's a gauge), with no kube-state-metrics dependency. The "≥7d probed coverage" gate reuses the same `[7d:5m]` subquery's own `count_over_time`, so a Prometheus with only 2 days of retention naturally fails the gate rather than the window parameter being trusted blindly. The sampler runs this on its own 5-minute ticker (a 7d percentile doesn't need 60s freshness) per cluster with Prometheus configured, resolves pods to workloads via the same ReplicaSet→Deployment chain Tier B uses, and aggregates by summing each pod's own p95 across the workload — documented as an approximation (sum-of-quantiles, not the true quantile of the summed series) rather than requiring a kube-state-metrics label join. `Snapshot()` now prefers Tier A over Tier B per-workload whenever available. Frontend: `RightSizingRow.source` widened to include `"prometheus"`, badged distinctly ("Kubebay (Prometheus, 7d)") from a metrics-server row — caught and fixed a real bug along the way where `computeEngineRightSizingRows` was hardcoding `source: "metrics-server"` regardless of what the engine actually sent. **#6 is now fully shipped.**
+
+### 8. kubectl-based backend (à la Freelens) — status: parked — decided NO on both readings, 2026-09-17
+**Verdict: no.** Four independent experts (compatibility realist, architecture purist, terminal-UX advocate, security/maintenance skeptic) debated this from real source inspection of both Freelens and Kubebay, not speculation. Freelens's "kubectl backend" is actually two separate things: a checksum-pinned kubectl binary downloaded solely for embedded-terminal PATH convenience, and a completely separate compiled `kube-auth-proxy` binary spawned per cluster to do real API auth — the latter exists only because Freelens's Electron/Node main process has no native equivalent to client-go's exec-credential/cloud-auth handling. Kubebay's engine already **is** a Go process on client-go in-process; adopting either Freelens mechanism means importing a workaround for a language limitation Kubebay does not have.
+- **(a) Route core API access through kubectl or a proxy binary — rejected, 3-1, and the dissent doesn't actually disagree.** It would regress the informer-backed shared watch cache the whole live-streaming product is built on, move credentials from engine memory onto disk/into a child process, and buy zero auth capability in the common case (exec-credential plugins live in client-go, which Kubebay already calls). The compatibility realist's "yes" wasn't actually to this — it was to a narrow, **opt-in, off-by-default, per-cluster escape hatch** that spawns the *user's own already-installed* kubectl (`kubectl proxy --port=0`, loopback-only, badged in the UI) for a genuinely unfixable-in-process minority: PKCS#11 hardware-token mTLS, Kerberos/SPNEGO, and shops with a flat "only the vetted binary may reach the control plane" policy. That's real but small and not urgent — logged separately below as its own low-priority idea, not a "yes" to this question.
+- **(b) Bundle/auto-manage a kubectl binary for terminal PATH — rejected as posed, unanimously, because the premise is false.** Kubebay has **no local terminal at all** today — every xterm in the app (`ExecTerm.tsx`, driven from `GenericDrawer`/`PodPanel`) execs into a pod via client-go's `remotecommand`, and node-shell execs into a privileged busybox pod. There is no PATH to put kubectl on. A user typing `kubectl get pods` into either terminal today gets "not found," or worse, in a tooling image with kubectl already present, silently runs as the **pod's ServiceAccount instead of their own identity** — a confusing, currently-shipping footgun independent of this whole debate. Building the local shell that would make (b) coherent is a real, separable, high-value idea — logged below — but it must never auto-download a binary (all four experts converged here): resolve the user's own already-installed kubectl first, offer a checksum-verified opt-in download button at most, and never make bundling the default. Freelens's own `ensure-binaries` package (1,570+ LOC, 9 bespoke dependencies, an external cosign binary, 89 pinned checksums across 15 kubectl versions of which 14 are already EOL/unpatched) is the concrete shape of the tax nobody should choose to pay by default.
+- **The actual most important thing this debate surfaced has nothing to do with kubectl** — see #11 below.
+
+### 9. Opt-in external-kubectl escape hatch for exotic auth — status: scoping (designed 2026-09-17) — **verdict: build later, gated on real demand** (its two cheap fixes shipped 2026-10-09)
+**Feasibility verified against the `kubectl@v0.31.3` / `apimachinery@v0.31.4` source in the local module cache, not from memory:**
+- **Port-forward WORKS.** `proxy_server.go:NewProxyHandler` sets `proxy.UpgradeTransport = makeUpgradeTransport(...)`, which uses `utilnet.SetOldTransportDefaults` to force HTTP/1.1 upstream — precisely the fix for the historical upgrade caveat. SPDY/3.1 and `v5.channel.k8s.io` WebSocket both survive.
+- **Exec is BLOCKED BY DEFAULT — the single most important finding.** `proxy_server.go:43` sets `DefaultPathRejectRE = "^/api/.*/pods/.*/exec,^/api/.*/pods/.*/attach"`, returning a bare 403. Port-forward is *not* on that list. Kubebay would have to launch with `--reject-paths=''`. Worse: a 403 on the WS upgrade is exactly what `exec.go:shouldFallback` matches, so it silently falls back to SPDY and gets 403 again — a confusing double failure if the flag is ever forgotten.
+- **Watch works with no buffering penalty** (Go's `flushInterval()` returns -1 for chunked responses), but engine→proxy is HTTP/1.1, so the informer pool loses HTTP/2 multiplexing — one TCP socket per watch (~30-60 sockets).
+- **A Unix socket is not a safer alternative:** `transport/spdy` and `transport/websocket` both ignore `rest.Config.Dial`, so socket mode would silently break exec *and* port-forward while list/watch/logs keep working.
+**The ~200-400 LOC / 1 week estimate is refuted: realistically ~900-1100 lines and 2-3 weeks.** The hidden cost is that `informers/pool_registry.go` has **no invalidation API** — pools cache a `*rest.Config` with a baked-in `Host: http://127.0.0.1:<port>`, so every proxy restart changes the port and orphans every informer. Teardown would have to be wired through `stream/hub.go` subscriptions and the port-forward manager.
+**Security is worse than "obscurity", and worth stating plainly:** Kubebay's own listener is token-gated, but **the kubectl proxy port has no auth at all** — any local process can `curl http://127.0.0.1:<port>/api/v1/secrets` and read the cluster. `--accept-hosts` only stops DNS rebinding, and Freelens's random path prefix sits in argv where `ps` shows it. Also `Pdeathsig` is Linux-only, so a SIGKILLed engine on macOS leaves a credentialed open port behind forever.
+**Do these two cheap things instead (~2 days total), then wait for real demand:** (1) diagnostics — when `Load()` skips a context or a health check 401s, name the cause ("kubeconfig uses `client.authentication.k8s.io/v1alpha1`, dropped in client-go v0.31") and instrument how often it fires; (2) a ~20-line rewrite of `v1alpha1` → `v1beta1` in the in-memory `clientcmdapi.Config` before handing it to clientcmd, which **kills one of the four justifying cases outright**. Keep this design on file so it's a two-week pickup rather than a re-litigation. Hard-disable under `--in-cluster`.
+**The two cheap things, done 2026-10-09:**
+- **Diagnostics.** Unusable contexts were already listed as `misconfigured` with the real error (#11). The new part is naming the v1alpha1 cause:
+  - client-go doesn't reject `v1alpha1` when it reads the kubeconfig. It fails when building the transport (`exec plugin: invalid apiVersion`), or, when the plugin still answers v1alpha1, with `decoding stdout: no kind "ExecCredential" is registered for version v1alpha1`. The second reads like a client-go bug.
+  - The probe now replaces it with the cause: the plugin (by command), the version it is stuck on, and the fix (update the plugin, then re-run `aws eks update-kubeconfig`).
+  - Each in-memory upgrade is logged at Info with the context name. That's the "how often" signal, since Kubebay has no telemetry.
+- **The rewrite.** `clusters.UpgradeLegacyExec` asks a v1alpha1 exec plugin for v1beta1, on a copy of the exec stanza after `ClientConfig()`. The user's file is never written.
+  - Current plugins (aws CLI, gke-gcloud-auth-plugin, kubelogin) read the version they are asked for from `KUBERNETES_EXEC_INFO` and answer in it, so an old kubeconfig works with a current CLI.
+  - Helm reads the kubeconfig itself, so `actionCfg` applies the same upgrade through `ConfigFlags.WrapConfigFn`.
+  - Tested end to end against a TLS fake API server with shell-script plugins (one echoes the requested version, one is stuck on v1alpha1). It has to be TLS, because clientcmd applies user credentials only to TLS servers.
+Per-cluster, off-by-default toggle: "Connect via external kubectl proxy." Spawns the *user's own* kubectl (never bundled/downloaded) as `kubectl <ctx> proxy --port=0 --address=127.0.0.1 --accept-hosts='^127\.0\.0\.1$'`, parses the printed port, and points an otherwise-unchanged `rest.Config{Host: "http://127.0.0.1:<port>"}` at it — everything downstream (informers, dynamic client, exec, port-forward) is unchanged. Only worth building if a real user hits one of: PIV/YubiKey hardware-token mTLS (non-extractable private key, which `rest.Config` structurally cannot drive), Kerberos/SPNEGO to the API server, or a corporate policy that only a vetted kubectl distribution may reach the control plane. Must verify SPDY/WS exec and port-forward actually survive the `kubectl proxy` hop before shipping; if port-forward doesn't, degrade only that feature with a clear message rather than the whole cluster. Estimated ~200-400 lines plus process lifecycle, about a week. Do not build speculatively — wait for a real ask.
+
+### 10. Local shell terminal — status: shipped — engine (#5) + frontend (PR #10) both merged 2026-09-23 [high value, do not bundle a binary]
+**Verified shipped, 2026-09-27:** `LocalShellTerm.tsx`, `useChannelTerm.ts`, and `TerminalPage.tsx` are all in the tree, wired to `/terminal`. One open follow-up, not a blocker: the Rust side (`stop_engine`, token injection in `main.rs`) has never actually compiled in this sandbox (no GTK) — needs one real `cargo build` on a dev machine to confirm before calling it fully verified end-to-end. **Verified 2026-10-10 on Linux:**
+- With GTK 3.24 and WebKitGTK 4.1 installed, `cargo build` and `cargo test` pass with no warnings.
+- The desktop app runs under Xvfb:
+  - it spawns the sidecar engine and reads the session token from the 0600 file;
+  - the window loads the engine's UI with the token injected (the cluster list loaded, "Engine running");
+  - SIGTERM to the app makes the engine log "shutting down", exit, and remove its token file.
+- A new `desktop (rust)` CI job builds and tests the crate with a stub sidecar, so it can't rot uncompiled again.
+- The macOS-only paths (the login-shell env forwarding as macOS runs it, and the bundle) still need the Mac.
+**Shipped so far (PR #5):** the engine-side PTY behind `//go:build localshell` (a tag no release or Docker build passes — verified: a default binary contains zero `creack/pty` symbols and `validChanKind` rejects the kind via a constant-folded false), plus the token hardening that had to land first — token to a 0600 file instead of the logs, `?token=` removed with `/ws` moved to `Sec-WebSocket-Protocol` auth, no `localStorage` persistence, a loopback `Host` guard against DNS rebinding, and `kill_engine` changed from SIGKILL to SIGTERM-then-SIGKILL so shells can't outlive the app holding cluster credentials. CI gained `-tags localshell` build/vet/test plus a Windows cross-compile, so the excluded path can't rot unnoticed. **Still unverified: the Rust does not compile in CI or the dev container (no GTK), so `stop_engine` and the token injection need a local `cargo build`.** Known UX cost: the browser/dev flow now needs the token pasted once per page load; the desktop app injects it.
+**PTY lives in the Go engine, not Rust.** In desktop mode the engine *is* the user-machine process, already spawned by Tauri with the login shell's PATH and KUBECONFIG injected — which is exactly the PATH that must find `kubectl`. Rust would mean a second transport plus duplicated audit, since `internal/audit` and the chan protocol are both in Go. Real cost: the engine has **zero `os/exec` calls** today (Helm is the in-process SDK), so this is its first child process.
+**Server mode: hard off, not degraded.** Add a `--local-shell` flag defaulting false, refused at startup if `--in-cluster` or a non-loopback `--addr` is set. The justification is concrete: the Dockerfile ships `distroless/static-debian12:nonroot`, which has no `/bin/sh` at all, and the chart binds `0.0.0.0:8080` behind shared OIDC — a "local" shell there would be multi-user RCE as the engine's ServiceAccount.
+**Protocol reuse is nearly total.** Add `ChanKindLocalShell` to `protocol.go`, one entry in `hub.go`'s `validChanKind` allowlist, and a third case that reuses the existing `io.Pipe` stdin, the buffered `chan TermSize`, initial cols/rows seeding, `closeChan` and `cleanupAll` **verbatim**. Frontend forks ~60 lines of `ExecTerm.tsx` minus the shell-candidate fallback ladder. Genuinely new: PTY + kubeconfig lifecycle + banner. `creack/pty` is pure-syscall, so the `CGO_ENABLED=0` static build still holds.
+**Kubeconfig generation.** New `Manager.RawConfigFor(id)`; set `CurrentContext`, run `clientcmd.MinifyConfig`, and **deliberately do not Flatten** — keeping the exec-credential plugin means kubectl re-authenticates as the user's own identity instead of inheriting a copied token. Write 0600 under `UserConfigDir()/kubebay/shells/<pid>/`, seed the namespace from the UI's namespace store.
+**Cluster switching: deliberately no sync.** Never silently repoint a running shell. Switching flips the banner to a stale/amber state offering "open a shell for the new context". Cleanup on chan-close and on WS drop, **plus a startup sweep of `shells/<pid>` for dead PIDs** — Tauri's `kill_engine()` is SIGKILL, so no deferred cleanup ever runs.
+**kubectl missing:** the shell still opens (it's a shell, not a kubectl wrapper) and prints the platform install line plus an explicit "Kubebay will not download binaries for you."
+**Phases:** P1 Unix-only (~5d) — flag+gating, `internal/localshell` package, hub branch, kubeconfig generation/sweep, audit entry, `LocalShellTerm.tsx`, route. A `//go:build windows` stub is **mandatory** because release.yml builds windows/amd64. P2 (~2d) persistent context banner sharing the `ArmedButton` confirm vocabulary, stale state, red variant for prod-matching contexts. P3 ConPTY (~4d) — real cost is the Win10-1809 floor, VT/resize semantics, and **no Windows CI exists**; ship the tab hidden on Windows until then.
+**Never build:** keystroke/command auditing (it's a keylogger, and `bash -c` defeats it anyway), or a "manage kubectl for me" download.
+**Answer to the architecture purist's "unaudited mutation channel" objection:** it is not a *new* channel. `PodGraphs.tsx` already hands users a kubectl command to run elsewhere; this moves that pre-existing unconstrained terminal inside the boundary and makes it *narrower* — one minified context, 0600, deleted on close, with an audit line and a banner naming the cluster, versus an outside terminal that inherits `current-context: prod`. The honest limit: `kubectl delete` inside it is still un-diffed. Kubebay can't fix that without becoming a kubectl proxy; it can make it attributable.
+The single biggest functional gap versus Lens/Freelens surfaced by this debate: Kubebay has no terminal that runs on the user's own machine, only pod/node exec. Users already escape to their own system terminal for raw `kubectl` today (Kubebay's own `PodGraphs.tsx` hands them a copy-paste `kubectl port-forward` command) — meaning the unscoped, unaudited terminal already exists, just entirely outside the app's guardrails. Build: a new `local-shell` channel kind reusing the existing `/ws` chan-open/chan-data/chan-resize protocol (`engine/internal/httpapi/exec.go`) and `ExecTerm.tsx`'s xterm.js plumbing, backed by a real PTY (`creack/pty` on Unix, ConPTY on Windows — the one genuinely new dependency). Non-negotiable safety constraints, per the architecture purist's objection: **must** be scoped to a generated single-context, single-use kubeconfig (never the user's live kubeconfig, which may have `current-context: prod`), must show a persistent context banner in the same visual language as existing confirm banners, and must write an audit-log entry (`engine/internal/audit`) when opened — no keystroke logging, just the fact and the context. Resolve the user's own installed kubectl via `exec.LookPath` first; never auto-download one; an opt-in checksum-verified "manage kubectl for me" button is a v2-or-never nice-to-have, not a launch requirement. Roughly 1-2 weeks, mostly the PTY/ConPTY plumbing — the protocol and frontend are largely reuse per the Tauri sidecar/child-process code (`desktop/src-tauri/src/main.rs`) that already exists.
+
+**SECOND DESIGN PASS, 2026-09-17 — three experts (adversarial security, Go engine, frontend). Several decisions above were WRONG and are corrected here; where the two conflict, this block wins.**
+- **Corrected: `clientcmd.MinifyConfig` does not exist** — it's `MinifyConfig` in `k8s.io/client-go/tools/clientcmd/api`. More importantly the whole minify approach was rejected: Minify still copies inline `token:`/`password:`/`client-key-data` **verbatim**, so for a static-token kubeconfig (k3s, Rancher, ServiceAccount configs) you duplicate a live bearer token onto disk in a file whose cleanup you cannot guarantee — and a minified config written into a new directory silently re-resolves relative `certificate-authority` paths against that directory. **Instead write a file containing only `apiVersion`/`kind`/`current-context: <ctx>` — zero credentials, no path problem — and set `KUBECONFIG=<that>:<the user's original>`.** First-file-wins supplies the context, and `kubectl config use-context` inside the shell edits the throwaway rather than the user's real config.
+- **Corrected: `<pid>` is not a safe directory key** (PIDs are reused across reboots, and `UserConfigDir()` is never tmp-cleaned, so a SIGKILL leaves a directory a future unrelated PID adopts). Use a random dir plus a `.lock` held `LOCK_EX|LOCK_NB`; SIGKILL closes fds so the kernel releases the flock, which is exactly what distinguishes a dead session's directory from a live second instance's. Startup sweep tries to flock each sibling: success ⇒ owner gone ⇒ remove.
+- **Corrected: a runtime flag is not sufficient isolation — use a build tag.** The chart runs `--addr 0.0.0.0:8080 --in-cluster` with cluster-wide `impersonate` RBAC and OIDC off by default, and an ingress template exists. A forked chart flipping a flag would be internet-reachable RCE holding an impersonate-anything ServiceAccount. The feature ships behind `//go:build localshell`, passed by no release or Docker build, with an "not built" stub otherwise. Keep the startup refusal too, and also refuse when OIDC is configured — the session kubeconfig carries no impersonation, so every logged-in user would otherwise get a shell as the engine's identity.
+- **NEW BLOCKER the original design missed entirely — client-controlled argv.** `hub.go` copies the client-supplied `frame.Command` straight into the exec `ChanSpec`. Reusing that path would make the flag gate *arbitrary exec*, not *a shell*. The shell must be resolved from the engine's own `$SHELL` validated against `/etc/shells`; client argv is ignored outright. Likewise `frame.ID` is client-chosen, so using it as a filename gives `../../../.zshrc` → arbitrary 0600 write: session IDs for filesystem paths are server-generated.
+- **NEW BLOCKER — the launch token, not the loopback bind, is the real boundary.** The token was logged at Info level (and Tauri re-prints engine stdout into the macOS unified log, readable by any process running as the user), persisted forever in `localStorage`, and accepted as `?token=`. That is survivable when the token buys cluster access; it is not when it buys a shell. Raja confirmed Kubebay is desktop-launched, so the query-token path is being removed outright. Note browsers cannot set headers on WebSocket connections, so `/ws` needs a real replacement mechanism (subprotocol or one-time ticket), not just deletion.
+- **NEW — backpressure.** `hub.go` writes stdin on the single WebSocket read loop; a stopped shell with a full PTY buffer would block **every** watch and terminal on that socket. Local-shell needs a buffered per-channel writer and an output rate limit (`cat /dev/urandom` must not flood).
+- **NEW — `kill_engine()` is SIGKILL**, which the engine cannot trap, so shells and their port-forwards currently survive app quit holding cluster credentials. Must become SIGTERM-then-wait-then-SIGKILL.
+- Confirmed by cross-compilation rather than assumption: `creack/pty v1.1.18` is already in `go.sum` transitively, is pure Go, and builds clean with `CGO_ENABLED=0` for all four release targets. **windows/amd64 is a release target**, so the build-tag stub is mandatory.
+- **Frontend:** a `/shell` *route* would unmount on navigation, killing the PTY and scrollback — a local shell is long-lived, unlike the per-resource drawers, so it renders once outside `<Routes>` and hides. Extract a shared `useChannelTerm` hook from `ExecTerm.tsx` (which currently hardcodes `#0c0e14`/`fontSize: 12`, ignoring all ten themes — fix once, for both). New terminal must go through `heavy.tsx` or it silently undoes the 981→283 kB bundle win.
+
+### 11. Auth/connectivity correctness bugs found during the kubectl debate — status: shipped — every bug below verified fixed in the current tree, 2026-09-27
+Independently verified by direct source inspection (not just an expert's claim) while researching #8-10. **Re-verified fixed, 2026-09-27** — every bullet below (both batches) has a confirmed fix in the current tree: `main.go` imports `k8s.io/client-go/plugin/pkg/client/auth`; `manager.go` has a `StatusMisconfigured` status with the real error surfaced; `main.rs` forwards `AWS_PROFILE` (and others) to the engine sidecar; `portforward.go` uses `NewFallbackDialer` (WebSocket-first, SPDY fallback); `nodeshell.go`'s `image()` resolves Settings → `KUBEBAY_NODE_SHELL_IMAGE` → default; the second-batch bugs (node-ready-count, YAML JSON.parse, CRD JSONPath filters, CRD Events tab, apply audit, per-cluster Prometheus, sidebar CRD truncation) all shipped in PR #9.
+- **`no Auth Provider found for name "oidc"` failures today.** `grep -rn "plugin/pkg/client/auth" engine/` returns zero matches — the engine never imports `k8s.io/client-go/plugin/pkg/client/auth`, so none of client-go's in-tree auth providers (oidc, and stubbed azure/gcp) are registered. Any kubeconfig using `auth-provider: {name: oidc, ...}` (Dex, Keycloak, legacy `kubelogin`, Rancher, many on-prem/regulated setups) fails outright, where kubectl works. Fix is a one-line blank import in `engine/cmd/kubebay/main.go`.
+- **Unusable contexts vanish silently, with no error surfaced to the user.** `engine/internal/clusters/manager.go:212-216` does `m.log.Warn(...); continue` on any context that fails `cc.ClientConfig()` — it just doesn't appear in the cluster list, with the only trace being a log line the packaged desktop app's user will never see. Should instead be listed with a `misconfigured` status and the real error, so "my cluster isn't showing up" becomes self-diagnosable instead of a support ticket.
+- **Potential silent prod-identity substitution.** `desktop/src-tauri/src/main.rs` forwards only `PATH` and `KUBECONFIG` from the user's login shell to the engine sidecar — not `AWS_PROFILE`, `AWS_REGION`, proxy vars, or CA-bundle vars. An engineer with `AWS_PROFILE=prod-readonly` set in their shell launches Kubebay from the Dock; the engine's `aws eks get-token` call falls back to the `default` AWS profile instead, which at many shops is more privileged — Kubebay would authenticate to production as a **different, more-privileged identity than the user's own terminal shows, with no indication in the UI.** For a product whose stated differentiator is prod safety, this is worth Raja's direct attention regardless of anything else in this file.
+- Smaller, lower-urgency items in the same vein: `engine/internal/httpapi/portforward.go` is SPDY-only with no WebSocket fallback (exec.go already has the pattern and the documented ALB/HTTP-2 rationale for why it matters); `engine/internal/httpapi/nodeshell.go` hardcodes `registry.k8s.io/e2e-test-images/busybox:1.29-2` with no override, which fully blocks node-shell in air-gapped/private-registry-only clusters.
+
+**Second batch, found by the 2026-09-17 feature-design pass.** These were reported by architects reading the code for unrelated reasons, which is its own signal about where the bugs are:
+- **"Ready nodes" is permanently 0 (verified directly).** `pages/WorkloadsOverview.tsx:26` and `lib/useClusterSnapshot.ts:63` both stream `v1/nodes` with `mode: "metadata"` and then read `o.status.conditions` to count Ready nodes. Metadata mode returns `PartialObjectMetadata`, which has no `.status` at all — so `nodeReady` is always 0 and **every node reads as unhealthy on both the Home snapshot and the Workloads Overview card**. Exactly the same trap as the StorageClasses metadata-mode bug fixed on 2026-09-16.
+- **Every drawer summary that reads live spec is broken.** `components/GenericDrawer.tsx:374` and `ResizePanel.tsx:42` call `JSON.parse()` on the `/api/yaml` response, but `yaml.go:99` emits real YAML via `yaml.Marshal`. The parse always throws, so `obj` is null — MetadataSummary/NodeSummary/ServiceSummary render "Could not load", the pod container dropdown is empty, and ResizePanel's "current" values are always blank. Fix with a `?format=json` option on `HandleGetYAML` or by parsing YAML client-side.
+- **CRD printer columns using JSONPath filters render `–`.** `ResourceTable.tsx`'s `evalPrinterCol` only walks plain dot paths, so a column like `.status.conditions[?(@.type=="Ready")].status` — which is how Karpenter and many operators define their Ready column — silently shows nothing. ~20 lines to support the filter predicate.
+- **The Events tab is always empty for any CRD.** `GenericDrawer.tsx` passes `kind={def.label}`, and for synthesized `ext--` CRD defs the label is the lowercase plural (`"nodepools"`), while `EventsDrawer.tsx` matches `involved.kind === kind` (`"NodePool"`). Add the real `Kind` to `ResourceDef` from the CRD entry.
+- **`PUT /api/yaml` writes no audit entry**, while scale/delete/cordon/drain all do — so the one path that can change *anything* is the one path that isn't audited.
+- **Cross-cluster Prometheus data mixing.** `AppSettings.PrometheusURL` is a single global string and `HandlePromQueryRange` takes no cluster parameter, so switching clusters while a stale port-forward is up prices/graphs cluster A using cluster B's data. Must become per-cluster before any cost or right-sizing feature ships on top of it.
+- **Sidebar silently truncates CRDs** — `App.tsx`'s `CustomResourcesGroup` does `.slice(0, 40)`, so on CRD-heavy clusters operator CRDs (KEDA, Karpenter) may simply not appear.
+
+### 12. GitOps drift + policy-as-code — status: shipped 2026-09-27 (ownership warning, admission rejection + PolicyReports, drawer Policy tab, Argo drift list, Flux drift view)
+**GitOps-ownership warning: SHIPPED 2026-09-27.** `lib/gitops.ts` (`ownerOf`/`ownerLabel`/`ownerWarning`/`ownerAmongTargets`) detects Argo CD (instance or tracking-id annotation) and Flux (Kustomization or HelmRelease name annotation) ownership. Wired everywhere a mutation can happen: a badge in `MetadataSummary.tsx`, a universal "Owner" column in `ResourceTable.tsx`, warning banners before Apply (`YamlTab.tsx`) and scale/restart/cordon/drain (`ActionsBar.tsx`), plus both bulk-delete confirmation banners (`ResourceTable.tsx`, `Workloads.tsx`) via `ownerAmongTargets` matching pending targets against streamed rows. The owner is also recorded in the audit `Detail` field — `apply` resolves it server-side from the submitted manifest itself (`gitopsOwnerFromDoc`, no client trust needed); the other four actions don't fetch the object server-side, so they accept an optional client-supplied label (informational only, capped at 100 chars, same trust level as the existing `UserAgent` field). Structured admission-rejection + Kyverno PolicyReports and the drawer Policy tab are also now shipped (below) — only the Argo/Flux drift views remain.
+**The highest value/effort item in this entire file, and it's small: a GitOps-ownership warning before Kubebay's own mutating actions (2-3 days).** Kubebay today will happily let you patch a Deployment that Argo reverts three minutes later — a footgun it ships right now. Ownership is detectable purely from annotations already streamed to the browser in every mode (`pool.go`'s `unwrap()`/`emit()` ship the full map, so labels and annotations are already there): Argo's `argocd.argoproj.io/tracking-id`/`instance`, Flux's `kustomize.toolkit.fluxcd.io/name`, `helm.toolkit.fluxcd.io/name`. New `lib/gitops.ts` with a pure `ownerOf(obj)`, a badge in `MetadataSummary.tsx`, a column in `ResourceTable.tsx`, and a **warning banner in `YamlTab.tsx` before Apply and in `ActionsBar.tsx` before scale/restart/delete** — "Argo will revert this within ~3m; edit Git instead". Add the owner to the audit `Detail` field. (Note `stripNoisyFields` deletes `managedFields`, so confirming via the field manager needs an opt-in.)
+**Do not build against Argo's REST API.** Verified: `argocd.go` talks to the **Kubernetes API only**, via a dynamic client on `argoproj.io/v1alpha1/applications`. There is no argocd-server URL or token anywhere in the repo, and "Hard Sync" is merely a merge-patch of the `argocd.argoproj.io/refresh: hard` annotation — not a sync at all. A real per-resource diff would need argocd-server ingress plus a token, a credential story Kubebay doesn't have and shouldn't grow for one integration. What *is* free: `Application.status.resources[]` carries per-object `OutOfSync` status on the k8s API — that's the drift list without line-level diff, and the diff can come from fetching live YAML into the existing Monaco `DiffEditor` only where Argo already flags drift.
+**Flux has no equivalent and should be a separate, honestly-labelled section** — kustomize-controller *corrects* drift rather than reporting it, so the real signals are `Kustomization`/`HelmRelease` Ready conditions, `status.inventory.entries`, and `DriftDetected` events. Client-side `kustomize build` needs Git credentials — **no credential story, do not build.** A unified drift score across Argo and Flux would be dishonest.
+**Policy: the highest-value piece is an error-handling fix, not a browser.** Both Gatekeeper's and Kyverno's validating webhooks honor `dryRun`, so **Kubebay's existing dry-run already triggers policy rejection — `yaml.go:162` just throws the signal away** as flat 502 text. Return the structured `metav1.Status` instead, parse `admission webhook "..." denied the request:` and `.details.causes` into `{engine, policy, rule, message}`, and render a red pre-flight card in `YamlTab.tsx`. That converts a passive report into an active guardrail matching Kubebay's thesis — 2-3 days, pure upside on an existing path. Then one line in DEFS registering `wgpolicyk8s.io/v1alpha2/policyreports` gets a streamed Kyverno findings table for free (hours). **Don't build a standalone policy page** (the free table covers it) and **defer Gatekeeper constraints** — its `status.violations` is truncated by default and empty until audit runs, strictly worse than Kyverno's PolicyReports. IA ranking: drawer tab > pre-flight card > row badge > standalone page.
+**Build order across both:** GitOps-ownership warning → structured admission rejection → PolicyReports in DEFS → drawer Policy tab → Argo drift view → Flux view.
+**Structured admission rejection + PolicyReports: SHIPPED 2026-09-27.** `parsePolicyRejection()` (engine, `internal/httpapi/policyrejection.go`) detects the apiserver's own fixed `admission webhook "X" denied the request:` format (not vendor-specific — works for Kyverno, Gatekeeper, or any other validating webhook), extracts a best-effort engine label plus any structured `Details.Causes`, and `HandleApplyYAML` now returns it as JSON with 422 instead of throwing the signal away as flat 502 text. `YamlTab.tsx` renders it as a red pre-flight card naming the engine/webhook/message/causes instead of the generic error line. `wgpolicyk8s.io/v1alpha2/{policyreports,clusterpolicyreports}` registered in `EXTRA_DEFS` with a Summary column (pass/fail/warn/error, severity-colored) — free findings table, zero engine changes.
+**Drawer Policy tab: SHIPPED 2026-09-27.** `lib/policyFindings.ts#findingsForResource` matches a PolicyReport/ClusterPolicyReport result against the open drawer's exact resource via the result's own `resources[]` entries (kind/name/namespace) — no report-level scope field to trust. `components/PolicyFindingsTab.tsx` streams both PolicyReport GVRs (already free, no discovery gating) and renders passing checks as a count rather than an itemized list. Wired into `GenericDrawer.tsx` as a universal "Policy" tab for every generic kind except PolicyReport/ClusterPolicyReport themselves.
+**Argo CD drift list: SHIPPED 2026-09-27.** `engine/internal/httpapi/argocd.go#parseArgoCDResources` extracts `Application.status.resources[]` (already free on the k8s API, no argocd-server REST call) into the `argoCDApp.resources` field, skipping malformed entries defensively since it runs over live cluster data. `lib/argoDrift.ts` sorts OutOfSync first; `lib/resources.ts#slugForKind` is a new reverse Kind->slug lookup (returns undefined rather than guessing) used by `components/ArgoDriftList.tsx` to cross-link a drifted resource to its own detail page only when a real route exists. Wired into `pages/ArgoCD.tsx` as an expandable "Drift" column per Application. No line-level diff, exactly as scoped — that needs a credential story Kubebay doesn't have.
+**Flux drift view: SHIPPED 2026-09-27.** Kept as its own page (`pages/Flux.tsx` + `components/FluxSummary.tsx`, nav'd at `/flux`) rather than a tab on Argo's page, since kustomize-controller *corrects* drift on reconcile — there's no OutOfSync/Synced dichotomy or diff to show, and a unified drift score would be dishonest. Detection reuses `/api/crds` (same free pattern as KEDA/Karpenter); either the Kustomization or HelmRelease CRD alone counts as installed. `lib/flux.ts#summarizeFluxObject` surfaces the three honest signals: the Ready condition, `status.inventory.entries` count (what the object currently manages), and drift-detection events matched to the exact object by kind/name/namespace — always framed as "detected and already corrected," never a live diff. **#12 is now fully shipped.**
+**Competitive-urgency note (2026-09-26, Lens research pass):** Lens paired a Flux CD dashboard with their existing Argo CD one in the same premium bucket (reconciliation/health/drift, no CLI) — adds urgency to the Flux half above, which is scoped but not yet built. Also noted: Lens has a one-click "Ask AI" plain-language summary on GitOps objects (Application/ApplicationSet health+drift) — a near-perfect narrow first retrieval target for #13's AI-triage design if/when that gets built (same bounded read-only payload, BYOK key, consent-before-send pane). Not new scope now, just worth remembering when #13 gets picked up.
+
+### 13. AI incident triage + RBAC advisor — status: building (designed 2026-09-17) — **RBAC advisor half SHIPPED 2026-09-27; AI triage slice 1 (consent, evidence, review pane) shipped 2026-10-10, slice 2 (Send, evidence-cited answers) shipped 2026-10-12**
+**RBAC smell detector: SHIPPED.** `AnalyzeRBAC` (engine, `internal/httpapi/rbacadvisor.go`) is a pure function over the existing `RBACSnapshot`: wildcard verb/resource/apiGroup (with a full-everything role and the built-in `cluster-admin` role each getting their own clearer title rather than three separate wildcard findings), escalate/bind/impersonate verbs, cluster-wide Secret read and pod-exec access (ClusterRole only, skipped when `resourceNames` scopes it down — fixed the flagged `Rule` bug that was dropping `resourceNames`/`nonResourceURLs` first, or this would have over-flagged), and dangling ServiceAccount subjects (cross-checked against a live ServiceAccount list). Findings are per real subject via a real binding — an unbound risky role grants nobody anything, so it's silent. `RbacFindingsCard.tsx` adds the third card with a default "hide system:*" toggle, and clicking a finding that carries a query hint pre-fills and re-runs the existing `runWhoCan()` card. **Deliberately deferred, not silently dropped:** "SAs bound to nothing or mounted by no pod" needs a cluster-wide Pod list cross-referenced against every ServiceAccount — a meaningfully pricier check than the others, left as a follow-up.
+**Unused ServiceAccounts: SHIPPED 2026-10-09.** It is client-side, not in `AnalyzeRBAC`.
+- **Why client-side.** The RBAC page already streams every pod, ServiceAccount, Deployment, StatefulSet and CronJob for #28 and #35. The engine would have had to list every pod again on each `/api/rbac/all` call; the page adds only a DaemonSet stream.
+- **The check.** `lib/unusedServiceAccounts.ts#findUnusedServiceAccounts` lists ServiceAccounts that no pod or workload template in their namespace runs as.
+  - A pod's account is `serviceAccountName`, else the deprecated `serviceAccount`, else `default`, as the API server resolves it.
+  - Templates count, so a Deployment scaled to zero or a CronJob between runs still uses its account.
+- **Skipped:**
+  - each namespace's `default` ServiceAccount (it's created automatically, and #28 covers its use);
+  - `kube-system`, `kube-public` and `kube-node-lease`, since controller-manager acts as ServiceAccounts there without running pods;
+  - anything with an ownerReference.
+- **Per account it shows:**
+  - the bindings that name it directly (accounts with any are ranked first, since they hold access nothing visible uses);
+  - any legacy long-lived token Secret (from the metadata-mode Secrets stream #35 already opens). Such a token is the visible sign it may be used from outside the cluster.
+- **UI.** An "Unused ServiceAccounts" card below "Unreferenced Secrets". It says tokens used from outside the cluster aren't visible, so the list is for review, not deletion.
+- **Not in v1:** Job templates, pods created by custom resources that aren't running right now, and group bindings (`system:serviceaccounts[:ns]`), which grant to every account rather than to one.
+**AI triage stays deferred, alongside MCP (#5) — same category (opt-in third-party LLM integration), same "after real OSS traction" call.**
+**Build the RBAC advisor first — and kill its usage-diffing half.** "Permissions actually exercised" is not achievable: Kubebay's own audit logger sees only actions taken *through Kubebay* (7 verbs, one user, one laptop), and inferring "unused permission" from that produces confidently wrong "safe to remove" advice — the worst possible failure for a prod RBAC tool. The real source is the apiserver audit log, which on EKS lands in CloudWatch behind a separate IAM path, is off by default, and needs 30+ days retention. That's a cloud-ingest product, not a desktop feature. **The original backlog line's premise ("driven by the existing audit logger") was simply wrong.**
+**The real product is a static RBAC smell detector (3-4 days).** All input already arrives in the existing `RBACSnapshot` from `rbac.go:HandleAll`. New `engine/internal/httpapi/rbacadvisor.go` returning `[]Finding{severity, title, subject, roleRef, why, rule, suggestion}`. Rules: wildcard verb/resource/apiGroup; `cluster-admin` bindings; `escalate`/`bind`/`impersonate`; cluster-wide `secrets:get/list`; cluster-wide `pods/exec`; bindings whose subject ServiceAccount doesn't exist; SAs bound to nothing or mounted by no pod. Suggestions are **YAML to copy, never applied**. Extend `pages/Rbac.tsx` with a third "Findings" card — do not add a route — and make clicking a finding pre-fill the existing `runWhoCan()` selects so findings and the explorer become one loop. Note `RoleSummary` currently drops `resourceNames`/`nonResourceURLs`; add them or the advisor over-flags. Ship a default "hide `system:*`" toggle for vendor roles.
+**This confirms the visualizations architect's call independently: kill the RBAC access graph.** `runWhoCan()` plus a findings *list* answers the same questions readably.
+**AI triage ships second, opt-in, off by default — the consent plumbing is most of the risk and should land as its own PR before any model call.** The call originates in the Go engine (`engine/internal/llm/`, `httpapi/triage.go`), never the browser — the engine already holds the informer cache and impersonated configs, and a browser call would need a key in localStorage. Three gates, all required: an explicit settings toggle; a **user-supplied** key from env or OS keychain, never written to settings.json, plus a configurable base URL so regulated users can point at an enterprise proxy or Bedrock and never egress to a third party; and a **per-cluster allowlist**, because enabling on a test cluster must not enable on prod. Every run shows the exact payload in a "review what will be sent" pane before a Send button — no silent first call — and writes an audit entry. A redaction pass strips Secret/ConfigMap values, env vars matching token/secret/password/key, and JWT/AWS-key patterns.
+**Retrieval must be deliberate, not a YAML dump** (~12k token budget): owner chain from the informer cache; container statuses with `lastState.terminated.reason/exitCode`; **Warning events only, deduped by reason with `count` preserved** rather than one line per occurrence; rollout history; and critically **`previous: true` logs first for any container with `restartCount > 0`** — a CrashLoopBackOff's useful logs are in the terminated instance, not the running one.
+**Keeping it honest:** use structured output where every claim carries evidence references into the assembled bundle, render claims as collapsible rows whose children are the literal event/log lines, **drop any claim whose references don't resolve**, and never wire a suggested action to an executable button. An LLM inventing a root cause during a production outage is the core product risk.
+**AI triage slice 1 SHIPPED (2026-10-10, PR open): the consent plumbing, with no model call, as this entry required.**
+- **Gates, all enforced in the engine:**
+  - an off-by-default switch;
+  - a per-cluster allowlist checked before anything is read;
+  - an endpoint that must be https (http only on loopback, for a local proxy);
+  - a model name;
+  - unavailable when OIDC is on or in in-cluster mode.
+- **The key** comes from `KUBEBAY_TRIAGE_API_KEY`, then `ANTHROPIC_API_KEY`, then the OS keychain.
+  - The keychain is driven through its own CLI, with no new dependency: macOS `security -i`, with the command on stdin so the key never appears in argv (the same approach as zalando/go-keyring), and Linux `secret-tool`, with the secret on stdin.
+  - Where neither exists, the UI points at the env var.
+  - The key is never in settings.json or any response.
+- **The evidence assembler is shared with MCP** (`kubetools.BuildEvidence`, reusing describe's container detail, owner chain and event aggregation). It produces numbered sections E1…En:
+  - the pod with its owners and conditions;
+  - containers with state and last termination;
+  - Warning events for the pod and its owner objects, deduped with counts;
+  - the Deployment's last 5 revisions with images;
+  - logs, with a restarted container's previous run (tail 100) before its current one (tail 50), runs of repeats collapsed.
+  - Logs share the room left in a 48KB (about 12k token) budget, shortest first, cut from the start so a crash's last lines survive.
+- **The redaction pass is shared too** (`internal/redact`). It runs over every section, and now over MCP `get_logs`. It masks:
+  - PEM private keys;
+  - credentials in URLs;
+  - Anthropic, OpenAI, GitHub, Slack and Google token formats;
+  - AWS key IDs;
+  - JWTs and Bearer tokens;
+  - `name=value` / `name: value` / JSON pairs whose name says password, secret, token or key (values shorter than 4 characters stay, so `secrets=0` isn't masked).
+  - It is pattern-based, so it lowers the risk rather than removing it.
+- **The review pane** is a Triage tab in the pod drawer, only where triage is allowed. It gathers evidence on request (each preview is audited as `triage:preview`, `source: triage`) and shows the endpoint, model, approximate tokens, masked count, a truncation notice, every section, and the system prompt. It says plainly that nothing has been sent, and offers Copy evidence.
+- **Slice 2: SHIPPED 2026-10-12.** It needed Go 1.24 for the Anthropic Go SDK, so the Go upgrade went first as its own PR (#145).
+  - **The request** (`internal/triage/request.go`) is a `BetaMessageNewParams`: Opus 5.5 by default, `max_tokens` 16000 (thinking shares it), the system prompt, one user text block, and `output_config.format` with a JSON schema (summary, findings with title, likelihood, explanation, evidence IDs and next steps, missing evidence; `additionalProperties: false` throughout).
+  - `effort: high` goes only to models that take it (Claude 5 Opus/Sonnet/Fable, Opus 4.5–4.7, Sonnet 4.6). `fallbacks: "default"` plus the `server-side-fallback-2026-07-01` beta go only to `https://api.anthropic.com` and only for Opus 5.5, Opus 5, Fable 5.1 and Sonnet 5.5, because a proxy may not know the beta.
+  - **Send** (`internal/triage/send.go`) builds the client with `option.WithoutEnvironmentDefaults()`, so `ANTHROPIC_AUTH_TOKEN`, profiles, federation and `ANTHROPIC_BASE_URL` can't add a second credential or move the call. A refusal comes back as one. `max_tokens` cut-offs and unreadable answers are errors, and API errors read as "the model API answered 401: …".
+  - Citations are checked against the bundle's section IDs. Unknown IDs are removed, a finding left with none is dropped and counted, and the answer reports which model answered (a fallback may have).
+  - **HTTP:** the preview stores the built request under a random `previewId` for 10 minutes (at most 20 kept). `POST /api/triage/send {previewId}` checks again that triage is on, the cluster is allowed, and the endpoint and model match the preview (409 otherwise), and that a key exists (412). It sends once: the preview is deleted on success and kept on failure so it can be retried, and a second click while sending gets 409. Audit `triage:send` records the endpoint, model, approxTokens, then findings/dropped/tokens/answeredBy, the refusal category, or the error.
+  - **The tab:** "Send to <model>" appears only with a key. The answer shows the summary, each finding as a region with a likelihood badge, its cited sections as expandable rows showing their text, next steps as a plain list "for you to review", the missing evidence, how many findings were hidden, model and token usage, and a check-before-acting line. Nothing is wired to a button.
+  - **Tests:** engine against a fake `/v1/messages`: the request shape, fallbacks only on the official endpoint, citation filtering, refusal, unreadable answer, a 401. HTTP: the sent body equals the previewed body, gates are rechecked, expiry, retry after failure, the UI token. Shell: Send only with a key, findings with their cited evidence, refusal, failed send then retry. `live_triage_test.go` now sends the coredns bundle to a stand-in API on loopback.
+  - **Not verified here:** a real call to Anthropic's API (no key in this environment) and the Mac build.
+- **Not verified in this session:** the real keychains (no macOS here, no libsecret in the container; the CLI calls are tested against a fake runner), and the tab against a live pod (no cluster). The kind CI job runs `live_triage_test.go` against coredns.
+
+**Boundary with #5: both should exist.** MCP is an external model reaching *in*, with Kubebay as the gate; triage is Kubebay reaching *out* with one bounded read-only payload. They should share only the redaction pass and the evidence assembler.
+**Competitive-urgency note (2026-09-26, Lens research pass):** Lens Prism (their paid AI copilot) gained a "terminal skill" this year letting it write local files/run commands — but per Lens's own docs it still never auto-executes; a human runs the surfaced command. That validates, not undercuts, this entry's stricter stance of never wiring a suggested action to an executable button. Separately, Mirantis also launched **Lens Agents** (paid, enterprise: centralized identity/policy/audit for AI coding agents hitting your infra) — correctly out of scope here, it needs a control plane beyond one laptop, same carve-out as the open-core split doc already draws. Freelens's free, much smaller answer — `@freelensapp/agentbridge-extension` (launches a coding agent in a terminal tab scoped to one cluster, pre-wired KUBECONFIG/PATH, editable default-safe permissions file: read-only kubectl/helm allowed, ask for everything else) — is a much closer size/shape match to Kubebay's own philosophy and worth a five-minute look as a UX reference once #10 (local shell) ships. Not a new item.
+
+### 14. Cloud cluster auto-discovery (EKS/AKS/GKE one-click import) — status: shipped 2026-10-10 for EKS and GKE, 2026-10-13 for AKS (Entra ID clusters only)
+**What Lens does (Premium-gated):** calls the cloud provider's own API to list every cluster in your account/regions and one-click-imports it — no manual `aws eks update-kubeconfig` / `az aks get-credentials` round-trip needed first.
+**Where Kubebay is today:** `clusterDistro.ts` only pattern-matches provider/distro off whatever's *already* in kubeconfig (`arn:aws:eks:`, `gke_`, `aks-`, etc.) — verified via grep, there is zero AWS/Azure/GCP SDK anywhere in `engine/go.mod` or the rest of the codebase. Kubebay has no way to discover a cluster it doesn't already have a context for.
+**Scope this as detect-and-offer-import, never provision** — the same posture item #3 (Karpenter) already settled on for the identical reason: no cloud SDK today, and adding one is real new surface area (per-provider credential handling, IAM/service-account scoping, rate limits, a new dependency). A v1 would be one provider at a time — EKS first, matching Raja's own prod footprint — listing clusters via the AWS SDK against whatever credentials/profile are already locally resolvable (same trust boundary as the existing `aws eks get-token` exec-credential flow), rendering them in the cluster picker as "available to import" with one click to append the right context to kubeconfig. Never persist cloud credentials anywhere Kubebay doesn't already trust them; never call any provisioning or mutating cloud API.
+**Not enterprise-shaped** — this helps a solo engineer juggling multiple AWS accounts/regions just as much as a team, so it stays OSS per the existing open-core split, not gated.
+**Effort:** unscoped — needs an innovation-scout pass before sizing; the SDK integration itself (auth resolution, pagination, multi-region) is probably most of the work.
+
+**Verified against the actual code, 2026-09-27.** `engine/go.mod` confirmed zero cloud SDK — the claim holds. More importantly, `engine/internal/clusters/manager.go`'s `Load()` only ever calls `clientcmd`'s `Load`/`ClientConfig` (read); the engine has **no code path that writes to any kubeconfig file today**. The one file it does write is its own `~/.kubebay/settings.json` (`httpapi/settings.go`'s `SettingsManager.save`), which stores `extraKubeconfigs []string` — paths the engine should *also* read — validated (`sanitizePath`: must parse as a kubeconfig) and merged into `clientcmd.ClientConfigLoadingRules.Precedence` via `Manager.SetExtraKubeconfigs`. That mechanism is the load-bearing find here: it's an existing, tested extension point for "make the engine aware of one more kubeconfig" that never touches the user's real `~/.kube/config`. "One click to import" should target that path, not a merge into the user's actual kubeconfig — a materially bigger trust boundary than anything Kubebay does today, for no real benefit (the AWS CLI's own `update-kubeconfig` already does the merge-into-real-kubeconfig thing if a user wants it there).
+**Prior art check.** Lens's paid answer to this (branded "Prism", gated behind Plus/Pro/Enterprise) does **full in-app AWS login** — the user signs into a Lens-hosted broker, and Lens resolves credentials itself rather than delegating to the AWS CLI's local credential chain. That's a heavier, account-requiring design Kubebay should explicitly not copy — it's the same "mandatory sign-in" pattern the backlog's open-core section already calls out as Lens's biggest self-inflicted wound. Kubebay's framing (use whatever AWS credentials are already resolvable locally, never broker or persist them) is the right differentiator and matches the "no accounts, ever" positioning already stated above.
+**Two viable implementation shapes for "list my EKS clusters," with different risk profiles:**
+1. **In-process AWS SDK for Go v2** (`github.com/aws/aws-sdk-go-v2`, `.../config`, `.../service/eks`). `config.LoadDefaultConfig(ctx)` resolves credentials via the SDK's standard chain (env vars → shared `~/.aws/credentials`/`~/.aws/config` profile → cached SSO token → container/IMDS role) and hands the engine a live `aws.Credentials` value in process memory. `eks.ListClusters` is **regional only** — there is no global list API — so discovery means iterating a region list, paginating each region's `NextToken`, and calling `DescribeCluster` per name to get the endpoint + CA bundle needed to build a kubeconfig. This is genuinely new engine capability: for the first time the process itself resolves and holds real cloud credentials, not just a kubeconfig `exec:` stanza it never inspects.
+2. **Shell out to the user's own AWS CLI** (`aws eks list-clusters --region R`, `aws eks describe-cluster ...`), the same posture item #8 already validated for the *unfixable-in-process* exec-credential case, and closer to Kubebay's current "delegate auth to a subprocess, never touch the raw credential" model. Costs: requires `aws` CLI installed (already true for most real EKS users, since exec-credential contexts calling `aws eks get-token` need it anyway) and JSON-parsing subprocess output instead of typed SDK structs. Buys: zero new compiled dependency, and the engine never holds an AWS credential object at all — strictly closer to today's trust model than option 1.
+**Recommendation: start with (2) for v1.** It is less code, ships faster, and preserves the "engine never sees a raw cloud credential" invariant this backlog already relies on for Karpenter (#3) and Cost (#6). Revisit the SDK-in-process approach only if CLI-shelling proves too fragile (e.g. output-format drift across `aws` CLI versions) — unlike #8's core-traffic case, a one-shot discovery call has none of the informer-cache-loss argument against shelling out.
+**One-click import, concretely.** On import, generate a minimal per-cluster kubeconfig (cluster name/ARN as context, `DescribeCluster`'s endpoint + CA, and an `exec:` stanza invoking `aws eks get-token --cluster-name X --region Y` — never a static bearer token) into a new Kubebay-owned file, e.g. `~/.kubebay/discovered/<region>-<name>.yaml` (0600), then call the **existing** `POST /api/settings` with that path appended to `extraKubeconfigs` — reusing `SettingsManager.HandleSave` → `sanitizePath` → `Manager.SetExtraKubeconfigs` verbatim, zero new write path to the user's real kubeconfig. Because the generated context name follows the AWS CLI's own `arn:aws:eks:...` convention, `clusterDistro.ts`'s existing `detectDistro`/`clusterDisplayName` pattern-matching picks it up for free — no changes needed there.
+**New engine surface required:** `engine/internal/clouddiscovery/eks.go` (or similar) + two routes, `GET /api/discover/eks` (region-scoped scan, returns `{region, name, arn, endpoint}[]`, never triggered by `ClusterPicker`'s existing 4s `refetchInterval` poll — must be an explicit user-triggered "Scan AWS" action or it'll hammer EKS's per-region rate limits every few seconds) and `POST /api/discover/eks/import` (writes the kubeconfig file + calls the settings save path above).
+**UI surface:** a new "Discovered" disclosure section in `ClusterPicker.tsx`, following the exact pattern already used for the "hidden clusters" `<details>` block (lines ~348-362) — region/name/account rows with an "Import" button, not a new full page.
+**Phased plan.**
+- *Phase 0 — spike (1-2d, throwaway code, not shipped):* prove the CLI-subprocess path against a real AWS account/multiple regions: confirm `ListClusters`/`DescribeCluster` JSON shape, confirm per-region `AccessDenied` (a normal outcome, not a fatal one) doesn't kill the whole scan, and decide finally between shapes (1) and (2) above.
+- *Phase 1 — OSS, backend discovery only (~3-4d):* `clouddiscovery` package wrapping the CLI subprocess calls, a configurable region list (new `AppSettings.AwsDiscoveryRegions []string`, no default auto-scan of all ~30 AWS regions — that's both slow and a rate-limit risk), `GET /api/discover/eks` wired to a "Scan AWS" button with no polling.
+- *Phase 2 — OSS, one-click import (~2-3d):* kubeconfig generator + `POST /api/discover/eks/import` + wiring into `SetExtraKubeconfigs`; verify the imported cluster shows up in `ClusterPicker` after the next `Manager.Load()` (the existing fsnotify watcher already re-loads on kubeconfig file writes, so this should be close to free).
+- *Phase 3 — UI polish (~1-2d):* the "Discovered" section itself, loading/error states per region, re-scan button.
+**Effort: M** (roughly 2 weeks total across the four phases). Not S because it is the first cloud-provider integration point of any kind in this codebase and needs a genuinely new (if narrow and reversible) file-write capability; not L/XL because it's deliberately read-only against AWS, EKS-only, no provisioning, and reuses two already-built, already-tested extension points (`extraKubeconfigs` and the hidden-clusters disclosure UI pattern) rather than inventing new plumbing.
+**Confirmed OSS**, consistent with the existing framing and the open-core split at the top of this file — no control plane, no fleet feature, helps a solo engineer as much as a team.
+**Risks:** (1) per-region `AccessDenied`/throttling must degrade gracefully, not abort the whole scan — EKS's list/describe throttle is modest and concurrent multi-region scanning can trip it; bound concurrency and rely on the CLI's/SDK's own backoff. (2) SSO/session expiry: a user with an expired `aws sso login` session will get a cryptic CLI/SDK error on scan — must be caught and shown as "run `aws sso login`", not surfaced raw. (3) multi-account: the backlog's own framing ("juggling multiple AWS accounts") implies a profile picker (`~/.aws/config` named profiles), which isn't in the one-liner and adds a small but real UI surface — see open questions. (4) scope discipline: ship UI copy that says "AWS EKS" specifically, not generic "cloud cluster," since AKS/GKE are out of v1 per the existing framing and Kubebay has no Azure/GCP SDK story at all yet.
+**Open questions for Raja:** (a) CLI-subprocess vs in-process AWS SDK for v1 — this spec recommends CLI-subprocess for the smaller trust-boundary delta, confirm that's the right trade given it requires `aws` CLI present; (b) should discovery ever run automatically (e.g. on picker load) or stay strictly user-triggered via a "Scan AWS" button — this spec assumes the latter to avoid surprise API calls/IAM prompts on every launch; (c) default/configurable region list — auto-detect from `~/.aws/config` profiles, or require the user to type regions into Settings; (d) whether a profile picker (multi-account) is in scope for v1 or a fast-follow; (e) priority — this is a genuinely new integration surface (first cloud SDK/CLI dependency, first new file-write capability) rather than an incremental extension of an existing page, so it's worth asking whether it should jump ahead of, e.g., #4/#6's remaining phases.
+
+**EKS shipped 2026-10-10 (Phases 1–3), with this spec's recommended answers to the open questions** (Raja asked for every backlog item to be built):
+- **(a) The aws CLI as a subprocess, not the SDK.** The engine never holds a cloud credential.
+- **(b) Strictly user-triggered.** Nothing runs until "Find EKS clusters" is opened, then Scan or Import is clicked.
+- **(c) Regions are typed,** pre-filled from the chosen profile's own default (`aws configure get region --profile`).
+- **(d) A profile picker is in v1** (`aws configure list-profiles`).
+
+**Engine.**
+- `internal/clouddiscovery`:
+  - `ScanEKS` runs list-clusters, then describe-cluster for each cluster, with at most 4 CLI calls at once.
+  - A region that fails is reported and skipped, and its error is turned into the fix: SSO expired names `aws sso login --profile X`; an opt-in region not enabled; AccessDenied names `eks:ListClusters`; no credentials; aws CLI missing.
+  - Every profile, region and cluster name is validated against AWS naming before it reaches argv, so nothing can be read as a flag.
+  - `Kubeconfig` writes the `aws eks update-kubeconfig` shape: context, cluster and user named by the ARN, so `clusterDistro.ts` recognises EKS with no change. The user is an exec stanza for `aws --region R eks get-token --cluster-name N --output json` with `AWS_PROFILE`, never a static token.
+- Routes, behind the launch token:
+  - `GET /api/discover/aws/profiles`
+  - `POST /api/discover/eks/scan`
+  - `POST /api/discover/eks/import`
+- **Import.**
+  - It describes the cluster again itself, so an endpoint or CA from the browser is never trusted; the scan doesn't even send the CA.
+  - It writes `~/.kubebay/discovered/eks-<profile>-<region>-<name>.yaml` (0600, directory 0700) atomically.
+  - It adds the file through the new `SettingsManager.AddExtraKubeconfig`, which appends under the settings lock and keeps every other setting. `HandleSave` replaces the whole list.
+  - It answers 409 when a loaded kubeconfig already has that ARN context.
+- **Pinned engines.** An engine pinned with `KUBEBAY_KUBECONFIG`/`--kubeconfig` (the prod-safety override) loads nothing else. There, import answers 409 with the `aws eks update-kubeconfig --kubeconfig <that file>` command, instead of reporting a success that never shows up. New `Manager.ExplicitKubeconfig()`.
+- **Desktop only.** It is off with OIDC or `--in-cluster` (`DiscoveryBlockReason`), because the CLI would run with the engine host's credentials.
+
+**UI.** `components/EksDiscovery.tsx` sits in the cluster list's "Add kubeconfig" dialog, under the kubeconfig files:
+- a profile select;
+- a regions field;
+- Scan, then a results table: cluster, region, account, version, status, and Import. A cluster already in a kubeconfig shows "in your kubeconfig".
+- Region errors are listed next to the clusters that did load.
+
+**Not tested against a real AWS account here.** As with the audit feed's cloud sources, the CLI is faked in tests.
+
+**GKE shipped 2026-10-10 (PR open), on the same rules as EKS.**
+- **gcloud as a subprocess:**
+  - `gcloud projects list` (up to 200, with `config get-value project` marked as the default);
+  - one `gcloud container clusters list --project P` per scan, which covers every region and zone, so there's no region field;
+  - `container clusters describe` again on import, so nothing from the browser is trusted and the CA is never sent to it.
+- **Names are validated before argv:** project IDs (including legacy `domain:` ones), regions or zones, and cluster names.
+- **Errors become the fix:**
+  - an expired login → `gcloud auth login`;
+  - no account signed in;
+  - the Kubernetes Engine API not enabled → enable `container.googleapis.com`;
+  - a 403 → `container.clusters.list/get`;
+  - gcloud not installed.
+- **The kubeconfig matches `get-credentials`:**
+  - context, cluster and user are all `gke_PROJECT_LOCATION_NAME`, so `clusterDistro.ts` and an earlier manual import both recognise it;
+  - the server is `https://<endpoint>`;
+  - the user is an exec stanza for `gke-gcloud-auth-plugin` (v1beta1, `provideClusterInfo`, an install hint), never a token.
+- **Shared with EKS:** import goes through the shared `writeDiscovered` (atomic, 0600, under `~/.kubebay/discovered`, then `AddExtraKubeconfig`), and gets the same 409s for an already-loaded context and for a pinned engine (with the `KUBECONFIG=<file> gcloud container clusters get-credentials …` command).
+- **Routes:** `GET /api/discover/gcp/projects`, `POST /api/discover/gke/scan`, `POST /api/discover/gke/import`.
+- **UI:** `components/GkeDiscovery.tsx`, under EKS in the same dialog.
+- **Verified:** with unit fakes, and with the real binary driving a stand-in `gcloud` script (projects → API-disabled error → scan → import → the context loads → re-import 409). Not run against a real Google Cloud project.
+
+**AKS: SHIPPED 2026-10-13, Entra ID clusters only** (Raja approved that split on 2026-10-12).
+- **Why only Entra ID:** for a local-accounts cluster, the user credential is a static client certificate, which breaks the "never a static token" rule. Those clusters are listed with the reason and no Import button. The import handler refuses them too (422), and their credential is never fetched.
+- **Engine** (`clouddiscovery/aks.go`):
+  - `AzureSubscriptions` runs `az account list`: enabled ones only, the default first.
+  - `ScanAKS` runs `az aks list --subscription`, one call for every resource group.
+  - `DescribeAKS` runs `az aks show`; the import re-reads the cluster, so it never trusts the browser about Entra ID.
+  - `AKSAccess` and `AKSKubeconfig` build the file.
+  - Validators: subscription is a GUID; resource group allows A–Z, 0–9, `_.()-`, no leading `-`, no trailing `.`; cluster name is up to 63 characters.
+- **Not `az aks get-credentials`:** current az runs `kubelogin convert-kubeconfig -l azurecli` after writing credentials, even with `--file -`. kubelogin then converts the *default* kubeconfig, which Kubebay must never touch. So the import calls the same ARM action directly:
+  - `az rest --method post --url /subscriptions/…/managedClusters/<name>/listClusterUserCredential --uri-parameters api-version=2024-09-01 format=exec`.
+  - The path is relative, so az prefixes its current cloud's ARM endpoint and sovereign clouds work.
+  - The query goes in `--uri-parameters` because on Windows `az` is `az.cmd`, and cmd.exe splits an argument at `&`.
+  - From the returned kubeconfig it keeps only the https server, the CA and the `--server-id`. The id falls back to the AKS server app `6dae42f8-…` and must be a GUID. Everything else is dropped.
+- **The written user** is what `kubelogin convert-kubeconfig -l azurecli` produces: `kubelogin get-token --login azurecli --server-id <id>` (v1beta1, interactiveMode Never, an install hint), with no tenant, so it follows the user's az login.
+- **Context naming:** `aks_<first 8 of subscription>_<group>/<name>`, because az names contexts after the bare cluster name, which isn't unique.
+  - The `/` separates group and name unambiguously, since it's legal in neither. `lib/clusterDistro.ts` gives `aks_` contexts the AKS badge and shows `<name>`. When kubeconfigs merge, the first file wins a duplicate name and the other is shadowed silently.
+  - "Already imported" also matches the API server (`serverKey`: host:port, :443 by default). A cluster fetched earlier with `az aks get-credentials` (context `web`) is recognised, in the scan and at import (409).
+- **Shared with EKS and GKE:** `writeDiscovered`, the pinned-kubeconfig 409, which names `az aks get-credentials … --file <pinned>` and then `kubelogin convert-kubeconfig -l azurecli --kubeconfig <pinned>`, and `DiscoveryBlockReason`.
+- **Routes:** `GET /api/discover/azure/subscriptions`, `POST /api/discover/aks/scan`, `POST /api/discover/aks/import`.
+- **UI:** `components/AksDiscovery.tsx`, under GKE in the same dialog. A "private" badge marks private clusters.
+- **Verified:** with unit fakes, and with the real engine binary driving a stand-in `az` script:
+  - subscriptions, then scan;
+  - the local-accounts import refused with 422, and its credential never read;
+  - the Entra ID import writes a 0600 file with no secret, and the context loads;
+  - re-import gets 409;
+  - `get-credentials` is never called and `$KUBECONFIG` is unchanged.
+- **Not verified:** a real Azure subscription, or kubelogin signing in to a real cluster.
+
+**Not in v1:**
+- removing an imported cluster (deleting its file from Settings' kubeconfig list works today);
+- scanning every region automatically.
+
+### 15. Fleet / multi-cluster dashboard — status: removed 2026-10-02 (owner: "unnecessary"; was shipped 2026-09-28)
+**Verified: the engine already keys everything per-cluster; nothing here needs a new engine primitive for v1/v2.** `engine/internal/informers/pool_registry.go`'s `PoolRegistry.For(ctx, clusterID)` lazily creates one informer `Pool` per cluster ID (plus per-identity when impersonation is on) and caches it in a map — it was never a "one active cluster" registry, it already supports N simultaneously-open pools. `httpapi/server.go`'s `poolSource.Subscribe` resolves that pool per-subscription from the `cluster` field the client sends, and `web/apps/shell/src/lib/useResourceStream.ts` already sends an explicit `cluster` string on every `subscribe()` call, with its own comment explaining that the multiplexed `/ws` connection "broadcasts every frame to every attached listener" and each hook filters by its own subscription id. In other words: opening live full-mode subscriptions against several different clusters at once, over the one already-open WebSocket, is a pattern this codebase already relies on (`NamespaceFilter`'s own `v1/namespaces` stream runs alongside a table's main stream today) — it has just never been pointed at more than one cluster ID from the same page.
+**Where it's genuinely not free: `WorkloadsOverview.tsx` and `internal/waste`'s HTTP handler are both hard-wired to exactly one cluster.** `pages/WorkloadsOverview.tsx`'s `useKindCounts` takes `effectiveCluster` from `useCluster()` (a single global "active cluster," `App.tsx`'s `useActiveCluster`) and opens six `mode:"full"` streams (`v1/pods`, `v1/nodes`, `apps/v1/{deployments,statefulsets,daemonsets}`, `batch/v1/jobs`) against just that one. A fleet version can't reuse the component; it needs the same counting logic fanned out per cluster. Separately, `engine/internal/httpapi/waste.go`'s `wasteWorkloadsHandler` requires `?cluster=<id>` and calls `Snapshotter.Snapshot(cluster)` — single-cluster only, confirmed by reading it, not assumed. A fleet-wide waste rollup is exactly the `for` loop over `api.clusters()` calling this existing endpoint per cluster that #6's designer predicted — now confirmed by code, not just argued.
+**Two different "fleet view" shapes exist in the wild, and they are not the same feature — say which one this scopes.** (1) A cluster-level health rollup: cards, one per cluster, "N/M pods healthy, node X down" — cheap, a fan-out of counting logic Kubebay already has. (2) A true cross-cluster resource table: one merged table (e.g. all Pods across every cluster) with a Cluster column, so "which pod anywhere is CrashLooping" is one screen, one scroll. Verified via `ResourceTable.tsx`: it is built around exactly one `effectiveCluster` for the whole page — the single stream subscription, `useBulkDelete`, `NamespaceFilter`, and the `cluster` prop handed to `GenericDrawer` all come from that one value (`GenericDrawer` itself is already a plain `cluster: string` prop, not a `useCluster()` call internally, which helps — but the page around it is not). Shape (2) means multiple concurrent per-cluster stream subscriptions merged into one row set with a per-row cluster tag, threading that tag through row selection/bulk-delete/drawer-open instead of one page-level cluster — real framework surgery to `ResourceTable`/`useBulkDelete`, not a new page. **This entry scopes shape (1) only; shape (2) is named and deliberately deferred, not silently dropped.**
+**Prior art, checked rather than assumed.** k9s and Headlamp are both explicitly single-context tools — switching clusters reloads the whole UI, with no cross-cluster aggregation of any kind; this is a documented, named gap in both, not a Kubebay-first opportunity. Lens's marketing describes a "multi-cluster dashboard," but on inspection that means fast switching between separately-rendered clusters, not simultaneous aggregation — don't overclaim parity with Lens here. **Aptakube** (a commercial, desktop-first, non-control-plane Kubernetes GUI — the closest philosophical peer to Kubebay of anything checked) already ships shape (2): "connect to multiple clusters simultaneously... view all pods in one place... see if any pod in any cluster is in CrashLoopBackOff." That's the validated UX reference if/when shape (2) gets built — Kubebay would not be first to either shape, and marketing copy should say so honestly.
+**Architecture fit.** New top-level nav item in `App.tsx` (same slot as "Cost / Waste," not nested inside `WorkloadTabBar` — this view is explicitly not scoped to one cluster) and a new `pages/Fleet.tsx`. Extract `WorkloadsOverview.tsx`'s `useKindCounts` body into a cluster-parameterized pure function so the per-kind health math isn't duplicated, then fan it out via a new hook across every cluster from `api.clusters()` with `status === "connected"` (skip `misconfigured`/`unreachable` — no point opening subscriptions against a cluster that can't serve them). A `useFleetWaste` hook does N parallel React Query calls against the existing `/api/waste/workloads?cluster=X` endpoint — polling, not streaming, so it has none of the informer cold-start concern below. **Zero new engine routes for phases 0-2.**
+**Phased plan.**
+- *Phase 0 (S, ~1-2d):* cluster health/version rollup only — zero new streams, reuses the exact `api.clusters()` query `ClusterPicker.tsx` already polls every 4s (`Status`/`Version`/`Error` per cluster, from `clusters/manager.go`'s `List()`). `pages/Fleet.tsx` renders one card per cluster (connected/unreachable/misconfigured + version) with a link that calls `setCluster` then navigates into that cluster's own Workloads Overview or Cost/Waste page. Ships something real before any fan-out streaming exists.
+- *Phase 1 (M, ~4-5d):* workload/pod health rollup — the fanned-out `useKindCounts` above, rendered as per-cluster cards sorted worst-first (most unhealthy pods/nodes at top), so "which cluster needs attention right now" is answerable at a glance without clicking through each one — the actual point of the one-liner's "single pane" framing. This is the phase with real risk (below), even though it needs no engine code changes.
+- *Phase 2 (S, ~2-3d):* Cost/Waste fleet rollup — `useFleetWaste` above, summed into a fleet-wide wasted-cores/GiB figure with a per-cluster breakdown, deep-linking into each cluster's own `/cost-waste` page. Directly confirms and ships #6's own "for loop over the per-cluster computation" claim.
+- *Phase 3 (not sized here, named only):* the Aptakube-shape cross-cluster resource table. Real `ResourceTable`/`useBulkDelete` surgery as described above — independently L/XL, and out of scope for this pass. Log it as its own future idea if Raja wants that shape rather than stopping at cards.
+**Effort: M for phases 0-2 combined** (roughly 1.5-2 weeks) — not S, because Phase 1 is the first place in the app that opens live full-mode subscriptions against *several* clusters from one mounted page at once, an access pattern nothing else here does today even though no new engine code is required; not L, because it's deliberately three small, independently shippable slices reusing existing counting logic and an existing endpoint rather than new plumbing.
+**OSS, not Enterprise — confirms the one-liner's own framing and #6's designer's argument, now on firmer ground.** No control plane, no persistence beyond the running app, no multi-user concern — a solo engineer with four kubeconfigs benefits identically to a team, matching this file's own open-core test. The one thing that *would* cross into Enterprise per the existing split: a background component that keeps recording fleet history or alerting while the laptop/app is closed (e.g. "page me if any cluster drops below N ready nodes overnight") needs a persistent process beyond one open window — that's carve-out (a) already documented at the top of this file. Everything scoped above (live-while-open cards + a loop over an existing endpoint) stays OSS.
+**Risks.** (1) Full-mode subscription burst: mounting Fleet Phase 1 with, say, 5 connected clusters opens up to 30 concurrent full-mode watches against 5 separate (possibly remote, possibly slow) API servers at once — needs a concurrency cap/stagger, not a naive "map over all clusters" fan-out. (2) A single slow/remote cluster's cold resync (already a known 5-15s tail on EKS elsewhere in this file) must not block the whole page behind one `synced` flag — each card needs its own skeleton/partial state. (3) Metadata mode is not an option here: the health rollup needs `.status.readyReplicas`/`.status.conditions`, exactly like the single-cluster page already does, so Phase 1's cost is inherently full-mode-times-N — there's no cheaper aggregation that preserves the actual health signal. (4) Scope creep: Phase 1 must not silently grow into Phase 3's cross-cluster table without recognizing that's a materially different, bigger effort touching the `ResourceTable`/`GenericDrawer` framework itself.
+**Open questions for Raja.** (a) Is the "cards, worst-cluster-first" shape (Phase 0-2) actually the itch, or is the real ask the Aptakube-shape cross-cluster table ("show me every CrashLooping pod across all my clusters in one table")? Those are different UX bets and only the cards shape is scoped here. (b) How many clusters does Raja's own real fleet footprint typically span (2-3 vs 10+)? That number should directly drive the Phase 1 concurrency/stagger design rather than being guessed at build time. (c) Priority relative to #5/#13's deferred halves and #9's parked kubectl escape hatch — this is a new nav surface with real (if modest) new risk, not a low-risk extension of something already shipped, so it's worth asking whether it should jump the queue.
+
+**Phase 0+1+2 shipped 2026-09-28, zero new engine routes as scoped.** `lib/kindCounts.ts#computeKindCounts` was extracted from `WorkloadsOverview.tsx`'s `useKindCounts` (behavior-preserving refactor, its own commit) so the per-kind health math is a pure, cluster-parameterized function. `pages/Fleet.tsx` (new top-level nav entry, same slot as Cost/Waste per this entry's own note) renders three sections: non-connected clusters in a "needs attention" block (Phase 0, from the same `api.clusters()` poll `ClusterPicker.tsx` already runs); connected clusters as `components/FleetClusterHealthCard.tsx` instances sorted worst-first via `lib/fleetHealthOrder.ts#sortClustersByHealth` (Phase 1); and a fleet-wide waste rollup via `lib/useFleetWaste.ts` (Phase 2, `useQueries` — not a fixed `useQuery` list — against the existing `/api/waste/workloads` endpoint, since the cluster count is variable). Addressed Risk (1) concretely: `lib/staggerDelay.ts`/`lib/useStaggeredEnable.ts` group connected clusters into waves of 3, 500ms apart, so a fleet of many clusters never opens every full-mode subscription in the same tick — each `FleetClusterHealthCard` also owns its own skeleton/synced state (Risk 2), so one slow or remote cluster's cold resync never blocks the others. Phase 2 reuses `computeEngineRightSizingRows`' own materiality gate rather than re-deriving waste, so a workload only counts fleet-wide if it would also be a real opportunity on the single-cluster Right-sizing page — directly the "for loop over the per-cluster computation" this entry itself predicted. **Phase 3 (the Aptakube-shape merged cross-cluster resource table) remains explicitly out of scope** — this entry named it as real `ResourceTable`/`useBulkDelete` framework surgery, independently sized, and nothing in this pass touched that framework. Open question (a) above — whether Phase 3 is actually the real ask — is still open.
+
+### 16. SBOM / vulnerability scan surfacing — status: shipped 2026-09-29 (Phase 0+1+2, all three)
+**Two backends, not one — and they are not the same shape.** Trivy-Operator installs a controller that runs scans as Kubernetes Jobs and writes results as CRDs (`aquasecurity.github.io/v1alpha1`, kind `VulnerabilityReport`, namespaced, plus a cluster-scoped `ClusterVulnerabilityReport`) — this is exactly the #2/#3/#12 shape (detect CRD via `/api/crds` → `useResourceStream` the CRD's GVR → pure lib decoder → dumb component) and should be built first. Grype has **no CRD at all**: it's a CLI/library that emits JSON/SARIF/CycloneDX, normally consumed by a CI pipeline or `grype -o sarif`, with no in-cluster controller or object to stream — surfacing Grype findings in Kubebay would mean an upload/paste path or an engine-side artifact store, a genuinely different (and separately-scoped) feature, not a variant of the CRD path. Scope this entry to Trivy-Operator; treat Grype support as an open question below, not assumed in-scope.
+**Kubebay's posture stays the same as #2/#3: detect and surface, never install.** Worth stating explicitly because Lens's own paid Security Center actually *does* ship an "Install Trivy Operator" flow — Kubebay should not copy that. The Helm-layer blockers already documented under #2 (no `helm repo add`, no OCI registry client, no dry-run in the Helm apply path) apply identically here; installing a scanner plus its RBAC plus its Job/CronJob schedule is exactly the "ships broken, no diagnosis tools" risk #2/#3 already ruled out. If Trivy-Operator isn't installed, `/api/crds` simply won't list the CRD and every surface below must degrade to an empty state, never a broken subscription.
+**The join, grounded in the real CRD, not guessed.** Verified against Trivy-Operator's own docs: a `VulnerabilityReport` is named `<workload-kind>-<workload-name>-<container-name>` and carries labels `trivy-operator.resource.kind`, `trivy-operator.resource.name`, `trivy-operator.resource.namespace`, and `trivy-operator.container.name` — plus an `ownerReferences` entry pointing at the scanned workload's **immediate** controller (a Pod's owning ReplicaSet/StatefulSet/DaemonSet, or the bare Pod itself if it has no controller). That's one hop shallower than `lib/podOwner.ts#resolveWorkloadOwner`, which #4's right-sizing feature already built to resolve *two* hops up to a Deployment — the vulnerability join needs only `controllerOwner()`, the private one-hop helper already inside `podOwner.ts`. Export it (or duplicate the ~8 lines) rather than reusing `resolveWorkloadOwner` itself, which would silently drop bare-Pod and StatefulSet/DaemonSet-owned reports by over-walking toward a nonexistent Deployment. Per-container matching then joins on `trivy-operator.container.name` against the pod's own `spec.containers[].name` list already rendered in `PodSummary.tsx`.
+**Where it attaches in the frontend — and a real wrinkle.** Pods do **not** go through `GenericDrawer.tsx`'s generic tab registry that #12's `PolicyFindingsTab` is wired into for every other kind; `pages/PodPanel.tsx` is a bespoke drawer component with its own hardcoded tab union (`"summary" | "logs" | "shell" | "graphs" | "size" | "yaml"`) and its own `localStorage`-backed tab-persistence switch. Adding a vulnerability tab here means widening that union, the tab-button list, and the render switch directly in `PodPanel.tsx` — not `GenericDrawer.tsx`'s `genTabs` machinery (the #12 Policy-tab pattern doesn't apply to Pods for this reason, only to everything else).
+**Severity filtering/sorting is a pure client-side lib function, no engine work** — same shape as `lib/policyFindings.ts`/`lib/rbacFindings.ts`, both already shipped. New `lib/vulnFindings.ts#findingsForPod(reports, {ns, containers, ownerKind, ownerName})` decodes each `VulnerabilityReport`'s `report.summary` counts and `report.vulnerabilities[]` (id/severity/installedVersion/fixedVersion/primaryLink — exact field names to be confirmed against a live Trivy-Operator install during build, not assumed from memory alone) and returns per-container rows sorted Critical→High→Medium→Low→Unknown, mirroring `PolicyFindingsSummary`'s "summarize passing, itemize the rest" instinct: default the view to Critical+High, with a "show all N" disclosure rather than dumping every low-severity CVE.
+**A real performance difference from the Policy Reports precedent, worth designing around rather than copy-pasting.** `PolicyFindingsTab.tsx` streams **all** `PolicyReport`/`ClusterPolicyReport` objects cluster-wide in full mode and filters client-side — acceptable because Kyverno reports are compact. A `VulnerabilityReport`'s `vulnerabilities[]` array can run into the hundreds of entries per container on an unpatched base image, and a busy cluster has one report per (workload, container) — a meaningfully heavier full-mode payload to pull cluster-wide just to render one Pod's tab. `useResourceStream` already supports `{ns: string[], labelSelector, mode}`; the Pod tab should subscribe scoped to the pod's own namespace **and** a `labelSelector` built from the owner's kind/name (`trivy-operator.resource.kind=X,trivy-operator.resource.name=Y`) rather than a bare cluster-wide full-mode stream — a small, concrete win over the Policy tab's own pattern, not a hypothetical one.
+**Architecture fit, concretely:** two new `EXTRA_DEFS` entries (`vulnerabilityreports` namespaced, `clustervulnerabilityreports` with `scoped:true`, following the `policyreports`/`clusterpolicyreports` pattern verbatim in `lib/resources.ts`) plus one nav line each in `App.tsx` — a free, findings-only list page with zero engine changes, exactly like Policy Reports today. New `lib/trivyOperator.ts#detectTrivyOperator(crds)` filtering `/api/crds` for `group === "aquasecurity.github.io" && resource === "vulnerabilityreports"`, the same one-CRD-check pattern as `detectKarpenter`/KEDA detection. New `lib/vulnFindings.ts` (pure, unit-testable) and `components/PodVulnerabilitiesTab.tsx`. Genuinely new: the `PodPanel.tsx` tab-union widening (small, mechanical) and the namespace+labelSelector-scoped subscription (a real but small design decision, not boilerplate).
+**Phased plan.**
+- *Phase 0 (S, ~1d):* register the two `EXTRA_DEFS` entries + nav lines. Ships a raw findings table for free and validates the CRD schema assumptions above against a real cluster before any drawer work starts.
+- *Phase 1 (S, ~2-3d):* `lib/trivyOperator.ts` detection + `lib/vulnFindings.ts` join/severity logic (unit tests against fixture `VulnerabilityReport` JSON) + `components/PodVulnerabilitiesTab.tsx`, wired into `PodPanel.tsx`'s tab list. Namespace+labelSelector-scoped subscription per the point above.
+- *Phase 2 (S, ~1-2d):* extend the same tab (or a workload-level summary card) onto Deployment/StatefulSet/DaemonSet via `GenericDrawer.tsx`'s real `genTabs` registry, aggregating across the workload's pods rather than one pod — the natural home for a "does anything in this rollout have a Critical CVE" view, and unlike Pods, these kinds already have the generic tab machinery to plug into.
+**Effort: S overall** (roughly 4-6 days across all three phases) — smaller than #14/#15 because it reuses three already-built patterns nearly verbatim (CRD detection, `EXTRA_DEFS` registration, a pure findings-decoder plus a dumb list component) and touches no engine code at all; not XS only because of the `PodPanel.tsx` tab-union surgery and the deliberate namespace/labelSelector scoping work.
+**Risks.** (1) Trivy-Operator absent → CRD not listed → detection returns `installed:false` → tab renders an empty state, never a broken subscription — same discipline as KEDA/Karpenter/Flux detection, must be tested explicitly. (2) Report staleness: Trivy-Operator scans on a schedule (commonly every 24h) or on image-digest change, not on every Pod start — a freshly-rolled pod may show a report for a different (older) instance of the same image; the tab must show the report's own scan/update timestamp so a stale finding is never mistaken for live. (3) The exact field names inside `report.vulnerabilities[]`/`report.summary` are stated from documentation, not from reading this repo's own code (there is no Trivy-Operator anywhere in this codebase to verify against) — confirm against a real installed cluster in Phase 0 before writing the Phase 1 decoder. (4) Volume, per the performance note above — get the scoped-subscription design right in Phase 1 or a popular pod's drawer will pull an unnecessarily large payload.
+**OSS, not Enterprise** — this is a findings table off an existing CRD, the same shape and size as #12's Policy tab and #2/#3's detection work, all of which the open-core split already treats as ordinary OSS drawer/table work. No control plane, no fleet aggregation, helps a solo engineer identically to a team.
+**Open questions for Raja.** (a) Trivy-Operator-only for v1, or also a manual SARIF/JSON upload path for Grype (or CI-produced Trivy JSON) users who don't run the in-cluster operator — this spec recommends deferring that, since it's a different architecture (file ingestion, not a stream), not a small addition. (b) Should Phase 2's workload-level aggregation (Deployment/StatefulSet/DaemonSet) ship in the same pass as Phase 1's Pod tab, or wait for real demand — this spec sequences it second because Pods are where the one-liner's own scope ("a Pod's detail view") points. (c) Default severity filter (Critical+High only, vs. also showing Medium) — a real UX call, not an engineering one. (d) Priority relative to #13's deferred AI-triage half and #15's Fleet dashboard, given this is smaller than either.
+
+**Phase 0+1 shipped 2026-09-28.** Phase 0: `vulnerabilityreports`/`clustervulnerabilityreports` registered in `lib/resources.ts#EXTRA_DEFS` verbatim on the `policyreports`/`clusterpolicyreports` pattern, plus nav lines under the existing Admission group — a free raw findings table, zero engine changes. Phase 1: `lib/trivyOperator.ts#detectTrivyOperator` mirrors Karpenter/KEDA's CRD-detection shape exactly (GVR read from discovery, degrades to an empty tab rather than a broken subscription when Trivy-Operator isn't installed). `lib/vulnFindings.ts#findingsForPod` joins by the real Trivy-Operator labels (`trivy-operator.resource.{kind,name,namespace}`, `trivy-operator.container.name`) as this entry specified, sorts Critical→High→Medium→Low→Unknown, and carries each report's own scan timestamp through to the UI so a stale finding is never mistaken for a live one. `lib/podOwner.ts#controllerOwner` — previously private — is now exported for exactly the reason this entry called out: the one-hop join Trivy-Operator needs would silently break under `resolveWorkloadOwner`'s two-hop Deployment resolution for bare-Pod/StatefulSet/DaemonSet owners. `components/PodVulnerabilitiesTab.tsx` subscribes scoped to the pod's own namespace plus an owner labelSelector (never a cluster-wide full-mode stream) and defaults to Critical+High with a "show all N" disclosure. Wired into `PodPanel.tsx`'s own bespoke tab union exactly as this entry predicted (Pods don't share `GenericDrawer`'s `genTabs` registry). Phase 2 (workload-level aggregation via `genTabs`) remains open per question (b) above.
+
+**Phase 2 shipped 2026-09-29, closing this entry.** Answers question (b) above: shipped as its own pass rather than bundled with Phase 1, on real demand (Raja asked for it directly from the pending backlog list) rather than speculatively. `lib/vulnFindings.ts#ownerNamesForWorkload(kind, name, ns, replicaSets)` resolves the Trivy-Operator `resource.kind`/`resource.name` pair(s) a workload's own reports are labeled with — the real wrinkle this entry's own "join" section flagged: a Deployment is never the labeled owner itself (its pods are owned by its ReplicaSet(s), and a rollout in flight can have *two* live ReplicaSets simultaneously, old and new), so this walks that one hop using the namespace's live ReplicaSets and `podOwner.ts#controllerOwner` (Phase 1's own export); StatefulSet/DaemonSet return their own name directly with zero extra hop, matching Trivy-Operator's label with no indirection. `lib/vulnFindings.ts#findingsForWorkload` is a sibling to Phase 1's `findingsForPod` (kept untouched, all its existing tests and callers unchanged) rather than a generalization of it — matching multiple owner names at once (the two-ReplicaSets-mid-rollout case) and not filtering by container, since a workload-level rollup wants every container across every pod, not one pod's own list. `components/WorkloadVulnerabilitiesTab.tsx` reuses Phase 1's exported `VulnFindingsSummary` for rendering (no duplicate UI component) and follows this entry's own scoping discipline: namespace + `resource.kind`-scoped subscription (never cluster-wide full-mode), narrowed further to the workload's own resolved owner names client-side — necessary because a single-value label selector can't express "either of these two ReplicaSet names." Wired into `GenericDrawer.tsx`'s real `genTabs` registry exactly as this entry predicted, gated on the same `RIGHTSIZABLE_SLUGS` set (`deployments`/`statefulsets`/`daemonsets`) right-sizing already uses — a direct reuse rather than a new constant, since Trivy-Operator's own resource.kind label can only ever resolve to a ReplicaSet/StatefulSet/DaemonSet, the identical three kinds. **#16 is now fully shipped — all three phases.**
+
+### 17. Admission-webhook debugger — status: shipped 2026-09-28
+**Verified: #12's structured admission-rejection work covers exactly one of eight mutating paths.** `parsePolicyRejection()` (`engine/internal/httpapi/policyrejection.go`) is a pure `error -> *PolicyRejection` function, not tied to any endpoint — but it's only ever invoked once, at `yaml.go:186` inside `HandleApplyYAML` (`PUT /api/yaml`, the path `YamlTab.tsx`'s Apply/Dry-run flow — and, through it, `NodePoolEditor.tsx` — uses). Every other mutating handler in `engine/internal/httpapi/server.go` (`/api/action/scale`, `/api/action/restart`, `/api/action/delete`, `/api/action/resize-pod`, `/api/action/cordon`, `/api/action/drain`) and `HandleCreateResource` (`POST /api/yaml/create`, used by `pages/CreateResource.tsx` and `components/KedaWizard.tsx`) just does `http.Error(w, err.Error(), http.StatusBadGateway)` on failure — a flat 502 with the k8s client's raw error string. That string still contains the apiserver's own `admission webhook "X" denied the request: ...` text verbatim (never fully invisible), but none of it is parsed into the structured `{engine, webhook, message, causes}` shape.
+**Frontend mirrors the gap exactly.** `PolicyRejectionError`/`PolicyRejectionDetail` (`lib/policyRejection.ts`) is thrown only by the bespoke `applyYamlRequest()` in `lib/api.ts` (lines 155-186), which duplicates the generic `send()` helper's fetch logic solely to add this one check. `send()` itself (lines 72-85 — used by `api.scale/restart/deleteResource/resizePod`, `actionApi.cordon/drain`, and `api.createResource`) just does `throw new Error(text)` on a non-ok response, no JSON-shape check at all. Consumers follow suit: `ActionsBar.tsx`'s scale/restart/delete/cordon/drain confirm flow renders any caught error as a bare `setErr(String(e.message))` span; `useBulkDelete.ts`'s bulk-delete banner and `CreateResource.tsx`/`KedaWizard.tsx`'s result banners do the same (`String(e instanceof Error ? e.message : e)`). On those seven paths today a Kyverno/Gatekeeper rejection reads as raw text in a plain error banner — legible, but not the red pre-flight card with engine/webhook/message/causes `/api/yaml` already renders. **`NodePoolEditor.tsx` is not one of the gap paths** — per #3's P2 note it renders through `YamlTab` itself, so Karpenter edits already inherit the structured card for free.
+**A second, distinct gap found during this pass — closer to what "debugger" actually implies than live-UI parity is.** `audit.Entry` (`engine/internal/audit/audit.go`) has no outcome/failure field, and every `Audit.Record(...)` call in the tree (grepped across `yaml.go`, `server.go`, `actions.go`) sits strictly after a successful mutation. In `HandleApplyYAML` itself, the `parsePolicyRejection` branch (`yaml.go:186-194`) returns its 422 JSON response *before* the code ever reaches `c.Audit.Record(...)` at line 203 — so a live-detected, fully-parsed policy rejection leaves **zero trace in `audit.log` today, even on the one path that already handles it correctly**. That makes the actual retrospective question — "which webhook rejected this Deployment yesterday at 3pm, when nobody was looking at the screen" — unanswerable on every path, including the one this backlog already marks shipped. Showing the webhook name live is a UI-parity fix; recording it is what makes this a *debugger* rather than a toast.
+**Competitive check: nothing to borrow.** Lens, Freelens, and k9s all bottom out at the same thing kubectl does — the apiserver's raw error text, sometimes only visible via `kubectl describe`/events, no structured card and no rejection history in any of them. Kubebay's existing `/api/yaml` treatment is already ahead of the field; this entry is about closing an inconsistency Kubebay itself created (one polished path, seven raw ones), not catching up to a competitor.
+**Architecture fit — genuinely small, matching the one-liner's own framing.** No new resource kind, no new DEFS entry, no new stream, no new page. Engine: call the existing `parsePolicyRejection(err)` from the six `server.go` action handlers and from `HandleCreateResource`'s per-doc apply loop, returning the same `{error:"policy-rejected", policyRejection}` 422 shape `HandleApplyYAML` already returns — worth factoring into one small shared helper (e.g. `writePolicyRejectionOrError(w, err)`) instead of copy-pasting that block eight times. Frontend: fold the same JSON-shape check into `send()` itself so every existing caller throws `PolicyRejectionError` automatically (this also lets `applyYamlRequest` stop duplicating fetch logic — it can just call `send()`); extract the card JSX already in `YamlTab.tsx` (~lines 220-235) into a small shared `<PolicyRejectionCard>` and wire it into `ActionsBar.tsx`'s existing catch, `useBulkDelete.ts`'s error banner, and `CreateResource.tsx`/`KedaWizard.tsx`'s result banners.
+**Risk to flag, not a blocker:** `HandleCreateResource` applies multiple YAML docs in a loop (`yaml.go:311-351`), non-dry-run; if doc 2 of 3 is rejected, docs already applied before it stay applied — a pre-existing partial-apply behavior, unrelated to this entry, but worth a one-line UI note ("N of M applied before rejection") while this code is being touched anyway.
+**Phased plan — one phase, because this really is small.**
+- Engine (~0.5-1d): shared `writePolicyRejectionOrError` helper; wire into the six action handlers plus `HandleCreateResource`; add an optional `audit.Entry.Outcome` field (empty = success, backward-compatible with every existing log line) and record a rejection entry on *every* mutating path — including the existing `/api/yaml` apply path — so "which webhook, when" becomes answerable retroactively via `/api/audit`.
+- Frontend (~0.5-1d): fold JSON-rejection parsing into `send()`; extract `<PolicyRejectionCard>` out of `YamlTab.tsx`; wire it into `ActionsBar.tsx`, `useBulkDelete.ts`, `CreateResource.tsx`, `KedaWizard.tsx`.
+- No Phase 2. If Raja later wants a dedicated cross-session "rejection history" view, that's a separate, newly-scoped idea (a filtered read of the now-richer `/api/audit`) — cheap, but a UX decision, not implied by the one-liner.
+**Effort: S** (roughly 1.5-2 days total) — not XS, because it touches seven engine handlers, a shared frontend helper, four separate UI call sites, and one small audit-schema addition; not M/L, because every piece reuses an already-built, already-tested primitive (`parsePolicyRejection`, `PolicyRejectionError`, the `YamlTab` card JSX, `audit.Entry`) and adds no new resource kind, stream, or page.
+**OSS, not Enterprise.** Pure error-handling/observability parity on existing mutation paths — the same open-core test #2/#3/#12 already applied (ordinary handler/UI work, not a control plane or a third-party-controller wizard) puts this squarely in OSS.
+**Open questions for Raja:** (a) is bundling the retrospective audit fix (this spec's addition) into the same pass as the literal live-UI-parity ask the right call, or should the audit half be split into its own entry — this spec bundles them because they share every touch point and the audit half is arguably the more valuable one; (b) should `HandleCreateResource`'s pre-existing partial-apply-before-rejection behavior get logged as its own follow-up idea, since it's real but unrelated to this entry's scope.
+
+**Shipped 2026-09-28, bundling both halves as this entry recommended.** `engine/internal/httpapi/rejection_response.go#writePolicyRejectionOrError` factors `HandleApplyYAML`'s structured-body logic into a shared helper, now called from all eight mutating paths named above (the six `server.go` action handlers plus `HandleCreateResource`'s per-doc loop) instead of a flat 502. `audit.Entry` gained the optional `Outcome` field this entry called for (empty = success, `"rejected"` for a policy denial, `omitempty` keeps every pre-existing log line and struct instance backward compatible — verified with a regression test reading a pre-existing log line with no `outcome` key) — every one of the eight paths now records a rejection entry with the webhook name and message in `Detail`, closing the exact gap this entry flagged as more valuable than live-UI parity: `HandleApplyYAML`'s own rejection branch previously returned before ever reaching `Audit.Record`. Frontend: the JSON-rejection check moved into `lib/api.ts`'s shared `send()` helper, so `PolicyRejectionError` now throws from every `api.*` call automatically; `applyYamlRequest` was simplified to a one-line `send()` call instead of duplicating fetch logic. `components/PolicyRejectionCard.tsx` extracted from `YamlTab.tsx` and wired into `ActionsBar.tsx`, `CreateResource.tsx`, `KedaWizard.tsx`, and `useBulkDelete.ts` (the last one renders the structured card only for a single-target failure — a multi-target bulk failure with mixed causes keeps the existing aggregate string, since one card can't represent N different outcomes). Open question (b) above is logged as its own follow-up rather than fixed here, per this entry's own scope note. **#17 is now fully shipped.**
+
+### 18. Pod drawer upgrade: clickable cross-resource links, resolved env/secrets, real volume detail — status: shipped 2026-09-28 (Phases 0-3, all four)
+**Freelens cloned to `/home/user/freelens` (shallow, for ongoing comparison) and its Pod drawer read end-to-end, not summarized from memory.** `packages/core/src/renderer/components/workloads-pods/pod-details.tsx` is the root: a flat `DrawerItem` list (Status, Scheduler, Node, Host/Pod IPs, Service Account, Priority Class, QoS Class, Runtime Class, Termination Grace Period, Node Selector, Tolerations, Affinities, Requests/Limits, Secrets, Conditions) followed by `PodDetailsInitContainers`/`PodDetailsContainers`/`PodDetailsEphemeralContainers` and `PodVolumes`. Verified three things Kubebay's own Pod drawer doesn't do today, against Kubebay's actual `pages/PodPanel.tsx` + `components/PodSummary.tsx`:
+**(1) Everything that names another object is a live link, in Kubebay it's plain text.** `pod-details.tsx` wraps Node in `LinkToNode`, Service Account in `LinkToServiceAccount`, Priority/Runtime Class in their own `LinkTo*`, and every volume in `details/volumes/variants/*` renders its owning ConfigMap/Secret/PVC through the same pattern (e.g. `persistent-volume-claim.tsx` → `LocalRef` → `MaybeLink` → `getMaybeDetailsUrlInjectable`). Every one of these ultimately just builds a details-URL for that kind and navigates a React Router `<Link>` with `stopPropagation`. Kubebay's `PodSummary.tsx` renders the exact same fields — Node (line 153), Service Account (154), each volume's `claimName`/`configMap.name`/`secret.secretName` (261-273) — as inert `<span className="mono">` text. **This is not a missing platform capability — it's an unused one.** `pages/ResourceTable.tsx` already has this precise mechanism today: a table cell can carry `to: { kind, ns, name }` (e.g. line 162 `{ v: vol, to: { kind: "persistentvolumes", ns: "", name: vol } }`, line 191 for PVC claimRefs) and clicking it calls `navigate('/detail/${kind}/${ns||"_"}/${name}')` (line 794) — the same `/detail/:kind/:ns/:name` route `ResourceDetail.tsx` already serves via `GenericDrawer` for any kind `lib/resources.ts#lookupDef` knows. Checked `lib/resources.ts` directly: `nodes`, `configmaps`, `secrets`, `serviceaccounts`, `persistentvolumeclaims`, and `persistentvolumes` are **all already registered kinds** with working detail pages. Wiring `PodSummary.tsx`'s Node/SA/volume fields to this existing route is pure frontend wiring in one file — zero new resource registration, zero engine change.
+**(2) Env values are unresolved placeholders in Kubebay; Freelens resolves them, and reveals secrets on demand.** `pod-container-env.tsx` resolves `fieldRef` (via `resolvePodRef`, reading straight off the live pod object — e.g. `status.podIP`), `resourceFieldRef` (computed against the container's own resources), and `configMapKeyRef` (looked up from an already-loaded `ConfigMapStore`) to their **actual current value** inline. For `secretKeyRef` it renders `secret(name)[key]` plus an eye icon (`secret-key.tsss`'s `SecretKey` component); clicking it lazy-fetches the Secret and base64-decodes the one key, revealing it in place — never fetched or decoded until the user explicitly asks. Kubebay's `PodSummary.tsx` (`containerDetails` mapping, lines 91/219-238) only shows the literal `value` when set, or a static `"← ref"` string for any `valueFrom` — a strictly worse signal than Freelens's resolved values, and there is no secret-reveal affordance in the codebase at all today.
+**(3) Container "Last State" (previous crash) is richer in Freelens.** `pod-details-container.tsx#renderLastState` shows Reason, exit code, and formatted Started/Finished timestamps for the terminated previous instance. Kubebay's `stateReason` (`PodSummary.tsx` line 103) only derives a short `"CrashLoopBackOff"`/`"exit 137"`-style string from the *current* state, with no separate last-state timestamps — a real but small gap for diagnosing "when did it last crash and how long did it run before that."
+**Also checked and confirmed comparable, not a gap:** liveness/readiness/startup probe rendering (`Probe` in `PodSummary.tsx` vs `pod.getLivenessProbe()` etc. in Freelens) — both render compact one-line summaries; Delete flow — Kubebay's force-checkbox + type-to-confirm is arguably more explicit than Freelens's phase-derived delete-mode dropdown (`kube-object-menu.tsx#getPodDeleteModes`), though Kubebay doesn't currently hide "force" for a pod already in a terminal phase the way Freelens's `getPodDeleteModes` does (very minor polish item, not scoped as a phase here). **Done 2026-10-09, more precisely than hiding it by phase.**
+  - The API server's pod strategy (`CheckGracefulDelete`) already uses a zero grace period for a Succeeded/Failed or unscheduled pod, so skipping the grace period adds nothing there.
+  - Kubebay's force also strips finalizers, and a finalizer can hold even a finished pod (a Job's `batch.kubernetes.io/job-tracking`).
+  - So `lib/podDelete.ts#forceDeleteEffect` works out what force would actually do, and the checkbox says that: "force (skip grace period)", "remove finalizers", or both. It is hidden when force would do nothing, and the request sends only the parts that apply. Container CPU/Memory metrics — `components/PodGraphs.tsx` already queries Prometheus `by (container)` and renders one line per container on a shared chart; Freelens's inline per-container sparklines (`pod-details-container-metrics.tsx`) are a different *placement* of comparable data, not new data — deliberately **not** scoped as a phase below.
+**Named but deliberately out of scope for this pass: live port-forwarding from a container port row.** `pod-container-port.tsx` lets a Freelens user click a container port to open a local `kubectl port-forward` and launch a browser tab, with a Forward/Stop toggle. This is a genuinely nice, visible click-to-navigate affordance and the single most "wow" feature found in this research pass — but it means the engine spawning and lifecycle-managing local listening sockets on the user's machine, a materially different trust/attack-surface question than anything in this entry's other phases (which are all read-only rendering + navigation to data the engine already streams). Recommend scoping port-forwarding as its **own** future backlog entry rather than folding it in here, exactly the pattern #15 used to name-and-defer its Phase 3.
+**Architecture fit.** Everything in Phases 0-2 below is confined to `web/apps/shell/src/components/PodSummary.tsx` (plus one new small shared component) and needs no new engine route, no new `EXTRA_DEFS` entry, and no new stream — the pod object Kubebay already fetches into `pod.obj` carries every field these phases read. The only new primitive is a `<ResourceLink kind ns name>` component (thin wrapper around the exact `navigate('/detail/${kind}/${ns||"_"}/${name}')` call `ResourceTable.tsx` line 794 already makes) so `PodSummary.tsx` doesn't need `useNavigate` boilerplate at every call site.
+**Phased plan.**
+- *Phase 0 (XS, ~0.5-1d):* `<ResourceLink>` component + wire it into `PodSummary.tsx`'s Node field, Service Account field (once a `sa` value other than the literal default is real — currently defaults silently to `"default"`, which is itself always a valid, linkable ServiceAccount), and each volume's ConfigMap/Secret/PVC name. Ships the single biggest "what's clickable and where does it go" gap with no backend work at all.
+- *Phase 1 (S, ~1-2d):* Resolve `fieldRef`/`resourceFieldRef` env values inline (pure computation off the already-loaded pod/container objects, same logic shape as Freelens's `resolvePodRef`/`resolveResourcesRef`); add a masked-with-reveal control for `secretKeyRef` values, fetching and base64-decoding only that one key on click through Kubebay's existing resource-read path (must go through the same RBAC/audit-aware fetch every other Secret read in the app uses — never a bespoke unaudited path, since revealing a Secret value is exactly the kind of action this codebase's own audit log should see).
+- *Phase 2 (XS, ~0.5d):* Render `lastState.terminated`'s Reason/exit code/Started/Finished under the existing "Last Status" line in `PodSummary.tsx`, mirroring `pod-details-container.tsx#renderLastState`. Purely additive rendering of data already present in `status.containerStatuses[].lastState`.
+- *Phase 3 (M, ~3-4d, do only if Phase 0-2 land well):* Replace `PodSummary.tsx`'s one generic best-effort volume-type line (`detailStr` picking the first of claimName/configMap.name/secret.secretName/hostPath.path) with distinct renderers for the handful of volume types actually seen in practice — PVC (name + link, from Phase 0), ConfigMap/Secret (name + link + optional-flag), hostPath (path + type), emptyDir (medium + sizeLimit), projected/downwardAPI (list of sources) — not a port of all ~25 Freelens variants, just the common ones.
+**Effort: S overall for Phases 0-2** (roughly 2-3.5 days combined) — the real value-per-effort of this whole entry, since it's pure frontend rendering/wiring reusing an existing route and existing data. Phase 3 is a separate M-sized follow-up, worth doing only once the cheaper phases prove out.
+**Risks.** (1) Phase 0's ServiceAccount link always resolving to `default` when unset is technically correct (that's the real object Kubernetes uses) but could read as noise if every pod in a namespace links to the same place — worth a quick look at whether to visually de-emphasize the default case rather than a hard blocker. (2) Phase 1's secret reveal is a real security-sensitive UI surface: it must never auto-decode on render, must go through whatever RBAC check already gates Secret reads elsewhere in Kubebay, and ideally lands an audit entry the same way #17's rejection-audit work just added for mutations — a *read* of a Secret value by a human via this button is exactly the kind of action worth being able to answer "who looked at this and when" for later. (3) None of these phases touch `PodPanel.tsx`'s tab structure or its bespoke (non-`GenericDrawer`) nature — that's a separate, larger refactor (unifying Pods onto the shared `genTabs` registry) that this entry deliberately does not propose, since nothing here requires it.
+**OSS, not Enterprise.** Pure drawer rendering/navigation + one RBAC-gated secret read, the same shape and size as #12/#16's drawer-tab work already classified OSS. No control plane, no fleet aggregation, no persistent background component.
+**Open questions for Raja.** (a) Is the Phase 1 secret-reveal button wanted at all, given it's the one genuinely security-sensitive addition here — some teams deliberately keep Secret values unreadable from any GUI as policy; worth confirming before building rather than assuming Freelens's default is the right default for Kubebay. **Answered: yes, with an audit entry.** (b) Should Phase 3's volume-type-specific rendering happen at all, or is Phase 0-2 (links + resolved env + last-state) the actual itch — Phase 3 is real but the lowest-value-per-effort item in this entry. **Answered: build it too.** (c) Should the named-but-deferred port-forwarding idea get its own backlog entry now, or wait — it's the most visually impressive single feature found in this research pass, but a materially different risk profile (local listening sockets) from everything else scoped here. **Answered: build it — see #19, which found the risk was already retired.**
+
+**Shipped 2026-09-28, all four phases, per Raja's own answers to (a) and (b) above.** Phase 0: new `components/ResourceLink.tsx` wraps the exact `navigate('/detail/${kind}/${ns||"_"}/${name}')` call `ResourceTable.tsx` already made, and now backs `PodSummary.tsx`'s Node and Service Account fields plus every PVC/ConfigMap/Secret volume reference — zero new resource registration, exactly as this entry predicted. Phase 1: `lib/podEnv.ts#resolveFieldRef`/`resolveResourceFieldRef` resolve `fieldRef`/`resourceFieldRef` env values against the live pod/container objects; a new `components/PodEnvValue.tsx` dispatches each env var to the right resolution path, fetching `configMapKeyRef` values on demand via a `useQuery`-cached `api.getObject` call; `secretKeyRef` values stay masked behind the new `components/SecretValueReveal.tsx` until the user clicks Show. The audit half Raja asked for is real, not decorative: `engine/internal/httpapi/secret_value.go#HandleGetSecretValue` (new `GET /api/secret-value`) decodes exactly one key of one Secret — never the whole object — and calls `c.Audit.Record` on every successful reveal, so "who looked at this secret and when" is answerable via `/api/audit`, the same discipline #17 established for rejections. Phase 2: `lib/podContainerState.ts#describeLastState` extracts a container's previous terminated instance (reason, exit code, and a computed "ran for" duration) from `status.containerStatuses[].lastState`, now rendered under a new "Last State" line. Phase 3: `lib/podVolumes.ts#describeVolume` replaces the old one-generic-line volume renderer with distinct detail for PVC, ConfigMap, Secret, hostPath, emptyDir, projected, and downwardAPI — the 7 types this entry named, not a full port of Freelens's ~25. All new pure logic (`podEnv.ts`, `podVolumes.ts`, `podContainerState.ts`, the Go handler's `decodeSecretKey`/`secretRevealAuditDetail`) was written test-first per this repo's TDD rule; `PodSummary.tsx` got its first test file in this pass. `go test ./...` and the full `pnpm` suite (90 files / 815 tests) are green; `pnpm build` succeeds. The named-but-deferred port-forwarding idea (open question (c)) remains unbuilt, exactly as scoped.
+
+### 19. Port-forward directly from a container's port row in the Pod drawer — status: shipped 2026-09-28
+
+**The risk this was deferred for turned out not to exist.** #18's research flagged Freelens's click-a-port-to-forward affordance as "the most visually impressive single feature found," but deliberately left it out of that pass because it seemed to mean "the engine spawning and lifecycle-managing local listening sockets on the user's machine, a materially different trust/attack-surface question." Checking before building this pass found that claim was wrong for Kubebay specifically: `engine/internal/httpapi/portforward.go#PFManager` already does exactly that — a full SPDY-over-WebSocket (with SPDY fallback) tunnel manager with `Start`/`Stop`/`List`, wired to `POST/GET /api/pf` and `DELETE /api/pf/{id}` in `server.go`, already audited (`Action: "port-forward"` on every successful start), and already has a dedicated UI (`pages/Ports.tsx`) where a user manually types cluster/namespace/pod/port to open a tunnel. This is not a new capability at all — it's a years-old, already-trusted one hiding behind a form on a separate page instead of a one-click affordance where the port is already visible.
+
+**So this shipped as pure frontend wiring, not a new trust boundary.** New `components/PodContainerPortForward.tsx` sits next to each container port badge in `PodSummary.tsx`'s Ports row: a "Forward" button that calls the existing `api.pfStart`, then opens `http://127.0.0.1:<localPort>` in a new tab (matching Freelens's own auto-open-on-forward UX); once active, it shows the `127.0.0.1:<port>` link plus a Stop button, the same shape `Ports.tsx` already renders. It shares the `["pf"]` React Query key with `Ports.tsx` so both surfaces poll the same 5s-interval cache instead of doubling the request rate, and checks the live forward list on mount so re-opening a pod's drawer or having `Ports.tsx` open at the same time never shows a stale "not forwarded" state or lets a duplicate tunnel start for the same pod+port. Zero engine changes; zero new resource kind, route, or audit action — it reuses `port-forward`, already recorded on every `/api/pf` POST.
+
+**Effort: XS** (under half a day) — one new component plus a ~15-line edit to `PodSummary.tsx`'s existing Ports `KV` block, written test-first (`PodContainerPortForward.test.tsx`: Forward-button state, start-and-auto-open, already-active Open/Stop state, stop-reverts-to-Forward, ignores a forward for a different port, surfaces a start error inline).
+
+**Risks.** None materially new — the underlying tunnel manager, its audit trail, and its "binds to 127.0.0.1 only, dies with the engine" safety property (per `Ports.tsx`'s own empty-state copy) were already shipped and trusted before this pass. The only genuinely new failure mode is UX, not security: auto-opening a browser tab on every Forward click could surprise a user forwarding a non-HTTP port (a database, a raw TCP service) — worth watching for feedback, not a blocker.
+
+**OSS, not Enterprise.** Frontend convenience wiring onto an already-OSS, already-audited engine capability — no control plane, no fleet aggregation, no new persistent process.
+
+### 20. One-click VPA recommender install (updateMode: Off) — status: shipped 2026-09-29 — **deliberate exception to "detect, never install"**
+
+**This is Kubebay's first "install a cluster controller" button — a explicit, deliberate reversal, not a default.** #2/#3/#16 established "detect and surface, never install" across KEDA, Karpenter, and Trivy-Operator, explicitly citing Lens's paid "Install Trivy Operator" flow as the thing Kubebay should *not* copy. Raja asked for this one anyway, after being shown the research below and the precedent it breaks, and confirmed he wanted it built regardless — recorded here so this doesn't silently reopen the KEDA/Karpenter/Trivy-Operator question. Those three remain "detect, never install." This is the one named exception, and it's narrow for concrete reasons, not just because it was asked for.
+
+**Verified before building: VPA's real distribution shape is meaningfully different from KEDA/Karpenter, which is what makes this exception defensible.** `kubernetes/autoscaler`'s own `vertical-pod-autoscaler/charts/vertical-pod-autoscaler` is a genuine first-party Helm chart — but published to a plain HTTP chart repo (`https://kubernetes.github.io/autoscaler`), never an OCI registry. That retires KEDA's fatal blocker outright: `actionCfg()` (`engine/internal/httpapi/helm.go`) never sets a `RegistryClient`, but VPA's chart never needs one. Its `values.yaml` also has independent `recommender.enabled` / `updater.enabled` / `admissionController.enabled` toggles — disabling the latter two skips the updater (the component that evicts/resizes *running* pods) and the admission-controller (a mutating webhook needing its own TLS cert bundle, normally minted by `gencerts.sh`) entirely. Recommender-only + `updateMode: "Off"` needs neither: the recommender only ever writes `.status` on VPA objects, nothing acts on the recommendation unless something else reads it.
+
+**Two real blockers still existed and were closed as part of this work, verified by reading the live code (not the old backlog text) before writing a line:** (1) no `helm repo add` endpoint — `helm_repo.go` could list and refresh an *already-configured* repo's index but had nothing to add a new one, so VPA's chart could never even be discovered. (2) no dry-run anywhere in `HandleUpgrade` — installing CRDs + RBAC + a Deployment cluster-wide with zero preview is exactly the "ships broken, no diagnosis tools" pattern #2/#3/#16 all rejected. A third, unrelated gap found along the way: the entire Helm layer (`helm.go`) had **zero audit coverage** — install/upgrade/rollback/uninstall all mutate silently. Fixed the two blockers plus this one narrow slice of the audit gap (install/upgrade only, since that's what this feature uses); rollback/uninstall's own audit gap is real but out of scope here.
+
+**What shipped, concretely.** Engine: `HandleAddRepo` (new `POST /api/helm/repos/add`) validates a repo by downloading its index before persisting the entry — a typo'd URL never silently saves. `HandleUpgrade` gained `DryRun` on the request; when set, both `action.Install` and `action.Upgrade` get `DryRunOption = "client"` (Helm's `--dry-run=client` — the mutating action genuinely never contacts the target cluster's API server). One caveat worth stating precisely rather than overclaiming: the existing `action.Get` call earlier in the handler, which decides install-vs-upgrade, still reads release storage from the cluster regardless of `DryRun` — a pre-existing read, not something this change introduced, and read-only rather than mutating. Every real (non-dry-run) install/upgrade now records an `Audit.Record` entry (`helm-install`/`helm-upgrade`), the same discipline #17 established for policy rejections. Frontend: `components/InstallVpaRecommender.tsx` on `RightSizing.tsx`'s existing "no VPA found" empty state — click "Install VPA recommender" → client-side dry run renders the manifest → `lib/manifestSummary.ts#summarizeManifestResources` (a small hand-rolled `kind`/`metadata.name` line-scan, same instinct as `karpenterDangerousChange.ts` — no YAML parsing dependency for two scalar fields) lists exactly what would be created, alongside static copy stating plainly: recommender-only, no eviction, no webhook, the cluster-wide RBAC it needs, and upstream's own "under development, not recommended for production" caveat. The real install is gated behind typing `install` into a text field — not `ArmedButton`'s double-click pattern, deliberately: this grants cluster-wide RBAC and installs CRDs, a materially bigger action than anything `ArmedButton` gates elsewhere in this app, so it gets the stronger type-to-confirm treatment KEDA's scale-to-zero and Karpenter's dangerous edits already use.
+
+**Effort: S** (about 2 days) — the two engine gaps are each closer to a day than a week (a Helm SDK repo-add call plus persisting a file; two boolean/string field sets on structs Helm already exposes), and the frontend is one new component plus a values template hard-pinned to recommender-only, not a general "install any chart" UI.
+
+**Risks.** (1) Values are hard-pinned in the frontend, never exposed as free-form — if a future change ever lets a user edit this install's values, `admissionController.enabled`/`updater.enabled` must stay excluded from what's editable, or this quietly turns into full VPA with a webhook, silently outside everything this entry reasoned about. (2) Upstream itself calls this chart "under development, not recommended for production" — surfaced honestly in the UI, but worth revisiting if upstream's stability posture changes. (3) CRD installs via Helm have their own well-known upgrade caveat (Helm does not upgrade CRDs on `helm upgrade` by default) — not exercised by this first-install-only flow, but relevant if this release is ever upgraded to a newer chart version later.
+**OSS, not Enterprise.** A recommender-only, no-eviction, audited, dry-run-gated install of one specific, narrowly-scoped component — the same size and shape as ordinary OSS handler/UI work elsewhere in this file, not a control plane.
+**Open questions for Raja.** (a) Should `helm-uninstall`/`helm-rollback` get the same audit treatment this pass added to install/upgrade, given the Helm layer's audit gap was found here but only partly closed? (b) Now that the repo-add + dry-run blockers are gone for HTTP-repo-distributed charts specifically, does that change the calculus for any *other* HTTP-repo (non-OCI) chart Kubebay might want to detect-and-offer someday — or does "detect, never install" stay the default for everything except this one named exception?
+
+### 21. Fix: Right-sizing page kept showing "Install VPA recommender" after a successful install, and never got real VPA data — status: shipped 2026-09-29
+
+**Root cause, found by reading the actual data flow rather than assuming:** the Right-sizing page's empty state (`vpas.rows.length === 0`) was gating purely on whether any live `VerticalPodAutoscaler` *object* exists — it never checked whether the recommender itself was installed. Backlog #20's `InstallVpaRecommender` installs the recommender *controller* only (by design — no updater, no admission webhook). A bare controller creates **zero** `VerticalPodAutoscaler` objects on its own; nothing acts until a VPA object with a `targetRef` exists for the recommender to compute recommendations against. So `vpas.rows.length` stayed 0 forever after a successful install, and the page kept rendering the same "Install VPA recommender" prompt — not a rendering bug, a missing distinction between "not installed" and "installed, nothing targets anything yet." `InstallVpaRecommender`'s own post-install banner already half-admitted this ("recommendations will appear once the recommender has observed your workloads for a bit") without the page having any way to make that true.
+
+**Two-part fix, both required — fixing only the detection half would still leave the page silently dead-ended.** (1) `lib/vpa.ts#detectVpa(crds)` — CRD-based install detection, the exact same free `/api/crds` filter `detectKeda`/`detectKarpenter` already use (checks for `verticalpodautoscalers.autoscaling.k8s.io`), independent of the object stream. `RightSizing.tsx` now branches into two distinct empty states: CRD absent → the original Install flow; CRD present but zero objects → new copy explaining the recommender needs per-workload VPA objects to have anything to compute, plus an actual way to create one. (2) `lib/vpa.ts#buildVpaObjectYaml` + `components/CreateVpaObject.tsx` — closes the loop backlog #20 explicitly left open: a small `ArmedButton`-gated action that creates a real `VerticalPodAutoscaler` object (always `updateMode: "Off"`, observe-only, via the same `/api/yaml/create` endpoint KEDA's wizard uses) for one workload. The candidate list reuses `rows.filter(r => r.source !== "vpa")` — the already-ranked, already-deduped engine-sourced rows `mergeRightSizingRows` computes — rather than a second workload scan, so the workloads offered are exactly the ones Kubebay already has waste visibility into and that no VPA yet covers.
+
+**Effort: XS** (~half a day) — two small pure functions (`detectVpa`, `buildVpaObjectYaml`), one small component mirroring `InstallVpaRecommender`'s existing shape, and a page-level branch reusing data the page already computes.
+
+**Known scope limit, stated plainly rather than silently:** the "create a VPA" candidate list only offers workloads that already have engine (metrics-server/Prometheus) waste data. A workload with zero waste-engine visibility (e.g. metrics-server itself not yet scraping it) won't appear as a candidate even though a VPA might still be worth creating for it — accepted as an edge case rather than adding a second, separate workload-enumeration path for it; revisit if it turns out to matter in practice.
+
+**OSS, not Enterprise.** A bug fix plus one small additive per-workload create action, same size and shape as ordinary OSS work elsewhere in this file.
+
+### 22. Fix: Node shell gave a shell in the helper pod's own filesystem, never the actual node — status: shipped 2026-09-29 (parity researched against Freelens)
+
+**Root cause, found by cloning Freelens locally and reading its Node Shell implementation end-to-end (`packages/core/src/main/shell-session/node-shell-session/node-shell-session.ts`) against Kubebay's own.** Kubebay's node-shell (`engine/internal/httpapi/nodeshell.go`) already did the right thing on the pod side — `hostPID: true`, `privileged: true`, pinned via `nodeName` — but the frontend (`GenericDrawer.tsx`) then exec'd a plain `sh` (`ExecTerm ... shell="sh"`) inside that pod. Kubebay's exec path always runs a *new* process via the Kubernetes exec API rather than attaching to the pod's own initial container process, and a bare `sh` exec'd this way only ever sees the **helper pod's own container filesystem** (whatever the pinned busybox image ships) — `hostPID` alone lets it see host *processes* via `/proc`, but nothing ever switched into the host's mount namespace. So "Start node shell" produced *a* shell, silently the wrong one: never the node's actual files, package manager, or config, despite the UI's copy promising "a root shell on the node."
+
+**What Freelens does differently, and why it actually works:** its pod spec is nearly identical (`hostPID`/`privileged`, plus `hostIPC`/`hostNetwork` for full parity) — the difference is entirely in what runs inside it: `nsenter -t 1 -m -u -i -n -p -- bash -l`. `-t 1` targets PID 1 on the node (visible because of `hostPID`), and `-m` (mount) is what actually matters — nsenter re-execs `bash` *after* switching into PID 1's mount namespace, so `bash` itself resolves from the **node's** own filesystem, not the container image's. The container's own image only needs to supply the `nsenter` binary; everything the interactive shell runs afterward is the host's. (Freelens attaches to this as the container's own long-running process via `kubectl attach`, since its terminal transport is built around spawning `kubectl` as a child process; Kubebay's transport is exec-based instead, so the fix here is to nsenter as the *exec'd* command rather than the pod's initial one — the pod's own placeholder `sh` process, which nothing ever attaches to, was already harmless and needed no change.)
+
+**What shipped, concretely.** Engine: `buildNodeShellPod` (extracted as a pure, unit-tested function from `HandleStart`) adds `HostIPC: true` and `HostNetwork: true` alongside the existing `HostPID`, matching Freelens's pod shape exactly. Frontend: `lib/execShell.ts` (new — `ExecTerm.tsx`'s previously-inline `SHELL_CANDIDATES` map moved here so it's independently testable) gains a `"node"` shell mode: `nsenter -t 1 -m -u -i -n -p -- <bash|sh|ash> -l`, reusing `ExecTerm`'s own existing "retry the next candidate on a not-found-shaped exit" ladder for the fallback across shells — which is a genuine improvement over Freelens's approach, not just a port: Freelens hardcodes `bash -l` with a separate special case for Bottlerocket nodes and no other fallback, so a real shell exec on any other minimal/non-bash node image would just fail outright. Kubebay's node-shell mode gets the bash→sh→ash recovery for free from infrastructure that already existed for pod exec. `GenericDrawer.tsx`'s node-shell tab now passes `shell="node"` instead of `shell="sh"`, and its explanatory copy was corrected to describe what actually happens (nsenter into the node's namespaces) instead of the previously-inaccurate promise.
+
+**Effort: XS** (~half a day) — one Go struct-builder refactor + a 6-field test, one small frontend module extraction + a fallback-ladder addition, and a two-line copy fix.
+
+**Deliberately not copied from Freelens, on purpose:** (1) its pod runs in `kube-system` with `priorityClassName: system-node-critical` — Kubebay's runs in `default` with no priority class; changing this wasn't attempted here since `system-*` priority classes are conventionally namespace-restricted on many clusters, and verifying that admission behavior needs a live cluster this session didn't have — a namespace/priority-class change risks turning "works" into "silently 403s on pod create" with no way to test it first. (2) No RBAC pre-check and no confirmation dialog before granting root-on-host access exists in Freelens either — that's a gap in Freelens, not a feature worth porting; Kubebay's existing explicit "Start node shell" click stays the only gate, unchanged, matching the scope of what was actually asked (fix the shell to reach the real node) rather than a broader safety redesign.
+
+**Known unverified risk, stated plainly:** whether the pinned default image (`registry.k8s.io/e2e-test-images/busybox:1.29-2`) actually ships an `nsenter` applet couldn't be confirmed against a live cluster this session. Mainline BusyBox's default applet set does include `nsenter`, and the identical alpine-plus-nsenter pattern is what both Freelens and the standalone `kubectl-node-shell` krew plugin rely on, which is reasonable but not verified evidence here. If it turns out to be missing, `ExecTerm`'s fallback ladder will surface a clear "not found" error rather than a silently-wrong shell (a strict improvement over today's silent-wrong-filesystem failure mode either way), and the existing `NodeShellImage` setting/`KUBEBAY_NODE_SHELL_IMAGE` env override (added for air-gapped clusters) is already the escape hatch to point at a known-good image. Worth a real-cluster smoke test before calling this fully closed.
+
+**OSS, not Enterprise.** A bug fix to an existing debugging feature, same size and shape as ordinary OSS work elsewhere in this file.
+
+### 23. One-click Trivy-Operator install, plus fixing the same install-vs-detection gap VPA had — status: shipped 2026-09-29 — **third deliberate exception to "detect, never install," and the second time this exact detection bug has been found**
+
+**The third named exception, for the same concrete reason as #20's VPA install.** #16 established "detect and surface, never install" for Trivy-Operator explicitly, citing Lens's paid "Install Trivy Operator" flow as the thing not to copy. Raja asked directly for an enable option here too. Verified before building, not assumed: Trivy-Operator's official chart is distributed via a plain HTTPS chart repo (`https://aquasecurity.github.io/helm-charts/`, chart ref `aqua/trivy-operator`) — confirmed by fetching the chart's own README, not from memory — so the KEDA-style "no OCI registry client" blocker never applies here, exactly the same shape as VPA's chart. The two Helm-layer blockers (`helm repo add`, dry-run) were already closed building #20 — this needed **zero engine changes**, pure reuse.
+
+**Scoped the install the same way #20 scoped VPA's:** the chart's `values.yaml` independently toggles five scanners (vulnerability, config-audit, exposed-secret, infra-assessment, RBAC-assessment) plus cluster-compliance — Kubebay only surfaces `VulnerabilityReport`/`ClusterVulnerabilityReport` (per #16), so the install disables everything except `operator.vulnerabilityScannerEnabled`. Installing all six by default would run real scan Jobs cluster-wide for findings nothing in Kubebay's UI shows.
+
+**A second instance of the exact bug #21 found and fixed for VPA — found immediately when asked to add the install option, because adding "enable if not present" forces the question "how do we know it's already present."** `PodVulnerabilitiesTab.tsx` and `WorkloadVulnerabilitiesTab.tsx` both already computed `detectTrivyOperator(crds)` (Phase 1's own detection), but neither ever branched on `.installed` — both rendered the identical generic "No vulnerability findings" empty state whether Trivy-Operator was absent entirely or installed-and-clean. Same root shape as #21: a detection value computed but never actually used to distinguish "not installed" from "installed, nothing found." Fixed by branching both tabs: CRD absent → `<InstallTrivyOperator>`; CRD present → the existing `VulnFindingsSummary` (now correctly implying "installed and clean" rather than "unknown why nothing's here"). `VulnFindingsSummary` gained an `emptyLabel` prop (default "this pod") so the workload tab's message reads "this workload," not the pod-specific wording it was silently inheriting.
+
+**Effort: XS** (~half a day) — `InstallTrivyOperator.tsx` is a structural clone of `InstallVpaRecommender.tsx` (same preview → dry-run → typed-confirm → install flow, zero new engine work), and the detection-gap fix is a small branch in two already-existing components.
+
+**OSS, not Enterprise.** A scoped controller install plus a bug fix, same size and shape as #20/#21.
+
+**Pattern worth naming explicitly for next time:** both #21 and this entry found the identical bug independently — a `detectX(crds)` computed and used only to gate a stream's `enabled` flag, never to branch the empty-state UI itself. Worth a quick audit of every other `detect*` call in the codebase (Karpenter, KEDA, Argo, Flux) to confirm none of them have the same latent gap before a user finds a third instance.
+
+### 24. SPOF Radar — single-point-of-failure detector — status: shipped 2026-09-29 (Phases 0+1)
+
+Sourced from the "Kubebay Intelligence" research pass (five parallel research tracks + a synthesis/debate round, 2026-09-29): flags Deployments/StatefulSets with `replicas: 1` and no covering PodDisruptionBudget, pods with no topology-spread/anti-affinity clustered onto too few nodes, and Services whose current `EndpointSlice` has exactly one Ready backend — all computed from objects Kubebay's own informers already stream (Deployments, StatefulSets, PDBs, Pods, Nodes, EndpointSlices), no new resource kind and no engine changes. Two research tracks converged on this independently without coordinating, which the synthesis treated as the strongest confidence signal across the whole pass: the resource/capacity track wants it as a safety gate the node-consolidation recommender must check before suggesting anything disruptive; the whitespace-scan track wants it as its own standalone panel, citing JupyterHub's `zero-to-jupyterhub-k8s` issue #1934 (a single-replica workload with a PDB blocking node drains), the LFN CNTI certification suite's issue #2691 (codifying "every multi-replica workload must allow eviction" as a pass/fail check), and Popeye's (~6.3k GitHub stars) own `poddisruptionbudgets` linter, already wired into k9s via `spinach.yml` — proven CLI-level demand for exactly this check, just never shipped inside a visual IDE. Neither Lens nor Freelens surfaces this natively.
+
+**Real prior art already in this codebase, not a cold start.** #3's Karpenter safe-editing work (`lib/labelSelector.ts#matchesSelector`) already implements real Kubernetes LabelSelector semantics (`matchLabels` + `matchExpressions`: In/NotIn/Exists/DoesNotExist) specifically to answer "does this PDB's selector actually cover this pod, or does it just happen to live in the same namespace" — exactly the join SPOF Radar's own PDB-coverage check needs. `lib/karpenterImpact.ts#computeNodePoolImpact` is a second precedent for joining Pods/PDBs/Nodes into a blast-radius figure. Reuse both rather than rebuilding PDB-coverage matching from scratch.
+
+**Effort: S–M** per the research (matches this file's own read of the code: a pure client-side join over already-shipped LabelSelector matching, one new pure `lib/` module, one new dumb list component — the same shape as #5's RBAC-smell detector or #16's vulnerability findings).
+
+**Open questions for Raja, to resolve during scoping:** (a) standalone nav page vs. a `GenericDrawer` tab vs. both (the two research tracks that converged on this wanted it for different consumption modes — a user-facing panel and an internal recommender gate — which may argue for a shared `lib/` detector feeding two different UI surfaces, not one); (b) exact single-Ready-backend Service check needs a real EndpointSlice read, not just Service/Pod — confirm during scoping which resource stream that requires and whether it's already open elsewhere in the app; (c) whether this ships before or alongside the node-consolidation recommender it's meant to gate (research roadmap item #15), given #15 isn't scoped yet either.
+
+**OSS, not Enterprise.** A local, agentless static-analysis detector over resources Kubebay already reads — same size and shape as the RBAC-smell detector (#5) and the SBOM/vulnerability findings work (#16/#22/#23), not a control plane or a third-party-controller wizard.
+
+**Scoping pass, 2026-09-29.**
+
+**EndpointSlice stream: already registered, and its `mode` question is fully resolved — verified against `lib/resources.ts`, `pool.go`, and `useResourceStream.ts`.** `DEFS.endpointslices` (`discovery.k8s.io/v1/endpointslices`) already has a working nav leaf and generic `/r/endpointslices` table page (`App.tsx:134`, `ResourceTable.tsx:236-243`) — confirms the entry's "no new resource kind" claim outright. One real wrinkle found while checking: `DEFS`'s `mode` field defaults to `"metadata"` when not explicitly overridden (`lib/resources.ts:32`), and `endpointslices` (like `poddisruptionbudgets`, `endpoints`, `services`) carries no `{mode:"full"}` override; the engine's `ModeMetadata` path (`informers/pool.go`) drives client-go's `metadatainformer`, which yields `metav1.PartialObjectMetadata` — TypeMeta+ObjectMeta only, nothing else. That means the live `/r/endpointslices` table's own "EndPoints" column (`rec(o).endpoints` at `ResourceTable.tsx:239`) is almost certainly always reading `undefined` today and rendering "0"/warn for every row — a real, pre-existing, unrelated bug worth a one-line fix (`{mode:"full"}` on that one `DEFS` entry) regardless of whether SPOF Radar ships. It doesn't block SPOF Radar itself: `useResourceStream`'s own `mode` option is set independently per call site, not inherited from `DEFS` — confirmed via `Karpenter.tsx:32-34`, which already streams PDBs with an explicit `{mode:"full"}` despite `DEFS.poddisruptionbudgets` itself defaulting to metadata. So SPOF Radar's own EndpointSlice read is simply `useResourceStream(cluster, "discovery.k8s.io/v1/endpointslices", {mode:"full"})` at its own call site, the same pattern Karpenter already established — zero engine or `DEFS` changes required. **Resolves open question (b):** yes, a real EndpointSlice read is required (a Service object alone carries no per-backend Ready state), the stream already exists, and the join key is each slice's `kubernetes.io/service-name` label — sum `.endpoints[].conditions.ready` across every slice sharing that label, per Service.
+
+**PDB-coverage and clustering checks: reuse confirmed, not reinvented.** `lib/labelSelector.ts#matchesSelector` and `lib/karpenterImpact.ts#computeNodePoolImpact` are exactly the join precedent the idea cites — `computeNodePoolImpact` already builds a per-namespace `pdbsByNs` map and calls `matchesSelector(pod.metadata.labels, pdb.spec.selector)` for its own PDB-protected-pod count; SPOF Radar's PDB-coverage check is the mirror image (does *any* PDB cover this `replicas: 1` workload's pods) and should call `matchesSelector` directly rather than re-deriving selector semantics. The clustering check (topology-spread/anti-affinity absent, pods concentrated on too few nodes) needs pod→workload grouping, for which `lib/podOwner.ts#controllerOwner` (exported in #16 Phase 1 for exactly this kind of one-hop join) is the right primitive: walk each Pod's owner to its ReplicaSet/StatefulSet/DaemonSet, group by that, read `pod.spec.topologySpreadConstraints`/`pod.spec.affinity.podAntiAffinity` (absent = flag candidate) and compare `new Set(pods.map(nodeName)).size` against replica count. All three checks run entirely on streams already open elsewhere in the app (`v1/pods`, `v1/nodes`, `apps/v1/deployments`, `apps/v1/statefulsets`, `policy/v1/poddisruptionbudgets`, `discovery.k8s.io/v1/endpointslices`) — no engine change, confirmed by reading the actual call sites, not assumed.
+
+**Architecture fit.** One new pure module, `lib/spofRadar.ts`, exporting three independent finding functions (`findUnprotectedSingleReplicaWorkloads`, `findUnspreadClusteredWorkloads`, `findSingleBackendServices`) plus a `SpofFinding{severity, kind, name, ns, why, evidence}` shape mirroring `lib/rbacFindings.ts`'s own `Finding` shape from the shipped RBAC-smell detector — same size and shape, unit-testable against fixture JSON per this repo's TDD rule, no Zustand store needed since it's all derived data, nothing persisted. One new dumb component, `components/SpofFindingsList.tsx`, following `RbacFindingsCard.tsx`'s severity-sorted layout. **Resolves open question (a):** the strongest-fit UI home, verified against the actual nav tree and not guessed, is a new tab on `pages/WorkloadsOverview.tsx` (`/workloads-overview`) — that page already carries exactly this shape of precedent from #1's Pressure tab (a tab-gated stream, `enabled: tab === "pressure"`, plus a dumb render component), not a new top-level nav entry. Because the three detector functions live in a standalone `lib/` module with no UI coupling, the (not-yet-scoped) node-consolidation recommender can import and call them directly as its own pre-flight safety gate without depending on this tab existing — satisfying both research tracks' consumption modes from one implementation, exactly as this entry's own open question (a) speculated might be the right shape.
+
+**Sharpening open question (c).** There is no "node-consolidation recommender" entry anywhere in this backlog file today — the entry's own reference to "research roadmap item #15" doesn't match this file's actual #15 (Fleet/multi-cluster dashboard, already shipped), so it's a numbering collision from a different research document, not a real dependency to sequence against. Practically: nothing in this file currently blocks or is blocked by SPOF Radar, so it should ship standalone rather than waiting. If/when a node-consolidation recommender is added as its own idea entry, it should be scoped to consume `lib/spofRadar.ts`'s exports rather than re-deriving PDB/topology safety checks a second time.
+
+**Prior art, confirmed rather than assumed.** Popeye's `poddisruptionbudgets` linter and its k9s `spinach.yml` wiring are real, public, and OSS-only (CLI, never a visual IDE surface) — the entry's "proven CLI-level demand, never shipped inside a visual IDE" framing holds up. Neither Lens nor Freelens ships a comparable check in their resource views today; Kubebay would be the first desktop IDE to surface it, not reinventing something that already has an established GUI pattern to borrow.
+
+**Phased plan.**
+- *Phase 0 (S, ~1-2d):* `lib/spofRadar.ts#findUnprotectedSingleReplicaWorkloads` (Deployments+StatefulSets+PDBs, via `matchesSelector`), fixture-based unit tests written first per this repo's TDD rule. No UI yet — validates the join against real selector/PDB shapes before any visual work starts.
+- *Phase 1 (S, ~2-3d):* `findUnspreadClusteredWorkloads` (Pods+Nodes, via `controllerOwner`) and `findSingleBackendServices` (Services+EndpointSlices via the `kubernetes.io/service-name` label join, full-mode stream at the call site), same fixture-test discipline. `components/SpofFindingsList.tsx` wired into a new tab on `WorkloadsOverview.tsx`, tab-gated streams per the Pressure-tab pattern (`enabled: tab === "spof"`).
+- *Phase 2 (optional, XS, ~1d, defer until actually needed):* export a single `runSpofRadar(...)` aggregator from `lib/spofRadar.ts` for the future node-consolidation recommender to import as a pre-apply gate — pure plumbing, no new UI, only worth doing once that recommender is itself being scoped.
+
+**Effort: S** (tightened from the original S–M). Now that the EndpointSlice mode question is fully resolved (zero `DEFS`/engine changes needed, confirmed by reading `pool.go` and `useResourceStream.ts` directly) and the UI home is a tab on an existing page rather than new nav surface, this is roughly 4-6 days across Phases 0+1 — the same size as #16's vulnerability findings work, which is the closest real precedent in this codebase for a multi-source findings-list feature.
+
+**Open questions for Raja:** (a) resolved above — ship as a `WorkloadsOverview.tsx` tab, not a standalone nav page; only remaining sub-question is the tab's label ("Reliability"? "SPOF"? something friendlier for a non-SRE audience?). (b) resolved above — EndpointSlice full-mode read at the call site, zero engine/`DEFS` work required. (c) sharpened above — no real blocking dependency exists in this file today; ship standalone. (d) new, surfaced during this pass: severity/allowlist tuning — a StatefulSet with `replicas: 1` is a legitimate, intentional pattern for plenty of real workloads (single-writer databases, leader-election singletons), so a naive "flag every replicas:1 without a PDB" rule risks being noisy from day one; worth a default dismiss/allowlist mechanism up front, the same lesson the RBAC-smell detector's "hide `system:*`" toggle already learned the hard way. (e) separately, flag to Raja that the likely pre-existing `/r/endpointslices` "EndPoints" column bug (metadata-mode stripping the field it reads) is worth a standalone one-line fix regardless of whether SPOF Radar itself is prioritized.
+
+**Phases 0+1 shipped 2026-09-29, plus (e)'s bug fix landed alongside it.** Built directly from this scoping pass with minor naming differences (kept for brevity, not a deviation in approach): `lib/spof.ts` (not `spofRadar.ts`) exports `findSingleReplicaNoPdb`, `findClusteredReplicas`, and `findSingleReadyBackend` — the same three checks this scope names, using the exact reuse this pass called for (`lib/labelSelector.ts#matchesSelector` for PDB coverage; a direct pod-label match rather than `controllerOwner` for the clustering check's pod→workload grouping, since a workload's own `spec.template.metadata.labels` is already a stricter, more direct match than walking pod ownership — no ReplicaSet hop needed since `apps/v1/deployments`/`statefulsets` are already the two kinds this check covers). `components/SpofRadarList.tsx` (not `SpofFindingsList.tsx`) is the dumb render half, filter-button pattern mirroring `KedaInventory.tsx`. Landed as a third tab on `pages/WorkloadsOverview.tsx` exactly as (a) resolved — labeled "SPOF Radar" (kept the idea's own name rather than "Reliability", since it's specific and the app already introduces plenty of domain jargon elsewhere), tab-gated PDB/Service/EndpointSlice streams (`enabled: tab === "spof"`) reusing the already-lifted `pods`/`nodes`/`deployments`/`statefulSets` streams the Overview and Pressure tabs also share — zero duplicate subscriptions for data other tabs already had open. (b)'s EndpointSlice read needed no new `DEFS`/engine work, confirmed. (e)'s bug fixed alongside, with its own regression test (`resources.test.ts`): `DEFS.endpointslices` now carries `{mode:"full"}`, so the generic `/r/endpointslices` table's "EndPoints" column reads real data instead of always-undefined. (d)'s allowlist/dismiss-noise concern is **deliberately deferred, not dropped** — v1 ships all three checks as flat findings with no per-finding dismiss state; revisit if real usage shows the single-replica-without-PDB check is too noisy in practice (a StatefulSet with `replicas: 1` by design is a real, common pattern this check doesn't yet special-case). Phase 2's aggregator export stays deferred exactly as this scope recommended, since no node-consolidation recommender exists yet to consume it.
+### 25. Upgrade Readiness Panel — API-deprecation advisory — status: shipped 2026-09-29 — from the Kubebay Intelligence research pass, "build first" pick #2
+
+Sourced from the same research pass as #24 ([roadmap doc](https://claude.ai/artifact/U1yQszbyRLEMgqjEFVVewJ)): flag API versions this cluster's own server version will deprecate or remove within 1-2 minor releases, mirroring what `pluto`/`kubepug` do for a live cluster, entirely locally.
+
+**Honest scoping limitation, found before building anything and worth stating plainly.** Kubebay only ever fetches a known kind (Deployment, Ingress, etc.) via the one apiVersion its `resources.ts#DEFS` entry is pinned to (e.g. Deployments always via `apps/v1/deployments`) — the live GET always normalizes to the version requested, so Kubebay can never see "this specific object was actually last-applied via `extensions/v1beta1`" the way `managedFields`/`kubectl.kubernetes.io/last-applied-configuration` could. The engine's own `yaml.go#stripNoisyFields` explicitly deletes `managedFields` before any object reaches the frontend, and nothing else surfaces it. Getting true per-object fidelity would need new engine work (stop stripping `managedFields` on a dedicated endpoint). **Not built that way.** Instead this ships the same fidelity `pluto`'s own live-cluster check actually uses: a discovery-table lookup, not object inspection — does this cluster's API server still *serve* a soon-to-be-removed apiVersion at all. That's still a real, non-hallucinated signal (if the server has already fully removed a version, nothing could possibly still be using it; if it's still served, something plausibly is) and needed exactly one small, targeted engine addition.
+
+**One new engine endpoint, `GET /api/apiversions`.** The existing `/api/apis` (`HandleDiscovery`) calls `ServerPreferredResources()`, which by definition returns only *one* (the preferred) version per group — useless for this, since it would never show `policy/v1beta1` is still being served alongside `policy/v1`. Added `HandleAPIVersions` (`discovery.go`) calling `Discovery().ServerGroups()` instead, which lists every version each group actually advertises, flattened by a pure `groupVersionsFromServerGroups([]metav1.APIGroup) []string` helper — unit-tested directly with hand-built `metav1.APIGroup` fixtures, no client mocking, per CLAUDE.md's Go-testing rule (mirrors the `buildNodeShellPod` precedent from the node-shell fix: extract the pure transform, leave the thin HTTP wiring itself untested like its `HandleDiscovery` sibling already is). Registered at `server.go` next to `/api/apis`.
+
+**Frontend: a small bundled deprecation table, not a bundled binary.** `lib/upgradeReadiness.ts#DEPRECATED_APIS` is a static array (Kind, group, version, removedInMinor, replacementVersion) sourced from the official Kubernetes API deprecation guide, covering the two removal waves most likely to actually matter (v1.22: Ingress/CRD/webhook-config `v1beta1`; v1.25: PDB/CronJob/HPA/EndpointSlice `v1beta1`/`v2beta1`) plus HPA `v2beta2` (v1.26) and flowcontrol `v1beta1` (v1.29) — explicitly not exhaustive, flagged here the same way #21's node-shell image risk was flagged, as a known best-effort table worth widening once this ships and gets real use rather than a blocker to shipping. `computeUpgradeReadiness(serverVersion, servedGroupVersions)` parses the connected cluster's `GitVersion` (already streamed today via `Cluster.Version`/`ClusterInfo.version`, surfaced through `useCluster().list` — no new plumbing needed there either) down to its minor version, cross-references against the table, and only flags an entry when the server is within 2 minors of the removal **and** `/api/apiversions` confirms that exact group/version is still actually served.
+
+**UI: new standalone page, not a `WorkloadsOverview` tab — deliberately different shape from #24.** Unlike SPOF Radar's findings, an apiVersion removal isn't tied to one object to link to — it's a cluster-wide fact about the server itself, same category as KEDA/Karpenter's own cluster-wide pages. `pages/UpgradeReadiness.tsx` mirrors `Keda.tsx`'s single-cluster-page shape (cluster-select gate → loading → empty/found state) rather than `Fleet.tsx`'s multi-cluster shape, since the check is inherently per-cluster. `components/UpgradeReadinessPanel.tsx` is the dumb render half — a plain advisory list (`Stack as="ul"`, no `ResourceLink`, since there's no object to link to), Badge-toned by urgency (`err`/"Overdue" once a removal's minor has already passed the server's, `warn`/"N minors away" otherwise). Registered at `/upgrade-readiness` in `App.tsx`'s nav + routes.
+
+**Effort: S** (~1-2 days) — one small, focused Go discovery-handler addition plus a pure frontend module and dumb list component, the same size and shape as #24's own Phase 0.
+
+**OSS, not Enterprise.** A local, agentless advisory over one small new discovery call already the same shape as `/api/apis` — no control plane, no bundled scanner binary, no third-party wizard.
+### 26. NetworkPolicy Coverage Gap Detector — status: shipped 2026-09-29 — from the Kubebay Intelligence research pass, "build first" pick #3
+
+Third and last of the research pass's ([roadmap doc](https://claude.ai/artifact/U1yQszbyRLEMgqjEFVVewJ)) three "build first" picks, alongside #24 (SPOF Radar) and #25 (Upgrade Readiness Panel). Flags workloads with zero NetworkPolicy protection — a common, real gap (a namespace that simply never got a default-deny policy leaves every pod in it fully open to ingress/egress from anything).
+
+**Deliberately distinct from the existing `pages/NetworkPolicy.tsx` connectivity matrix, not a duplicate of it.** That page already computes and renders an "open" cell for any pod-group pair with no applicable policy — the underlying signal already exists. But it's buried in an N×N grid a user has to read row-by-row to notice; nothing on that page produces a flat, scannable "here's what's exposed" list, the same gap #24/#25 both filled for their own domains (SPOF Radar turned a similar "have to notice it yourself" signal into a findings list; this does the same for NetworkPolicy coverage specifically).
+
+**Two gap reasons, not one, found by reading the matrix's own logic first.** `isolatedNamespaces`/`policySelectsPodGroup` in `NetworkPolicy.tsx` already distinguish "namespace has zero policies at all" from "namespace has policies but they don't select this particular pod group" — the second case is the sharper, more interesting finding (a namespace that looks protected at a glance because *some* policies exist, but a specific workload's labels slip through all of them). `lib/networkPolicyCoverage.ts#findNetworkPolicyCoverageGaps` surfaces both explicitly as `"no-policy-in-namespace"` vs. `"not-selected-by-any-policy"`, rather than collapsing them into one generic "open" label the way the matrix's cell coloring does.
+
+**Reused `lib/labelSelector.ts#matchesSelector` instead of the page's own simplified matcher — a real accuracy improvement, not just reuse for its own sake.** `NetworkPolicy.tsx`'s own inline `selectorMatches` explicitly skips `matchExpressions` ("best-effort for v0.x"). This detector uses the same real `matchesSelector` #24 and #18's Karpenter safe-editing work already established (full `matchLabels` + `matchExpressions`: In/NotIn/Exists/DoesNotExist), so it won't miss a `matchExpressions`-only NetworkPolicy the way the existing matrix page still does — flagged here as a small, separate, worthwhile follow-up for the matrix page itself, out of scope for this entry.
+
+**Grouped by namespace+app label, not per-pod.** Reuses `NetworkPolicy.tsx#podAppLabel`'s own grouping convention (`app` / `app.kubernetes.io/name` / `k8s-app` label, falling back to `"(unlabelled)"`) rather than per-pod findings (which would flood the list with N identical rows for an N-replica Deployment) or `lib/podOwner.ts#controllerOwner` (which would need a ReplicaSet stream this page doesn't already carry) — matches the grouping the connectivity matrix already uses for the exact same feature area, so the two views describe pod groups identically.
+
+**Shipped as a third tab on the existing page, not a new nav entry.** `pages/NetworkPolicy.tsx`'s `SegmentedControl` gained a third `"coverage"` option next to `"matrix"`/`"policies"`; `components/NetworkPolicyCoverageList.tsx` is the dumb render half (Card/Badge list, `Stack as="ul"`, same shape as #24/#25's own list components). Gaps are computed cluster-wide from the page's own already-open `pods`/`netpols` streams (zero new subscriptions), then filtered by the page's existing namespace-selection store, consistent with how `filteredPolicies` already works.
+
+**Effort: XS** (~half a day) — one pure `lib/` function reusing an already-shipped selector matcher, one dumb list component, and a three-line addition to an existing page's tab set. Smaller than #24/#25 since no new engine work and no new resource stream were needed — `NetworkPolicy.tsx` already had both `pods` and `networkpolicies` open.
+
+**OSS, not Enterprise.** A local, agentless static-analysis detector over data one existing page already streams — same size and shape as #5's RBAC-smell detector, not a control plane or policy-authoring wizard (that's Tier 2's separately-listed "NetworkPolicy visual editor + dry-run wizard," out of scope here).
+### 27. Service/Endpoints selector-mismatch detector — status: shipped 2026-09-29 — first Tier 1 item after the three "build first" picks (#24/#25/#26)
+
+From the same [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszbyRLEMgqjEFVVewJ)'s Tier 1 list. Flags a Service that routes nowhere: either its selector matches zero pods in its own namespace (almost always a label typo, or a workload that was renamed/removed but the Service wasn't), or it matches pods but every one of its current EndpointSlice backends is not-Ready (a health problem, not a config one). Extremely common, extremely silent — nothing about a broken Service surfaces itself; a client just gets connection refused/timeout with no indication why.
+
+**Deliberately complements, not duplicates, #24's SPOF Radar.** `lib/spof.ts#findSingleReadyBackend` (from #24, not yet merged when this was built) only flags a Service with *exactly one* Ready backend — it never covers zero. This detector's `"zero-ready-endpoints"` reason is the more severe case that check structurally can't produce (`readyCount === 1` in its own condition), and `"no-matching-pods"` is a different failure mode entirely (a selector problem, not a scale-down-to-danger problem). Verified by reading `#24`'s actual shipped `findSingleReadyBackend` logic directly, not assumed.
+
+**Reuses `lib/labelSelector.ts#matchesSelector` for the pod-matching half** — the same real LabelSelector engine (`matchLabels` + `matchExpressions`) #18's Karpenter work, #24's SPOF Radar, and #26's NetworkPolicy Coverage Gap Detector all already reuse for their own selector-matching needs. A Service's own `spec.selector` is always a flat `matchLabels`-only map per the Service API (no `matchExpressions` support in Service selectors, unlike NetworkPolicy/PDB selectors) — `matchesSelector` handles that correctly since an absent `matchExpressions` array is simply skipped.
+
+**Explicit exclusions, both real and deliberate:** a Service with no `spec.selector` at all is skipped outright — that's a legitimate, common pattern (manually-managed `Endpoints`/`EndpointSlice` objects, most often hand-wired to an external database or a service outside the cluster) and flagging it would be pure noise. `type: ExternalName` Services are skipped too — they have no selector concept whatsoever (they're a DNS CNAME, not a backend-routing object).
+
+**Shipped as a new "Service Health" tab on `WorkloadsOverview.tsx`**, not `NetworkPolicy.tsx` (which doesn't stream Service or EndpointSlice objects at all today — it derives pod-groups from pod labels directly, never touching real Service objects) and not a new nav page (no page dedicated to Services exists beyond the generic `/r/services` table). `WorkloadsOverview.tsx` was the better fit both because it's already becoming this app's "cluster health findings" hub (Pressure tab, and #24's SPOF tab once merged) and because it already streams `pods` at the top level — this tab only needed two more tab-gated streams (`services`, `endpointSlices`, both `enabled: tab === "service-health"`). `components/ServiceMismatchList.tsx` is the dumb render half, `ResourceLink`-backed (a Service is a real, linkable object, unlike #25's apiVersion findings) — same Card/Badge list shape as #24/#25/#26's own components.
+
+**Effort: XS** (~half a day) — one pure `lib/` function reusing an already-shipped selector matcher, one dumb list component, and a new tab on an existing page. No engine work, no new resource kind.
+
+**OSS, not Enterprise.** A local, agentless static-analysis detector over data the app already streams — same size and shape as every other Tier 1 detector shipped this pass.
+### 28. ServiceAccount token over-mount detector — status: shipped 2026-09-29
+
+From the same [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszbyRLEMgqjEFVVewJ)'s Tier 1 list, following #27. Flags a pod running under the `default` ServiceAccount with its API token still automounted — CIS Kubernetes Benchmark 5.1.5 ("ensure that default service accounts are not actively used") / 5.1.6 ("ensure that Service Account Tokens are only mounted where necessary"), the same category of check Popeye and kube-bench already run. The `default` SA is almost never intended for API access; a compromised container in one of these pods gets a live, if low-privilege, cluster credential it didn't need.
+
+**Resolution order matches the API server's own semantics exactly, verified against real K8s docs rather than assumed:** a pod-level `spec.automountServiceAccountToken` always wins when set; if unset, the `ServiceAccount` object's own top-level `automountServiceAccountToken` field decides; if both are unset, the cluster default is `true` (mounted). `lib/serviceAccountAutomount.ts#findDefaultServiceAccountAutomounts` implements exactly this three-level fallback, and only ever considers pods actually resolved to the literal `default` SA (an empty `serviceAccountName`/`serviceAccount` field resolves to `"default"`, same as the API server) — a pod on any other, explicitly-named ServiceAccount is out of scope for this check, even if that SA also leaves automount enabled, since the well-established security concern here is specifically about the *default* SA's broad, implicit reach, not automount in general.
+
+**Grouped by namespace+app label**, reusing the exact same convention `lib/networkPolicyCoverage.ts` (#26) established for this session's other pod-grouping detectors, rather than a per-pod finding that would flood the list with N identical rows for an N-replica Deployment.
+
+**Shipped as a new Card section on `pages/Rbac.tsx`, not a tab.** Unlike #24/#26/#27's tab-based homes, this page's own existing convention is stacking independent security-check `Card`s vertically (the "Who can…" query, `RbacFindingsCard`, "My access") rather than tabs — `ServiceAccountAutomountCard` follows that same shape, sitting directly below `RbacFindingsCard` since both are RBAC/security-posture findings. Streams its own `pods`/`serviceaccounts` (`{mode:"full"}`) independently of the page's existing `rbacApi.all` snapshot query, since pod specs and ServiceAccount objects were never part of that server-side RBAC-binding analysis and adding them there would have meant real engine work for no benefit over a client-side join.
+
+**Effort: XS** (~half a day) — one pure `lib/` function with no new selector-matching logic needed (this is direct field comparison, not LabelSelector matching), one dumb card component, and two new always-on streams on an existing page.
+
+**OSS, not Enterprise.** A local, agentless static-analysis detector over data the app already has access to — same size and shape as the RBAC-smell detector (#5) this page already ships.
+### 29. Secret exposure surface detector — status: shipped 2026-09-30
+
+From the [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszbyRLEMgqjEFVVewJ)'s Tier 1 list, following #28. Flags a pod group that exposes one or more Secrets via environment variables (`env[].valueFrom.secretKeyRef` or `envFrom[].secretRef`) rather than a mounted volume — a well-established Kubernetes hardening guideline (NSA/CISA Kubernetes Hardening Guide; the official Kubernetes "Good practices for Kubernetes Secrets" page): env-var secrets leak into `kubectl exec … env`, child-process environments, `/proc/<pid>/environ`, and are far more likely to end up in crash dumps or accidental debug logging than a value an app has to deliberately read from a file.
+
+**Scoped deliberately narrow: "how is it exposed," not "what's in it."** `lib/secretExposure.ts#findSecretEnvExposures` only inspects which Secrets a pod's own spec *references* and *how* — it never fetches a Secret object, never reads a value, never decodes base64. That keeps the feature itself from becoming a new secret-exposure surface inside Kubebay (reading every Secret's data client-side just to lint it would be a strictly worse security posture than the problem it detects). Scans both `containers` and `initContainers`, since a migration init-container pulling a DB password via `envFrom` is an extremely common version of exactly this pattern.
+
+**Zero new data source.** Pod `env`/`envFrom` specs are already on every full-mode Pod object; no Secret stream, no engine work.
+
+**Grouped by namespace+app label**, same convention as #26/#28, with each finding carrying the deduplicated set of Secret names exposed across all containers in the group.
+
+**Shipped as a new Card on `pages/Rbac.tsx`**, directly below `RbacFindingsCard` — same reasoning as #28's `ServiceAccountAutomountCard`: that page's own established convention is stacking independent security-posture cards, not tabs. (#28 and #29 were built on separate branches off the same `main`, both inserting a card at the same spot — whichever merges second hits a trivial, expected conflict: keep both cards.)
+
+**Effort: XS** (~half a day).
+
+**OSS, not Enterprise.** A local, agentless static check over data the app already streams.
+### 30. Spot/disruption-tolerance flagging — status: shipped 2026-09-30
+
+From the [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszbyRLEMgqjEFVVewJ)'s Tier 1 list. Flags a workload whose every running replica sits on spot/preemptible capacity and can't survive a reclaim wave: either it's single-replica, or it's multi-replica with no PodDisruptionBudget covering it.
+
+**Spot detection is label-based, across all the providers that stamp one:** `karpenter.sh/capacity-type=spot`, `eks.amazonaws.com/capacityType=SPOT`, `cloud.google.com/gke-spot=true`, `cloud.google.com/gke-preemptible=true`, `kubernetes.azure.com/scalesetpriority=spot` (`lib/spotRisk.ts#isSpotNode`). A cluster with none of these returns no findings and the card says so, rather than implying "all clear."
+
+**A single-replica spot workload is flagged even with a PDB.** A cloud spot reclaim doesn't go through the eviction API, so a PDB can't hold it off; for multi-replica workloads the PDB still matters because Karpenter/cluster-autoscaler drain ahead of a reclaim through eviction. The two reasons are kept separate for exactly that reason. PDB coverage reuses `lib/labelSelector.ts#matchesSelector`.
+
+**Skips what shouldn't count:** DaemonSet-owned pods (per-node by design, via `lib/podOwner.ts#controllerOwner`), non-Running pods, and unscheduled pods. A workload with even one replica on on-demand capacity isn't flagged. Grouped by namespace+app label, same as #26–#29.
+
+**Shipped as a card on `pages/CostWaste.tsx`**, below the usage table: spot is a cost decision, that page already streams `nodes` and `pods`, and it keeps this PR out of `WorkloadsOverview.tsx`/`Rbac.tsx`, which several open PRs already touch. One new stream (`policy/v1/poddisruptionbudgets`).
+
+**Effort: XS.** **OSS, not Enterprise.**
+
+### 31. CoreDNS config/health check — status: shipped 2026-09-30
+
+From the [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszbyRLEMgqjEFVVewJ)'s Tier 1 list. Cluster DNS is one Deployment every workload depends on, and its common failure modes are all visible from objects Kubebay already reads. `lib/coreDnsHealth.ts#checkCoreDns` finds the DNS Deployment by the `k8s-app=kube-dns` label in `kube-system` (covers both CoreDNS and legacy kube-dns) and flags:
+
+- **Single replica**: every lookup in the cluster depends on one pod.
+- **Replicas not ready**: `readyReplicas` below `replicas` (a missing `readyReplicas` counts as 0).
+- **All replicas on one node**: one node failure takes out cluster DNS.
+- **Corefile missing a standard plugin** from the upstream default: `loop` (a forwarding loop otherwise crash-loops every pod), `health` (liveness probe target), `ready` (readiness), `cache`. Matched as a directive at the start of a line, so `# loop` comments and `loopback` don't count.
+
+If the `coredns` ConfigMap isn't readable (RBAC), the Corefile checks are skipped and the card says so, rather than reporting missing plugins. No DNS Deployment found → the card says so; nothing is flagged.
+
+**Placement:** a "Cluster DNS" card at the top of `WorkloadsOverview`'s Service Health tab (#27): broken DNS and Services routing nowhere are the same "why can't my app reach X" question. Reuses the page's lifted `deployments`/`pods` streams; one new stream, `v1/configmaps` scoped to `ns: ["kube-system"]` and gated to that tab.
+
+**Not in v1:** judging `forward` targets (a hardcoded public resolver is sometimes deliberate) and NodeLocal DNSCache detection.
+
+**Effort: XS.** **OSS, not Enterprise.**
+
+### 32. Signed-image enforcement detection — status: shipped 2026-09-30
+
+From the [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszbyRLEMgqjEFVVewJ)'s Tier 1 list. Answers one question: is image signature verification actually enforced in this cluster, or can any image run? `lib/imageSignature.ts` covers the two common engines, detected from `/api/crds` like the other `detect*` helpers:
+
+- **Kyverno**: a `ClusterPolicy`/`Policy` counts if any rule has `verifyImages`. Mode comes from the per-entry `failureAction` (Kyverno 1.13+) and falls back to `spec.validationFailureAction` (either casing); Kyverno's default is audit. Images from `imageReferences`, or the legacy `image` field.
+- **Sigstore policy-controller**: a `ClusterImagePolicy` (`mode: warn` → audit, otherwise enforce). It only takes effect in namespaces labelled `policy.sigstore.dev/include=true`, so the check reads Namespaces too. Policies with no opted-in namespace enforce nothing and count as audit-only.
+
+Overall status: **Enforced** (some policy enforces) · **Audit only** (policies exist, none enforce) · **Not verified** (engine present, no signature policy) · no engine installed at all.
+
+**Placement:** a card on `pages/Rbac.tsx` with the other security-posture cards (#28, #29). Streams only for the engines present; Namespaces only when Sigstore is installed.
+
+**Not in v1:** Connaisseur, Ratify/Gatekeeper, and per-namespace coverage for Kyverno's `match`/`exclude` (a Kyverno policy is treated as cluster-wide).
+
+**Slice 2 (shipped 2026-10-03, #123): where it applies.**
+- **Per-namespace coverage.** Every namespace gets the strongest mode that covers it.
+  - **Kyverno:** each verifyImages rule's `match`/`exclude` is evaluated: `any`, `all` or legacy `resources`; namespace globs; `namespaceSelector`; pod and workload kinds only. An exclude by user or role doesn't exclude a namespace. A namespaced Policy covers only its own namespace.
+  - **Sigstore:** opted-in namespaces only.
+  - **Ratify:** Gatekeeper `RatifyVerification` constraints (`deny` means enforce, `dryrun`/`warn` mean audit), scoped by `spec.match` namespaces, excludedNamespaces and namespaceSelector.
+  - **Connaisseur:** detected from its validating webhook, scoped by the webhook's `namespaceSelector`. Its rules live in a ConfigMap, so only presence and scope are shown.
+- **Status.** A new **Partly enforced** when some application namespaces aren't enforced. System namespaces (`kube-*`, the engines' own) are listed but never make it partial.
+- **Card.** "Enforced in N of M namespaces", plus the namespaces where unsigned images can run.
+
+**Effort: XS–S.** **OSS, not Enterprise.**
+### 33. Local cluster efficiency score — status: shipped 2026-09-30
+
+From the [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszbyRLEMgqjEFVVewJ)'s Tier 1 list (item 5). One 0–100 number at the top of Cost / Waste, blended only from numbers that page already computes, so there's no new data source and no cross-customer benchmark. `lib/efficiencyScore.ts#computeEfficiencyScore` has three parts:
+
+- **Provisioning (weight 0.5)**: requests vs allocatable, from `computeClusterWaste` (#6 Phase 0), CPU and memory averaged. Requests at or above 80% of allocatable earn full marks; the rest is burst headroom, so a packed cluster isn't pushed toward 100%.
+- **Request coverage (0.2)**: the share of scheduled containers that set requests at all (the same unrequested list `WasteBreakdown` shows).
+- **Workload sizing (0.3)**: the share of measured Deployments/StatefulSets/DaemonSets that pass `computeEngineRightSizingRows`' materiality gate, so the score and the Right-sizing list never disagree. It needs usage data (metrics-server or Prometheus); without it the part is dropped and the other weights renormalized, and the card says so rather than guessing.
+
+Grades: 75+ good, 50+ fair, below that poor. A cluster with no allocatable capacity gets no score.
+
+**Not in v1:** score history over time (depends on the Foundational local historical rollup) and fleet-wide scores on the Fleet page.
+### 34. Framework control-ID tags on existing findings — status: shipped 2026-09-30
+
+From the [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszbyRLEMgqjEFVVewJ)'s Tier 1 list (item 11, the settled compliance debate): labels on findings Kubebay already surfaces, with no new detector and no pass/fail compliance verdict. `lib/controlIds.ts` is one registry of CIS Kubernetes Benchmark v1.9 (Policies chapter) and MITRE ATT&CK (Containers matrix) references. `ControlTags` renders them as info badges, with the control's full name in the tooltip:
+
+- RBAC advisor findings, matched on the engine's titles (`rbacadvisor.go`):
+  - cluster-admin binding → CIS 5.1.1;
+  - admin-equivalent wildcards → 5.1.1 + 5.1.3;
+  - other wildcards → 5.1.3;
+  - escalation verbs → 5.1.8;
+  - cluster-wide Secret read → 5.1.2 + T1552.007;
+  - cluster-wide pod exec → T1609.
+- Default ServiceAccount token automount (#28) → CIS 5.1.5, 5.1.6, and T1528.
+- Secrets in env vars (#29) → CIS 5.4.1.
+- NetworkPolicy coverage gaps (#26) → CIS 5.3.2.
+- Unverified images (#32) → CIS 5.5.1 + T1525, shown on `ImageSignatureCard`.
+
+A finding is tagged only where the control plainly describes it. An RBAC title the registry doesn't recognise gets no tags rather than a guessed one.
+
+**Not in v1:** NSA/CISA hardening guide references, a per-framework filter, and exporting findings grouped by control.
+### 35. Unreferenced (orphaned) Secret finder — status: shipped 2026-09-30
+
+From the [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszbyRLEMgqjEFVVewJ)'s Tier 2 list (item 16). `lib/orphanedSecrets.ts#findOrphanedSecrets` lists Secrets that nothing in their own namespace names. It checks these references:
+
+- **Pods:** secret and projected volumes, `env[].valueFrom.secretKeyRef`, `envFrom[].secretRef`, and the same fields on init and ephemeral containers, plus `imagePullSecrets`.
+- **Workload templates:** Deployment, StatefulSet and CronJob pod templates. A Deployment at zero replicas or a CronJob between runs still counts as using its Secret.
+- **ServiceAccounts:** `secrets` and `imagePullSecrets`.
+- **Ingresses:** `spec.tls[].secretName`.
+
+Skipped as managed or used outside pod specs:
+
+- Helm release records (`owner=helm`).
+- Legacy ServiceAccount tokens.
+- Anything with an ownerReference.
+- cert-manager Secrets.
+- All of `kube-system`.
+
+**Privacy:** Secrets stream in metadata mode, so Secret values never reach the shell for this. A page test pins that. Separately, metadata mode still passes the `last-applied-configuration` annotation through; that is a pre-existing issue filed as its own task.
+
+**Placement:** an "Unreferenced Secrets" card on the RBAC/security page, below "Secrets exposed via environment variables". It adds streams for Secrets (metadata), Ingresses, Deployments, StatefulSets and CronJobs, and reuses the page's existing pods and ServiceAccounts streams. The card says it doesn't check references from custom resources (Gateway certificateRefs, operator CRs), so it's a list to review, not to delete from.
+
+**Not in v1:** Gateway API `certificateRefs`, DaemonSet and Job templates, CSI `nodePublishSecretRef`, and a delete action.
+
+**Effort: S.** **OSS, not Enterprise.**
+### 36. Local historical rollup (retention layer) — status: shipped 2026-10-02 (slices 1–3: #73–#75, #77, #78, #79, #100)
+
+The [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszbyRLEMgqjEFVVewJ)'s **Foundational** item. It gates trend-based headroom forecasting and the cost/usage anomaly detector (Tier 2 #20 and #21). Today the only usage history is `waste`'s in-memory ring buffer, which is lost when the engine restarts.
+
+**Design debate.** Two positions were argued, then a synthesis round cross-challenged them against the code, per CLAUDE.md:
+
+- **A, Prometheus-first:** store nothing locally when Prometheus exists.
+- **B, uniform durable store:** record everywhere, and use Prometheus to backfill it.
+
+Verdict:
+
+- **Recording.** Every cluster is recorded from the Tier B tick that already runs. That's one write path, and Prometheus URLs are often dead port-forwards after a restart (B wins).
+- **Reading.** One series comes from one source, with no stitching or backfill. A Prometheus `rate[5m]` spliced onto metrics-server point samples leaves a seam that a forecast would read as a trend. If Prometheus is unreachable the endpoint returns an error, and the client has to ask for `source=local` explicitly (A wins).
+- **Scope.** Cluster and namespace only. Workload keys churn, neither gated feature needs them, and a workload store invites feeding it back into right-sizing, which #4 forbids.
+- **Per hour, per namespace:** mean and max usage, the sample count `n`, and requests (last value in the hour; scheduling headroom is about requests). No p95 or min, since they can't be combined across hours honestly.
+  - When metrics-server is missing, usage is `null`, never 0, and requests are still recorded.
+  - Namespace sums are taken **before** `resolveWorkload`'s `continue`, so pods with no owner are counted.
+- **Storage.** `os.UserConfigDir()/kubebay/history/<fp>/`, the audit log's convention, with no fallback to TempDir: if the directory can't be created, recording is disabled.
+  - Files per cluster:
+    - daily `YYYY-MM-DD.jsonl`, one line per closed namespace-hour;
+    - `open.json`, the open hour, checkpointed every tick with tmp+rename;
+    - `meta.json`;
+    - `writer.lock`.
+  - Directories are 0700 and files 0600. A torn trailing line is skipped when reading.
+  - The standard library only; no bbolt or SQLite (not in go.mod, no CGO).
+  - **`<fp>`** is a sha256 prefix of the kube-system namespace UID, falling back to context+server. Cluster IDs are sanitised context names, and a recreated `kind-kind` must not inherit the old cluster's history.
+- **Crash safety.** The open hour is checkpointed every tick, not only at shutdown. The desktop wrapper SIGKILLs the engine on Windows, gives SIGTERM only 3s elsewhere, and laptop sleep kills it too. So a crash loses at most one tick.
+- **Writer lock.** The lock holds a PID plus a heartbeat, and a stale heartbeat (older than 3 intervals) can be reclaimed. A plain `O_EXCL` lock would stay stale forever after a SIGKILL.
+- **Caps.** 35-day retention (decided below), the top 50 namespaces by requests plus an `(other)` row so totals still add up, and a 256MB total guard. That's about 2MB per cluster.
+- **Honesty.** Missing hours come back as `null` and are never interpolated. Every series is tagged with its source. An hour counts as well-sampled at n ≥ 30, because `tick()` walks clusters one after another with 20s timeouts, so 60 samples an hour isn't guaranteed.
+  - `Coverage{ExpectedHours, ObservedHours, WellSampledHours, DistinctDays, LongestGapHours, HourOfDayObserved[24], Label}`.
+  - Nothing from history feeds `waste.Snapshot`.
+  - The recorder is off with `--in-cluster`, because an in-cluster store that keeps recording while the laptop is closed crosses the #6/#15 Enterprise line.
+- **Consumer gates (for later).** A laptop open 8 hours a day never reaches "coverage ≥0.7", and 14 days of retention can't give 3 same-hour-of-week observations. So:
+  - **Forecasting** needs at least 5 distinct days, each with at least 4 well-sampled hours, and is labelled "daily peak during observed hours".
+  - **Anomalies** use a same-hour-of-day baseline over at least 5 prior observed days, split into weekday and weekend.
+- **API.**
+  - The Go package is `engine/internal/history`:
+    - `Open(dir, Options) (*Store, error)`
+    - `Record(clusterID, at, []Obs) error`
+    - `Query(clusterID, ns, metric, from, to) (Series, error)`
+    - `Status(clusterID) (Coverage, error)`
+    - `Prune(now) error`
+    - `Close() error`
+    - `Fingerprint(ctx, cs, context, server) string`
+  - `waste.Sampler.SetRecorder(...)` is the hook, called after the sampler's lock is released.
+  - HTTP: `GET /api/history/status?cluster=` and `GET /api/history/series?cluster&ns&metric&from&to[&source=]`. `DELETE /api/history?cluster=` comes in slice 2.
+
+**Slices:**
+
+1. **Engine only: local recorder, store and read endpoints.** It ships first because every day it isn't shipped is history lost for good. The failing tests, in order:
+   - the hour closes into a bucket with exact mean, max and `n`
+   - ticks with no usage keep usage `null`
+   - missing hours come back `null`
+   - a thin hour isn't well-sampled
+   - reopening without `Close` restores the open hour
+   - a torn trailing line is skipped
+   - prune respects retention
+   - the fingerprint uses the UID, then the fallback, and is a safe filename
+   - clusters are isolated
+   - a second writer goes read-only, and a stale heartbeat is reclaimed
+   - top-N plus `(other)` sums to the total
+   - the sampler's recorder gets namespace totals that include bare pods
+   - the recorder doesn't change the snapshot
+   - the handlers require `cluster`, and nulls serialise as `null`
+2. `PromSource` (`query_range` at a 1h step with `avg_over_time`/`max_over_time`, so its shape matches local buckets), the Clear button, and an "observed N of 840 hours" chip on Cost / Waste.
+   - **Progress (2026-10-01):**
+     - The Clear button shipped in slice 1c (#75).
+     - The coverage chip is #77.
+     - `GET /api/history/series?source=prometheus` is the engine's Prometheus source. It runs four `query_range` queries at a 1h step, each bucket keyed to the hour it covers. CPU is `rate()`'d; memory is not.
+     - Requests stay `null`, since they would need kube-state-metrics.
+     - It returns 412 when no Prometheus is configured and 502 when Prometheus is unreachable. It never falls back to local data.
+3. The consumers, #20 and #21.
+   - **Progress (2026-10-01):**
+     - Slice 2 finished: #77 (the coverage chip) and #78 (the Prometheus source) are merged.
+     - **3a, headroom forecast (#20).** A "Headroom forecast" card on Cost / Waste. `lib/headroomForecast.ts` works over the cluster-total local series for the last 35 days:
+       - Each local calendar day's peak is taken from well-sampled hours only.
+       - A day qualifies with at least 4 well-sampled hours, and the forecast needs at least 5 qualifying days per metric. Usage metrics count only days that have usage, so a cluster without metrics-server still gets the requests forecast.
+       - Ordinary least squares against the calendar-day index, so a skipped day doesn't steepen the slope.
+       - Metrics are CPU and memory requests (the scheduling headroom) and peak usage, each measured against the streamed nodes' allocatable.
+       - Outcomes: reaches allocatable in ~N days, at allocatable, flat or falling, or not within the horizon. The horizon is twice the observed span, so 5 days of data never projects beyond 10.
+       - It is labelled "daily peak during observed hours" with the engine's coverage label. Below the gate it shows "needs 5 days … N so far" instead of hiding.
+     - **3a shipped** in #79.
+     - **3b, anomaly detection (#21).** An "Unusual usage" card on Cost / Waste, built on `lib/usageAnomaly.ts#findUsageAnomalies`.
+       - It checks each well-sampled hour of the last 24 against the same local hour on at least 5 earlier observed days of the same kind (weekday or weekend).
+       - A value counts as unusual only if it clears three bars:
+         - 3 scaled MADs from the median;
+         - a 25% relative change;
+         - an absolute floor (50m CPU, 64Mi memory).
+       - It covers CPU and memory, for both usage (mean) and requests.
+       - It shares one series fetch with the forecast, through `lib/useClusterHistorySeries.ts`.
+       - If nothing qualifies it says so, and states what it compared against.
+     - **3b shipped** in #100.
+
+**Not in v1:**
+
+- workload or node scope
+- per-hour p95 or min
+- Prometheus backfill or stitching
+- bbolt or SQLite
+- gzip
+- a UI setting for retention
+- dollars
+
+**Decisions (2026-09-30).** Raja delegated the three open questions to a debate: a privacy-first side, a usefulness-first side, and a synthesis round that cross-challenged both against the code.
+
+1. **Recording is consent by connecting.** A cluster is recorded only if `historyClusters[id]` is true.
+   - Connecting in the UI (`setActive`, not the picker preview) calls `POST /api/history/enroll?cluster=`. That sets the flag only if it's absent, so an explicit Stop stays sticky.
+   - Health-probed and Fleet-polled clusters the user never connected to are never written to disk.
+   - No loopback special case: one rule.
+   - Erase (`DELETE /api/history?cluster=`) moves into slice 1, so a way to delete exists before the first byte is written.
+   - Binding consent to the fingerprint is deferred. Storage is already keyed by fingerprint, so a repointed context can't mix histories.
+   - Rejected alternatives:
+     - Opt-out: it writes production namespace names for clusters the user never opened, which fails least-surprise.
+     - Opt-in via a Settings checkbox: almost nobody would get history.
+2. **Retention is a fixed 35 days** (a constant; tests inject their own). `meta.json` records `retentionDays`.
+   - A later increase can't recover pruned data, while a later cut can always be made.
+   - "Raise it once #21 shows ≥3 same-hour-of-week samples" can never trigger at 14 days, because pruning deletes the evidence first.
+   - Consent-by-connecting already shrinks the privacy surface.
+3. **Forecasts are shown, never hidden**, with an engine-computed `Coverage.Label`.
+   - `HourOfDayObserved[24]` counts well-sampled hours only (n ≥ 30), plus `WeekendObserved`.
+   - Example labels: "observed 09–18 local, weekdays only", "observed 08–12, 14–18 local", "round-the-clock".
+   - Hiding forecasts until round-the-clock coverage would hide them forever for laptop-only users, turning a coverage limit into a paywall. The honesty rule is to label, not to withhold.
+
+**Settings fixes pulled into slice 1** (found by the synthesis round):
+- `HandleSave` wipes non-pointer fields the caller omits. `historyClusters` is taken as a pointer and merged.
+- `HandleSave` calls `Load()` before taking `s.mu`, a lost-update race. It moves under the lock.
+- Enroll and recording writes go through `s.mu` directly, not through `HandleSave`.
+
+**Slice 1 split into three PRs:**
+- **1a:** the `engine/internal/history` package. Store, coverage and label, fingerprint, writer lock. Nothing is wired, so it records nothing.
+- **1b:** settings field and race fix, the enroll/recording/erase/status/series endpoints, the sampler record filter and recorder hook, and the `main.go` wiring.
+- **1c:** UI. `setActive` enrolls the cluster, and a "Usage history" card in Settings lists enrolled clusters with a Recording toggle, Clear, the storage path, and the notice "Kubebay records hourly namespace usage for clusters you connect to, only while the app is open, for 35 days."
+
+**Effort: M** (slice 1 is three small PRs). **OSS, not Enterprise**, because it records only while the app is open.
+### 37. Fleet-wide showback by namespace — status: shipped 2026-09-30
+
+From the [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszbyRLEMgqjEFVVewJ)'s Tier 2 list (item 19). It extends the Fleet dashboard (#15 Phase 2). `lib/fleetShowback.ts#summarizeShowback` groups the per-cluster `/api/waste/workloads` data that `useFleetWaste` already polls by namespace **name**, so "payments" in prod and staging becomes one team row. Each row has:
+
+- the clusters it spans;
+- the workload count;
+- requested CPU and memory;
+- the sum of each workload's p95 usage, labelled as such because it's an upper bound on concurrent use;
+- wasted capacity.
+
+Waste goes through the same `computeEngineRightSizingRows` materiality gate as the Fleet waste total, so the two views never disagree. There are no dollar figures, as with Cost / Waste. The data covers measured workloads only (metrics-server or Prometheus), and the table says so when no cluster reports usage.
+
+**Placement:** a "Showback by namespace" `DataTable` under the per-cluster waste cards on the Fleet page. No new requests; `useFleetWaste` returns `showback` alongside `summary`.
+
+**Not in v1:** grouping by a team label instead of namespace name, CSV export, and history over time (depends on #36).
+
+**Effort: S.** **OSS, not Enterprise.** It works across the kubeconfigs on one laptop, with no shared control plane.
+### 38. Ingress / Gateway API routing resolution — status: shipped 2026-09-30
+
+From the [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszbyRLEMgqjEFVVewJ)'s Tier 2 list (item 13). `lib/routeResolution.ts` answers "why doesn't my hostname reach my app": it follows each route to Service → port → ready endpoints and names the first hop that breaks.
+
+- **`resolveIngressRoutes`** checks each Ingress rule path and the default backend:
+  - the Service is missing;
+  - the port doesn't exist on the Service (by number or by name);
+  - the Service has no ready endpoints (skipped when there's no EndpointSlice data, as in #27).
+
+  At the Ingress level it flags an `ingressClassName` with no IngressClass object, no class set and no default class, and a TLS Secret missing from the Ingress's namespace. The legacy `kubernetes.io/ingress.class` annotation counts as a class.
+- **`resolveHttpRoutes`** runs only when the Gateway API CRDs are installed (`detectGatewayApi`):
+  - a parent Gateway that doesn't exist (its namespace defaults to the route's);
+  - Service backendRefs, checked the same way as Ingress backends;
+  - any `Accepted` or `ResolvedRefs` condition the controller set to `False`, shown as-is. This covers the ReferenceGrant cases the resolver doesn't model.
+
+**Placement:** an "Ingress & Gateway routing" card on the Service Health tab, below CoreDNS (#31) and Service selector mismatches (#27), since all three answer the same reachability question. It lists broken routes with each failing hop named, plus a count of routes that resolve cleanly. It reuses the tab's Services and EndpointSlices streams and adds Ingresses, IngressClasses and Secrets, all gated to that tab. Secrets are in metadata mode; only TLS Secret names are needed, and a page test pins that. HTTPRoutes and Gateways stream only when their CRDs exist.
+
+**Not in v1:**
+
+- GRPCRoute, TLSRoute and TCPRoute
+- ReferenceGrant evaluation
+- Gateway listener hostname and port matching
+- controller-specific annotations such as nginx rewrite targets
+- following LoadBalancer status
+
+**Effort: M** (v1 about S). **OSS, not Enterprise.**
+### 39. NetworkPolicy reachability check ("can pod A reach pod B?") — status: shipped 2026-09-30
+
+From the [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszbyRLEMgqjEFVVewJ)'s Tier 2 list (item 12, the NetworkPolicy connectivity analyzer). `lib/netpolEval.ts#evaluateConnection` evaluates one source pod → destination pod (optionally on a port and protocol) under standard Kubernetes NetworkPolicy semantics, which the existing connectivity matrix only approximates:
+
+- **Isolation is per pod and per direction.** A pod is isolated once any policy in its namespace selects it with that policy type. `policyTypes` defaults to Ingress, plus Egress when the policy has an `egress` section. An empty `ingress`/`egress` list denies everything.
+- **Both sides must allow the traffic:** the source's egress and the destination's ingress.
+- **Peers:**
+  - `podSelector` alone matches the policy's own namespace only.
+  - `namespaceSelector` is evaluated against real namespace labels, including the automatic `kubernetes.io/metadata.name`.
+  - A peer with both selectors must match both.
+  - `ipBlock` is checked against the pod IP (IPv4), with `except`.
+  - `matchExpressions` are honoured, via the shared `labelSelector` helper.
+- **Ports:** matched by number, by `endPort` range, or by the destination pod's named container port, and by protocol. With no port given, a port-restricted allow is reported as "only on TCP/8080".
+
+**Placement:** a fourth "Can A reach B?" tab on the NetworkPolicy page. You pick a source pod, a destination pod, an optional port and a protocol, and it shows an Allowed/Blocked verdict with an egress line and an ingress line naming the isolating and allowing policies. It respects the page's namespace filter. The `v1/namespaces` stream is gated to that tab. The card says the verdict comes from NetworkPolicy objects only: the CNI has to enforce them, and CNI-specific CRDs aren't included.
+
+**Not in v1:**
+
+- Service-name targets (resolving a Service to its pods).
+- Cilium and Calico policy CRDs.
+- IPv6 `ipBlock`.
+
+**Effort: M.** **OSS, not Enterprise.**
+
+**Follow-up shipped 2026-09-30:** the connectivity matrix now uses the same evaluator (`lib/netpolMatrix.ts#matrixCell`, one representative pod per namespace/app group). Isolation is per pod, egress counts, and an Ingress policy without rules blocks instead of allowing. Cells read open, allowed (with any port restriction) or blocked (naming the isolating policies on the side that blocks), and the old "unknown" state is gone.
+
+### 40. GPU capacity accounting (GPU dimension) — status: shipped (Phase 0 2026-09-30, Phase 1 2026-10-09)
+
+From the [Kubebay Intelligence research pass](https://claude.ai/artifact/U1yQszbyRLEMgqjEFVVewJ)'s Tier 2 list (item 14, the GPU utilisation and right-sizing dimension). Phase 0 is the GPU twin of #6's Tier 0 waste accounting and needs no metrics. `lib/gpuCapacity.ts#computeGpuCapacity` compares allocatable GPUs per node with the GPUs scheduled pods ask for:
+
+- **Resources:** vendor device-plugin names (`nvidia.com/gpu`, `amd.com/gpu`, `gpu.intel.com/*`) and NVIDIA MIG slices (`nvidia.com/mig-*`, each its own resource).
+- **Per-pod count:** a container asks for its request, else its limit, since extended resources can't be overcommitted and requests default to limits. A pod's ask is max(largest init container, sum of containers), as the scheduler computes it.
+- **Finished pods** (Succeeded or Failed) hold nothing.
+- **Pending pods** asking for a GPU are listed separately as "waiting for a GPU".
+
+**Placement:** a "GPU capacity" card on Cost / Waste, shown only when the cluster has GPU nodes. It shows "N of M unclaimed" per resource, a table of claimed vs allocatable per node, and the waiting pods. It reuses the page's nodes and pods streams.
+
+**Phase 1 (not in this PR):** utilisation of *claimed* GPUs from DCGM exporter metrics (`DCGM_FI_DEV_GPU_UTIL`, framebuffer used) via the Prometheus path the Tier A recommender already uses, and GPU right-sizing suggestions (fractional/MIG, or time-slicing for underused whole-GPU claims). This needs DCGM, so it's gated on it being present.
+
+**Effort: S** for Phase 0, **M** for Phase 1. **OSS, not Enterprise.**
+
+**Phase 1 shipped 2026-10-09: a "GPU utilisation" card under GPU capacity, shown when a pod claims an NVIDIA GPU.**
+- **Source.** Checked against NVIDIA's own sources rather than assumed:
+  - Metric names come from dcgm-exporter's `default-counters.csv`: `DCGM_FI_DEV_GPU_UTIL` (%), `DCGM_FI_DEV_FB_USED`/`_FREE` (MiB), and `DCGM_FI_PROF_GR_ENGINE_ACTIVE` (a 0–1 ratio, used for MIG slices, which don't report GPU_UTIL).
+  - Label names come from the exporter's `transformation/const.go`: `pod`/`namespace`/`container`, or `pod_name`/`pod_namespace` with `--use-old-namespace`.
+  - Both NVIDIA charts (dcgm-exporter, gpu-operator) default the ServiceMonitor to `honorLabels: false`. Prometheus then keeps its own `pod`/`namespace` (the exporter pod's) and renames the exporter's to `exported_pod`/`exported_namespace`.
+- **Attribution.** `lib/gpuUtilisation.ts` takes a series' pod from `exported_*`, else `pod_name`, else `pod`.
+  - A row exists only for a pod that claims an NVIDIA GPU (from Phase 0). An unallocated GPU's series, which carries only the exporter's own pod label, can never be credited to the exporter, because it claims no GPU.
+  - AMD and Intel GPU claims are skipped, since DCGM is NVIDIA-only.
+- **Queries.** Eight instant queries through `/api/prom/query`, each over `[24h:5m]`. The subquery's `count_over_time` gives the hours of the window Prometheus actually has.
+  - A pod's figures are the average across its GPUs, the highest peak, and the peak framebuffer of any one GPU against its total.
+- **Verdict.**
+  - **Underused:** averages under 10% and never passes 30% across at least 6 observed hours.
+  - **Too little data:** under 6 hours, because a quiet GPU may just be between jobs.
+  - **No DCGM data:** the pod claims a GPU but no series is attributed to it.
+  - The thresholds are printed in the card. The suggestion (time-slicing, or a MIG slice on GPUs that support it) is text only, never an action.
+- **States.**
+  - No Prometheus URL (412): a hint to set one in Settings.
+  - No DCGM series at all: names dcgm-exporter as what's missing.
+  - Unreachable: shows the error.
+- **Not in v1:**
+  - a node-level view of unclaimed-but-busy GPUs;
+  - per-container rows;
+  - workload rollups;
+  - history beyond Prometheus's own retention.
+
+### 41. Read-only node consolidation view — status: shipped 2026-10-01
+
+Intelligence roadmap Tier 2 #15. It depends on SPOF Radar (#24), which the research named as the safety gate any consolidation suggestion must pass first.
+
+`lib/consolidation.ts#assessConsolidation` simulates draining each node, using streams Cost / Waste already opens plus full-mode Deployments and StatefulSets.
+- **Placement.** It is first-fit-decreasing by requests. It counts every non-terminal pod on each target, DaemonSet pods included, and honours `nodeSelector`, required node affinity (`In`/`NotIn`/`Exists`/`DoesNotExist`/`Gt`/`Lt`, plus `matchFields` on the node name) and NoSchedule/NoExecute taints against tolerations.
+- **Pods that stay put.** DaemonSet pods, mirror pods and finished pods aren't moved.
+- **Blockers:**
+  - a pod with no controller, since a drain deletes it for good
+  - a covering PDB with `disruptionsAllowed: 0`
+  - required pod (anti-)affinity or a `hostPort`, which aren't simulated and are listed instead of guessed at
+  - no room on any remaining node
+- **SPOF gate.** It reuses `findSingleReplicaNoPdb`. A node holding such a workload's pod is "drain causes downtime", never "fits elsewhere".
+- **Skipped as candidates:** NotReady, already-cordoned and control-plane nodes.
+  - Control-plane nodes still receive pods when their taints allow, as the real scheduler would.
+  - NotReady and cordoned nodes receive nothing.
+- **Two answers.** Each row is that node judged alone. The headline count drains nodes greedily, emptiest first, with moved pods staying where they landed. The per-node results aren't additive: three nodes can each be drainable alone while only one can go.
+- **UI.** A "Node consolidation" card on Cost / Waste, badged read-only. It is held until the Deployment, StatefulSet and PDB streams sync, so the gate never runs on partial data.
+- **Not done:** usage-based packing, cost estimates, and any cordon or drain action. Auto-executed consolidation is on the research's "don't build" list.
+
+**OSS.** Pure client-side derivation over streams the page already reads.
+### 42. Resource Timeline (events + rollouts + conditions, no AI) — status: shipped 2026-10-01
+
+Intelligence roadmap Tier 2 #18. It adds a **Timeline** tab in the drawer for Deployments, StatefulSets and DaemonSets.
+
+`lib/resourceTimeline.ts#buildTimeline` merges, newest first, only the cluster's own records:
+- Events on the workload, its owned ReplicaSets and their pods, joined by owner UID rather than name prefix. Each event takes its time from `lastTimestamp`, then `eventTime`, `firstTimestamp` or creation, and shows its `×count`.
+- One rollout entry per owned ReplicaSet, carrying its `deployment.kubernetes.io/revision` and container images.
+- The workload's condition transitions. Available, Ready and similar conditions going False are warnings.
+- Container terminations from pods' `lastState.terminated`, with the reason, exit code and restart count. OOMKilled and Error are warnings.
+
+**Data.** ReplicaSets (Deployments only) and pods stream in full mode, namespace-scoped, and only while the tab is open. Events reuse the cluster-wide stream the Events tab already opens.
+
+**Retention.** The tab says plainly that Events last about an hour by default, so older history comes from revisions, conditions and last states.
+
+**Not in v1:**
+- the research's "alert" merge, since Kubebay has no Alertmanager source yet
+- a Pod-drawer timeline (the lib already handles `kind: Pod`)
+- a fleet-wide timeline
+### 43. Live connectivity diagnostic pod — status: shipped 2026-10-01
+
+Intelligence roadmap Tier 2 #23. It is the live counterpart to #39's static "can A reach B?" check, and sits right below it on the NetworkPolicy page as a "Live network check" card.
+
+**Engine.** `POST /api/netdiag {cluster, namespace, node?, image?}` (`httpapi/netdiag.go`) creates `kubebay-netdiag-<hex>`:
+- **Image.** It defaults to `nicolaka/netshoot:v0.13` for dig, curl and traceroute. `KUBEBAY_NETDIAG_IMAGE` or the request's own `image` overrides it for mirrored or air-gapped registries.
+- **Placement.** The pod goes in the chosen namespace, so the DNS search path and the NetworkPolicies that apply match that namespace.
+- **Hardening.** The node shell is privileged, host-namespaced and keeps its token; this pod is the opposite of all three:
+  - an ordinary pod-network pod with no privileges
+  - `allowPrivilegeEscalation: false` and RuntimeDefault seccomp
+  - `automountServiceAccountToken: false`
+  - only Kubebay's own two labels, never a workload's. Copied labels could make a Service route real traffic to it.
+- **Lifetime.** `activeDeadlineSeconds: 3600` plus `sleep 3600`, so an orphaned pod stops on its own.
+- **Start-up failure.** The handler deletes its own pod on ImagePull errors, CreateContainerError, early exit or timeout.
+- **Audit.** It records a `netdiag-start` entry.
+
+**UI.** `components/NetDiagCard.tsx`:
+- Pick a namespace and an optional image, then press "Start diagnostic pod". The ArmedButton asks "Create a pod in <ns>?" first.
+- A terminal opens in the pod.
+- "Stop and delete pod" removes it, and so does unmounting the card.
+
+**Not in v1:**
+- running as a specific pod's identity. Ephemeral containers would share its network namespace but can't be removed once added, so this needs its own decision.
+- node pinning in the UI (the engine already accepts `node`)
+- canned one-click checks
+### 44. NetworkPolicy visual editor + dry-run wizard — status: shipped 2026-10-01
+
+Intelligence roadmap Tier 2 #22. It adds a **Build policy** tab on the NetworkPolicy page, next to #39's "Can A reach B?".
+
+`lib/netpolBuilder.ts`:
+- **`draftToPolicy`** turns a form draft into a NetworkPolicy object.
+  - **Inputs:** namespace, name, a pod-label selector (empty means every pod), and Ingress and Egress, each "not restricted", "deny all" or "allow only…".
+  - **Peers:** pods in the same or another namespace (via `kubernetes.io/metadata.name`), a whole namespace, or a CIDR. Each can carry ports such as `8080, 53/UDP`.
+  - **DNS.** Restricting egress adds the kube-dns rule by default, the classic "my egress policy broke DNS" foot-gun.
+  - **Validation.** Bad names, labels, ports or CIDRs come back as messages, never a half-built policy.
+- **`toYaml`** is a small block-YAML emitter with every string double-quoted, used for the preview. The repo has no YAML library.
+- **`policyImpact`** evaluates every pair involving the selected pods with #39's `evaluateConnection`, before and after. It reports pods newly isolated, connections blocked, connections opened, and connections narrowed to some ports.
+  - A same-named policy is treated as **replaced**, not added. Pods the old policy selected are previewed too.
+  - Capped at 20,000 pairs, with a `truncated` note.
+
+**UI** (`components/NetpolEditor.tsx`):
+- Live YAML and impact preview.
+- **Dry run** goes through `/api/yaml/create` with `dryRun: true`, a server-side apply that runs admission, so Kyverno or Gatekeeper rejections show up here.
+- **Create** only appears once a dry run of exactly this YAML has passed. Any edit hides it again. It is an ArmedButton.
+- The create endpoint is a forced server-side apply. So a same-named policy gets a warning banner and a red **Replace policy** confirmation.
+
+**Not in v1:**
+- editing an existing policy in the form (the YAML tab still does that)
+- `matchExpressions`, `endPort` and `ipBlock.except` in the form
+- CNI-specific policy kinds
+### 45. Running image signature status (read-only cosign check) — status: shipped 2026-10-01
+
+Intelligence roadmap Tier 2 #17. It complements #32: that card answers "is signature verification enforced?", and this one answers "do the digests actually running have a signature published?".
+
+**Engine, `internal/sigcheck`.** It takes each container's `imageID` repo digest (spec image as fallback) and checks the registry for:
+- a cosign signature tag `sha256-<hex>.sig`
+- an OCI 1.1 referrer whose `artifactType` is sigstore, cosign or signature (an SBOM referrer doesn't count)
+
+How it contacts registries:
+- **Anonymous only.** It does the bearer-token exchange from the `WWW-Authenticate` challenge, and never sends cluster pull secrets. A private registry comes back `unknown` with "registry requires credentials".
+- **Normalisation.** Docker Hub names are normalised (`registry-1.docker.io`, `library/`).
+- **Caching.** Results are cached per repo@digest for 1 hour. Unknowns aren't cached.
+
+`GET /api/image-signatures?cluster=` lists pods and dedupes by digest, with pod and namespace counts.
+- It checks up to 300 digests per pass, 6 at a time.
+- Images whose runtime reported no repo digest are `unknown` with that reason.
+
+**UI.** A "Running image signatures" card on the RBAC / security page, right under #32's card.
+- **Explicit trigger.** It runs only when "Check signatures" is clicked, because it contacts external registries.
+- **Wording.** It says plainly that a found signature is **not verified** against a key or identity; that is the admission policy's job.
+
+**Not in v1:**
+- cryptographic verification (keys, Fulcio or Rekor)
+- pull-secret authentication for private registries
+- per-workload drawer placement
+
+**Slice 2 (shipped 2026-10-03, #124): key verification and private registries.**
+- **Key-based verification.**
+  - A cosign tag signature is checked against the public keys in the cluster's Kyverno verifyImages attestors (and the older `key` field) and Sigstore ClusterImagePolicy key authorities.
+  - Only the keys whose image patterns cover the image are tried.
+  - Each simple-signing layer's blob must hash to its digest and name the running digest, and the signature must verify. ECDSA, RSA (PKCS#1 v1.5 or PSS) and Ed25519 are supported, stdlib only.
+  - Results: verified (by which policy), failed, keyless (Fulcio and Rekor are left to the admission controller), or no policy key.
+- **Opt-in private-registry auth.** "Registries: use the pods' pull secrets" reads each pod's and its ServiceAccount's imagePullSecrets with the user's identity.
+  - Each credential goes only to its own registry, or to the token service that registry names, over https.
+  - Credentials are never returned, logged or cached. Cache keys only record whether auth was used.
+- **Still not in:** keyless identity verification and OCI 1.1 bundle verification. *(Keyless: done in slice 3 below.)*
+- **Drawer placement (shipped 2026-10-09).**
+  - Deployment, StatefulSet and DaemonSet drawers, and the Pod drawer, have a "Signatures" tab that runs the same on-demand check for their own pods only.
+  - `GET /api/image-signatures` takes `ns` plus either `selector` (a workload's own `spec.selector`, written by `lib/labelSelector.ts#selectorQuery`) or `pod`.
+    - The engine parses the selector with `labels.Parse` and validates the pod name as a DNS subdomain before it is used in a field selector.
+    - Scoping to a namespace also lets a user whose access stops at one namespace run it.
+  - `selectorQuery` returns null for an empty selector or an unknown operator, because either would check more pods than the workload's. The tab then says it can't find the pods.
+  - The table and controls moved into `components/ImageSignatureCheck.tsx`, shared by the RBAC-page card and the tabs. The Namespaces column is dropped when scoped.
+
+**Slice 3 (2026-10-13): keyless verification against Sigstore's public instance.** Raja approved TUF-fetched trust roots with a cached copy on 2026-10-12.
+- **Why not sigstore-go:** v1.3.0 needs Go 1.25.8, but the engine's floor is 1.24 and `make build` uses the local toolchain. It also pulls in rekor, go-openapi, certificate-transparency and in-toto.
+  - So TUF uses `theupdateframework/go-tuf/v2` v2.2.0 (Go 1.23), with sigstore/sigstore for its signature verifiers.
+  - The cosign keyless checks are written by hand, stdlib only (`sigcheck/keyless.go`).
+- **`verifyKeyless`**, for a `.sig` layer with `dev.sigstore.cosign/certificate` and `bundle`:
+  1. The bundle's SET verifies (ECDSA or Ed25519) over the RFC 8785 form of `{body, integratedTime, logID, logIndex}`, with a trusted-root Rekor key whose ID matches and whose validFor covers integratedTime.
+  2. The body (hashedrekord, or old rekord) records sha256 = the layer digest, the same signature, and the same certificate.
+  3. The leaf chains to a trusted-root Fulcio CA valid at integratedTime, with CodeSigning EKU, verified at that time (Fulcio certs live 10 minutes).
+  4. An embedded SCT verifies with a trusted-root CT log key over the RFC 6962 precert data: the TBS re-encoded without the SCT list, plus the issuer key hash.
+  5. The signature verifies over the digest. Ed25519 needs the payload, which `verifyTag` passes.
+  6. The signer is the first email or URI SAN. The issuer comes from Fulcio OID 1.8 (UTF8String), else 1.1.
+- **Policy identities** (`httpapi.policyIdentities`):
+  - Kyverno `attestors[].entries[].keyless` (subject, issuer, regexps, `*` wildcards) and the older `verifyImages[].subject/issuer`.
+  - Sigstore ClusterImagePolicy `authorities[].keyless.identities`.
+  - `roots`, a non-public `rekor.url` or `pubkey`, a non-public Fulcio `url`, `ca-cert` or `trustRootRef` mark an identity Unsupported. It is then reported as "not judged against <policy>: it trusts its own Fulcio roots", not as a failure.
+  - Regexps match unanchored, as cosign's do.
+- **Results:**
+  - A matching identity gives `verified` by that policy.
+  - A verified signer that no judged identity allows gives `failed`, "signed by X (issuer Y), which no policy identity for this image allows".
+  - A verified signer with no identities gives `keyless`, with the signer shown.
+  - If the trust roots can't be loaded, the result is `keyless`, "not checked: …", and isn't cached.
+  - `Result` and the report rows carry `signer` and `issuer`. The cache key now includes identity sources and whether roots were offered.
+- **TUF** (`sigcheck/tuf.go`, `TrustRoots`):
+  - It embeds the TUF root sigstore-go v1.3.0 ships (v14; the updater rotates to the current one online). The remote is `https://tuf-repo-cdn.sigstore.dev`, with consistent snapshots, and `trusted_root.json` is the target.
+  - The metadata lives in `~/.kubebay/sigstore/tuf`. A verified copy goes to `~/.kubebay/sigstore/trusted_root.json`, reused in memory for 24 hours.
+  - Offline, it uses that copy ("cached copy from <date>") and retries TUF after 10 minutes.
+  - With no writable home, there is no disk cache.
+  - It loads only when a keyless signature turns up.
+- **Tests:**
+  - Real fixtures: Sigstore's public `trusted_root.json`, and the `.sig` manifest of `ghcr.io/sigstore/cosign/cosign:v2.6.0`, whose keyless layer has a 2025 hashedrekord, SCT and Fulcio intermediate.
+    - It verifies, naming `keyless@projectsigstore.iam.gserviceaccount.com` / `https://accounts.google.com`.
+    - It is rejected with a flipped digest, the other layer's signature, no bundle, a forged integratedTime, or a foreign certificate.
+    - It fails with Fulcio, the CT logs or Rekor removed from the root, or with only the 2021–22 CA.
+  - The payload blob couldn't be downloaded (ghcr's blob CDN is blocked here), which is why verifyKeyless takes the digest.
+  - A synthetic Sigstore (own CA, CT and Rekor keys; SCT built over the precert TBS) drives the whole `CheckWith` flow: policy match, wrong signer, another image's digest, untrusted Fulcio, roots unavailable (and not cached), and an Unsupported identity.
+  - A go-tuf repository built in the test checks: fetch, reuse, offline cached copy, a tampered target refused and never cached, and no cache with no network.
+- **Not verified here:** a live fetch from `tuf-repo-cdn.sigstore.dev` (this environment's proxy blocks it), and a full check against a live registry.
+- **Still not in:** OCI 1.1 Sigstore bundle referrers (cosign v3's format, with Rekor v2 inclusion proofs and RFC 3161 timestamps), private Sigstore instances, and attestations.
+
+**OSS.**
+
+### 46. Fix: YAML-tab edits conflicted with Helm/kubectl field managers — status: shipped 2026-10-03 (slices 1–4: #89, #99, #102, #122)
+
+**User report:** "Apply failed with 3 conflicts: conflicts with "kubectl-client-side-apply" using apps/v1: …env[name="APP_USER"].value…" on a Helm-installed Deployment.
+
+**Root cause.** `HandleApplyYAML` server-side applied the **whole** edited object as manager `kubebay` with `force:false`. Any field another manager (Helm 3, `kubectl apply`) set to a different value conflicts, and the user must change exactly those fields.
+
+Two more effects of the same path:
+- Kubebay claimed Apply ownership of every field it re-sent.
+- Removing a list item (an env var) was a silent no-op that still said "Applied".
+
+The YAML view also strips `resourceVersion`.
+
+**Debate (2026-10-01, per CLAUDE.md).** Two position agents argued, then a synthesis round cross-challenged them.
+- **Position A, `kubectl edit` semantics:** diff the loaded YAML against the edit and send an Update patch.
+- **Position B, "SSA done right":** send only the changed fields as SSA, extract the owned set via structured-merge-diff, and offer a confirmed Force override.
+- **Verdict: A.**
+  - Update operations never conflict.
+  - The owners here (`kubectl-client-side-apply`, Helm 3) are Update writers themselves, so a forced SSA would only make Kubebay an *Apply* owner. That would collide with later SSA writers (Helm 4, Argo/Flux SSA).
+  - B's OpenAPI extract machinery, non-atomic two-path writes and Override dialog were rejected.
+- **Correction to A from the synthesis:** Helm 3 computes its upgrade patch from live toward the new render. So the next `helm upgrade`/`rollback` restores edited fields even when the values didn't change, and the UI says so.
+
+**Slice 1 (this PR):**
+- `PUT /api/yaml` takes an optional `original`.
+- `editpatch.go#computeEditPatch` diffs `original` against the edit, after dropping `status`, server metadata and the last-applied annotation, and rejects identity changes.
+  - **Built-in kinds:** a strategic merge patch, so a removed env var becomes `$patch: delete`.
+  - **CRDs:** a JSON merge patch.
+- The patch is sent as an Update with manager `kubebay`, no force, and dry-run supported. An empty diff is a no-op.
+- The response carries `patchType` and `changedPaths`. The audit log records field paths only, never values.
+- YamlTab sends `original` and reports "Applied: patched N fields." That also fixes the success message, which used to be wiped by the reload.
+- A Helm banner, driven by `helmReleaseOf`.
+- The legacy SSA path stays for callers without `original` (RightSizing) until slice 2.
+- **Regression test:** a kind integration test that reproduces the exact conflict and then shows the edit succeeding, Kubebay owning only the changed fields, and an env var removal working.
+
+**Slice 2a (2026-10-01).**
+- RightSizing sends its resources-only document with `mode: "strategic"`, through `lib/rightsizing.ts#resizeApplyRequest`.
+  - The document becomes a strategic merge Update patch: containers merge by name, `limits` and every other field are kept, and it can't conflict with the Helm/kubectl owner of `requests`.
+  - Strategic mode is refused for custom resources (400).
+- `PUT /api/yaml` no longer server-side applies at all. A body with neither `original` nor `mode` gets a 400, and `force` is ignored.
+- The kind test now:
+  - reproduces the conflict with a direct SSA;
+  - checks the endpoint refuses whole-object apply;
+  - proves a resize keeps `limits`.
+
+**Slice 2b (2026-10-01).**
+- **Stale-edit check.** Before patching, an edit diffs the YAML the editor loaded against the live object.
+  - If a field the user edited also changed live (equal paths, or one containing the other), it returns 409 `{error: "changed-since-load", paths}` and sends nothing.
+  - Concurrent changes to other fields are left alone.
+  - No resourceVersion precondition, because status writes would give constant false 409s.
+- **Status mapping.** `writePolicyRejectionOrError` now returns the status the API server meant: 409, 422, 403 or 404, and 502 only for non-Kubernetes errors. The body stays plain text, so every existing caller still shows the message.
+- **Shell.** `send()` turns the stale 409 into a `StaleEditError`. YamlTab shows "Not applied: these fields changed on the cluster since you opened this editor", lists the paths, and offers a "Reload current version" button.
+- **Kind test:** a concurrent change to REGION followed by an edit of REGION gives a 409, and the concurrent value survives.
+
+**Slice 3 (shipped):** `HandleCreateResource` no longer forces. Creating over an object whose fields another tool owns returns a 409 that names the object and points at its YAML tab; Helm/kubectl values survive (kind test `TestLiveCreateOverAnObjectAnotherToolManages`). The NetpolEditor "replace" banner says so. Discovery/dynamic clients for create go through `discoClient`/`dynClient` overrides for tests.
+**Slice 4 (shipped 2026-10-03, #122): stale ownership cleanup.**
+- After a successful non-dry-run edit, any `kubebay` + `Apply` managedFields entry left by the old force-apply path is removed with a JSON patch.
+- Each removal first `test`s the manager and operation at that index, and removals go highest index first, so a concurrent change fails the patch rather than removing another manager's entry.
+- Best effort: a failure leaves the entry for the next edit. Values never change.
+- The response carries `releasedApplyOwnership`.
+- Kind test: `TestLiveEditReleasesStaleKubebayApplyOwnership`.
+
+**Slice 2 (original plan):**
+- **Stale-edit check:** 409 `changed-since-load` when a field the user edited also changed live.
+- **Structured error mapping:** 409/422/403/404 instead of a raw 502.
+- **GitOps banner:** add "will revert on next sync".
+- **RightSizing:** an explicit strategic-merge resources patch that keeps `limits`, then remove SSA from `PUT /api/yaml`. Its same-manager SSA can also delete fields Kubebay alone owns.
+
+**Slice 3:**
+- `HandleCreateResource` force:true → false, with "exists — edit it instead".
+- An optional cleanup of stale `kubebay` Apply entries in managedFields.
+
+### 47. Fleet Consistency Diff (roadmap Tier 3 #25) — status: removed 2026-10-02 with the Fleet page (was shipped 2026-10-01, slice 1)
+The same object compared across clusters, matched by kind, namespace and name. Komodor sells this as a paid feature. Slice 1 follows the roadmap's "3-4 object classes first" verdict: Deployments, StatefulSets, DaemonSets and ConfigMaps.
+
+- **Logic.** `lib/fleetConsistency.ts` (`compareFleet`) is pure and client-side.
+  - Compares container and initContainer images, resource requests and limits, env values and replicas, plus ConfigMap `data`/`binaryData` keys.
+  - Ranks drift by severity: image or container-set drift is high, resources/env/ConfigMap drift is medium, and replicas are low because an HPA legitimately varies them.
+  - Skips `kube-*` namespaces and the per-cluster `kube-root-ca.crt`.
+  - Shows a secret-backed env var as `secret name/key`, never its value. Secrets themselves are not compared.
+  - Lists objects missing from a cluster only when their namespace exists there. Otherwise every cluster-specific namespace would read as drift.
+- **UI.** `FleetConsistencyCard` sits on the Fleet page, read-only and opt-in.
+  - Nothing streams until "Compare clusters" is clicked, because it opens four full streams per connected cluster, ConfigMaps included.
+  - Per-cluster collectors use the existing `useResourceStream` with `useStaggeredEnable`. There is no new engine endpoint.
+  - The output is a DataTable with one row per differing field and one column per cluster, plus an "Only in some clusters" table.
+- **Debate (single-agent, recorded here).**
+  - An engine-side diff endpoint was rejected. Streams already exist, and a new informer-backed list API is bigger than the feature.
+  - Diffing the full spec was rejected. Defaulted fields, controller-written annotations and per-cluster values swamp the signal. The curated field list is the point.
+  - Value display for ConfigMaps was kept: they aren't secret, and a key without its value doesn't tell you which side is right.
+- **Next slices.** Ignore rules (e.g. a known per-region env var), Services/Ingresses/HPAs, a cluster-pair picker for fleets larger than a handful, and an "open in cluster" link per row.
+### 49. Audit-log security event feed (roadmap Tier 3 #26) — status: shipped 2026-10-01 (slice 1)
+A retrospective security feed with no kernel agent and no in-cluster install. The precondition the roadmap named holds: the API server's audit log must already be written and readable on this machine.
+
+- **Engine.** `internal/auditfeed` (`Classify`, `ReadTail`) parses audit.k8s.io/v1 JSON lines.
+  - Reads only the last 32 MiB and returns at most 500 events, newest first.
+  - Counts only the `ResponseComplete` stage, so each request appears once.
+  - Rules follow Falco k8saudit's categories:
+    - exec, attach and port-forward into pods;
+    - privileged containers, hostPID, hostNetwork or hostIPC pods (high);
+    - hostPath pods (medium);
+    - bindings to cluster-admin (high) and other ClusterRoleBinding changes (medium);
+    - anonymous requests that succeeded (high);
+    - Secrets read by non-`system:` users (low).
+  - Refused attempts are kept and marked denied. Request and response bodies never leave the engine.
+- **Settings and endpoints.** `AppSettings.AuditLogPaths` maps each cluster to an absolute file path.
+  - It is set only through `PUT /api/security/audit-log-path`, under the settings lock, and kept across `HandleSave`.
+  - `GET /api/security/audit-events?cluster=` returns `{configured, path, error?, events}`. An unreadable log is reported in the body.
+- **Guard.** Like the local shell (`localshell.Allowed`), the feed is off when OIDC is configured or under `--in-cluster`. It reads a host file as the engine's OS user, past each user's own RBAC. `AuditFeedBlockReason` is set by main on `SettingsManager.AuditFeedDisabled`, both endpoints return 403 with the reason (no path probing), and the card shows the reason instead of the path field.
+- **UI.** `AuditSecurityFeedCard` sits on the RBAC page.
+  - It explains the precondition and offers a path field.
+  - Once configured, it shows the path with Change and Stop reading, a severity filter, and a DataTable of time, event, who, object, detail and outcome.
+- **Debate (single-agent, recorded here).**
+  - Reading audit events through the Kubernetes API was rejected: no such API exists.
+  - A dynamic audit webhook sink was rejected: it needs API server flags and an always-on receiver, which breaks local-first.
+  - Pulling from CloudWatch, GCP or Azure log APIs directly was deferred to an Enterprise-flavoured slice, since it needs cloud credentials. A synced local file covers it now.
+  - Spike detection for Secret reads was deferred. Raw rows with a severity filter come first.
+- **Slice 2 (shipped 2026-10-03, #120).**
+  - **Secret-read grouping.** Each person's reads that follow within 10 minutes of each other, split by allowed or denied, fold into one row: count, first time, and the Secrets read (up to 5 listed).
+    - 20 or more reads is a medium "Burst of Secret reads by a person".
+    - A lone read stays a normal row with its object.
+  - **Object links.** Events carry `ref` (resource/namespace/name). Pods open their drawer on the Pods page, and kinds in `DEFS` open their detail page.
+  - **Rotated files.** When the live file leaves byte budget, rotations next to it are read newest first: `audit.log.1`, `audit.log-<date>`, the API server's `audit-<time>.log`, and gzipped copies.
+- **Slice 3 (shipped 2026-10-03, #121): cloud sources.** These run the user's own `aws` / `gcloud` CLIs with their current credentials. That's opt-in per cluster and stays off under OIDC or in-cluster, like the file feed.
+  - **EKS:** `aws logs filter-log-events` on `/aws/eks/<cluster>/cluster`, streams `kube-apiserver-audit*`.
+  - **GKE:** `gcloud logging read`. Cloud Audit Log entries map onto audit Events: methodName gives the verb, resourceName gives the object, and the gRPC status gives allowed or denied.
+  - **Server-side filters:** a CloudWatch filter pattern and a GKE methodName regex, so the 5000-entry cap is spent on candidates.
+  - **Window:** the last 2 hours, re-polled every 2 minutes.
+  - **Validation:** every value is checked against the provider's naming rules, so nothing can become a CLI flag or escape the logging filter.
+  - **Storage:** a cluster has a file path or a cloud source, never both.
+
+### 48. Attack paths, narrow v1 (roadmap Tier 3 #24) — status: shipped 2026-10-01 (slice 1)
+Findings joined into prioritised chains instead of a flat list. Built on what already exists: Service/Ingress objects, NetworkPolicies, Trivy-Operator VulnerabilityReports (`vulnFindings.findingsForPod`) and the engine's RBAC findings (`/api/rbac/all`, subject `ServiceAccount ns/name`).
+
+- **Logic.** `lib/attackPaths.ts` (`findAttackPaths`) is pure.
+  - **Entry:** a LoadBalancer or NodePort Service selecting the pods, or an Ingress backed by a Service that selects them.
+  - **NetworkPolicy step:** the pods are ingress-isolated only if every pod is selected by an Ingress policy.
+  - **Foothold:** critical or high CVEs, de-duplicated by container and CVE.
+  - **Payoff:** RBAC findings for the pod's ServiceAccount, counted only while its token is mounted. "subject does not exist" isn't a privilege.
+  - Exposure alone is not listed. A path needs a foothold or a payoff, and "full chain" means both.
+  - Ranked full chains first, then by score: entry 1-2, +1 when not isolated, CVEs 2-3, RBAC 1-3.
+  - Pods group into their Deployment, derived from the ReplicaSet name minus `pod-template-hash`, so no ReplicaSet stream is needed.
+- **UI.** `AttackPathsCard` sits at the top of the RBAC/security page, read-only. When Trivy isn't installed it says CVEs are left out.
+- **Debate (single-agent, recorded here).**
+  - A graph visualisation was rejected for v1. A ranked table of chains answers "what do I fix first" and a graph doesn't.
+  - Using `evaluateConnection` per pod pair was rejected. The question is whether outside traffic is limited at all, not pod-to-pod reachability.
+  - Keeping partial chains was a judgement call. An exposed pod with a cluster-wide-secrets token is worth seeing even with no CVE scanner installed.
+- **Slice 2 (shipped 2026-10-03, #119).** These are the four planned next slices.
+  - **Isolation that means it.** A policy counts as restricting only when its rules leave the traffic source out.
+    - For LoadBalancer/NodePort, the source is outside the cluster: an empty `from` or any `ipBlock` admits it.
+    - For an Ingress, the source is the controller pods, found by the common controllers' labels and matched by pod/namespace selector or `ipBlock` against the pod IP.
+    - For a Gateway, the source is its proxy pods: Istio/kgateway `gateway-name` labels and Envoy Gateway `owning-gateway` labels.
+    - An unfound controller is reported as unchecked, not as isolated.
+  - **Gateway API.** HTTPRoute backends are entries, named with their parent Gateway and hostnames.
+  - **Node breakout.** A privileged container, init containers included, or a hostPath volume is a payoff.
+  - **Secret reachability.** Resolved from the RBAC snapshot: Roles and ClusterRoles through bindings, plus the groups every ServiceAccount is in.
+    - Cluster-wide access reads as "every namespace". A RoleBinding gives a namespace, or `ns/name` with resourceNames.
+    - Cluster-wide Secrets and node breakout score as severe.
+  - Known simplification: ports in NetworkPolicy rules are ignored, which errs towards "admits".
+
+### 50. Helm releases filters + loader audit — status: shipped 2026-10-02
+Owner-reported gaps on the Helm page.
+- **Helm releases:** the shared `NamespaceFilter` and a search box (name, namespace, chart, app version, status), a "· N of M" count when filtered, and a "No releases match" empty state.
+- **Loading states:**
+  - "Waiting for a cluster…" uses `PageLoader`.
+  - The drawer's history, values and manifest load as `SkeletonLines`, not a word.
+  - `SkeletonTable` and `DataTable` (`loading` + new `loadingLabel`) now caption their skeleton rows with the helm-wheel `Spinner` and what is loading, so every loading list shows the icon.
+- **App-wide audit:**
+  - Ports no longer flashes "No active tunnels" while loading.
+  - Crds header, PodPanel output wait, ResizePanel and SecretValueReveal lost their bare "Loading…" text.
+  - The `loadingStates` guard now fails on any `<p>`/`<div>` "Loading…"/"Waiting for…" text, and on any loading `DataTable` without a `loadingLabel`.
+### 51. Clusters page redesign — status: shipped 2026-10-02 (#108 engine, #110 UI)
+The owner asked to audit the cluster list, remove its drawer, show which clusters are connected, add Disconnect to the row menu, and add visualisations only if they earn their place. Three experts (UX, frontend/engine correctness, SRE/data-viz) reported, then a synthesis round cross-challenged them.
+
+**Rulings:**
+- **No latency badge.** Each probe builds a new clientset and runs exec-credential plugins, so the number would measure token fetching. Show `checkedAt` freshness instead.
+- **Disconnect needs engine teardown.** Informers outlive their last subscriber by 5 minutes, and pools never died. Also, `App.tsx` falls back from a missing active cluster to the first reachable one, which instantly reconnects; fix that in 2b.
+- **Sampler gate.** Sample only clusters that are connected or enrolled in usage history. History keeps filling, and unopened production contexts get no LIST traffic.
+- **One table, two status columns.** Session and API, with a stable order, instead of moving rows between sections.
+- **Pod mini-bar on connected rows only** (zero new traffic). The sparkline and headroom bar wait for follow-ups.
+
+**2a (engine):**
+- `clusters.Manager`:
+  - a connected set: `Connect`, `Disconnect`, `IsConnected`, `OnDisconnect`;
+  - `Cluster.connected` and `checkedAt`;
+  - a `checking` status until the first probe;
+  - probe results kept across kubeconfig reloads;
+  - sorted, stable order;
+  - a race-free probe (writes under the lock), and an immediate probe after a load.
+- `PoolRegistry.Close(id)` / `Pool.Close` stop every informer and subscription for the cluster, including impersonated pools, and stop the sweeper.
+- When the engine closes a stream, the hub sends a `cluster disconnected` error frame.
+- Opening a stream connects the cluster.
+- `POST /api/clusters/{id}/connect` and `/disconnect`. Disconnect is desktop-only; it returns 403 when OIDC is on.
+- `PFManager.StopCluster`, wired with `TeardownOnDisconnect`.
+- `waste.Sampler.SetGate`.
+
+**2b (UI):** `ClusterPicker` rebuilt with no drawer.
+- **Layout:** header summary ("N connected · N reachable · …") and a "Disconnect all" button. Columns are Name (with a provider badge), Session (Active / Connected / Error / —), API (Reachable / Unreachable / Config error / Checking…, with error and "checked Ns ago" in the tooltip), Version ("(stale)" when unreachable), a Pods health mini-bar and Nodes (connected rows only).
+- **Opening:** a row click or Enter opens the cluster. A config-error row expands its error instead.
+- **⋮ menu:** Open, Connect in background / Disconnect, Pin, Rename… (inline), Change icon…, Copy context, Copy server URL, Remove from list… (confirm `Modal`).
+- **Disconnect:** drops the background subscriptions and cached rows, removes that cluster's queries, calls the engine, and clears it as the active cluster.
+- **States:** an error banner with Retry, an empty state linking to Settings, and real engine health in the status bar.
+- **Removed:** `ClusterDetailDrawer`, the store's `selected` field, the dead History/Favorites sidebar, and raw buttons.
+- **Supporting changes:**
+  - `clusterConnections` is observable (`subscribeConnections`, version, `connectionError`, `clusterSummary`).
+  - `sortClusters` no longer reorders by last use.
+  - Search also matches context and server.
+  - `TableRow` is keyboard-reachable when clickable.
+- **"First reachable cluster" fallbacks removed:** App, ClusterStrip, Sidebar, the Custom Resources group and the palette's live pods now all use the opened cluster. Guarded by `activeCluster.test.ts`.
+
+**Follow-ups** (all shipped 2026-10-03: #53 and #54 below, and #55):
+- rename the wire status `connected` to `reachable`;
+- batched `/api/history/summary` plus a 7-day sparkline;
+- allocatable and node count in the sampler, plus a headroom bar;
+- OIDC identity in `PoolRegistry.For`;
+- rebuild pools when credentials change;
+- `sanitizeID` collisions;
+- watcher misses the explicit kubeconfig path;
+- multi-window disconnect;
+- a "Last connected" column.
+### 52. Remove the Fleet view — status: shipped 2026-10-02
+The owner judged the Fleet page unnecessary.
+- **Removed:**
+  - the nav entry, `pages/Fleet.tsx` and its cards (cluster health, showback, consistency diff);
+  - the libs `fleetWaste`, `fleetShowback`, `fleetHealthOrder` and `fleetConsistency`, plus `useFleetWaste`;
+  - the stagger helpers only Fleet used, and all their tests.
+- **Bookmarks:** an old `/fleet` link now redirects to `/clusters`. The clusters page (#51) shows which clusters are connected, with pod health per connected cluster, so the useful part of Fleet's health cards lives there without streaming every reachable cluster.
+- **Kept:** `/api/waste/workloads` (Cost/Waste uses it) and `kindCounts` (WorkloadsOverview).
+- **Guard:** `noFleet.test.ts`.
+
+### 53. Clusters page usage follow-ups — status: shipped 2026-10-03 (#115)
+These are the follow-ups to #51 that the clusters-page debate deferred.
+- **Engine:**
+  - The sampler now also records node count and summed allocatable on the cluster-total line of usage history (#36), only when the node list succeeds. Namespace-scoped RBAC leaves capacity unknown rather than failing the tick.
+  - `GET /api/history/summary?days=7` returns every recorded cluster in one call: 4-hour buckets of hourly CPU/memory peaks and the highest request total, plus the last known capacity. The list page doesn't fetch `/series` once per cluster.
+  - History off or unavailable returns an empty answer, not an error.
+- **UI:**
+  - "CPU · 7 days" sparkline. It is scaled to allocatable, so its height reads as utilisation, and it breaks at unrecorded buckets rather than drawing across them.
+  - "Requests" headroom bars: CPU over memory, green, amber at 75% and red at 90%.
+  - "Opened 4d ago" in the Session cell of clusters that aren't connected.
+- **Cross-window disconnect:** a disconnect is announced on a `BroadcastChannel`. Other windows drop their streams, cached queries and active choice, and leave a page showing that cluster. Without this, their open subscriptions would reconnect the cluster straight away.
+- **Not in v1:** a per-cluster history drill-down (the Usage history card covers it), and capacity for clusters never connected. Capacity only exists where the sampler ran.
+
+### 54. Engine fixes from the clusters-page audit — status: shipped 2026-10-03 (#116, #125; port-forward ownership #126)
+These are the issues the #51 experts found in the engine and left for later.
+- **OIDC identity in streams (security):** `PoolRegistry.For` read the identity from `context.Background()`, so in OIDC mode every stream ran with the engine's own credentials. The fix:
+  - It now reads the identity from the subscribe context, which descends from the WebSocket request the auth middleware stamped.
+  - Pools are keyed by `id|user|sorted groups`, so a membership change gets a new impersonation.
+  - Port-forward had the same gap and now uses `restConfigFor`.
+  - Follow-up (closes the known gap): each port-forward records the OIDC user who started it.
+    - `GET /api/pf` lists only the caller's forwards.
+    - `DELETE /api/pf/{id}` on someone else's forward returns the same 404 as an unknown ID.
+    - Disconnect teardown still stops every forward into the cluster.
+    - Desktop mode (no identity) behaves as before.
+- **Still to do:**
+  - Rebuild pools when a context's credentials change on reload.
+  - Deterministic disambiguation when two contexts sanitise to the same ID.
+  - Watch an explicit `--kubeconfig` / `KUBEBAY_KUBECONFIG` file.
+  - Rename the wire status `connected` to `reachable`.
+
+### 55. Cluster manager reload fixes — status: shipped 2026-10-03 (#117)
+Three of the #54 engine issues from the clusters-page audit, in one PR.
+- **Credentials change on reload:**
+  - `Load` compares each context's client config (host, token, TLS, exec/auth provider, impersonation).
+  - On a change, `OnConfigChange` fires and `PoolRegistry.Retire` closes that cluster's pools with `stream.ReasonCredentialsChanged`.
+  - The hub passes the reason on, and the web client answers that one reason with a `resync`, so tables rebuild on the new credentials instead of freezing.
+  - The old probe result isn't carried over.
+- **ID collisions:** contexts that sanitise to one ID get `-2`, `-3` in sorted-name order. A name that is already safe keeps itself.
+- **Watcher:** watches the parent directories of every loading-precedence file, which includes an explicit `--kubeconfig` / `KUBEBAY_KUBECONFIG`, and filters events by name. Atomic saves are seen.
+- **Wire status rename (separate PR):** the probe status `connected` is now `reachable` in the engine (`StatusReachable`), the shell's `ClusterInfo.status`, the clusters page, the header dot and the connecting overlay. `Cluster.connected` alone means the user's session. `StatusDot status="connected"` is the UI's own vocabulary and is unchanged.
+
+### 56. Rancher vs Kubebay vs Lens analysis → sequenced backlog plan — status: idea (plan written 2026-10-09)
+The full analysis is `docs/COMPETITIVE_ANALYSIS.md`. The plan is `docs/BACKLOG.md`, with stable IDs `KB-01…KB-23`.
+- **Headline finding:** the binding constraint is trust and distribution, not features.
+  - The repo has 0 stars and the v0.6.0 assets ~0 downloads.
+  - macOS builds are ad-hoc signed, and the README tells users to strip quarantine.
+  - There is no auto-updater.
+  - The README's "budgets enforced in CI" is untrue: no CI performance job exists.
+  - The DMG is 52.9 MB and the AppImage 102.4 MB, against the 40 MB website claim.
+- **Now (no new detectors or pages):**
+  - KB-01 business-model ADR, which resolves PRD §3 vs the open-core split above vs RESEARCH §8.4.
+  - KB-02 performance harness and honest claims.
+  - KB-03 notarization, KB-04 Tauri updater, KB-05 cosign + provenance.
+  - KB-06 launch kit.
+  - KB-07 = **#5 MCP v1 as designed** (Lens, Headlamp and Rancher Prime all ship MCP now).
+  - KB-08 Rancher-aware cluster detection. It is frontend-only: `clusters.Cluster.Server` already reaches the shell.
+- **Next:**
+  - KB-09 = #5 phase 2; KB-10 = **#14 EKS discovery**; KB-18 = **#13 AI triage half**.
+  - KB-11 Playwright golden path; KB-12 client-go/Helm refresh + DRA kinds.
+  - KB-13 declarative `extensions.yaml` (k9s-style). Command actions ride the local shell (#10), so they are desktop-only.
+  - KB-14 Windows/Linux smoke CI or a "preview" label; KB-15 findings export (JSON/MD/SARIF); KB-16 saved views; KB-17 opt-in usage signal.
+- **Later:**
+  - KB-19 headless `kubebay scan`. Most detectors are TypeScript in `web/apps/shell/src/lib/`, so this is a port.
+  - KB-20 [Team] self-hosted edition; KB-21 air-gap bundle.
+  - KB-22 ⌘K cross-cluster search, the demand-gated alternative to the removed Fleet page (#52).
+  - KB-23 WASM plugins.
+- Statuses of #5, #13 and #14 are unchanged here. They move only when real work starts.
+
+### Further ideas worth a look (unscoped, one-liners)
+- **Revert unsaved YAML edits — SHIPPED 2026-09-27.** One-click "discard my in-progress edit" button in `YamlTab.tsx`, next to Reload — a local reset (no network call), unlike Reload which re-fetches from the server.

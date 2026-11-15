@@ -1,0 +1,155 @@
+package httpapi
+
+import (
+	"context"
+	"crypto/rand"
+	"encoding/hex"
+	"fmt"
+	"net/http"
+	"os"
+	"strings"
+	"time"
+
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+
+	"github.com/RajaSardar/kubebay/engine/internal/clusters"
+)
+
+// DefaultNodeShellImage is used when nothing overrides it.  It must stay the
+// historical value so existing installs are unaffected.
+const DefaultNodeShellImage = "registry.k8s.io/e2e-test-images/busybox:1.29-2"
+
+type NodeShellManager struct {
+	Clusters *clusters.Manager
+	Settings *SettingsManager
+}
+
+// image resolves the node-shell container image: the user's saved setting
+// first, then KUBEBAY_NODE_SHELL_IMAGE for headless/in-cluster deployments
+// that have no settings.json, then the default.  Private-registry-only and
+// air-gapped clusters cannot pull from registry.k8s.io at all, which left
+// node-shell permanently broken there with no way out.
+func (n *NodeShellManager) image() string {
+	if n.Settings != nil {
+		if set, err := n.Settings.Load(); err == nil && set.NodeShellImage != "" {
+			return set.NodeShellImage
+		}
+	}
+	if env := strings.TrimSpace(os.Getenv("KUBEBAY_NODE_SHELL_IMAGE")); env != "" {
+		return env
+	}
+	return DefaultNodeShellImage
+}
+
+type NodeShellRequest struct {
+	Cluster string `json:"cluster"`
+	Node    string `json:"node"`
+}
+
+type NodeShellResult struct {
+	Namespace string `json:"namespace"`
+	Pod       string `json:"pod"`
+}
+
+func priv(b bool) *bool { return &b }
+
+// buildNodeShellPod is the pod spec for the privileged helper pod pinned to
+// the target node. It never chroots or nsenters itself -- the container's
+// own command is a long-lived placeholder (an interactive `sh` that blocks
+// on stdin nothing ever feeds, since the frontend always execs a *new*
+// process via the exec API rather than attaching to this one). HostIPC and
+// HostNetwork join HostPID here so the pod's own namespaces fully match the
+// host's, the same shape Freelens's own Node Shell uses -- the exec'd
+// command (lib/execShell.ts's "node" shell mode, added alongside this) is
+// what actually does `nsenter -t 1 -m -u -i -n -p` to land in the host's
+// mount/UTS/IPC/net/PID namespaces, which is the part that was missing
+// before: without nsenter, `sh` only ever saw this container's own
+// filesystem, never the node's.
+func buildNodeShellPod(name, node, image string) *corev1.Pod {
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: "default",
+			Labels:    map[string]string{"app.kubernetes.io/managed-by": "kubebay", "kubebay.io/role": "node-shell"},
+		},
+		Spec: corev1.PodSpec{
+			NodeName:      node,
+			HostPID:       true,
+			HostIPC:       true,
+			HostNetwork:   true,
+			RestartPolicy: corev1.RestartPolicyNever,
+			Tolerations:   []corev1.Toleration{{Operator: corev1.TolerationOpExists}},
+			Containers: []corev1.Container{
+				{
+					Name:            "shell",
+					Image:           image,
+					Command:         []string{"sh"},
+					Stdin:           true,
+					StdinOnce:       true,
+					TTY:             true,
+					SecurityContext: &corev1.SecurityContext{Privileged: priv(true)},
+				},
+			},
+		},
+	}
+}
+
+func (n *NodeShellManager) HandleStart(w http.ResponseWriter, r *http.Request) {
+	var req NodeShellRequest
+	if err := decodeBody(r, &req); err != nil || req.Cluster == "" || req.Node == "" {
+		http.Error(w, "cluster and node required", http.StatusBadRequest)
+		return
+	}
+	cfg, err := n.Clusters.RestConfigWithIdentity(req.Cluster, clusters.IdentityFromContext(r.Context()))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	cs, err := kubernetes.NewForConfig(cfg)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("client: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	rb := make([]byte, 4)
+	_, _ = rand.Read(rb)
+	name := "kubebay-node-shell-" + hex.EncodeToString(rb)
+
+	pod := buildNodeShellPod(name, req.Node, n.image())
+
+	ctx, cancel := context.WithTimeout(r.Context(), 150*time.Second)
+	defer cancel()
+	created, err := cs.CoreV1().Pods("default").Create(ctx, pod, metav1.CreateOptions{})
+	if err != nil {
+		http.Error(w, fmt.Sprintf("create: %v", err), http.StatusBadGateway)
+		return
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			http.Error(w, "timed out waiting for node shell pod (image pull slow?)", http.StatusGatewayTimeout)
+			return
+		case <-time.After(1500 * time.Millisecond):
+		}
+		p, err := cs.CoreV1().Pods("default").Get(ctx, created.Name, metav1.GetOptions{})
+		if err != nil && !apierrors.IsNotFound(err) {
+			continue
+		}
+		if p != nil && p.Status.Phase == corev1.PodRunning {
+			writeJSON(w, NodeShellResult{Namespace: "default", Pod: p.Name})
+			return
+		}
+		if p != nil {
+			for _, st := range p.Status.ContainerStatuses {
+				if st.State.Waiting != nil && st.State.Waiting.Reason == "CreateContainerError" {
+					http.Error(w, "container error: "+st.State.Waiting.Message, http.StatusBadGateway)
+					return
+				}
+			}
+		}
+	}
+}

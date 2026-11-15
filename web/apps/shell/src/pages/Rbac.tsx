@@ -1,0 +1,472 @@
+import { useMemo, useState } from "react";
+import { useLeadingThrottle } from "../lib/useLeadingThrottle";
+import { useQuery } from "@tanstack/react-query";
+import { Badge, Button, Card, PageHeader, Select, StatusDot, TextField } from "@kubebay/ui";
+import { PageHelp } from "../components/PageHelp";
+import { PageLoader } from "../components/PageLoader";
+import { RbacFindingsCard } from "../components/RbacFindingsCard";
+import { ServiceAccountAutomountCard } from "../components/ServiceAccountAutomountCard";
+import { SecretExposureCard } from "../components/SecretExposureCard";
+import { ImageSignatureCard } from "../components/ImageSignatureCard";
+import { RunningImageSignaturesCard } from "../components/RunningImageSignaturesCard";
+import { OrphanedSecretsCard } from "../components/OrphanedSecretsCard";
+import { UnusedServiceAccountsCard } from "../components/UnusedServiceAccountsCard";
+import { AttackPathsCard } from "../components/AttackPathsCard";
+import { AuditSecurityFeedCard } from "../components/AuditSecurityFeedCard";
+import { crdApi, rbacApi, type RBACSnapshot } from "../lib/api";
+import { detectImageSignatureEngines, summarizeImageSignaturePolicies } from "../lib/imageSignature";
+import type { FindingQuery } from "../lib/rbacFindings";
+import { findDefaultServiceAccountAutomounts } from "../lib/serviceAccountAutomount";
+import { findSecretEnvExposures } from "../lib/secretExposure";
+import { findOrphanedSecrets } from "../lib/orphanedSecrets";
+import { findUnusedServiceAccounts } from "../lib/unusedServiceAccounts";
+import { findAttackPaths } from "../lib/attackPaths";
+import { FindingsExport } from "../components/FindingsExport";
+import { isSystemFinding } from "../lib/rbacFindings";
+import { detectTrivyOperator } from "../lib/trivyOperator";
+import { detectGatewayApi } from "../lib/routeResolution";
+import { useCluster } from "../lib/useCluster";
+import { useResourceStream } from "../lib/useResourceStream";
+import { DEFS, EXTRA_DEFS } from "../lib/resources";
+
+type Rule = RBACSnapshot["roles"][number]["rules"][number];
+type RoleSummary = RBACSnapshot["roles"][number];
+type Subject = RBACSnapshot["roleBindings"][number]["subjects"][number];
+type BindingSummary = RBACSnapshot["roleBindings"][number];
+
+const VERBS = ["get", "list", "watch", "create", "update", "patch", "delete", "*"];
+
+// A handful of kinds pinned at the top of the dropdown for quick access; the
+// full option set below always covers every kind in DEFS/EXTRA_DEFS so it
+// can't silently fall out of sync as resource kinds are added.
+const CURATED_KINDS = [
+  "pods",
+  "deployments",
+  "statefulsets",
+  "services",
+  "configmaps",
+  "secrets",
+  "jobs",
+  "nodes",
+  "namespaces",
+];
+
+// Pods aren't in the DEFS registry (they're handled by the dedicated
+// Workloads page rather than the generic resource table), so they're added
+// by hand; everything else is derived from DEFS/EXTRA_DEFS, whose `scoped`
+// flag means "cluster-scoped" — the inverse of the "namespaced" meaning
+// used here.
+const KIND_MAP: Record<string, { group: string; resource: string; scoped: boolean }> = {
+  pods: { group: "", resource: "pods", scoped: true },
+  ...Object.fromEntries(
+    Object.entries({ ...DEFS, ...EXTRA_DEFS }).map(([slug, def]) => [
+      slug,
+      { group: def.group, resource: def.resource, scoped: !def.scoped },
+    ]),
+  ),
+};
+
+const KIND_OPTIONS = [
+  ...CURATED_KINDS.filter((k) => KIND_MAP[k]),
+  ...Object.keys(KIND_MAP)
+    .filter((k) => !CURATED_KINDS.includes(k))
+    .sort(),
+];
+
+export function ruleAllows(rule: Rule, verb: string, group: string, resource: string): boolean {
+  // nonResourceURLs-only rules arrive with null apiGroups and resources.
+  const verbs = rule.verbs ?? [];
+  const groups = rule.apiGroups ?? [];
+  const vOk = verbs.includes("*") || verbs.includes(verb);
+  const gOk = groups.includes("*") || groups.includes(group);
+  const base = resource.split("/")[0] ?? "";
+  const rOk =
+    !rule.resources ||
+    rule.resources.length === 0 ||
+    rule.resources.includes("*") ||
+    rule.resources.includes(resource) ||
+    rule.resources.includes(base);
+  return vOk && gOk && rOk;
+}
+
+function subjectKey(s: Subject): string {
+  return s.kind === "ServiceAccount" ? `SA ${s.ns ?? ""}/${s.name}` : `${s.kind} ${s.name}`;
+}
+
+export default function Rbac() {
+  const { cluster: effectiveCluster } = useCluster();
+
+  const snap = useQuery({
+    queryKey: ["rbac", effectiveCluster],
+    queryFn: () => rbacApi.all(effectiveCluster),
+    enabled: !!effectiveCluster,
+  });
+
+  const [verb, setVerb] = useState("list");
+  const [kindSel, setKindSel] = useState("pods");
+  const [nsQuery, setNsQuery] = useState("");
+  const [results, setResults] = useState<Map<string, string[]> | null>(null);
+  const [searched, setSearched] = useState(false);
+
+  const data = snap.data;
+
+  // Backlog #28: independent of the rbacApi.all snapshot above -- pod specs
+  // and ServiceAccount objects aren't part of that server-computed RBAC
+  // analysis, so this streams them directly, same pattern every other
+  // client-side detector this session uses.
+  const automountPods = useResourceStream(effectiveCluster || undefined, "v1/pods", { mode: "full" });
+  const automountSAs = useResourceStream(effectiveCluster || undefined, "v1/serviceaccounts", { mode: "full" });
+
+  // Backlog #29: independent of the rbacApi.all snapshot -- pod env specs
+  // aren't part of that server-computed RBAC analysis.
+
+  // Backlog #32: signature-verification policies, streamed only for the engines the cluster actually has.
+  const crds = useQuery({
+    queryKey: ["crds", effectiveCluster],
+    queryFn: () => crdApi.list(effectiveCluster),
+    enabled: !!effectiveCluster,
+    staleTime: 5 * 60_000,
+    retry: false,
+  });
+  const sigEngines = useMemo(() => detectImageSignatureEngines(crds.data ?? []), [crds.data]);
+  const { kyvernoClusterPolicyGvr: kcpGvr, kyvernoPolicyGvr: kpGvr, sigstoreClusterImagePolicyGvr: cipGvr } = sigEngines;
+  const kyvernoClusterPolicies = useResourceStream(kcpGvr ? effectiveCluster || undefined : undefined, kcpGvr ?? "", { mode: "full", enabled: !!kcpGvr });
+  const kyvernoPolicies = useResourceStream(kpGvr ? effectiveCluster || undefined : undefined, kpGvr ?? "", { mode: "full", enabled: !!kpGvr });
+  const sigstorePolicies = useResourceStream(cipGvr ? effectiveCluster || undefined : undefined, cipGvr ?? "", { mode: "full", enabled: !!cipGvr });
+  // Namespace labels: Sigstore policy scope and attack-path NetworkPolicy namespaceSelectors.
+  const namespaces = useResourceStream(effectiveCluster || undefined, "v1/namespaces");
+  const ratifyGvr = sigEngines.ratifyConstraintGvr;
+  const ratifyConstraints = useResourceStream(ratifyGvr ? effectiveCluster || undefined : undefined, ratifyGvr ?? "", { mode: "full", enabled: !!ratifyGvr });
+  // Connaisseur has no CRD; its validating webhook is how it shows up.
+  const validatingWebhooks = useResourceStream(effectiveCluster || undefined, "admissionregistration.k8s.io/v1/validatingwebhookconfigurations", { mode: "full" });
+
+  // Backlog #35: unreferenced Secret finder. Secrets stay in metadata mode —
+  // the finder needs names/labels/annotations only, not values.
+  const secrets = useResourceStream(effectiveCluster || undefined, "v1/secrets", { mode: "metadata" });
+  const ingresses = useResourceStream(effectiveCluster || undefined, "networking.k8s.io/v1/ingresses", { mode: "full" });
+  const deployments = useResourceStream(effectiveCluster || undefined, "apps/v1/deployments", { mode: "full" });
+  const statefulSets = useResourceStream(effectiveCluster || undefined, "apps/v1/statefulsets", { mode: "full" });
+  const cronJobs = useResourceStream(effectiveCluster || undefined, "batch/v1/cronjobs", { mode: "full" });
+
+  // Backlog #13's deferred check: ServiceAccounts nothing runs as. A DaemonSet
+  // whose nodeSelector matches no node has no pods but still uses its account.
+  const daemonSets = useResourceStream(effectiveCluster || undefined, "apps/v1/daemonsets", { mode: "full" });
+
+  // Roadmap Tier 3 #24: the findings above joined into chains from outside traffic.
+  const services = useResourceStream(effectiveCluster || undefined, "v1/services", { mode: "full" });
+  const networkPolicies = useResourceStream(effectiveCluster || undefined, "networking.k8s.io/v1/networkpolicies", { mode: "full" });
+  const trivy = useMemo(() => detectTrivyOperator(crds.data ?? []), [crds.data]);
+  const gatewayApi = useMemo(() => detectGatewayApi(crds.data ?? []), [crds.data]);
+  const httpRoutes = useResourceStream(
+    gatewayApi.httpRouteGvr ? effectiveCluster || undefined : undefined,
+    gatewayApi.httpRouteGvr ?? "",
+    { mode: "full", enabled: !!gatewayApi.httpRouteGvr },
+  );
+  const vulnReports = useResourceStream(
+    trivy.vulnerabilityReportGvr ? effectiveCluster || undefined : undefined,
+    trivy.vulnerabilityReportGvr ?? "",
+    { mode: "full", enabled: !!trivy.vulnerabilityReportGvr },
+  );
+  // The analyses below walk every pod, Service, Secret and report. A busy
+  // cluster's streams flush every 16 ms, and re-running them each time kept
+  // the main thread pegged, so they all read one snapshot of those streams
+  // that refreshes at most every 2 s.
+  const heavyNow = useMemo(
+    () => ({
+      pods: automountPods.rows,
+      serviceAccounts: automountSAs.rows,
+      services: services.rows,
+      ingresses: ingresses.rows,
+      networkPolicies: networkPolicies.rows,
+      vulnReports: vulnReports.rows,
+      namespaces: namespaces.rows,
+      httpRoutes: httpRoutes.rows,
+      deployments: deployments.rows,
+      statefulSets: statefulSets.rows,
+      daemonSets: daemonSets.rows,
+      cronJobs: cronJobs.rows,
+      secrets: secrets.rows,
+      kyvernoClusterPolicies: kyvernoClusterPolicies.rows,
+      kyvernoPolicies: kyvernoPolicies.rows,
+      sigstorePolicies: sigstorePolicies.rows,
+      ratifyConstraints: ratifyConstraints.rows,
+      validatingWebhooks: validatingWebhooks.rows,
+    }),
+    [
+      automountPods.rows, automountSAs.rows, services.rows, ingresses.rows, networkPolicies.rows, vulnReports.rows, namespaces.rows, httpRoutes.rows,
+      deployments.rows, statefulSets.rows, daemonSets.rows, cronJobs.rows, secrets.rows, kyvernoClusterPolicies.rows, kyvernoPolicies.rows,
+      sigstorePolicies.rows, ratifyConstraints.rows, validatingWebhooks.rows,
+    ],
+  );
+  // The first pods to arrive show at once; only later churn waits.
+  const heavy = useLeadingThrottle(heavyNow, 2000, (applied, next) => applied.pods.length === 0 && next.pods.length > 0);
+
+  const automountFindings = useMemo(
+    () => findDefaultServiceAccountAutomounts(heavy.pods, heavy.serviceAccounts),
+    [heavy.pods, heavy.serviceAccounts],
+  );
+  const secretExposureFindings = useMemo(() => findSecretEnvExposures(heavy.pods), [heavy.pods]);
+  const imageSignatureReport = useMemo(
+    () =>
+      summarizeImageSignaturePolicies({
+        kyverno: [...heavy.kyvernoClusterPolicies, ...heavy.kyvernoPolicies],
+        sigstore: heavy.sigstorePolicies,
+        namespaces: heavy.namespaces,
+        ratifyConstraints: heavy.ratifyConstraints,
+        validatingWebhooks: heavy.validatingWebhooks,
+      }),
+    [heavy.kyvernoClusterPolicies, heavy.kyvernoPolicies, heavy.sigstorePolicies, heavy.namespaces, heavy.ratifyConstraints, heavy.validatingWebhooks],
+  );
+  const sigEnginesInstalled =
+    !!(sigEngines.kyvernoClusterPolicyGvr || sigEngines.kyvernoPolicyGvr || sigEngines.sigstoreClusterImagePolicyGvr || sigEngines.ratifyInstalled) ||
+    imageSignatureReport.policies.some((p) => p.engine === "connaisseur");
+  const orphanedSecrets = useMemo(
+    () =>
+      findOrphanedSecrets({
+        secrets: heavy.secrets,
+        pods: heavy.pods,
+        workloads: [...heavy.deployments, ...heavy.statefulSets, ...heavy.cronJobs],
+        serviceAccounts: heavy.serviceAccounts,
+        ingresses: heavy.ingresses,
+      }),
+    [heavy.secrets, heavy.pods, heavy.deployments, heavy.statefulSets, heavy.cronJobs, heavy.serviceAccounts, heavy.ingresses],
+  );
+  const unusedServiceAccounts = useMemo(
+    () =>
+      findUnusedServiceAccounts({
+        serviceAccounts: heavy.serviceAccounts,
+        pods: heavy.pods,
+        workloads: [...heavy.deployments, ...heavy.statefulSets, ...heavy.daemonSets, ...heavy.cronJobs],
+        bindings: [...(data?.roleBindings ?? []), ...(data?.clusterRoleBindings ?? [])],
+        secrets: heavy.secrets,
+      }),
+    [heavy.serviceAccounts, heavy.pods, heavy.deployments, heavy.statefulSets, heavy.daemonSets, heavy.cronJobs, data, heavy.secrets],
+  );
+  const attackPaths = useMemo(
+    () =>
+      findAttackPaths({
+        pods: heavy.pods,
+        services: heavy.services,
+        ingresses: heavy.ingresses,
+        networkPolicies: heavy.networkPolicies,
+        vulnReports: heavy.vulnReports,
+        rbacFindings: data?.findings ?? [],
+        namespaces: heavy.namespaces,
+        httpRoutes: heavy.httpRoutes,
+        ...(data ? { rbac: data } : {}),
+      }),
+    [heavy.pods, heavy.services, heavy.ingresses, heavy.networkPolicies, heavy.vulnReports, data, heavy.namespaces, heavy.httpRoutes],
+  );
+
+  // KB-15: what the export reuses from this page. System bindings are left
+  // out, as the RBAC findings card hides them by default.
+  const exportFindings = useMemo(
+    () => ({
+      rbac: (data?.findings ?? []).filter((f) => !isSystemFinding(f)),
+      attackPaths,
+      secretEnv: secretExposureFindings,
+      automount: automountFindings,
+      unenforcedSignatureNamespaces: imageSignatureReport.uncovered,
+    }),
+    [data, attackPaths, secretExposureFindings, automountFindings, imageSignatureReport.uncovered],
+  );
+  const exportRows = useMemo(
+    () => ({ pods: heavy.pods, deployments: heavy.deployments, statefulSets: heavy.statefulSets, services: heavy.services, networkPolicies: heavy.networkPolicies }),
+    [heavy.pods, heavy.deployments, heavy.statefulSets, heavy.services, heavy.networkPolicies],
+  );
+  const exportReady =
+    !!data &&
+    [automountPods, automountSAs, deployments, statefulSets, services, networkPolicies, namespaces, ingresses, validatingWebhooks].every((st) => st.synced);
+
+  function runWhoCan(override?: FindingQuery) {
+    if (!data) return;
+    const meta = override
+      ? { group: override.group, resource: override.resource, scoped: true }
+      : (KIND_MAP[kindSel] ?? { group: "", resource: kindSel, scoped: true });
+    const effectiveVerb = override?.verb ?? verb;
+    const grants = new Map<string, string[]>();
+    const considerBinding = (b: BindingSummary, roleNS: string | undefined) => {
+      const [refKind, refName] = b.roleRef.split(":");
+      const role: RoleSummary | undefined =
+        refKind === "ClusterRole"
+          ? data.clusterRoles.find((r) => r.name === refName)
+          : data.roles.find((r) => r.name === refName && r.ns === b.ns);
+      if (!role) return;
+      const applies = meta.scoped ? true : !b.ns;
+      if (meta.scoped && nsQuery && b.ns && b.ns !== nsQuery) return;
+      if (!meta.scoped && roleNS !== "cluster") return;
+      if (!applies) return;
+      for (const rule of role.rules) {
+        if (!ruleAllows(rule, effectiveVerb === "*" ? "*" : effectiveVerb, meta.group, meta.resource)) continue;
+        for (const s of b.subjects ?? []) {
+          const k = subjectKey(s);
+          grants.set(k, [...(grants.get(k) ?? []), `${b.kind} ${b.ns ? b.ns + "/" : ""}${b.name}`]);
+        }
+        break;
+      }
+    };
+    for (const b of data.clusterRoleBindings) considerBinding(b, "cluster");
+    for (const b of data.roleBindings) considerBinding(b, b.ns);
+    setResults(grants);
+    setSearched(true);
+  }
+
+  // A finding's resource is the real Kubernetes resource name, which for a
+  // subresource like "pods/exec" isn't one of the dropdown's selectable
+  // kinds — the query itself still runs correctly via the override, only
+  // the dropdown's own display falls back to the closest real kind.
+  function applyFindingQuery(q: FindingQuery) {
+    const displayKind = q.resource === "pods/exec" ? "pods" : KIND_OPTIONS.includes(q.resource) ? q.resource : kindSel;
+    setVerb(q.verb);
+    setKindSel(displayKind);
+    setNsQuery("");
+    runWhoCan(q);
+  }
+
+  interface CheckResult {
+    allowed?: boolean;
+    denied?: boolean;
+    reason?: string;
+  }
+  const [selfResults, setSelfResults] = useState<Record<string, CheckResult> | null>(null);
+  const [selfBusy, setSelfBusy] = useState(false);
+
+  async function runSelfChecks() {
+    if (!effectiveCluster) return;
+    setSelfBusy(true);
+    const out: Record<string, CheckResult> = {};
+    const checks: [string, string, string][] = [
+      ["pods:list", "", "pods"],
+      ["pods:create", "", "pods"],
+      ["pods:delete", "", "pods"],
+      ["deployments:update", "apps", "deployments"],
+      ["secrets:get", "", "secrets"],
+      ["nodes:list", "", "nodes"],
+    ];
+    for (const [key, group, resource] of checks) {
+      const verbPart = key.split(":")[1] ?? verb;
+      try {
+        out[key] = await rbacApi.self({
+          cluster: effectiveCluster,
+          verb: verbPart,
+          group,
+          resource,
+          ns: "",
+        });
+      } catch (e) {
+        out[key] = { reason: String(e instanceof Error ? e.message : e) };
+      }
+    }
+    setSelfResults(out);
+    setSelfBusy(false);
+  }
+
+  if (snap.isLoading) {
+    return (
+      <div className="page">
+        <PageHeader help={<PageHelp route="/rbac" />} level={2} title="RBAC explorer" />
+        <PageLoader message="Loading RBAC data…" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="page">
+      <PageHeader help={<PageHelp route="/rbac" />}
+        level={2}
+        title="RBAC explorer"
+        count={data && `· ${(data.clusterRoleBindings?.length ?? 0) + (data.roleBindings?.length ?? 0)} bindings`}
+        actions={<FindingsExport cluster={effectiveCluster} ready={exportReady} findings={exportFindings} rows={exportRows} />}
+      />
+
+      <div className="page-body">
+      <Card style={{ marginBottom: 16 }}>
+        <div className="rbac-section-title">Who can …</div>
+        <div className="pf-form">
+          <Select value={verb} onChange={(e) => setVerb(e.target.value)} aria-label="verb">
+            {VERBS.map((v) => (
+              <option key={v}>{v}</option>
+            ))}
+          </Select>
+          <Select value={kindSel} onChange={(e) => setKindSel(e.target.value)} aria-label="resource">
+            {KIND_OPTIONS.map((k) => (
+              <option key={k}>{k}</option>
+            ))}
+          </Select>
+          <TextField
+            placeholder="namespace (optional)"
+            value={nsQuery}
+            onChange={(e) => setNsQuery(e.target.value)}
+            spellCheck={false}
+            disabled={!KIND_MAP[kindSel]?.scoped}
+          />
+          <Button onClick={() => runWhoCan()} disabled={!data}>
+            Query
+          </Button>
+        </div>
+
+        {searched && results && (
+          <div style={{ marginTop: 12 }}>
+            {results.size === 0 ? (
+              <div className="muted small">No subjects found with this access.</div>
+            ) : (
+              <div className="rbac-results">
+                {[...results.entries()].map(([subject, bindings]) => (
+                  <div key={subject} className="rbac-subject">
+                    <span className="mono strong">{subject}</span>
+                    <div className="rbac-bindings">
+                      {bindings.map((b) => (
+                        <Badge key={b}>{b}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </Card>
+
+      <AttackPathsCard paths={attackPaths} trivyInstalled={trivy.installed} />
+
+      <RbacFindingsCard findings={data?.findings ?? []} onQuery={applyFindingQuery} />
+
+      <ServiceAccountAutomountCard findings={automountFindings} />
+
+      <SecretExposureCard findings={secretExposureFindings} />
+
+      <ImageSignatureCard report={imageSignatureReport} enginesInstalled={sigEnginesInstalled} />
+
+      <RunningImageSignaturesCard cluster={effectiveCluster} />
+
+      <OrphanedSecretsCard secrets={orphanedSecrets} />
+
+      <UnusedServiceAccountsCard accounts={unusedServiceAccounts} />
+
+      <AuditSecurityFeedCard cluster={effectiveCluster} />
+
+      <Card>
+        <div className="rbac-section-title">My access</div>
+        <Button variant="ghost" disabled={selfBusy || !effectiveCluster} onClick={() => void runSelfChecks()}>
+          {selfBusy ? "Checking…" : "Run SelfSubjectAccessReviews"}
+        </Button>
+        {selfResults && (
+          <div className="rbac-self-grid" style={{ marginTop: 14 }}>
+            {Object.entries(selfResults).map(([key, res]) => {
+              const allowed = res.allowed === true && res.denied !== true;
+              return (
+                <div key={key} className={`rbac-self-item ${allowed ? "ok" : "no"}`}>
+                  <StatusDot status={allowed ? "ok" : "err"} />
+                  <span className="mono small">{key}</span>
+                  {!allowed && res.reason && <span className="muted small">{res.reason}</span>}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Card>
+      </div>
+    </div>
+  );
+}
+

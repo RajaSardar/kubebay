@@ -1,0 +1,14 @@
+Kubebay deployed.
+
+Without OIDC: the UI is reachable via the Service/Ingress using the
+engine's own identity — for evaluation only, do not expose publicly.
+
+With OIDC (set oidc.* values): every user logs in via your IdP and all
+API traffic impersonates them — cluster RBAC decides everything.
+
+Required ClusterRole for the release SA: impersonate users/groups/
+serviceaccounts (installed by this chart).
+
+Build/push the image first:
+  docker build -t ghcr.io/rajasardar/kubebay:<tag> .
+  docker push ghcr.io/rajasardar/kubebay:<tag>

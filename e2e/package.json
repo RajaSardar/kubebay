@@ -1,0 +1,13 @@
+{
+  "name": "kubebay-e2e",
+  "private": true,
+  "type": "module",
+  "description": "KB-11: the golden path, end to end, against a real cluster",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1",
+    "@types/node": "22.18.0"
+  }
+}

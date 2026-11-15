@@ -1,0 +1,502 @@
+{
+ "_comment": "Shared by attention.ts (Vitest) and the engine's podReason (go test): the same pods must read broken or fine, with the same reason code (\"\" when fine), in both. Times are relative to now.",
+ "now": "2026-10-03T12:00:00Z",
+ "cases": [
+  {
+   "name": "running and ready",
+   "broken": false,
+   "pod": {
+    "metadata": {
+     "name": "p",
+     "namespace": "shop",
+     "creationTimestamp": "2026-10-03T11:00:00Z"
+    },
+    "spec": {
+     "nodeName": "n1",
+     "containers": [
+      {
+       "name": "c"
+      }
+     ]
+    },
+    "status": {
+     "phase": "Running",
+     "conditions": [
+      {
+       "type": "Ready",
+       "status": "True",
+       "lastTransitionTime": "2026-10-03T11:10:00Z"
+      }
+     ],
+     "containerStatuses": [
+      {
+       "name": "c",
+       "ready": true,
+       "restartCount": 0,
+       "image": "x",
+       "imageID": "",
+       "state": {
+        "running": {
+         "startedAt": "2026-10-03T11:10:00Z"
+        }
+       }
+      }
+     ]
+    }
+   },
+   "code": ""
+  },
+  {
+   "name": "crash looping",
+   "broken": true,
+   "pod": {
+    "metadata": {
+     "name": "p",
+     "namespace": "shop",
+     "creationTimestamp": "2026-10-03T11:00:00Z"
+    },
+    "spec": {
+     "nodeName": "n1",
+     "containers": [
+      {
+       "name": "c"
+      }
+     ]
+    },
+    "status": {
+     "phase": "Running",
+     "conditions": [
+      {
+       "type": "Ready",
+       "status": "False",
+       "lastTransitionTime": "2026-10-03T11:59:00Z"
+      }
+     ],
+     "containerStatuses": [
+      {
+       "name": "c",
+       "ready": false,
+       "restartCount": 14,
+       "image": "x",
+       "imageID": "",
+       "state": {
+        "waiting": {
+         "reason": "CrashLoopBackOff",
+         "message": "back-off"
+        }
+       }
+      }
+     ]
+    }
+   },
+   "code": "CrashLoopBackOff"
+  },
+  {
+   "name": "crash looping after running out of memory",
+   "broken": true,
+   "pod": {
+    "metadata": {
+     "name": "p",
+     "namespace": "shop",
+     "creationTimestamp": "2026-10-03T11:00:00Z"
+    },
+    "spec": {
+     "nodeName": "n1",
+     "containers": [
+      {
+       "name": "c"
+      }
+     ]
+    },
+    "status": {
+     "phase": "Running",
+     "conditions": [
+      {
+       "type": "Ready",
+       "status": "False",
+       "lastTransitionTime": "2026-10-03T11:59:00Z"
+      }
+     ],
+     "containerStatuses": [
+      {
+       "name": "c",
+       "ready": false,
+       "restartCount": 14,
+       "image": "x",
+       "imageID": "",
+       "state": {
+        "waiting": {
+         "reason": "CrashLoopBackOff",
+         "message": "back-off"
+        }
+       },
+       "lastState": {
+        "terminated": {
+         "reason": "OOMKilled",
+         "exitCode": 137
+        }
+       }
+      }
+     ]
+    }
+   },
+   "code": "OOMKilled"
+  },
+  {
+   "name": "image pull failing",
+   "broken": true,
+   "pod": {
+    "metadata": {
+     "name": "p",
+     "namespace": "shop",
+     "creationTimestamp": "2026-10-03T11:59:00Z"
+    },
+    "spec": {
+     "nodeName": "n1",
+     "containers": [
+      {
+       "name": "c"
+      }
+     ]
+    },
+    "status": {
+     "phase": "Pending",
+     "containerStatuses": [
+      {
+       "name": "c",
+       "ready": false,
+       "restartCount": 0,
+       "image": "x",
+       "imageID": "",
+       "state": {
+        "waiting": {
+         "reason": "ImagePullBackOff"
+        }
+       }
+      }
+     ]
+    }
+   },
+   "code": "ImagePullBackOff"
+  },
+  {
+   "name": "container still creating",
+   "broken": false,
+   "pod": {
+    "metadata": {
+     "name": "p",
+     "namespace": "shop",
+     "creationTimestamp": "2026-10-03T11:59:00Z"
+    },
+    "spec": {
+     "nodeName": "n1",
+     "containers": [
+      {
+       "name": "c"
+      }
+     ]
+    },
+    "status": {
+     "phase": "Pending",
+     "containerStatuses": [
+      {
+       "name": "c",
+       "ready": false,
+       "restartCount": 0,
+       "image": "x",
+       "imageID": "",
+       "state": {
+        "waiting": {
+         "reason": "ContainerCreating"
+        }
+       }
+      }
+     ]
+    }
+   },
+   "code": ""
+  },
+  {
+   "name": "pending for two minutes",
+   "broken": false,
+   "pod": {
+    "metadata": {
+     "name": "p",
+     "namespace": "shop",
+     "creationTimestamp": "2026-10-03T11:58:00Z"
+    },
+    "spec": {
+     "nodeName": "n1",
+     "containers": [
+      {
+       "name": "c"
+      }
+     ]
+    },
+    "status": {
+     "phase": "Pending"
+    }
+   },
+   "code": ""
+  },
+  {
+   "name": "pending for ten minutes",
+   "broken": true,
+   "pod": {
+    "metadata": {
+     "name": "p",
+     "namespace": "shop",
+     "creationTimestamp": "2026-10-03T11:50:00Z"
+    },
+    "spec": {
+     "nodeName": "n1",
+     "containers": [
+      {
+       "name": "c"
+      }
+     ]
+    },
+    "status": {
+     "phase": "Pending"
+    }
+   },
+   "code": "Pending"
+  },
+  {
+   "name": "unschedulable",
+   "broken": true,
+   "pod": {
+    "metadata": {
+     "name": "p",
+     "namespace": "shop",
+     "creationTimestamp": "2026-10-03T11:59:00Z"
+    },
+    "spec": {
+     "containers": [
+      {
+       "name": "c"
+      }
+     ]
+    },
+    "status": {
+     "phase": "Pending",
+     "conditions": [
+      {
+       "type": "PodScheduled",
+       "status": "False",
+       "reason": "Unschedulable",
+       "message": "0/3 nodes",
+       "lastTransitionTime": "2026-10-03T11:59:00Z"
+      }
+     ]
+    }
+   },
+   "code": "Unschedulable"
+  },
+  {
+   "name": "not ready for two minutes",
+   "broken": false,
+   "pod": {
+    "metadata": {
+     "name": "p",
+     "namespace": "shop",
+     "creationTimestamp": "2026-10-03T11:00:00Z"
+    },
+    "spec": {
+     "nodeName": "n1",
+     "containers": [
+      {
+       "name": "c"
+      }
+     ]
+    },
+    "status": {
+     "phase": "Running",
+     "conditions": [
+      {
+       "type": "Ready",
+       "status": "False",
+       "lastTransitionTime": "2026-10-03T11:58:00Z"
+      }
+     ],
+     "containerStatuses": [
+      {
+       "name": "c",
+       "ready": false,
+       "restartCount": 0,
+       "image": "x",
+       "imageID": "",
+       "state": {
+        "running": {
+         "startedAt": "2026-10-03T11:10:00Z"
+        }
+       }
+      }
+     ]
+    }
+   },
+   "code": ""
+  },
+  {
+   "name": "not ready for ten minutes",
+   "broken": true,
+   "pod": {
+    "metadata": {
+     "name": "p",
+     "namespace": "shop",
+     "creationTimestamp": "2026-10-03T11:00:00Z"
+    },
+    "spec": {
+     "nodeName": "n1",
+     "containers": [
+      {
+       "name": "c"
+      }
+     ]
+    },
+    "status": {
+     "phase": "Running",
+     "conditions": [
+      {
+       "type": "Ready",
+       "status": "False",
+       "lastTransitionTime": "2026-10-03T11:50:00Z"
+      }
+     ],
+     "containerStatuses": [
+      {
+       "name": "c",
+       "ready": false,
+       "restartCount": 0,
+       "image": "x",
+       "imageID": "",
+       "state": {
+        "running": {
+         "startedAt": "2026-10-03T11:10:00Z"
+        }
+       }
+      }
+     ]
+    }
+   },
+   "code": "NotReady"
+  },
+  {
+   "name": "succeeded",
+   "broken": false,
+   "pod": {
+    "metadata": {
+     "name": "p",
+     "namespace": "shop",
+     "creationTimestamp": "2026-10-03T11:00:00Z"
+    },
+    "spec": {
+     "nodeName": "n1",
+     "containers": [
+      {
+       "name": "c"
+      }
+     ]
+    },
+    "status": {
+     "phase": "Succeeded"
+    }
+   },
+   "code": ""
+  },
+  {
+   "name": "failed",
+   "broken": true,
+   "pod": {
+    "metadata": {
+     "name": "p",
+     "namespace": "shop",
+     "creationTimestamp": "2026-10-03T11:00:00Z"
+    },
+    "spec": {
+     "nodeName": "n1",
+     "containers": [
+      {
+       "name": "c"
+      }
+     ]
+    },
+    "status": {
+     "phase": "Failed",
+     "reason": "Error",
+     "message": "exit 1"
+    }
+   },
+   "code": "Failed"
+  },
+  {
+   "name": "evicted",
+   "broken": true,
+   "pod": {
+    "metadata": {
+     "name": "p",
+     "namespace": "shop",
+     "creationTimestamp": "2026-10-03T11:00:00Z"
+    },
+    "spec": {
+     "nodeName": "n1",
+     "containers": [
+      {
+       "name": "c"
+      }
+     ]
+    },
+    "status": {
+     "phase": "Failed",
+     "reason": "Evicted"
+    }
+   },
+   "code": "Evicted"
+  },
+  {
+   "name": "being deleted",
+   "broken": false,
+   "pod": {
+    "metadata": {
+     "name": "p",
+     "namespace": "shop",
+     "creationTimestamp": "2026-10-03T11:00:00Z",
+     "deletionTimestamp": "2026-10-03T11:59:00Z"
+    },
+    "spec": {
+     "nodeName": "n1",
+     "containers": [
+      {
+       "name": "c"
+      }
+     ]
+    },
+    "status": {
+     "phase": "Running",
+     "conditions": [
+      {
+       "type": "Ready",
+       "status": "False",
+       "lastTransitionTime": "2026-10-03T11:50:00Z"
+      }
+     ],
+     "containerStatuses": [
+      {
+       "name": "c",
+       "ready": false,
+       "restartCount": 0,
+       "image": "x",
+       "imageID": "",
+       "state": {
+        "running": {
+         "startedAt": "2026-10-03T11:10:00Z"
+        }
+       }
+      }
+     ]
+    }
+   },
+   "code": ""
+  }
+ ]
+}

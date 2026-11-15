@@ -1,0 +1,27 @@
+.DS_Store
+node_modules/
+dist/
+coverage/
+*.log
+.env
+.env.*
+
+engine/bin/
+engine/kubebay
+
+web/apps/shell/dist/
+*.tsbuildinfo
+
+desktop/src-tauri/target/
+desktop/src-tauri/binaries/
+desktop/node_modules/
+desktop/src-tauri/gen/
+static/dist/
+
+# Tool-generated artifacts
+.superbrain/
+context.md
+memory.md
+# Anchored: a bare "kubebay" also matches the engine/cmd/kubebay/ package
+# directory, so every new source file added there is silently ignored.
+/kubebay

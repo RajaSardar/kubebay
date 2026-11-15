@@ -1,0 +1,163 @@
+apiVersion: v1
+kind: Namespace
+metadata: {name: shop}
+---
+apiVersion: v1
+kind: Namespace
+metadata: {name: payments}
+---
+apiVersion: v1
+kind: Namespace
+metadata: {name: monitoring}
+---
+# storefront: 3 replicas, no spread (the fake kubelet puts them all on one node)
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: storefront, namespace: shop, labels: {app: storefront}}
+spec:
+  replicas: 3
+  selector: {matchLabels: {app: storefront}}
+  template:
+    metadata: {labels: {app: storefront, demo/pin: worker-1}}
+    spec:
+      serviceAccountName: storefront
+      containers:
+      - name: web
+        image: ghcr.io/acme/storefront:2.14.0
+        ports: [{containerPort: 8080}]
+        resources: {requests: {cpu: "1", memory: 2Gi}, limits: {memory: 2Gi}}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata: {name: storefront, namespace: shop}
+---
+# Internet-facing, and its ServiceAccount is cluster-admin: an attack-path payoff
+apiVersion: v1
+kind: Service
+metadata: {name: storefront, namespace: shop}
+spec:
+  type: LoadBalancer
+  selector: {app: storefront}
+  ports: [{port: 80, targetPort: 8080}]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata: {name: storefront-admin}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: cluster-admin}
+subjects: [{kind: ServiceAccount, name: storefront, namespace: shop}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: cart, namespace: shop, labels: {app: cart}}
+spec:
+  replicas: 2
+  selector: {matchLabels: {app: cart}}
+  template:
+    metadata: {labels: {app: cart}}
+    spec:
+      containers:
+      - name: cart
+        image: ghcr.io/acme/cart:1.8.3
+        env:
+        - name: REDIS_PASSWORD
+          valueFrom: {secretKeyRef: {name: cart-redis, key: password}}
+        resources: {requests: {cpu: 500m, memory: 512Mi}}
+---
+apiVersion: v1
+kind: Secret
+metadata: {name: cart-redis, namespace: shop}
+stringData: {password: not-a-real-password}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: cart, namespace: shop}
+spec:
+  selector: {app: cart}
+  ports: [{port: 6379}]
+---
+# payments-api: one replica, no PodDisruptionBudget
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: payments-api, namespace: payments, labels: {app: payments-api}}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: payments-api}}
+  template:
+    metadata: {labels: {app: payments-api}}
+    spec:
+      containers:
+      - name: api
+        image: ghcr.io/acme/payments-api:3.2.1
+        resources: {requests: {cpu: 250m, memory: 256Mi}}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: payments-api, namespace: payments}
+spec:
+  selector: {app: payments-api}
+  ports: [{port: 443, targetPort: 8443}]
+---
+# ledger-worker: keeps crashing
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: ledger-worker, namespace: payments, labels: {app: ledger-worker}}
+spec:
+  replicas: 2
+  selector: {matchLabels: {app: ledger-worker}}
+  template:
+    metadata: {labels: {app: ledger-worker, demo/crash: "true"}}
+    spec:
+      containers:
+      - name: worker
+        image: ghcr.io/acme/ledger-worker:0.9.0
+        resources: {requests: {cpu: 100m, memory: 128Mi}}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: default-deny, namespace: payments}
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: allow-shop, namespace: payments}
+spec:
+  podSelector: {matchLabels: {app: payments-api}}
+  ingress:
+  - from: [{namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: shop}}}]
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata: {name: prometheus, namespace: monitoring, labels: {app: prometheus}}
+spec:
+  serviceName: prometheus
+  replicas: 2
+  selector: {matchLabels: {app: prometheus}}
+  template:
+    metadata: {labels: {app: prometheus}}
+    spec:
+      containers:
+      - name: prometheus
+        image: quay.io/prometheus/prometheus:v3.5.0
+        resources: {requests: {cpu: "1", memory: 4Gi}}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata: {name: prometheus, namespace: monitoring}
+spec:
+  minAvailable: 1
+  selector: {matchLabels: {app: prometheus}}
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata: {name: node-exporter, namespace: monitoring, labels: {app: node-exporter}}
+spec:
+  selector: {matchLabels: {app: node-exporter}}
+  template:
+    metadata: {labels: {app: node-exporter}}
+    spec:
+      containers:
+      - name: node-exporter
+        image: quay.io/prometheus/node-exporter:v1.9.1
+        resources: {requests: {cpu: 50m, memory: 64Mi}}

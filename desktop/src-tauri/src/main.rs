@@ -1,0 +1,568 @@
+// A release build on Windows is a GUI app. Without this Windows gives it a
+// console window, and closing that window closes the app.
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
+use std::io::Write;
+use std::net::TcpStream;
+use std::path::{Path, PathBuf};
+use std::sync::{Mutex, OnceLock};
+use std::time::Duration;
+
+mod smoke;
+mod updater;
+mod window_theme;
+
+use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri_plugin_shell::process::{CommandChild, CommandEvent};
+use tauri_plugin_shell::ShellExt;
+
+static ENGINE_CHILD: OnceLock<Mutex<Option<CommandChild>>> = OnceLock::new();
+
+/// The engine's address and session token, once it's up: the updater asks it
+/// what a restart would interrupt.
+static ENGINE_SESSION: OnceLock<(String, String)> = OnceLock::new();
+
+/// Where the window's last theme colour and appearance are kept between launches.
+fn window_theme_path(app: &tauri::AppHandle) -> Option<PathBuf> {
+    app.path()
+        .app_config_dir()
+        .ok()
+        .map(|d| d.join("window-theme.json"))
+}
+
+fn apply_window_theme(window: &tauri::WebviewWindow, theme: &window_theme::WindowTheme) {
+    let (r, g, b) = theme.background;
+    let _ = window.set_background_color(Some(tauri::window::Color(r, g, b, 255)));
+    let _ = window.set_theme(native_theme(theme.appearance));
+}
+
+fn native_theme(a: window_theme::Appearance) -> Option<tauri::Theme> {
+    match a {
+        window_theme::Appearance::Dark => Some(tauri::Theme::Dark),
+        window_theme::Appearance::Light => Some(tauri::Theme::Light),
+        window_theme::Appearance::System => None,
+    }
+}
+
+/// Called by the web app (lib/nativeWindow.ts) whenever its theme changes: the
+/// window behind the page takes the theme's colour and its title bar the
+/// theme's appearance, and both are saved so the next launch opens that way
+/// instead of flashing the OS default before the page paints.
+#[tauri::command]
+fn set_window_theme(
+    window: tauri::WebviewWindow,
+    background: String,
+    appearance: String,
+) -> Result<(), String> {
+    let theme = window_theme::from_args(&background, &appearance)
+        .ok_or_else(|| "expected #rrggbb and dark, light or system".to_string())?;
+    apply_window_theme(&window, &theme);
+    if let Some(path) = window_theme_path(window.app_handle()) {
+        window_theme::save(&path, &theme).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+/// Called by the web app (lib/smoke.ts) once the shell has painted. Ends a
+/// smoke run with exit code 0; does nothing otherwise.
+#[tauri::command]
+fn smoke_ready() {
+    if !smoke::is_on() {
+        return;
+    }
+    eprintln!("[kubebay] smoke: the shell painted");
+    kill_engine();
+    std::process::exit(0);
+}
+
+/// KB-04: where the updater is, for the page's banner and Settings card.
+#[tauri::command]
+fn update_status(app: tauri::AppHandle, updates: tauri::State<'_, updater::Updates>) -> updater::StatusView {
+    updates.view(&app.package_info().version.to_string())
+}
+
+/// Turns the launch and daily checks on or off; turning them on checks now.
+#[tauri::command]
+async fn set_update_checks(
+    app: tauri::AppHandle,
+    updates: tauri::State<'_, updater::Updates>,
+    enabled: bool,
+) -> Result<updater::StatusView, String> {
+    updates.set_auto_check(enabled).map_err(|e| e.to_string())?;
+    if enabled {
+        run_update_check(&app).await;
+    }
+    Ok(updates.view(&app.package_info().version.to_string()))
+}
+
+/// "Check now" in Settings.
+#[tauri::command]
+async fn check_for_updates(
+    app: tauri::AppHandle,
+    updates: tauri::State<'_, updater::Updates>,
+) -> Result<updater::StatusView, String> {
+    run_update_check(&app).await;
+    Ok(updates.view(&app.package_info().version.to_string()))
+}
+
+/// "Update now": downloads and verifies the update the user chose, installs it
+/// and restarts, unless the engine reports something a restart would cut off.
+/// Nothing is downloaded before this.
+#[tauri::command]
+async fn install_update(app: tauri::AppHandle, updates: tauri::State<'_, updater::Updates>) -> Result<(), String> {
+    let (addr, token) = ENGINE_SESSION.get().ok_or("The engine isn't running yet.")?;
+    let activity = updater::fetch_activity(addr, token)?;
+    if let Some(why) = updater::restart_blocker(&activity) {
+        return Err(why);
+    }
+    let pending = updates.take_pending().ok_or("No update is waiting.")?;
+    let version = pending.update.version.clone();
+    let notes = pending.update.body.clone();
+    updates.set_status(updater::Status::Downloading { version: version.clone() });
+    let bytes = match updater::download_update(&pending).await {
+        Ok(b) => b,
+        Err(e) => {
+            updates.set_status(updater::Status::Available { version, notes });
+            updates.put_back(pending);
+            return Err(format!("The update didn't download: {e}"));
+        }
+    };
+    // The Windows installer replaces the engine binary, which can't be done
+    // while it runs; elsewhere it stops when the app restarts.
+    #[cfg(windows)]
+    kill_engine();
+    if let Err(e) = pending.update.install(&bytes) {
+        updates.set_status(updater::Status::Available { version, notes });
+        updates.put_back(pending);
+        return Err(format!("The update didn't install: {e}"));
+    }
+    app.restart();
+}
+
+/// One check; an update it finds waits for the user. Does nothing if the build
+/// can't update itself or a check is already running.
+async fn run_update_check(app: &tauri::AppHandle) {
+    let updates = app.state::<updater::Updates>();
+    if !updates.begin_check() {
+        return;
+    }
+    let homebrew = updater::installed_by_homebrew(|p| p.exists());
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or_default();
+    let (status, pending) = updater::check_once(app, updater::ENDPOINT, homebrew, now_ms).await;
+    updates.finish_check(status, pending);
+}
+
+/// Ends a smoke run that can't succeed.
+fn smoke_fail(why: &str) {
+    if smoke::is_on() {
+        eprintln!("[kubebay] smoke: FAILED: {why}");
+        kill_engine();
+        std::process::exit(1);
+    }
+}
+
+/// Where the engine publishes this session's token.
+///
+/// It used to be scraped out of the engine's stdout, which meant the engine had
+/// to print it — and everything printed here is echoed to our own stderr, which
+/// for a launchd-started GUI app on macOS is the unified log, readable by any
+/// process running as the user.  The engine writes a 0600 file instead and we
+/// pass it the exact path, so neither side has to guess the other's idea of
+/// where the user's config directory is.
+fn token_file_path(app: &tauri::App) -> Result<PathBuf, tauri::Error> {
+    Ok(app.path().config_dir()?.join("kubebay").join("session-token"))
+}
+
+/// Polls for the engine to publish its token, ~250ms apart.
+fn read_session_token(path: &Path, attempts: u32) -> Option<String> {
+    for _ in 0..attempts {
+        if let Ok(contents) = std::fs::read_to_string(path) {
+            let token = contents.trim().to_string();
+            if !token.is_empty() {
+                return Some(token);
+            }
+        }
+        std::thread::sleep(Duration::from_millis(250));
+    }
+    None
+}
+
+fn wait_for_engine(addr: &str, attempts: u32) -> bool {
+    let host = addr.rsplit_once(':').map(|(h, _)| h).unwrap_or("127.0.0.1");
+    let port: u16 = addr.rsplit_once(':').and_then(|(_, p)| p.parse().ok()).unwrap_or(9898);
+    for i in 0..attempts {
+        if TcpStream::connect((host, port)).is_ok() {
+            return true;
+        }
+        std::thread::sleep(Duration::from_millis(250u64 + (i % 4) as u64 * 100));
+    }
+    false
+}
+
+fn pick_free_port() -> u16 {
+    // Prefer a stable port so localStorage origin stays consistent across launches
+    // (WebviewUrl::External keys localStorage by http://host:port).
+    const PREFERRED: u16 = 9898;
+    if std::net::TcpListener::bind(("127.0.0.1", PREFERRED)).is_ok() {
+        return PREFERRED;
+    }
+    std::net::TcpListener::bind("127.0.0.1:0")
+        .ok()
+        .and_then(|l| l.local_addr().ok())
+        .map(|a| a.port())
+        .unwrap_or(PREFERRED + 1)
+}
+
+/// Environment the engine sidecar is allowed to inherit from the user's login
+/// shell.  This is an ALLOWLIST on purpose — never copy the whole environment.
+///
+/// GUI apps launched from the Dock/Finder are started by launchd, not a shell,
+/// so they inherit a stripped environment.  PATH matters because Kubernetes
+/// exec credential plugins (aws eks get-token, gke-gcloud-auth-plugin…) live in
+/// Homebrew or custom bin dirs.  The rest matter because those plugins read
+/// them to decide WHICH IDENTITY to authenticate as: without AWS_PROFILE, for
+/// example, `aws eks get-token` silently falls back to the `default` profile,
+/// so Kubebay would talk to production as a different — possibly far more
+/// privileged — identity than the user's own terminal does, with no visible
+/// sign of the substitution.  Proxy and CA vars are here for the same reason:
+/// dropping them changes which endpoint is trusted and reached.
+const FORWARDED_ENV: &[&str] = &[
+    "PATH",
+    "KUBECONFIG",
+    "AWS_PROFILE",
+    "AWS_REGION",
+    "AWS_DEFAULT_REGION",
+    "AWS_CONFIG_FILE",
+    "AWS_SHARED_CREDENTIALS_FILE",
+    "AWS_SDK_LOAD_CONFIG",
+    "AWS_ROLE_SESSION_NAME",
+    "CLOUDSDK_CONFIG",
+    "GOOGLE_APPLICATION_CREDENTIALS",
+    "AZURE_CONFIG_DIR",
+    "HTTPS_PROXY",
+    "HTTP_PROXY",
+    "NO_PROXY",
+    "https_proxy",
+    "http_proxy",
+    "no_proxy",
+    "SSL_CERT_FILE",
+    "SSL_CERT_DIR",
+    "REQUESTS_CA_BUNDLE",
+    "KRB5CCNAME",
+];
+
+/// Read the whole allowlist from the user's login shell in ONE invocation.
+///
+/// The shell prints `NAME=VALUE\0` records for the variables that are actually
+/// set, using only builtins, so this costs a single process for ~20 variables
+/// rather than one login shell each.  NUL separation keeps values containing
+/// newlines or spaces intact.
+#[cfg(unix)]
+fn login_shell_env() -> Vec<(String, String)> {
+    let mut script = String::from("for __kb_v in ");
+    script.push_str(&FORWARDED_ENV.join(" "));
+    script.push_str(
+        "; do eval \"if [ -n \\\"\\${$__kb_v+x}\\\" ]; then printf '%s=%s\\\\0' \\\"\\$__kb_v\\\" \\\"\\${$__kb_v}\\\"; fi\"; done",
+    );
+
+    // Prefer the user's configured shell, then the macOS/Linux defaults.
+    // -l (login) so ~/.zprofile / ~/.bash_profile are sourced.
+    let configured = std::env::var("SHELL").unwrap_or_default();
+    let mut shells: Vec<&str> = Vec::new();
+    if !configured.is_empty() {
+        shells.push(&configured);
+    }
+    for s in ["/bin/zsh", "/bin/bash", "/bin/sh"] {
+        if !shells.contains(&s) {
+            shells.push(s);
+        }
+    }
+
+    for shell in shells {
+        let Ok(out) = std::process::Command::new(shell)
+            .args(["-l", "-c", &script])
+            .output()
+        else {
+            continue;
+        };
+        let vars = parse_env_records(&String::from_utf8_lossy(&out.stdout));
+        if !vars.is_empty() {
+            return vars;
+        }
+    }
+    Vec::new()
+}
+
+/// Windows GUI apps inherit the user's environment already.
+#[cfg(not(unix))]
+fn login_shell_env() -> Vec<(String, String)> {
+    Vec::new()
+}
+
+fn parse_env_records(stdout: &str) -> Vec<(String, String)> {
+    stdout
+        .split('\0')
+        .filter_map(|rec| rec.split_once('='))
+        .filter(|(name, value)| FORWARDED_ENV.contains(name) && !value.is_empty())
+        .map(|(name, value)| (name.to_string(), value.to_string()))
+        .collect()
+}
+
+/// Runs `kill -<sig> <pid>`; false if the signal could not be delivered.
+///
+/// There is no std API for signalling a process we did not spawn with
+/// std::process, and Tauri's CommandChild only offers kill() (SIGKILL). Rather
+/// than take a new dependency just for this, shell out — and if no `kill` can
+/// be found we simply fall back to SIGKILL, i.e. the old behaviour.
+#[cfg(unix)]
+fn signal_pid(pid: u32, sig: &str) -> bool {
+    for kill in ["/bin/kill", "/usr/bin/kill", "kill"] {
+        match std::process::Command::new(kill)
+            .args([format!("-{sig}"), pid.to_string()])
+            // "No such process" is the expected outcome of the `kill -0` probe.
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+        {
+            Ok(status) => return status.success(),
+            Err(_) => continue,
+        }
+    }
+    false
+}
+
+/// SIGTERM, wait, then SIGKILL.
+///
+/// SIGKILL cannot be trapped, so the engine never got to run its shutdown: it
+/// left its session-token file behind and dropped in-flight work on the floor.
+/// It has a SIGTERM handler — give it a moment to use it.
+#[cfg(unix)]
+fn stop_engine(child: CommandChild) {
+    let pid = child.pid();
+    if !signal_pid(pid, "TERM") {
+        let _ = child.kill();
+        return;
+    }
+    // `kill -0` fails once the pid is gone, which is our "it exited" signal.
+    for _ in 0..30 {
+        std::thread::sleep(Duration::from_millis(100));
+        if !signal_pid(pid, "0") {
+            return;
+        }
+    }
+    let _ = child.kill();
+}
+
+#[cfg(not(unix))]
+fn stop_engine(child: CommandChild) {
+    let _ = child.kill();
+}
+
+fn kill_engine() {
+    if let Some(cell) = ENGINE_CHILD.get() {
+        if let Ok(mut guard) = cell.lock() {
+            if let Some(child) = guard.take() {
+                stop_engine(child);
+            }
+        }
+    }
+}
+
+fn main() {
+    ENGINE_CHILD.get_or_init(|| Mutex::new(None));
+    if smoke::init_from_env() {
+        eprintln!(
+            "[kubebay] smoke run: exits 0 once the shell paints, 1 after {:?}",
+            smoke::TIMEOUT
+        );
+        std::thread::spawn(|| {
+            std::thread::sleep(smoke::TIMEOUT);
+            smoke_fail("the shell did not report that it painted");
+        });
+    }
+
+    // Kill the engine sidecar on Ctrl-C / SIGTERM so it never orphans.
+    ctrlc::set_handler(|| {
+        kill_engine();
+        std::process::exit(0);
+    })
+    .ok();
+
+    let context = tauri::generate_context!();
+    // KB-04: only a build that carries the updater's public key (release.yml
+    // adds it) loads the updater; anything else never checks.
+    let can_update = updater::build_has_key(context.config()) && !smoke::is_on();
+    let mut builder = tauri::Builder::default().plugin(tauri_plugin_shell::init());
+    if can_update {
+        builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+    }
+    builder
+        .invoke_handler(tauri::generate_handler![
+            set_window_theme,
+            smoke_ready,
+            update_status,
+            set_update_checks,
+            check_for_updates,
+            install_update
+        ])
+        .setup(move |app| {
+            let prefs = app.path().app_config_dir().ok().map(|d| d.join("updates.json"));
+            app.manage(updater::Updates::new(can_update, prefs));
+            if can_update {
+                let h = app.handle().clone();
+                std::thread::spawn(move || {
+                    std::thread::sleep(updater::FIRST_CHECK_AFTER);
+                    loop {
+                        if h.state::<updater::Updates>().auto_check() {
+                            tauri::async_runtime::block_on(run_update_check(&h));
+                        }
+                        std::thread::sleep(updater::CHECK_EVERY);
+                    }
+                });
+            }
+
+            let handle = app.handle().clone();
+            let port = pick_free_port();
+            let addr = format!("127.0.0.1:{port}");
+            let token_path = token_file_path(app)?;
+            // A leftover file from a crashed session would hand the webview a
+            // token this engine does not know.
+            let _ = std::fs::remove_file(&token_path);
+            let mut cmd = app.shell().sidecar("kubebay-engine")?.args([
+                "--addr".to_string(),
+                addr.clone(),
+                "--token-file".to_string(),
+                token_path.to_string_lossy().into_owned(),
+                "--local-shell".to_string(),
+            ]);
+            let forwarded = login_shell_env();
+            for (name, value) in &forwarded {
+                cmd = cmd.env(name.as_str(), value.as_str());
+            }
+            // Names only — values can be credential paths.  Logged so a user
+            // debugging "why is Kubebay using a different identity than my
+            // terminal" can see what the engine actually received.
+            eprintln!(
+                "[kubebay] forwarded login-shell env: {}",
+                if forwarded.is_empty() {
+                    "(none)".to_string()
+                } else {
+                    forwarded
+                        .iter()
+                        .map(|(n, _)| n.as_str())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                }
+            );
+
+            let (mut rx, child) = cmd.spawn()?;
+            *ENGINE_CHILD
+                .get()
+                .expect("engine child cell")
+                .lock()
+                .expect("lock") = Some(child);
+
+            // Keep draining the engine's output for the life of the process: it
+            // is the only place its logs surface, and an unread pipe eventually
+            // blocks the engine's own writes.
+            tauri::async_runtime::spawn(async move {
+                while let Some(event) = rx.recv().await {
+                    match event {
+                        CommandEvent::Stdout(line) | CommandEvent::Stderr(line) => {
+                            eprintln!("[engine] {}", String::from_utf8_lossy(&line).trim_end());
+                        }
+                        CommandEvent::Terminated(_) => break,
+                        _ => {}
+                    }
+                }
+            });
+
+            tauri::async_runtime::spawn(async move {
+                if !wait_for_engine(&addr, 40) {
+                    eprintln!("[kubebay] engine failed to become ready");
+                    smoke_fail("the engine did not start listening");
+                    return;
+                }
+                let Some(token) = read_session_token(&token_path, 40) else {
+                    eprintln!("[kubebay] engine published no session token");
+                    smoke_fail("the engine published no session token");
+                    return;
+                };
+                if smoke::is_on() {
+                    eprintln!("[kubebay] smoke: engine listening on {addr}");
+                }
+                let _ = ENGINE_SESSION.set((addr.clone(), token.clone()));
+                std::thread::sleep(Duration::from_millis(300));
+
+                let url = format!("http://{addr}/").parse().expect("valid url");
+                // Runs before the page's own scripts on every load, so a reload
+                // gets the token back without asking the user and without the
+                // page having to keep it anywhere on disk.  serde_json does the
+                // escaping so the token cannot break out of the literal.
+                let init = smoke::init_script(
+                    &serde_json::to_string(&token).expect("token is a string"),
+                    smoke::is_on(),
+                );
+
+                let saved = window_theme_path(&handle).and_then(|p| window_theme::load(&p));
+                let h2 = handle.clone();
+                let _ = handle.run_on_main_thread(move || {
+                    let mut builder =
+                        WebviewWindowBuilder::new(&h2, "main", WebviewUrl::External(url))
+                            .title("Kubebay")
+                            .initialization_script(init)
+                            .inner_size(1320.0, 850.0)
+                            .min_inner_size(980.0, 620.0);
+                    // Open in the last theme's colours so the window does not
+                    // flash the OS default before the page paints.
+                    if let Some(theme) = saved {
+                        let (r, g, b) = theme.background;
+                        builder = builder
+                            .background_color(tauri::window::Color(r, g, b, 255))
+                            .theme(native_theme(theme.appearance));
+                    }
+                    let _ = builder.build();
+                });
+            });
+
+            Ok(())
+        })
+        .build(context)
+        .expect("error building kubebay")
+        .run(|_app_handle, event| match event {
+            // Window closed (red ✕ button or ⌘W) — kill engine immediately.
+            tauri::RunEvent::WindowEvent {
+                event: tauri::WindowEvent::Destroyed,
+                ..
+            } => {
+                kill_engine();
+            }
+            // App fully exiting — belt-and-suspenders kill + flush stdout.
+            tauri::RunEvent::Exit => {
+                kill_engine();
+                let _ = std::io::stdout().flush();
+            }
+            _ => {}
+        });
+}
+
+#[cfg(test)]
+mod tests {
+    /// Without this attribute the Windows build is a console program: Windows
+    /// opens a console window beside the app, prints the engine's logs in it,
+    /// and closing that window closes the app. (The engine sidecar is already
+    /// started without a window of its own.)
+    #[test]
+    fn the_windows_build_is_a_gui_app_not_a_console_one() {
+        let attr = concat!("#![cfg_attr(not(debug_assertions), ", "windows_subsystem = \"windows\")]");
+        let first_code_line = include_str!("main.rs")
+            .lines()
+            .map(str::trim)
+            .find(|l| !l.is_empty() && !l.starts_with("//"))
+            .unwrap_or("");
+        assert_eq!(first_code_line, attr, "main.rs must start with the windows_subsystem attribute");
+    }
+}

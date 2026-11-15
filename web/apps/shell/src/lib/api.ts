@@ -1,0 +1,1052 @@
+import { PolicyRejectionError, StaleEditError, type PolicyRejectionDetail } from "./policyRejection";
+import type { HistoryPoint } from "./headroomForecast";
+
+declare global {
+  interface Window {
+    /** Injected by the desktop wrapper before the page loads. */
+    __KUBEBAY_TOKEN__?: string;
+  }
+}
+
+// The token buys cluster read/write — and, once the local shell lands, code
+// execution as the user. So it lives in memory for the life of the page only:
+// not in localStorage (which kept it on disk forever, readable by anything that
+// can reach the origin) and not in the URL (history, referrers, server logs).
+// The desktop wrapper re-injects it on every load, so a reload costs nothing.
+let sessionToken = typeof window !== "undefined" ? (window.__KUBEBAY_TOKEN__ ?? "") : "";
+
+// Evict what older builds persisted, so upgrading actually removes it from disk.
+try {
+  localStorage.removeItem("kb.token");
+} catch {
+  /* storage disabled */
+}
+
+export function getToken(): string {
+  return sessionToken;
+}
+
+export function setToken(token: string): void {
+  sessionToken = token;
+}
+
+export type AuthMode = "oidc" | "token" | "open";
+
+/** How this engine wants to be authenticated. Public: it names no secret. */
+export async function authMode(): Promise<AuthMode> {
+  const res = await fetch("/api/auth-mode");
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  const body = (await res.json()) as { mode?: AuthMode };
+  return body.mode ?? "token";
+}
+
+/** Verifies a pasted token against the engine before the app starts using it. */
+export async function checkToken(token: string): Promise<boolean> {
+  const res = await fetch("/api/clusters", { headers: { "X-Kubebay-Token": token } });
+  return res.ok;
+}
+
+export interface ClusterInfo {
+  id: string;
+  context: string;
+  server: string;
+  /** Reachability from the engine's /version probe; whether the user connected is `connected`. */
+  status: "reachable" | "unreachable" | "degraded" | "misconfigured" | "checking";
+  /** The user connected to this cluster this run (streams open), not reachability. */
+  connected?: boolean;
+  /** When the reachability probe last finished. */
+  checkedAt?: string;
+  version?: string;
+  error?: string;
+  /** The kubeconfig context's namespace, when it sets one. */
+  namespace?: string;
+}
+
+async function get<T>(path: string): Promise<T> {
+  const res = await fetch(path, {
+    headers: { "X-Kubebay-Token": getToken() },
+  });
+  if (res.status === 401 && !getToken()) {
+    window.location.href = "/api/auth/login";
+    throw new Error("login required");
+  }
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || `${res.status} ${res.statusText}`);
+  }
+  return res.json() as Promise<T>;
+}
+
+async function send<T>(method: string, path: string, body?: unknown): Promise<T> {
+  const headers: Record<string, string> = { "X-Kubebay-Token": getToken() };
+  if (body) headers["Content-Type"] = "application/json";
+  const res = await fetch(path, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throwIfPolicyRejection(res, text);
+    throw new Error(text || `${res.status} ${res.statusText}`);
+  }
+  return res.json() as Promise<T>;
+}
+
+// A policy rejection comes back as structured JSON (see parsePolicyRejection
+// in the engine, and writePolicyRejectionOrError which every mutating
+// handler now routes through — backlog #17) on any mutating endpoint, not
+// just /api/yaml; everything else stays the existing plain-text error.
+function throwIfPolicyRejection(res: Response, text: string): void {
+  if (!res.headers.get("Content-Type")?.includes("application/json")) return;
+  try {
+    const body = JSON.parse(text) as { error?: string; policyRejection?: PolicyRejectionDetail; paths?: string[]; message?: string };
+    if (body.error === "policy-rejected" && body.policyRejection) {
+      throw new PolicyRejectionError(body.policyRejection);
+    }
+    if (body.error === "changed-since-load" && Array.isArray(body.paths)) {
+      throw new StaleEditError(body.paths, body.message);
+    }
+  } catch (e) {
+    if (e instanceof PolicyRejectionError || e instanceof StaleEditError) throw e;
+    // Malformed JSON body — fall through to the plain-text error in send().
+  }
+}
+
+export interface PortForwardInfo {
+  id: string;
+  cluster: string;
+  namespace: string;
+  pod: string;
+  podPort: number;
+  localPort: number;
+  startedAt: string;
+}
+
+export interface PodUsage {
+  namespace: string;
+  name: string;
+  cpuMillis: number;
+  memBytes: number;
+}
+
+export const api = {
+  health: () => get<{ ok: boolean }>("/api/healthz"),
+  /** The engine's build, e.g. "v0.7.0" ("dev" for a local build). */
+  version: () => get<{ version: string }>("/api/version"),
+  clusters: () => get<ClusterInfo[]>("/api/clusters"),
+  /** Mark a cluster connected without opening it (opening a stream also connects). */
+  connectCluster: (id: string) => send<ClusterInfo>("POST", `/api/clusters/${encodeURIComponent(id)}/connect`),
+  /** Stop a cluster's informers, streams and port-forwards. */
+  disconnectCluster: (id: string) => send<{ ok: boolean }>("POST", `/api/clusters/${encodeURIComponent(id)}/disconnect`),
+  podMetrics: (cluster: string, ns = "*") =>
+    get<PodUsage[]>(`/api/metrics/pods?cluster=${encodeURIComponent(cluster)}&ns=${encodeURIComponent(ns)}`),
+
+  pfList: () => get<PortForwardInfo[]>("/api/pf"),
+  pfStart: (b: { cluster: string; namespace: string; pod: string; podPort: number; localPort?: number }) =>
+    send<PortForwardInfo>("POST", "/api/pf", b),
+  pfStop: (id: string) => send<{ stopped: boolean }>("DELETE", `/api/pf/${encodeURIComponent(id)}`),
+
+  scale: (b: { cluster: string; gvr: string; ns: string; name: string; replicas: number; gitopsOwner?: string }) =>
+    send<{ ok: boolean }>("POST", "/api/action/scale", b),
+  restart: (b: { cluster: string; gvr: string; ns: string; name: string; gitopsOwner?: string }) =>
+    send<{ ok: boolean }>("POST", "/api/action/restart", b),
+  deleteResource: (b: {
+    cluster: string;
+    gvr: string;
+    ns: string;
+    name: string;
+    graceSeconds?: number;
+    forceFinalizers?: boolean;
+    gitopsOwner?: string;
+  }) => send<{ ok: boolean }>("POST", "/api/action/delete", b),
+  resizePod: (b: {
+    cluster: string;
+    ns: string;
+    name: string;
+    container: string;
+    resources: { requests?: Record<string, string>; limits?: Record<string, string> };
+    gitopsOwner?: string;
+  }) => send<{ ok: boolean }>("POST", "/api/action/resize-pod", b),
+
+  /**
+   * A Secret's values come back hidden unless `reveal` is set, and the engine
+   * audits that request.
+   */
+  getYamlText: async (cluster: string, gvr: string, ns: string, name: string, opts: { reveal?: boolean } = {}): Promise<string> => {
+    return fetchObject(cluster, gvr, ns, name, "yaml", opts.reveal);
+  },
+  /** Same object as getYamlText, but served as JSON so callers get a parsed object. */
+  getObject: async (
+    cluster: string,
+    gvr: string,
+    ns: string,
+    name: string,
+  ): Promise<Record<string, unknown>> => {
+    return JSON.parse(await fetchObject(cluster, gvr, ns, name, "json")) as Record<string, unknown>;
+  },
+  applyYaml: applyYamlRequest,
+  createResource: (b: { cluster: string; yaml: string; dryRun: boolean }) =>
+    send<{ applied: number; total: number; dryRun: boolean }>("POST", "/api/yaml/create", b),
+  auditLog: () => get<{ time: string; action: string; cluster: string; namespace?: string; resource?: string; detail?: string; userAgent?: string; source?: string }[]>("/api/audit"),
+};
+
+export const secretApi = {
+  /** Reveals exactly one key of one Secret -- never the whole object. Every call is audited engine-side. */
+  revealValue: (b: { cluster: string; ns: string; name: string; key: string }) =>
+    get<{ value: string }>(
+      `/api/secret-value?cluster=${encodeURIComponent(b.cluster)}&ns=${encodeURIComponent(b.ns)}&name=${encodeURIComponent(b.name)}&key=${encodeURIComponent(b.key)}`,
+    ),
+};
+
+function applyYamlRequest(b: {
+  cluster: string;
+  gvr: string;
+  ns: string;
+  name: string;
+  yaml: string;
+  dryRun: boolean;
+  force: boolean;
+  action?: string;
+  /**
+   * The YAML as loaded into the editor. When sent, the engine patches only
+   * the fields that differ (an Update, like `kubectl edit`) instead of
+   * server-side applying the whole object, which conflicts with fields other
+   * managers (Helm, kubectl) own.
+   */
+  original?: string;
+  /** "strategic": the yaml is itself a strategic merge patch of the fields to change. */
+  mode?: "strategic";
+}): Promise<{
+  applied: boolean;
+  dryRun: boolean;
+  resultYaml?: string;
+  noop?: boolean;
+  patchType?: "strategic" | "merge" | "apply";
+  /** Edited field paths; never values. */
+  changedPaths?: string[];
+}> {
+  return send("PUT", "/api/yaml", b);
+}
+
+async function fetchObject(
+  cluster: string,
+  gvr: string,
+  ns: string,
+  name: string,
+  format: "yaml" | "json",
+  reveal?: boolean,
+): Promise<string> {
+  const q = new URLSearchParams({ cluster, gvr, ns, name });
+  if (format === "json") q.set("format", "json");
+  if (reveal) q.set("reveal", "true");
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 10_000);
+  try {
+    const res = await fetch(`/api/yaml?${q}`, {
+      signal: ctrl.signal,
+      headers: { "X-Kubebay-Token": getToken() },
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.text();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** One kind's matches in an engine search. */
+export interface SearchResponseGroup {
+  slug: string;
+  label: string;
+  total: number;
+  /** A custom resource kind with no namespace: its route needs ?scoped=0. */
+  clusterScoped: boolean;
+  /** The filter for opening this kind's whole list: the words that did not just name the kind. */
+  listQuery?: string;
+  hits: { ns: string; name: string; score: number; ref?: string; clusterScoped?: boolean }[];
+}
+
+/** The engine's answer to a search, with enough to tell a whole answer from a partial one. */
+export interface SearchResponse {
+  groups: SearchResponseGroup[];
+  /** The kind the query named, if any. */
+  filter: string;
+  indexed: number;
+  /** Kinds still listing: what is shown may be incomplete. */
+  pending: string[];
+  /** Kinds not searched until a query names them. */
+  onDemand: string[];
+  truncated: string[];
+  denied: { label: string; reason: string }[];
+}
+
+/** Find objects by name across the kinds the app does not hold in memory. */
+export const searchApi = {
+  search: async (cluster: string, q: string, signal?: AbortSignal): Promise<SearchResponse> => {
+    const params = new URLSearchParams({ cluster, q });
+    const res = await fetch(`/api/search?${params}`, { signal, headers: { "X-Kubebay-Token": getToken() } });
+    if (!res.ok) throw new Error(`${res.status} ${(await res.text()).trim() || res.statusText}`);
+    return (await res.json()) as SearchResponse;
+  },
+};
+
+/** Short-lived network diagnostic pod (roadmap Tier 2 #23); delete it with api.deleteResource when done. */
+export const netdiagApi = {
+  start: (b: { cluster: string; namespace: string; node?: string; image?: string }) =>
+    send<{ namespace: string; pod: string }>("POST", "/api/netdiag", b),
+};
+
+/** One running image digest's signature status (roadmap Tier 2 #17). */
+export interface ImageSignatureRow {
+  image: string;
+  registry?: string;
+  repo?: string;
+  digest?: string;
+  status: "signed" | "unsigned" | "unknown";
+  method?: string;
+  reason?: string;
+  /** A found signature checked against the cluster's own policy keys, or for keyless ones, Sigstore's roots and the policies' identities. */
+  verification?: "verified" | "failed" | "keyless" | "no-key";
+  verifiedBy?: string;
+  /** Who signed a keyless signature that verified against Sigstore's public roots. */
+  signer?: string;
+  issuer?: string;
+  pods: number;
+  namespaces: string[];
+}
+
+/** Contacts each running image's registry anonymously; only call on an explicit user action. */
+/** Narrows a signature check to one namespace's pods: a workload's (label selector) or one pod's. */
+export interface ImageSignatureScope {
+  ns: string;
+  selector?: string;
+  pod?: string;
+}
+
+export const imageSigApi = {
+  /** pullSecrets: authenticate to private registries with each pod's own image pull secrets. */
+  check: (cluster: string, pullSecrets = false, scope?: ImageSignatureScope) => {
+    const q = new URLSearchParams({ cluster });
+    if (pullSecrets) q.set("pullSecrets", "1");
+    if (scope) {
+      q.set("ns", scope.ns);
+      if (scope.selector) q.set("selector", scope.selector);
+      if (scope.pod) q.set("pod", scope.pod);
+    }
+    return get<ImageSignatureRow[]>(`/api/image-signatures?${q.toString()}`);
+  },
+};
+
+export interface AuditSecurityEvent {
+  id: string;
+  time: string;
+  rule: string;
+  severity: "high" | "medium" | "low";
+  title: string;
+  user: string;
+  sourceIP?: string;
+  object: string;
+  detail?: string;
+  allowed: boolean;
+  /** The object acted on; absent on a grouped row spanning several. */
+  ref?: AuditObjectRef;
+  /** Set on a row grouping several Secret reads by one person. */
+  count?: number;
+  firstTime?: string;
+}
+
+export interface AuditObjectRef {
+  resource: string;
+  namespace?: string;
+  name?: string;
+}
+
+/** A managed control plane's audit log, read through the user's own aws or gcloud CLI. */
+export type AuditCloudSource =
+  | { kind: "eks"; cluster: string; region?: string; profile?: string }
+  | { kind: "gke"; project: string; location: string; cluster: string };
+
+export interface AuditEventsResponse {
+  configured: boolean;
+  source?: "file" | "eks" | "gke";
+  cloud?: AuditCloudSource;
+  /** The file path, or a description of the cloud source. */
+  path?: string;
+  error?: string;
+  events: AuditSecurityEvent[];
+}
+
+/** Roadmap #26: security events from a cluster's API server audit log, read locally. */
+export const securityApi = {
+  auditEvents: (cluster: string) => get<AuditEventsResponse>(`/api/security/audit-events?cluster=${encodeURIComponent(cluster)}`),
+  setAuditLogPath: (cluster: string, path: string) =>
+    send<{ ok: boolean; path: string }>("PUT", "/api/security/audit-log-path", { cluster, path }),
+  setAuditSource: (cluster: string, source: AuditCloudSource | null) =>
+    send<{ ok: boolean }>("PUT", "/api/security/audit-source", { cluster, source }),
+};
+
+export const nodeApi = {
+  shellStart: (b: { cluster: string; node: string }) =>
+    send<{ namespace: string; pod: string }>("POST", "/api/node-shell", b),
+};
+
+export const metricsApi = {
+  nodes: (cluster: string) =>
+    get<{ name: string; cpuMillis: number; memBytes: number }[]>(`/api/metrics/nodes?cluster=${encodeURIComponent(cluster)}`),
+};
+
+export const actionApi = {
+  cordon: (b: { cluster: string; node: string; cordon: boolean; gitopsOwner?: string }) =>
+    send<{ ok: boolean }>("POST", "/api/action/cordon", b),
+  drain: (b: { cluster: string; node: string; ignoreDaemonsets?: boolean; gitopsOwner?: string }) =>
+    send<{ evicted: string[]; skipped: string[]; errors?: Record<string, string> }>("POST", "/api/action/drain", b),
+  triggerCronJob: (b: { cluster: string; ns: string; name: string }) =>
+    send<{ job: string }>("POST", "/api/action/trigger-cronjob", b),
+  suspendCronJob: (b: { cluster: string; ns: string; name: string; suspend: boolean }) =>
+    send<{ ok: boolean }>("POST", "/api/action/suspend-cronjob", b),
+};
+
+export interface RBACRule {
+  verbs: string[];
+  apiGroups: string[];
+  resources: string[];
+  resourceNames?: string[];
+  nonResourceURLs?: string[];
+}
+
+export interface RBACFinding {
+  severity: "high" | "medium";
+  title: string;
+  subject: string;
+  roleRef: string;
+  why: string;
+  rule?: string;
+  suggestion?: string;
+  verb?: string;
+  group?: string;
+  resource?: string;
+}
+
+export interface RBACSnapshot {
+  roles: { name: string; ns?: string; kind: string; rules: RBACRule[] }[];
+  clusterRoles: { name: string; ns?: string; kind: string; rules: RBACRule[] }[];
+  roleBindings: { name: string; ns?: string; kind: string; roleRef: string; subjects: { kind: string; name: string; ns?: string }[] }[];
+  clusterRoleBindings: { name: string; ns?: string; kind: string; roleRef: string; subjects: { kind: string; name: string; ns?: string }[] }[];
+  findings: RBACFinding[];
+}
+
+export const rbacApi = {
+  self: (b: { cluster: string; verb: string; group: string; resource: string; ns: string }) =>
+    send<{ allowed?: boolean; denied?: boolean; reason?: string }>("POST", "/api/rbac/self", b),
+  all: (cluster: string) => get<RBACSnapshot>(`/api/rbac/all?cluster=${encodeURIComponent(cluster)}`),
+};
+
+export interface HelmRelease {
+  name: string;
+  namespace: string;
+  chart: string;
+  chartVersion: string;
+  appVersion?: string;
+  status: string;
+  revision: number;
+  updated?: string;
+  description?: string;
+  manifest?: string;
+  /** How the release's objects were applied: "ssa" (server-side) or "csa" (client-side, every release Helm 3 wrote). */
+  applyMethod?: string;
+}
+
+/** An object a Helm release created, by reference only (ADR 0004). */
+export interface ReleaseResource {
+  apiVersion: string;
+  kind: string;
+  /** The kind's plural, from the cluster's discovery; absent when it isn't served. */
+  resource?: string;
+  namespace?: string;
+  name: string;
+  namespaced: boolean;
+  /** False when the cluster no longer serves the kind (a CRD removed since). */
+  served: boolean;
+}
+
+/** One of a release's hooks and its last run, from the release's record. */
+export interface ReleaseHook {
+  kind: string;
+  name: string;
+  events: string[];
+  phase?: string;
+  startedAt?: string;
+  completedAt?: string;
+  deletePolicies?: string[];
+}
+
+/** A release as its drawer's Overview shows it. */
+export interface ReleaseDetails {
+  release: HelmRelease;
+  notes?: string;
+  resources: ReleaseResource[];
+  hooks: ReleaseHook[];
+}
+
+/** The release list: the releases, and the named namespaces RBAC refused (ADR 0004). */
+export interface HelmReleaseList {
+  releases: HelmRelease[];
+  denied: { ns: string; message: string }[];
+}
+
+export const helmApi = {
+  /** The whole cluster's releases, or only those in `namespaces` for an identity that can't read release Secrets cluster-wide. */
+  releases: (cluster: string, namespaces?: readonly string[]) => {
+    const q = new URLSearchParams({ cluster });
+    for (const ns of namespaces ?? []) q.append("ns", ns);
+    return get<HelmReleaseList>(`/api/helm/releases?${q}`);
+  },
+  details: (cluster: string, ns: string, name: string) =>
+    get<ReleaseDetails>(`/api/helm/release?${new URLSearchParams({ cluster, ns, name })}`),
+  history: (cluster: string, ns: string, name: string) =>
+    get<HelmRelease[]>(`/api/helm/history?cluster=${encodeURIComponent(cluster)}&ns=${encodeURIComponent(ns)}&name=${encodeURIComponent(name)}`),
+  valuesText: async (cluster: string, ns: string, name: string): Promise<string> => {
+    const q = new URLSearchParams({ cluster, ns, name });
+    const res = await fetch(`/api/helm/values?${q}`, { headers: { "X-Kubebay-Token": getToken() } });
+    if (!res.ok) throw new Error(await res.text());
+    return res.text();
+  },
+  manifestText: async (cluster: string, ns: string, name: string): Promise<string> => {
+    const q = new URLSearchParams({ cluster, ns, name });
+    const res = await fetch(`/api/helm/manifest?${q}`, { headers: { "X-Kubebay-Token": getToken() } });
+    if (!res.ok) throw new Error(await res.text());
+    return res.text();
+  },
+  rollback: (b: { cluster: string; ns: string; name: string; revision: number }) =>
+    send<{ ok: boolean }>("POST", "/api/helm/rollback", b),
+  uninstall: (b: { cluster: string; ns: string; name: string }) =>
+    send<{ ok: boolean }>("POST", "/api/helm/uninstall", b),
+  upgrade: (b: { cluster: string; ns: string; name: string; chartRef: string; version?: string; valuesYaml: string; dryRun?: boolean }) =>
+    send<HelmRelease>("POST", "/api/helm/upgrade", b),
+};
+
+export interface APIResourceEntry {
+  gvr: string;
+  group: string;
+  version: string;
+  resource: string;
+  kind: string;
+  namespaced: boolean;
+}
+
+export const discoveryApi = {
+  apis: (cluster: string) => get<APIResourceEntry[]>(`/api/apis?cluster=${encodeURIComponent(cluster)}`),
+  // Every apiVersion the server currently serves (not just the preferred one
+  // per group) -- backlog #25's Upgrade Readiness Panel needs this to tell
+  // whether a soon-to-be-removed version is still actually being served.
+  apiVersions: (cluster: string) => get<string[]>(`/api/apiversions?cluster=${encodeURIComponent(cluster)}`),
+};
+
+export interface PrinterColumn {
+  name: string;
+  jsonPath: string;
+  type: string;
+}
+
+export interface CRDEntry {
+  name: string;
+  group: string;
+  version: string;
+  resource: string;
+  kind: string;
+  namespaced: boolean;
+  gvr: string;
+  columns: PrinterColumn[];
+}
+
+export const crdApi = {
+  list: (cluster: string) => get<CRDEntry[]>(`/api/crds?cluster=${encodeURIComponent(cluster)}`),
+};
+
+export interface HelmRepo {
+  name: string;
+  url: string;
+}
+
+export interface HelmChartEntry {
+  name: string;
+  description: string;
+  version: string;
+  appVersion?: string;
+  versions: number;
+}
+
+export const helmMarketApi = {
+  repos: (cluster: string) => get<HelmRepo[]>(`/api/helm/repos?cluster=${encodeURIComponent(cluster)}`),
+  addRepo: (b: { name: string; url: string }) => send<HelmRepo>("POST", "/api/helm/repos/add", b),
+  updateRepos: (cluster: string) =>
+    send<Record<string, string>>("POST", `/api/helm/repos/update?cluster=${encodeURIComponent(cluster)}`, {}),
+  charts: (cluster: string, repo: string) =>
+    get<HelmChartEntry[]>(`/api/helm/charts?cluster=${encodeURIComponent(cluster)}&repo=${encodeURIComponent(repo)}`),
+  chartValuesText: async (cluster: string, ref: string, version?: string): Promise<string> => {
+    const q = new URLSearchParams({ cluster, ref });
+    if (version) q.set("version", version);
+    const res = await fetch(`/api/helm/chart-values?${q}`, { headers: { "X-Kubebay-Token": getToken() } });
+    if (!res.ok) throw new Error(await res.text());
+    return res.text();
+  },
+};
+
+/**
+ * Local-shell capability, straight from the engine. `available` is the only
+ * field that decides whether a shell can be opened; `enabled` without
+ * `available` is the case worth explaining, and `reason` says why.
+ * Absent entirely on an engine older than this field.
+ */
+export interface LocalShellCapability {
+  available: boolean;
+  enabled: boolean;
+  reason?: string;
+  kubectl?: { found: boolean; version?: string };
+  /** The shell a session starts (zsh, bash, fish…). */
+  shell?: string;
+}
+
+export interface AppSettings {
+  /** Fallback for clusters with no entry in prometheusUrls. */
+  prometheusUrl?: string;
+  prometheusUrls?: Record<string, string>;
+  extraKubeconfigs: string[];
+  onlyListedKubeconfigs?: boolean;
+  activeKubeconfigs?: string[];
+  nodeShellImage?: string;
+  nodeShellImageDefault?: string;
+  localShell?: LocalShellCapability;
+  /** Usage-history consent per cluster (backlog #36): true once connected, false after Stop. */
+  historyClusters?: Record<string, boolean>;
+}
+
+export interface AwsProfile {
+  name: string;
+  region?: string;
+}
+
+export interface DiscoveredEksCluster {
+  region: string;
+  name: string;
+  arn: string;
+  account?: string;
+  endpoint: string;
+  status?: string;
+  version?: string;
+  /** A loaded kubeconfig already has this cluster's ARN context. */
+  imported: boolean;
+}
+
+/** Backlog #14: EKS discovery through the user's own aws CLI. Every call runs it; only on a user action. */
+export interface GcpProject {
+  id: string;
+  name?: string;
+  /** gcloud's configured default project. */
+  default?: boolean;
+}
+
+export interface DiscoveredGkeCluster {
+  project: string;
+  location: string;
+  name: string;
+  /** The gke_PROJECT_LOCATION_NAME context an import creates. */
+  context: string;
+  endpoint: string;
+  status?: string;
+  version?: string;
+  /** A loaded kubeconfig already has this context. */
+  imported: boolean;
+}
+
+export interface AzureSubscription {
+  id: string;
+  name?: string;
+  /** az's current subscription. */
+  default?: boolean;
+}
+
+export interface DiscoveredAksCluster {
+  subscription: string;
+  resourceGroup: string;
+  name: string;
+  location: string;
+  /** The aks_SUB8_GROUP_NAME context an import creates. */
+  context: string;
+  endpoint: string;
+  /** The API server is reachable only from its own network. */
+  private?: boolean;
+  status?: string;
+  version?: string;
+  /** Signs users in with Microsoft Entra ID; only these import. */
+  entraID: boolean;
+  importable: boolean;
+  /** Why it can't be imported. */
+  reason?: string;
+  /** A loaded kubeconfig already reaches this cluster (by context or API server). */
+  imported: boolean;
+}
+
+export const cloudDiscoveryApi = {
+  azureSubscriptions: () => get<AzureSubscription[]>("/api/discover/azure/subscriptions"),
+  scanAks: (subscription: string) =>
+    send<{ clusters: DiscoveredAksCluster[]; errors: { region: string; cluster?: string; message: string }[] }>("POST", "/api/discover/aks/scan", { subscription }),
+  importAks: (subscription: string, resourceGroup: string, name: string) =>
+    send<{ path: string; context: string }>("POST", "/api/discover/aks/import", { subscription, resourceGroup, name }),
+  gcpProjects: () => get<GcpProject[]>("/api/discover/gcp/projects"),
+  scanGke: (project: string) =>
+    send<{ clusters: DiscoveredGkeCluster[]; errors: { region: string; cluster?: string; message: string }[] }>("POST", "/api/discover/gke/scan", { project }),
+  importGke: (project: string, location: string, name: string) =>
+    send<{ path: string; context: string }>("POST", "/api/discover/gke/import", { project, location, name }),
+  profiles: () => get<AwsProfile[]>("/api/discover/aws/profiles"),
+  scan: (profile: string, regions: string[]) =>
+    send<{ clusters: DiscoveredEksCluster[]; errors: { region: string; cluster?: string; message: string }[] }>("POST", "/api/discover/eks/scan", { profile, regions }),
+  importEks: (profile: string, region: string, name: string) =>
+    send<{ path: string; context: string }>("POST", "/api/discover/eks/import", { profile, region, name }),
+};
+
+/** Backlog #5: the MCP server's switch and scope. The token never leaves the engine. */
+export interface McpStatus {
+  enabled: boolean;
+  /** Cluster ID to namespaces; an empty list is the whole cluster. */
+  clusters: Record<string, string[]>;
+  url: string;
+  /** Where the bridge reads the URL and token; set while MCP is on. */
+  connectionFile?: string;
+  /** Why this engine can't serve MCP (in a cluster, OIDC login, or not loopback-only). */
+  disabled?: string;
+  /** `<engine> mcp-stdio`, the command an assistant launches. */
+  bridgeCommand?: string[];
+  /** Assistants may propose changes; each waits for approval in Kubebay. */
+  writesEnabled?: boolean;
+}
+
+/** One change an assistant proposed (backlog #5 phase 2). Nothing applies until approved. */
+export interface McpProposal {
+  id: string;
+  cluster: string;
+  kind: string;
+  namespace: string;
+  name: string;
+  reason?: string;
+  client?: string;
+  resourceVersion: string;
+  /** Unified-style diff of the object before and after (dry run). */
+  diff: string;
+  changedPaths: string[];
+  status: "pending" | "applying" | "applied" | "rejected" | "expired" | "stale" | "failed";
+  message?: string;
+  created: string;
+  expires: string;
+  decided?: string;
+}
+
+export const mcpApi = {
+  get: () => get<McpStatus>("/api/mcp"),
+  save: (b: { enabled: boolean; clusters: Record<string, string[]>; writesEnabled: boolean }) => send<McpStatus>("POST", "/api/mcp", b),
+  rotate: () => send<McpStatus>("POST", "/api/mcp/rotate"),
+  proposals: () => get<{ pending: McpProposal[]; recent: McpProposal[]; writesEnabled: boolean }>("/api/mcp/proposals"),
+  approve: (id: string) => send<McpProposal>("POST", `/api/mcp/proposals/${encodeURIComponent(id)}/approve`),
+  reject: (id: string) => send<McpProposal>("POST", `/api/mcp/proposals/${encodeURIComponent(id)}/reject`),
+};
+
+/** Backlog #13: incident triage's switch, allowlist, endpoint and model. The key is never returned. */
+export interface TriageStatus {
+  enabled: boolean;
+  clusters: string[];
+  baseURL: string;
+  model: string;
+  key: {
+    /** "env:NAME", "keychain", or "" when there's no key. */
+    source: string;
+    /** The OS keychain's name, or "" when there's none to save to. */
+    store: string;
+    error?: string;
+  };
+  /** Why this engine can't do triage (in a cluster, or OIDC login). */
+  disabled?: string;
+}
+
+export interface TriageEvidenceSection {
+  id: string;
+  title: string;
+  text: string;
+}
+
+/** The exact request a Send would make, and the bundle it carries. */
+export interface TriagePreview {
+  /** Send takes this, once, until `expires`. */
+  previewId: string;
+  expires: string;
+  endpoint: string;
+  /** The Messages API body, as it goes over the wire. */
+  request: {
+    model: string;
+    max_tokens: number;
+    system: { type: string; text: string }[];
+    messages: { role: string; content: { type: string; text: string }[] }[];
+  };
+  /** The anthropic-beta header sent with it. */
+  betas: string[];
+  evidence: { cluster: string; namespace: string; pod: string; sections: TriageEvidenceSection[]; masked: number; truncated: boolean };
+  approxTokens: number;
+  keySource: string;
+}
+
+export interface TriageFinding {
+  title: string;
+  likelihood: "likely" | "possible" | "unlikely";
+  explanation: string;
+  /** IDs of the bundle sections it cites; Kubebay drops IDs that don't exist. */
+  evidence: string[];
+  nextSteps: string[];
+}
+
+/** The model's answer, after Kubebay checked every citation against the bundle. */
+export interface TriageResult {
+  summary: string;
+  findings: TriageFinding[];
+  /** Findings hidden because they cited nothing in the bundle. */
+  dropped: number;
+  missingEvidence?: string;
+  /** The model that answered (a fallback model, if the first declined). */
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+  refusal?: { category?: string; explanation?: string };
+}
+
+/** KB-13: ~/.kubebay/extensions.yaml as the engine validated it. */
+export interface ExtColumn {
+  resource: string;
+  header: string;
+  jsonPath: string;
+}
+
+export interface ExtAction {
+  resource: string;
+  label: string;
+  url?: string;
+  run?: string;
+  contexts?: string[];
+}
+
+export interface ExtensionsFile {
+  path: string;
+  exists: boolean;
+  columns: ExtColumn[];
+  actions: ExtAction[];
+  errors: string[];
+  /** Why extensions are off in this deployment (in-cluster or OIDC). */
+  disabled?: string;
+  /** Whether command actions have a local shell to be typed into. */
+  commands: { available: boolean; reason?: string; shell?: string };
+}
+
+export const extensionsApi = {
+  get: () => get<ExtensionsFile>("/api/extensions"),
+};
+
+export const triageApi = {
+  get: () => get<TriageStatus>("/api/triage"),
+  save: (b: { enabled: boolean; clusters: string[]; baseURL: string; model: string }) => send<TriageStatus>("POST", "/api/triage", b),
+  putKey: (key: string) => send<TriageStatus>("PUT", "/api/triage/key", { key }),
+  deleteKey: () => send<TriageStatus>("DELETE", "/api/triage/key"),
+  preview: (b: { cluster: string; namespace: string; pod: string }) => send<TriagePreview>("POST", "/api/triage/preview", b),
+  send: (previewId: string) => send<TriageResult>("POST", "/api/triage/send", { previewId }),
+};
+
+export const settingsApi = {
+  get: () => get<AppSettings>("/api/settings"),
+  save: (b: AppSettings) => send<{ ok: boolean; saved: AppSettings }>("POST", "/api/settings", b),
+};
+
+export interface HistoryCoverage {
+  retentionDays: number;
+  expectedHours: number;
+  observedHours: number;
+  wellSampledHours: number;
+  distinctDays: number;
+  longestGapHours: number;
+  first: string | null;
+  hourOfDayObserved: number[];
+  weekendObserved: boolean;
+  /** Engine-computed, e.g. "observed 09–18 local, weekdays only"; show it next to anything derived from history. */
+  label: string;
+}
+
+export interface HistoryStatus {
+  cluster: string;
+  available: boolean;
+  reason?: string;
+  recording: boolean;
+  readOnly?: boolean;
+  path?: string;
+  retentionDays?: number;
+  coverage?: HistoryCoverage;
+}
+
+/** One hourly series from `GET /api/history/series`; `ns` "" is the cluster total. */
+export interface HistorySeries {
+  ns: string;
+  source: "local" | "prometheus";
+  points: HistoryPoint[];
+  coverage: HistoryCoverage;
+}
+
+/** One workload's recorded hours over the last 7 days, and how many it was broken in (`GET /api/history/health`). */
+export interface WorkloadHealth {
+  recordedHours: number;
+  brokenHours: number;
+  recordedDays: number;
+  brokenDays: number;
+  /** Broken hours by the reason seen most in each; hours recorded before reasons existed are not here. */
+  reasons?: Record<string, number>;
+}
+
+const q = (cluster: string) => `cluster=${encodeURIComponent(cluster)}`;
+
+/** Local usage history (backlog #36): consent, status and erase. */
+/** One 4-hour bucket of a cluster's total: hourly peaks and the highest request total. */
+export interface HistorySummaryPoint {
+  t: string;
+  cpuMax: number | null;
+  memMax: number | null;
+  reqCpuMillis: number | null;
+  reqMemBytes: number | null;
+}
+
+export interface ClusterHistorySummary {
+  points: HistorySummaryPoint[];
+  lastSample: string | null;
+  /** Last known capacity; 0 when no recorded hour had a node count. */
+  allocCpuMillis: number;
+  allocMemBytes: number;
+  nodes: number;
+}
+
+export interface HistorySummary {
+  available: boolean;
+  bucketHours: number;
+  clusters: Record<string, ClusterHistorySummary>;
+}
+
+export const historyApi = {
+  /** Every recorded cluster's last `days` of cluster-total usage, in one call. */
+  summary: (days = 7) => get<HistorySummary>(`/api/history/summary?days=${days}`),
+  enroll: (cluster: string) => send<{ recording: boolean }>("POST", `/api/history/enroll?${q(cluster)}`),
+  setRecording: (cluster: string, on: boolean) => send<{ recording: boolean }>("PUT", `/api/history/recording?${q(cluster)}&on=${on}`),
+  erase: (cluster: string) => send<{ erased: number }>("DELETE", `/api/history?${q(cluster)}`),
+  status: (cluster: string) => get<HistoryStatus>(`/api/history/status?${q(cluster)}`),
+  /** Cluster-total hourly series from local history; from/to are RFC 3339 and must lie within retention. */
+  series: (cluster: string, from: string, to: string) =>
+    get<HistorySeries>(`/api/history/series?${q(cluster)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
+  /** How many recorded hours of the last 7 days a workload was broken in; `since` (its creation) drops the hours before it. */
+  health: (cluster: string, ns: string, kind: string, name: string, since?: string) =>
+    get<WorkloadHealth>(
+      `/api/history/health?${q(cluster)}&ns=${encodeURIComponent(ns)}&kind=${encodeURIComponent(kind)}&name=${encodeURIComponent(name)}${since ? `&since=${encodeURIComponent(since)}` : ""}`,
+    ),
+};
+
+export interface ArgoCDResource {
+  group: string;
+  kind: string;
+  namespace: string;
+  name: string;
+  status: string;
+  health: string;
+}
+
+export interface ArgoCDApp {
+  name: string;
+  namespace: string;
+  project: string;
+  repoURL: string;
+  targetRevision: string;
+  syncStatus: string;
+  healthStatus: string;
+  lastSyncTime: string;
+  message: string;
+  resources: ArgoCDResource[];
+}
+
+export interface ArgoCDAppsResponse {
+  installed: boolean;
+  apps: ArgoCDApp[];
+}
+
+export const argoCDApi = {
+  apps: (cluster: string) =>
+    get<ArgoCDAppsResponse>(`/api/argocd/apps?cluster=${encodeURIComponent(cluster)}`),
+  sync: (b: { cluster: string; namespace: string; name: string }) =>
+    send<{ ok: boolean }>("POST", "/api/argocd/sync", b),
+};
+
+export interface WorkloadWaste {
+  cluster: string;
+  ns: string;
+  kind: string;
+  name: string;
+  podCount: number;
+  requestedCpuMillis: number;
+  requestedMemBytes: number;
+  p95CpuMillis: number;
+  p95MemBytes: number;
+  source: string;
+  window: string;
+}
+
+export const wasteApi = {
+  workloads: (cluster: string) =>
+    get<WorkloadWaste[]>(`/api/waste/workloads?cluster=${encodeURIComponent(cluster)}`),
+};
+
+/** The engine has no Prometheus URL for this cluster (HTTP 412). */
+export class PromNotConfiguredError extends Error {}
+
+export const promApi = {
+  /** An instant query; the result vector. */
+  query: async (params: { cluster: string; query: string }): Promise<{ metric: Record<string, string>; value: [number, string] }[]> => {
+    const q = new URLSearchParams({ cluster: params.cluster, query: params.query });
+    const res = await fetch(`/api/prom/query?${q}`, { headers: { "X-Kubebay-Token": getToken() } });
+    if (res.status === 412) throw new PromNotConfiguredError(await res.text());
+    if (!res.ok) {
+      const text = await res.text();
+      let hint: string | undefined;
+      try {
+        hint = (JSON.parse(text) as { hint?: string }).hint;
+      } catch {
+        hint = undefined;
+      }
+      throw new Error(hint || text || `${res.status} ${res.statusText}`);
+    }
+    const json = (await res.json()) as { data?: { result?: { metric: Record<string, string>; value: [number, string] }[] } };
+    return json.data?.result ?? [];
+  },
+  queryRange: async (params: { cluster: string; query: string; startMs: number; endMs: number; stepSec: number }): Promise<{ data: { result: { metric: Record<string, string>; values: [number, string][] }[] } }> => {
+    const q = new URLSearchParams({
+      cluster: params.cluster,
+      query: params.query,
+      start: String(Math.floor(params.startMs / 1000)),
+      end: String(Math.floor(params.endMs / 1000)),
+      step: String(params.stepSec),
+    });
+    const res = await fetch(`/api/prom/query_range?${q}`, { headers: { "X-Kubebay-Token": getToken() } });
+    if (!res.ok) {
+      const text = await res.text();
+      let json: { error?: string; hint?: string } | undefined;
+      try {
+        json = JSON.parse(text) as { error?: string; hint?: string };
+      } catch {
+        json = undefined;
+      }
+      if (json?.error === "prometheus-unreachable") {
+        const e = new Error(json.hint || "prometheus-unreachable");
+        (e as { cause?: { hint?: string } }).cause = { hint: json.hint };
+        throw e;
+      }
+      throw new Error(text || `${res.status} ${res.statusText}`);
+    }
+    return res.json();
+  },
+};

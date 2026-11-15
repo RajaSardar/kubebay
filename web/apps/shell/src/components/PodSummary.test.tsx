@@ -1,0 +1,219 @@
+import { describe, it, expect, vi } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
+
+// Simulate the owner chain: ReplicaSet → Deployment (2 levels deep)
+vi.mock("../lib/useOwnerChain", () => ({
+  useOwnerChain: (_cluster: string, _ns: string, refs: { kind: string; name: string }[]) => {
+    const first = refs[0];
+    if (!first) return [];
+    // For our test RS, add a fake Deployment as its owner
+    if (first.kind === "ReplicaSet" && first.name === "web-abc-123") {
+      return [
+        { kind: "ReplicaSet", name: "web-abc-123", slug: "replicasets", ns: "prod" },
+        { kind: "Deployment", name: "web", slug: "deployments", ns: "prod" },
+      ];
+    }
+    return refs.map((r) => ({ kind: r.kind, name: r.name, slug: r.kind.toLowerCase() + "s", ns: "prod" }));
+  },
+}));
+import { PodSummary } from "./PodSummary";
+
+const navigateMock = vi.fn();
+
+vi.mock("react-router-dom", async () => {
+  const actual = await vi.importActual<typeof import("react-router-dom")>("react-router-dom");
+  return { ...actual, useNavigate: () => navigateMock };
+});
+
+vi.mock("./PodEnvValue", () => ({
+  PodEnvValue: ({ envVar }: { envVar: { name: string } }) => <span data-testid={`env-${envVar.name}`}>resolved</span>,
+}));
+
+vi.mock("./PodContainerPortForward", () => ({
+  PodContainerPortForward: ({ podPort }: { podPort: number }) => <span data-testid={`pf-${podPort}`}>forward-control</span>,
+}));
+
+function renderSummary(obj: Record<string, unknown>) {
+  return render(
+    <MemoryRouter>
+      <PodSummary obj={obj} cluster="kind-a" />
+    </MemoryRouter>,
+  );
+}
+
+const basePod = {
+  metadata: { name: "web-1", namespace: "prod", uid: "abc-123" },
+  spec: {
+    nodeName: "node-a",
+    serviceAccountName: "web-sa",
+    containers: [{ name: "app", image: "app:1.0" }],
+  },
+  status: { phase: "Running", containerStatuses: [{ name: "app", ready: true, state: { running: {} } }] },
+};
+
+describe("PodSummary", () => {
+  it("renders the Node name as a clickable link to the Node's detail page", () => {
+    renderSummary(basePod);
+    fireEvent.click(screen.getByText("node-a"));
+    expect(navigateMock).toHaveBeenCalledWith("/detail/nodes/_/node-a");
+  });
+
+  it("renders the Service Account as a clickable link, namespaced", () => {
+    renderSummary(basePod);
+    fireEvent.click(screen.getByText("web-sa"));
+    expect(navigateMock).toHaveBeenCalledWith("/detail/serviceaccounts/prod/web-sa");
+  });
+
+  it("delegates each env var to PodEnvValue instead of showing a raw placeholder", () => {
+    const obj = {
+      ...basePod,
+      spec: { ...basePod.spec, containers: [{ name: "app", image: "app:1.0", env: [{ name: "MODE", value: "prod" }] }] },
+    };
+    renderSummary(obj);
+    expect(screen.getByTestId("env-MODE")).toBeTruthy();
+  });
+
+  it("renders a PVC volume with a clickable link to the PVC", () => {
+    const obj = { ...basePod, spec: { ...basePod.spec, volumes: [{ name: "data", persistentVolumeClaim: { claimName: "data-pvc" } }] } };
+    renderSummary(obj);
+    fireEvent.click(screen.getByText(/data-pvc/));
+    expect(navigateMock).toHaveBeenCalledWith("/detail/persistentvolumeclaims/prod/data-pvc");
+  });
+
+  it("renders a hostPath volume's path and type without a link", () => {
+    const obj = { ...basePod, spec: { ...basePod.spec, volumes: [{ name: "docker", hostPath: { path: "/var/run/docker.sock", type: "Socket" } }] } };
+    renderSummary(obj);
+    expect(screen.getByText(/\/var\/run\/docker\.sock/)).toBeTruthy();
+  });
+
+  it("renders the previous terminated instance's reason, exit code, and run time", () => {
+    const obj = {
+      ...basePod,
+      status: {
+        ...basePod.status,
+        containerStatuses: [
+          {
+            name: "app",
+            ready: false,
+            state: { waiting: { reason: "CrashLoopBackOff" } },
+            lastState: { terminated: { reason: "OOMKilled", exitCode: 137, startedAt: "2026-09-01T00:00:00Z", finishedAt: "2026-09-01T00:02:13Z" } },
+          },
+        ],
+      },
+    };
+    renderSummary(obj);
+    expect(screen.getByText(/OOMKilled/)).toBeTruthy();
+    expect(screen.getByText(/137/)).toBeTruthy();
+    expect(screen.getByText(/2m 13s/)).toBeTruthy();
+  });
+
+  it("shows nothing extra for last state when the container has never crashed", () => {
+    renderSummary(basePod);
+    expect(screen.queryByText(/exit code/i)).toBeNull();
+  });
+
+  it("renders a port-forward control for each container port", () => {
+    const obj = {
+      ...basePod,
+      spec: { ...basePod.spec, containers: [{ name: "app", image: "app:1.0", ports: [{ containerPort: 8080, protocol: "TCP" }] }] },
+    };
+    renderSummary(obj);
+    expect(screen.getByTestId("pf-8080")).toBeTruthy();
+  });
+
+  it("shows the full owner chain including multi-level ancestors (backlog #14)", () => {
+    const obj = {
+      ...basePod,
+      metadata: {
+        ...basePod.metadata,
+        ownerReferences: [{ kind: "ReplicaSet", name: "web-abc-123", apiVersion: "apps/v1", controller: true }],
+      },
+    };
+    renderSummary(obj);
+    // Both ReplicaSet AND its parent Deployment should be visible
+    expect(screen.getByText("ReplicaSet/web-abc-123")).toBeInTheDocument();
+    expect(screen.getByText("Deployment/web")).toBeInTheDocument();
+  });
+
+  it("clicking an owner link navigates to its detail page", () => {
+    const obj = {
+      ...basePod,
+      metadata: {
+        ...basePod.metadata,
+        ownerReferences: [{ kind: "ReplicaSet", name: "web-abc-123", apiVersion: "apps/v1", controller: true }],
+      },
+    };
+    renderSummary(obj);
+    fireEvent.click(screen.getByText("ReplicaSet/web-abc-123"));
+    expect(navigateMock).toHaveBeenCalledWith("/detail/replicasets/prod/web-abc-123");
+  });
+
+  it("shows no Owned By row when there are no owner references", () => {
+    renderSummary(basePod);
+    expect(screen.queryByText(/owned by/i)).toBeNull();
+  });
+
+  it("shows StatefulSet owner as a clickable link", () => {
+    const obj = {
+      ...basePod,
+      metadata: {
+        ...basePod.metadata,
+        ownerReferences: [{ kind: "StatefulSet", name: "db-0", apiVersion: "apps/v1", controller: true }],
+      },
+    };
+    renderSummary(obj);
+    expect(screen.getByText("StatefulSet/db-0")).toBeInTheDocument();
+  });
+
+  // KB-12: a pod's DRA claims link to the ResourceClaim objects.
+  it("lists the pod's resource claims and links each to its ResourceClaim", () => {
+    navigateMock.mockClear();
+    renderSummary({
+      ...basePod,
+      spec: {
+        ...basePod.spec,
+        resourceClaims: [
+          { name: "gpu", resourceClaimTemplateName: "gpu-template" },
+          { name: "pending", resourceClaimTemplateName: "gpu-template" },
+        ],
+      },
+      status: { ...basePod.status, resourceClaimStatuses: [{ name: "gpu", resourceClaimName: "web-1-gpu-x7k2p" }] },
+    });
+    expect(screen.getByText("Resource claims (2)")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("web-1-gpu-x7k2p"));
+    expect(navigateMock).toHaveBeenCalledWith("/detail/resourceclaims/prod/web-1-gpu-x7k2p");
+    expect(screen.getByText(/not created yet, from template gpu-template/)).toBeInTheDocument();
+  });
+
+  it("has no resource claims section for a pod without claims", () => {
+    renderSummary(basePod);
+    expect(screen.queryByText(/Resource claims/)).toBeNull();
+  });
+
+  it("lists every pod IP of a dual-stack pod and the host IPs in Metadata", () => {
+    renderSummary({
+      ...basePod,
+      status: {
+        ...basePod.status,
+        podIP: "10.0.0.5",
+        podIPs: [{ ip: "10.0.0.5" }, { ip: "fd00::5" }],
+        hostIP: "192.168.1.10",
+        hostIPs: [{ ip: "192.168.1.10" }, { ip: "2001:db8::a" }],
+      },
+    });
+    expect(screen.getByText("Pod IPs")).toBeTruthy();
+    expect(screen.getByText("fd00::5")).toBeTruthy();
+    expect(screen.getByText("Host IPs")).toBeTruthy();
+    expect(screen.getByText("192.168.1.10")).toBeTruthy();
+    expect(screen.getByText("2001:db8::a")).toBeTruthy();
+  });
+
+  it("uses singular labels and falls back to podIP/hostIP when the list fields are absent", () => {
+    renderSummary({ ...basePod, status: { ...basePod.status, podIP: "10.0.0.5", hostIP: "192.168.1.10" } });
+    expect(screen.getByText("Pod IP")).toBeTruthy();
+    expect(screen.getByText("Host IP")).toBeTruthy();
+    expect(screen.getByText("192.168.1.10")).toBeTruthy();
+    expect(screen.queryByText("Pod IPs")).toBeNull();
+  });
+});

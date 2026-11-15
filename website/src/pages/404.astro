@@ -1,0 +1,91 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+<Layout
+  title="404 — Lost in the cluster | Kubebay"
+  description="This page doesn't exist. Head back to the Kubebay homepage."
+>
+  <main class="not-found">
+    <div class="not-found__inner">
+      <p class="not-found__code">404</p>
+      <h1 class="not-found__heading">Lost in the cluster?</h1>
+      <p class="not-found__sub">
+        The page you're looking for doesn't exist, was moved, or got rescheduled
+        to a namespace that no longer exists.
+      </p>
+      <a href="/" class="not-found__home">Take me home</a>
+    </div>
+  </main>
+</Layout>
+
+<style>
+  .not-found {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100dvh;
+    background-color: #0a0a0f;
+    padding: 2rem;
+    text-align: center;
+    font-family: system-ui, sans-serif;
+  }
+
+  .not-found__inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.25rem;
+    max-width: 28rem;
+  }
+
+  .not-found__code {
+    font-size: 6rem;
+    font-weight: 800;
+    line-height: 1;
+    background: linear-gradient(135deg, #6366f1 0%, #38bdf8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin: 0;
+    letter-spacing: -0.04em;
+  }
+
+  .not-found__heading {
+    font-size: 1.875rem;
+    font-weight: 700;
+    color: #f1f5f9;
+    margin: 0;
+    letter-spacing: -0.02em;
+  }
+
+  .not-found__sub {
+    font-size: 1rem;
+    line-height: 1.6;
+    color: #64748b;
+    margin: 0;
+  }
+
+  .not-found__home {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    padding: 0.625rem 1.5rem;
+    border-radius: 0.5rem;
+    background: linear-gradient(135deg, #6366f1 0%, #38bdf8 100%);
+    color: #fff;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: opacity 0.15s ease;
+  }
+
+  .not-found__home:hover {
+    opacity: 0.88;
+  }
+
+  .not-found__home:focus-visible {
+    outline: 2px solid #6366f1;
+    outline-offset: 3px;
+  }
+</style>

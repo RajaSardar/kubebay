@@ -1,0 +1,863 @@
+:root {
+  /* Roboto — same font as Lens / Freelens, with system fallbacks */
+  --kb-font:
+    "Roboto", -apple-system, "Helvetica Neue", "Segoe UI", Arial, sans-serif;
+  --kb-font-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+
+  /* Brand colours: the KubebayMark gradient stops. The same in every theme;
+     for the mark and the website, never for UI state (that is --kb-accent). */
+  --kb-brand-cyan:  #22d3ee;
+  --kb-brand-green: #41c98e;
+
+  /* Type scale — every font-size in the app resolves to one of these seven
+     steps. Integer px only: half-pixel sizes render with fuzzy glyph metrics
+     and were the main source of "not quite aligned" text across pages.
+     These are the default (M, a 14px body as in Lens and Freelens); Settings →
+     Font size sets all seven to S, M, L or XL (TYPE_SCALE in display.ts). */
+  --kb-text-2xs: 11px;
+  --kb-text-xs:  12px;
+  --kb-text-sm:  13px;
+  --kb-text-md:  14px;
+  --kb-text-lg:  16px;
+  --kb-text-xl:  20px;
+  --kb-text-2xl: 30px;
+  /* Glyph size for an icon or monogram inside a control or avatar, not text. */
+  --kb-text-icon: 22px;
+
+  --kb-radius-2xs:  2px;  /* hairline bars and swatches */
+  --kb-radius-xs:   4px;
+  --kb-radius-sm:   6px;
+  --kb-radius:      8px;
+  --kb-radius-lg:   14px;
+  --kb-radius-pill: 999px;
+
+  /* Shared horizontal gutter for page headers, toolbars and table cells so
+     the title, the search field and the first column share one left edge. */
+  --kb-gutter: 16px;
+
+  /* Snappy Apple-style timing */
+  --kb-dur-fast: 70ms;
+  --kb-dur:      120ms;
+  --kb-dur-slow: 200ms;
+  --kb-dur-flash: 1000ms; /* the changed-row tint, then it fades */
+  --kb-dur-slower: 300ms; /* progress fills and step changes the eye follows */
+  --kb-ease:     cubic-bezier(0.22, 1, 0.36, 1);
+  --kb-ease-out: cubic-bezier(0.16, 1, 0.3,  1);
+
+  --kb-space-1: 4px;
+  --kb-space-2: 8px;
+  --kb-space-3: 12px;
+  --kb-space-4: 16px;
+  --kb-space-5: 24px;
+  --kb-space-6: 32px;
+
+  /* Layers, lowest first. Stacking inside one component (a sticky table
+     header over its rows) uses 0–3 locally; anything that floats over the
+     page takes one of these. */
+  --kb-z-sticky:   10;  /* floating page controls */
+  --kb-z-drawer:   50;  /* side panels over the page */
+  --kb-z-dropdown: 60;  /* pickers anchored to a trigger */
+  --kb-z-overlay:  80;  /* full-window progress (connecting to a cluster) */
+  --kb-z-palette:  100; /* command palette */
+  --kb-z-modal:    200; /* dialogs and their backdrop */
+  --kb-z-popover:  300; /* context menus, above everything */
+}
+
+/* ── Dusk (default dark — macOS-inspired dark mode) ───────────────────────── */
+:root,
+:root[data-theme="dusk"] {
+  color-scheme: dark;
+
+  /* Backgrounds — macOS dark grays */
+  --kb-bg-canvas:  #161617;
+  --kb-bg-surface: #1c1c1e;
+  --kb-bg-raised:  #242426;
+  --kb-bg-overlay: #2c2c2e;
+  --kb-bg-inset:   #0f0f10;
+  --kb-bg-hover:   rgba(255, 255, 255, 0.05);
+  --kb-bg-sidebar: rgba(22, 22, 23, 0.82);
+
+  /* Frosted glass material (sidebar/toolbar) */
+  --kb-material:           rgba(28, 28, 30, 0.75);
+  --kb-material-blur:      blur(24px) saturate(180%);
+
+  /* Foreground */
+  --kb-fg-default: rgba(255, 255, 255, 0.92);
+  --kb-fg-muted:   rgba(255, 255, 255, 0.60);
+  --kb-fg-subtle:  rgba(255, 255, 255, 0.47);
+
+  /* Accent — Kubebay cyan (kept distinct from macOS blue) */
+  --kb-accent:        #32ade6;
+  --kb-accent-hover:  #5bbef0;
+  --kb-accent-subtle: rgba(50, 173, 230, 0.14);
+  --kb-row-changed: rgba(255, 255, 255, 0.08); /* a row whose shown data just changed (#24) */
+  --kb-accent-fg:     #0f0f10;
+  --kb-on-danger: #0f0f10;
+
+  /* macOS semantic status colors */
+  --kb-status-ok:         #30d158;
+  --kb-status-warn:       #ff9f0a;
+  --kb-status-err:        #ff4c42;
+  --kb-status-pending:    #32ade6;
+  --kb-status-info:       #32ade6;
+  --kb-status-terminated: #636366;
+
+  --kb-status-ok-subtle:      color-mix(in srgb, #30d158 12%, transparent);
+  --kb-status-ok-fg:          #30d158;
+  --kb-status-warn-subtle:    color-mix(in srgb, #ff9f0a 12%, transparent);
+  --kb-status-warn-fg:        #ff9f0a;
+  --kb-status-err-subtle:     color-mix(in srgb, #ff4c42 8%, transparent);
+  --kb-status-err-fg:         #ff6e66;
+  --kb-status-pending-subtle: color-mix(in srgb, #32ade6 9%, transparent);
+  --kb-status-pending-fg:     #32ade6;
+
+  /* Borders — macOS-style translucent separators */
+  --kb-border-subtle: rgba(255, 255, 255, 0.08);
+  --kb-border-strong: rgba(255, 255, 255, 0.14);
+  --kb-border-control: rgba(255, 255, 255, 0.34);
+  --kb-highlight-inset: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+
+  --kb-shadow-rest: 0 1px 3px rgba(0, 0, 0, 0.4), 0 0 0 0.5px rgba(0,0,0,0.2);
+  --kb-shadow-lift: 0 12px 40px -12px rgba(0, 0, 0, 0.65), 0 2px 8px rgba(0, 0, 0, 0.3);
+  --kb-shadow-menu: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 0 0.5px rgba(255,255,255,0.08);
+
+  --kb-focus-ring: 0 0 0 2px #32ade6;
+  --kb-selection:  rgba(50, 173, 230, 0.28);
+
+  --kb-glow-a: rgba(50, 173, 230, 0.04);
+  --kb-glow-b: rgba(48, 209, 88,  0.03);
+  --kb-theme-color: #161617;
+
+  /* Chart series: 3:1 on every ground, hues at least 20° apart */
+  --kb-chart-1: #32ade6;
+  --kb-chart-2: #30d158;
+  --kb-chart-3: #ff9f0a;
+  --kb-chart-4: #bf5af2;
+  --kb-chart-5: #e87db3;
+}
+
+/* ── Dawn (light — macOS light mode) ────────────────────────────────────────── */
+:root[data-theme="dawn"] {
+  color-scheme: light;
+
+  --kb-bg-canvas:  #f2f2f7;
+  --kb-bg-surface: #ffffff;
+  --kb-bg-raised:  #ffffff;
+  --kb-bg-overlay: #ffffff;
+  --kb-bg-inset:   #e5e5ea;
+  --kb-bg-hover:   rgba(60, 60, 67, 0.05);
+  --kb-bg-sidebar: rgba(242, 242, 247, 0.8);
+
+  --kb-material:      rgba(248, 248, 250, 0.82);
+  --kb-material-blur: blur(24px) saturate(180%);
+
+  --kb-fg-default: rgba(0, 0, 0, 0.88);
+  --kb-fg-muted:   rgba(60, 60, 67, 0.85);
+  --kb-fg-subtle:  rgba(60, 60, 67, 0.75);
+
+  --kb-accent:        #005dba;
+  --kb-accent-hover:  #0050a1;
+  --kb-accent-subtle: rgba(0, 93, 186, 0.08);
+  --kb-row-changed: rgba(0, 0, 0, 0.10); /* a row whose shown data just changed (#24) */
+  --kb-accent-fg:     #ffffff;
+  --kb-on-danger: #ffffff;
+
+  --kb-status-ok:         #1b7236;
+  --kb-status-warn:       #9c4e00;
+  --kb-status-err:        #c41230;
+  --kb-status-pending:    #005dba;
+  --kb-status-info:       #005dba;
+  --kb-status-terminated: #8e8e93;
+
+  --kb-status-ok-subtle:      color-mix(in srgb, #1b7236 8%, transparent);
+  --kb-status-ok-fg:          #196a32;
+  --kb-status-warn-subtle:    color-mix(in srgb, #9c4e00 8%, transparent);
+  --kb-status-warn-fg:        #924900;
+  --kb-status-err-subtle:     color-mix(in srgb, #c41230 8%, transparent);
+  --kb-status-err-fg:         #b6112d;
+  --kb-status-pending-subtle: color-mix(in srgb, #005dba 8%, transparent);
+  --kb-status-pending-fg:     #005dba;
+
+  --kb-border-subtle: rgba(60, 60, 67, 0.12);
+  --kb-border-strong: rgba(60, 60, 67, 0.22);
+  --kb-border-control: rgba(60, 60, 67, 0.59);
+  --kb-highlight-inset: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+
+  --kb-shadow-rest: 0 1px 3px rgba(0, 0, 0, 0.08), 0 0 0 0.5px rgba(0,0,0,0.06);
+  --kb-shadow-lift: 0 10px 30px -10px rgba(0, 0, 0, 0.18), 0 2px 6px rgba(0, 0, 0, 0.08);
+  --kb-shadow-menu: 0 8px 32px rgba(0, 0, 0, 0.15), 0 0 0 0.5px rgba(0,0,0,0.08);
+
+  --kb-focus-ring: 0 0 0 2px #005dba;
+  --kb-selection:  rgba(0, 119, 237, 0.18);
+
+  --kb-glow-a: transparent;
+  --kb-glow-b: transparent;
+  --kb-theme-color: #f2f2f7;
+
+  /* Chart series: 3:1 on every ground, hues at least 20° apart */
+  --kb-chart-1: #005dba;
+  --kb-chart-2: #1b7236;
+  --kb-chart-3: #9c4e00;
+  --kb-chart-4: #8944ab;
+  --kb-chart-5: #ad1f66;
+}
+
+/* ── Dusk HC ──────────────────────────────────────────────────────────────── */
+:root[data-theme="dusk-hc"] {
+  color-scheme: dark;
+
+  --kb-bg-canvas:  #000000;
+  --kb-bg-surface: #0a0a0a;
+  --kb-bg-raised:  #141414;
+  --kb-bg-overlay: #1e1e1e;
+  --kb-bg-inset:   #000000;
+  --kb-bg-hover:   rgba(255, 255, 255, 0.07);
+  --kb-bg-sidebar: #050505;
+
+  --kb-material:      rgba(10, 10, 10, 0.9);
+  --kb-material-blur: blur(12px);
+
+  --kb-fg-default: #ffffff;
+  --kb-fg-muted:   rgba(255, 255, 255, 0.7);
+  --kb-fg-subtle:  rgba(255, 255, 255, 0.46);
+
+  --kb-accent:        #40c8e0;
+  --kb-accent-hover:  #65d4e8;
+  --kb-accent-subtle: rgba(64, 200, 224, 0.18);
+  --kb-row-changed: rgba(255, 255, 255, 0.10); /* a row whose shown data just changed (#24) */
+  --kb-accent-fg:     #000000;
+  --kb-on-danger: #000000;
+
+  --kb-status-ok:         #30d158;
+  --kb-status-warn:       #ffb340;
+  --kb-status-err:        #ff6961;
+  --kb-status-pending:    #40c8e0;
+  --kb-status-info:       #40c8e0;
+  --kb-status-terminated: #888888;
+
+  --kb-status-ok-subtle:      color-mix(in srgb, #30d158 14%, transparent);
+  --kb-status-ok-fg:          #30d158;
+  --kb-status-warn-subtle:    color-mix(in srgb, #ffb340 14%, transparent);
+  --kb-status-warn-fg:        #ffb340;
+  --kb-status-err-subtle:     color-mix(in srgb, #ff6961 10%, transparent);
+  --kb-status-err-fg:         #ff6961;
+  --kb-status-pending-subtle: color-mix(in srgb, #40c8e0 14%, transparent);
+  --kb-status-pending-fg:     #40c8e0;
+
+  --kb-border-subtle: rgba(255, 255, 255, 0.14);
+  --kb-border-strong: rgba(255, 255, 255, 0.34);
+  --kb-border-control: rgba(255, 255, 255, 0.36);
+  --kb-highlight-inset: none;
+
+  --kb-shadow-rest: none;
+  --kb-shadow-lift: 0 0 0 1px rgba(255,255,255,0.14);
+  --kb-shadow-menu: 0 0 0 1px rgba(255,255,255,0.2);
+
+  --kb-focus-ring: 0 0 0 2px #40c8e0;
+  --kb-selection:  rgba(64, 200, 224, 0.4);
+
+  --kb-glow-a: transparent;
+  --kb-glow-b: transparent;
+  --kb-theme-color: #000000;
+
+  /* Chart series: 3:1 on every ground, hues at least 20° apart */
+  --kb-chart-1: #40c8e0;
+  --kb-chart-2: #30d158;
+  --kb-chart-3: #ffb340;
+  --kb-chart-4: #da8fff;
+  --kb-chart-5: #e87db2;
+}
+
+/* ── Dawn HC ──────────────────────────────────────────────────────────────── */
+:root[data-theme="dawn-hc"] {
+  color-scheme: light;
+
+  --kb-bg-canvas:  #ffffff;
+  --kb-bg-surface: #ffffff;
+  --kb-bg-raised:  #ffffff;
+  --kb-bg-overlay: #ffffff;
+  --kb-bg-inset:   #efefef;
+  --kb-bg-hover:   rgba(0, 0, 0, 0.06);
+  --kb-bg-sidebar: #f0f0f0;
+
+  --kb-material:      rgba(255, 255, 255, 0.92);
+  --kb-material-blur: blur(12px);
+
+  --kb-fg-default: #000000;
+  --kb-fg-muted:   rgba(0, 0, 0, 0.67);
+  --kb-fg-subtle:  rgba(0, 0, 0, 0.55);
+
+  --kb-accent:        #004e9b;
+  --kb-accent-hover:  #003f7c;
+  --kb-accent-subtle: rgba(0, 78, 155, 0.10);
+  --kb-row-changed: rgba(0, 0, 0, 0.08); /* a row whose shown data just changed (#24) */
+  --kb-accent-fg:     #ffffff;
+  --kb-on-danger: #ffffff;
+
+  --kb-status-ok:         #006638;
+  --kb-status-warn:       #7a4d00;
+  --kb-status-err:        #ad0015;
+  --kb-status-pending:    #004e9b;
+  --kb-status-info:       #004e9b;
+  --kb-status-terminated: #5a5a5a;
+
+  --kb-status-ok-subtle:      color-mix(in srgb, #006638 12%, transparent);
+  --kb-status-ok-fg:          #005530;
+  --kb-status-warn-subtle:    color-mix(in srgb, #7a4d00 12%, transparent);
+  --kb-status-warn-fg:        #634000;
+  --kb-status-err-subtle:     color-mix(in srgb, #ad0015 12%, transparent);
+  --kb-status-err-fg:         #910011;
+  --kb-status-pending-subtle: color-mix(in srgb, #004e9b 12%, transparent);
+  --kb-status-pending-fg:     #004e9b;
+
+  --kb-border-subtle: rgba(0, 0, 0, 0.14);
+  --kb-border-strong: rgba(0, 0, 0, 0.42);
+  --kb-border-control: rgba(0, 0, 0, 0.43);
+  --kb-highlight-inset: none;
+
+  --kb-shadow-rest: none;
+  --kb-shadow-lift: 0 0 0 1px rgba(0,0,0,0.18);
+  --kb-shadow-menu: 0 0 0 1px rgba(0,0,0,0.2);
+
+  --kb-focus-ring: 0 0 0 2px #004e9b;
+  --kb-selection:  rgba(0, 107, 214, 0.22);
+
+  --kb-glow-a: transparent;
+  --kb-glow-b: transparent;
+  --kb-theme-color: #ffffff;
+
+  /* Chart series: 3:1 on every ground, hues at least 20° apart */
+  --kb-chart-1: #004e9b;
+  --kb-chart-2: #006638;
+  --kb-chart-3: #7a4d00;
+  --kb-chart-4: #6a1b9a;
+  --kb-chart-5: #ad1f6c;
+}
+
+/* ── VS Code Dark+ ────────────────────────────────────────────────────── */
+:root[data-theme="vscode-dark"] {
+  color-scheme: dark;
+
+  --kb-bg-canvas:  #1e1e1e;
+  --kb-bg-surface: #252526;
+  --kb-bg-raised:  #2d2d2d;
+  --kb-bg-overlay: #333333;
+  --kb-bg-inset:   #141414;
+  --kb-bg-hover:   rgba(255, 255, 255, 0.06);
+  --kb-bg-sidebar: rgba(37, 37, 38, 0.92);
+
+  --kb-material:      rgba(37, 37, 38, 0.82);
+  --kb-material-blur: blur(20px) saturate(160%);
+
+  --kb-fg-default: #cccccc;
+  --kb-fg-muted:   #9d9d9d;
+  --kb-fg-subtle:  #949494;
+
+  --kb-accent:        #31a6ff;
+  --kb-accent-hover:  #1a8fe3;
+  --kb-accent-subtle: rgba(49, 166, 255, 0.09);
+  --kb-row-changed: rgba(204, 204, 204, 0.09); /* a row whose shown data just changed (#24) */
+  --kb-accent-fg:     #141414;
+  --kb-on-danger: #000000;
+
+  --kb-status-ok:         #4ec9b0;
+  --kb-status-warn:       #d7ba7d;
+  --kb-status-err:        #f66f6f;
+  --kb-status-pending:    #9cdcfe;
+  --kb-status-info:       #9cdcfe;
+  --kb-status-terminated: #6d6d6d;
+
+  --kb-status-ok-subtle:      color-mix(in srgb, #4ec9b0 12%, transparent);
+  --kb-status-ok-fg:          #4ec9b0;
+  --kb-status-warn-subtle:    color-mix(in srgb, #d7ba7d 8%, transparent);
+  --kb-status-warn-fg:        #d7ba7d;
+  --kb-status-err-subtle:     color-mix(in srgb, #f66f6f 8%, transparent);
+  --kb-status-err-fg:         #f77d7d;
+  --kb-status-pending-subtle: color-mix(in srgb, #9cdcfe 12%, transparent);
+  --kb-status-pending-fg:     #9cdcfe;
+
+  --kb-border-subtle: rgba(255, 255, 255, 0.10);
+  --kb-border-strong: rgba(255, 255, 255, 0.18);
+  --kb-border-control: rgba(255, 255, 255, 0.35);
+  --kb-highlight-inset: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+
+  --kb-shadow-rest: 0 1px 3px rgba(0, 0, 0, 0.5);
+  --kb-shadow-lift: 0 8px 32px rgba(0, 0, 0, 0.6);
+  --kb-shadow-menu: 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 0 0.5px rgba(255,255,255,0.1);
+
+  --kb-focus-ring: 0 0 0 1px #31a6ff;
+  --kb-selection:  rgba(0, 120, 212, 0.30);
+
+  --kb-glow-a: transparent;
+  --kb-glow-b: transparent;
+  --kb-theme-color: #1e1e1e;
+
+  /* Chart series: 3:1 on every ground, hues at least 20° apart */
+  --kb-chart-1: #31a6ff;
+  --kb-chart-2: #4ec9b0;
+  --kb-chart-3: #ce9178;
+  --kb-chart-4: #c586c0;
+  --kb-chart-5: #e87d86;
+}
+
+/* ── VS Code Light+ ───────────────────────────────────────────────────── */
+:root[data-theme="vscode-light"] {
+  color-scheme: light;
+
+  --kb-bg-canvas:  #f3f3f3;
+  --kb-bg-surface: #ffffff;
+  --kb-bg-raised:  #ffffff;
+  --kb-bg-overlay: #ffffff;
+  --kb-bg-inset:   #ebebeb;
+  --kb-bg-hover:   rgba(0, 0, 0, 0.05);
+  --kb-bg-sidebar: rgba(243, 243, 243, 0.92);
+
+  --kb-material:      rgba(255, 255, 255, 0.85);
+  --kb-material-blur: blur(20px) saturate(160%);
+
+  --kb-fg-default: #1f1f1f;
+  --kb-fg-muted:   #616161;
+  --kb-fg-subtle:  #6a6a6a;
+
+  --kb-accent:        #0063b1;
+  --kb-accent-hover:  #00518f;
+  --kb-accent-subtle: rgba(0, 99, 177, 0.08);
+  --kb-row-changed: rgba(31, 31, 31, 0.12); /* a row whose shown data just changed (#24) */
+  --kb-accent-fg:     #ffffff;
+  --kb-on-danger: #ffffff;
+
+  --kb-status-ok:         #007900;
+  --kb-status-warn:       #795e00;
+  --kb-status-err:        #d01300;
+  --kb-status-pending:    #0063b1;
+  --kb-status-info:       #0063b1;
+  --kb-status-terminated: #939393;
+
+  --kb-status-ok-subtle:      color-mix(in srgb, #007900 8%, transparent);
+  --kb-status-ok-fg:          #006f00;
+  --kb-status-warn-subtle:    color-mix(in srgb, #795e00 9%, transparent);
+  --kb-status-warn-fg:        #795e00;
+  --kb-status-err-subtle:     color-mix(in srgb, #d01300 8%, transparent);
+  --kb-status-err-fg:         #c11200;
+  --kb-status-pending-subtle: color-mix(in srgb, #0063b1 8%, transparent);
+  --kb-status-pending-fg:     #0063b1;
+
+  --kb-border-subtle: rgba(0, 0, 0, 0.12);
+  --kb-border-strong: rgba(0, 0, 0, 0.22);
+  --kb-border-control: rgba(0, 0, 0, 0.43);
+  --kb-highlight-inset: none;
+
+  --kb-shadow-rest: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --kb-shadow-lift: 0 4px 16px rgba(0, 0, 0, 0.12);
+  --kb-shadow-menu: 0 4px 16px rgba(0, 0, 0, 0.12), 0 0 0 0.5px rgba(0,0,0,0.08);
+
+  --kb-focus-ring: 0 0 0 1px #0063b1;
+  --kb-selection:  rgba(0, 120, 212, 0.20);
+
+  --kb-glow-a: transparent;
+  --kb-glow-b: transparent;
+  --kb-theme-color: #f3f3f3;
+
+  /* Chart series: 3:1 on every ground, hues at least 20° apart */
+  --kb-chart-1: #0063b1;
+  --kb-chart-2: #007900;
+  --kb-chart-3: #795e00;
+  --kb-chart-4: #af00db;
+  --kb-chart-5: #ad1f53;
+}
+
+/* ── One Dark Pro ─────────────────────────────────────────────────────── */
+:root[data-theme="one-dark"] {
+  color-scheme: dark;
+
+  --kb-bg-canvas:  #282c34;
+  --kb-bg-surface: #21252b;
+  --kb-bg-raised:  #2c313c;
+  --kb-bg-overlay: #3e4451;
+  --kb-bg-inset:   #1b1f27;
+  --kb-bg-hover:   rgba(255, 255, 255, 0.06);
+  --kb-bg-sidebar: rgba(33, 37, 43, 0.92);
+
+  --kb-material:      rgba(33, 37, 43, 0.82);
+  --kb-material-blur: blur(20px) saturate(160%);
+
+  --kb-fg-default: #abb2bf;
+  --kb-fg-muted:   #9498a0;
+  --kb-fg-subtle:  #9098ab;
+
+  --kb-accent:        #61afef;
+  --kb-accent-hover:  #82bfff;
+  --kb-accent-subtle: rgba(97, 175, 239, 0.08);
+  --kb-row-changed: rgba(171, 178, 191, 0.08); /* a row whose shown data just changed (#24) */
+  --kb-accent-fg:     #1b1f27;
+  --kb-on-danger: #000000;
+
+  --kb-status-ok:         #8ccf65;
+  --kb-status-warn:       #e5c07b;
+  --kb-status-err:        #e47f86;
+  --kb-status-pending:    #61afef;
+  --kb-status-info:       #61afef;
+  --kb-status-terminated: #4b5263;
+
+  --kb-status-ok-subtle:      color-mix(in srgb, #8ccf65 14%, transparent);
+  --kb-status-ok-fg:          #8ccf65;
+  --kb-status-warn-subtle:    color-mix(in srgb, #e5c07b 14%, transparent);
+  --kb-status-warn-fg:        #e5c07b;
+  --kb-status-err-subtle:     color-mix(in srgb, #e47f86 8%, transparent);
+  --kb-status-err-fg:         #e78c92;
+  --kb-status-pending-subtle: color-mix(in srgb, #61afef 10%, transparent);
+  --kb-status-pending-fg:     #61afef;
+
+  --kb-border-subtle: rgba(255, 255, 255, 0.08);
+  --kb-border-strong: rgba(255, 255, 255, 0.14);
+  --kb-border-control: rgba(255, 255, 255, 0.36);
+  --kb-highlight-inset: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+
+  --kb-shadow-rest: 0 1px 4px rgba(0, 0, 0, 0.5);
+  --kb-shadow-lift: 0 8px 28px rgba(0, 0, 0, 0.6);
+  --kb-shadow-menu: 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 0 0.5px rgba(255,255,255,0.08);
+
+  --kb-focus-ring: 0 0 0 2px #61afef;
+  --kb-selection:  rgba(97, 175, 239, 0.22);
+
+  --kb-glow-a: transparent;
+  --kb-glow-b: transparent;
+  --kb-theme-color: #282c34;
+
+  /* Chart series: 3:1 on every ground, hues at least 20° apart */
+  --kb-chart-1: #61afef;
+  --kb-chart-2: #98c379;
+  --kb-chart-3: #e5c07b;
+  --kb-chart-4: #c678dd;
+  --kb-chart-5: #e87da7;
+}
+
+/* ── Dracula ──────────────────────────────────────────────────────────── */
+:root[data-theme="dracula"] {
+  color-scheme: dark;
+
+  --kb-bg-canvas:  #282a36;
+  --kb-bg-surface: #21222c;
+  --kb-bg-raised:  #2c2d3e;
+  --kb-bg-overlay: #3a3b4e;
+  --kb-bg-inset:   #191a24;
+  --kb-bg-hover:   rgba(255, 255, 255, 0.07);
+  --kb-bg-sidebar: rgba(33, 34, 44, 0.92);
+
+  --kb-material:      rgba(33, 34, 44, 0.82);
+  --kb-material-blur: blur(20px) saturate(160%);
+
+  --kb-fg-default: #f8f8f2;
+  --kb-fg-muted:   #b6bcd6;
+  --kb-fg-subtle:  #8995ba;
+
+  --kb-accent:        #bd93f9;
+  --kb-accent-hover:  #caa7ff;
+  --kb-accent-subtle: rgba(189, 147, 249, 0.11);
+  --kb-row-changed: rgba(248, 248, 242, 0.08); /* a row whose shown data just changed (#24) */
+  --kb-accent-fg:     #21222c;
+  --kb-on-danger: #000000;
+
+  --kb-status-ok:         #50fa7b;
+  --kb-status-warn:       #ffb86c;
+  --kb-status-err:        #ff5f5f;
+  --kb-status-pending:    #8be9fd;
+  --kb-status-info:       #8be9fd;
+  --kb-status-terminated: #6272a4;
+
+  --kb-status-ok-subtle:      color-mix(in srgb, #50fa7b 12%, transparent);
+  --kb-status-ok-fg:          #50fa7b;
+  --kb-status-warn-subtle:    color-mix(in srgb, #ffb86c 12%, transparent);
+  --kb-status-warn-fg:        #ffb86c;
+  --kb-status-err-subtle:     color-mix(in srgb, #ff5f5f 8%, transparent);
+  --kb-status-err-fg:         #ff7979;
+  --kb-status-pending-subtle: color-mix(in srgb, #8be9fd 12%, transparent);
+  --kb-status-pending-fg:     #8be9fd;
+
+  --kb-border-subtle: rgba(255, 255, 255, 0.09);
+  --kb-border-strong: rgba(255, 255, 255, 0.16);
+  --kb-border-control: rgba(255, 255, 255, 0.36);
+  --kb-highlight-inset: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+
+  --kb-shadow-rest: 0 1px 4px rgba(0, 0, 0, 0.5);
+  --kb-shadow-lift: 0 8px 28px rgba(0, 0, 0, 0.65);
+  --kb-shadow-menu: 0 4px 16px rgba(0, 0, 0, 0.55), 0 0 0 0.5px rgba(255,255,255,0.08);
+
+  --kb-focus-ring: 0 0 0 2px #bd93f9;
+  --kb-selection:  rgba(189, 147, 249, 0.22);
+
+  --kb-glow-a: rgba(189, 147, 249, 0.04);
+  --kb-glow-b: rgba(80, 250, 123, 0.03);
+  --kb-theme-color: #282a36;
+
+  /* Chart series: 3:1 on every ground, hues at least 20° apart */
+  --kb-chart-1: #bd93f9;
+  --kb-chart-2: #50fa7b;
+  --kb-chart-3: #ffb86c;
+  --kb-chart-4: #8be9fd;
+  --kb-chart-5: #7e7de8;
+}
+
+/* ── Nord ─────────────────────────────────────────────────────────────── */
+:root[data-theme="nord"] {
+  color-scheme: dark;
+
+  --kb-bg-canvas:  #2e3440;
+  --kb-bg-surface: #3b4252;
+  --kb-bg-raised:  #434c5e;
+  --kb-bg-overlay: #4c566a;
+  --kb-bg-inset:   #242933;
+  --kb-bg-hover:   rgba(255, 255, 255, 0.06);
+  --kb-bg-sidebar: rgba(59, 66, 82, 0.9);
+
+  --kb-material:      rgba(46, 52, 64, 0.85);
+  --kb-material-blur: blur(20px) saturate(140%);
+
+  --kb-fg-default: #eceff4;
+  --kb-fg-muted:   #d8dee9;
+  --kb-fg-subtle:  #a7bed4;
+
+  --kb-accent:        #aed4de;
+  --kb-accent-hover:  #a2d1e0;
+  --kb-accent-subtle: rgba(174, 212, 222, 0.08);
+  --kb-row-changed: rgba(236, 239, 244, 0.09); /* a row whose shown data just changed (#24) */
+  --kb-accent-fg:     #2e3440;
+  --kb-on-danger: #000000;
+
+  --kb-status-ok:         #a6da86;
+  --kb-status-warn:       #ebcb8b;
+  --kb-status-err:        #f5a9b0;
+  --kb-status-pending:    #aed4de;
+  --kb-status-info:       #aed4de;
+  --kb-status-terminated: #4c566a;
+
+  --kb-status-ok-subtle:      color-mix(in srgb, #a6da86 8%, transparent);
+  --kb-status-ok-fg:          #acdc8e;
+  --kb-status-warn-subtle:    color-mix(in srgb, #ebcb8b 8%, transparent);
+  --kb-status-warn-fg:        #ebcb8b;
+  --kb-status-err-subtle:     color-mix(in srgb, #f5a9b0 8%, transparent);
+  --kb-status-err-fg:         #f8c0c5;
+  --kb-status-pending-subtle: color-mix(in srgb, #aed4de 8%, transparent);
+  --kb-status-pending-fg:     #b2d6df;
+
+  --kb-border-subtle: rgba(255, 255, 255, 0.08);
+  --kb-border-strong: rgba(255, 255, 255, 0.14);
+  --kb-border-control: rgba(255, 255, 255, 0.44);
+  --kb-highlight-inset: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+
+  --kb-shadow-rest: 0 1px 4px rgba(0, 0, 0, 0.4);
+  --kb-shadow-lift: 0 8px 24px rgba(0, 0, 0, 0.55);
+  --kb-shadow-menu: 0 4px 16px rgba(0, 0, 0, 0.45), 0 0 0 0.5px rgba(255,255,255,0.08);
+
+  --kb-focus-ring: 0 0 0 2px #aed4de;
+  --kb-selection:  rgba(136, 192, 208, 0.22);
+
+  --kb-glow-a: transparent;
+  --kb-glow-b: transparent;
+  --kb-theme-color: #2e3440;
+
+  /* Chart series: 3:1 on every ground, hues at least 20° apart */
+  --kb-chart-1: #aed4de;
+  --kb-chart-2: #bbcfaa;
+  --kb-chart-3: #ebcb8b;
+  --kb-chart-4: #b691af;
+  --kb-chart-5: #e87f7d;
+}
+
+/* ── GitHub Dark ──────────────────────────────────────────────────────── */
+:root[data-theme="github-dark"] {
+  color-scheme: dark;
+
+  --kb-bg-canvas:  #0d1117;
+  --kb-bg-surface: #161b22;
+  --kb-bg-raised:  #21262d;
+  --kb-bg-overlay: #30363d;
+  --kb-bg-inset:   #010409;
+  --kb-bg-hover:   rgba(255, 255, 255, 0.05);
+  --kb-bg-sidebar: rgba(22, 27, 34, 0.92);
+
+  --kb-material:      rgba(22, 27, 34, 0.82);
+  --kb-material-blur: blur(20px) saturate(160%);
+
+  --kb-fg-default: #e6edf3;
+  --kb-fg-muted:   #8d96a0;
+  --kb-fg-subtle:  #838d99;
+
+  --kb-accent:        #58a6ff;
+  --kb-accent-hover:  #79b8ff;
+  --kb-accent-subtle: rgba(88, 166, 255, 0.14);
+  --kb-row-changed: rgba(230, 237, 243, 0.09); /* a row whose shown data just changed (#24) */
+  --kb-accent-fg:     #0d1117;
+  --kb-on-danger: #000000;
+
+  --kb-status-ok:         #40c055;
+  --kb-status-warn:       #d29922;
+  --kb-status-err:        #f85149;
+  --kb-status-pending:    #58a6ff;
+  --kb-status-info:       #58a6ff;
+  --kb-status-terminated: #484f58;
+
+  --kb-status-ok-subtle:      color-mix(in srgb, #40c055 10%, transparent);
+  --kb-status-ok-fg:          #40c055;
+  --kb-status-warn-subtle:    color-mix(in srgb, #d29922 11%, transparent);
+  --kb-status-warn-fg:        #d29922;
+  --kb-status-err-subtle:     color-mix(in srgb, #f85149 8%, transparent);
+  --kb-status-err-fg:         #f9726b;
+  --kb-status-pending-subtle: color-mix(in srgb, #58a6ff 10%, transparent);
+  --kb-status-pending-fg:     #58a6ff;
+
+  --kb-border-subtle: rgba(240, 246, 252, 0.10);
+  --kb-border-strong: rgba(240, 246, 252, 0.18);
+  --kb-border-control: rgba(240, 246, 252, 0.37);
+  --kb-highlight-inset: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+
+  --kb-shadow-rest: 0 1px 4px rgba(0, 0, 0, 0.6);
+  --kb-shadow-lift: 0 8px 32px rgba(0, 0, 0, 0.7);
+  --kb-shadow-menu: 0 4px 16px rgba(0, 0, 0, 0.6), 0 0 0 0.5px rgba(255,255,255,0.08);
+
+  --kb-focus-ring: 0 0 0 3px #58a6ff;
+  --kb-selection:  rgba(88, 166, 255, 0.22);
+
+  --kb-glow-a: rgba(88, 166, 255, 0.03);
+  --kb-glow-b: rgba(63, 185, 80, 0.02);
+  --kb-theme-color: #0d1117;
+
+  /* Chart series: 3:1 on every ground, hues at least 20° apart */
+  --kb-chart-1: #58a6ff;
+  --kb-chart-2: #3fb950;
+  --kb-chart-3: #d29922;
+  --kb-chart-4: #bc8cff;
+  --kb-chart-5: #e87dcd;
+}
+
+/* ── GitHub Light ─────────────────────────────────────────────────────── */
+:root[data-theme="github-light"] {
+  color-scheme: light;
+
+  --kb-bg-canvas:  #f6f8fa;
+  --kb-bg-surface: #ffffff;
+  --kb-bg-raised:  #ffffff;
+  --kb-bg-overlay: #ffffff;
+  --kb-bg-inset:   #f6f8fa;
+  --kb-bg-hover:   rgba(175, 184, 193, 0.20);
+  --kb-bg-sidebar: rgba(246, 248, 250, 0.92);
+
+  --kb-material:      rgba(255, 255, 255, 0.85);
+  --kb-material-blur: blur(20px) saturate(160%);
+
+  --kb-fg-default: #1f2328;
+  --kb-fg-muted:   #636c76;
+  --kb-fg-subtle:  #6b737d;
+
+  --kb-accent:        #0964d0;
+  --kb-accent-hover:  #054ba4;
+  --kb-accent-subtle: rgba(9, 100, 208, 0.08);
+  --kb-row-changed: rgba(31, 35, 40, 0.08); /* a row whose shown data just changed (#24) */
+  --kb-accent-fg:     #ffffff;
+  --kb-on-danger: #ffffff;
+
+  --kb-status-ok:         #1a7d36;
+  --kb-status-warn:       #946300;
+  --kb-status-err:        #cf242f;
+  --kb-status-pending:    #0964d0;
+  --kb-status-info:       #0964d0;
+  --kb-status-terminated: #9198a1;
+
+  --kb-status-ok-subtle:      color-mix(in srgb, #1a7d36 8%, transparent);
+  --kb-status-ok-fg:          #187532;
+  --kb-status-warn-subtle:    color-mix(in srgb, #946300 8%, transparent);
+  --kb-status-warn-fg:        #8a5c00;
+  --kb-status-err-subtle:     color-mix(in srgb, #cf242f 8%, transparent);
+  --kb-status-err-fg:         #c2222c;
+  --kb-status-pending-subtle: color-mix(in srgb, #0964d0 8%, transparent);
+  --kb-status-pending-fg:     #0862cb;
+
+  --kb-border-subtle: rgba(31, 35, 40, 0.12);
+  --kb-border-strong: rgba(31, 35, 40, 0.20);
+  --kb-border-control: rgba(31, 35, 40, 0.50);
+  --kb-highlight-inset: none;
+
+  --kb-shadow-rest: 0 1px 3px rgba(31, 35, 40, 0.10);
+  --kb-shadow-lift: 0 4px 16px rgba(31, 35, 40, 0.15);
+  --kb-shadow-menu: 0 4px 16px rgba(31, 35, 40, 0.15), 0 0 0 0.5px rgba(0,0,0,0.08);
+
+  --kb-focus-ring: 0 0 0 3px #0964d0;
+  --kb-selection:  rgba(9, 100, 208, 0.18);
+
+  --kb-glow-a: transparent;
+  --kb-glow-b: transparent;
+  --kb-theme-color: #f6f8fa;
+
+  /* Chart series: 3:1 on every ground, hues at least 20° apart */
+  --kb-chart-1: #0964d0;
+  --kb-chart-2: #1a7d36;
+  --kb-chart-3: #946300;
+  --kb-chart-4: #8250df;
+  --kb-chart-5: #ad1f93;
+}
+
+/* ── Catppuccin Mocha ─────────────────────────────────────────────────── */
+:root[data-theme="catppuccin"] {
+  color-scheme: dark;
+
+  --kb-bg-canvas:  #1e1e2e;
+  --kb-bg-surface: #181825;
+  --kb-bg-raised:  #1e1e2e;
+  --kb-bg-overlay: #313244;
+  --kb-bg-inset:   #11111b;
+  --kb-bg-hover:   rgba(205, 214, 244, 0.06);
+  --kb-bg-sidebar: rgba(24, 24, 37, 0.92);
+
+  --kb-material:      rgba(24, 24, 37, 0.85);
+  --kb-material-blur: blur(20px) saturate(160%);
+
+  --kb-fg-default: #cdd6f4;
+  --kb-fg-muted:   #a6adc8;
+  --kb-fg-subtle:  #82869b;
+
+  --kb-accent:        #cba6f7;
+  --kb-accent-hover:  #d9bcff;
+  --kb-accent-subtle: rgba(203, 166, 247, 0.15);
+  --kb-row-changed: rgba(205, 214, 244, 0.10); /* a row whose shown data just changed (#24) */
+  --kb-accent-fg:     #1e1e2e;
+  --kb-on-danger: #000000;
+
+  --kb-status-ok:         #a6e3a1;
+  --kb-status-warn:       #fab387;
+  --kb-status-err:        #f38ba8;
+  --kb-status-pending:    #89dceb;
+  --kb-status-info:       #89dceb;
+  --kb-status-terminated: #6c7086;
+
+  --kb-status-ok-subtle:      color-mix(in srgb, #a6e3a1 13%, transparent);
+  --kb-status-ok-fg:          #a6e3a1;
+  --kb-status-warn-subtle:    color-mix(in srgb, #fab387 13%, transparent);
+  --kb-status-warn-fg:        #fab387;
+  --kb-status-err-subtle:     color-mix(in srgb, #f38ba8 12%, transparent);
+  --kb-status-err-fg:         #f38ba8;
+  --kb-status-pending-subtle: color-mix(in srgb, #89dceb 13%, transparent);
+  --kb-status-pending-fg:     #89dceb;
+
+  --kb-border-subtle: rgba(205, 214, 244, 0.08);
+  --kb-border-strong: rgba(205, 214, 244, 0.15);
+  --kb-border-control: rgba(205, 214, 244, 0.41);
+  --kb-highlight-inset: inset 0 1px 0 rgba(205, 214, 244, 0.04);
+
+  --kb-shadow-rest: 0 1px 4px rgba(0, 0, 0, 0.5);
+  --kb-shadow-lift: 0 8px 28px rgba(0, 0, 0, 0.65);
+  --kb-shadow-menu: 0 4px 16px rgba(0, 0, 0, 0.55), 0 0 0 0.5px rgba(205,214,244,0.08);
+
+  --kb-focus-ring: 0 0 0 2px #cba6f7;
+  --kb-selection:  rgba(203, 166, 247, 0.22);
+
+  --kb-glow-a: rgba(203, 166, 247, 0.04);
+  --kb-glow-b: rgba(166, 227, 161, 0.03);
+  --kb-theme-color: #1e1e2e;
+
+  /* Chart series: 3:1 on every ground, hues at least 20° apart */
+  --kb-chart-1: #cba6f7;
+  --kb-chart-2: #a6e3a1;
+  --kb-chart-3: #fab387;
+  --kb-chart-4: #89dceb;
+  --kb-chart-5: #7d7ee8;
+}

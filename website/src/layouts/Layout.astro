@@ -1,0 +1,46 @@
+---
+import '../../../web/packages/ui/src/tokens.css';
+import '../styles/global.css';
+import SEO from '../components/SEO.astro';
+
+interface Props {
+  title: string;
+  description: string;
+  og?: string;
+  canonical?: string;
+}
+
+const { title, description, og, canonical } = Astro.props;
+const canonicalURL = canonical ?? new URL(Astro.url.pathname, Astro.site ?? 'https://kubebay.sardar.dev').href;
+---
+
+<!doctype html>
+<html lang="en" dir="ltr" data-theme="dusk">
+  <head>
+    <!-- Title (also in SEO component OG tags) -->
+    <title>{title}</title>
+
+    <!-- Core SEO, structured data, OG, Twitter -->
+    <SEO title={title} description={description} og={{ image: og }} canonical={canonicalURL} />
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="shortcut icon" href="/favicon.svg" />
+
+    <!-- Google Fonts preconnect -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+    <!-- Google Fonts: Inter + JetBrains Mono -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- Sitemap reference -->
+    <link rel="sitemap" type="application/xml" href="/sitemap.xml" />
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>

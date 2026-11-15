@@ -1,0 +1,155 @@
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { NavLink, useSearchParams } from "react-router-dom";
+import { crdApi, type CRDEntry } from "../lib/api";
+import { extSlug } from "../lib/resources";
+import { useCluster } from "../lib/useCluster";
+import { Badge, Button, InlineBanner, PageHeader, Row, SkeletonLines, TextField } from "@kubebay/ui";
+import { StarButton } from "../components/Favorites";
+import { PageHelp } from "../components/PageHelp";
+
+function extPath(r: CRDEntry) {
+  return `/r/ext--${extSlug(r.gvr)}?scoped=${r.namespaced ? 1 : 0}`;
+}
+
+export default function Crds() {
+  const { cluster } = useCluster();
+  const q = useQuery({
+    queryKey: ["crds", cluster],
+    queryFn: () => crdApi.list(cluster),
+    enabled: !!cluster,
+    staleTime: 5 * 60_000, // CRD list changes only on install/removal
+    retry: 2,
+  });
+
+  const [sp, setSp] = useSearchParams();
+  // /crds?group=… is a group shortcut from the sidebar's Favorites.
+  const onlyGroup = sp.get("group") ?? "";
+  const [search, setSearch] = useState("");
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+
+  function toggleGroup(g: string) {
+    setCollapsed((s) => {
+      const next = new Set(s);
+      next.has(g) ? next.delete(g) : next.add(g);
+      return next;
+    });
+  }
+
+  const groups = useMemo(() => {
+    const map = new Map<string, CRDEntry[]>();
+    for (const e of q.data ?? []) {
+      if (!map.has(e.group)) map.set(e.group, []);
+      map.get(e.group)!.push(e);
+    }
+    return [...map.entries()].sort(([a], [b]) => a.localeCompare(b));
+  }, [q.data]);
+
+  const filtered = useMemo(() => {
+    const lc = search.toLowerCase();
+    const scoped = onlyGroup ? groups.filter(([g]) => g === onlyGroup) : groups;
+    if (!lc) return scoped;
+    return scoped
+      .map(([g, rows]) => [g, rows.filter(
+        (r) => r.kind.toLowerCase().includes(lc) || r.resource.toLowerCase().includes(lc) || r.group.toLowerCase().includes(lc),
+      )] as [string, CRDEntry[]])
+      .filter(([, rows]) => rows.length > 0);
+  }, [groups, search, onlyGroup]);
+
+  const totalCount = (q.data ?? []).length;
+
+  if (!cluster) {
+    return (
+      <div className="page">
+        <h1>Custom Resource Definitions</h1>
+        <p className="muted small">Connect to a cluster to browse CRDs.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="page" style={{ overflowY: "auto" }}>
+      <PageHeader help={<PageHelp route="/crds" />} title="Custom Resource Definitions" count={!q.isLoading && `${totalCount} CRDs`} />
+
+      {q.isError && (
+        <InlineBanner>
+          <span>Failed to load CRDs: {String(q.error)}</span>
+          <Button variant="ghost" onClick={() => void q.refetch()}>Retry</Button>
+        </InlineBanner>
+      )}
+
+      <div className="toolbar" style={{ gap: 8, marginBottom: 12 }}>
+        <TextField
+          placeholder="Search kinds…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          spellCheck={false}
+          style={{ maxWidth: 280 }}
+        />
+        {onlyGroup && (
+          <Button variant="ghost" onClick={() => setSp({}, { replace: true })}>
+            Showing {onlyGroup} only. Show all groups
+          </Button>
+        )}
+        {q.isLoading && <SkeletonLines lines={10} label="Loading custom resource definitions…" />}
+        {!q.isLoading && search && (
+          <span className="muted small">
+            {filtered.reduce((s, [, r]) => s + r.length, 0)} of {totalCount} matching
+          </span>
+        )}
+      </div>
+
+      {filtered.length === 0 && !q.isLoading && !q.isError && (
+        <p className="muted small">
+          {search ? "No CRDs match your search." : "No custom resources found on this cluster."}
+        </p>
+      )}
+
+      <div className="crd-tree">
+        {filtered.map(([group, rows]) => {
+          const open = !collapsed.has(group);
+          return (
+            <div key={group} className="crd-tree-group">
+              <Row align="center" gap={1}>
+                <button
+                  className="crd-tree-group-header"
+                  onClick={() => toggleGroup(group)}
+                  aria-expanded={open}
+                >
+                  <span className="crd-tree-chevron">{open ? "▾" : "▸"}</span>
+                  <span className="crd-tree-group-name">{group}</span>
+                  <span className="crd-tree-count">{rows.length}</span>
+                </button>
+                <StarButton path={`/crds?group=${encodeURIComponent(group)}`} name={group} />
+              </Row>
+
+              {open && (
+                <div className="crd-tree-rows">
+                  {rows.map((r) => (
+                    <Row key={r.gvr} align="center" gap={1}>
+                    <NavLink
+                      to={extPath(r)}
+                      className={({ isActive }) => `crd-tree-row${isActive ? " active" : ""}`}
+                      style={{ flex: 1 }}
+                    >
+                      <span className="crd-tree-kind">{r.kind}</span>
+                      <span className="crd-tree-meta">
+                        <span className="mono muted" style={{ fontSize: "var(--kb-text-xs)" }}>{r.version}</span>
+                        <Badge tone={r.namespaced ? "info" : "warn"}>{r.namespaced ? "ns" : "cluster"}</Badge>
+                        {r.columns.length > 0 && (
+                          <Badge title={r.columns.map((c) => c.name).join(", ")}>{r.columns.length} cols</Badge>
+                        )}
+                      </span>
+                    </NavLink>
+                    <StarButton path={extPath(r)} name={r.kind} />
+                    </Row>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}

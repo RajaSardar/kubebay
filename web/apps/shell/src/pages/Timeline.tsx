@@ -1,0 +1,197 @@
+import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Badge, EmptyState, PageHeader, Select, TextField } from "@kubebay/ui";
+import { PageHelp } from "../components/PageHelp";
+import { PageLoader } from "../components/PageLoader";
+import { EventHeatStrip } from "../components/EventHeatStrip";
+import { useCluster } from "../lib/useCluster";
+import { useResourceStream, shouldShowSkeleton } from "../lib/useResourceStream";
+import { deniedStreams } from "../lib/forbidden";
+import { ForbiddenState } from "../components/ForbiddenState";
+
+interface EventRow {
+  key: string;
+  ts: number;
+  firstTs: number;
+  type: string;
+  reason: string;
+  message: string;
+  obj: string;
+  objKind: string;
+  objNs: string;
+  objName: string;
+  count: number;
+}
+
+// Only kinds that resolve to a working generic detail route (see lib/resources.ts DEFS +
+// pages/ResourceDetail.tsx) get a link. Pod is intentionally excluded: pods are shown via
+// Workloads.tsx/PodPanel rather than the generic ResourceTable/GenericDrawer route, so there is
+// no /detail/pods/... page for an event's involved Pod to deep-link into.
+const EVENT_KIND_SLUGS: Record<string, string> = {
+  Deployment: "deployments",
+  Service: "services",
+  ConfigMap: "configmaps",
+  Secret: "secrets",
+  Node: "nodes",
+};
+
+function asRecord(v: unknown): Record<string, unknown> {
+  return (v ?? {}) as Record<string, unknown>;
+}
+
+function deriveEvent(obj: Record<string, unknown>): EventRow | null {
+  const meta = asRecord(obj.metadata);
+  const name = meta.name as string | undefined;
+  if (!name) return null;
+
+  const involved = asRecord(obj.involvedObject);
+  const kind = (involved.kind as string) ?? "";
+  const ns = (involved.namespace as string) ?? "";
+  const objName = (involved.name as string) ?? "";
+  const last = (obj.lastTimestamp as string) || (obj.eventTime as string) || (meta.creationTimestamp as string) || "";
+  const first = (obj.firstTimestamp as string) || last;
+
+  return {
+    key: `${ns}/${name}`,
+    ts: last ? Date.parse(last) : 0,
+    firstTs: first ? Date.parse(first) : 0,
+    type: (obj.type as string) ?? "Normal",
+    reason: (obj.reason as string) ?? "",
+    message: (obj.message as string) ?? "",
+    obj: [kind, ns ? `${ns}/${objName}` : objName].filter(Boolean).join(" "),
+    objKind: kind,
+    objNs: ns,
+    objName,
+    count: (obj.count as number) ?? 1,
+  };
+}
+
+export default function Timeline() {
+  const navigate = useNavigate();
+  const { cluster: effectiveCluster, setCluster, list } = useCluster();
+  const [filter, setFilter] = useState("");
+  const [warningsOnly, setWarningsOnly] = useState(false);
+
+  const { rows, synced, forbidden } = useResourceStream(effectiveCluster || undefined, "v1/events", { mode: "full" });
+
+  const events = useMemo(() => {
+    const out = rows
+      .map(deriveEvent)
+      .filter((e): e is EventRow => e !== null)
+      .filter((e) => !filter || e.message.includes(filter) || e.reason.includes(filter) || e.obj.includes(filter))
+      .filter((e) => !warningsOnly || e.type === "Warning")
+      .sort((a, b) => b.ts - a.ts)
+      .slice(0, 500);
+    return out;
+  }, [rows, filter, warningsOnly]);
+
+  const warnCount = useMemo(() => events.filter((e) => e.type === "Warning").length, [events]);
+
+  // Unfiltered by the search/warnings-only toolbar — the heat strip shows
+  // true cluster-wide warning activity regardless of what the list below is
+  // currently narrowed to.
+  const allWarnings = useMemo(
+    () =>
+      rows
+        .map(deriveEvent)
+        .filter((e): e is EventRow => e !== null && e.type === "Warning")
+        .map((e) => ({ ts: e.ts, firstTs: e.firstTs, count: e.count })),
+    [rows],
+  );
+
+  function fmtRel(ms: number): string {
+    if (!ms) return "–";
+    const s = Math.max(0, Math.floor((Date.now() - ms) / 1000));
+    if (s < 5) return "now";
+    if (s < 60) return `${s}s ago`;
+    const m = Math.floor(s / 60);
+    if (m < 60) return `${m}m ago`;
+    const h = Math.floor(m / 60);
+    if (h < 48) return `${h}h ago`;
+    return `${Math.floor(h / 24)}d ago`;
+  }
+
+  return (
+    <div className="page">
+      <PageHeader help={<PageHelp route="/timeline" />}
+        level={2}
+        title="Timeline"
+        live={synced}
+        actions={<Badge tone={warnCount > 0 ? "err" : "ok"}>{warnCount} warnings</Badge>}
+      />
+
+      {allWarnings.length > 0 && <EventHeatStrip events={allWarnings} />}
+
+      <div className="toolbar">
+        <Select
+          value={effectiveCluster}
+          onChange={(e) => setCluster(e.target.value)}
+        >
+          {list.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.id}
+            </option>
+          ))}
+        </Select>
+        <TextField
+          placeholder="Filter message / reason / object…"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          spellCheck={false}
+        />
+        <label className="ctl" style={{ cursor: "pointer" }}>
+          <input type="checkbox" checked={warningsOnly} onChange={(e) => setWarningsOnly(e.target.checked)} />
+          warnings only
+        </label>
+        <Badge>{events.length}</Badge>
+      </div>
+
+      <div className="page-body">
+        {shouldShowSkeleton(synced, events.length) && forbidden ? (
+          <ForbiddenState denied={deniedStreams({ events: { forbidden } })} />
+        ) : shouldShowSkeleton(synced, events.length) ? (
+          <PageLoader message="Connecting to event stream…" />
+        ) : events.length === 0 ? (
+          <EmptyState>
+            <p>No events match.</p>
+            <p className="muted small">{filter || warningsOnly ? "Loosen the filters." : "A quiet cluster is a happy cluster."}</p>
+          </EmptyState>
+        ) : (
+          <div className="timeline-list">
+            {events.map((e) => {
+              const isWarn = e.type === "Warning";
+              return (
+                <div key={e.key} className={`tl-item${isWarn ? " tl-warn" : ""}`}>
+                  <span className={`tl-dot ${isWarn ? "warn" : ""}`} />
+                  <div className="tl-body">
+                    <div className="tl-top">
+                      <span className="mono strong">{e.reason}</span>
+                      {isWarn && <Badge tone="err">warning</Badge>}
+                      {e.count > 1 && <Badge>×{e.count}</Badge>}
+                      {EVENT_KIND_SLUGS[e.objKind] && e.objName ? (
+                        <span
+                          className="muted small mono cell-link"
+                          onClick={() =>
+                            navigate(`/detail/${EVENT_KIND_SLUGS[e.objKind]}/${e.objNs || "_"}/${e.objName}`)
+                          }
+                        >
+                          {e.obj}
+                        </span>
+                      ) : (
+                        <span className="muted small mono">{e.obj}</span>
+                      )}
+                      <span className="muted small" style={{ marginLeft: "auto", flexShrink: 0 }}>
+                        {fmtRel(e.ts)}
+                      </span>
+                    </div>
+                    <div className="tl-msg small muted">{e.message}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
