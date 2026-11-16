@@ -1,0 +1,28 @@
+# A one-minute check that this repository's workflows may write the container package that
+# publish.yml pushes to. The real image takes ~25 minutes to build and only then finds out; this
+# pushes a one-line image to the same package, so a permission fix is confirmed in seconds.
+# Run it by hand: Actions -> ghcr write check -> Run workflow.
+name: ghcr write check
+
+on: workflow_dispatch
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Push a one-line image to the package publish.yml uses
+        run: |
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}:permcheck"
+          printf 'FROM scratch\nLABEL org.opencontainers.image.source=%s\n' "https://github.com/${GITHUB_REPOSITORY}" \
+            | docker build -t "$IMAGE" -
+          docker push "$IMAGE"
+          echo "pushed $IMAGE: this repository may write the package"
