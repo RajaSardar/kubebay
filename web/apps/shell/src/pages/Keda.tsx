@@ -102,6 +102,7 @@ export default function Keda() {
       <PageHeader help={<PageHelp route="/keda" />} level={2} title="KEDA" count={`· ${scaledObjects.rows.length} ScaledObjects`} />
       <div className="page-body">
         <KedaBrowser
+          cluster={effectiveCluster}
           scaledObjects={scaledObjects.rows}
           scaledJobs={scaledJobs.rows}
           triggerAuths={triggerAuths.rows}

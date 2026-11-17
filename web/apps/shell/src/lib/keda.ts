@@ -89,6 +89,35 @@ export function scaledObjectPauseState(so: Record<string, unknown>): ScaledObjec
 }
 
 /**
+ * The PUT /api/yaml body that pauses a ScaledObject (replicas = the count to
+ * hold, 0 allowed) or unpauses it (replicas = null). Per KEDA, paused-replicas
+ * pins the workload to that count and stops autoscaling, so pausing also
+ * clears a bare `paused: "true"` (which would hold the current count instead);
+ * unpausing clears both. A JSON merge patch: null deletes an annotation.
+ */
+export function pauseScaledObjectRequest(
+  target: { cluster: string; gvr: string; ns: string; name: string },
+  replicas: number | null,
+) {
+  const pinned = replicas === null ? "null" : `"${Math.trunc(replicas)}"`;
+  const yaml =
+    `apiVersion: keda.sh/v1alpha1\nkind: ScaledObject\nmetadata:\n` +
+    `  name: ${JSON.stringify(target.name)}\n  namespace: ${JSON.stringify(target.ns)}\n  annotations:\n` +
+    `    autoscaling.keda.sh/paused-replicas: ${pinned}\n    autoscaling.keda.sh/paused: null\n`;
+  return {
+    cluster: target.cluster,
+    gvr: target.gvr,
+    ns: target.ns,
+    name: target.name,
+    yaml,
+    dryRun: false,
+    force: false,
+    mode: "merge" as const,
+    action: replicas === null ? "keda-unpause" : "keda-pause",
+  };
+}
+
+/**
  * Decodes a KEDA ScaledObject into a plain-English summary — backlog #2's
  * P2 "read-only explain" ("scales 1→20 on cron Mon-Fri 09:00"). Anything not
  * in the trigger label map falls back to its raw type name rather than being
