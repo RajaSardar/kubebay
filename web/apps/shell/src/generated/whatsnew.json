@@ -38,6 +38,10 @@
           "heading": "Fixed",
           "items": [
             {
+              "title": "Cluster icons in the left strip keep their real colour",
+              "summary": "Clusters you weren't looking at were washed out to near grey; they are now only slightly muted."
+            },
+            {
               "title": "Port forwards are reliable",
               "summary": "A local port can only be used by one forward at a time across every cluster."
             },

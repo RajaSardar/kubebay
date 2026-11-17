@@ -191,5 +191,5 @@ export function stripAvatarLook({ broken, active, streaming }: { broken?: boolea
 } {
   if (broken) return { opacity: 0.22, filter: "grayscale(1)" };
   if (active) return { opacity: 1, filter: "none" };
-  return { opacity: 1, filter: streaming ? "saturate(0.6)" : "saturate(0.2)" };
+  return { opacity: 1, filter: streaming ? "saturate(0.95)" : "saturate(0.85)" };
 }

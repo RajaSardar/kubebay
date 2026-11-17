@@ -44,4 +44,7 @@
 ~~43. Port foroward tool is not properly working make it work properly and all its feature with proper testing, and port should never conflict with one to another cluster. do indepth research and fix this.~~ ✅ Done
 ~~44. Shift the pod name or any name copy button just after the name end and make it bigger currently its very small~~ ✅ Done
 ~~45. Make the open pod side windwow scrollable/ explandable as lots of buttons and features are getting hide at the right side. or suggest any other way to fix this ?~~ ✅ Done
-46. Also most left nav has cluster icons and i am not able to see the actual colour of those icons, can you check what is the overly colour and can you fix that ?
+~~46. Also most left nav has cluster icons and i am not able to see the actual colour of those icons, can you check what is the overly colour and can you fix that ?~~ ✅ Done
+47. can you give button to pause keda and unpause the keda object, when click pause, it will ask how much replica count it should pause or something like that, do think and plan.
+48. in crons jobs, there should be a col for paused or active or what status staus for the cron jobs. 
+49. 

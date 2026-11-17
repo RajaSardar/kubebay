@@ -94,7 +94,12 @@ describe("stripAvatarLook", () => {
     for (const state of [{ active: true }, { streaming: true }, {}]) {
       expect(stripAvatarLook(state).opacity).toBe(1);
     }
-    expect(stripAvatarLook({}).filter).toMatch(/saturate\(/);
+    // The icon's own colour must stay recognisable: idle and streaming clusters are only
+    // a touch muted, never washed out to grey.
+    for (const state of [{}, { streaming: true }]) {
+      const m = stripAvatarLook(state).filter.match(/saturate\(([\d.]+)\)/);
+      expect(m ? Number(m[1]) : 1).toBeGreaterThanOrEqual(0.85);
+    }
     expect(stripAvatarLook({ active: true }).filter).toBe("none");
     // A broken cluster is a disabled button; it may fade.
     expect(stripAvatarLook({ broken: true }).opacity).toBeLessThan(0.5);

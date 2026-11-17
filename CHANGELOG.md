@@ -16,6 +16,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 - **A row's selection cell is the click target, not only the box in it.** Clicking anywhere in the cell around a row's checkbox ticks or unticks the row, and doesn't open the row's drawer.
 
 ### Fixed
+- **Cluster icons in the left strip keep their real colour.** Clusters you weren't looking at were washed out to near grey; they are now only slightly muted.
 - **Port forwards are reliable.** A local port can only be used by one forward at a time across every cluster. If you ask for one that is taken, Kubebay tells you straight away which forward holds it, or that another program on your Mac does, instead of hanging for 15 seconds. A forward whose pod is deleted or restarted shows as failed with the reason, and its port is freed. Out-of-range ports are rejected clearly, and all forwards close when Kubebay quits.
 - **The desktop app now updates itself.** Settings → Updates said "This build doesn't update itself", and for releases it was true: `release.yml` read the update public key only from a repository *variable*, so a key kept as a *secret* was ignored and the release shipped without an updater (the build log carried only a warning). It now accepts either. `make desktop` builds the macOS app with the key from `~/.tauri/kubebay-updater.key.pub` when it exists, so an app you build yourself updates too; without the file it says the build won't update itself.
 
