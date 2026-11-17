@@ -11,12 +11,14 @@ import { useResourceStream } from "../lib/useResourceStream";
 
 type Rows = Record<string, unknown>[];
 
+type ExportFindings = Pick<DetectorFindings, "rbac" | "attackPaths" | "secretEnv" | "automount" | "unenforcedSignatureNamespaces">;
+
 export interface FindingsExportProps {
   cluster: string;
   /** The page's own streams and RBAC analysis have loaded. */
   ready: boolean;
-  /** Findings the page has already computed. */
-  findings: Pick<DetectorFindings, "rbac" | "attackPaths" | "secretEnv" | "automount" | "unenforcedSignatureNamespaces">;
+  /** Findings the page has already computed, or a function that computes them, called only while the dialog is open. */
+  findings: ExportFindings | (() => ExportFindings);
   /** Objects the page already streams, reused for SPOF and NetworkPolicy coverage. */
   rows: { pods: Rows; deployments: Rows; statefulSets: Rows; services: Rows; networkPolicies: Rows };
 }
@@ -65,7 +67,7 @@ export function FindingsExport({ cluster, ready, findings, rows }: FindingsExpor
     () =>
       open
         ? {
-            ...findings,
+            ...(typeof findings === "function" ? findings() : findings),
             spof: computeSpofFindings({ deployments: rows.deployments, statefulSets: rows.statefulSets, pdbs: pdbs.rows, pods: rows.pods, services: rows.services, endpointSlices: slices.rows }),
             netpolGaps: findNetworkPolicyCoverageGaps(rows.pods, rows.networkPolicies),
             upgrade: serverVersion ? computeUpgradeReadiness(serverVersion, apiVersions.data ?? []) : [],

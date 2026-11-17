@@ -191,6 +191,34 @@ export function DisclosureButton({ open, onToggle, icon, count, level = "group",
   );
 }
 
+export interface CollapsibleSectionProps {
+  title: ReactNode;
+  /** How many items the section holds; leave out while it is not yet known. */
+  count?: number;
+  open: boolean;
+  onToggle: () => void;
+  /** "sub" for a row nested inside another section. */
+  level?: "section" | "sub";
+  /** The body is only mounted while open, so a closed section costs nothing to render. */
+  children: ReactNode;
+}
+
+/** A page section whose header (title, count, chevron) opens and closes its body. */
+export function CollapsibleSection({ title, count, open, onToggle, level = "section", children }: CollapsibleSectionProps) {
+  return (
+    <section className={`kb-collapsible kb-collapsible-${level}${open ? " open" : ""}`}>
+      <button type="button" className="kb-collapsible-head" aria-expanded={open} onClick={onToggle}>
+        <svg className="kb-collapsible-chev" viewBox="0 0 10 10" width="10" height="10" fill="none" aria-hidden="true">
+          <path d="M3 2l4 3-4 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        <span className="kb-collapsible-title">{title}</span>
+        {count != null && <span className="kb-collapsible-count">{count}</span>}
+      </button>
+      {open && <div className="kb-collapsible-body">{children}</div>}
+    </section>
+  );
+}
+
 export interface ChoiceCardProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "type"> {
   /** The option this card stands for is the current choice. */
   selected: boolean;

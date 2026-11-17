@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useLeadingThrottle } from "../lib/useLeadingThrottle";
 import { useQuery } from "@tanstack/react-query";
-import { Badge, Button, Card, PageHeader, Select, StatusDot, TextField } from "@kubebay/ui";
+import { Badge, Button, Card, CollapsibleSection, PageHeader, Row, Select, StatusDot, TextField } from "@kubebay/ui";
 import { PageHelp } from "../components/PageHelp";
 import { PageLoader } from "../components/PageLoader";
 import { RbacFindingsCard } from "../components/RbacFindingsCard";
@@ -25,6 +25,8 @@ import { FindingsExport } from "../components/FindingsExport";
 import { isSystemFinding } from "../lib/rbacFindings";
 import { detectTrivyOperator } from "../lib/trivyOperator";
 import { detectGatewayApi } from "../lib/routeResolution";
+import { RbacRolesList, roleCount } from "../components/RbacRolesCard";
+import { usePersistedFlag } from "../lib/usePersistedFlag";
 import { useCluster } from "../lib/useCluster";
 import { useResourceStream } from "../lib/useResourceStream";
 import { DEFS, EXTRA_DEFS } from "../lib/resources";
@@ -201,74 +203,109 @@ export default function Rbac() {
   // The first pods to arrive show at once; only later churn waits.
   const heavy = useLeadingThrottle(heavyNow, 2000, (applied, next) => applied.pods.length === 0 && next.pods.length > 0);
 
+  // Section open states, remembered per section. The analyses below run only
+  // for sections that are open (or while the export dialog asks for them),
+  // so a collapsed section costs nothing to compute or render.
+  const [whoOpen, toggleWho] = usePersistedFlag("kb.rbac.section.who-can", true);
+  const [summaryOpen, toggleSummary] = usePersistedFlag("kb.rbac.section.summary", true);
+  const [attackOpen, toggleAttack] = usePersistedFlag("kb.rbac.section.attack-paths", false);
+  const [findingsOpen, toggleFindings] = usePersistedFlag("kb.rbac.section.findings", false);
+  const [rolesOpen, toggleRoles] = usePersistedFlag("kb.rbac.section.roles", false);
+  const [automountOpen, toggleAutomount] = usePersistedFlag("kb.rbac.section.automount", false);
+  const [secretsOpen, toggleSecrets] = usePersistedFlag("kb.rbac.section.secret-exposure", false);
+  const [sigOpen, toggleSig] = usePersistedFlag("kb.rbac.section.image-signatures", false);
+  const [runningSigOpen, toggleRunningSig] = usePersistedFlag("kb.rbac.section.running-signatures", false);
+  const [orphanOpen, toggleOrphan] = usePersistedFlag("kb.rbac.section.orphaned-secrets", false);
+  const [unusedOpen, toggleUnused] = usePersistedFlag("kb.rbac.section.unused-accounts", false);
+  const [auditOpen, toggleAudit] = usePersistedFlag("kb.rbac.section.audit-feed", false);
+  const [accessOpen, toggleAccess] = usePersistedFlag("kb.rbac.section.my-access", false);
+
+  const computeAutomount = () => findDefaultServiceAccountAutomounts(heavy.pods, heavy.serviceAccounts);
+  const computeSecretExposure = () => findSecretEnvExposures(heavy.pods);
+  const computeImageSignatures = () =>
+    summarizeImageSignaturePolicies({
+      kyverno: [...heavy.kyvernoClusterPolicies, ...heavy.kyvernoPolicies],
+      sigstore: heavy.sigstorePolicies,
+      namespaces: heavy.namespaces,
+      ratifyConstraints: heavy.ratifyConstraints,
+      validatingWebhooks: heavy.validatingWebhooks,
+    });
+  const computeOrphans = () =>
+    findOrphanedSecrets({
+      secrets: heavy.secrets,
+      pods: heavy.pods,
+      workloads: [...heavy.deployments, ...heavy.statefulSets, ...heavy.cronJobs],
+      serviceAccounts: heavy.serviceAccounts,
+      ingresses: heavy.ingresses,
+    });
+  const computeAttackPaths = () =>
+    findAttackPaths({
+      pods: heavy.pods,
+      services: heavy.services,
+      ingresses: heavy.ingresses,
+      networkPolicies: heavy.networkPolicies,
+      vulnReports: heavy.vulnReports,
+      rbacFindings: data?.findings ?? [],
+      namespaces: heavy.namespaces,
+      httpRoutes: heavy.httpRoutes,
+      ...(data ? { rbac: data } : {}),
+    });
+
   const automountFindings = useMemo(
-    () => findDefaultServiceAccountAutomounts(heavy.pods, heavy.serviceAccounts),
-    [heavy.pods, heavy.serviceAccounts],
+    () => (automountOpen ? computeAutomount() : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [automountOpen, heavy.pods, heavy.serviceAccounts],
   );
-  const secretExposureFindings = useMemo(() => findSecretEnvExposures(heavy.pods), [heavy.pods]);
+  const secretExposureFindings = useMemo(
+    () => (secretsOpen ? computeSecretExposure() : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [secretsOpen, heavy.pods],
+  );
   const imageSignatureReport = useMemo(
-    () =>
-      summarizeImageSignaturePolicies({
-        kyverno: [...heavy.kyvernoClusterPolicies, ...heavy.kyvernoPolicies],
-        sigstore: heavy.sigstorePolicies,
-        namespaces: heavy.namespaces,
-        ratifyConstraints: heavy.ratifyConstraints,
-        validatingWebhooks: heavy.validatingWebhooks,
-      }),
-    [heavy.kyvernoClusterPolicies, heavy.kyvernoPolicies, heavy.sigstorePolicies, heavy.namespaces, heavy.ratifyConstraints, heavy.validatingWebhooks],
+    () => (sigOpen ? computeImageSignatures() : summarizeImageSignaturePolicies({ kyverno: [], sigstore: [], namespaces: [], ratifyConstraints: [], validatingWebhooks: [] })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [sigOpen, heavy.kyvernoClusterPolicies, heavy.kyvernoPolicies, heavy.sigstorePolicies, heavy.namespaces, heavy.ratifyConstraints, heavy.validatingWebhooks],
   );
   const sigEnginesInstalled =
     !!(sigEngines.kyvernoClusterPolicyGvr || sigEngines.kyvernoPolicyGvr || sigEngines.sigstoreClusterImagePolicyGvr || sigEngines.ratifyInstalled) ||
     imageSignatureReport.policies.some((p) => p.engine === "connaisseur");
   const orphanedSecrets = useMemo(
-    () =>
-      findOrphanedSecrets({
-        secrets: heavy.secrets,
-        pods: heavy.pods,
-        workloads: [...heavy.deployments, ...heavy.statefulSets, ...heavy.cronJobs],
-        serviceAccounts: heavy.serviceAccounts,
-        ingresses: heavy.ingresses,
-      }),
-    [heavy.secrets, heavy.pods, heavy.deployments, heavy.statefulSets, heavy.cronJobs, heavy.serviceAccounts, heavy.ingresses],
+    () => (orphanOpen ? computeOrphans() : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [orphanOpen, heavy.secrets, heavy.pods, heavy.deployments, heavy.statefulSets, heavy.cronJobs, heavy.serviceAccounts, heavy.ingresses],
   );
   const unusedServiceAccounts = useMemo(
     () =>
-      findUnusedServiceAccounts({
-        serviceAccounts: heavy.serviceAccounts,
-        pods: heavy.pods,
-        workloads: [...heavy.deployments, ...heavy.statefulSets, ...heavy.daemonSets, ...heavy.cronJobs],
-        bindings: [...(data?.roleBindings ?? []), ...(data?.clusterRoleBindings ?? [])],
-        secrets: heavy.secrets,
-      }),
-    [heavy.serviceAccounts, heavy.pods, heavy.deployments, heavy.statefulSets, heavy.daemonSets, heavy.cronJobs, data, heavy.secrets],
+      unusedOpen
+        ? findUnusedServiceAccounts({
+            serviceAccounts: heavy.serviceAccounts,
+            pods: heavy.pods,
+            workloads: [...heavy.deployments, ...heavy.statefulSets, ...heavy.daemonSets, ...heavy.cronJobs],
+            bindings: [...(data?.roleBindings ?? []), ...(data?.clusterRoleBindings ?? [])],
+            secrets: heavy.secrets,
+          })
+        : [],
+    [unusedOpen, heavy.serviceAccounts, heavy.pods, heavy.deployments, heavy.statefulSets, heavy.daemonSets, heavy.cronJobs, data, heavy.secrets],
   );
   const attackPaths = useMemo(
-    () =>
-      findAttackPaths({
-        pods: heavy.pods,
-        services: heavy.services,
-        ingresses: heavy.ingresses,
-        networkPolicies: heavy.networkPolicies,
-        vulnReports: heavy.vulnReports,
-        rbacFindings: data?.findings ?? [],
-        namespaces: heavy.namespaces,
-        httpRoutes: heavy.httpRoutes,
-        ...(data ? { rbac: data } : {}),
-      }),
-    [heavy.pods, heavy.services, heavy.ingresses, heavy.networkPolicies, heavy.vulnReports, data, heavy.namespaces, heavy.httpRoutes],
+    () => (attackOpen ? computeAttackPaths() : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [attackOpen, heavy.pods, heavy.services, heavy.ingresses, heavy.networkPolicies, heavy.vulnReports, data, heavy.namespaces, heavy.httpRoutes],
   );
 
   // KB-15: what the export reuses from this page. System bindings are left
-  // out, as the RBAC findings card hides them by default.
-  const exportFindings = useMemo(
-    () => ({
-      rbac: (data?.findings ?? []).filter((f) => !isSystemFinding(f)),
-      attackPaths,
-      secretEnv: secretExposureFindings,
-      automount: automountFindings,
-      unenforcedSignatureNamespaces: imageSignatureReport.uncovered,
-    }),
-    [data, attackPaths, secretExposureFindings, automountFindings, imageSignatureReport.uncovered],
+  // out, as the RBAC findings card hides them by default. A section that is
+  // collapsed has not been analysed, so the export computes it on demand,
+  // only once its dialog is open.
+  const exportFindings = useCallback(() => ({
+    rbac: (data?.findings ?? []).filter((f) => !isSystemFinding(f)),
+    attackPaths: attackOpen ? attackPaths : computeAttackPaths(),
+    secretEnv: secretsOpen ? secretExposureFindings : computeSecretExposure(),
+    automount: automountOpen ? automountFindings : computeAutomount(),
+    unenforcedSignatureNamespaces: (sigOpen ? imageSignatureReport : computeImageSignatures()).uncovered,
+  }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [data, heavy, attackOpen, attackPaths, secretsOpen, secretExposureFindings, automountOpen, automountFindings, sigOpen, imageSignatureReport],
   );
   const exportRows = useMemo(
     () => ({ pods: heavy.pods, deployments: heavy.deployments, statefulSets: heavy.statefulSets, services: heavy.services, networkPolicies: heavy.networkPolicies }),
@@ -380,8 +417,8 @@ export default function Rbac() {
       />
 
       <div className="page-body">
+      <CollapsibleSection title="Who can …" open={whoOpen} onToggle={toggleWho}>
       <Card style={{ marginBottom: 16 }}>
-        <div className="rbac-section-title">Who can …</div>
         <div className="pf-form">
           <Select value={verb} onChange={(e) => setVerb(e.target.value)} aria-label="verb">
             {VERBS.map((v) => (
@@ -426,27 +463,65 @@ export default function Rbac() {
           </div>
         )}
       </Card>
+      </CollapsibleSection>
 
-      <AttackPathsCard paths={attackPaths} trivyInstalled={trivy.installed} />
+      <CollapsibleSection title="Summary" open={summaryOpen} onToggle={toggleSummary}>
+        <Card style={{ marginBottom: 16 }}>
+          <Row wrap gap={2} align="center">
+            <Badge>{data?.roles.length ?? 0} roles</Badge>
+            <Badge>{data?.clusterRoles.length ?? 0} cluster roles</Badge>
+            <Badge>{data?.roleBindings.length ?? 0} role bindings</Badge>
+            <Badge>{data?.clusterRoleBindings.length ?? 0} cluster role bindings</Badge>
+            <Badge tone={(data?.findings.length ?? 0) > 0 ? "warn" : "ok"}>{data?.findings.length ?? 0} RBAC findings</Badge>
+          </Row>
+          <div className="muted small" style={{ marginTop: 8 }}>
+            Open a section below to analyse it; sections stay closed, and unanalysed, until you do.
+          </div>
+        </Card>
+      </CollapsibleSection>
 
-      <RbacFindingsCard findings={data?.findings ?? []} onQuery={applyFindingQuery} />
+      <CollapsibleSection title="Attack paths" open={attackOpen} onToggle={toggleAttack} count={attackPaths.length}>
+        <AttackPathsCard paths={attackPaths} trivyInstalled={trivy.installed} />
+      </CollapsibleSection>
 
-      <ServiceAccountAutomountCard findings={automountFindings} />
+      <CollapsibleSection title="Findings" open={findingsOpen} onToggle={toggleFindings} count={data?.findings.length ?? 0}>
+        <RbacFindingsCard findings={data?.findings ?? []} onQuery={applyFindingQuery} />
+      </CollapsibleSection>
 
-      <SecretExposureCard findings={secretExposureFindings} />
+      <CollapsibleSection title="Roles and their access" open={rolesOpen} onToggle={toggleRoles} count={data ? roleCount(data) : 0}>
+        {data && <RbacRolesList rbac={data} />}
+      </CollapsibleSection>
 
-      <ImageSignatureCard report={imageSignatureReport} enginesInstalled={sigEnginesInstalled} />
+      <CollapsibleSection title="Default ServiceAccount token automount" open={automountOpen} onToggle={toggleAutomount} count={automountFindings.length}>
+        <ServiceAccountAutomountCard findings={automountFindings} />
+      </CollapsibleSection>
 
-      <RunningImageSignaturesCard cluster={effectiveCluster} />
+      <CollapsibleSection title="Secrets exposed through environment variables" open={secretsOpen} onToggle={toggleSecrets} count={secretExposureFindings.length}>
+        <SecretExposureCard findings={secretExposureFindings} />
+      </CollapsibleSection>
 
-      <OrphanedSecretsCard secrets={orphanedSecrets} />
+      <CollapsibleSection title="Image signature verification" open={sigOpen} onToggle={toggleSig}>
+        <ImageSignatureCard report={imageSignatureReport} enginesInstalled={sigEnginesInstalled} />
+      </CollapsibleSection>
 
-      <UnusedServiceAccountsCard accounts={unusedServiceAccounts} />
+      <CollapsibleSection title="Running image signatures" open={runningSigOpen} onToggle={toggleRunningSig}>
+        <RunningImageSignaturesCard cluster={effectiveCluster} />
+      </CollapsibleSection>
 
-      <AuditSecurityFeedCard cluster={effectiveCluster} />
+      <CollapsibleSection title="Unreferenced Secrets" open={orphanOpen} onToggle={toggleOrphan} count={orphanedSecrets.length}>
+        <OrphanedSecretsCard secrets={orphanedSecrets} />
+      </CollapsibleSection>
 
+      <CollapsibleSection title="Unused ServiceAccounts" open={unusedOpen} onToggle={toggleUnused} count={unusedServiceAccounts.length}>
+        <UnusedServiceAccountsCard accounts={unusedServiceAccounts} />
+      </CollapsibleSection>
+
+      <CollapsibleSection title="Audit-log security events" open={auditOpen} onToggle={toggleAudit}>
+        <AuditSecurityFeedCard cluster={effectiveCluster} />
+      </CollapsibleSection>
+
+      <CollapsibleSection title="My access" open={accessOpen} onToggle={toggleAccess}>
       <Card>
-        <div className="rbac-section-title">My access</div>
         <Button variant="ghost" disabled={selfBusy || !effectiveCluster} onClick={() => void runSelfChecks()}>
           {selfBusy ? "Checking…" : "Run SelfSubjectAccessReviews"}
         </Button>
@@ -465,6 +540,7 @@ export default function Rbac() {
           </div>
         )}
       </Card>
+      </CollapsibleSection>
       </div>
     </div>
   );
