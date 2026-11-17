@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { Badge, Button, Drawer, IconButton, InlineBanner, SkeletonLines, StatusDot, Tabs, TextField } from "@kubebay/ui";
 import { api, nodeApi } from "../lib/api";
 import { ExecTerm, YamlTab } from "./heavy";
+import { useDiscardGuard } from "./DiscardGuard";
 import { EventsDrawer } from "./EventsDrawer";
 import { ObjectStarButton } from "./Favorites";
 import { WarningSparkline } from "./WarningSparkline";
@@ -227,7 +228,7 @@ export default function GenericDrawer({
   def,
   ns,
   name,
-  onClose,
+  onClose: onCloseNow,
   initialTab,
 }: {
   cluster: string;
@@ -238,6 +239,13 @@ export default function GenericDrawer({
   /** Open on the YAML tab (the row menu's "Edit YAML") instead of the summary. */
   initialTab?: "yaml";
 }) {
+  // Closing or changing tab drops an open YAML editor: ask first if it holds unapplied edits.
+  const { guard, modal: discardModal } = useDiscardGuard();
+  const onClose = guard(onCloseNow);
+  // A tab click that changes nothing never prompts.
+  const guardTab = <T extends string>(current: T, set: (t: T) => void) => (t: T) => {
+    if (t !== current) guard(set)(t);
+  };
   const [confirming, setConfirming] = useState(false);
   const [input, setInput] = useState("");
   const [err, setErr] = useState("");
@@ -385,7 +393,7 @@ export default function GenericDrawer({
         graceSeconds: force ? 0 : undefined,
         forceFinalizers: force,
       });
-      onClose();
+      onCloseNow();
     } catch (e) {
       setErr(String(e instanceof Error ? e.message : e));
     } finally {
@@ -524,15 +532,17 @@ export default function GenericDrawer({
         />
       )}
 
+      {discardModal}
+
       {/* ── Single-pane tab bar (only when not split) ── */}
       {!split && isNode && (
-        <Tabs tabs={["summary", "shell", "yaml"] as const} active={nodeTab} labels={nodeTabLabels} onChange={setNodeTab} />
+        <Tabs tabs={["summary", "shell", "yaml"] as const} active={nodeTab} labels={nodeTabLabels} onChange={guardTab(nodeTab, setNodeTab)} />
       )}
       {!split && isService && (
-        <Tabs tabs={["summary", "yaml"] as const} active={svcTab} labels={svcTabLabels} onChange={setSvcTab} />
+        <Tabs tabs={["summary", "yaml"] as const} active={svcTab} labels={svcTabLabels} onChange={guardTab(svcTab, setSvcTab)} />
       )}
       {!split && !isNode && !isService && (
-        <Tabs tabs={genTabs} active={genTab} labels={genTabLabels} onChange={setGenTab} />
+        <Tabs tabs={genTabs} active={genTab} labels={genTabLabels} onChange={guardTab(genTab, setGenTab)} />
       )}
 
       {/* ── Content area ── */}
@@ -546,7 +556,7 @@ export default function GenericDrawer({
                 tabs={["summary", "shell", "yaml"] as const}
                 active={leftNodeTab}
                 labels={nodeTabLabels}
-                onChange={setLeftNodeTab}
+                onChange={guardTab(leftNodeTab, setLeftNodeTab)}
               />
             )}
             {isService && (
@@ -554,7 +564,7 @@ export default function GenericDrawer({
                 tabs={["summary", "yaml"] as const}
                 active={leftSvcTab}
                 labels={svcTabLabels}
-                onChange={setLeftSvcTab}
+                onChange={guardTab(leftSvcTab, setLeftSvcTab)}
               />
             )}
             {!isNode && !isService && (
@@ -562,7 +572,7 @@ export default function GenericDrawer({
                 tabs={genTabs}
                 active={leftGenTab}
                 labels={genTabLabels}
-                onChange={setLeftGenTab}
+                onChange={guardTab(leftGenTab, setLeftGenTab)}
               />
             )}
             <div className="drawer-pane-body">
@@ -571,7 +581,7 @@ export default function GenericDrawer({
                 nodeTab={leftNodeTab}
                 svcTab={leftSvcTab}
                 genTab={leftGenTab}
-                onGenTab={setLeftGenTab}
+                onGenTab={guardTab(leftGenTab, setLeftGenTab)}
               />
             </div>
           </div>
@@ -586,7 +596,7 @@ export default function GenericDrawer({
                 tabs={["summary", "shell", "yaml"] as const}
                 active={rightNodeTab}
                 labels={nodeTabLabels}
-                onChange={setRightNodeTab}
+                onChange={guardTab(rightNodeTab, setRightNodeTab)}
               />
             )}
             {isService && (
@@ -594,7 +604,7 @@ export default function GenericDrawer({
                 tabs={["summary", "yaml"] as const}
                 active={rightSvcTab}
                 labels={svcTabLabels}
-                onChange={setRightSvcTab}
+                onChange={guardTab(rightSvcTab, setRightSvcTab)}
               />
             )}
             {!isNode && !isService && (
@@ -602,7 +612,7 @@ export default function GenericDrawer({
                 tabs={genTabs}
                 active={rightGenTab}
                 labels={genTabLabels}
-                onChange={setRightGenTab}
+                onChange={guardTab(rightGenTab, setRightGenTab)}
               />
             )}
             <div className="drawer-pane-body">
@@ -611,7 +621,7 @@ export default function GenericDrawer({
                 nodeTab={rightNodeTab}
                 svcTab={rightSvcTab}
                 genTab={rightGenTab}
-                onGenTab={setRightGenTab}
+                onGenTab={guardTab(rightGenTab, setRightGenTab)}
               />
             </div>
           </div>
@@ -623,7 +633,7 @@ export default function GenericDrawer({
           nodeTab={nodeTab}
           svcTab={svcTab}
           genTab={genTab}
-          onGenTab={setGenTab}
+          onGenTab={guardTab(genTab, setGenTab)}
         />
       )}
     </Drawer>

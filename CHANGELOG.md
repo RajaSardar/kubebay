@@ -6,6 +6,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ## [Unreleased]
 
+### Added
+- **Apply to production?** The YAML editor and Create Resource ask before applying to a cluster whose name reads like production (`prod`, `prd`, `live`, `production`), the same name check the terminal dock uses. Dry-run never asks.
+
+### Fixed
+- **Unapplied YAML edits are no longer dropped silently.** Closing a resource or pod drawer (Close, Esc, or a click on the page behind), changing its tab, or, on Create Resource, switching kind or following a link, now asks "Discard changes?" when the YAML was edited.
+
 ## [0.7.6] - 2026-11-18
 
 ### Added

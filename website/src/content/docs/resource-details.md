@@ -49,6 +49,8 @@ The YAML tab is an editor for the live object.
 - **Dry-run** sends your change to the API server without saving it. **diff view** then compares the live object with what the server would store, including defaults and webhook changes. Without a dry-run, it compares your edits with the original.
 - **Apply** sends only the fields you changed, as a patch, not the whole object.
 - **Revert** throws your edits away. **Reload** fetches the latest version from the cluster.
+- On a cluster whose name reads like production (`prod`, `prd`, `live`, `production`, the same name check the [terminal](/docs/terminal/#contexts-that-read-like-production) uses), **Apply** asks **Apply to production?** first, and applies only when you choose **Apply to …**. **Dry-run** never asks. It is a check of the name only: Kubebay can't tell what the cluster really is.
+- Unapplied edits are not dropped silently. Closing the drawer (**Close**, <kbd>Esc</kbd>, or a click on the page behind it) or changing tab while the YAML is modified asks **Discard changes?**. **Keep editing** leaves everything as it is; **Discard** drops the edit.
 - A **Secret** opens with its values hidden. **Reveal values** loads them, and the Audit Log records that.
 - If someone else changed a field you edited since you opened the editor, Kubebay doesn't apply. It lists those fields so you can **Reload current version** and make your edit again.
 
