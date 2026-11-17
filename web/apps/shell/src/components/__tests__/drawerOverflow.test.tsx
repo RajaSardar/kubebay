@@ -18,6 +18,11 @@ describe("Drawer copy button placement and size (backlog 44)", () => {
     expect(btn.querySelector("svg")?.getAttribute("width")).toBe("18");
   });
 
+  it("nameExtra (the favourite star) follows the Copy name button", () => {
+    render(<Drawer title="api" copyName="api" nameExtra={<button>star</button>} onClose={() => {}} />);
+    expect(screen.getByRole("button", { name: "Copy name" }).nextElementSibling).toBe(screen.getByRole("button", { name: "star" }));
+  });
+
   it("IconButton size=lg is opt-in", () => {
     render(
       <>

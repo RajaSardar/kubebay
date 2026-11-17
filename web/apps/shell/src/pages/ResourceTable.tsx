@@ -17,7 +17,7 @@ import { ResourceListView, type ListColumn } from "../components/ResourceListVie
 
 import GenericDrawer from "../components/GenericDrawer";
 import { WorkloadActionDialog, workloadActions } from "../components/WorkloadActionDialog";
-import { StarButton } from "../components/Favorites";
+import { StarButton, useFavoriteObjects } from "../components/Favorites";
 import { PageHelp } from "../components/PageHelp";
 import { SaveViewButton } from "../components/SavedViews";
 import { NamespaceFilter } from "../components/NamespaceFilter";
@@ -352,6 +352,7 @@ export default function ResourceTable() {
   const [selected, setSelected] = useState<{ ns: string; name: string; tab?: "yaml" } | null>(() =>
     detailName ? { ns: detailNs === "_" ? "" : (detailNs ?? ""), name: detailName } : null,
   );
+  const favObjects = useFavoriteObjects();
   const [rowAction, setRowAction] = useState<{ action: "scale" | "restart"; obj: Row } | null>(null);
 
   const stream = useResourceStream(effectiveCluster || undefined, def?.gvr ?? "v1/configmaps", {
@@ -522,6 +523,10 @@ export default function ResourceTable() {
             ...(workloadActions(def.slug).scale ? [{ label: "Scale…", onClick: () => setRowAction({ action: "scale", obj: o }) }] : []),
             ...(workloadActions(def.slug).restart ? [{ label: "Restart…", onClick: () => setRowAction({ action: "restart", obj: o }) }] : []),
             { label: "Copy name", onClick: () => void navigator.clipboard?.writeText(name) },
+            (() => {
+              const fav = { cluster: effectiveCluster, slug: def.slug, ns, name, kind: def.kind };
+              return { label: favObjects.has(fav) ? "Remove from favorites" : "Add to favorites", onClick: () => favObjects.toggle(fav) };
+            })(),
             ...ext.menuItems(o),
             { separator: true, label: "", onClick: () => {} },
             { label: "Delete", danger: true, onClick: requestDelete },

@@ -10,11 +10,12 @@ appRoutes: ["/view/:id"]
 
 The sidebar starts with **Clusters**, which goes back to the [cluster list](/docs/connect-clusters/), a **Disconnect** button while a cluster is open (it disconnects that cluster and returns to the list), and **Search…**, which opens the command palette. Below them:
 
-- **Favorites**, at the top once you have some, each a normal row. Hover a row and click **×** to remove it.
 - **Navigate**: the [Overview](/docs/workloads-overview/), then the cluster's resources in groups: Workloads, Configuration, Network, Storage, Devices (DRA), Access Control, Admission and Cluster. Click a group to open it.
 - **Custom Resources**: every custom resource kind on the cluster, grouped by API group. See [CRDs](/docs/crds/).
 - **Saved views**, once you have some.
-- **Tools**: Terminal, Create Resource, CRDs, Ports, Helm, ArgoCD, Flux, RBAC, Vulnerabilities, Right-sizing, Cost / Waste, Karpenter, KEDA, Upgrade Readiness, Audit Log, Timeline, Topology and Settings.
+- **Tools**: Terminal, Create Resource, CRDs, Ports, Helm, ArgoCD, Flux, RBAC, Vulnerabilities, Right-sizing, Cost / Waste, Karpenter, KEDA, Upgrade Readiness, Audit Log, Timeline and Topology.
+- **Favorites**, once you have some, below Tools. Click its title to collapse it; Kubebay remembers whether it is open. Hover a row and click **×** to remove it.
+- **Settings**, last.
 
 Press <kbd>⌘</kbd> <kbd>B</kbd> (<kbd>Ctrl</kbd> <kbd>B</kbd> on Windows and Linux) to hide the sidebar and get the width back. Press it again, or click the button on the cluster rail, to bring it back.
 
@@ -111,7 +112,9 @@ Keys are ignored while you're typing in a field, or while a drawer or dialog is 
 
 ## Favourites
 
-Click the **☆** next to a resource table's title to add it to **Favorites** in the sidebar. Click **★** to remove it. You can star a [custom resource kind or a whole API group](/docs/crds/) too.
+Click the **☆** next to a resource table's title to add the table to **Favorites** in the sidebar. Click **★** to remove it. You can star a [custom resource kind or a whole API group](/docs/crds/) too.
+
+You can star a single object of any kind, a pod, Deployment, Service, Ingress or a custom resource: click the **☆** after its name in its drawer, or choose **Add to favorites** in its row's menu in a table. Clicking it in **Favorites** switches to its cluster and opens its drawer. If the object has been deleted its row is dimmed; click **×** to remove it. Starred objects also appear under **Favorites** in the command palette when its box is empty.
 
 ## Saved views
 

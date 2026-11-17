@@ -3,6 +3,7 @@ import { Badge, Button, Drawer, IconButton, InlineBanner, SkeletonLines, StatusD
 import { api, nodeApi } from "../lib/api";
 import { ExecTerm, YamlTab } from "./heavy";
 import { EventsDrawer } from "./EventsDrawer";
+import { ObjectStarButton } from "./Favorites";
 import { WarningSparkline } from "./WarningSparkline";
 import { WorkloadHealthChip } from "./WorkloadHealthChip";
 import { ActionsBar } from "./ActionsBar";
@@ -447,6 +448,7 @@ export default function GenericDrawer({
     <Drawer
       title={name}
       copyName={name}
+      nameExtra={<ObjectStarButton obj={{ cluster, slug: def.slug, ns, name, kind: def.kind }} />}
       subtitle={def.scoped ? def.label : ns}
       leading={<StatusDot status="connected" />}
       onClose={onClose}

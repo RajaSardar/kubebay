@@ -77,13 +77,15 @@ export interface DrawerProps {
   onClose: () => void;
   /** The resource's bare name: adds a "Copy name" button after the title that copies it. */
   copyName?: string;
+  /** Extra controls right after the name and its Copy button, such as a favourite star. */
+  nameExtra?: ReactNode;
   /** Fill the page instead of sliding over it (the full-page resource view). */
   embedded?: boolean;
   children?: ReactNode;
 }
 
 /** The side panel for one resource: a head (status, title, actions) over its content. */
-export function Drawer({ title, subtitle, subtitleMono = true, leading, actions, onClose, copyName, embedded, children }: DrawerProps) {
+export function Drawer({ title, subtitle, subtitleMono = true, leading, actions, onClose, copyName, nameExtra, embedded, children }: DrawerProps) {
   const [copied, setCopied] = useState(false);
   useEffect(() => {
     if (!copied) return;
@@ -164,6 +166,7 @@ export function Drawer({ title, subtitle, subtitleMono = true, leading, actions,
                 </svg>
               </IconButton>
             )}
+            {nameExtra}
           </div>
           {subtitle != null && subtitle !== false && (
             <div className={`drawer-subtitle${subtitleMono ? " drawer-subtitle-mono" : ""}`}>{subtitle}</div>

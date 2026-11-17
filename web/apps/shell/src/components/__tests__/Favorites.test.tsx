@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { act, fireEvent, render, renderHook, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { FavoritesSidebar, StarButton, useFavorites } from "../Favorites";
+import { FavoritesSidebar, ObjectStarButton, StarButton, useFavorites, useFavoriteObjects } from "../Favorites";
 
 beforeEach(() => localStorage.clear());
 
@@ -37,5 +37,39 @@ describe("FavoritesSidebar labels", () => {
     );
     expect(screen.getByText("applications")).toBeTruthy();
     expect(screen.getByText("argoproj.io")).toBeTruthy();
+  });
+});
+
+describe("object favourites", () => {
+  const dep = { cluster: "kind-a", slug: "deployments", ns: "shop", name: "api", kind: "Deployment" };
+
+  it("stores {cluster, slug, ns, name} apart from route favourites and keeps both", () => {
+    localStorage.setItem("kb.favorites", JSON.stringify(["/helm"]));
+    const a = renderHook(() => useFavoriteObjects());
+    const b = renderHook(() => useFavorites());
+    act(() => a.result.current.toggle(dep));
+    expect(a.result.current.has(dep)).toBe(true);
+    expect(JSON.parse(localStorage.getItem("kb.favorites.objects")!)).toEqual([dep]);
+    expect(b.result.current.favorites).toEqual(["/helm"]);
+    act(() => a.result.current.toggle(dep));
+    expect(a.result.current.objects).toEqual([]);
+  });
+
+  it("an object starred on one cluster is not starred on another", () => {
+    const a = renderHook(() => useFavoriteObjects());
+    act(() => a.result.current.toggle(dep));
+    expect(a.result.current.has({ ...dep, cluster: "kind-b" })).toBe(false);
+  });
+
+  it("ObjectStarButton names the object and toggles", () => {
+    render(<ObjectStarButton obj={dep} />);
+    fireEvent.click(screen.getByRole("button", { name: "Add api to favorites" }));
+    expect(screen.getByRole("button", { name: "Remove api from favorites" })).toBeTruthy();
+  });
+
+  it("survives corrupt stored data", () => {
+    localStorage.setItem("kb.favorites.objects", "{nope");
+    const a = renderHook(() => useFavoriteObjects());
+    expect(a.result.current.objects).toEqual([]);
   });
 });
