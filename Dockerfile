@@ -1,4 +1,5 @@
-FROM node:20-alpine AS web
+# The web bundle is platform-independent: build it natively, not under qemu (node crashes with SIGILL there).
+FROM --platform=$BUILDPLATFORM node:20-alpine AS web
 RUN corepack enable
 WORKDIR /src
 COPY web/ ./web/
