@@ -14,6 +14,8 @@ Each one is explained in plain words, such as *scales 1→20 on cron Mon–Fri 0
 
 Each ScaledObject shows a **Paused** or **Active** pill. KEDA marks a paused ScaledObject with the `autoscaling.keda.sh/paused: "true"` annotation, or with `autoscaling.keda.sh/paused-replicas`, which pins the workload to that replica count. Kubebay also treats a `Paused` status condition of `True` as paused.
 
+To pause a ScaledObject, choose **Pause** on its row. Kubebay asks **Replicas to hold**, which starts at the current replica count and can be 0, then sets `autoscaling.keda.sh/paused-replicas` to that number (and removes `autoscaling.keda.sh/paused`, which would otherwise hold the current count instead). KEDA then stops autoscaling and keeps the workload at that count. **Unpause** removes both annotations so KEDA resumes scaling. Both changes are audit-logged and use your own permissions.
+
 Above the list, **Search KEDA resources…** filters by kind, name or namespace, and a row of buttons picks which kind to show:
 
 - **All**: ScaledObjects, ScaledJobs, TriggerAuthentications and ClusterTriggerAuthentications together, each linked to its detail view;

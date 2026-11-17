@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
-import { Badge, Button, Card, EmptyState, InlineBanner, Row, Stack, StatusPill } from "@kubebay/ui";
+import { Badge, Button, Card, EmptyState, InlineBanner, Modal, Row, Stack, StatusPill, TextField } from "@kubebay/ui";
+import { api } from "../lib/api";
 import { ResourceLink } from "./ResourceLink";
-import { explainScaledObject, hpaConflictsWithScaledObject } from "../lib/keda";
+import { explainScaledObject, hpaConflictsWithScaledObject, pauseScaledObjectRequest } from "../lib/keda";
 import type { OrphanedTriggerAuth } from "../lib/keda";
 import { extSlug, slugForKind } from "../lib/resources";
 
@@ -18,6 +19,7 @@ type Filter = "all" | "conflicts" | "scale-to-zero";
  * workload, a shape that doesn't fit a flat cross-namespace list.
  */
 export function KedaInventory({
+  cluster,
   scaledObjects,
   hpas,
   orphanedTriggerAuths,
@@ -25,6 +27,8 @@ export function KedaInventory({
   triggerAuthGvr,
   clusterTriggerAuthGvr,
 }: {
+  /** The cluster the ScaledObjects live on; with scaledObjectGvr it enables Pause / Unpause. */
+  cluster?: string;
   scaledObjects: Record<string, unknown>[];
   hpas: Record<string, unknown>[];
   orphanedTriggerAuths: OrphanedTriggerAuth[];
@@ -34,6 +38,26 @@ export function KedaInventory({
   clusterTriggerAuthGvr?: string;
 }) {
   const [filter, setFilter] = useState<Filter>("all");
+  const [pausing, setPausing] = useState<{ ns: string; name: string; replicas: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const canPause = !!cluster && !!scaledObjectGvr;
+
+  async function run(ns: string, name: string, replicas: number | null) {
+    if (!cluster || !scaledObjectGvr) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api.applyYaml(pauseScaledObjectRequest({ cluster, gvr: scaledObjectGvr, ns, name }, replicas));
+      setPausing(null);
+    } catch (e) {
+      setError(`Couldn't ${replicas === null ? "unpause" : "pause"} ${name}: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+  const pauseCount = pausing ? Number(pausing.replicas) : NaN;
+  const pauseValid = pausing !== null && pausing.replicas.trim() !== "" && Number.isInteger(pauseCount) && pauseCount >= 0;
 
   const explained = useMemo(
     () => scaledObjects.map((so) => ({ so, explain: explainScaledObject(so), conflict: hpaConflictsWithScaledObject(so, hpas) })),
@@ -62,6 +86,8 @@ export function KedaInventory({
         </Row>
       )}
 
+      {error && <InlineBanner flush>{error}</InlineBanner>}
+
       {scaledObjects.length === 0 ? (
         <EmptyState>
           <p>No ScaledObjects found on this cluster.</p>
@@ -84,6 +110,20 @@ export function KedaInventory({
                 )}
                 <span className="muted small">{explain.ns}</span>
                 {explain.paused ? <StatusPill tone="warn">Paused</StatusPill> : <StatusPill tone="ok">Active</StatusPill>}
+                {canPause &&
+                  (explain.paused ? (
+                    <Button variant="ghost" disabled={busy} onClick={() => run(explain.ns, explain.name, null)}>
+                      Unpause
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      disabled={busy}
+                      onClick={() => setPausing({ ns: explain.ns, name: explain.name, replicas: String(explain.currentReplicas ?? explain.minReplicas) })}
+                    >
+                      Pause
+                    </Button>
+                  ))}
               </Row>
               <div className="small" style={{ marginTop: 8 }}>
                 {explain.summary} — target{" "}
@@ -116,6 +156,42 @@ export function KedaInventory({
             </Card>
           ))}
         </Stack>
+      )}
+
+      {pausing && (
+        <Modal label={`Pause ${pausing.name}`} title={`Pause ${pausing.name}`} onClose={() => setPausing(null)} placement="center">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (pauseValid) void run(pausing.ns, pausing.name, pauseCount);
+            }}
+          >
+            <Stack gap={3}>
+              <p className="small">
+                KEDA stops autoscaling this ScaledObject and holds its workload at this many replicas until you unpause. Use 0 to scale it down.
+              </p>
+              <label className="small" htmlFor="keda-pause-replicas">
+                Replicas to hold
+              </label>
+              <TextField
+                id="keda-pause-replicas"
+                type="number"
+                min={0}
+                step={1}
+                value={pausing.replicas}
+                onChange={(e) => setPausing({ ...pausing, replicas: e.target.value })}
+              />
+              <Row gap={2}>
+                <Button type="submit" variant="primary" disabled={!pauseValid || busy}>
+                  Pause autoscaling
+                </Button>
+                <Button type="button" variant="ghost" onClick={() => setPausing(null)}>
+                  Cancel
+                </Button>
+              </Row>
+            </Stack>
+          </form>
+        </Modal>
       )}
 
       {orphanedTriggerAuths.length > 0 && (

@@ -249,8 +249,35 @@ func (c *Channels) HandleApplyYAML(w http.ResponseWriter, r *http.Request) {
 		data, _ = json.Marshal(tree)
 		patchType = types.StrategicMergePatchType
 		edit = &EditPatch{Type: patchType, Data: data, ChangedPaths: paths}
+	case req.Mode == "merge":
+		// An RFC 7386 JSON merge patch of exactly the fields named, valid for
+		// any kind including custom resources; null deletes a field (used to
+		// drop an annotation, e.g. un-pausing a KEDA ScaledObject).
+		converted, err := yaml.YAMLToJSON([]byte(req.YAML))
+		if err != nil {
+			http.Error(w, "convert: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		var tree map[string]interface{}
+		_ = json.Unmarshal(converted, &tree)
+		for _, k := range []string{"apiVersion", "kind"} {
+			delete(tree, k)
+		}
+		if m, ok := tree["metadata"].(map[string]interface{}); ok {
+			delete(m, "name")
+			delete(m, "namespace")
+			if len(m) == 0 {
+				delete(tree, "metadata")
+			}
+		}
+		paths := []string{}
+		collectPatchPaths(tree, "", false, &paths)
+		sort.Strings(paths)
+		data, _ = json.Marshal(tree)
+		patchType = types.MergePatchType
+		edit = &EditPatch{Type: patchType, Data: data, ChangedPaths: paths}
 	default:
-		http.Error(w, "send original (an edit) or mode=strategic (a patch); whole-object apply is no longer supported", http.StatusBadRequest)
+		http.Error(w, "send original (an edit) or mode=strategic|merge (a patch); whole-object apply is no longer supported", http.StatusBadRequest)
 		return
 	}
 	if req.DryRun {

@@ -25,6 +25,7 @@ function nsOf(o: Record<string, unknown>): string {
  * paused); the other views are flat lists linking to each resource.
  */
 export function KedaBrowser({
+  cluster,
   scaledObjects,
   scaledJobs,
   triggerAuths,
@@ -36,6 +37,7 @@ export function KedaBrowser({
   triggerAuthGvr,
   clusterTriggerAuthGvr,
 }: {
+  cluster?: string;
   scaledObjects: Record<string, unknown>[];
   scaledJobs: Record<string, unknown>[];
   triggerAuths: Record<string, unknown>[];
@@ -96,6 +98,7 @@ export function KedaBrowser({
 
       {view === "ScaledObject" ? (
         <KedaInventory
+          cluster={cluster}
           scaledObjects={matchingScaledObjects}
           hpas={hpas}
           orphanedTriggerAuths={orphanedTriggerAuths}

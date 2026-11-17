@@ -1,9 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
+import { api } from "../lib/api";
 import { KedaInventory } from "./KedaInventory";
 
 const navigateMock = vi.fn();
+
+vi.mock("../lib/api", async () => {
+  const actual = await vi.importActual<typeof import("../lib/api")>("../lib/api");
+  return { ...actual, api: { ...actual.api, applyYaml: vi.fn().mockResolvedValue({ applied: true, dryRun: false }) } };
+});
 
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual<typeof import("react-router-dom")>("react-router-dom");
@@ -107,5 +113,34 @@ describe("KedaInventory", () => {
     renderInventory({ scaledObjects: [paused, so("so-a", "prod")] });
     expect(screen.getAllByText("Paused")).toHaveLength(1);
     expect(screen.getAllByText("Active")).toHaveLength(1);
+  });
+
+  const GVR = "keda.sh/v1alpha1/scaledobjects";
+
+  it("pauses at the replica count typed in the modal, defaulting to current replicas", async () => {
+    const withStatus = { ...so("so-a", "prod"), status: { currentReplicas: 4 } };
+    renderInventory({ scaledObjects: [withStatus], cluster: "c1", scaledObjectGvr: GVR });
+    fireEvent.click(screen.getByRole("button", { name: "Pause" }));
+    const input = screen.getByLabelText("Replicas to hold") as HTMLInputElement;
+    expect(input.value).toBe("4");
+    fireEvent.change(input, { target: { value: "0" } });
+    fireEvent.click(screen.getByRole("button", { name: "Pause autoscaling" }));
+    await vi.waitFor(() => expect(api.applyYaml).toHaveBeenCalled());
+    const body = vi.mocked(api.applyYaml).mock.calls.at(-1)![0];
+    expect(body.yaml).toContain('paused-replicas: "0"');
+    expect(body.mode).toBe("merge");
+  });
+
+  it("unpauses a paused ScaledObject", async () => {
+    const paused = { ...so("so-p", "prod"), metadata: { name: "so-p", namespace: "prod", annotations: { "autoscaling.keda.sh/paused-replicas": "2" } } };
+    renderInventory({ scaledObjects: [paused], cluster: "c1", scaledObjectGvr: GVR });
+    expect(screen.queryByRole("button", { name: "Pause" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Unpause" }));
+    await vi.waitFor(() => expect(vi.mocked(api.applyYaml).mock.calls.at(-1)![0].action).toBe("keda-unpause"));
+  });
+
+  it("shows no pause controls without a cluster", () => {
+    renderInventory({ scaledObjects: [so("so-a", "prod")] });
+    expect(screen.queryByRole("button", { name: "Pause" })).toBeNull();
   });
 });

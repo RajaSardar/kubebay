@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { explainScaledObject, hpaConflictsWithScaledObject, scaledObjectPauseState, detectKeda, filterKedaRows } from "../keda";
+import { explainScaledObject, hpaConflictsWithScaledObject, scaledObjectPauseState, pauseScaledObjectRequest, detectKeda, filterKedaRows } from "../keda";
 
 function scaledObject(overrides: Record<string, unknown> = {}) {
   return {
@@ -142,5 +142,27 @@ describe("hpaConflictsWithScaledObject", () => {
 
   it("returns false when there are no HPAs", () => {
     expect(hpaConflictsWithScaledObject(scaledObject(), [])).toBe(false);
+  });
+});
+
+describe("pauseScaledObjectRequest", () => {
+  const target = { cluster: "c1", gvr: "keda.sh/v1alpha1/scaledobjects", ns: "prod", name: "app-so" };
+
+  it("pins to the replica count and drops the paused annotation", () => {
+    const req = pauseScaledObjectRequest(target, 3);
+    expect(req).toMatchObject({ cluster: "c1", gvr: target.gvr, ns: "prod", name: "app-so", mode: "merge", action: "keda-pause", dryRun: false });
+    expect(req.yaml).toContain('autoscaling.keda.sh/paused-replicas: "3"');
+    expect(req.yaml).toContain("autoscaling.keda.sh/paused: null");
+  });
+
+  it("allows pausing at zero", () => {
+    expect(pauseScaledObjectRequest(target, 0).yaml).toContain('paused-replicas: "0"');
+  });
+
+  it("unpause removes both annotations", () => {
+    const req = pauseScaledObjectRequest(target, null);
+    expect(req.action).toBe("keda-unpause");
+    expect(req.yaml).toContain("autoscaling.keda.sh/paused-replicas: null");
+    expect(req.yaml).toContain("autoscaling.keda.sh/paused: null");
   });
 });
