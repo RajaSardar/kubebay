@@ -227,8 +227,6 @@ export default function GenericDrawer({
   ns,
   name,
   onClose,
-  onPopOut,
-  embedded,
   initialTab,
 }: {
   cluster: string;
@@ -236,9 +234,6 @@ export default function GenericDrawer({
   ns: string;
   name: string;
   onClose: () => void;
-  onPopOut?: () => void;
-  /** Fill the full-page resource view instead of sliding over the list. */
-  embedded?: boolean;
   /** Open on the YAML tab (the row menu's "Edit YAML") instead of the summary. */
   initialTab?: "yaml";
 }) {
@@ -351,19 +346,6 @@ export default function GenericDrawer({
     setErr("");
   }, [name, ns]);
 
-  // ⌘⇧Enter → pop out to full page
-  useEffect(() => {
-    if (!onPopOut) return;
-    function onKey(e: KeyboardEvent) {
-      if (drawerChord(e) === "pop-out") {
-        e.preventDefault();
-        onPopOut!();
-      }
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onPopOut]);
-
   // ⌘⇧S → toggle split
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -468,20 +450,10 @@ export default function GenericDrawer({
       subtitle={def.scoped ? def.label : ns}
       leading={<StatusDot status="connected" />}
       onClose={onClose}
-      embedded={embedded}
       actions={
         <>
           {!confirming ? (
             <>
-              {onPopOut && (
-                <IconButton label="Open full page" title="Open full page (⌘⇧↵)" onClick={onPopOut}>
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
-                    <rect x="1" y="1" width="12" height="12" rx="1.5" stroke="currentColor" strokeWidth="1.4" fill="none" />
-                    <path d="M8 2.5h3.5V6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-                    <path d="M11.5 2.5L7.5 6.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-                  </svg>
-                </IconButton>
-              )}
               {/* Split view toggle */}
               <IconButton label="Toggle split view" title="Split view (⌘⇧S)" active={split} onClick={toggleSplit}>
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>

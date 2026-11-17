@@ -341,7 +341,7 @@ const HAS_PODS = new Set(["deployments", "statefulsets", "daemonsets", "replicas
 const BUILT_IN_COLUMNS = new Set(["name", "namespace", "age"]);
 
 export default function ResourceTable() {
-  const { kind = "" } = useParams();
+  const { kind = "", ns: detailNs, name: detailName } = useParams();
   const [sp] = useSearchParams();
   const def: ResourceDef | undefined = lookupDef(kind, sp);
   const navigate = useNavigate();
@@ -353,7 +353,10 @@ export default function ResourceTable() {
   const nsFilter = useSelectedNamespaces(effectiveCluster || undefined);
   // KB-16: the filter's current text, for Save view.
   const [filterText, setFilterText] = useState(sp.get("q") ?? "");
-  const [selected, setSelected] = useState<{ ns: string; name: string; tab?: "yaml" } | null>(null);
+  // A /detail/:kind/:ns/:name deep link opens the same side drawer over the list.
+  const [selected, setSelected] = useState<{ ns: string; name: string; tab?: "yaml" } | null>(() =>
+    detailName ? { ns: detailNs === "_" ? "" : (detailNs ?? ""), name: detailName } : null,
+  );
   const [rowAction, setRowAction] = useState<{ action: "scale" | "restart"; obj: Row } | null>(null);
 
   const stream = useResourceStream(effectiveCluster || undefined, def?.gvr ?? "v1/configmaps", {
@@ -547,10 +550,9 @@ export default function ResourceTable() {
           ns={selected.ns}
           name={selected.name}
           initialTab={selected.tab}
-          onClose={() => setSelected(null)}
-          onPopOut={() => {
+          onClose={() => {
             setSelected(null);
-            navigate(`/detail/${kind}/${selected.ns || "_"}/${selected.name}${sp.toString() ? "?" + sp.toString() : ""}`);
+            if (detailName) navigate(`/r/${kind}${sp.toString() ? "?" + sp.toString() : ""}`, { replace: true });
           }}
         />
       )}

@@ -1671,46 +1671,6 @@ h2 {
   line-height: 1.5;
 }
 
-/* ──── Resource Detail full-page ──── */
-
-.resource-detail-page {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  overflow: hidden;
-}
-
-.resource-detail-back {
-  padding: 10px 16px 0;
-  flex-shrink: 0;
-}
-
-.resource-detail-back-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: transparent;
-  border: none;
-  font: inherit;
-  font-size: var(--kb-text-sm);
-  color: var(--kb-fg-muted);
-  cursor: pointer;
-  padding: 4px 8px;
-  border-radius: var(--kb-radius-sm);
-  transition: background var(--kb-dur-fast) var(--kb-ease), color var(--kb-dur-fast) var(--kb-ease);
-}
-
-.resource-detail-back-btn:hover {
-  background: var(--kb-bg-raised);
-  color: var(--kb-fg-default);
-}
-
-.resource-detail-content {
-  flex: 1;
-  min-height: 0;
-  position: relative;
-}
-
 /* ──── Split-pane drawer layout ──── */
 .drawer-split {
   flex: 1;

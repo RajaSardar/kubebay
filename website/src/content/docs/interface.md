@@ -118,7 +118,6 @@ Saved views are listed in the sidebar and in the command palette. Opening one sw
 | <kbd>/</kbd> | jump to a table's filter |
 | <kbd>j</kbd> <kbd>k</kbd> <kbd>Enter</kbd> <kbd>x</kbd> | move, open and select in a table |
 | <kbd>Esc</kbd> | close a drawer, dialog, ⓘ or the palette |
-| <kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>Enter</kbd> | open a resource's drawer as a full page |
 | <kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>S</kbd> | split a resource's drawer, to see two of its tabs side by side |
 
 On Windows and Linux, use <kbd>Ctrl</kbd> for <kbd>⌘</kbd>.
