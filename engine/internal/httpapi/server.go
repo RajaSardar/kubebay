@@ -125,6 +125,7 @@ func Router(d Deps, token string) http.Handler {
 			r.Use(d.Auth.Middleware)
 		}
 		r.Get("/api/clusters", func(w http.ResponseWriter, _ *http.Request) {
+			d.Clusters.RequestReachability()
 			writeJSON(w, d.Clusters.List())
 		})
 		r.Post("/api/clusters/{id}/connect", connectClusterHandler(d.Clusters))

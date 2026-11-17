@@ -302,4 +302,25 @@ describe("ClusterPicker: updates (KB-04)", () => {
       delete w.__TAURI_INTERNALS__;
     }
   });
+
+  it("mounts only a window of rows once the list is long, and every row while it is short", async () => {
+    Object.defineProperty(HTMLElement.prototype, "offsetHeight", { configurable: true, value: 600 });
+    Object.defineProperty(HTMLElement.prototype, "clientHeight", { configurable: true, value: 600 });
+    const many: ClusterInfo[] = Array.from({ length: 400 }, (_, i) => ({
+      id: `c-${String(i).padStart(3, "0")}`,
+      context: `c-${i}`,
+      server: "https://x",
+      status: "reachable" as const,
+    }));
+    const { unmount } = renderPage(many);
+    await screen.findByText("c-0", { selector: "[data-cluster-name]" });
+    const mounted = document.querySelectorAll("[data-cluster-name]").length;
+    expect(mounted).toBeGreaterThan(0);
+    expect(mounted).toBeLessThan(100);
+    unmount();
+
+    renderPage([dev, stage, down, broken]);
+    await screen.findByText("kind-dev", { selector: "[data-cluster-name]" });
+    expect(document.querySelectorAll("[data-cluster-name]").length).toBe(4);
+  });
 });

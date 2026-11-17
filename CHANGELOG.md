@@ -10,6 +10,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 - **Apply to production?** The YAML editor and Create Resource ask before applying to a cluster whose name reads like production (`prod`, `prd`, `live`, `production`), the same name check the terminal dock uses. Dry-run never asks.
 
 ### Fixed
+- **Large kubeconfigs no longer load the machine.** The engine health check probes only connected clusters every 30 seconds; the others are checked when you open the Clusters page, at most every 5 minutes each and 10 at a time (so cloud login plugins are not run for every context). Connecting many clusters at once starts at most 3 initial lists at a time, and the Clusters table mounts only the visible rows once you have more than 100 clusters.
 - **Unapplied YAML edits are no longer dropped silently.** Closing a resource or pod drawer (Close, Esc, or a click on the page behind), changing its tab, or, on Create Resource, switching kind or following a link, now asks "Discard changes?" when the YAML was edited.
 
 ## [0.7.6] - 2026-11-18

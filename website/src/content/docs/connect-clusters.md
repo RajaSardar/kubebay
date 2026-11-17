@@ -15,7 +15,7 @@ Kubebay reads your kubeconfig, so every context you can use with `kubectl` is al
 Each row is one context:
 
 - **Session**: **Active** for the cluster you're looking at, **Connected** for one that's streaming in the background.
-- **API**: whether the engine can reach the API server. It shows **Reachable**, **Degraded**, **Unreachable** or **Config error**. Hover over it to see the error and when it was last checked.
+- **API**: whether the engine can reach the API server. It shows **Reachable**, **Degraded**, **Unreachable** or **Config error**. Hover over it to see the error and when it was last checked. Connected clusters are checked every 30 seconds; the others are checked when you open this page, at most every 5 minutes each, so with a very large kubeconfig a cluster you have not connected to may show **Checking** for a moment. With more than 100 clusters the table shows only the rows on screen as you scroll.
 - **Version**: the Kubernetes version.
 - **Pods** and **Nodes**: counts for connected clusters. The pod bar shows healthy, pending and failing pods.
 - **CPU · 7 days**: hourly peaks over the last week, from [usage history](/docs/settings/#usage-history).

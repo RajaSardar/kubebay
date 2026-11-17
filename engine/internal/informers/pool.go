@@ -417,6 +417,11 @@ func (p *Pool) entryFor(key poolKey) (*entry, error) {
 	p.entries[key] = e
 	go func() {
 		defer close(e.fanout)
+		release, ok := initialLists.acquire(e.stop)
+		if !ok {
+			return
+		}
+		go holdUntilSynced(release, inf.HasSynced, e.stop, listHoldMax)
 		inf.Run(e.stop)
 	}()
 	go func() {

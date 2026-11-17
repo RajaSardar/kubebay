@@ -10,6 +10,12 @@ import { useClusterMeta } from "../lib/cluster-meta-store";
 import { useClusterIcons } from "../lib/useClusterIcons";
 import { useClusterStore } from "../lib/cluster-store";
 import { sortClusters, filterClusters } from "../lib/clusterSort";
+import { useTableVirtualizer } from "../lib/useTableVirtualizer";
+import { useDisplay, ROW_HEIGHT } from "../lib/display";
+import { VirtualSpacer } from "../components/VirtualSpacer";
+
+/** Above this many clusters the table mounts only the rows on screen. */
+const VIRTUALISE_ABOVE = 100;
 import {
   clusterSummary,
   connectCluster as bgConnect,
@@ -239,6 +245,12 @@ export default function ClusterPicker() {
   const isConnected = (c: ClusterInfo) => !!c.connected || c.id === activeId;
   const hiddenClusters = list.filter((c) => meta[c.id]?.hidden);
   const sorted = sortClusters(filterClusters(list, meta, query), meta);
+  const { density } = useDisplay();
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const headRef = useRef<HTMLTableSectionElement>(null);
+  const windowed = sorted.length > VIRTUALISE_ABOVE;
+  const virtual = useTableVirtualizer({ count: windowed ? sorted.length : 0, estimate: ROW_HEIGHT[density], scrollRef, headerRef: headRef });
+  const visible = windowed ? virtual.items.map((v) => sorted[v.index]!) : sorted;
   const connected = list.filter(isConnected);
   const count = (s: ClusterInfo["status"]) => list.filter((c) => c.status === s).length;
   const summary = [
@@ -333,7 +345,7 @@ export default function ClusterPicker() {
             </EmptyState>
           ) : (
             !clusters.isError && (
-              <TableWrap>
+              <TableWrap ref={scrollRef}>
                 <Table>
                   <colgroup>
                     {HEADERS.map((h) => (
@@ -341,7 +353,7 @@ export default function ClusterPicker() {
                     ))}
                     <col style={{ width: 36 }} />
                   </colgroup>
-                  <thead>
+                  <thead ref={headRef}>
                     <tr>
                       {HEADERS.map((h) => (
                         <th key={h} style={{ width: widthOf(h), position: "relative" }}>
@@ -354,7 +366,8 @@ export default function ClusterPicker() {
                   </thead>
                   <tbody>
                     {clusters.isLoading && <SkeletonRows columns={HEADERS.length + 1} rows={3} />}
-                    {sorted.flatMap((c) => {
+                    {windowed && <VirtualSpacer height={virtual.topSpace} colSpan={HEADERS.length + 1} />}
+                    {visible.flatMap((c) => {
                       const m = meta[c.id] ?? {};
                       const icon = icons[c.id] ?? autoAvatar(c.id);
                       const broken = c.status === "misconfigured";
@@ -475,6 +488,7 @@ export default function ClusterPicker() {
                       }
                       return rows;
                     })}
+                    {windowed && <VirtualSpacer height={virtual.bottomSpace} colSpan={HEADERS.length + 1} />}
                   </tbody>
                 </Table>
               </TableWrap>
