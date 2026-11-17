@@ -7,6 +7,7 @@ import { useCluster } from "../lib/useCluster";
 import { useResourceStream } from "../lib/useResourceStream";
 import { fmtAge, lookupDef, num, str, type ResourceDef } from "../lib/resources";
 import { fmtBytes, fmtCpu } from "../lib/format";
+import { nextRunCell } from "../lib/cron";
 import { useNodeExtras } from "../lib/useNodeExtras";
 import { evalPrinterPath } from "../lib/printerPath";
 import { claimDeviceClasses, claimDevices, claimState, claimUsers, classDriver, sliceNodes } from "../lib/dra";
@@ -38,6 +39,8 @@ export interface Cell {
   cls?: string;
   /** Show the value as a status pill whose tone comes from statusTone. */
   pill?: boolean;
+  /** Hover text for the value (e.g. the absolute time behind a relative one). */
+  title?: string;
   /** When set, the cell links to another resource's detail view instead of just displaying text. */
   to?: { kind: string; ns: string; name: string };
 }
@@ -153,6 +156,7 @@ export function extraColumns(
           if (!t) return { v: "–" };
           return { v: fmtAge(Date.now() - Date.parse(t)) };
         },
+        "Next Schedule": (o) => nextRunCell(o, new Date()),
       };
     case "persistentvolumeclaims":
       return {
@@ -416,7 +420,9 @@ export default function ResourceTable() {
               ) : cell.pill && cell.v ? (
                 <StatusPill tone={statusTone(String(cell.v))}>{cell.v}</StatusPill>
               ) : (
-                <span className={cell.cls ?? ""}>{cell.v}</span>
+                <span className={cell.cls ?? ""} title={cell.title}>
+                  {cell.v}
+                </span>
               )}
             </span>
           );
