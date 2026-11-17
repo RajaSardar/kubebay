@@ -20,7 +20,7 @@ Press <kbd>⌘</kbd> <kbd>B</kbd> (<kbd>Ctrl</kbd> <kbd>B</kbd> on Windows and L
 
 ## Several windows
 
-In the desktop app, **File > New Window** (<kbd>⌘</kbd> <kbd>N</kbd>, <kbd>Ctrl</kbd> <kbd>N</kbd> on Windows and Linux) opens another window on the same Kubebay engine. Use it to look at two clusters side by side.
+In the desktop app, **File > New Window** (<kbd>⌘</kbd> <kbd>N</kbd>, <kbd>Ctrl</kbd> <kbd>N</kbd> on Windows and Linux) opens another window on the same Kubebay engine. Use it to look at two clusters side by side. On a Mac, right-click the Kubebay icon in the Dock and choose **New Window** for the same thing. Clicking the Dock icon when every window is closed also opens one.
 
 - A new window opens on the [cluster list](/docs/connect-clusters/), and each window remembers its own connected cluster, so connecting one window does not change the others.
 - Theme, font and density are shared: change one in Settings and every open window follows. Favourites, table columns and sorting are shared too, and are read when a window opens, so an open window picks up another window's change the next time it loads that table.

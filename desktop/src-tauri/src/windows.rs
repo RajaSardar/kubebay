@@ -30,9 +30,21 @@ pub fn engine_should_stop(open: &[String], destroyed: &str) -> bool {
     !open.iter().any(|l| l != destroyed)
 }
 
+/// Whether clicking the Dock icon should open a window: only when none is
+/// visible (otherwise macOS just brings the existing ones forward).
+pub fn open_on_reopen(has_visible_windows: bool) -> bool {
+    !has_visible_windows
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn clicking_the_dock_icon_with_no_window_open_opens_one() {
+        assert!(open_on_reopen(false));
+        assert!(!open_on_reopen(true));
+    }
 
     fn v(items: &[&str]) -> Vec<String> {
         items.iter().map(|s| s.to_string()).collect()
