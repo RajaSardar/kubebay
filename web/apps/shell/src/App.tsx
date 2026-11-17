@@ -73,6 +73,7 @@ import { ClusterConnectingOverlay } from "./components/ClusterConnectingOverlay"
 import { PageSkeleton } from "./components/PageSkeleton";
 import { usePrewarm } from "./lib/usePrewarm";
 import { useNamespaceFallback } from "./lib/namespaceAccess";
+import { useDisconnectCluster } from "./lib/useDisconnectCluster";
 import { useRemoteDisconnects } from "./lib/useRemoteDisconnects";
 import { useSidebar, type SidebarState } from "./lib/useSidebar";
 import { HideSidebarButton, ShowSidebarButton } from "./components/SidebarToggle";
@@ -416,7 +417,7 @@ function ClusterStrip({ sidebar }: { sidebar: SidebarState }) {
 
 // ──── Sidebar ────────────────────────────────────────────────────────────────
 
-function Sidebar({ onOpenPalette, sidebar }: { onOpenPalette: () => void; sidebar: SidebarState }) {
+export function Sidebar({ onOpenPalette, sidebar }: { onOpenPalette: () => void; sidebar: SidebarState }) {
   const initialOpen = () => {
     const map: Record<string, boolean> = { Workloads: true };
     for (const g of GROUPS) if (!map[g.label]) map[g.label] = false;
@@ -428,6 +429,13 @@ function Sidebar({ onOpenPalette, sidebar }: { onOpenPalette: () => void; sideba
   const queryClient = useQueryClient();
   const clusterList = queryClient.getQueryData<ClusterInfo[]>(["clusters"]) ?? [];
   const activeCluster = clusterList.find((c) => c.id === active);
+  const navigate = useNavigate();
+  const disconnectCluster = useDisconnectCluster();
+  const disconnectActive = () => {
+    if (!active) return;
+    navigate("/clusters");
+    void disconnectCluster(active);
+  };
 
   return (
     <aside className="sidebar" id="kb-sidebar" hidden={sidebar.hidden}>
@@ -452,6 +460,11 @@ function Sidebar({ onOpenPalette, sidebar }: { onOpenPalette: () => void; sideba
         </svg>
         <span>Clusters</span>
       </NavLink>
+      {active && (
+        <Button variant="ghost" size="sm" className="sidebar-disconnect" onClick={disconnectActive} title={`Disconnect ${active}`}>
+          Disconnect
+        </Button>
+      )}
 
       <button className="palette-hint" onClick={onOpenPalette}>
         <IconSearch size={13} />
@@ -460,6 +473,7 @@ function Sidebar({ onOpenPalette, sidebar }: { onOpenPalette: () => void; sideba
       </button>
 
       <nav className="nav">
+        {favorites.length > 0 && <FavoritesSidebar favorites={favorites} onRemove={removeFav} />}
         <div className="nav-section">Navigate</div>
         <NavLink to="/workloads-overview" className={({ isActive }) => navItemClass({ active: isActive })}>
           <span className="nav-icon"><IconHome /></span>
@@ -485,7 +499,6 @@ function Sidebar({ onOpenPalette, sidebar }: { onOpenPalette: () => void; sideba
 
         <CustomResourcesGroup />
 
-        {favorites.length > 0 && <FavoritesSidebar favorites={favorites} onRemove={removeFav} />}
         <SavedViewsSidebar />
 
         <div className="nav-section">Tools</div>
