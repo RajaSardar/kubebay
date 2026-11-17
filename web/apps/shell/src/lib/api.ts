@@ -121,6 +121,9 @@ export interface PortForwardInfo {
   podPort: number;
   localPort: number;
   startedAt: string;
+  /** "failed" once the tunnel died (pod deleted/restarted); `error` says why. */
+  status?: "running" | "failed";
+  error?: string;
 }
 
 export interface PodUsage {

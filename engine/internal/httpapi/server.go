@@ -150,7 +150,7 @@ func Router(d Deps, token string) http.Handler {
 			}
 			fw, err := d.PF.Start(r.Context(), body.Cluster, body.Namespace, body.Pod, body.PodPort, body.LocalPort)
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusBadGateway)
+				http.Error(w, err.Error(), pfErrorStatus(err))
 				return
 			}
 			d.Audit.Record(audit.Entry{

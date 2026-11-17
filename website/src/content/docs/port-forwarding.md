@@ -15,7 +15,7 @@ appRoutes: ["/ports"]
 
 ## The list
 
-Each tunnel shows its local address, its target pod and port, its cluster, and when it started. Click the local address to open it in your browser. **Stop** closes the tunnel.
+Each tunnel shows its local address, its status, its target pod and port, its cluster, and when it started. If the pod is deleted or restarted, or the connection drops, the tunnel shows **failed** with the reason instead of looking alive; click **Stop** to dismiss it. A local port is held by one tunnel at a time across all clusters: asking for one that is taken tells you which tunnel holds it, or that another program on your machine does. Click the local address to open it in your browser. **Stop** closes the tunnel.
 
 Active forwards are also in the [command palette](/docs/interface/#the-command-palette).
 
