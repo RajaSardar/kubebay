@@ -1994,3 +1994,62 @@ tr.row-clickable:active {
   bottom: 40px;
   z-index: var(--kb-z-sticky);
 }
+
+/* ── CollapsibleSection ─────────────────────────────────────────────────── */
+.kb-collapsible {
+  margin-bottom: var(--kb-space-3);
+}
+
+.kb-collapsible-sub {
+  margin-bottom: var(--kb-space-2);
+  background: var(--kb-bg-inset);
+  border: 1px solid var(--kb-border-subtle);
+  border-radius: var(--kb-radius);
+}
+
+.kb-collapsible-head {
+  display: flex;
+  align-items: center;
+  gap: var(--kb-space-2);
+  width: 100%;
+  padding: var(--kb-space-3) var(--kb-space-4);
+  font: inherit;
+  font-size: var(--kb-text-sm);
+  font-weight: 600;
+  color: var(--kb-fg-default);
+  background: transparent;
+  border: none;
+  border-radius: var(--kb-radius);
+  cursor: pointer;
+  text-align: left;
+}
+
+.kb-collapsible-head:hover {
+  background: var(--kb-bg-raised);
+}
+
+.kb-collapsible-chev {
+  flex-shrink: 0;
+  color: var(--kb-fg-subtle);
+  transition: transform var(--kb-dur-fast) var(--kb-ease);
+}
+
+.kb-collapsible.open > .kb-collapsible-head .kb-collapsible-chev {
+  transform: rotate(90deg);
+}
+
+.kb-collapsible-count {
+  margin-left: auto;
+  font-size: var(--kb-text-2xs);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--kb-fg-subtle);
+}
+
+.kb-collapsible-body {
+  padding-top: var(--kb-space-1);
+}
+
+.kb-collapsible-sub > .kb-collapsible-body {
+  padding: 0 var(--kb-space-4) var(--kb-space-3);
+}

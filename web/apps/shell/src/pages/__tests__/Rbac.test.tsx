@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { beforeEach, describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
@@ -49,6 +49,12 @@ function renderPage() {
   );
 }
 
+// Sections start collapsed; these tests look inside them, so open them all.
+beforeEach(() => {
+  for (const k of ["who-can", "summary", "attack-paths", "findings", "roles", "automount", "secret-exposure", "image-signatures", "running-signatures", "orphaned-secrets", "unused-accounts", "audit-feed", "my-access"])
+    localStorage.setItem(`kb.rbac.section.${k}`, "1");
+});
+
 describe("Rbac", () => {
   it("streams Secrets in metadata mode only, so Secret values never reach the shell", () => {
     renderPage();
@@ -78,7 +84,7 @@ describe("Rbac", () => {
 
   it("offers an on-demand signature check of the images actually running", async () => {
     renderPage();
-    expect(await screen.findByText("Running image signatures")).toBeInTheDocument();
+    expect((await screen.findAllByText("Running image signatures")).length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Check signatures" })).toBeInTheDocument();
   });
 
@@ -89,7 +95,7 @@ describe("Rbac", () => {
 
   it("offers the audit-log security feed", async () => {
     renderPage();
-    expect(await screen.findByText("Audit-log security events")).toBeInTheDocument();
+    expect((await screen.findAllByText("Audit-log security events")).length).toBeGreaterThan(0);
   });
 
   it("chains an exposed workload to its ServiceAccount's risky RBAC", async () => {
@@ -109,7 +115,7 @@ describe("Rbac", () => {
 
   it("feeds signature coverage the namespaces, Ratify constraints and validating webhooks", async () => {
     renderPage();
-    await screen.findByText("Image signature verification");
+    await screen.findAllByText("Image signature verification");
     await vi.waitFor(() => {
       const calls = vi.mocked(useResourceStream).mock.calls;
       const enabled = (gvr: string) => calls.some(([, g, o]) => g === gvr && (o as { enabled?: boolean } | undefined)?.enabled !== false);
@@ -121,7 +127,7 @@ describe("Rbac", () => {
 
   it("feeds attack paths the Gateway API routes and namespace labels", async () => {
     renderPage();
-    await screen.findByText("Attack paths");
+    await screen.findAllByText("Attack paths");
     await vi.waitFor(() => {
       const calls = vi.mocked(useResourceStream).mock.calls;
       const enabled = (gvr: string) => calls.some(([, g, o]) => g === gvr && (o as { enabled?: boolean } | undefined)?.enabled !== false);

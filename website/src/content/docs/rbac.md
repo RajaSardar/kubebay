@@ -6,11 +6,15 @@ order: 1
 appRoutes: ["/rbac"]
 ---
 
-**RBAC** in the sidebar's Tools is Kubebay's security page. Every check reads objects through the Kubernetes API with your own credentials. Nothing is installed in the cluster. The checks are stacked as cards, each one independent.
+**RBAC** in the sidebar's Tools is Kubebay's security page. Every check reads objects through the Kubernetes API with your own credentials. Nothing is installed in the cluster. The page is a stack of sections, each one independent. Click a section's header to open or close it; only **Who can …** and **Summary** start open, and Kubebay remembers how you left each one. A closed section is not analysed until you open it, so the page stays light. Where a section has a count, it shows in the header.
 
 ## Who can …
 
 Pick a verb, a resource and, optionally, a namespace, then **Query**. Kubebay lists every user, group and ServiceAccount that has that access, and the binding that gives it to them. For example, *who can `create` `pods/exec` in `payments`*.
+
+## Roles and their access
+
+Open **Roles and their access** to see every Role and ClusterRole. Type in **Filter roles** to narrow by name or namespace; the list shows 50 at a time, with **Show more** for the rest. Expand a role to read its rules (verbs on resources in API groups, resource names, non-resource URLs) and who is bound to it. A `*` wildcard is highlighted, and a role that grants every verb on every resource is marked **full access**.
 
 ## Findings
 
