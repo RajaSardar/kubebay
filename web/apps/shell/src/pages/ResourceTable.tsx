@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams, useLocation } from "react-router-dom";
-import { CellLink, EmptyState, StatusDot } from "@kubebay/ui";
+import { CellLink, EmptyState, StatusDot, StatusPill, statusTone } from "@kubebay/ui";
 import { api, crdApi, type PrinterColumn } from "../lib/api";
 import { useQuery as useRQQuery } from "@tanstack/react-query";
 import { useCluster } from "../lib/useCluster";
@@ -36,6 +36,8 @@ export interface Cell {
   v: string;
   dot?: "ok" | "warn" | "err" | "pending";
   cls?: string;
+  /** Show the value as a status pill whose tone comes from statusTone. */
+  pill?: boolean;
   /** When set, the cell links to another resource's detail view instead of just displaying text. */
   to?: { kind: string; ns: string; name: string };
 }
@@ -78,7 +80,7 @@ export function extraColumns(
         const conds = (rec(o.status).conditions ?? []) as Record<string, unknown>[];
         const ready = conds.find((c) => c.type === "Ready");
         const ok = ready?.status === "True";
-        return { v: ok ? "Ready" : "NotReady", dot: ok ? "ok" : "err" };
+        return { v: ok ? "Ready" : "NotReady", pill: true };
       },
       "Instance type": (o) => ({ v: str((rec(o.metadata).labels as Record<string, unknown> | undefined)?.["node.kubernetes.io/instance-type"]) || "–" }),
       Zone: (o) => ({ v: str((rec(o.metadata).labels as Record<string, unknown> | undefined)?.["topology.kubernetes.io/zone"]) || "–" }),
@@ -147,7 +149,7 @@ export function extraColumns(
       return {
         Status: (o) => {
           const phase = str(rec(o.status).phase);
-          return { v: phase, dot: phase === "Bound" ? "ok" : phase === "Lost" ? "err" : "warn" };
+          return { v: phase, pill: true };
         },
         Volume: (o) => {
           const vol = str(rec(o.spec).volumeName);
@@ -165,14 +167,7 @@ export function extraColumns(
           const phase = str(rec(o.status).phase);
           return {
             v: phase,
-            dot:
-              phase === "Available" || phase === "Bound"
-                ? "ok"
-                : phase === "Released"
-                  ? "warn"
-                  : phase === "Failed"
-                    ? "err"
-                    : "pending",
+            pill: true,
           };
         },
         Capacity: (o) => ({ v: str(rec(rec(o.spec).capacity).storage) || "–" }),
@@ -196,7 +191,7 @@ export function extraColumns(
       return {
         Status: (o) => {
           const phase = str(rec(o.status).phase) || "Active";
-          return { v: phase, dot: phase === "Active" ? "ok" : "warn" };
+          return { v: phase, pill: true };
         },
       };
     case "policyreports":
@@ -408,6 +403,8 @@ export default function ResourceTable() {
                 >
                   {cell.v}
                 </span>
+              ) : cell.pill && cell.v ? (
+                <StatusPill tone={statusTone(String(cell.v))}>{cell.v}</StatusPill>
               ) : (
                 <span className={cell.cls ?? ""}>{cell.v}</span>
               )}

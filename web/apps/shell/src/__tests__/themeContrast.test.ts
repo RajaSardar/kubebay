@@ -82,7 +82,7 @@ describe.each(NATIVE)("$id theme contrast", ({ id, text }) => {
       check("kb-accent", c(g), g, text === 7 ? 7 : 4.5);
     }
     for (const g of ["kb-bg-canvas", "kb-bg-surface"]) {
-      for (const s of ["ok", "warn", "err", "pending"]) check(`kb-status-${s}`, c(g), g, 4.5);
+      for (const s of ["ok", "warn", "err", "pending", "done"]) check(`kb-status-${s}`, c(g), g, 4.5);
     }
     expect(failures).toEqual([]);
   });
@@ -92,7 +92,7 @@ describe.each(NATIVE)("$id theme contrast", ({ id, text }) => {
     check("kb-accent-fg", c("kb-accent-hover"), "kb-accent-hover", 4.5);
     check("kb-on-danger", c("kb-status-err"), "kb-status-err", 4.5);
     check("kb-accent", ground("kb-accent-subtle"), "kb-accent-subtle", 4.5);
-    for (const s of ["ok", "warn", "err", "pending"]) {
+    for (const s of ["ok", "warn", "err", "pending", "done"]) {
       check(`kb-status-${s}-fg`, ground(`kb-status-${s}-subtle`), `kb-status-${s}-subtle`, 4.5);
     }
     expect(failures).toEqual([]);
@@ -103,7 +103,7 @@ describe.each(NATIVE)("$id theme contrast", ({ id, text }) => {
     for (const g of grounds) {
       const tint = (t: string) => over(c(t), c(g));
       check("kb-accent", tint("kb-accent-subtle"), `kb-accent-subtle on ${g}`, 4.5);
-      for (const s of ["ok", "warn", "err", "pending"]) {
+      for (const s of ["ok", "warn", "err", "pending", "done"]) {
         check(`kb-status-${s}-fg`, tint(`kb-status-${s}-subtle`), `kb-status-${s}-subtle on ${g}`, 4.5);
       }
     }
@@ -115,7 +115,7 @@ describe.each(NATIVE)("$id theme contrast", ({ id, text }) => {
     check("kb-fg-default", row, "selected row", text);
     check("kb-fg-muted", row, "selected row", text);
     check("kb-accent", row, "selected row", 4.5);
-    for (const s of ["ok", "warn", "err", "pending"]) {
+    for (const s of ["ok", "warn", "err", "pending", "done"]) {
       check(`kb-status-${s}-fg`, over(c(`kb-status-${s}-subtle`), row), `kb-status-${s}-subtle on a selected row`, 4.5);
     }
     expect(failures).toEqual([]);
@@ -219,7 +219,7 @@ describe.each(NATIVE)("$id theme contrast", ({ id, text }) => {
 
   it("status colours read on raised and inset grounds too", () => {
     for (const g of ["kb-bg-raised", "kb-bg-inset"]) {
-      for (const s of ["ok", "warn", "err", "pending"]) check(`kb-status-${s}`, c(g), g, 4.5);
+      for (const s of ["ok", "warn", "err", "pending", "done"]) check(`kb-status-${s}`, c(g), g, 4.5);
     }
     expect(failures).toEqual([]);
   });

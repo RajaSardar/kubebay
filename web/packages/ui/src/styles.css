@@ -1297,6 +1297,20 @@ button.nav-item {
   white-space: nowrap;
 }
 
+.status-done {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  border-radius: var(--kb-radius-pill);
+  font-size: var(--kb-text-xs);
+  font-weight: 500;
+  background: var(--kb-status-done-subtle);
+  color: var(--kb-status-done-fg);
+  border: 1px solid color-mix(in srgb, var(--kb-status-done-fg) 30%, transparent);
+  white-space: nowrap;
+}
+
 .status-terminated {
   display: inline-flex;
   align-items: center;

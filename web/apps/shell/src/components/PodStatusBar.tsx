@@ -8,6 +8,7 @@ const FILL: Record<PodStatusSegment["tone"], string> = {
   warn: "var(--kb-status-warn)",
   err: "var(--kb-status-err)",
   pending: "var(--kb-status-pending)",
+  done: "var(--kb-status-done)",
   terminated: "var(--kb-status-terminated)",
   terminating: "var(--kb-status-terminated)",
 };

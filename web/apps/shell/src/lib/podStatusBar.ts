@@ -1,5 +1,5 @@
 import type { StatusTone } from "@kubebay/ui";
-import { derivePod, type PodRow } from "./pods";
+import { derivePod, podTone } from "./pods";
 
 export interface PodStatusSegment {
   /** The status word the Pods table shows (Running, CrashLoopBackOff). */
@@ -10,7 +10,6 @@ export interface PodStatusSegment {
   to: string;
 }
 
-const TONE: Record<PodRow["status"], StatusTone> = { running: "ok", succeeded: "terminated", pending: "pending", failed: "err", warning: "warn" };
 // Healthy and in-between states first, in this order; failures after, largest first.
 const ORDER = ["Running", "Pending", "Terminating", "Succeeded"];
 
@@ -27,7 +26,7 @@ export function podStatusSegments(pods: Record<string, unknown>[]): PodStatusSeg
     const seg = by.get(label);
     if (seg) seg.count++;
     else {
-      const tone: StatusTone = label === "Terminating" ? "terminating" : TONE[p.status];
+      const tone: StatusTone = podTone(p);
       by.set(label, { label, count: 1, tone, to: `/workloads?${new URLSearchParams({ q: `status:${label}` }).toString()}` });
     }
   }

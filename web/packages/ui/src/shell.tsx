@@ -89,23 +89,34 @@ export function SegmentedControl<T extends string>({ label, options, value, onCh
 
 // ── Status pill ───────────────────────────────────────────────────────────────
 
-export type StatusTone = "ok" | "warn" | "err" | "pending" | "terminated" | "terminating";
+export type StatusTone = "ok" | "warn" | "err" | "pending" | "done" | "terminated" | "terminating";
 
 /** The phase pill used in resource tables. Always carries the phase word. */
 export function StatusPill({ tone, children }: { tone: StatusTone; children: ReactNode }) {
   return <span className={`status-${tone}`}>{children}</span>;
 }
 
-/** Pod phase → pill tone, as the Pods table shows it. Unknown phases get no pill. */
-export function phaseTone(phase: string): StatusTone | undefined {
-  switch (phase) {
-    case "Running": return "ok";
-    case "Succeeded": return "terminated";
-    case "Failed": return "err";
-    case "Pending": return "pending";
-    case "Terminating": return "terminating";
-    default: return undefined;
-  }
+const OK = new Set(["running", "active", "bound", "ready", "available", "healthy", "synced", "established"]);
+const PENDING = new Set(["pending", "containercreating", "podinitializing", "progressing", "creating", "syncing"]);
+const DONE = new Set(["succeeded", "completed", "complete"]);
+const WARN = new Set(["evicted", "released", "outofsync", "suspended", "missing", "warning", "preempted"]);
+const ERR = new Set(["failed", "error", "lost", "oomkilled", "crashloopbackoff", "degraded", "notready"]);
+
+/**
+ * The one mapping from a status word to its tone, for every table, pill and
+ * bar: green running, blue pending, purple finished, orange warning, red
+ * failed, struck-through terminating, grey unknown. The pill keeps the word,
+ * so colour is never the only signal.
+ */
+export function statusTone(word: string): StatusTone {
+  const w = word.trim().toLowerCase();
+  if (w === "terminating") return "terminating";
+  if (OK.has(w)) return "ok";
+  if (DONE.has(w)) return "done";
+  if (WARN.has(w)) return "warn";
+  if (PENDING.has(w) || w.startsWith("init:") && /^init:\d+\/\d+$/.test(w)) return "pending";
+  if (ERR.has(w) || /backoff$|^err[a-z]|error$|^init:/.test(w)) return "err";
+  return "terminated";
 }
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────

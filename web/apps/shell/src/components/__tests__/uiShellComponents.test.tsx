@@ -12,7 +12,7 @@ import {
   Tabs,
   TextField,
   navItemClass,
-  phaseTone,
+  statusTone,
 } from "@kubebay/ui";
 
 describe("StatusPill", () => {
@@ -23,12 +23,12 @@ describe("StatusPill", () => {
   });
 
   it("maps pod phases to tones the way the Pods table does", () => {
-    expect(phaseTone("Running")).toBe("ok");
-    expect(phaseTone("Succeeded")).toBe("terminated");
-    expect(phaseTone("Failed")).toBe("err");
-    expect(phaseTone("Pending")).toBe("pending");
-    expect(phaseTone("Terminating")).toBe("terminating");
-    expect(phaseTone("Unknown")).toBeUndefined();
+    expect(statusTone("Running")).toBe("ok");
+    expect(statusTone("Succeeded")).toBe("done");
+    expect(statusTone("Failed")).toBe("err");
+    expect(statusTone("Pending")).toBe("pending");
+    expect(statusTone("Terminating")).toBe("terminating");
+    expect(statusTone("Unknown")).toBe("terminated");
   });
 });
 

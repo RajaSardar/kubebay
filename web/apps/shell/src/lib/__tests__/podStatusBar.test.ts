@@ -34,7 +34,7 @@ describe("podStatusSegments", () => {
       "Running:3:ok",
       "Pending:1:pending",
       "Terminating:1:terminating",
-      "Succeeded:1:terminated",
+      "Succeeded:1:done",
       "ImagePullBackOff:2:err",
       "CrashLoopBackOff:1:err",
     ]);

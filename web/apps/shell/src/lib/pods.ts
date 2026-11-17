@@ -1,3 +1,4 @@
+import { statusTone, type StatusTone } from "@kubebay/ui";
 import { podResources, type PodResources } from "./podUsage";
 
 /** One row of the Pods table, derived from a Pod object. */
@@ -106,4 +107,14 @@ export function derivePod(obj: Record<string, unknown>): PodRow | null {
     statusDetail: detail,
     resources: podResources(obj),
   };
+}
+
+/**
+ * The tone a pod's status pill takes: the status word's own tone, except that
+ * a Running pod with containers not ready is a warning, not the green of
+ * a healthy one.
+ */
+export function podTone(p: Pick<PodRow, "status" | "statusLabel">): StatusTone {
+  if (p.statusLabel === "Running" && p.status !== "running") return "warn";
+  return statusTone(p.statusLabel);
 }
