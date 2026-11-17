@@ -3,7 +3,17 @@
     {
       "version": "unreleased",
       "date": "",
-      "sections": []
+      "sections": [
+        {
+          "heading": "Added",
+          "items": [
+            {
+              "title": "Pause and Unpause a KEDA ScaledObject",
+              "summary": "From the KEDA page."
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.7.4",
