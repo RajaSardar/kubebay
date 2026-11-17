@@ -93,7 +93,21 @@ type Manager struct {
 	// kick asks the health loop to probe now (after a load) instead of
 	// waiting out its interval.
 	kick chan struct{}
+	// wantAll is set when a client asked for reachability of the clusters
+	// that are not connected (the picker was opened). It stays set until no
+	// cluster is stale, so a long kubeconfig drains in batches.
+	wantAll bool
 }
+
+const (
+	// probeStaleAfter is how old a not-connected cluster's probe may get
+	// before an on-demand request probes it again.
+	probeStaleAfter = 5 * time.Minute
+	// probeBatch caps how many not-connected clusters one health cycle
+	// probes, so a 1000-context kubeconfig never fans out 1000 requests and
+	// exec credential plugins at once.
+	probeBatch = 10
+)
 
 func NewManager(log *slog.Logger, kubeconfigPath string) (*Manager, error) {
 	return newManager(log, kubeconfigPath, true)
@@ -540,17 +554,60 @@ func (m *Manager) record(id string, status Status, version, errStr string) {
 	e.cluster.CheckedAt = &now
 }
 
+// RequestReachability asks the health loop to probe the clusters that are not
+// connected, at the slow cadence: those not probed in the last five minutes,
+// in batches. Called when the cluster list is read.
+func (m *Manager) RequestReachability() {
+	now := time.Now()
+	m.mu.Lock()
+	due := false
+	for id, e := range m.entries {
+		if e.cfg != nil && !m.connected[id] && (e.cluster.CheckedAt == nil || now.Sub(*e.cluster.CheckedAt) >= probeStaleAfter) {
+			due = true
+			break
+		}
+	}
+	m.wantAll = due
+	m.mu.Unlock()
+	if !due {
+		return // a polled list must not wake the loop when nothing is stale
+	}
+	select {
+	case m.kick <- struct{}{}:
+	default:
+	}
+}
+
+// probeTargets lists what this health cycle probes: every connected cluster,
+// plus (only after RequestReachability) up to batch not-connected clusters
+// whose last probe is older than probeStaleAfter. The request clears when no
+// stale cluster is left.
+func (m *Manager) probeTargets(now time.Time, batch int) []string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var out, stale []string
+	for _, id := range m.order {
+		e, ok := m.entries[id]
+		if !ok || e.cfg == nil {
+			continue // misconfigured: nothing to probe, keep the load-time reason
+		}
+		if m.connected[id] {
+			out = append(out, id)
+		} else if m.wantAll && (e.cluster.CheckedAt == nil || now.Sub(*e.cluster.CheckedAt) >= probeStaleAfter) {
+			stale = append(stale, id)
+		}
+	}
+	if len(stale) <= batch {
+		m.wantAll = false
+	} else {
+		stale = stale[:batch]
+	}
+	return append(out, stale...)
+}
+
 func (m *Manager) healthLoop() {
 	for {
-		m.mu.RLock()
-		ids := make([]string, 0, len(m.entries))
-		for id, e := range m.entries {
-			if e.cfg == nil {
-				continue // misconfigured: nothing to probe, keep the load-time reason
-			}
-			ids = append(ids, id)
-		}
-		m.mu.RUnlock()
+		ids := m.probeTargets(time.Now(), probeBatch)
 		var wg sync.WaitGroup
 		for _, id := range ids {
 			wg.Add(1)
@@ -571,8 +628,14 @@ func (m *Manager) healthLoop() {
 			}(id)
 		}
 		wg.Wait()
+		wait := 30 * time.Second
+		m.mu.RLock()
+		if m.wantAll {
+			wait = time.Second // more batches pending: drain them promptly
+		}
+		m.mu.RUnlock()
 		select {
-		case <-time.After(30 * time.Second):
+		case <-time.After(wait):
 		case <-m.kick:
 		}
 	}
