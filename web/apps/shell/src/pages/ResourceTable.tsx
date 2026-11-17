@@ -138,7 +138,16 @@ export function extraColumns(
       };
     case "cronjobs":
       return {
+        Status: (o) => {
+          if (rec(o.spec).suspend === true) return { v: "Suspended", pill: true };
+          const active = rec(o.status).active;
+          return { v: Array.isArray(active) && active.length > 0 ? "Active" : "Idle", pill: true };
+        },
         Schedule: (o) => ({ v: str(rec(o.spec).schedule) || "–" }),
+        "Active Jobs": (o) => {
+          const active = rec(o.status).active;
+          return { v: String(Array.isArray(active) ? active.length : 0) };
+        },
         "Last Schedule": (o) => {
           const t = str(rec(o.status).lastScheduleTime);
           if (!t) return { v: "–" };

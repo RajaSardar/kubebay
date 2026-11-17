@@ -8,6 +8,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ### Added
 - **Star any resource.** Click the star after a name in a drawer, or choose Add to favorites in a table row's menu, for a pod, Deployment, Service, Ingress, any kind or custom resource. A favourite opens that object's drawer on its own cluster; one whose object was deleted is dimmed with a remove button. Starred objects are also listed under Favorites in the command palette.
+- **CronJobs table shows a Status column**: Suspended, Active (jobs running) or Idle, with an Active Jobs count next to Last Schedule.
 
 ### Changed
 - **Favorites moved down the sidebar**, just above Tools, as a collapsible section that remembers whether it is open.

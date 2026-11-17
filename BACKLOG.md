@@ -46,7 +46,7 @@
 ~~45. Make the open pod side windwow scrollable/ explandable as lots of buttons and features are getting hide at the right side. or suggest any other way to fix this ?~~ ✅ Done
 ~~46. Also most left nav has cluster icons and i am not able to see the actual colour of those icons, can you check what is the overly colour and can you fix that ?~~ ✅ Done
 ~~47. can you give button to pause keda and unpause the keda object, when click pause, it will ask how much replica count it should pause or something like that, do think and plan.~~ ✅ Done (each ScaledObject on the KEDA page has a Pause button that asks for the replicas to hold, 0 allowed, defaulting to the current count, and sets autoscaling.keda.sh/paused-replicas; Unpause removes the paused annotations; goes through PUT /api/yaml with a new mode=merge, so impersonation and the audit log apply)
-48. in crons jobs, there should be a col for paused or active or what status staus for the cron jobs. 
+~~48. in crons jobs, there should be a col for paused or active or what status staus for the cron jobs.~~ ✅ Done (CronJobs table has a Status pill: Suspended, Active or Idle, plus an Active Jobs count)
 ~~49. i am not liking the favorite location at top, move it down and place it above tools.~~ ✅ Done (favorites sit just above Tools, and any pod, workload, service, ingress or other object can be starred from its drawer or row menu)
 50. 
 51. Research YAML editing in a bottom dock window, like Lens/Freelens, in addition to the drawer editor. Researched: see docs/YAML_EDIT_DOCK.md
