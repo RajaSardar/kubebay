@@ -116,4 +116,31 @@ describe("PodGraphs with Prometheus configuration", () => {
       expect(screen.getByRole("dialog", { name: /Configure Prometheus for kind-test/i })).toBeTruthy();
     });
   });
+
+  it("graphs just work when Prometheus is auto-detected, and says what it uses", async () => {
+    vi.mocked(api.settingsApi.get).mockResolvedValue({ prometheusUrl: "", prometheusUrls: {}, extraKubeconfigs: [] });
+    vi.mocked(api.promApi.status).mockResolvedValue({
+      source: "auto",
+      target: "monitoring/prometheus-server:80",
+      chosen: false,
+      candidates: [],
+    });
+    const mockQueryRange = vi.mocked(api.promApi.queryRange);
+    mockQueryRange.mockResolvedValue({ data: { result: [] } });
+    render(
+      <QueryClientProvider client={qc}>
+        <PodGraphs cluster="kind-test" namespace="default" pod="test-pod" />
+      </QueryClientProvider>,
+    );
+    await waitFor(() => expect(screen.getAllByTestId("line-chart").length).toBe(2));
+    expect(mockQueryRange).toHaveBeenCalled();
+    expect(screen.queryByText(/History graphs need Prometheus/i)).toBeNull();
+    expect(screen.getByText(/Auto-detected: monitoring\/prometheus-server:80/)).toBeTruthy();
+  });
+
+  it("asks for a URL only when nothing is configured and nothing was detected", async () => {
+    vi.mocked(api.promApi.status).mockResolvedValue({ source: "none", target: "", chosen: false, candidates: [] });
+    renderGraphs(null);
+    await waitFor(() => expect(screen.getByText(/History graphs need Prometheus/i)).toBeTruthy());
+  });
 });

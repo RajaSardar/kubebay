@@ -59,6 +59,20 @@ describe("Settings: app-wide settings only", () => {
     await waitFor(() => expect(api.settingsApi.save).toHaveBeenCalledWith(expect.objectContaining({ prometheusUrl: "http://localhost:9090" })));
   });
 
+  it("says which Prometheus the current cluster uses when it was auto-detected", async () => {
+    vi.mocked(api.promApi.status).mockResolvedValue({
+      source: "auto",
+      target: "monitoring/prometheus-server:80",
+      chosen: false,
+      candidates: [],
+    });
+    renderSettings();
+    expect(
+      await screen.findByText((_, el) => el?.tagName === "P" && /Auto-detected for kind-test: monitoring\/prometheus-server:80/.test(el.textContent ?? "")),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Change Prometheus for kind-test" })).toBeInTheDocument();
+  });
+
   it("points to the Clusters page for kubeconfig files instead of managing them here", async () => {
     renderSettings();
     const link = await screen.findByRole("link", { name: "Manage kubeconfig files" });

@@ -387,4 +387,57 @@ describe("ConfigurePrometheusModal", () => {
       expect(screen.getByRole("dialog", { name: /Configure Prometheus for kind-test/ })).toHaveClass("wide");
     });
   });
+
+  describe("auto-detected Prometheus", () => {
+    const autoStatus = {
+      source: "auto" as const,
+      target: "monitoring/prometheus-server:80",
+      chosen: false,
+      candidates: [
+        { namespace: "monitoring", name: "prometheus-server", port: 80, scheme: "http", score: 1, target: "monitoring/prometheus-server:80" },
+        { namespace: "monitoring", name: "prometheus-operated", port: 9090, scheme: "http", score: 0, target: "monitoring/prometheus-operated:9090" },
+      ],
+    };
+
+    beforeEach(() => {
+      vi.mocked(useResourceStream).mockReturnValue({ rows: [], synced: true, connected: true });
+      vi.mocked(api.settingsApi.get).mockResolvedValue({ extraKubeconfigs: [] });
+      vi.mocked(api.promApi.status).mockResolvedValue(autoStatus);
+      vi.mocked(api.promApi.setTarget).mockResolvedValue(undefined);
+    });
+
+    it("shows what was auto-detected with Change and Use my own URL", async () => {
+      renderModal();
+      expect(await screen.findByText(/Auto-detected: monitoring\/prometheus-server:80/)).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Change" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Use my own URL" })).toBeTruthy();
+      expect(screen.queryByLabelText("URL")).toBeNull();
+    });
+
+    it("Change lets you pick another detected service", async () => {
+      const user = userEvent.setup();
+      const onSaved = vi.fn();
+      renderModal(vi.fn(), onSaved);
+      await user.click(await screen.findByRole("button", { name: "Change" }));
+      await user.click(screen.getByRole("button", { name: /prometheus-operated/ }));
+      await waitFor(() => expect(api.promApi.setTarget).toHaveBeenCalledWith("kind-test", "monitoring/prometheus-operated:9090"));
+      await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    });
+
+    it("Use my own URL reveals the URL field", async () => {
+      const user = userEvent.setup();
+      renderModal();
+      await user.click(await screen.findByRole("button", { name: "Use my own URL" }));
+      expect(screen.getByLabelText("URL")).toBeTruthy();
+    });
+  });
+
+  it("says the manual URL is in use when one is set", async () => {
+    vi.mocked(useResourceStream).mockReturnValue({ rows: [], synced: true, connected: true });
+    vi.mocked(api.settingsApi.get).mockResolvedValue({ extraKubeconfigs: [], prometheusUrls: { "kind-test": "http://localhost:9090" } });
+    vi.mocked(api.promApi.status).mockResolvedValue({ source: "manual", target: "http://localhost:9090", chosen: false, candidates: [] });
+    renderModal();
+    expect(await screen.findByText(/Using your own URL/)).toBeTruthy();
+    expect(screen.getByLabelText("URL")).toBeTruthy();
+  });
 });

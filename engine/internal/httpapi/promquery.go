@@ -55,9 +55,9 @@ func (s *SettingsManager) HandlePromQueryRange(w http.ResponseWriter, r *http.Re
 		http.Error(w, "cluster required", http.StatusBadRequest)
 		return
 	}
-	base := set.PrometheusURLFor(cluster)
+	base, client := s.promBase(r.Context(), set, cluster)
 	if base == "" {
-		http.Error(w, fmt.Sprintf("prometheus not configured for %s — set it in Settings", cluster), http.StatusPreconditionFailed)
+		http.Error(w, fmt.Sprintf("no Prometheus found for %s: it is not auto-detected, so set a URL in Settings", cluster), http.StatusPreconditionFailed)
 		return
 	}
 	for _, k := range []string{"query", "start", "end", "step"} {
@@ -73,7 +73,10 @@ func (s *SettingsManager) HandlePromQueryRange(w http.ResponseWriter, r *http.Re
 		http.Error(w, "bad prometheus url", http.StatusInternalServerError)
 		return
 	}
-	proxyToPrometheus(w, r, target, s.Outbound.Client(10*time.Second))
+	if client == nil {
+		client = s.Outbound.Client(10 * time.Second)
+	}
+	proxyToPrometheus(w, r, target, client)
 }
 
 // HandlePromQuery proxies an instant PromQL query (GET /api/prom/query).
@@ -97,9 +100,9 @@ func (s *SettingsManager) HandlePromQuery(w http.ResponseWriter, r *http.Request
 		http.Error(w, "missing query", http.StatusBadRequest)
 		return
 	}
-	base := set.PrometheusURLFor(cluster)
+	base, client := s.promBase(r.Context(), set, cluster)
 	if base == "" {
-		http.Error(w, fmt.Sprintf("prometheus not configured for %s — set it in Settings", cluster), http.StatusPreconditionFailed)
+		http.Error(w, fmt.Sprintf("no Prometheus found for %s: it is not auto-detected, so set a URL in Settings", cluster), http.StatusPreconditionFailed)
 		return
 	}
 	params := map[string]string{"query": q.Get("query")}
@@ -111,7 +114,10 @@ func (s *SettingsManager) HandlePromQuery(w http.ResponseWriter, r *http.Request
 		http.Error(w, "bad prometheus url", http.StatusInternalServerError)
 		return
 	}
-	proxyToPrometheus(w, r, target, s.Outbound.Client(10*time.Second))
+	if client == nil {
+		client = s.Outbound.Client(10 * time.Second)
+	}
+	proxyToPrometheus(w, r, target, client)
 }
 
 func writeJSONStatus(w http.ResponseWriter, code int, v interface{}) {

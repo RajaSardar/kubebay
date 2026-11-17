@@ -11,9 +11,11 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/RajaSardar/kubebay/engine/internal/clusters"
 	"github.com/RajaSardar/kubebay/engine/internal/netguard"
+	"github.com/RajaSardar/kubebay/engine/internal/prometheus"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -23,11 +25,14 @@ type AppSettings struct {
 	// PrometheusURL is the fallback used by any cluster without its own entry.
 	// It predates PrometheusURLs and is still honoured so upgrading does not
 	// silently drop an existing configuration.
-	PrometheusURL    string            `json:"prometheusUrl,omitempty"`
-	PrometheusURLs   map[string]string `json:"prometheusUrls,omitempty"`
-	ExtraKubeconfigs []string          `json:"extraKubeconfigs,omitempty"`
-	OnlyListed       bool              `json:"onlyListedKubeconfigs,omitempty"`
-	NodeShellImage   string            `json:"nodeShellImage,omitempty"`
+	PrometheusURL  string            `json:"prometheusUrl,omitempty"`
+	PrometheusURLs map[string]string `json:"prometheusUrls,omitempty"`
+	// PrometheusTargets pins, per cluster, which auto-detected Service to query
+	// ("namespace/service:port"). A manual URL still wins; absent = best guess.
+	PrometheusTargets map[string]string `json:"prometheusTargets,omitempty"`
+	ExtraKubeconfigs  []string          `json:"extraKubeconfigs,omitempty"`
+	OnlyListed        bool              `json:"onlyListedKubeconfigs,omitempty"`
+	NodeShellImage    string            `json:"nodeShellImage,omitempty"`
 	// HistoryClusters is consent to record usage history (backlog #36):
 	// true once the user connects to a cluster, false after an explicit Stop.
 	// A cluster absent from the map is never recorded.
@@ -91,6 +96,9 @@ type SettingsManager struct {
 	// Outbound limits what a user-supplied URL (Prometheus) may reach. Fixed at
 	// startup by main; the zero value is the desktop's, where loopback is fine.
 	Outbound netguard.Policy
+
+	promOnce  sync.Once
+	promCache *prometheus.Cache
 }
 
 // validatePrometheusURLs refuses an endpoint the engine must never be aimed at.
@@ -192,6 +200,7 @@ func (s *SettingsManager) HandleGet(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{
 		"prometheusUrl":         set.PrometheusURL,
 		"prometheusUrls":        set.PrometheusURLs,
+		"prometheusTargets":     set.PrometheusTargets,
 		"extraKubeconfigs":      set.ExtraKubeconfigs,
 		"onlyListedKubeconfigs": set.OnlyListed,
 		"activeKubeconfigs":     s.mgr.ActiveKubeconfigs(),
@@ -252,6 +261,7 @@ func (s *SettingsManager) HandleSave(w http.ResponseWriter, r *http.Request) {
 
 	nodeShellImage := ""
 	var promURLs map[string]string
+	var promTargets map[string]string
 	var historyClusters map[string]bool
 	var auditLogPaths map[string]string
 	var auditSources map[string]auditfeed.CloudSource
@@ -262,6 +272,7 @@ func (s *SettingsManager) HandleSave(w http.ResponseWriter, r *http.Request) {
 		triageSettings = current.Triage
 		nodeShellImage = current.NodeShellImage
 		promURLs = current.PrometheusURLs
+		promTargets = current.PrometheusTargets
 		historyClusters = current.HistoryClusters
 		auditLogPaths = current.AuditLogPaths
 		auditSources = current.AuditSources
@@ -282,16 +293,17 @@ func (s *SettingsManager) HandleSave(w http.ResponseWriter, r *http.Request) {
 	}
 
 	next := &AppSettings{
-		PrometheusURL:    normalizePromURL(incoming.PrometheusURL),
-		PrometheusURLs:   promURLs,
-		ExtraKubeconfigs: validated,
-		OnlyListed:       incoming.OnlyListed,
-		NodeShellImage:   nodeShellImage,
-		HistoryClusters:  historyClusters,
-		AuditLogPaths:    auditLogPaths,
-		AuditSources:     auditSources,
-		MCP:              mcpSettings,
-		Triage:           triageSettings,
+		PrometheusURL:     normalizePromURL(incoming.PrometheusURL),
+		PrometheusURLs:    promURLs,
+		PrometheusTargets: promTargets,
+		ExtraKubeconfigs:  validated,
+		OnlyListed:        incoming.OnlyListed,
+		NodeShellImage:    nodeShellImage,
+		HistoryClusters:   historyClusters,
+		AuditLogPaths:     auditLogPaths,
+		AuditSources:      auditSources,
+		MCP:               mcpSettings,
+		Triage:            triageSettings,
 	}
 	if err := s.save(next); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

@@ -31,6 +31,14 @@ export function PodGraphs({
     staleTime: 30_000,
   });
   const promUrl = settings.data?.prometheusUrls?.[cluster] ?? settings.data?.prometheusUrl ?? "";
+  // With no URL of your own, the engine looks for a Prometheus Service in the cluster.
+  const status = useQuery({
+    queryKey: ["prom-status", cluster],
+    queryFn: async () => (await promApi.status(cluster)) ?? { source: "none" as const, target: "", chosen: false, candidates: [] },
+    enabled: !!cluster && !promUrl && !settings.isLoading,
+    staleTime: 60_000,
+  });
+  const autoTarget = !promUrl && status.data?.source === "auto" ? status.data.target : "";
   const [rangeIdx, setRangeIdx] = useState(1);
   const [showConfigModal, setShowConfigModal] = useState(false);
   const range = RANGES[rangeIdx]!;
@@ -41,7 +49,7 @@ export function PodGraphs({
   const cpuQ = `sum(rate(container_cpu_usage_seconds_total{namespace="${namespace}",pod="${pod}",container!="",image!=""}[5m])) by (container)`;
   const memQ = `sum(container_memory_working_set_bytes{namespace="${namespace}",pod="${pod}",container!="",image!=""}) by (container)`;
 
-  const enabled = !!promUrl && !!cluster;
+  const enabled = (!!promUrl || !!autoTarget) && !!cluster;
   const queryClient = useQueryClient();
 
   const cpu = useQuery({
@@ -116,9 +124,9 @@ export function PodGraphs({
   const cpuSeries = useMemo(() => toSeries(cpu.data, 0, (v) => v * 1000), [cpu.data]);
   const memSeries = useMemo(() => toSeries(mem.data, 2, (v) => v), [mem.data]);
 
-  if (settings.isLoading) return <SkeletonLines lines={5} label="Loading graphs…" />;
+  if (settings.isLoading || (!promUrl && status.isLoading)) return <SkeletonLines lines={5} label="Loading graphs…" />;
 
-  if (!promUrl)
+  if (!promUrl && !autoTarget)
     return (
       <>
         <EmptyState style={{ margin: "var(--kb-gutter)" }}>
@@ -136,6 +144,7 @@ export function PodGraphs({
               setShowConfigModal(false);
               setRetryCount(0);
               queryClient.invalidateQueries({ queryKey: ["settings"] });
+              queryClient.invalidateQueries({ queryKey: ["prom-status", cluster] });
               queryClient.invalidateQueries({ queryKey: ["prom-cpu", cluster] });
               queryClient.invalidateQueries({ queryKey: ["prom-mem", cluster] });
             }}
@@ -159,6 +168,14 @@ export function PodGraphs({
           </Button>
         ))}
         {(cpu.isFetching || mem.isFetching) && <span className="muted small">loading...</span>}
+        {autoTarget && (
+          <span className="muted small" style={{ marginLeft: "auto" }}>
+            Auto-detected: {autoTarget}{" "}
+            <Button variant="ghost" onClick={() => setShowConfigModal(true)}>
+              Change
+            </Button>
+          </span>
+        )}
       </div>
 
       {isUnreachable && (
@@ -204,6 +221,7 @@ export function PodGraphs({
                 setShowConfigModal(false);
                 setRetryCount(0);
                 queryClient.invalidateQueries({ queryKey: ["settings"] });
+              queryClient.invalidateQueries({ queryKey: ["prom-status", cluster] });
                 queryClient.invalidateQueries({ queryKey: ["prom-cpu", cluster] });
                 queryClient.invalidateQueries({ queryKey: ["prom-mem", cluster] });
               }}
@@ -233,6 +251,7 @@ export function PodGraphs({
             setShowConfigModal(false);
             setRetryCount(0);
             queryClient.invalidateQueries({ queryKey: ["settings"] });
+              queryClient.invalidateQueries({ queryKey: ["prom-status", cluster] });
             queryClient.invalidateQueries({ queryKey: ["prom-cpu", cluster] });
             queryClient.invalidateQueries({ queryKey: ["prom-mem", cluster] });
           }}
