@@ -6,11 +6,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ## [Unreleased]
 
+## [0.7.4] - 2026-11-17
+
 ### Changed
+- **Every resource opens in the right-hand drawer**, deep links included, never full screen.
+- **Each status has its own colour** from one shared mapping (Pending, Running, Succeeded, Failed and so on).
+- **The Copy name button is larger** and sits right after the name; the pod drawer's tabs scroll or wrap so no button is hidden.
 - **Tables have no lines between rows.** The header keeps its underline, and rows are told apart by the hover tint and the selected tint with its accent bar.
 - **A row's selection cell is the click target, not only the box in it.** Clicking anywhere in the cell around a row's checkbox ticks or unticks the row, and doesn't open the row's drawer.
 
 ### Fixed
+- **Port forwards are reliable.** A local port can only be used by one forward at a time across every cluster. If you ask for one that is taken, Kubebay tells you straight away which forward holds it, or that another program on your Mac does, instead of hanging for 15 seconds. A forward whose pod is deleted or restarted shows as failed with the reason, and its port is freed. Out-of-range ports are rejected clearly, and all forwards close when Kubebay quits.
 - **The desktop app now updates itself.** Settings → Updates said "This build doesn't update itself", and for releases it was true: `release.yml` read the update public key only from a repository *variable*, so a key kept as a *secret* was ignored and the release shipped without an updater (the build log carried only a warning). It now accepts either. `make desktop` builds the macOS app with the key from `~/.tauri/kubebay-updater.key.pub` when it exists, so an app you build yourself updates too; without the file it says the build won't update itself.
 
 ### Security
@@ -23,6 +29,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 - **Dependencies past six reachable vulnerabilities.** Go 1.26.11 (`net/http`, `crypto/x509`), `go-tuf` 2.4.1, DOMPurify 3.4.18 in the editor, React Router 7.18 and Astro 7.3.8 for the website, which now builds on Node 22.12.
 
 ### Added
+- **A "What's new" window after every update.** The first launch after an update, manual or automatic, lists what changed in the release as a short list, once.
+- **Prometheus is found by itself.** Kubebay looks for Prometheus in the cluster through the API server and fills the pod graphs without setup; a URL set in Settings still wins.
+- **Favorites sit at the top of the sidebar** in the same text size as the other links, and a cluster can be **disconnected** straight from the sidebar.
+- **RBAC sections open and close**, load only when opened, and a new **Roles and their access** list is searchable.
 - **Pod logs in colour**: the Logs tab colours each line by its level, the way log tools do: errors red, warnings amber, success green, debug and trace dimmed. The level comes from the line's own structure, so "0 errors" in prose no longer turns a line red, and JSON and logfmt levels are no longer missed:
   - JSON (`"level":"error"`, `"severity":"WARNING"`, pino's numbers);
   - logfmt (`level=warn`);

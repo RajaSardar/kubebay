@@ -3,10 +3,27 @@
     {
       "version": "unreleased",
       "date": "",
+      "sections": []
+    },
+    {
+      "version": "0.7.4",
+      "date": "2026-11-17",
       "sections": [
         {
           "heading": "Changed",
           "items": [
+            {
+              "title": "Every resource opens in the right-hand drawer",
+              "summary": ", deep links included, never full screen."
+            },
+            {
+              "title": "Each status has its own colour",
+              "summary": "From one shared mapping (Pending, Running, Succeeded, Failed and so on)."
+            },
+            {
+              "title": "The Copy name button is larger",
+              "summary": "And sits right after the name; the pod drawer's tabs scroll or wrap so no button is hidden."
+            },
             {
               "title": "Tables have no lines between rows",
               "summary": "The header keeps its underline, and rows are told apart by the hover tint and the selected tint with its accent bar."
@@ -20,6 +37,10 @@
         {
           "heading": "Fixed",
           "items": [
+            {
+              "title": "Port forwards are reliable",
+              "summary": "A local port can only be used by one forward at a time across every cluster."
+            },
             {
               "title": "The desktop app now updates itself",
               "summary": "Settings → Updates said \"This build doesn't update itself\", and for releases it was true: release.yml read the update public key only from a repository variable, so a key kept as a secret was ignored and the release shipped without an…"
@@ -62,6 +83,22 @@
         {
           "heading": "Added",
           "items": [
+            {
+              "title": "A \"What's new\" window after every update",
+              "summary": "The first launch after an update, manual or automatic, lists what changed in the release as a short list, once."
+            },
+            {
+              "title": "Prometheus is found by itself",
+              "summary": "Kubebay looks for Prometheus in the cluster through the API server and fills the pod graphs without setup; a URL set in Settings still wins."
+            },
+            {
+              "title": "Favorites sit at the top of the sidebar",
+              "summary": "In the same text size as the other links, and a cluster can be disconnected straight from the sidebar."
+            },
+            {
+              "title": "RBAC sections open and close",
+              "summary": ", load only when opened, and a new Roles and their access list is searchable."
+            },
             {
               "title": "Pod logs in colour",
               "summary": "The Logs tab colours each line by its level, the way log tools do: errors red, warnings amber, success green, debug and trace dimmed."
