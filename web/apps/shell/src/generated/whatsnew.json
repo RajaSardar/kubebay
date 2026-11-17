@@ -3,7 +3,26 @@
     {
       "version": "unreleased",
       "date": "",
-      "sections": []
+      "sections": [
+        {
+          "heading": "Added",
+          "items": [
+            {
+              "title": "Star any resource",
+              "summary": "Click the star after a name in a drawer, or choose Add to favorites in a table row's menu, for a pod, Deployment, Service, Ingress, any kind or custom resource."
+            }
+          ]
+        },
+        {
+          "heading": "Changed",
+          "items": [
+            {
+              "title": "Favorites moved down the sidebar",
+              "summary": ", just above Tools, as a collapsible section that remembers whether it is open."
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.7.5",

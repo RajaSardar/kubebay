@@ -44,17 +44,18 @@ describe("Sidebar", () => {
     useClusterStore.setState({ active: "" });
   });
 
-  it("puts Favorites below Tools and above Settings, each favourite a normal nav row", () => {
+  it("puts Favorites just above Tools, each favourite a normal nav row", () => {
     localStorage.setItem("kb.favorites", JSON.stringify(["/workloads", "/helm"]));
     renderSidebar();
     const fav = screen.getByRole("button", { name: /Favorites/ });
     const tools = screen.getByText("Tools");
     const settings = screen.getByRole("link", { name: "Settings" });
-    expect(tools.compareDocumentPosition(fav) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(fav.compareDocumentPosition(settings) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(fav.compareDocumentPosition(tools) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(tools.compareDocumentPosition(settings) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     for (const name of ["Pods", "Helm"]) {
       const links = screen.getAllByRole("link", { name });
-      const link = links[links.length - 1]!; // the favourite comes after the Tools/Navigate entries
+      // the favourite is the last such link before the Tools heading
+      const link = links.filter((l) => fav.compareDocumentPosition(l) & Node.DOCUMENT_POSITION_FOLLOWING && l.compareDocumentPosition(tools) & Node.DOCUMENT_POSITION_FOLLOWING).pop()!;
       expect(link.className).toContain("nav-item");
       expect(link.className).not.toContain("sub");
     }

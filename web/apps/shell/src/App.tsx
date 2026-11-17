@@ -502,6 +502,9 @@ export function Sidebar({ onOpenPalette, sidebar }: { onOpenPalette: () => void;
 
         <SavedViewsSidebar />
 
+        {/* Favorites: the one place the section is rendered (just above Tools). Move this line to move it. */}
+        <FavoritesNav />
+
         <div className="nav-section">Tools</div>
         <SidebarTerminal />
         {TOOLS.filter((t) => t.to !== SETTINGS_TOOL.to).map((t) => (
@@ -510,9 +513,6 @@ export function Sidebar({ onOpenPalette, sidebar }: { onOpenPalette: () => void;
             <span>{t.label}</span>
           </NavLink>
         ))}
-
-        {/* Favorites: the one place the section is rendered (below Tools, above Settings). Move this line to move it. */}
-        <FavoritesNav />
 
         <NavLink to={SETTINGS_TOOL.to} className={({ isActive }) => navItemClass({ active: isActive })}>
           <span className="nav-icon">{SETTINGS_TOOL.icon}</span>

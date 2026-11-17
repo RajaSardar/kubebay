@@ -14,7 +14,7 @@ The sidebar starts with **Clusters**, which goes back to the [cluster list](/doc
 - **Custom Resources**: every custom resource kind on the cluster, grouped by API group. See [CRDs](/docs/crds/).
 - **Saved views**, once you have some.
 - **Tools**: Terminal, Create Resource, CRDs, Ports, Helm, ArgoCD, Flux, RBAC, Vulnerabilities, Right-sizing, Cost / Waste, Karpenter, KEDA, Upgrade Readiness, Audit Log, Timeline and Topology.
-- **Favorites**, once you have some, below Tools. Click its title to collapse it; Kubebay remembers whether it is open. Hover a row and click **×** to remove it.
+- **Favorites**, once you have some, just above Tools. Click its title to collapse it; Kubebay remembers whether it is open. Hover a row and click **×** to remove it.
 - **Settings**, last.
 
 Press <kbd>⌘</kbd> <kbd>B</kbd> (<kbd>Ctrl</kbd> <kbd>B</kbd> on Windows and Linux) to hide the sidebar and get the width back. Press it again, or click the button on the cluster rail, to bring it back.
