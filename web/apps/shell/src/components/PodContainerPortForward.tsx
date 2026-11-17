@@ -25,7 +25,7 @@ export function PodContainerPortForward({
   const [error, setError] = useState("");
 
   const { data: forwards = [] } = useQuery({ queryKey: ["pf"], queryFn: api.pfList, refetchInterval: 5000 });
-  const active = forwards.find((f) => f.cluster === cluster && f.namespace === namespace && f.pod === pod && f.podPort === podPort);
+  const active = forwards.find((f) => f.status !== "failed" && f.cluster === cluster && f.namespace === namespace && f.pod === pod && f.podPort === podPort);
 
   async function start() {
     setError("");

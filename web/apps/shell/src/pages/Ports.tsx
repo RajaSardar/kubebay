@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Button, Card, DataTable, EmptyState, PageHeader, Row, Select, TextField } from "@kubebay/ui";
+import { Button, Card, DataTable, EmptyState, PageHeader, Row, Select, StatusPill, TextField } from "@kubebay/ui";
 import { PageHelp } from "../components/PageHelp";
 import { api } from "../lib/api";
 import { useCluster } from "../lib/useCluster";
@@ -95,6 +95,19 @@ export default function Ports() {
                 127.0.0.1:{f.localPort}
               </a>
             ),
+          },
+          {
+            key: "status",
+            header: "Status",
+            render: (f) =>
+              f.status === "failed" ? (
+                <span>
+                  <StatusPill tone="err">failed</StatusPill>
+                  {f.error && <span className="muted small"> {f.error}</span>}
+                </span>
+              ) : (
+                <StatusPill tone="ok">running</StatusPill>
+              ),
           },
           { key: "target", header: "Target", className: "mono muted", render: (f) => `${f.namespace}/${f.pod}:${f.podPort}` },
           { key: "cluster", header: "Cluster", className: "mono muted", render: (f) => f.cluster },
