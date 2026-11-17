@@ -18,12 +18,14 @@ export interface IconButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonEle
   label: string;
   /** Pressed state for toggles (split view, favourite). */
   active?: boolean;
+  /** "lg": a 32px target with room for an 18px icon (copy-name beside a title). */
+  size?: "lg";
   children: ReactNode;
 }
 
 /** A square, icon-only button: close, back, row menu, pop-out, star. */
 export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(function IconButton(
-  { label, active, title, className, type = "button", children, ...props },
+  { label, active, size, title, className, type = "button", children, ...props },
   ref,
 ) {
   return (
@@ -33,7 +35,7 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
       aria-label={label}
       title={title ?? label}
       aria-pressed={active === undefined ? undefined : active}
-      className={`kb-icon-btn${active ? " active" : ""}${className ? " " + className : ""}`}
+      className={`kb-icon-btn${active ? " active" : ""}${size === "lg" ? " kb-icon-btn-lg" : ""}${className ? " " + className : ""}`}
       {...props}
     >
       {children}
@@ -124,6 +126,11 @@ export interface TabsProps<T extends string> {
 }
 
 export function Tabs<T extends string>({ tabs, active, labels, onChange, className = "tabs", style, trailing }: TabsProps<T>) {
+  // A strip too narrow for its tabs scrolls; keep the chosen tab visible in it.
+  const rootRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    rootRef.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+  }, [active]);
   const buttons = tabs.map((t) => (
     <button
       key={t}
@@ -138,14 +145,14 @@ export function Tabs<T extends string>({ tabs, active, labels, onChange, classNa
   ));
   if (trailing == null) {
     return (
-      <div className={className} role="tablist" style={style}>
+      <div ref={rootRef} className={className} role="tablist" style={style}>
         {buttons}
       </div>
     );
   }
   // Controls that sit in the tab row (a container picker) stay outside the tablist.
   return (
-    <div className={className} style={style}>
+    <div ref={rootRef} className={className} style={style}>
       <div role="tablist" style={{ display: "contents" }}>
         {buttons}
       </div>
