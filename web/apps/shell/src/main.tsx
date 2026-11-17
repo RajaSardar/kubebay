@@ -12,6 +12,7 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import "./lib/theme";
 import "./lib/display";
+import { startWindowSync } from "./lib/windowSyncApply";
 import App from "./App";
 import { TokenGate } from "./components/TokenGate";
 import "./app.css";
@@ -23,6 +24,9 @@ function syncAppHeight() {
 }
 syncAppHeight();
 window.addEventListener("resize", syncAppHeight);
+
+// Other desktop windows share this origin's localStorage: follow their theme, font and density changes.
+startWindowSync();
 
 // Belt-and-suspenders bounce suppression for macOS WKWebView.
 // CSS overscroll-behavior stops DOM chaining; this wheel handler catches any

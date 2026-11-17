@@ -11,7 +11,9 @@ use std::time::Duration;
 mod smoke;
 mod updater;
 mod window_theme;
+mod windows;
 
+use tauri::menu::{Menu, MenuItem, MenuItemKind, Submenu};
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_shell::process::{CommandChild, CommandEvent};
 use tauri_plugin_shell::ShellExt;
@@ -42,6 +44,63 @@ fn native_theme(a: window_theme::Appearance) -> Option<tauri::Theme> {
         window_theme::Appearance::Light => Some(tauri::Theme::Light),
         window_theme::Appearance::System => None,
     }
+}
+
+/// The id of the File menu's "New Window" item.
+const NEW_WINDOW_ID: &str = "new-window";
+
+/// Opens a window on the one engine: the same URL and token script as the
+/// first, under a label no open window has. Must run on the main thread.
+/// Does nothing until the engine is up. A new window has its own
+/// sessionStorage, so it opens on the cluster picker.
+fn open_window(app: &tauri::AppHandle) {
+    let Some((addr, token)) = ENGINE_SESSION.get() else {
+        return;
+    };
+    let open: Vec<String> = app.webview_windows().keys().cloned().collect();
+    let label = windows::next_label(&open);
+    let url = format!("http://{addr}/").parse().expect("valid url");
+    // Runs before the page's own scripts on every load, so a reload gets the
+    // token back without asking the user and without the page having to keep
+    // it anywhere on disk.  serde_json does the escaping so the token cannot
+    // break out of the literal.
+    let init = smoke::init_script(
+        &serde_json::to_string(token).expect("token is a string"),
+        smoke::is_on(),
+    );
+    let saved = window_theme_path(app).and_then(|p| window_theme::load(&p));
+    let mut builder = WebviewWindowBuilder::new(app, &label, WebviewUrl::External(url))
+        .title("Kubebay")
+        .initialization_script(init)
+        .inner_size(1320.0, 850.0)
+        .min_inner_size(980.0, 620.0);
+    // Open in the last theme's colours so the window does not flash the OS
+    // default before the page paints.
+    if let Some(theme) = saved {
+        let (r, g, b) = theme.background;
+        builder = builder
+            .background_color(tauri::window::Color(r, g, b, 255))
+            .theme(native_theme(theme.appearance));
+    }
+    let _ = builder.build();
+}
+
+/// The default menu with "New Window" (Cmd/Ctrl+N) at the top of File.
+fn app_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
+    let menu = Menu::default(app)?;
+    let item = MenuItem::with_id(app, NEW_WINDOW_ID, "New Window", true, Some("CmdOrCtrl+N"))?;
+    let file: Option<Submenu<tauri::Wry>> = menu.items()?.into_iter().find_map(|i| match i {
+        MenuItemKind::Submenu(s) if s.text().map(|t| t == "File").unwrap_or(false) => Some(s),
+        _ => None,
+    });
+    match file {
+        Some(f) => f.insert(&item, 0)?,
+        None => {
+            let f = Submenu::with_items(app, "File", true, &[&item])?;
+            menu.insert(&f, 1)?;
+        }
+    }
+    Ok(menu)
 }
 
 /// Called by the web app (lib/nativeWindow.ts) whenever its theme changes: the
@@ -411,6 +470,7 @@ fn main() {
         .setup(move |app| {
             let prefs = app.path().app_config_dir().ok().map(|d| d.join("updates.json"));
             app.manage(updater::Updates::new(can_update, prefs));
+            app.set_menu(app_menu(app.handle())?)?;
             if can_update {
                 let h = app.handle().clone();
                 std::thread::spawn(move || {
@@ -497,48 +557,32 @@ fn main() {
                 let _ = ENGINE_SESSION.set((addr.clone(), token.clone()));
                 std::thread::sleep(Duration::from_millis(300));
 
-                let url = format!("http://{addr}/").parse().expect("valid url");
-                // Runs before the page's own scripts on every load, so a reload
-                // gets the token back without asking the user and without the
-                // page having to keep it anywhere on disk.  serde_json does the
-                // escaping so the token cannot break out of the literal.
-                let init = smoke::init_script(
-                    &serde_json::to_string(&token).expect("token is a string"),
-                    smoke::is_on(),
-                );
-
-                let saved = window_theme_path(&handle).and_then(|p| window_theme::load(&p));
+                // The first window; File > New Window opens more on this engine.
                 let h2 = handle.clone();
-                let _ = handle.run_on_main_thread(move || {
-                    let mut builder =
-                        WebviewWindowBuilder::new(&h2, "main", WebviewUrl::External(url))
-                            .title("Kubebay")
-                            .initialization_script(init)
-                            .inner_size(1320.0, 850.0)
-                            .min_inner_size(980.0, 620.0);
-                    // Open in the last theme's colours so the window does not
-                    // flash the OS default before the page paints.
-                    if let Some(theme) = saved {
-                        let (r, g, b) = theme.background;
-                        builder = builder
-                            .background_color(tauri::window::Color(r, g, b, 255))
-                            .theme(native_theme(theme.appearance));
-                    }
-                    let _ = builder.build();
-                });
+                let _ = handle.run_on_main_thread(move || open_window(&h2));
             });
 
             Ok(())
         })
+        .on_menu_event(|app, event| {
+            if event.id().as_ref() == NEW_WINDOW_ID {
+                open_window(app);
+            }
+        })
         .build(context)
         .expect("error building kubebay")
-        .run(|_app_handle, event| match event {
-            // Window closed (red ✕ button or ⌘W) — kill engine immediately.
+        .run(|app_handle, event| match event {
+            // A window closed (red ✕ button or ⌘W): the engine stops only when
+            // it was the last one, since the others still use it.
             tauri::RunEvent::WindowEvent {
+                label,
                 event: tauri::WindowEvent::Destroyed,
                 ..
             } => {
-                kill_engine();
+                let open: Vec<String> = app_handle.webview_windows().keys().cloned().collect();
+                if windows::engine_should_stop(&open, &label) {
+                    kill_engine();
+                }
             }
             // App fully exiting — belt-and-suspenders kill + flush stdout.
             tauri::RunEvent::Exit => {

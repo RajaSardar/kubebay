@@ -18,6 +18,15 @@ The sidebar starts with **Clusters**, which goes back to the [cluster list](/doc
 
 Press <kbd>⌘</kbd> <kbd>B</kbd> (<kbd>Ctrl</kbd> <kbd>B</kbd> on Windows and Linux) to hide the sidebar and get the width back. Press it again, or click the button on the cluster rail, to bring it back.
 
+## Several windows
+
+In the desktop app, **File > New Window** (<kbd>⌘</kbd> <kbd>N</kbd>, <kbd>Ctrl</kbd> <kbd>N</kbd> on Windows and Linux) opens another window on the same Kubebay engine. Use it to look at two clusters side by side.
+
+- A new window opens on the [cluster list](/docs/connect-clusters/), and each window remembers its own connected cluster, so connecting one window does not change the others.
+- Theme, font and density are shared: change one in Settings and every open window follows. Favourites, table columns and sorting are shared too, and are read when a window opens, so an open window picks up another window's change the next time it loads that table.
+- Closing a window leaves the others running. Kubebay stops its engine when the last window closes.
+- All windows use the same kubeconfig. Separate profiles with their own clusters are not available yet.
+
 ## What is this?
 
 Every page has an **ⓘ** beside its title, and so does each insight card, such as SPOF Radar, Attack paths or the Efficiency score. Click it, or focus it and press <kbd>Enter</kbd>, for a sentence on what the page is, one on how it works, and a link to its page in this manual. <kbd>Esc</kbd> or a click elsewhere closes it.
@@ -116,6 +125,7 @@ Saved views are listed in the sidebar and in the command palette. Opening one sw
 |---|---|
 | <kbd>⌘</kbd> <kbd>K</kbd> | open the command palette |
 | <kbd>⌘</kbd> <kbd>B</kbd> | hide or show the sidebar |
+| <kbd>⌘</kbd> <kbd>N</kbd> | open a new window (desktop app) |
 | <kbd>/</kbd> | jump to a table's filter |
 | <kbd>j</kbd> <kbd>k</kbd> <kbd>Enter</kbd> <kbd>x</kbd> | move, open and select in a table |
 | <kbd>Esc</kbd> | close a drawer, dialog, ⓘ or the palette |
