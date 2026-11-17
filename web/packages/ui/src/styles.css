@@ -160,6 +160,11 @@
     color var(--kb-dur-fast) var(--kb-ease);
 }
 
+.kb-icon-btn-lg {
+  min-width: 32px;
+  height: 32px;
+}
+
 .kb-icon-btn:hover:not([disabled]) {
   background: var(--kb-bg-raised);
   color: var(--kb-fg-default);
@@ -1591,11 +1596,15 @@ tr.row-clickable:active {
 }
 
 .drawer-pane-tabs .tab {
+  flex-shrink: 0;
+  white-space: nowrap;
   font-size: var(--kb-text-xs);
   padding: 4px 10px;
 }
 
 .drawer-pane-tabs {
+  overflow-x: auto;
+  scrollbar-width: thin;
   display: flex;
   align-items: center;
   gap: 2px;
@@ -1802,6 +1811,7 @@ tr.row-clickable:active {
 }
 
 .drawer-head {
+  flex-wrap: wrap;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -1834,7 +1844,16 @@ tr.row-clickable:active {
   font-family: var(--kb-font-mono);
 }
 
+.drawer-name-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
 .drawer-head-actions {
+  flex-wrap: wrap;
+  margin-left: auto;
   display: flex;
   align-items: center;
   gap: 10px;

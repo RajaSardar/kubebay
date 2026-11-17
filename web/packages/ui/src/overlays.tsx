@@ -146,27 +146,29 @@ export function Drawer({ title, subtitle, subtitleMono = true, leading, actions,
       <div className="drawer-head">
         {leading}
         <div className="drawer-title">
-          <div id={titleId} className="drawer-name">
-            {title}
+          <div className="drawer-name-row">
+            <div id={titleId} className="drawer-name">
+              {title}
+            </div>
+            {copyName && (
+              <IconButton size="lg" label={copied ? "Copied" : "Copy name"} onClick={copy}>
+                <svg width="18" height="18" viewBox="0 0 14 14" fill="none" aria-hidden>
+                  {copied ? (
+                    <path d="M2.5 7.5l3 3 6-7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                  ) : (
+                    <>
+                      <rect x="4.5" y="4.5" width="8" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.4" />
+                      <path d="M9.5 2.5h-6a1 1 0 0 0-1 1v6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                    </>
+                  )}
+                </svg>
+              </IconButton>
+            )}
           </div>
           {subtitle != null && subtitle !== false && (
             <div className={`drawer-subtitle${subtitleMono ? " drawer-subtitle-mono" : ""}`}>{subtitle}</div>
           )}
         </div>
-        {copyName && (
-          <IconButton label={copied ? "Copied" : "Copy name"} onClick={copy}>
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
-              {copied ? (
-                <path d="M2.5 7.5l3 3 6-7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-              ) : (
-                <>
-                  <rect x="4.5" y="4.5" width="8" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.4" />
-                  <path d="M9.5 2.5h-6a1 1 0 0 0-1 1v6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-                </>
-              )}
-            </svg>
-          </IconButton>
-        )}
         {actions != null && actions !== false && <div className="drawer-head-actions">{actions}</div>}
       </div>
       {children}
