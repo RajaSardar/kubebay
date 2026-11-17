@@ -1214,6 +1214,15 @@ h2 {
   background: var(--kb-status-err-subtle);
 }
 
+/* A starred object the cluster no longer has: dimmed, its remove button always shown. */
+.nav-fav--dead {
+  opacity: 0.55;
+}
+
+.nav-fav--dead .nav-fav-remove {
+  opacity: 1;
+}
+
 .sidebar-disconnect {
   margin: 6px 8px 0;
 }

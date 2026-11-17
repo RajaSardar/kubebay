@@ -13,6 +13,8 @@ import { DEFS, EXTRA_DEFS } from "../lib/resources";
 import { buildIndex, mergeGroups, parseQuery, search, type SearchGroup, type SearchObject } from "../lib/paletteSearch";
 import { usePaletteRemote } from "../lib/usePaletteRemote";
 import { usePaletteObjects } from "../lib/usePaletteObjects";
+import { readFavoriteObjects } from "./Favorites";
+import { targetFor } from "../lib/objectPath";
 import { pushRecent, readRecents, type Recent } from "../lib/paletteRecents";
 
 // ──── Nav items (static routes) ──────────────────────────────────────────────
@@ -223,20 +225,6 @@ function PaletteRow({
 
 // ──── Opening a result ────────────────────────────────────────────────────────
 
-/** Where an object opens. Pods have no detail page: their list opens the drawer. */
-function targetFor(o: { slug: string; ns: string; name: string; clusterScoped?: boolean; ref?: string }): string {
-  if (o.slug === "pods") return `/workloads?pod=${encodeURIComponent(`${o.ns}/${o.name}`)}`;
-  if (o.slug === "crds") {
-    // A CRD opens the objects it defines (the ScaledObjects, for scaledobjects.keda.sh)...
-    if (o.ref) return `/r/${o.ref}${o.clusterScoped ? "?scoped=0" : ""}`;
-    // ...or, not knowing which kind that is, the CRDs page at its API group: its name is "plural.group".
-    return `/crds?group=${encodeURIComponent(o.name.slice(o.name.indexOf(".") + 1))}`;
-  }
-  const base = `/detail/${o.slug}/${o.ns || "_"}/${o.name}`;
-  // A custom resource with no namespace must say so; the route cannot tell.
-  return o.slug.startsWith("ext--") && !o.ns ? `${base}?scoped=0` : base;
-}
-
 /** The kind's list, filtered to what was typed. */
 function listTargetFor(slug: string, terms: string, clusterScoped = false): string {
   const q = encodeURIComponent(terms);
@@ -309,6 +297,7 @@ export function Palette({
   const [idx, setIdx] = useState(0);
   const [scope, setScope] = useState<Scope>(readScope);
   const [recents, setRecents] = useState<Recent[]>([]);
+  const [favObjects, setFavObjects] = useState<Recent[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -316,6 +305,7 @@ export function Palette({
       setQ("");
       setIdx(0);
       setRecents(readRecents());
+      setFavObjects(readFavoriteObjects());
       setTimeout(() => inputRef.current?.focus(), 10);
     }
   }, [open]);
@@ -389,12 +379,15 @@ export function Palette({
       : [];
     const recentSection: Section[] =
       !q.trim() && recents.length ? [{ key: "recent", title: "Recent", entries: recents.map((recent) => ({ kind: "recent", recent })) }] : [];
+    // Starred objects reuse the Recent rows: they open the same way.
+    const favSection: Section[] =
+      !q.trim() && favObjects.length ? [{ key: "favorites", title: "Favorites", entries: favObjects.map((recent) => ({ kind: "recent", recent })) }] : [];
     // Asking for a cluster ("switch ...", "@...") puts the clusters first, and
     // so does an empty box: the pages list is long enough to push them off screen.
     if (clusterMatch.intent) return [...clusterSection, ...navSection, ...objectSections];
-    if (!q.trim()) return [...clusterSection, ...recentSection, ...navSection];
+    if (!q.trim()) return [...clusterSection, ...favSection, ...recentSection, ...navSection];
     return [...navSection, ...objectSections, ...clusterSection];
-  }, [filteredNav, groups, clusterRows, clusterMatch.intent, recents, q, termText]);
+  }, [filteredNav, groups, clusterRows, clusterMatch.intent, recents, favObjects, q, termText]);
   const flatEntries = useMemo(() => sections.flatMap((s) => s.entries), [sections]);
 
   const notes = useMemo(() => {

@@ -62,7 +62,7 @@ const Flux = lazy(() => import("./pages/Flux"));
 import { Palette } from "./components/Palette";
 import { discoveryApi } from "./lib/api";
 import { KNOWN_GVRS, extSlug } from "./lib/resources";
-import { FavoritesSidebar, useFavorites } from "./components/Favorites";
+import { FavoritesNav } from "./components/Favorites";
 import { OpenSavedView, SavedViewsSidebar } from "./components/SavedViews";
 import { useClusterIcons } from "./lib/useClusterIcons";
 import { ClusterIconPicker, autoAvatar, avatarLabelColor, stripAvatarLook } from "./components/ClusterIconPicker";
@@ -236,6 +236,8 @@ const TOOLS = [
   { to: "/topology", label: "Topology", icon: <IconTopology /> },
   { to: "/settings", label: "Settings", icon: <IconSliders /> },
 ];
+
+const SETTINGS_TOOL = TOOLS.find((t) => t.to === "/settings")!;
 
 function NavSub({ leaf }: { leaf: NavLeaf }) {
   return (
@@ -425,7 +427,6 @@ export function Sidebar({ onOpenPalette, sidebar }: { onOpenPalette: () => void;
     return map;
   };
   const [open, setOpen] = useState(initialOpen);
-  const { favorites, remove: removeFav } = useFavorites();
   const { active } = useClusterStore();
   const queryClient = useQueryClient();
   const clusterList = queryClient.getQueryData<ClusterInfo[]>(["clusters"]) ?? [];
@@ -474,7 +475,6 @@ export function Sidebar({ onOpenPalette, sidebar }: { onOpenPalette: () => void;
       </button>
 
       <nav className="nav">
-        {favorites.length > 0 && <FavoritesSidebar favorites={favorites} onRemove={removeFav} />}
         <div className="nav-section">Navigate</div>
         <NavLink to="/workloads-overview" className={({ isActive }) => navItemClass({ active: isActive })}>
           <span className="nav-icon"><IconHome /></span>
@@ -504,12 +504,20 @@ export function Sidebar({ onOpenPalette, sidebar }: { onOpenPalette: () => void;
 
         <div className="nav-section">Tools</div>
         <SidebarTerminal />
-        {TOOLS.map((t) => (
+        {TOOLS.filter((t) => t.to !== SETTINGS_TOOL.to).map((t) => (
           <NavLink key={t.to} to={t.to} className={({ isActive }) => navItemClass({ active: isActive })}>
             <span className="nav-icon">{t.icon}</span>
             <span>{t.label}</span>
           </NavLink>
         ))}
+
+        {/* Favorites: the one place the section is rendered (below Tools, above Settings). Move this line to move it. */}
+        <FavoritesNav />
+
+        <NavLink to={SETTINGS_TOOL.to} className={({ isActive }) => navItemClass({ active: isActive })}>
+          <span className="nav-icon">{SETTINGS_TOOL.icon}</span>
+          <span>{SETTINGS_TOOL.label}</span>
+        </NavLink>
       </nav>
 
     </aside>

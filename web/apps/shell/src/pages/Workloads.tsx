@@ -17,6 +17,7 @@ import { PageHelp } from "../components/PageHelp";
 import { fmtBytes, fmtCpu } from "../lib/format";
 import { useExtensions } from "../lib/useExtensions";
 import { contextOf } from "../lib/localshell";
+import { useFavoriteObjects } from "../components/Favorites";
 
 const PODS_DEF = { resource: "pods", group: "", kind: "Pod" };
 
@@ -136,6 +137,7 @@ export default function Workloads() {
   // The fallback produced an unstable value that changed on every 4-second
   // clusters refetch, causing useResourceStream to restart and wipe rows.
   const effectiveCluster = activeCluster;
+  const favObjects = useFavoriteObjects();
 
   const nsFilter = useSelectedNamespaces(effectiveCluster || undefined);
   // "Show pods" from a workload: /workloads?ns=…&selector=…&of=Kind/name streams
@@ -274,6 +276,10 @@ export default function Workloads() {
           { label: "Shell", onClick: () => openPod(p, "shell") },
           { label: "Edit YAML", onClick: () => openPod(p, "yaml") },
           { label: "Copy name", onClick: () => void navigator.clipboard?.writeText(p.name) },
+          (() => {
+            const fav = { cluster: effectiveCluster, slug: "pods", ns: p.namespace, name: p.name, kind: "Pod" };
+            return { label: favObjects.has(fav) ? "Remove from favorites" : "Add to favorites", onClick: () => favObjects.toggle(fav) };
+          })(),
           ...ext.menuItems(p),
           { separator: true, label: "", onClick: () => {} },
           { label: "Delete", danger: true, onClick: requestDelete },

@@ -1,3 +1,4 @@
+import { ObjectStarButton } from "../components/Favorites";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Badge, Button, InlineBanner, Modal, Row, Stack, Select, Spinner, StatusDot, Tabs, TextField, Drawer } from "@kubebay/ui";
 import { api } from "../lib/api";
@@ -156,6 +157,7 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
     <Drawer
       title={pod.pod}
       copyName={pod.pod}
+      nameExtra={<ObjectStarButton obj={{ cluster: pod.cluster, slug: "pods", ns: pod.namespace, name: pod.pod, kind: "Pod" }} />}
       subtitle={pod.namespace}
       leading={<StatusDot status="connected" pulse={status === "streaming"} />}
       onClose={onClose}
