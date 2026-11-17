@@ -7,6 +7,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 ## [Unreleased]
 
 ### Added
+- **Several windows in the desktop app.** File > New Window (⌘N) opens another window on the same engine, on the cluster list, each with its own connected cluster. Closing one window keeps the others; the engine stops with the last. Theme, font and density follow across windows.
 - **Pause and Unpause a KEDA ScaledObject** from the KEDA page. Pause asks how many replicas to hold (0 allowed); Unpause removes the pause annotations.
 
 ## [0.7.4] - 2026-11-17
