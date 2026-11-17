@@ -2,6 +2,9 @@ FROM node:20-alpine AS web
 RUN corepack enable
 WORKDIR /src
 COPY web/ ./web/
+# The shell's prebuild regenerates the "What's new" JSON from the changelog.
+COPY CHANGELOG.md ./CHANGELOG.md
+COPY scripts/whatsnew-gen.mjs ./scripts/whatsnew-gen.mjs
 RUN cd web && pnpm install --frozen-lockfile && pnpm build
 
 # The Go release go.mod's toolchain line names, so the image's engine and the

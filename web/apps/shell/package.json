@@ -3,7 +3,9 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
+    "predev": "node ../../../scripts/whatsnew-gen.mjs",
     "dev": "vite",
+    "prebuild": "node ../../../scripts/whatsnew-gen.mjs",
     "build": "vite build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

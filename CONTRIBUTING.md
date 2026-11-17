@@ -158,6 +158,10 @@ Also:
 
 ---
 
+## Releasing
+
+The release commit renames `## [Unreleased]` in `CHANGELOG.md` to `## [X.Y.Z] - YYYY-MM-DD` and adds a fresh, empty `## [Unreleased]` above it. Then run `node scripts/whatsnew-gen.mjs` and commit the regenerated `web/apps/shell/src/generated/whatsnew.json`: it feeds the "What's new" window users see after updating, and `node --test scripts/whatsnew-gen.test.mjs` fails if it is out of sync, or if `desktop/src-tauri/tauri.conf.json` has a version with no changelog section. Start each entry with a bold title (`- **Title**: what changed.`); the first sentence after it is the summary shown.
+
 ## Pull Request Guidelines
 
 - **One PR, one concern.** Do not bundle a refactor with a feature. If you find something broken while working on something else, fix it in a separate PR.
