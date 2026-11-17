@@ -23,3 +23,16 @@ describe("cronjobs Status column", () => {
     expect(c.pill).toBe(true);
   });
 });
+
+describe("cronjobs Next Schedule column", () => {
+  const next = (o: Record<string, unknown>) => extraColumns("cronjobs")["Next Schedule"]!(o);
+  it("shows a relative time with the absolute time as the title", () => {
+    const c = next({ spec: { schedule: "* * * * *" } });
+    expect(c.v).toMatch(/^in \d+m$/);
+    expect(c.title).toBeTruthy();
+  });
+  it("is an en dash when suspended or the schedule is invalid", () => {
+    expect(next({ spec: { schedule: "* * * * *", suspend: true } }).v).toBe("–");
+    expect(next({ spec: { schedule: "bogus" } }).v).toBe("–");
+  });
+});

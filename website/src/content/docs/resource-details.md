@@ -36,7 +36,7 @@ Above the tabs:
 - **Deployments and StatefulSets**: set the replicas with **−** and **+**, then **Apply scale**. **Restart** rolls the pods.
 - **Argo Rollouts**: the same **−**, **+** and **Apply scale** set a Rollout's replicas. There is no Restart on a Rollout.
 - **DaemonSets**: **Restart**.
-- **CronJobs**: the list has a **Status** column (Suspended, Active when jobs are running, or Idle) and an **Active Jobs** count beside **Last Schedule**. **Trigger now** runs a Job from it at once. **Suspend** and **Resume** stop and restart its schedule.
+- **CronJobs**: the list has a **Status** column (Suspended, Active when jobs are running, or Idle) and an **Active Jobs** count beside **Last Schedule**. **Next Schedule** shows when it will next run ("in 12m"); hover for the exact time. It reads the schedule (lists, ranges, steps, month and day names, `@daily` and the other `@` shortcuts) in the CronJob's `timeZone`, or UTC when none is set, and shows – when the CronJob is suspended or its schedule is invalid. **Trigger now** runs a Job from it at once. **Suspend** and **Resume** stop and restart its schedule.
 - **Nodes**: **Cordon**, **Uncordon** and **Drain**. See [Nodes](/docs/nodes/).
 - **Delete**, with a confirmation.
 
