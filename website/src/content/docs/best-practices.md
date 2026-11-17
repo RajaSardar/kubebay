@@ -1,0 +1,44 @@
+---
+title: Best practices
+description: A checklist of reliability, security and recovery practices for the connected cluster, and what to install for the ones it lacks.
+section: Insights
+order: 6
+appRoutes: ["/best-practices"]
+---
+
+**Best practices** in the sidebar's Tools checks the connected cluster against eleven common practices, and says what to install for the ones it lacks. The header counts how many pass.
+
+Each item is **Pass**, **Fail** or **Unknown**, with a line on why it matters. **Unknown** means Kubebay couldn't read what the check needs, for example because your RBAC doesn't let you list it. It is never shown as a pass.
+
+## What it checks
+
+**Reliability**
+- **PodDisruptionBudgets on multi-replica workloads.** A Deployment or StatefulSet with more than one replica needs a budget whose selector matches its pods, or a node drain can evict every replica at once.
+- **Resource requests and memory limits.** Every container sets CPU and memory requests and a memory limit. [Right-sizing](/docs/right-sizing/) helps pick the numbers.
+- **Readiness probes.** Every container has one.
+
+**Security**
+- **NetworkPolicies** in each namespace that has workloads. See [Network policy](/docs/network-policy/).
+- **Pod Security Admission labels.** Each namespace has a `pod-security.kubernetes.io/enforce` label.
+- **A policy engine**, Kyverno or Gatekeeper.
+- **An image scanner**, Trivy-Operator. When it is installed, the item links to [Vulnerabilities](/docs/vulnerabilities/).
+
+**Disaster recovery**
+- **A backup tool**, Velero.
+
+**Platform**
+- **metrics-server**, which autoscaling, `kubectl top` and Kubebay's usage columns read from.
+- **An ingress controller**, found by an IngressClass.
+- **cert-manager**, for certificate renewal.
+
+The workload checks show a count and up to three examples. The `kube-system`, `kube-public` and `kube-node-lease` namespaces are left out.
+
+## Installing what's missing
+
+A tool is detected by the API groups the cluster serves, such as `velero.io`. When it isn't, its item has a **How to install** disclosure with the tool's own install command and a link to its official guide. The command is text only: Kubebay never runs it, so copy it to your terminal, or use the [Helm](/docs/helm/) page. When the tool is installed, the item links to the Kubebay page that works with it.
+
+"Not detected" doesn't mean unprotected. A managed add-on, a cloud load balancer or a Gateway API controller can cover the same need, and Kubebay can't see those.
+
+## What it reads
+
+Deployments, StatefulSets, PodDisruptionBudgets, NetworkPolicies, Namespaces, IngressClasses and the cluster's API list, with your own credentials. It changes nothing in the cluster.
