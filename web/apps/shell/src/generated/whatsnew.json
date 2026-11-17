@@ -3,10 +3,19 @@
     {
       "version": "unreleased",
       "date": "",
+      "sections": []
+    },
+    {
+      "version": "0.7.5",
+      "date": "2026-11-18",
       "sections": [
         {
           "heading": "Added",
           "items": [
+            {
+              "title": "Several windows in the desktop app",
+              "summary": "File > New Window (⌘N) opens another window on the same engine, on the cluster list, each with its own connected cluster."
+            },
             {
               "title": "Pause and Unpause a KEDA ScaledObject",
               "summary": "From the KEDA page."
