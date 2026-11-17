@@ -11,6 +11,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ### Fixed
 - **Unapplied YAML edits are no longer dropped silently.** Closing a resource or pod drawer (Close, Esc, or a click on the page behind), changing its tab, or, on Create Resource, switching kind or following a link, now asks "Discard changes?" when the YAML was edited.
+- **Best practices page** in the sidebar's Tools. An 11-item checklist for the connected cluster, each item Pass, Fail or Unknown with why it matters: PodDisruptionBudgets on multi-replica workloads, requests and memory limits, readiness probes, NetworkPolicies, Pod Security labels, a policy engine, an image scanner, a backup tool, metrics-server, an ingress controller and cert-manager. A tool that isn't detected has a How to install disclosure with the official command as text (Kubebay never runs it); an installed one links to Helm or Vulnerabilities. Read-only, from data Kubebay already reads.
 
 ## [0.7.6] - 2026-11-18
 

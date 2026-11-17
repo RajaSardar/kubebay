@@ -59,6 +59,7 @@ const Karpenter = lazy(() => import("./pages/Karpenter"));
 const Keda = lazy(() => import("./pages/Keda"));
 const UpgradeReadiness = lazy(() => import("./pages/UpgradeReadiness"));
 const Flux = lazy(() => import("./pages/Flux"));
+const BestPractices = lazy(() => import("./pages/BestPractices"));
 import { Palette } from "./components/Palette";
 import { discoveryApi } from "./lib/api";
 import { KNOWN_GVRS, extSlug } from "./lib/resources";
@@ -231,6 +232,7 @@ const TOOLS = [
   { to: "/karpenter", label: "Karpenter", icon: <IconTopology /> },
   { to: "/keda", label: "KEDA", icon: <IconLayers /> },
   { to: "/upgrade-readiness", label: "Upgrade Readiness", icon: <IconShield /> },
+  { to: "/best-practices", label: "Best practices", icon: <IconShield /> },
   { to: "/audit", label: "Audit Log", icon: <IconTimeline /> },
   { to: "/timeline", label: "Timeline", icon: <IconTimeline /> },
   { to: "/topology", label: "Topology", icon: <IconTopology /> },
@@ -677,6 +679,7 @@ function AppInner() {
               <Route path="/karpenter" element={<Karpenter />} />
               <Route path="/keda" element={<Keda />} />
               <Route path="/upgrade-readiness" element={<UpgradeReadiness />} />
+              <Route path="/best-practices" element={<BestPractices />} />
               <Route path="/helm" element={<Helm />} />
               <Route path="/argocd" element={<ArgoCD />} />
               <Route path="/flux" element={<Flux />} />

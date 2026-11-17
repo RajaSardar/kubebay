@@ -102,6 +102,12 @@ export const PAGE_HELP: Record<string, PageHelpEntry> = {
     how: "Each check reads Roles, bindings and workloads with your own credentials; nothing is installed in the cluster.",
     docs: "rbac",
   },
+  "/best-practices": {
+    name: "Best practices",
+    what: "A checklist for this cluster: disruption budgets, requests and probes, network and pod security, backups and the tools worth installing.",
+    how: "Each check reads what Kubebay already sees; a tool that isn't detected shows its install command as text, and Kubebay never runs it.",
+    docs: "best-practices",
+  },
   "/vulnerabilities": {
     name: "Vulnerabilities",
     what: "Every CVE Trivy-Operator found on the cluster, one row per workload, worst first.",
