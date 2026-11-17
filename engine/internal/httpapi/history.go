@@ -262,7 +262,7 @@ func (h *HistoryAPI) promSeries(w http.ResponseWriter, r *http.Request, c, ns st
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	base := set.PrometheusURLFor(c)
+	base, pc := h.Settings.promBase(r.Context(), set, c)
 	if base == "" {
 		http.Error(w, "no Prometheus configured for this cluster", http.StatusPreconditionFailed)
 		return
@@ -288,7 +288,7 @@ func (h *HistoryAPI) promSeries(w http.ResponseWriter, r *http.Request, c, ns st
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		m, err := h.fetchMatrix(r.Context(), u, item.scale)
+		m, err := h.fetchMatrix(r.Context(), u, item.scale, pc)
 		if err != nil {
 			http.Error(w, "prometheus: "+err.Error(), http.StatusBadGateway)
 			return
@@ -298,8 +298,10 @@ func (h *HistoryAPI) promSeries(w http.ResponseWriter, r *http.Request, c, ns st
 	writeJSON(w, history.PromSeries(ns, from, to, results[0], results[1], results[2], results[3], time.Now(), retention, time.Local))
 }
 
-func (h *HistoryAPI) fetchMatrix(ctx context.Context, u string, scale float64) (map[time.Time]float64, error) {
-	client := h.HTTP
+func (h *HistoryAPI) fetchMatrix(ctx context.Context, u string, scale float64, client *http.Client) (map[time.Time]float64, error) {
+	if client == nil {
+		client = h.HTTP
+	}
 	if client == nil {
 		// The same guard as the Prometheus proxy: no metadata or link-local address.
 		client = h.Settings.Outbound.Client(30 * time.Second)

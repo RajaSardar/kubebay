@@ -611,6 +611,8 @@ export interface AppSettings {
   /** Fallback for clusters with no entry in prometheusUrls. */
   prometheusUrl?: string;
   prometheusUrls?: Record<string, string>;
+  /** Auto-detected Service the user picked per cluster ("namespace/service:port"). */
+  prometheusTargets?: Record<string, string>;
   extraKubeconfigs: string[];
   onlyListedKubeconfigs?: boolean;
   activeKubeconfigs?: string[];
@@ -1004,7 +1006,48 @@ export const wasteApi = {
 /** The engine has no Prometheus URL for this cluster (HTTP 412). */
 export class PromNotConfiguredError extends Error {}
 
+/** One in-cluster Service that looks like a Prometheus. */
+export interface PromCandidate {
+  namespace: string;
+  name: string;
+  port: number;
+  scheme: string;
+  score: number;
+  /** "namespace/service:port" (prefixed "https:" for TLS). */
+  target: string;
+}
+
+/** Which Prometheus the graphs use: your URL, an auto-detected Service, or none. */
+export interface PromStatus {
+  source: "manual" | "auto" | "none";
+  target: string;
+  /** True when the user picked the target instead of taking the best guess. */
+  chosen: boolean;
+  candidates: PromCandidate[];
+}
+
 export const promApi = {
+  /** What Prometheus this cluster uses. Never throws: failing to ask reads as "none". */
+  status: async (cluster: string, refresh = false): Promise<PromStatus> => {
+    const q = new URLSearchParams({ cluster });
+    if (refresh) q.set("refresh", "1");
+    try {
+      const res = await fetch(`/api/prom/status?${q}`, { headers: { "X-Kubebay-Token": getToken() } });
+      if (!res.ok) return { source: "none", target: "", chosen: false, candidates: [] };
+      return (await res.json()) as PromStatus;
+    } catch {
+      return { source: "none", target: "", chosen: false, candidates: [] };
+    }
+  },
+  /** Pin an auto-detected Service for the cluster; "" goes back to the best guess. */
+  setTarget: async (cluster: string, target: string): Promise<void> => {
+    const res = await fetch("/api/prom/target", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Kubebay-Token": getToken() },
+      body: JSON.stringify({ cluster, target }),
+    });
+    if (!res.ok) throw new Error((await res.text()) || `${res.status} ${res.statusText}`);
+  },
   /** An instant query; the result vector. */
   query: async (params: { cluster: string; query: string }): Promise<{ metric: Record<string, string>; value: [number, string] }[]> => {
     const q = new URLSearchParams({ cluster: params.cluster, query: params.query });

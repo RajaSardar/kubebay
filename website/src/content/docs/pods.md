@@ -54,7 +54,7 @@ A shell in the container: pick the container and the shell (**auto**, `bash`, `s
 
 ### Graphs
 
-CPU and memory per container over the last **15m** or **24h**, from Prometheus. Until a Prometheus URL is set, the tab says so and links to [Settings](/docs/settings/#prometheus). If Prometheus runs in the cluster, Kubebay gives you the `kubectl port-forward` command to reach it.
+CPU and memory per container over the last **15m** or **24h**, from Prometheus. If Prometheus runs in the cluster, Kubebay finds it by itself and reads it through the cluster's API server, so the graphs just work. The tab says `Auto-detected: monitoring/prometheus-server:80`, and **Change** picks another service or switches to your own URL. Only when nothing is found, and no URL is set, does the tab say so and link to [Settings](/docs/settings/#prometheus). A URL you set always wins, and if that Prometheus is unreachable Kubebay shows the `kubectl port-forward` command to reach it.
 
 ### Size
 

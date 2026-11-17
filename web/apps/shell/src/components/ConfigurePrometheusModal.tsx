@@ -30,6 +30,21 @@ export default function ConfigurePrometheusModal({ cluster, connected = true, on
   const current = settings.data?.prometheusUrls?.[cluster] ?? "";
   const fallback = settings.data?.prometheusUrl ?? "";
 
+  const status = useQuery({ queryKey: ["prom-status", cluster], queryFn: async () => (await api.promApi.status(cluster)) ?? { source: "none" as const, target: "", chosen: false, candidates: [] }, retry: false });
+  const auto = status.data?.source === "auto" ? status.data : null;
+  const [ownUrl, setOwnUrl] = useState(false);
+  const [changing, setChanging] = useState(false);
+  const pin = useMutation({
+    mutationFn: (target: string) => api.promApi.setTarget(cluster, target),
+    onSuccess: () => {
+      setSaveErr(null);
+      onSaved();
+      onClose();
+    },
+    onError: (e) => setSaveErr(`Couldn't save: ${e instanceof Error ? e.message : String(e)}`),
+  });
+  const showUrlField = !auto || ownUrl;
+
   const [selectedIdx, setSelectedIdx] = useState<number | "manual" | null>(null);
   const [localUrl, setLocalUrl] = useState("");
   const [edited, setEdited] = useState(false);
@@ -99,7 +114,37 @@ export default function ConfigurePrometheusModal({ cluster, connected = true, on
     >
       <form onSubmit={submit}>
         <Stack gap={4}>
-          {!connected ? (
+          {auto && !ownUrl && (
+            <Stack gap={2}>
+              <Row gap={2} align="center">
+                <span>Auto-detected: {auto.target}</span>
+                <Button type="button" variant="ghost" onClick={() => setChanging((c) => !c)}>
+                  Change
+                </Button>
+                <Button type="button" variant="ghost" onClick={() => setOwnUrl(true)}>
+                  Use my own URL
+                </Button>
+              </Row>
+              <span className="muted small">
+                Kubebay reads it through the cluster&apos;s API server with your own credentials, so no port-forward is needed.
+              </span>
+              {changing &&
+                auto.candidates.map((c) => (
+                  <ChoiceCard key={c.target} selected={c.target === auto.target} onClick={() => pin.mutate(c.target)}>
+                    <span>{c.name}</span>
+                    <NsPill>{c.namespace}</NsPill>
+                    <span className="muted small">:{c.port}</span>
+                  </ChoiceCard>
+                ))}
+              {changing && auto.chosen && (
+                <Button type="button" variant="ghost" onClick={() => pin.mutate("")}>
+                  Back to the best match
+                </Button>
+              )}
+            </Stack>
+          )}
+          {status.data?.source === "manual" && <span className="muted small">Using your own URL. Clear the field and save to auto-detect again.</span>}
+          {!showUrlField ? null : !connected ? (
             <span className="muted small">Connect to this cluster to look for its Prometheus services.</span>
           ) : !services.synced ? (
             <Row gap={2} align="center" role="status">
@@ -123,7 +168,7 @@ export default function ConfigurePrometheusModal({ cluster, connected = true, on
             </Stack>
           )}
 
-          <Stack gap={2}>
+          {showUrlField && <Stack gap={2}>
             <label htmlFor="prometheus-url" className="small">
               <strong>URL</strong>
             </label>
@@ -134,7 +179,7 @@ export default function ConfigurePrometheusModal({ cluster, connected = true, on
               onChange={(e) => edit(e.target.value)}
             />
             {fallback && <span className="muted small">Leave it empty to use the default.</span>}
-          </Stack>
+          </Stack>}
 
           {selectedCandidate && (
             <Stack gap={2}>
@@ -153,7 +198,7 @@ export default function ConfigurePrometheusModal({ cluster, connected = true, on
             <Button type="button" variant="ghost" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isSaveDisabled}>
+            <Button type="submit" disabled={isSaveDisabled || !showUrlField}>
               Save
             </Button>
           </Row>

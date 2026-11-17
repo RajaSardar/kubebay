@@ -3,7 +3,9 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button, Card, CellLink, ChoiceCard, PageHeader, SegmentedControl, Stack, TextField } from "@kubebay/ui";
 import { PageHelp } from "../components/PageHelp";
-import { settingsApi } from "../lib/api";
+import { settingsApi, promApi } from "../lib/api";
+import ConfigurePrometheusModal from "../components/ConfigurePrometheusModal";
+import { useCluster } from "../lib/useCluster";
 import { UsageHistoryCard } from "../components/UsageHistoryCard";
 import { McpSettingsCard } from "../components/McpSettingsCard";
 import { TriageSettingsCard } from "../components/TriageSettingsCard";
@@ -37,7 +39,14 @@ const THEMES: { id: ThemeName; label: string; hint: string; swatch: [string, str
  * from its details on the Clusters page, since a port-forward usually reaches
  * one cluster's Prometheus.
  */
-function PrometheusSettings({ initial, initialPerCluster }: { initial?: string; initialPerCluster?: Record<string, string> }) {
+function PrometheusSettings({ initial, initialPerCluster, cluster }: { initial?: string; initialPerCluster?: Record<string, string>; cluster?: string }) {
+  const status = useQuery({
+    queryKey: ["prom-status", cluster],
+    queryFn: async () => await promApi.status(cluster ?? ""),
+    enabled: !!cluster,
+    staleTime: 60_000,
+  });
+  const [changing, setChanging] = useState(false);
   const [url, setUrl] = useState(initial ?? "");
   const [saved, setSaved] = useState<string | null>(null);
   const [err, setErr] = useState("");
@@ -63,6 +72,34 @@ function PrometheusSettings({ initial, initialPerCluster }: { initial?: string; 
       <p className="small muted" style={{ marginTop: 0 }}>
         The default for clusters without their own URL. Each cluster&apos;s own URL is set from its ⋮ menu on the Clusters page.
       </p>
+      <p className="small muted">
+        With no URL set, Kubebay looks for a Prometheus in each cluster and reads it through the cluster&apos;s API server. A URL you set always wins.
+      </p>
+      {cluster && status.data?.source === "auto" && (
+        <p className="small">
+          Auto-detected for {cluster}: <span className="mono">{status.data.target}</span>{" "}
+          <Button variant="ghost" aria-label={`Change Prometheus for ${cluster}`} onClick={() => setChanging(true)}>
+            Change
+          </Button>
+        </p>
+      )}
+      {cluster && status.data?.source === "manual" && (
+        <p className="small muted">Using your own URL for {cluster}.</p>
+      )}
+      {cluster && status.data?.source === "none" && (
+        <p className="small muted">No Prometheus was found in {cluster}. Set a URL below, or from its ⋮ menu on the Clusters page.</p>
+      )}
+      {changing && cluster && (
+        <ConfigurePrometheusModal
+          cluster={cluster}
+          onClose={() => setChanging(false)}
+          onSaved={() => {
+            setChanging(false);
+            void qc.invalidateQueries({ queryKey: ["prom-status", cluster] });
+            void qc.invalidateQueries({ queryKey: ["settings"] });
+          }}
+        />
+      )}
       <div className="pf-form">
         <TextField
           aria-label="Default Prometheus URL"
@@ -191,6 +228,7 @@ export default function Settings() {
   const { theme, setTheme } = useTheme();
   const { fontSize, fontFamily, density, setFontSize, setFontFamily, setDensity } = useDisplay();
   const settings = useQuery({ queryKey: ["settings"], queryFn: settingsApi.get });
+  const { cluster } = useCluster();
   const location = useLocation();
 
   // Deep-link support: /settings#kubeconfig-sources scrolls that card into view.
@@ -275,6 +313,7 @@ export default function Settings() {
         <PrometheusSettings
           initial={settings.data.prometheusUrl}
           initialPerCluster={settings.data.prometheusUrls}
+          cluster={cluster}
         />
       )}
       {settings.isSuccess && (
