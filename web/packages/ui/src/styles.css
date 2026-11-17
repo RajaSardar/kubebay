@@ -2021,6 +2021,11 @@ tr.row-clickable:active {
   border-radius: var(--kb-radius);
 }
 
+.kb-collapsible-title {
+  flex: 1;
+  min-width: 0;
+}
+
 .kb-collapsible-head {
   display: flex;
   align-items: center;

@@ -224,7 +224,7 @@ export interface CollapsibleSectionProps {
 /** A page section whose header (title, count, chevron) opens and closes its body. */
 export function CollapsibleSection({ title, count, open, onToggle, level = "section", children }: CollapsibleSectionProps) {
   return (
-    <section className={`kb-collapsible kb-collapsible-${level}${open ? " open" : ""}`}>
+    <section className={`kb-collapsible${level === "sub" ? " kb-collapsible-sub" : ""}${open ? " open" : ""}`}>
       <button type="button" className="kb-collapsible-head" aria-expanded={open} onClick={onToggle}>
         <svg className="kb-collapsible-chev" viewBox="0 0 10 10" width="10" height="10" fill="none" aria-hidden="true">
           <path d="M3 2l4 3-4 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
