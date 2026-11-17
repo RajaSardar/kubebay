@@ -3,6 +3,11 @@
     {
       "version": "unreleased",
       "date": "",
+      "sections": []
+    },
+    {
+      "version": "0.7.6",
+      "date": "2026-11-18",
       "sections": [
         {
           "heading": "Added",
@@ -10,6 +15,14 @@
             {
               "title": "Star any resource",
               "summary": "Click the star after a name in a drawer, or choose Add to favorites in a table row's menu, for a pod, Deployment, Service, Ingress, any kind or custom resource."
+            },
+            {
+              "title": "CronJobs table shows a Status column",
+              "summary": "Suspended, Active (jobs running) or Idle, with an Active Jobs count next to Last Schedule."
+            },
+            {
+              "title": "CronJobs table shows a Next Schedule column",
+              "summary": "When the CronJob will next run (\"in 12m\", exact time on hover), honouring its time zone, and – when suspended or the schedule is invalid."
             }
           ]
         },
