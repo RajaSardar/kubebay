@@ -496,9 +496,10 @@ button.nav-item {
   user-select: none;
 }
 
+/* No line between rows: the hover tint and the selected tint tell them apart, and the header keeps
+   its underline. */
 .kb-table td {
   padding: var(--kb-row-padding, var(--kb-space-2) var(--kb-gutter));
-  border-bottom: 1px solid var(--kb-border-subtle);
   white-space: nowrap;
   overflow: hidden;
 }
@@ -552,6 +553,11 @@ button.nav-item {
   overflow: visible;
 }
 
+/* The whole cell is the click target for selecting a row (SelectCell), so it says so. */
+.kb-table td.col-select {
+  cursor: pointer;
+}
+
 
 /* ── Row checkbox ── */
 /* display:contents removes the <label> box so only the <input> is visual.
@@ -567,10 +573,6 @@ button.nav-item {
   accent-color: var(--kb-accent);
   cursor: pointer;
   vertical-align: middle;
-}
-
-.kb-table tbody tr:last-child td {
-  border-bottom: none;
 }
 
 .kb-table tbody tr {

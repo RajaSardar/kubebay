@@ -34,6 +34,14 @@
 ~~33. In argo rollouts also it should give options to increase and decrease replicas count just like deployments and ststefulsets,~~ ✅ Done (a Rollout's drawer has −, + and Apply scale)
 34. why few windows are opening at full screen like some deployments and rollouts, it should always open at right side just like how single pod window opens
 35. make all different status different colour as standart like pending, running and all others 
-36. Add a nav which will teach best practices of k8s 
+36. Add a nav which will teach best practices of k8s, DR, stability, reliability, security etc and for which we need to install what and navigate to that section if possible or show how to install and etc 
 37. Can it handler large numbers of clusters together like 50, 100 or maybe 1000, how the cacheing system should work, it should not hang the machine. should it cache the last 4-5 cluster opned or something else ? 
-38. 
+38. In RBAC it is alot, lots of things are loading together its like infinite scroll, can you make each sections expandable ? also show list of roles and there access 
+39. also can we make a service mess without installing anything, can you do an research and tell me ? 
+~~40. remove row line visibility and make it invisible, also if i select the row it should properly select and not only a small check box section~~ ✅ Done (tables draw no line between rows, and the whole cell around a row's checkbox selects the row; list-like rows elsewhere, such as the Timeline and the CRD tree, keep their lines) 
+41. Favourite >> on top and make the text size same as all other nav bar 
+42. give option to Disconnect : direct cluster disconnect from left nav 
+43. Port foroward tool is not properly working make it work properly and all its feature with proper testing, and port should never conflict with one to another cluster. do indepth research and fix this.
+44. Shift the pod name or any name copy button just after the name end and make it bigger currently its very small 
+45. Make the open pod side windwow scrollable/ explandable as lots of buttons and features are getting hide at the right side. or suggest any other way to fix this ?
+46. 

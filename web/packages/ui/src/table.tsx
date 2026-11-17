@@ -187,10 +187,22 @@ export function SelectAllHeader(props: { checked: boolean; indeterminate?: boole
   );
 }
 
-/** A row's selection checkbox; clicks on it never reach the row. */
+/**
+ * A row's selection cell. The whole cell toggles the row, not only the 14px box in it, and a click
+ * here never reaches the row (so it doesn't open the row's drawer).
+ */
 export function SelectCell({ checked, onChange, label }: { checked: boolean; onChange: (checked: boolean) => void; label: string }) {
   return (
-    <td className="col-select" onClick={(e) => e.stopPropagation()}>
+    <td
+      className="col-select"
+      onClick={(e) => {
+        e.stopPropagation();
+        // The box toggles itself (its label forwards a click to it). Anywhere else in the cell,
+        // toggle here, so the target is the cell and not a box you have to aim at.
+        if ((e.target as HTMLElement).closest("label, input")) return;
+        onChange(!checked);
+      }}
+    >
       <Checkbox checked={checked} onChange={onChange} label={label} />
     </td>
   );

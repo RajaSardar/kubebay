@@ -6,6 +6,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ## [Unreleased]
 
+### Changed
+- **Tables have no lines between rows.** The header keeps its underline, and rows are told apart by the hover tint and the selected tint with its accent bar.
+- **A row's selection cell is the click target, not only the box in it.** Clicking anywhere in the cell around a row's checkbox ticks or unticks the row, and doesn't open the row's drawer.
+
 ### Fixed
 - **The desktop app now updates itself.** Settings → Updates said "This build doesn't update itself", and for releases it was true: `release.yml` read the update public key only from a repository *variable*, so a key kept as a *secret* was ignored and the release shipped without an updater (the build log carried only a warning). It now accepts either. `make desktop` builds the macOS app with the key from `~/.tauri/kubebay-updater.key.pub` when it exists, so an app you build yourself updates too; without the file it says the build won't update itself.
 
