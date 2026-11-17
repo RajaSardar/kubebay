@@ -49,3 +49,4 @@
 48. in crons jobs, there should be a col for paused or active or what status staus for the cron jobs. 
 49. i am not liking the favorite location at top, move it down and place it above tools.
 50. 
+51. Research YAML editing in a bottom dock window, like Lens/Freelens, in addition to the drawer editor. Researched: see docs/YAML_EDIT_DOCK.md
