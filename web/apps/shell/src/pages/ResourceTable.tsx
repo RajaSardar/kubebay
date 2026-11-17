@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams, useLocation } from "react-router-dom";
-import { CellLink, EmptyState, StatusDot } from "@kubebay/ui";
+import { CellLink, EmptyState, StatusDot, StatusPill, statusTone } from "@kubebay/ui";
 import { api, crdApi, type PrinterColumn } from "../lib/api";
 import { useQuery as useRQQuery } from "@tanstack/react-query";
 import { useCluster } from "../lib/useCluster";
@@ -36,6 +36,8 @@ export interface Cell {
   v: string;
   dot?: "ok" | "warn" | "err" | "pending";
   cls?: string;
+  /** Show the value as a status pill whose tone comes from statusTone. */
+  pill?: boolean;
   /** When set, the cell links to another resource's detail view instead of just displaying text. */
   to?: { kind: string; ns: string; name: string };
 }
@@ -78,7 +80,7 @@ export function extraColumns(
         const conds = (rec(o.status).conditions ?? []) as Record<string, unknown>[];
         const ready = conds.find((c) => c.type === "Ready");
         const ok = ready?.status === "True";
-        return { v: ok ? "Ready" : "NotReady", dot: ok ? "ok" : "err" };
+        return { v: ok ? "Ready" : "NotReady", pill: true };
       },
       "Instance type": (o) => ({ v: str((rec(o.metadata).labels as Record<string, unknown> | undefined)?.["node.kubernetes.io/instance-type"]) || "–" }),
       Zone: (o) => ({ v: str((rec(o.metadata).labels as Record<string, unknown> | undefined)?.["topology.kubernetes.io/zone"]) || "–" }),
@@ -147,7 +149,7 @@ export function extraColumns(
       return {
         Status: (o) => {
           const phase = str(rec(o.status).phase);
-          return { v: phase, dot: phase === "Bound" ? "ok" : phase === "Lost" ? "err" : "warn" };
+          return { v: phase, pill: true };
         },
         Volume: (o) => {
           const vol = str(rec(o.spec).volumeName);
@@ -165,14 +167,7 @@ export function extraColumns(
           const phase = str(rec(o.status).phase);
           return {
             v: phase,
-            dot:
-              phase === "Available" || phase === "Bound"
-                ? "ok"
-                : phase === "Released"
-                  ? "warn"
-                  : phase === "Failed"
-                    ? "err"
-                    : "pending",
+            pill: true,
           };
         },
         Capacity: (o) => ({ v: str(rec(rec(o.spec).capacity).storage) || "–" }),
@@ -196,7 +191,7 @@ export function extraColumns(
       return {
         Status: (o) => {
           const phase = str(rec(o.status).phase) || "Active";
-          return { v: phase, dot: phase === "Active" ? "ok" : "warn" };
+          return { v: phase, pill: true };
         },
       };
     case "policyreports":
@@ -341,7 +336,7 @@ const HAS_PODS = new Set(["deployments", "statefulsets", "daemonsets", "replicas
 const BUILT_IN_COLUMNS = new Set(["name", "namespace", "age"]);
 
 export default function ResourceTable() {
-  const { kind = "" } = useParams();
+  const { kind = "", ns: detailNs, name: detailName } = useParams();
   const [sp] = useSearchParams();
   const def: ResourceDef | undefined = lookupDef(kind, sp);
   const navigate = useNavigate();
@@ -353,7 +348,10 @@ export default function ResourceTable() {
   const nsFilter = useSelectedNamespaces(effectiveCluster || undefined);
   // KB-16: the filter's current text, for Save view.
   const [filterText, setFilterText] = useState(sp.get("q") ?? "");
-  const [selected, setSelected] = useState<{ ns: string; name: string; tab?: "yaml" } | null>(null);
+  // A /detail/:kind/:ns/:name deep link opens the same side drawer over the list.
+  const [selected, setSelected] = useState<{ ns: string; name: string; tab?: "yaml" } | null>(() =>
+    detailName ? { ns: detailNs === "_" ? "" : (detailNs ?? ""), name: detailName } : null,
+  );
   const [rowAction, setRowAction] = useState<{ action: "scale" | "restart"; obj: Row } | null>(null);
 
   const stream = useResourceStream(effectiveCluster || undefined, def?.gvr ?? "v1/configmaps", {
@@ -405,6 +403,8 @@ export default function ResourceTable() {
                 >
                   {cell.v}
                 </span>
+              ) : cell.pill && cell.v ? (
+                <StatusPill tone={statusTone(String(cell.v))}>{cell.v}</StatusPill>
               ) : (
                 <span className={cell.cls ?? ""}>{cell.v}</span>
               )}
@@ -547,10 +547,9 @@ export default function ResourceTable() {
           ns={selected.ns}
           name={selected.name}
           initialTab={selected.tab}
-          onClose={() => setSelected(null)}
-          onPopOut={() => {
+          onClose={() => {
             setSelected(null);
-            navigate(`/detail/${kind}/${selected.ns || "_"}/${selected.name}${sp.toString() ? "?" + sp.toString() : ""}`);
+            if (detailName) navigate(`/r/${kind}${sp.toString() ? "?" + sp.toString() : ""}`, { replace: true });
           }}
         />
       )}

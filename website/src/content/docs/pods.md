@@ -12,6 +12,8 @@ appRoutes: ["/workloads"]
 
 Columns: Name, Namespace, Ready, Status, Restarts, Node, CPU, Memory and Age. CPU and memory show a bar against the pod's limit, or its request when it has no limit. [Filter and sort](/docs/interface/#filtering-a-table) as on any table. For example, `status:crash` finds crashing pods, and `node:worker-2` finds the pods on one node.
 
+Status is a coloured pill, and the word always stays on it. Green is Running (or Ready), blue is Pending or still starting, purple is Succeeded or Completed, orange is a warning such as Running with containers not ready or Evicted, red is a failure such as Failed, CrashLoopBackOff or ImagePullBackOff, struck-through grey is Terminating, and plain grey is a status Kubebay doesn't recognise. Other tables use the same colours for their status words.
+
 The **⋮** at the end of a row has **View details**, **Logs**, **Shell**, **Edit YAML**, **Copy name** and **Delete**.
 
 **Show pods** in the row menu of a Deployment, StatefulSet, DaemonSet, ReplicaSet or Job lists just that workload's pods. A bar above the table names the selector. **Show all pods** goes back to the full list.

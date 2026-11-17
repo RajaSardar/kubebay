@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArmedButton, Button, EmptyState, InlineBanner, PageHeader, Row, Skeleton, Stack, StatusPill, Table, TableRow, TableWrap, type StatusTone } from "@kubebay/ui";
+import { ArmedButton, Button, EmptyState, InlineBanner, PageHeader, Row, Skeleton, Stack, StatusPill, Table, TableRow, TableWrap, statusTone } from "@kubebay/ui";
 import { PageHelp } from "../components/PageHelp";
 import { argoCDApi, type ArgoCDApp } from "../lib/api";
 import { useCluster } from "../lib/useCluster";
@@ -10,27 +10,8 @@ import { driftCount } from "../lib/argoDrift";
 
 // ── Status badge helpers ──────────────────────────────────────────────────────
 
-type SyncState = "Synced" | "OutOfSync" | "Unknown";
-type HealthState = "Healthy" | "Degraded" | "Progressing" | "Suspended" | "Missing" | "Unknown";
-
-function syncTone(status: string): StatusTone {
-  switch (status as SyncState) {
-    case "Synced":     return "ok";
-    case "OutOfSync":  return "warn";
-    default:           return "terminated";
-  }
-}
-
-function healthTone(status: string): StatusTone {
-  switch (status as HealthState) {
-    case "Healthy":     return "ok";
-    case "Degraded":    return "err";
-    case "Progressing": return "pending";
-    case "Suspended":   return "warn";
-    case "Missing":     return "warn";
-    default:            return "terminated";
-  }
-}
+const syncTone = statusTone;
+const healthTone = statusTone;
 
 // ── Time formatter ────────────────────────────────────────────────────────────
 

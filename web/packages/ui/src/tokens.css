@@ -110,6 +110,9 @@
   --kb-status-err-fg:         #ff6e66;
   --kb-status-pending-subtle: color-mix(in srgb, #32ade6 9%, transparent);
   --kb-status-pending-fg:     #32ade6;
+  --kb-status-done:         #bd97d8;
+  --kb-status-done-subtle:  color-mix(in srgb, #bd97d8 12%, transparent);
+  --kb-status-done-fg:      #bd97d8;
 
   /* Borders — macOS-style translucent separators */
   --kb-border-subtle: rgba(255, 255, 255, 0.08);
@@ -177,6 +180,9 @@
   --kb-status-err-fg:         #b6112d;
   --kb-status-pending-subtle: color-mix(in srgb, #005dba 8%, transparent);
   --kb-status-pending-fg:     #005dba;
+  --kb-status-done:         #7915c1;
+  --kb-status-done-subtle:  color-mix(in srgb, #7915c1 12%, transparent);
+  --kb-status-done-fg:      #7915c1;
 
   --kb-border-subtle: rgba(60, 60, 67, 0.12);
   --kb-border-strong: rgba(60, 60, 67, 0.22);
@@ -243,6 +249,9 @@
   --kb-status-err-fg:         #ff6961;
   --kb-status-pending-subtle: color-mix(in srgb, #40c8e0 14%, transparent);
   --kb-status-pending-fg:     #40c8e0;
+  --kb-status-done:         #cbaee0;
+  --kb-status-done-subtle:  color-mix(in srgb, #cbaee0 12%, transparent);
+  --kb-status-done-fg:      #cbaee0;
 
   --kb-border-subtle: rgba(255, 255, 255, 0.14);
   --kb-border-strong: rgba(255, 255, 255, 0.34);
@@ -309,6 +318,9 @@
   --kb-status-err-fg:         #910011;
   --kb-status-pending-subtle: color-mix(in srgb, #004e9b 12%, transparent);
   --kb-status-pending-fg:     #004e9b;
+  --kb-status-done:         #5c1093;
+  --kb-status-done-subtle:  color-mix(in srgb, #5c1093 12%, transparent);
+  --kb-status-done-fg:      #5c1093;
 
   --kb-border-subtle: rgba(0, 0, 0, 0.14);
   --kb-border-strong: rgba(0, 0, 0, 0.42);
@@ -375,6 +387,9 @@
   --kb-status-err-fg:         #f77d7d;
   --kb-status-pending-subtle: color-mix(in srgb, #9cdcfe 12%, transparent);
   --kb-status-pending-fg:     #9cdcfe;
+  --kb-status-done:         #c4a3dc;
+  --kb-status-done-subtle:  color-mix(in srgb, #c4a3dc 12%, transparent);
+  --kb-status-done-fg:      #c4a3dc;
 
   --kb-border-subtle: rgba(255, 255, 255, 0.10);
   --kb-border-strong: rgba(255, 255, 255, 0.18);
@@ -441,6 +456,9 @@
   --kb-status-err-fg:         #c11200;
   --kb-status-pending-subtle: color-mix(in srgb, #0063b1 8%, transparent);
   --kb-status-pending-fg:     #0063b1;
+  --kb-status-done:         #7f16ca;
+  --kb-status-done-subtle:  color-mix(in srgb, #7f16ca 12%, transparent);
+  --kb-status-done-fg:      #7f16ca;
 
   --kb-border-subtle: rgba(0, 0, 0, 0.12);
   --kb-border-strong: rgba(0, 0, 0, 0.22);
@@ -507,6 +525,9 @@
   --kb-status-err-fg:         #e78c92;
   --kb-status-pending-subtle: color-mix(in srgb, #61afef 10%, transparent);
   --kb-status-pending-fg:     #61afef;
+  --kb-status-done:         #c9aadf;
+  --kb-status-done-subtle:  color-mix(in srgb, #c9aadf 12%, transparent);
+  --kb-status-done-fg:      #c9aadf;
 
   --kb-border-subtle: rgba(255, 255, 255, 0.08);
   --kb-border-strong: rgba(255, 255, 255, 0.14);
@@ -573,6 +594,9 @@
   --kb-status-err-fg:         #ff7979;
   --kb-status-pending-subtle: color-mix(in srgb, #8be9fd 12%, transparent);
   --kb-status-pending-fg:     #8be9fd;
+  --kb-status-done:         #c6a6dd;
+  --kb-status-done-subtle:  color-mix(in srgb, #c6a6dd 12%, transparent);
+  --kb-status-done-fg:      #c6a6dd;
 
   --kb-border-subtle: rgba(255, 255, 255, 0.09);
   --kb-border-strong: rgba(255, 255, 255, 0.16);
@@ -639,6 +663,9 @@
   --kb-status-err-fg:         #f8c0c5;
   --kb-status-pending-subtle: color-mix(in srgb, #aed4de 8%, transparent);
   --kb-status-pending-fg:     #b2d6df;
+  --kb-status-done:         #eadef2;
+  --kb-status-done-subtle:  color-mix(in srgb, #eadef2 12%, transparent);
+  --kb-status-done-fg:      #eadef2;
 
   --kb-border-subtle: rgba(255, 255, 255, 0.08);
   --kb-border-strong: rgba(255, 255, 255, 0.14);
@@ -705,6 +732,9 @@
   --kb-status-err-fg:         #f9726b;
   --kb-status-pending-subtle: color-mix(in srgb, #58a6ff 10%, transparent);
   --kb-status-pending-fg:     #58a6ff;
+  --kb-status-done:         #bd97d8;
+  --kb-status-done-subtle:  color-mix(in srgb, #bd97d8 12%, transparent);
+  --kb-status-done-fg:      #bd97d8;
 
   --kb-border-subtle: rgba(240, 246, 252, 0.10);
   --kb-border-strong: rgba(240, 246, 252, 0.18);
@@ -771,6 +801,9 @@
   --kb-status-err-fg:         #c2222c;
   --kb-status-pending-subtle: color-mix(in srgb, #0964d0 8%, transparent);
   --kb-status-pending-fg:     #0862cb;
+  --kb-status-done:         #8731c4;
+  --kb-status-done-subtle:  color-mix(in srgb, #8731c4 12%, transparent);
+  --kb-status-done-fg:      #8731c4;
 
   --kb-border-subtle: rgba(31, 35, 40, 0.12);
   --kb-border-strong: rgba(31, 35, 40, 0.20);
@@ -837,6 +870,9 @@
   --kb-status-err-fg:         #f38ba8;
   --kb-status-pending-subtle: color-mix(in srgb, #89dceb 13%, transparent);
   --kb-status-pending-fg:     #89dceb;
+  --kb-status-done:         #c9aadf;
+  --kb-status-done-subtle:  color-mix(in srgb, #c9aadf 12%, transparent);
+  --kb-status-done-fg:      #c9aadf;
 
   --kb-border-subtle: rgba(205, 214, 244, 0.08);
   --kb-border-strong: rgba(205, 214, 244, 0.15);

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Badge, IconButton, Row, StatusPill, type StatusTone } from "@kubebay/ui";
+import { Badge, IconButton, Row, StatusPill } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { useResourceStream } from "../lib/useResourceStream";
 import PodPanel, { type SelectedPod } from "./PodPanel";
@@ -11,7 +11,7 @@ import { useSelectedNamespaces } from "../lib/namespace-store";
 import { compareValues } from "../lib/tableUx";
 import { WorkloadTabBar } from "../components/WorkloadTabBar";
 import { usageBar, type UsageBar } from "../lib/podUsage";
-import { derivePod, type PodRow } from "../lib/pods";
+import { derivePod, podTone, type PodRow } from "../lib/pods";
 import { ResourceListView, type ListColumn } from "../components/ResourceListView";
 import { PageHelp } from "../components/PageHelp";
 import { fmtBytes, fmtCpu } from "../lib/format";
@@ -42,15 +42,6 @@ function UsageMeter({ bar, text }: { bar: UsageBar; text: string }) {
   );
 }
 
-const STATUS_TONE: Record<PodRow["status"], { pill: StatusTone }> = {
-  running: { pill: "ok" },
-  succeeded: { pill: "terminated" },
-  pending: { pill: "pending" },
-  failed: { pill: "err" },
-  warning: { pill: "err" },
-};
-
-
 const nameOf = (p: PodRow) => p.name;
 const nsOf = (p: PodRow) => p.namespace;
 const createdOf = (p: PodRow) => p.created;
@@ -72,7 +63,7 @@ function podColumns(usage: Usage): ListColumn<PodRow>[] {
       className: "",
       cell: (p) => (
         <span title={p.statusDetail || undefined}>
-          <StatusPill tone={STATUS_TONE[p.status].pill}>{p.statusLabel}</StatusPill>
+          <StatusPill tone={podTone(p)}>{p.statusLabel}</StatusPill>
         </span>
       ),
       sortValue: (p) => p.statusLabel,

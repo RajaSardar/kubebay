@@ -1,15 +1,14 @@
 ---
 title: Resource details
-description: A resource's drawer and full page. Its summary and owners, rollout and timeline, autoscaling, policy findings, events, the YAML editor and its actions.
+description: A resource's drawer. Its summary and owners, rollout and timeline, autoscaling, policy findings, events, the YAML editor and its actions.
 section: Clusters and resources
 order: 4
 appRoutes: ["/detail/:kind/:ns/:name"]
 ---
 
-Click a row in any [resource table](/docs/resources/) to open its drawer. A drawer closes with <kbd>Esc</kbd>, the **×**, or a click anywhere outside it.
+Click a row in any [resource table](/docs/resources/) to open its drawer. Every kind opens in this drawer on the right, as pods do, and a shared link to a resource opens the same drawer over its list. A drawer closes with <kbd>Esc</kbd>, the **×**, or a click anywhere outside it.
 
 - **Copy name**, a large button right after the title, copies the resource's name (without its namespace) to the clipboard and shows **Copied** for a moment.
-- **Open full page** (<kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>Enter</kbd>) shows the resource on a page of its own, with a link you can share.
 - **Split view** (<kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>S</kbd>) shows two tabs side by side, such as Events beside YAML. Drag the divider to resize them. Kubebay remembers the split for each kind.
 
 ## Tabs
