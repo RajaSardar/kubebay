@@ -90,12 +90,12 @@ describe("the desktop app accepts the call", () => {
     expect(handled.split(",").map((c) => c.trim()).filter(Boolean)).toEqual(commands);
     expect(main).toMatch(/fn smoke_ready\(\) \{\s*if !smoke::is_on\(\) \{\s*return;\s*\}/);
     const cap = JSON.parse(readFileSync(resolve(tauri, "capabilities/window-theme.json"), "utf8"));
-    expect(cap).toMatchObject({ windows: ["main"], remote: { urls: ["http://127.0.0.1:*"] }, permissions: ["allow-set-window-theme"] });
+    expect(cap).toMatchObject({ windows: ["main", "win-*"], remote: { urls: ["http://127.0.0.1:*"] }, permissions: ["allow-set-window-theme"] });
     const smoke = JSON.parse(readFileSync(resolve(tauri, "capabilities/smoke.json"), "utf8"));
-    expect(smoke).toMatchObject({ windows: ["main"], remote: { urls: ["http://127.0.0.1:*"] }, permissions: ["allow-smoke-ready"] });
+    expect(smoke).toMatchObject({ windows: ["main", "win-*"], remote: { urls: ["http://127.0.0.1:*"] }, permissions: ["allow-smoke-ready"] });
     expect(smoke.permissions).toHaveLength(1);
     const updates = JSON.parse(readFileSync(resolve(tauri, "capabilities/updates.json"), "utf8"));
-    expect(updates).toMatchObject({ windows: ["main"], remote: { urls: ["http://127.0.0.1:*"] } });
+    expect(updates).toMatchObject({ windows: ["main", "win-*"], remote: { urls: ["http://127.0.0.1:*"] } });
     expect(updates.permissions).toEqual(["allow-update-status", "allow-set-update-checks", "allow-check-for-updates", "allow-install-update"]);
   });
 });
