@@ -8,6 +8,8 @@ use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
+#[cfg(target_os = "macos")]
+mod dock_menu;
 mod smoke;
 mod updater;
 mod window_theme;
@@ -562,6 +564,10 @@ fn main() {
                 let _ = handle.run_on_main_thread(move || open_window(&h2));
             });
 
+            // Right-click on the Dock icon offers New Window.
+            #[cfg(target_os = "macos")]
+            dock_menu::install(app.handle());
+
             Ok(())
         })
         .on_menu_event(|app, event| {
@@ -582,6 +588,17 @@ fn main() {
                 let open: Vec<String> = app_handle.webview_windows().keys().cloned().collect();
                 if windows::engine_should_stop(&open, &label) {
                     kill_engine();
+                }
+            }
+            // Dock icon clicked with no window open (all closed, app still
+            // running): open one, same as File > New Window.
+            #[cfg(target_os = "macos")]
+            tauri::RunEvent::Reopen {
+                has_visible_windows,
+                ..
+            } => {
+                if windows::open_on_reopen(has_visible_windows) {
+                    open_window(app_handle);
                 }
             }
             // App fully exiting — belt-and-suspenders kill + flush stdout.
