@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
 import { DEFS, EXTRA_DEFS } from "../lib/resources";
-import { IconButton } from "@kubebay/ui";
+import { IconButton, navItemClass } from "@kubebay/ui";
 
 const FAV_KEY = "kb.favorites";
 
@@ -92,33 +92,26 @@ export function FavoritesSidebar({ favorites, onRemove }: { favorites: string[];
   if (!favorites.length) return null;
 
   return (
-    <div className="favorites-sidebar">
-      <div className="favorites-header">
-        <span className="nav-section">Favorites</span>
-      </div>
-      <div className="favorites-list">
-        {favorites.map((fav) => (
-          <div key={fav} className="favorites-item">
-            <NavLink
-              to={fav}
-              className={({ isActive }) => (isActive ? "favorites-link active" : "favorites-link")}
-            >
-              {labelFor(fav)}
-            </NavLink>
-            <IconButton
-              label="Remove from favorites"
-              className="favorites-remove"
-              onClick={(e) => {
-                e.preventDefault();
-                onRemove(fav);
-              }}
-            >
-              ×
-            </IconButton>
-          </div>
-        ))}
-      </div>
-    </div>
+    <>
+      <div className="nav-section">Favorites</div>
+      {favorites.map((fav) => (
+        <div key={fav} className="nav-fav">
+          <NavLink to={fav} className={({ isActive }) => navItemClass({ active: isActive })}>
+            <span>{labelFor(fav)}</span>
+          </NavLink>
+          <IconButton
+            label="Remove from favorites"
+            className="nav-fav-remove"
+            onClick={(e) => {
+              e.preventDefault();
+              onRemove(fav);
+            }}
+          >
+            ×
+          </IconButton>
+        </div>
+      ))}
+    </>
   );
 }
 

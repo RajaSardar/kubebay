@@ -3,9 +3,8 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, historyApi, type ClusterHistorySummary, type ClusterInfo } from "../lib/api";
 import { useColumnWidths } from "../lib/useColumnWidths";
-import { announceDisconnect } from "../lib/clusterChannel";
 import { headroom, lastOpenedLabel, sparkline } from "../lib/clusterUsage";
-import { dropClusterLocally } from "../lib/useRemoteDisconnects";
+import { useDisconnectCluster } from "../lib/useDisconnectCluster";
 import { openCluster } from "../lib/openCluster";
 import { useClusterMeta } from "../lib/cluster-meta-store";
 import { useClusterIcons } from "../lib/useClusterIcons";
@@ -204,6 +203,7 @@ export default function ClusterPicker() {
   const { widthOf, getResizeHandleProps } = useColumnWidths(COLUMN_WIDTHS);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const disconnectCluster = useDisconnectCluster();
   const activeId = useClusterStore((s) => s.active);
   const { meta, setAlias, togglePin, hide, show } = useClusterMeta();
   const { icons, setIcon, resetIcon } = useClusterIcons();
@@ -261,14 +261,8 @@ export default function ClusterPicker() {
 
   async function disconnect(id: string) {
     setActionError("");
-    dropClusterLocally(id, queryClient);
-    announceDisconnect(id);
-    try {
-      await api.disconnectCluster(id);
-    } catch (e) {
-      setActionError(`Disconnect ${id}: ${e instanceof Error ? e.message : String(e)}`);
-    }
-    await queryClient.invalidateQueries({ queryKey: ["clusters"] });
+    const error = await disconnectCluster(id);
+    if (error) setActionError(error);
   }
 
   function saveRename() {

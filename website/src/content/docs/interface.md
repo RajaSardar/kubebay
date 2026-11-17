@@ -8,11 +8,12 @@ appRoutes: ["/view/:id"]
 
 ## The sidebar
 
-The sidebar starts with **Clusters**, which goes back to the [cluster list](/docs/connect-clusters/), and **Search…**, which opens the command palette. Below them:
+The sidebar starts with **Clusters**, which goes back to the [cluster list](/docs/connect-clusters/), a **Disconnect** button while a cluster is open (it disconnects that cluster and returns to the list), and **Search…**, which opens the command palette. Below them:
 
+- **Favorites**, at the top once you have some, each a normal row. Hover a row and click **×** to remove it.
 - **Navigate**: the [Overview](/docs/workloads-overview/), then the cluster's resources in groups: Workloads, Configuration, Network, Storage, Devices (DRA), Access Control, Admission and Cluster. Click a group to open it.
 - **Custom Resources**: every custom resource kind on the cluster, grouped by API group. See [CRDs](/docs/crds/).
-- **Favorites** and **Saved views**, once you have some.
+- **Saved views**, once you have some.
 - **Tools**: Terminal, Create Resource, CRDs, Ports, Helm, ArgoCD, Flux, RBAC, Vulnerabilities, Right-sizing, Cost / Waste, Karpenter, KEDA, Upgrade Readiness, Audit Log, Timeline, Topology and Settings.
 
 Press <kbd>⌘</kbd> <kbd>B</kbd> (<kbd>Ctrl</kbd> <kbd>B</kbd> on Windows and Linux) to hide the sidebar and get the width back. Press it again, or click the button on the cluster rail, to bring it back.

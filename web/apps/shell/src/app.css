@@ -1127,7 +1127,7 @@ h2 {
   display: none;
 }
 
-/* ──── Favorites sidebar ──── */
+/* ──── Saved views sidebar (the favourites in the nav use nav-fav below) ──── */
 .favorites-sidebar {
   margin-top: 8px;
   margin-bottom: 8px;
@@ -1189,6 +1189,33 @@ h2 {
 .favorites-remove:hover {
   color: var(--kb-status-err);
   background: var(--kb-status-err-subtle);
+}
+
+/* ──── Favorites in the nav: a plain nav row with a hover-only remove button ──── */
+.nav-fav {
+  position: relative;
+}
+
+.nav-fav-remove {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0;
+}
+
+.nav-fav:hover .nav-fav-remove,
+.nav-fav-remove:focus-visible {
+  opacity: 1;
+}
+
+.nav-fav-remove:hover {
+  color: var(--kb-status-err);
+  background: var(--kb-status-err-subtle);
+}
+
+.sidebar-disconnect {
+  margin: 6px 8px 0;
 }
 
 /* A favourite is starred in the warn amber, like a macOS flag. */
