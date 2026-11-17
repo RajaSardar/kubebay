@@ -5,6 +5,7 @@ import { api } from "../lib/api";
 import { usePodLogs, type PodLogsSpec } from "../lib/usePodLogs";
 import { ansiSegments, logLevel, stripAnsi, type LogLevel, type LogTone } from "../lib/logLevels";
 import { ExecTerm, YamlTab } from "../components/heavy";
+import { useDiscardGuard } from "../components/DiscardGuard";
 import { forceDeleteEffect, forceDeleteLabel } from "../lib/podDelete";
 import { PodSummary } from "../components/PodSummary";
 import { PodGraphs } from "../components/PodGraphs";
@@ -73,13 +74,16 @@ const POD_TAB_LABELS = {
   yaml: "YAML",
 };
 
-export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod; onClose: () => void; onDeleted?: () => void }) {
+export default function PodPanel({ pod, onClose: onCloseNow, onDeleted }: { pod: SelectedPod; onClose: () => void; onDeleted?: () => void }) {
   const [tab, setTabState] = useState<PodTab>(
     // Always open on Summary unless an explicit tab was requested (e.g. "Edit YAML" from the row menu).
     pod.tab ?? "summary",
   );
+  // Closing or changing tab drops an open YAML editor: ask first if it holds unapplied edits.
+  const { guard, modal: discardModal } = useDiscardGuard();
+  const onClose = guard(onCloseNow);
   const setTab = (t: PodTab) => {
-    setTabState(t);
+    if (t !== tab) guard(setTabState)(t);
   };
   // Triage shows only where the user turned it on for this cluster (backlog #13).
   const triageAllowed = useTriageAllowed(pod.cluster);
@@ -145,7 +149,7 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
         forceFinalizers: force && forceEffect.removesFinalizers,
       });
       onDeleted?.();
-      onClose();
+      onCloseNow();
     } catch (e) {
       setDeleteErr(String(e instanceof Error ? e.message : e));
     } finally {
@@ -174,6 +178,7 @@ export default function PodPanel({ pod, onClose, onDeleted }: { pod: SelectedPod
         </>
       }
     >
+      {discardModal}
       {confirmingDelete && (
         <Modal
           label={`Delete ${pod.pod}?`}

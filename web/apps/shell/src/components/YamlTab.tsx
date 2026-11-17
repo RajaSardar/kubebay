@@ -6,6 +6,9 @@ import { useMonacoTheme } from "../lib/theme";
 import { ownerWarning, type GitOpsOwner } from "../lib/gitops";
 import { PolicyRejectionError, StaleEditError, type PolicyRejectionDetail } from "../lib/policyRejection";
 import { PolicyRejectionCard } from "./PolicyRejectionCard";
+import { ProdApplyModal } from "./ProdApplyModal";
+import { setEditDirty } from "../lib/editGuard";
+import { useClusterLooksProduction } from "../lib/useClusterLooksProduction";
 
 export function YamlTab({
   cluster,
@@ -77,6 +80,14 @@ export function YamlTab({
   }
 
   const dirty = modified !== original;
+  // Tell the drawer and tab strip around us there is an edit to protect.
+  const guardKey = `${cluster}/${gvr}/${ns}/${name}`;
+  useEffect(() => {
+    setEditDirty(guardKey, dirty);
+    return () => setEditDirty(guardKey, false);
+  }, [guardKey, dirty]);
+  const prod = useClusterLooksProduction(cluster);
+  const [confirmingProd, setConfirmingProd] = useState(false);
   const dangerousChanges = dangerousChangeCheck ? dangerousChangeCheck(original, modified) : [];
   const needsConfirm = dangerousChanges.length > 0 && confirmText.trim() !== name;
 
@@ -208,7 +219,10 @@ export function YamlTab({
           <Button variant="ghost" disabled={busy || !dirty} onClick={() => void apply(true)}>
             Dry-run
           </Button>
-          <Button disabled={busy || !dirty || needsConfirm} onClick={() => void apply(false)}>
+          <Button
+            disabled={busy || !dirty || needsConfirm}
+            onClick={() => (prod.production ? setConfirmingProd(true) : void apply(false))}
+          >
             Apply
           </Button>
         </Row>
@@ -280,6 +294,17 @@ export function YamlTab({
         </InlineBanner>
       )}
       {policyRejection && <PolicyRejectionCard rejection={policyRejection} />}
+      {confirmingProd && (
+        <ProdApplyModal
+          context={prod.context}
+          target={`your edit to ${name}`}
+          onCancel={() => setConfirmingProd(false)}
+          onConfirm={() => {
+            setConfirmingProd(false);
+            void apply(false);
+          }}
+        />
+      )}
       <div className="yaml-editor">{editor}</div>
     </div>
   );

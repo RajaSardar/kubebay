@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import Editor from "../lib/monaco";
 import { Button, InlineBanner, Row, Select, Stack } from "@kubebay/ui";
 import { PageHelp } from "../components/PageHelp";
@@ -9,6 +9,10 @@ import { RESOURCE_TEMPLATES } from "../lib/resourceTemplates";
 import { useActiveCluster } from "../App";
 import { PolicyRejectionError, type PolicyRejectionDetail } from "../lib/policyRejection";
 import { PolicyRejectionCard } from "../components/PolicyRejectionCard";
+import { DiscardChangesModal, useDiscardGuard } from "../components/DiscardGuard";
+import { ProdApplyModal } from "../components/ProdApplyModal";
+import { setEditDirty } from "../lib/editGuard";
+import { useClusterLooksProduction } from "../lib/useClusterLooksProduction";
 
 export default function CreateResource() {
   const { active } = useActiveCluster();
@@ -28,6 +32,38 @@ export default function CreateResource() {
 
   const template = RESOURCE_TEMPLATES.find((t) => t.kind === selectedKind) ?? RESOURCE_TEMPLATES[0]!;
   const effectiveYaml = yaml ?? template.yaml;
+
+  // An edit that was not applied: protect it from a kind switch (which resets to the template),
+  // an in-app link, and closing the window.
+  const dirty = yaml !== null && yaml !== template.yaml;
+  useEffect(() => {
+    setEditDirty("create-resource", dirty);
+    return () => setEditDirty("create-resource", false);
+  }, [dirty]);
+  const { guard, modal } = useDiscardGuard();
+  const navigate = useNavigate();
+  const [leaveTo, setLeaveTo] = useState<string | null>(null);
+  useEffect(() => {
+    if (!dirty) return;
+    const onClick = (e: MouseEvent) => {
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      const a = (e.target as Element | null)?.closest?.("a[href]") as HTMLAnchorElement | null;
+      const href = a?.getAttribute("href");
+      if (!a || !href || !href.startsWith("/") || a.target === "_blank") return;
+      e.preventDefault();
+      e.stopPropagation();
+      setLeaveTo(href);
+    };
+    const onUnload = (e: BeforeUnloadEvent) => e.preventDefault();
+    document.addEventListener("click", onClick, true);
+    window.addEventListener("beforeunload", onUnload);
+    return () => {
+      document.removeEventListener("click", onClick, true);
+      window.removeEventListener("beforeunload", onUnload);
+    };
+  }, [dirty]);
+  const prod = useClusterLooksProduction(active ?? "");
+  const [confirmingProd, setConfirmingProd] = useState(false);
 
   function onKindChange(kind: string) {
     setSelectedKind(kind);
@@ -64,7 +100,7 @@ export default function CreateResource() {
         <PageHelp route="/create-resource" />
         <Select
           value={selectedKind}
-          onChange={(e) => onKindChange(e.target.value)}
+          onChange={guard((e: React.ChangeEvent<HTMLSelectElement>) => onKindChange(e.target.value))}
           aria-label="resource kind"
         >
           {RESOURCE_TEMPLATES.map((t) => (
@@ -85,12 +121,35 @@ export default function CreateResource() {
         </Row>
         <Button
           disabled={applying || !active}
-          onClick={() => void apply()}
+          onClick={() => (prod.production && !dryRun ? setConfirmingProd(true) : void apply())}
         >
           {applying ? "Applying…" : dryRun ? "Dry run" : "Apply"}
         </Button>
       </div>
 
+      {modal}
+      {leaveTo !== null && (
+        <DiscardChangesModal
+          onKeep={() => setLeaveTo(null)}
+          onDiscard={() => {
+            const to = leaveTo;
+            setLeaveTo(null);
+            setEditDirty("create-resource", false);
+            navigate(to);
+          }}
+        />
+      )}
+      {confirmingProd && (
+        <ProdApplyModal
+          context={prod.context}
+          target="this YAML"
+          onCancel={() => setConfirmingProd(false)}
+          onConfirm={() => {
+            setConfirmingProd(false);
+            void apply();
+          }}
+        />
+      )}
       {rejection && (
         <div style={{ margin: "0 0 8px" }}>
           <PolicyRejectionCard rejection={rejection} />

@@ -13,7 +13,8 @@ Templates: Deployment, StatefulSet, DaemonSet, Job, CronJob, Service, Ingress, C
 Edit the YAML, or paste your own. Several documents separated by `---` are applied together, and Kubebay says how many were applied.
 
 - Tick **Dry run** to have the API server validate the YAML without saving anything. It runs defaults, validation and admission webhooks.
-- **Apply** creates the resources on the active cluster.
+- **Apply** creates the resources on the active cluster. If the cluster's name reads like production (`prod`, `prd`, `live`, `production`), it asks **Apply to production?** first. A dry run never asks. The check is of the name only.
+- Once you have edited the YAML, switching the kind (which would reset it to that kind's template), following a link to another page, or closing the window asks **Discard changes?** first.
 
 If an admission policy rejects the change, such as Kyverno, Gatekeeper or a ValidatingAdmissionPolicy, Kubebay shows a card that names the policy engine and the webhook, with the policy's own message, rather than a raw error. Every other change in Kubebay (the YAML editor, scaling, deleting) shows the same card.
 
