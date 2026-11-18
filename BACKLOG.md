@@ -52,3 +52,20 @@
 51. Research YAML editing in a bottom dock window, like Lens/Freelens, in addition to the drawer editor. Researched: see docs/YAML_EDIT_DOCK.md
 
     Progress: phase 1 built (dock tab strip Shell | YAML name in useTerminalDock, same YamlTab hosted, one live editor per object with the drawer showing "Editing in dock", hide keeps text, dirty close uses the discard guard, not persisted; ADR 0005 note). Left open: Maximise, Cmd/Ctrl+S and tab keys, row action and command-palette entry (phase 2), staleness and restore (3), New resource tab (4), tab cap from measured memory (5), multiple-tab polish (cluster-drop banner, tab dirty dot, production pill).
+
+---
+
+## Status of the open items (2026-11-18)
+
+| # | Built | Still to do |
+|---|---|---|
+| 11 Helm store | Store cards, chart drawer (About / README / Values), preview and diff, Installed and Deprecated badges, guarded chart URLs, masked Secrets | Artifact Hub, add-repo form, rendered README, icons, OCI repos, signature badges |
+| 12 Rancher / Lens gaps | docs/GAP_PLAN.md ranked gaps; default-container annotation | Signed and notarised builds, ephemeral debug container, Helm release in the owned-by chain, cross-cluster search; innovations: blast-radius preview, Explain this pod, change timeline |
+| 23 Lag | Audit pass 1: hover, sort and socket-status re-renders fixed, perf tests | Row memoisation, global 30 s refetch review, profiling in the real app |
+| 26 Windows / profiles | Phase 1: several windows on one engine, Dock menu | Profiles (separate kubeconfig, settings and state per profile) |
+| 36 Best practices | First slice: 11 checks, install hints | CIS mapping, severity, more tools, lessons, fix actions |
+| 37 Many clusters | Health probes only connected clusters, LIST cap 3, windowed picker | LRU of warm clusters, idle eviction, wake jitter, browser store cap, fleet summary |
+| 39 Service map | Phase 1: declared and inferred edges on Topology | Gateway API, Istio / Linkerd / Cilium, Prometheus observed overlay, cross-namespace |
+| 51 YAML in the dock | Phases 0 and 1: discard guard, production confirm, YAML tab in the dock | Maximise, keyboard shortcuts, dirty dot, row action and palette entry, more tabs |
+| 50 | (empty) | Waiting for your text |
+
