@@ -54,6 +54,8 @@ export interface ClusterInfo {
   status: "reachable" | "unreachable" | "degraded" | "misconfigured" | "checking";
   /** The user connected to this cluster this run (streams open), not reachability. */
   connected?: boolean;
+  /** The engine put this cluster to sleep to stay under its warm cap; opening it wakes it. */
+  sleeping?: boolean;
   /** When the reachability probe last finished. */
   checkedAt?: string;
   version?: string;
@@ -140,6 +142,8 @@ export const api = {
   clusters: () => get<ClusterInfo[]>("/api/clusters"),
   /** Mark a cluster connected without opening it (opening a stream also connects). */
   connectCluster: (id: string) => send<ClusterInfo>("POST", `/api/clusters/${encodeURIComponent(id)}/connect`),
+  /** Tell the engine which clusters it must never put to sleep (the active one and pins). */
+  protectClusters: (ids: string[]) => send<{ ok: boolean }>("PUT", "/api/clusters/protected", { ids }),
   /** Stop a cluster's informers, streams and port-forwards. */
   disconnectCluster: (id: string) => send<{ ok: boolean }>("POST", `/api/clusters/${encodeURIComponent(id)}/disconnect`),
   podMetrics: (cluster: string, ns = "*") =>

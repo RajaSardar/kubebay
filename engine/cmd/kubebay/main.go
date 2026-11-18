@@ -50,6 +50,8 @@ func main() {
 	oidcClientID := flag.String("oidc-client-id", os.Getenv("KUBEBAY_OIDC_CLIENT_ID"), "OIDC client id")
 	oidcClientSecret := flag.String("oidc-client-secret", os.Getenv("KUBEBAY_OIDC_CLIENT_SECRET"), "OIDC client secret")
 	oidcRedirect := flag.String("oidc-redirect-url", os.Getenv("KUBEBAY_OIDC_REDIRECT"), "OAuth2 redirect URL")
+	warmClusters := flag.String("warm-clusters", os.Getenv("KUBEBAY_WARM_CLUSTERS"), "most connected clusters kept streaming; the least recently viewed unpinned one sleeps past it (default 5, 0 = no limit; KUBEBAY_WARM_CLUSTERS)")
+	warmIdle := flag.String("warm-idle", os.Getenv("KUBEBAY_WARM_IDLE"), "a connected cluster nobody viewed for this long sleeps, e.g. 30m (default 30m, 0 = never; KUBEBAY_WARM_IDLE)")
 	localShell := flag.Bool("local-shell", false, "serve a shell on this machine (requires a binary built with -tags localshell, a loopback --addr, no --in-cluster and no OIDC)")
 	flag.Parse()
 
@@ -75,6 +77,16 @@ func main() {
 	if err != nil {
 		log.Error("cluster manager init failed", "err", err)
 		os.Exit(1)
+	}
+
+	// Streams are shared between users with OIDC or in-cluster, so one
+	// person's idle clock must not cut another's: no eviction there.
+	if !*inCluster && *oidcIssuer == "" {
+		warmCap, idle := clusters.ParseWarmPolicy(*warmClusters, *warmIdle)
+		mgr.SetWarmPolicy(warmCap, idle)
+		sweepCtx, cancelSweep := context.WithCancel(context.Background())
+		defer cancelSweep()
+		mgr.StartIdleSweeper(sweepCtx)
 	}
 
 	auditLog, err := audit.New(log)

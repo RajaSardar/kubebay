@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"reflect"
 	"sort"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -57,6 +59,9 @@ type Cluster struct {
 	CheckedAt *time.Time `json:"checkedAt,omitempty"`
 	// Connected is the user's session state (streams open), not reachability.
 	Connected bool `json:"connected"`
+	// Sleeping is a cluster the engine disconnected itself (warm cap or idle
+	// eviction), not one the user turned off. Opening it connects it again.
+	Sleeping bool `json:"sleeping,omitempty"`
 }
 
 type entry struct {
@@ -97,6 +102,19 @@ type Manager struct {
 	// that are not connected (the picker was opened). It stays set until no
 	// cluster is stale, so a long kubeconfig drains in batches.
 	wantAll bool
+
+	// Warm-cluster policy (docs/MANY_CLUSTERS.md 6.2, 6.3). warmCap bounds how
+	// many connected clusters hold live informers (0 = unbounded); idleAfter
+	// cools a connected cluster nobody has viewed for that long (0 = off).
+	// lastUsed is when each connected cluster was connected or last viewed,
+	// protected holds the clusters never evicted (the active one and pins,
+	// reported by the web), and sleeping those the engine evicted itself.
+	warmCap   int
+	idleAfter time.Duration
+	lastUsed  map[string]time.Time
+	protected map[string]bool
+	sleeping  map[string]bool
+	now       func() time.Time
 }
 
 const (
@@ -131,6 +149,10 @@ func newManager(log *slog.Logger, kubeconfigPath string, loops bool) (*Manager, 
 		kubeconfig: kubeconfigPath,
 		firstLoad:  true,
 		connected:  map[string]bool{},
+		lastUsed:   map[string]time.Time{},
+		protected:  map[string]bool{},
+		sleeping:   map[string]bool{},
+		now:        time.Now,
 		kick:       make(chan struct{}, 1),
 	}
 	w, err := fsnotify.NewWatcher()
@@ -644,16 +666,143 @@ func (m *Manager) healthLoop() {
 // Connect marks a cluster as connected by the user. Idempotent.
 func (m *Manager) Connect(id string) error {
 	m.mu.Lock()
-	defer m.mu.Unlock()
 	e, ok := m.entries[id]
 	if !ok {
+		m.mu.Unlock()
 		return fmt.Errorf("unknown cluster %q", id)
 	}
 	if e.cfg == nil {
+		m.mu.Unlock()
 		return fmt.Errorf("cluster %q is misconfigured: %s", id, e.cluster.Error)
 	}
+	if m.connected[id] {
+		// A stream re-subscribing (after a socket drop or wake) is not a
+		// view: it must not make every warm cluster look equally fresh.
+		m.mu.Unlock()
+		return nil
+	}
 	m.connected[id] = true
+	delete(m.sleeping, id)
+	m.lastUsed[id] = m.now()
+	evicted := m.evictOverCapLocked(id)
+	hooks := append([]func(string){}, m.disconnectHooks...)
+	m.mu.Unlock()
+	m.runHooks(hooks, evicted)
 	return nil
+}
+
+// SetWarmPolicy sets the cap on warm (connected) clusters and the idle limit.
+// Zero disables each. A lowered cap takes effect on the next Connect.
+func (m *Manager) SetWarmPolicy(cap int, idle time.Duration) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if cap < 0 {
+		cap = 0
+	}
+	m.warmCap = cap
+	m.idleAfter = idle
+}
+
+// SetProtected replaces the clusters that are never evicted: the one the user
+// is looking at and their pins. Entering or leaving the set counts as a view,
+// so the idle clock for a cluster starts when the user last left it.
+func (m *Manager) SetProtected(ids []string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	now := m.now()
+	next := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		next[id] = true
+		m.lastUsed[id] = now
+	}
+	for id := range m.protected {
+		if !next[id] {
+			m.lastUsed[id] = now
+		}
+	}
+	m.protected = next
+}
+
+// Touch records that the user viewed a cluster just now.
+func (m *Manager) Touch(id string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.lastUsed[id] = m.now()
+}
+
+// evictOverCapLocked disconnects least recently used, unprotected clusters
+// (never keep) until the connected count is within the cap, and returns them.
+// With every candidate protected the cap is soft. Caller holds m.mu.
+func (m *Manager) evictOverCapLocked(keep string) []string {
+	var out []string
+	for m.warmCap > 0 && len(m.connected) > m.warmCap {
+		victim := ""
+		for id := range m.connected {
+			if id == keep || m.protected[id] {
+				continue
+			}
+			if victim == "" || m.lastUsed[id].Before(m.lastUsed[victim]) {
+				victim = id
+			}
+		}
+		if victim == "" {
+			break
+		}
+		m.sleepLocked(victim)
+		out = append(out, victim)
+	}
+	return out
+}
+
+func (m *Manager) sleepLocked(id string) {
+	delete(m.connected, id)
+	m.sleeping[id] = true
+	m.log.Info("cluster evicted", "cluster", id, "warmCap", m.warmCap)
+}
+
+// EvictIdle disconnects connected, unprotected clusters nobody has viewed for
+// the idle limit and returns their ids.
+func (m *Manager) EvictIdle() []string {
+	m.mu.Lock()
+	var out []string
+	if m.idleAfter > 0 {
+		now := m.now()
+		for id := range m.connected {
+			if m.protected[id] || now.Sub(m.lastUsed[id]) < m.idleAfter {
+				continue
+			}
+			m.sleepLocked(id)
+			out = append(out, id)
+		}
+	}
+	hooks := append([]func(string){}, m.disconnectHooks...)
+	m.mu.Unlock()
+	m.runHooks(hooks, out)
+	return out
+}
+
+func (m *Manager) runHooks(hooks []func(string), ids []string) {
+	for _, id := range ids {
+		for _, h := range hooks {
+			h(id)
+		}
+	}
+}
+
+// StartIdleSweeper evicts idle clusters once a minute until ctx ends.
+func (m *Manager) StartIdleSweeper(ctx context.Context) {
+	go func() {
+		t := time.NewTicker(time.Minute)
+		defer t.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				m.EvictIdle()
+			}
+		}
+	}()
 }
 
 // Disconnect clears a cluster's connected state and runs the disconnect
@@ -666,6 +815,7 @@ func (m *Manager) Disconnect(id string) error {
 		return fmt.Errorf("unknown cluster %q", id)
 	}
 	delete(m.connected, id)
+	delete(m.sleeping, id)
 	hooks := append([]func(string){}, m.disconnectHooks...)
 	m.mu.Unlock()
 	for _, h := range hooks {
@@ -754,6 +904,7 @@ func (m *Manager) List() []Cluster {
 		if e, ok := m.entries[id]; ok {
 			c := *e.cluster
 			c.Connected = m.connected[id]
+			c.Sleeping = m.sleeping[id]
 			out = append(out, c)
 		}
 	}
@@ -784,4 +935,28 @@ func (m *Manager) RestConfig(id string) (*rest.Config, error) {
 		return nil, fmt.Errorf("cluster %q is misconfigured: %s", id, e.cluster.Error)
 	}
 	return e.cfg, nil
+}
+
+const (
+	// DefaultWarmCap is how many connected clusters keep live informers.
+	DefaultWarmCap = 5
+	// DefaultIdleAfter is how long an unviewed warm cluster stays warm.
+	DefaultIdleAfter = 30 * time.Minute
+	maxWarmCap       = 50
+)
+
+// ParseWarmPolicy reads the warm-cap and idle-limit settings (flag or env
+// text). Empty or invalid text falls back to the default; "0" turns the
+// limit off; a cap above 50 is clamped.
+func ParseWarmPolicy(capText, idleText string) (int, time.Duration) {
+	cap, idle := DefaultWarmCap, DefaultIdleAfter
+	if n, err := strconv.Atoi(strings.TrimSpace(capText)); err == nil && n >= 0 {
+		cap = min(n, maxWarmCap)
+	}
+	if idleText = strings.TrimSpace(idleText); idleText == "0" {
+		idle = 0
+	} else if d, err := time.ParseDuration(idleText); err == nil && d >= 0 {
+		idle = d
+	}
+	return cap, idle
 }

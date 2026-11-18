@@ -68,7 +68,9 @@ import { OpenSavedView, SavedViewsSidebar } from "./components/SavedViews";
 import { useClusterIcons } from "./lib/useClusterIcons";
 import { ClusterIconPicker, autoAvatar, avatarLabelColor, stripAvatarLook } from "./components/ClusterIconPicker";
 import { useWsStatus } from "./lib/useWsStatus";
-import { connectCluster, isClusterConnected } from "./lib/clusterConnections";
+import { connectCluster, isClusterConnected, isClusterSleeping } from "./lib/clusterConnections";
+import { protectedClusterIds, stripItemState } from "./lib/clusterStripState";
+import { useClusterMeta } from "./lib/cluster-meta-store";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { ClusterConnectingOverlay } from "./components/ClusterConnectingOverlay";
 import { PageSkeleton } from "./components/PageSkeleton";
@@ -360,14 +362,16 @@ function ClusterStrip({ sidebar }: { sidebar: SidebarState }) {
         const { bg, label, imageUrl } = icons[c.id] ?? auto;
         const broken = c.status === "misconfigured";
         const isActive = !broken && c.id === effectiveActive;
-        const isStreaming = !broken && !isActive && connectedClusters.includes(c.id);
+        const isSleeping = !broken && !isActive && (!!c.sleeping || isClusterSleeping(c.id));
+        const isStreaming = !broken && !isActive && !isSleeping && connectedClusters.includes(c.id);
         const isSwitching = isActive && switching;
+        const state = stripItemState({ active: isActive, streaming: isStreaming, sleeping: isSleeping });
         return (
-          <div key={c.id} className={`cluster-strip-item${isActive ? " active" : isStreaming ? " streaming" : ""}`}>
+          <div key={c.id} className={`cluster-strip-item${state ? ` ${state}` : ""}`}>
             <button
               className={`cluster-strip-avatar${isActive ? " active" : ""}`}
               disabled={broken}
-              title={broken ? `${c.id} — can't be loaded: ${c.error ?? "unknown error"}` : `${c.id} — right-click to customize icon`}
+              title={broken ? `${c.id} — can't be loaded: ${c.error ?? "unknown error"}` : `${c.id}${isSleeping ? " (sleeping: opens fresh)" : ""} — right-click to customize icon`}
               onClick={() => { if (!broken) setActive(c.id); }}
               onContextMenu={(e) => { e.preventDefault(); setPicker(c.id); }}
               style={{
@@ -577,6 +581,13 @@ function AppInner() {
   // An identity that can't list namespaces starts in the ones it named (ADR 0003).
   useNamespaceFallback(effectiveActive || undefined);
   const activeCluster = list.find((c) => c.id === effectiveActive);
+
+  // The engine keeps only a few clusters streaming and puts the least recently
+  // viewed to sleep. The active cluster and pins are the browser's to name.
+  const clusterMeta = useClusterMeta((s) => s.meta);
+  useEffect(() => {
+    void api.protectClusters(protectedClusterIds(effectiveActive, clusterMeta)).catch(() => {});
+  }, [effectiveActive, clusterMeta]);
 
   const setActive = (id: string) => {
     // Snapshot before connecting so we can tell if this is the first visit.

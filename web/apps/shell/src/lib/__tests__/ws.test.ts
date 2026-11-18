@@ -265,3 +265,46 @@ describe("engine-ended subscriptions", () => {
     expect(onError).toHaveBeenCalledWith("gone-1", "cluster credentials changed");
   });
 });
+
+describe("replaying subscriptions after a reconnect", () => {
+  const sub = (id: string, cluster: string) => ({ id, cluster, gvr: "v1/pods", ns: ["*"], mode: "metadata" as const });
+  const sentIds = (s: { sent: unknown[] }) =>
+    s.sent.map((p) => JSON.parse(p as string)).filter((f) => f.type === "sub").map((f) => f.id);
+
+  async function dropAndReturn() {
+    vi.useFakeTimers();
+    const { mod } = await freshWs();
+    FakeWebSocket.instances[0]!.accept();
+    mod.subscribe(sub("a1", "a"));
+    mod.subscribe(sub("b1", "b"));
+    mod.subscribe(sub("b2", "b"));
+    mod.subscribe(sub("c1", "c"));
+    const first = FakeWebSocket.instances[0]!;
+    first.readyState = FakeWebSocket.CLOSED;
+    first.onclose?.();
+    vi.advanceTimersByTime(60_000);
+    const second = FakeWebSocket.instances[1]!;
+    second.accept();
+    return { mod, second };
+  }
+
+  it("re-lists the first cluster at once and spreads the rest, so a wake is not a LIST storm", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+    const { second } = await dropAndReturn();
+    expect(sentIds(second)).toEqual(["a1"]);
+    vi.advanceTimersByTime(2500);
+    expect(sentIds(second).sort()).toEqual(["a1", "b1", "b2", "c1"]);
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it("skips a stream unsubscribed while it waited for its turn", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    const { mod, second } = await dropAndReturn();
+    mod.unsubscribe("c1");
+    vi.advanceTimersByTime(2500);
+    expect(sentIds(second).sort()).toEqual(["a1", "b1", "b2"]);
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+});
