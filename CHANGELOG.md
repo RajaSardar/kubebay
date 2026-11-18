@@ -6,6 +6,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ## [Unreleased]
 
+### Added
+- **Service map: Gateway API, Istio and findings** (backlog 39, phase 2). When the cluster has the Gateway API CRDs, Gateways draw lines to the Services their HTTPRoute and GRPCRoute backends name; when it has Istio, VirtualService destinations and DestinationRule subsets are drawn. These kinds are followed only if discovery finds them. A new **other namespaces** checkbox hides lines to Services outside the namespace. Chips above the map flag a Service with no ready endpoints and a route to a Service that does not exist. All lines stay labelled declared or inferred; Linkerd is not read yet.
+
 ## [0.7.7] - 2026-11-18
 
 ### Changed
