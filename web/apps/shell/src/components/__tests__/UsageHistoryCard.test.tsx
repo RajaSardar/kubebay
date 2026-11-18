@@ -60,4 +60,16 @@ describe("UsageHistoryCard", () => {
     fireEvent.click(screen.getByRole("button", { name: /delete history/i }));
     await waitFor(() => expect(historyApi.erase).toHaveBeenCalledWith("kind-dev"));
   });
+
+  it("asks for its own 30 s refresh, since there is no global polling default", async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={qc}>
+        <UsageHistoryCard clusters={{ "kind-dev": true }} />
+      </QueryClientProvider>,
+    );
+    await waitFor(() => expect(qc.getQueryCache().find({ queryKey: ["history-status", "kind-dev"] })).toBeDefined());
+    const opts = qc.getQueryCache().find({ queryKey: ["history-status", "kind-dev"] })!.observers[0]!.options;
+    expect(opts.refetchInterval).toBe(30_000);
+  });
 });
