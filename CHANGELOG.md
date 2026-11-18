@@ -13,6 +13,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ### Added
 - **YAML in the dock, phase 2.** The dock has a **Maximise** toggle. ⌘/Ctrl+S applies in a dock YAML editor (with the production confirm), Ctrl+PageUp/PageDown switch dock tabs and Ctrl+W closes a YAML tab (with the discard guard). A YAML tab's label shows a dot while modified and a **production** pill. **Edit in dock** is in the row menu of resource lists and Pods, and ⌘K offers **Edit YAML in dock: <name>** for found objects. A dock tab warns when its cluster isn't connected, and when the object changed on the cluster while it sat open (**Show changes**, **Load latest**). (Backlog 51.)
+- **Service map: Gateway API, Istio and findings** (backlog 39, phase 2). When the cluster has the Gateway API CRDs, Gateways draw lines to the Services their HTTPRoute and GRPCRoute backends name; when it has Istio, VirtualService destinations and DestinationRule subsets are drawn. These kinds are followed only if discovery finds them. A new **other namespaces** checkbox hides lines to Services outside the namespace. Chips above the map flag a Service with no ready endpoints and a route to a Service that does not exist. All lines stay labelled declared or inferred; Linkerd is not read yet.
 
 ## [0.7.7] - 2026-11-18
 

@@ -158,8 +158,8 @@ export const PAGE_HELP: Record<string, PageHelpEntry> = {
   },
   "/topology": {
     name: "Topology",
-    what: "One namespace drawn as a graph of its workloads, pods and Services, or as a Service map of Ingress to Service to workload paths.",
-    how: "Built live from the namespace's objects. Map lines are declared (an object states it) or inferred (a guess, with evidence). No live traffic.",
+    what: "One namespace drawn as a graph of its workloads, pods and Services, or as a Service map of Ingress, Gateway API and Istio paths to workloads.",
+    how: "Built live from the namespace's objects. Lines are declared or inferred (a guess, with evidence); chips flag broken Services. No live traffic.",
     docs: "topology#service-map",
   },
   "/settings": {

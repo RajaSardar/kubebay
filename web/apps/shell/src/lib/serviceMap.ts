@@ -1,4 +1,5 @@
 import { matchesSelector, type LabelSelector } from "./labelSelector";
+import type { CRDEntry } from "./api";
 import type { Health, KObj } from "./topology";
 
 /**
@@ -9,7 +10,7 @@ import type { Health, KObj } from "./topology";
  *   observed  - measured traffic; never produced here (needs a data plane)
  */
 export type EdgeBasis = "declared" | "inferred" | "observed";
-export type EdgeKind = "routes-to" | "serves" | "allowed" | "references";
+export type EdgeKind = "routes-to" | "serves" | "allowed" | "references" | "subset";
 
 export interface ObjRef {
   slug: string;
@@ -35,6 +36,24 @@ export interface MapEdge {
   kind: EdgeKind;
   basis: EdgeBasis;
   evidence?: string;
+  /** The Service on the far end lives in another namespace. */
+  crossNamespace?: boolean;
+}
+
+/** Something worth a look on the map: a Service nothing serves, or a route to a Service that does not exist. */
+export interface MapFinding {
+  kind: "no-ready-endpoints" | "missing-service";
+  nodeId: string;
+  text: string;
+}
+
+/** The optional CRD-backed kinds, as `group/version/resource` strings found by discovery. */
+export interface MapGvrs {
+  gateways?: string;
+  httpRoutes?: string;
+  grpcRoutes?: string;
+  virtualServices?: string;
+  destinationRules?: string;
 }
 
 export interface ServiceMapInput {
@@ -48,6 +67,38 @@ export interface ServiceMapInput {
   statefulSets: KObj[];
   daemonSets: KObj[];
   networkPolicies: KObj[];
+  /** Gateway API objects; present only when those CRDs exist. */
+  gateways?: KObj[];
+  httpRoutes?: KObj[];
+  grpcRoutes?: KObj[];
+  /** Istio objects; present only when those CRDs exist. */
+  virtualServices?: KObj[];
+  destinationRules?: KObj[];
+  gvrs?: MapGvrs;
+}
+
+const CRD_KINDS: [keyof MapGvrs, string, string][] = [
+  ["gateways", "gateway.networking.k8s.io", "gateways"],
+  ["httpRoutes", "gateway.networking.k8s.io", "httproutes"],
+  ["grpcRoutes", "gateway.networking.k8s.io", "grpcroutes"],
+  ["virtualServices", "networking.istio.io", "virtualservices"],
+  ["destinationRules", "networking.istio.io", "destinationrules"],
+];
+
+/** Which optional CRDs the cluster has. Linkerd is deliberately not read: see docs/SERVICE_MESH_WITHOUT_INSTALL.md. */
+export function detectMapCrds(crds: Pick<CRDEntry, "group" | "resource" | "gvr">[]): { gvrs: MapGvrs } {
+  const gvrs: MapGvrs = {};
+  for (const [key, group, resource] of CRD_KINDS) {
+    const c = crds.find((x) => x.group === group && x.resource === resource);
+    if (c) gvrs[key] = c.gvr;
+  }
+  return { gvrs };
+}
+
+/** The drawer slug of a custom resource, from its `group/version/resource`. */
+function extSlug(gvr: string | undefined): string {
+  const [g, v, r] = (gvr ?? "").split("/");
+  return g && v && r ? `ext--${g}--${v}--${r}` : "";
 }
 
 type Rec = Record<string, unknown>;
@@ -66,10 +117,11 @@ const WORKLOADS = new Set(["Deployment", "StatefulSet", "DaemonSet"]);
 const COL_X = { ingress: 0, service: 320, workload: 660 };
 const ROW_H = 84;
 
-export function buildServiceMap(input: ServiceMapInput): { nodes: MapNode[]; edges: MapEdge[] } {
+export function buildServiceMap(input: ServiceMapInput): { nodes: MapNode[]; edges: MapEdge[]; findings: MapFinding[] } {
   const ns = input.namespace;
   const nodes = new Map<string, MapNode>();
   const edges = new Map<string, MapEdge>();
+  const findings: MapFinding[] = [];
 
   const addEdge = (e: Omit<MapEdge, "id">) => {
     const id = `${e.kind}:${e.source}->${e.target}`;
@@ -136,8 +188,13 @@ export function buildServiceMap(input: ServiceMapInput): { nodes: MapNode[]; edg
   // Ingress -> Service (declared).
   const serviceNames = new Set(input.services.map((s) => s.metadata?.name ?? ""));
   const svcId = (n: string, sns = ns) => `svc:${sns}/${n}`;
-  const ensureMissingService = (name: string) => {
+  const missing = new Set<string>();
+  const ensureMissingService = (name: string, from = "a route") => {
     if (serviceNames.has(name)) return;
+    if (!missing.has(name)) {
+      missing.add(name);
+      findings.push({ kind: "missing-service", nodeId: svcId(name), text: `${from} points at Service ${name}, which does not exist in ${ns}` });
+    }
     addNode({ id: svcId(name), type: "service", name, detail: "Service not found", health: "err", ref: { slug: "services", ns, name } });
   };
   for (const ing of input.ingresses) {
@@ -154,7 +211,7 @@ export function buildServiceMap(input: ServiceMapInput): { nodes: MapNode[]; edg
       }
     }
     for (const r of routes) {
-      ensureMissingService(r.svc);
+      ensureMissingService(r.svc, `Ingress ${iname}`);
       addEdge({ source: id, target: svcId(r.svc), kind: "routes-to", basis: "declared", evidence: r.evidence });
     }
   }
@@ -165,6 +222,7 @@ export function buildServiceMap(input: ServiceMapInput): { nodes: MapNode[]; edg
     const owner = sl.metadata?.labels?.["kubernetes.io/service-name"];
     if (owner) slicesBySvc.set(owner, [...(slicesBySvc.get(owner) ?? []), sl]);
   }
+  const svcTargets = new Map<string, Set<string>>();
   for (const svc of input.services) {
     const name = svc.metadata?.name ?? "";
     const id = svcId(name);
@@ -198,7 +256,11 @@ export function buildServiceMap(input: ServiceMapInput): { nodes: MapNode[]; edg
         }
       }
     }
+    svcTargets.set(name, targets);
     const type = (spec.type as string) ?? "ClusterIP";
+    if (type !== "ExternalName" && Object.keys(selector).length > 0 && (sliceList ? ready === 0 : total === 0)) {
+      findings.push({ kind: "no-ready-endpoints", nodeId: id, text: `Service ${name} has no ready endpoints` });
+    }
     const port = arr(spec.ports)[0]?.port;
     const counts = sliceList ? `${ready}/${total} ready` : Object.keys(selector).length ? `${total} pods (selector)` : "no selector";
     addNode({
@@ -259,7 +321,101 @@ export function buildServiceMap(input: ServiceMapInput): { nodes: MapNode[]; edg
         if (target.ns !== ns) {
           addNode({ id, type: "service", name: target.name, detail: `in ${target.ns}`, health: "idle", external: true, ref: { slug: "services", ns: target.ns, name: target.name } });
         }
-        addEdge({ source: from, target: id, kind: "references", basis: "inferred", evidence: `env ${String(env.name)}=${value}` });
+        addEdge({ source: from, target: id, kind: "references", basis: "inferred", evidence: `env ${String(env.name)}=${value}`, crossNamespace: target.ns !== ns || undefined });
+      }
+    }
+  }
+
+  // A route's far end: a Service here, or a node for one in another namespace.
+  const routeTo = (source: string, name: string, sns: string, evidence: string, from: string) => {
+    const id = svcId(name, sns);
+    if (sns === ns) ensureMissingService(name, from);
+    else addNode({ id, type: "service", name, detail: `in ${sns}`, health: "idle", external: true, ref: { slug: "services", ns: sns, name } });
+    addEdge({ source, target: id, kind: "routes-to", basis: "declared", evidence, crossNamespace: sns !== ns || undefined });
+  };
+
+  // Gateway API: Gateway -> (HTTPRoute | GRPCRoute backendRefs) -> Service.
+  const gvrs = input.gvrs ?? {};
+  const gatewayHealth = (g: KObj): Health => {
+    const conds = arr(rec(g.status).conditions);
+    return conds.some((c) => (c.type === "Programmed" || c.type === "Accepted") && c.status === "False") ? "err" : "ok";
+  };
+  const gwId = (gns: string, name: string) => `gw:${gns}/${name}`;
+  for (const g of input.gateways ?? []) {
+    const name = g.metadata?.name ?? "";
+    addNode({ id: gwId(ns, name), type: "ingress", name, detail: "Gateway", health: gatewayHealth(g), ref: { slug: extSlug(gvrs.gateways), ns, name } });
+  }
+  const gatewayRoutes: [string, KObj[] | undefined, string | undefined][] = [
+    ["HTTPRoute", input.httpRoutes, gvrs.httpRoutes],
+    ["GRPCRoute", input.grpcRoutes, gvrs.grpcRoutes],
+  ];
+  for (const [rkind, routes, gvr] of gatewayRoutes) {
+    for (const route of routes ?? []) {
+      const rname = route.metadata?.name ?? "";
+      const spec = rec(route.spec);
+      const parents: string[] = [];
+      for (const p of arr(spec.parentRefs)) {
+        if ((p.kind ?? "Gateway") !== "Gateway" || typeof p.name !== "string") continue;
+        const pns = typeof p.namespace === "string" ? p.namespace : ns;
+        const id = gwId(pns, p.name);
+        if (pns !== ns) addNode({ id, type: "ingress", name: p.name, detail: `Gateway in ${pns}`, health: "idle", external: true, ref: { slug: extSlug(gvrs.gateways), ns: pns, name: p.name } });
+        else addNode({ id, type: "ingress", name: p.name, detail: "Gateway", health: "idle", ref: { slug: extSlug(gvrs.gateways), ns, name: p.name } });
+        parents.push(id);
+      }
+      if (parents.length === 0) {
+        const id = `route:${rkind}/${ns}/${rname}`;
+        addNode({ id, type: "ingress", name: rname, detail: rkind, health: "ok", ref: { slug: extSlug(gvr), ns, name: rname } });
+        parents.push(id);
+      }
+      const hosts = (spec.hostnames as string[] | undefined)?.join(",");
+      for (const rule of arr(spec.rules)) {
+        for (const b of arr(rule.backendRefs)) {
+          if ((b.kind ?? "Service") !== "Service" || (b.group ?? "") !== "" || typeof b.name !== "string") continue;
+          const bns = typeof b.namespace === "string" ? b.namespace : ns;
+          const evidence = `${rkind} ${rname}${hosts ? ` · ${hosts}` : ""}${b.weight != null ? ` · weight ${String(b.weight)}` : ""}`;
+          for (const src of parents) routeTo(src, b.name, bns, evidence, `${rkind} ${rname}`);
+        }
+      }
+    }
+  }
+
+  // Istio: VirtualService destinations, and DestinationRule subsets.
+  const istioHost = (host: string, hns: string) => {
+    const h = host.toLowerCase();
+    if (/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(h)) return { name: h, ns: hns };
+    return serviceFromHost(h, hns, serviceNames);
+  };
+  for (const vs of input.virtualServices ?? []) {
+    const name = vs.metadata?.name ?? "";
+    const id = `vs:${ns}/${name}`;
+    addNode({ id, type: "ingress", name, detail: "VirtualService", health: "ok", ref: { slug: extSlug(gvrs.virtualServices), ns, name } });
+    const spec = rec(vs.spec);
+    for (const proto of ["http", "tls", "tcp"]) {
+      for (const r of arr(spec[proto])) {
+        for (const d of arr(r.route)) {
+          const dest = rec(d.destination);
+          if (typeof dest.host !== "string") continue;
+          const t = istioHost(dest.host, ns);
+          if (!t) continue;
+          const evidence = `VirtualService ${name} → ${dest.host}${dest.subset ? ` subset ${String(dest.subset)}` : ""}${d.weight != null ? ` · weight ${String(d.weight)}` : ""}`;
+          routeTo(id, t.name, t.ns, evidence, `VirtualService ${name}`);
+        }
+      }
+    }
+  }
+  for (const dr of input.destinationRules ?? []) {
+    const spec = rec(dr.spec);
+    if (typeof spec.host !== "string") continue;
+    const t = istioHost(spec.host, ns);
+    if (!t || t.ns !== ns || !serviceNames.has(t.name)) continue;
+    const backing = svcTargets.get(t.name) ?? new Set<string>();
+    for (const sub of arr(spec.subsets)) {
+      const labels = rec(sub.labels) as Record<string, string>;
+      if (typeof sub.name !== "string" || Object.keys(labels).length === 0) continue;
+      for (const wl of backing) {
+        if ((podsByWl.get(wl) ?? []).some((p) => matchesSelector(p.metadata?.labels ?? {}, { matchLabels: labels }))) {
+          addEdge({ source: svcId(t.name), target: wl, kind: "subset", basis: "declared", evidence: `DestinationRule ${dr.metadata?.name ?? ""} subset ${sub.name}` });
+        }
       }
     }
   }
@@ -267,7 +423,7 @@ export function buildServiceMap(input: ServiceMapInput): { nodes: MapNode[]; edg
   // Layout: one row per node in its column.
   const rows = { ingress: 0, service: 0, workload: 0 };
   for (const n of nodes.values()) n.position.y = 30 + rows[n.type]++ * ROW_H;
-  return { nodes: [...nodes.values()], edges: [...edges.values()] };
+  return { nodes: [...nodes.values()], edges: [...edges.values()], findings };
 }
 
 /** The host of "http://u:p@host:80/x", "host:5432" or "host". */
@@ -288,6 +444,18 @@ function serviceFromHost(host: string, ns: string, local: Set<string>): { name: 
   return null;
 }
 
-export function filterEdges(edges: MapEdge[], show: { inferred: boolean; allowed: boolean }): MapEdge[] {
-  return edges.filter((e) => (show.inferred || e.basis !== "inferred") && (show.allowed || e.kind !== "allowed"));
+export function filterEdges(edges: MapEdge[], show: { inferred: boolean; allowed: boolean; crossNamespace?: boolean }): MapEdge[] {
+  return edges.filter(
+    (e) => (show.inferred || e.basis !== "inferred") && (show.allowed || e.kind !== "allowed") && (show.crossNamespace !== false || !e.crossNamespace),
+  );
+}
+
+/** Drops other-namespace nodes that no remaining edge reaches. */
+export function visibleNodes(nodes: MapNode[], edges: MapEdge[]): MapNode[] {
+  const used = new Set<string>();
+  for (const e of edges) {
+    used.add(e.source);
+    used.add(e.target);
+  }
+  return nodes.filter((n) => !n.external || used.has(n.id));
 }
