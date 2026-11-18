@@ -27,6 +27,16 @@ The dock's header shows **Terminal · \<context\>**, then **End shell**, **Hide*
 
 While the dock is open, a resource drawer ends above it, and pressing in the dock leaves the drawer open. Pressing on the page still closes it.
 
+### YAML tabs in the dock
+
+The dock can also hold YAML editors, the same editor as a resource drawer's YAML tab. It is optional: the drawer editor stays the default. Click **Open in bottom dock** on a drawer's YAML tab to open one.
+
+- Once a YAML tab exists, the dock shows a tab strip: **Shell** and **YAML \<name\>** for each object. The strip doesn't appear before then.
+- Each object has one editor. Opening it again focuses its tab, and the drawer shows **Editing in dock** with **Go to tab** instead of a second editor. You can open up to 8 tabs.
+- **Close YAML tab** in the dock's header closes the active one. If it holds unapplied edits it asks **Discard changes?** first.
+- **Hide** and <kbd>Ctrl</kbd>+<kbd>`</kbd> only hide the dock. A YAML tab keeps its text while the dock is hidden or you change pages. The dock keeps its height and keys as before.
+- Tabs and their text aren't kept across a restart: the dock starts hidden with no tabs.
+
 ### Keys in the shell
 
 The shell gets your keys, including <kbd>Ctrl</kbd>+<kbd>K</kbd>, <kbd>Ctrl</kbd>+<kbd>W</kbd>, <kbd>Ctrl</kbd>+<kbd>R</kbd>, <kbd>Esc</kbd> and <kbd>Tab</kbd>. Three keys are kept out of it:

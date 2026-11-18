@@ -2,6 +2,7 @@ import { create } from "zustand";
 import type { ShellBinding } from "./localshell";
 import type { ShellPhase } from "./shellSession";
 import type { ShellPrefill } from "./useExtensions";
+import type { GitOpsOwner } from "./gitops";
 
 // ADR 0005: the terminal dock's state. It imports no xterm, so the app shell,
 // the status bar and the sidebar can read it without loading a terminal. The
@@ -62,6 +63,25 @@ export function isShellReservedKey(e: KeyboardEvent): boolean {
   return chord && (e.key.toLowerCase() === "s" || e.key === "Enter");
 }
 
+/** An object whose YAML is open as a dock tab (backlog 51). */
+export interface EditTab {
+  key: string;
+  cluster: string;
+  gvr: string;
+  ns: string;
+  name: string;
+  gitopsOwner?: GitOpsOwner | null;
+  helmRelease?: string | null;
+}
+
+/** The tab id for an object; the same string YamlTab reports to the edit guard. */
+export function editTabKey(o: { cluster: string; gvr: string; ns: string; name: string }): string {
+  return `${o.cluster}/${o.gvr}/${o.ns}/${o.name}`;
+}
+
+/** Edit tabs held at once. Memory per editor is not measured; backlog 51 phase 5 sets the real cap. */
+export const MAX_EDIT_TABS = 8;
+
 const windowHeight = () => (typeof window === "undefined" ? 800 : window.innerHeight);
 
 interface DockState {
@@ -78,6 +98,14 @@ interface DockState {
   /** The first shell of a run opens by itself (not on production); once
    *  you've ended one, the next waits for you. */
   autoOpen: boolean;
+  /** YAML editor tabs, in the order opened. Not kept across a relaunch. */
+  tabs: EditTab[];
+  /** "shell" or an edit tab's key. */
+  activeTab: string;
+  /** Open (or focus, if already open) the editor tab for an object, and show the dock. */
+  openEditTab(o: Omit<EditTab, "key">): void;
+  closeEditTab(key: string): void;
+  focusTab(key: string): void;
   openDock(opts: { focus: boolean }): void;
   closeDock(): void;
   focusDone(): void;
@@ -100,6 +128,25 @@ export const useTerminalDock = create<DockState>()((set, get) => ({
   prefill: null,
   wantFocus: false,
   autoOpen: true,
+  tabs: [],
+  activeTab: "shell",
+  openEditTab(o) {
+    const key = editTabKey(o);
+    const { tabs } = get();
+    if (!tabs.some((t) => t.key === key)) {
+      if (tabs.length >= MAX_EDIT_TABS) return;
+      set({ tabs: [...tabs, { ...o, key }] });
+    }
+    set({ activeTab: key });
+    get().openDock({ focus: false });
+  },
+  closeEditTab(key) {
+    const { tabs, activeTab } = get();
+    set({ tabs: tabs.filter((t) => t.key !== key), activeTab: activeTab === key ? "shell" : activeTab });
+  },
+  focusTab(key) {
+    set({ activeTab: key });
+  },
   openDock({ focus }) {
     if (focus) {
       const active = document.activeElement as HTMLElement | null;

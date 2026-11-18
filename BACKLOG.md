@@ -50,3 +50,5 @@
 ~~49. i am not liking the favorite location at top, move it down and place it above tools.~~ ✅ Done (favorites sit just above Tools, and any pod, workload, service, ingress or other object can be starred from its drawer or row menu)
 50. 
 51. Research YAML editing in a bottom dock window, like Lens/Freelens, in addition to the drawer editor. Researched: see docs/YAML_EDIT_DOCK.md
+
+    Progress: phase 1 built (dock tab strip Shell | YAML name in useTerminalDock, same YamlTab hosted, one live editor per object with the drawer showing "Editing in dock", hide keeps text, dirty close uses the discard guard, not persisted; ADR 0005 note). Left open: Maximise, Cmd/Ctrl+S and tab keys, row action and command-palette entry (phase 2), staleness and restore (3), New resource tab (4), tab cap from measured memory (5), multiple-tab polish (cluster-drop banner, tab dirty dot, production pill).

@@ -1,8 +1,11 @@
-import { lazy, Suspense, type Ref } from "react";
+import { lazy, Suspense, useState, type Ref } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Button, EmptyState, Splitter, StatusPill, VisuallyHidden } from "@kubebay/ui";
+import { Button, EmptyState, Splitter, StatusPill, Tabs, VisuallyHidden } from "@kubebay/ui";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { PageHelp } from "./PageHelp";
+import { DiscardChangesModal } from "./DiscardGuard";
+import { YamlTab } from "./heavy";
+import { isEditDirty } from "../lib/editGuard";
 import { settingsApi, type ClusterInfo, type LocalShellCapability } from "../lib/api";
 import { bindingLooksProduction } from "../lib/localshell";
 import { currentShell, setCurrentShell } from "../lib/shellSession";
@@ -52,17 +55,32 @@ export function TerminalDock({
   const setHeight = useTerminalDock((s) => s.setHeight);
   const closeDock = useTerminalDock((s) => s.closeDock);
   const binding = useTerminalDock((s) => s.binding);
+  const tabs = useTerminalDock((s) => s.tabs);
+  const activeTab = useTerminalDock((s) => s.activeTab);
+  const focusTab = useTerminalDock((s) => s.focusTab);
+  const closeEditTab = useTerminalDock((s) => s.closeEditTab);
+  const [confirmClose, setConfirmClose] = useState<string | null>(null);
   const settings = useQuery({ queryKey: ["settings"], queryFn: settingsApi.get });
 
-  if (!open) return null;
+  // Hiding the dock is not closing a tab: with YAML tabs open the section stays
+  // mounted (hidden), so an edit survives Hide and Ctrl+`.
+  if (!open && tabs.length === 0) return null;
 
   const cap = settings.data?.localShell;
   const bounds = dockBounds(window.innerHeight);
   const shown = Math.min(height, bounds.max);
   const prod = bindingLooksProduction(binding);
+  const onYaml = tabs.some((t) => t.key === activeTab);
+  const showShell = open && !onYaml;
+  const tabIds = ["shell", ...tabs.map((t) => t.key)];
+  const labels: Record<string, string> = { shell: "Shell", ...Object.fromEntries(tabs.map((t) => [t.key, `YAML ${t.name}`])) };
+  const closeActive = () => {
+    if (isEditDirty(activeTab)) setConfirmClose(activeTab);
+    else closeEditTab(activeTab);
+  };
 
   return (
-    <section ref={dockRef} className="kb-dock" aria-label="Terminal" style={{ height: shown }}>
+    <section ref={dockRef} className="kb-dock" aria-label="Terminal" style={{ height: shown, display: open ? undefined : "none" }}>
       <Splitter
         label="Resize the terminal"
         value={shown}
@@ -71,24 +89,30 @@ export function TerminalDock({
         defaultValue={bounds.initial}
         onChange={setHeight}
       />
+      {tabs.length > 0 && <Tabs tabs={tabIds} active={activeTab} labels={labels} onChange={focusTab} />}
       <div className="kb-dock-head">
         <span className="kb-dock-title">
-          Terminal
-          {binding && (
+          {onYaml ? labels[activeTab] : "Terminal"}
+          {!onYaml && binding && (
             <>
               {" · "}
               <span className="mono">{binding.context}</span>
             </>
           )}
         </span>
-        {binding && prod && (
+        {!onYaml && binding && prod && (
           <span title="The context's name reads like production. A name check only: Kubebay can't tell what the cluster really is.">
             <StatusPill tone="err">production</StatusPill>
             <VisuallyHidden> (name check only)</VisuallyHidden>
           </span>
         )}
         <span className="kb-dock-actions">
-          {binding && (
+          {onYaml && (
+            <Button variant="ghost" size="sm" onClick={closeActive}>
+              Close YAML tab
+            </Button>
+          )}
+          {!onYaml && binding && (
             <Button variant="ghost" size="sm" onClick={endDockShell}>
               End shell
             </Button>
@@ -100,7 +124,14 @@ export function TerminalDock({
         </span>
       </div>
       <div className="kb-dock-body">
-        {settings.isLoading ? null : !cap?.available ? (
+        {tabs.map((t) => (
+          <div key={t.key} className="yaml-wrap" style={t.key === activeTab ? undefined : { display: "none" }}>
+            <ErrorBoundary>
+              <YamlTab cluster={t.cluster} gvr={t.gvr} ns={t.ns} name={t.name} gitopsOwner={t.gitopsOwner} helmRelease={t.helmRelease} />
+            </ErrorBoundary>
+          </div>
+        ))}
+        {!showShell ? null : settings.isLoading ? null : !cap?.available ? (
           <Unavailable cap={cap} />
         ) : (
           <ErrorBoundary>
@@ -110,6 +141,15 @@ export function TerminalDock({
           </ErrorBoundary>
         )}
       </div>
+      {confirmClose && (
+        <DiscardChangesModal
+          onKeep={() => setConfirmClose(null)}
+          onDiscard={() => {
+            closeEditTab(confirmClose);
+            setConfirmClose(null);
+          }}
+        />
+      )}
     </section>
   );
 }
