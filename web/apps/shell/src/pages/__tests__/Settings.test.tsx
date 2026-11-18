@@ -73,6 +73,26 @@ describe("Settings: app-wide settings only", () => {
     expect(screen.getByRole("button", { name: "Change Prometheus for kind-test" })).toBeInTheDocument();
   });
 
+  it("sets the debug image used by Debug with ephemeral container, keeping other settings", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.settingsApi.get).mockResolvedValue({
+      prometheusUrl: "http://prom:9090",
+      extraKubeconfigs: [],
+      debugImageDefault: "busybox:1.36",
+    });
+    vi.mocked(api.settingsApi.save).mockResolvedValue(undefined as never);
+    renderSettings();
+    const field = await screen.findByRole("textbox", { name: "Debug image" });
+    expect(field).toHaveAttribute("placeholder", "busybox:1.36");
+    await user.type(field, "nicolaka/netshoot:v0.13");
+    await user.click(screen.getByRole("button", { name: "Save debug image" }));
+    await waitFor(() =>
+      expect(api.settingsApi.save).toHaveBeenCalledWith(
+        expect.objectContaining({ debugImage: "nicolaka/netshoot:v0.13", prometheusUrl: "http://prom:9090" }),
+      ),
+    );
+  });
+
   it("points to the Clusters page for kubeconfig files instead of managing them here", async () => {
     renderSettings();
     const link = await screen.findByRole("link", { name: "Manage kubeconfig files" });

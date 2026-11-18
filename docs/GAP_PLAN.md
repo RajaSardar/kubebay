@@ -12,8 +12,8 @@ Effort: S = under a day, M = a few days, L = a week or more or needs infrastruct
 |---|---|---|---|---|---|
 | Logs/Terminal open on the pod's `default-container` annotation | Not itemised (unverified) | Freelens has it (v1.10.3); Lens not documented | Was missing; **done in this change** | S | M |
 | Secret values masked in the drawer, click to reveal, audited | Not itemised (unverified) | Freelens: reveal-on-click (source) | **Shipped**: `HandleGetYAML` masks unless `reveal=true` and audits the reveal (the 2026-11-12 verdict item 7 is stale). Docs: security.md should say so; check the YAML editor refuses to apply a masked Secret | S (verify) | H |
-| Helm release in the Owned-by chain | Apps view (unverified) | Freelens Resource Map relates pods to Helm releases | Chain is ownerReferences only; pods.md overstates | S/M | M |
-| Pod Terminal ephemeral debug container (distroless) | kubectl shell only (unverified) | Not documented | Says "image has no shell"; no `kubectl debug` | M | H |
+| Helm release in the Owned-by chain | Apps view (unverified) | Freelens Resource Map relates pods to Helm releases | Chain was ownerReferences only; **done in this change** (Helm release tops the chain, links to the release drawer; pods.md now accurate) | S/M | M |
+| Pod Terminal ephemeral debug container (distroless) | kubectl shell only (unverified) | Not documented | Said "image has no shell"; **done in this change** (Debug with ephemeral container, unit-tested, not yet run on a live cluster) | M | H |
 | Cross-cluster search (palette "where is this pod?") | Yes, in a fleet UI | Not documented | Removed Fleet page by choice; analysis suggests on-demand search | M | M |
 | Cloud cluster discovery (EKS/GKE/AKS) | Register/import (yes) | Lens Plus (paid) | Scan via your own CLI; code partly untested | M | M |
 | Auto-update, signed and notarised builds | n/a (server) | Both have it | Updater built, key not shipped in v0.7.0 | L | H |

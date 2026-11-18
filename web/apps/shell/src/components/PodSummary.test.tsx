@@ -14,6 +14,12 @@ vi.mock("../lib/useOwnerChain", () => ({
         { kind: "Deployment", name: "web", slug: "deployments", ns: "prod" },
       ];
     }
+    if (first.name === "web-helm") {
+      return [
+        { kind: "ReplicaSet", name: "web-helm", slug: "replicasets", ns: "prod" },
+        { kind: "Helm release", name: "web", slug: "", ns: "prod", href: "/helm?release=prod%2Fweb" },
+      ];
+    }
     return refs.map((r) => ({ kind: r.kind, name: r.name, slug: r.kind.toLowerCase() + "s", ns: "prod" }));
   },
 }));
@@ -147,6 +153,15 @@ describe("PodSummary", () => {
     renderSummary(obj);
     fireEvent.click(screen.getByText("ReplicaSet/web-abc-123"));
     expect(navigateMock).toHaveBeenCalledWith("/detail/replicasets/prod/web-abc-123");
+  });
+
+  it("shows the Helm release at the top of the chain and links to its page", () => {
+    renderSummary({
+      ...basePod,
+      metadata: { ...basePod.metadata, ownerReferences: [{ kind: "ReplicaSet", name: "web-helm", apiVersion: "apps/v1", controller: true }] },
+    });
+    fireEvent.click(screen.getByText("Helm release web"));
+    expect(navigateMock).toHaveBeenCalledWith("/helm?release=prod%2Fweb");
   });
 
   it("shows no Owned By row when there are no owner references", () => {

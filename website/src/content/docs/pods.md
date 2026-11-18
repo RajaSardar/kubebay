@@ -27,6 +27,7 @@ Click a pod to open its drawer. It always opens on **Summary**, unless you chose
 The pod's metadata (including its **Pod IP** and **Host IP**, or **Pod IPs** and **Host IPs** on a dual-stack cluster), conditions, each container (image, state, ports, environment), resource claims and volumes.
 
 - **Owned by** shows the whole chain of owners, each one a link. For example: Deployment → ReplicaSet → pod. An owner that is a custom resource, such as an Argo Rollout, opens like any other owner.
+  When the pod, or a Deployment, StatefulSet or other owner above it, was installed by Helm (it carries the `app.kubernetes.io/managed-by: Helm` label), the chain ends in **Helm release <name>**. Click it to open that release's drawer on the [Helm](/docs/helm/) page. The name comes from the `meta.helm.sh/release-name` annotation, or the `app.kubernetes.io/instance` label when the annotation isn't there; the namespace comes from `meta.helm.sh/release-namespace`. It is read from labels, not from the release records, so a release that was uninstalled, or whose objects were copied from another one, can show a link that finds nothing.
 - An environment variable from a Secret stays hidden until you click to reveal it.
 - Click a container's port to forward it to your machine. See [Port forwarding](/docs/port-forwarding/).
 
@@ -51,6 +52,13 @@ Logs stream as the container writes them.
 ### Terminal
 
 A shell in the container: pick the container and the shell (**auto**, `bash`, `sh` or `ash`). **auto** tries `bash`, then `sh`, then `ash`. The session ends when you close the drawer.
+
+**Debug with ephemeral container** is for a container with no shell (a distroless image). It adds a debug container to the running pod, the same call as `kubectl debug`, and opens a shell in it. Pick the **Image** (it starts as the **Debug image** in [Settings](/docs/settings/#debug-image)) and the **Target container**, whose processes the debug container can see. When the cluster's name looks like production, you click twice to confirm. The new container is selected in **Container** and its shell opens at once.
+
+- An ephemeral container can't be removed or changed. It stays in the pod's spec until the pod is replaced, but it stops when you exit its shell.
+- It needs the pod to be Running and your identity to be allowed to update `pods/ephemeralcontainers` (and `pods/exec` for the shell). A refusal is shown in the dialog.
+- It is recorded in the [Audit Log](/docs/audit-log/) as `debug-container`, with the container name, image and target.
+- Needs Kubernetes 1.25 or newer. If the image is slow to pull, the terminal may say the container is still starting; switch tabs and back to retry.
 
 ### Graphs
 

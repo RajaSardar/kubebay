@@ -328,6 +328,52 @@ func Router(d Deps, token string) http.Handler {
 			})
 			writeJSON(w, map[string]bool{"ok": true})
 		})
+		r.Post("/api/action/debug-container", func(w http.ResponseWriter, r *http.Request) {
+			var body struct {
+				Cluster string `json:"cluster"`
+				NS      string `json:"ns"`
+				Name    string `json:"name"`
+				Image   string `json:"image"`
+				Target  string `json:"target"`
+			}
+			if err := decodeBody(r, &body); err != nil || body.Cluster == "" || body.NS == "" || body.Name == "" {
+				http.Error(w, "cluster, ns, name required", http.StatusBadRequest)
+				return
+			}
+			image := strings.TrimSpace(body.Image)
+			if image == "" {
+				image = DefaultDebugImage
+				if set, err := d.Settings.Load(); err == nil && set.DebugImage != "" {
+					image = set.DebugImage
+				}
+			}
+			ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+			defer cancel()
+			container, err := d.Actions.AddEphemeralContainer(ctx, body.Cluster, body.NS, body.Name, image, body.Target)
+			if err != nil {
+				if rejection := writePolicyRejectionOrError(w, err); rejection != nil {
+					d.Audit.Record(audit.Entry{
+						Action:    "debug-container",
+						Cluster:   body.Cluster,
+						Namespace: body.NS,
+						Resource:  body.Name,
+						Detail:    fmt.Sprintf("image=%s webhook=%s: %s", image, rejection.Webhook, rejection.Message),
+						UserAgent: r.Header.Get("User-Agent"),
+						Outcome:   "rejected",
+					})
+				}
+				return
+			}
+			d.Audit.Record(audit.Entry{
+				Action:    "debug-container",
+				Cluster:   body.Cluster,
+				Namespace: body.NS,
+				Resource:  body.Name,
+				Detail:    debugContainerAuditDetail(container, image, body.Target),
+				UserAgent: r.Header.Get("User-Agent"),
+			})
+			writeJSON(w, map[string]string{"container": container, "image": image})
+		})
 
 		r.Get("/api/audit", func(w http.ResponseWriter, r *http.Request) {
 			entries, err := d.Audit.Tail(500)

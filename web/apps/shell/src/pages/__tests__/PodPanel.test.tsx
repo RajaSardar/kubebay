@@ -4,8 +4,15 @@ import PodPanel from "../PodPanel";
 import { imageSigApi, triageApi } from "../../lib/api";
 
 vi.mock("../../components/heavy", () => ({
-  ExecTerm: () => <div data-testid="exec-term" />,
+  ExecTerm: ({ container }: { container?: string }) => <div data-testid="exec-term">{container}</div>,
   YamlTab: () => <div data-testid="yaml-tab" />,
+}));
+vi.mock("../../components/DebugContainerModal", () => ({
+  DebugContainerModal: ({ onCreated }: { onCreated: (c: string) => void }) => (
+    <div data-testid="debug-modal">
+      <button onClick={() => onCreated("debugger-abcde")}>stub-create</button>
+    </div>
+  ),
 }));
 vi.mock("../../components/PodSummary", () => ({ PodSummary: () => <div data-testid="pod-summary" /> }));
 vi.mock("../../components/PodGraphs", () => ({ PodGraphs: () => <div data-testid="pod-graphs" /> }));
@@ -105,6 +112,29 @@ describe("PodPanel — Signatures tab (backlog #45)", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Signatures" }));
     fireEvent.click(screen.getByRole("button", { name: "Check signatures" }));
     await vi.waitFor(() => expect(imageSigApi.check).toHaveBeenCalledWith("kind-test", false, { ns: "team-a", pod: "web-abc-xyz" }));
+  });
+});
+
+describe("PodPanel — Debug with ephemeral container", () => {
+  beforeEach(() => {
+    localStorage.removeItem("kb.drawerTab");
+  });
+
+  it("is offered on the Terminal tab only", () => {
+    render(<PodPanel pod={pod} onClose={() => {}} />);
+    expect(screen.queryByRole("button", { name: "Debug with ephemeral container" })).toBeNull();
+    fireEvent.click(screen.getByRole("tab", { name: "Terminal" }));
+    expect(screen.getByRole("button", { name: "Debug with ephemeral container" })).toBeInTheDocument();
+  });
+
+  it("selects the new container and opens the terminal in it", () => {
+    render(<PodPanel pod={pod} onClose={() => {}} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Terminal" }));
+    fireEvent.click(screen.getByRole("button", { name: "Debug with ephemeral container" }));
+    fireEvent.click(screen.getByRole("button", { name: "stub-create" }));
+    expect(screen.getByLabelText("Container")).toHaveValue("debugger-abcde");
+    expect(screen.getByTestId("exec-term").textContent).toBe("debugger-abcde");
+    expect(screen.queryByTestId("debug-modal")).toBeNull();
   });
 });
 

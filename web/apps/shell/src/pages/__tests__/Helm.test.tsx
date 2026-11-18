@@ -55,11 +55,11 @@ const releases = [rel("redis", "shop", "redis-18.1.0"), rel("api", "shop", "api-
 const list = (r: HelmRelease[], denied: { ns: string; message: string }[] = []) => ({ releases: r, denied });
 
 let qc: QueryClient;
-function renderPage() {
+function renderPage(path = "/helm") {
   qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[path]}>
         <Helm />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -136,6 +136,13 @@ describe("Helm releases", () => {
     expect(screen.getByRole("status", { name: "Loading release…" })).toBeInTheDocument();
     expect(helmApi.details).toHaveBeenCalledWith("c1", "shop", "redis");
     expect(helmApi.history).not.toHaveBeenCalled();
+  });
+
+  it("opens a release's drawer straight from a ?release=namespace/name link", async () => {
+    vi.mocked(helmApi.releases).mockResolvedValue(list(releases));
+    renderPage("/helm?release=shop%2Fredis");
+    expect(await screen.findByRole("tab", { name: "Overview" })).toBeInTheDocument();
+    expect(helmApi.details).toHaveBeenCalledWith("c1", "shop", "redis");
   });
 
   it("the release drawer loads history and manifest with loaders, not a word", async () => {

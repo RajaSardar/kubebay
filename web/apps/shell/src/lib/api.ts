@@ -175,6 +175,9 @@ export const api = {
     resources: { requests?: Record<string, string>; limits?: Record<string, string> };
     gitopsOwner?: string;
   }) => send<{ ok: boolean }>("POST", "/api/action/resize-pod", b),
+  /** Adds an ephemeral debug container to a running pod; resolves once it is up (or after the engine's short wait). */
+  debugContainer: (b: { cluster: string; ns: string; name: string; image?: string; target?: string }) =>
+    send<{ container: string; image: string }>("POST", "/api/action/debug-container", b),
 
   /**
    * A Secret's values come back hidden unless `reveal` is set, and the engine
@@ -649,6 +652,9 @@ export interface AppSettings {
   activeKubeconfigs?: string[];
   nodeShellImage?: string;
   nodeShellImageDefault?: string;
+  /** Image for "Debug with ephemeral container" in the pod Terminal tab. */
+  debugImage?: string;
+  debugImageDefault?: string;
   localShell?: LocalShellCapability;
   /** Usage-history consent per cluster (backlog #36): true once connected, false after Stop. */
   historyClusters?: Record<string, boolean>;

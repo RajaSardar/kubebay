@@ -6,6 +6,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ## [Unreleased]
 
+### Added
+- **Helm release in the Owned-by chain.** A pod, or a workload above it, that Helm installed (label `app.kubernetes.io/managed-by: Helm`, release from the `meta.helm.sh/release-name` and `release-namespace` annotations, or the `app.kubernetes.io/instance` label) now ends its **Owned by** chain with **Helm release <name>**, which opens that release's drawer on the Helm page (`/helm?release=namespace/name`). The pods page no longer overstates this. (Backlog 12, gap G4.)
+- **Debug with ephemeral container** in a pod's Terminal tab, for images with no shell. Pick the image (default from the new **Debug image** setting, `busybox:1.36` until set) and the target container; Kubebay adds the container through the pod's `ephemeralcontainers` subresource (`POST /api/action/debug-container`, as your identity, audited as `debug-container`) and opens a shell in it. A cluster that looks like production asks for a second click. The terminal's pre-check now also knows ephemeral containers. Not yet checked against a live cluster. (Backlog 12, gap G1.)
+
 ## [0.7.8] - 2026-11-18
 
 ### Changed

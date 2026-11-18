@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Editor from "../lib/monaco";
 import { ArmedButton, Badge, Button, DataTable, Drawer, EmptyState, InlineBanner, PageHeader, Row, Skeleton, SkeletonLines, StatusDot, Tabs, TextField } from "@kubebay/ui";
@@ -368,16 +369,34 @@ export default function Helm() {
   // The drawer's release is looked up in the live list on every render, so
   // it follows upgrades, rollbacks and status changes; the row as it was when
   // clicked is kept only to say what was uninstalled.
-  const [selected, setSelected] = useState<{ namespace: string; name: string } | null>(null);
+  // A ?release=namespace/name link (the Helm release in a pod's "Owned by")
+  // opens that release's drawer on arrival.
+  const [params, setParams] = useSearchParams();
+  const [selected, setSelected] = useState<{ namespace: string; name: string } | null>(() => {
+    const [namespace, ...rest] = (params.get("release") ?? "").split("/");
+    return namespace && rest.length ? { namespace, name: rest.join("/") } : null;
+  });
+  const seenCluster = useRef(effectiveCluster);
   const lastSeen = useRef<HelmRelease | null>(null);
   const live = selected ? all.find((r) => r.namespace === selected.namespace && r.name === selected.name) : undefined;
   if (live) lastSeen.current = live;
   const gone = !!selected && (heads !== null || releases.isSuccess) && !live;
 
   useEffect(() => {
+    if (seenCluster.current === effectiveCluster) return;
+    seenCluster.current = effectiveCluster;
     setSelected(null);
     setSearch("");
   }, [effectiveCluster]);
+
+  function close() {
+    setSelected(null);
+    if (params.has("release")) {
+      const next = new URLSearchParams(params);
+      next.delete("release");
+      setParams(next, { replace: true });
+    }
+  }
 
   function pick(r: HelmRelease) {
     lastSeen.current = r;
@@ -494,7 +513,7 @@ export default function Helm() {
           cluster={effectiveCluster}
           rel={(live ?? lastSeen.current)!}
           gone={gone}
-          onClose={() => setSelected(null)}
+          onClose={close}
         />
       )}
       </>

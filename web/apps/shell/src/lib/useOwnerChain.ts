@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useResourceStream } from "./useResourceStream";
+import { helmReleaseHref, helmReleaseOf, type HelmReleaseRef } from "./helmOwner";
 import { extSlug, lookupDef, slugForKind } from "./resources";
 
 export interface OwnerLink {
@@ -8,6 +9,8 @@ export interface OwnerLink {
   /** URL slug for the resource table, e.g. "replicasets" */
   slug: string;
   ns: string;
+  /** Set for links that aren't a /detail page (the Helm release); used instead of kind/slug routing. */
+  href?: string;
 }
 
 /** Maps "apiVersion/Kind" → GVR for resources that commonly appear in owner chains. */
@@ -57,12 +60,16 @@ function rec(v: unknown): Record<string, unknown> {
  * resolving each level using pre-loaded resource streams.
  *
  * Returns a flat array of owner links from immediate to root, e.g.:
- *   [ReplicaSet/web-abc, Deployment/web]
+ *   [ReplicaSet/web-abc, Deployment/web, Helm release/web]
+ *
+ * A Helm release tops the chain when `self` or any resolved owner carries
+ * Helm's managed-by label (release name from its annotations).
  */
 export function useOwnerChain(
   cluster: string,
   namespace: string,
   initialOwnerRefs: RawOwnerRef[],
+  self?: Record<string, unknown> | null,
 ): OwnerLink[] {
   const replicasets = useResourceStream(cluster, "apps/v1/replicasets", { ns: [namespace], mode: "full" });
   const deployments = useResourceStream(cluster, "apps/v1/deployments", { ns: [namespace], mode: "full" });
@@ -82,6 +89,7 @@ export function useOwnerChain(
     };
 
     const chain: OwnerLink[] = [];
+    let helm: HelmReleaseRef | null = helmReleaseOf(self);
     let current: RawOwnerRef[] = initialOwnerRefs;
     const seen = new Set<string>();
     const MAX_DEPTH = 5;
@@ -112,13 +120,18 @@ export function useOwnerChain(
       const rows = streams[gvr] ?? [];
       const ownerObj = rows.find((r) => rec(rec(r).metadata).name === ownerRef.name);
       if (!ownerObj) break;
+      helm = helmReleaseOf(ownerObj) ?? helm;
 
       current = (rec(rec(ownerObj).metadata).ownerReferences as RawOwnerRef[] | undefined) ?? [];
     }
 
+    if (helm) {
+      chain.push({ kind: "Helm release", name: helm.name, slug: "", ns: helm.namespace, href: helmReleaseHref(helm) });
+    }
     return chain;
   }, [
     initialOwnerRefs,
+    self,
     namespace,
     replicasets.rows,
     deployments.rows,

@@ -82,7 +82,7 @@ export function PodSummary({
   cluster: string;
 }) {
   const rawOwnerRefs = arr(rec(obj.metadata).ownerReferences) as { apiVersion?: string; kind: string; name: string; controller?: boolean }[];
-  const ownerChain = useOwnerChain(cluster, String(rec(obj.metadata).namespace ?? ""), rawOwnerRefs);
+  const ownerChain = useOwnerChain(cluster, String(rec(obj.metadata).namespace ?? ""), rawOwnerRefs, obj);
 
   const data = useMemo(() => {
     const meta = rec(obj.metadata);
@@ -193,8 +193,8 @@ export function PodSummary({
                 {ownerChain.map((o, i) => (
                   <Row key={i} gap={1} align="center">
                     {i > 0 && <span className="muted small">←</span>}
-                    <ResourceLink kind={o.slug} ns={o.ns} name={o.name}>
-                      <span className="mono">{o.kind}/{o.name}</span>
+                    <ResourceLink kind={o.slug} ns={o.ns} name={o.name} href={o.href}>
+                      <span className="mono">{o.href ? `${o.kind} ${o.name}` : `${o.kind}/${o.name}`}</span>
                     </ResourceLink>
                   </Row>
                 ))}
