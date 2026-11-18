@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { derivePod } from "../pods";
+import { defaultContainer, derivePod } from "../pods";
 
 const pod = (over: { meta?: Record<string, unknown>; spec?: Record<string, unknown>; status?: Record<string, unknown> } = {}) => ({
   metadata: { name: "web-1", namespace: "shop", creationTimestamp: "2026-09-29T10:00:00Z", ...over.meta },
@@ -56,5 +56,23 @@ describe("derivePod", () => {
 
   it("skips an object with no name", () => {
     expect(derivePod({ metadata: {} })).toBeNull();
+  });
+});
+
+describe("defaultContainer", () => {
+  const names = ["app", "sidecar"];
+  const withAnn = (v: string) => ({ metadata: { annotations: { "kubectl.kubernetes.io/default-container": v } } });
+
+  it("is the container the pod's default-container annotation names", () => {
+    expect(defaultContainer(withAnn("sidecar"), names)).toBe("sidecar");
+  });
+
+  it("falls back to the first container with no annotation", () => {
+    expect(defaultContainer({ metadata: {} }, names)).toBe("app");
+    expect(defaultContainer(undefined, names)).toBe("app");
+  });
+
+  it("ignores an annotation that names a container the pod does not have", () => {
+    expect(defaultContainer(withAnn("gone"), names)).toBe("app");
   });
 });

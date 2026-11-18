@@ -7,6 +7,7 @@ import { ansiSegments, logLevel, stripAnsi, type LogLevel, type LogTone } from "
 import { ExecTerm, YamlTab } from "../components/heavy";
 import { useDiscardGuard } from "../components/DiscardGuard";
 import { forceDeleteEffect, forceDeleteLabel } from "../lib/podDelete";
+import { defaultContainer } from "../lib/pods";
 import { PodSummary } from "../components/PodSummary";
 import { PodGraphs } from "../components/PodGraphs";
 import { ResizePanel } from "../components/ResizePanel";
@@ -88,7 +89,7 @@ export default function PodPanel({ pod, onClose: onCloseNow, onDeleted }: { pod:
   // Triage shows only where the user turned it on for this cluster (backlog #13).
   const triageAllowed = useTriageAllowed(pod.cluster);
   const tabs = triageAllowed ? POD_TABS : POD_TABS.filter((t) => t !== "triage");
-  const [container, setContainer] = useState<string | undefined>(pod.containers[0]);
+  const [container, setContainer] = useState<string | undefined>(defaultContainer(pod.obj, pod.containers));
   const [tail, setTail] = useState(2000);
   const [follow, setFollow] = useState(true);
   const [previous, setPrevious] = useState(false);
