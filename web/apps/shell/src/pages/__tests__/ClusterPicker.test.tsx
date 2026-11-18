@@ -122,6 +122,14 @@ describe("ClusterPicker", () => {
     expect(within(rowOf("broken")).getByText("Config error")).toBeInTheDocument();
   });
 
+  it("labels a cluster the engine put to sleep with a Sleeping pill, in the Session column", async () => {
+    renderPage([dev, { ...stage, sleeping: true }]);
+    await screen.findByText("stage", { selector: "[data-cluster-name]" });
+    const pill = within(rowOf("stage")).getByText("Sleeping");
+    expect(pill).toHaveClass("status-terminated");
+    expect(within(rowOf("kind-dev")).queryByText("Sleeping")).toBeNull();
+  });
+
   it("opens a cluster on click, with no drawer", async () => {
     renderPage();
     fireEvent.click(await screen.findByText("stage", { selector: "[data-cluster-name]" }));

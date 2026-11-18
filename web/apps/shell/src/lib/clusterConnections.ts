@@ -55,6 +55,63 @@ const ENGINE_DISCONNECTED = "cluster disconnected";
 
 const connections = new Map<string, ClusterConn>();
 
+// ── Global row budget (docs/MANY_CLUSTERS.md 6.7) ──
+// The stream cache is capped at 50k rows, but the live stores here held every
+// row of every connected cluster. Past the budget the least recently viewed
+// cluster that is not protected (active or pinned) goes to sleep, so memory is
+// bounded however many clusters are connected. It is a soft cap: a cluster
+// that is alone, or protected, may exceed it.
+const DEFAULT_ROW_BUDGET = 50_000;
+let rowBudget = DEFAULT_ROW_BUDGET;
+let protectedIds = new Set<string>();
+let evictHook: ((cluster: string) => void) | null = null;
+let viewTick = 0;
+const lastViewed = new Map<string, number>();
+
+/** Rows across all connected clusters before the least recently viewed sleeps. */
+export function setRowBudget(rows: number): void {
+  rowBudget = rows;
+}
+
+/** Clusters the budget never puts to sleep: the active one and pins. */
+export function setProtectedClusters(ids: string[]): void {
+  protectedIds = new Set(ids);
+}
+
+/** Called with a cluster the budget put to sleep, so the engine can drop it too. */
+export function setBudgetEvictHook(hook: ((cluster: string) => void) | null): void {
+  evictHook = hook;
+}
+
+function rowsHeld(conn: ClusterConn): number {
+  let n = 0;
+  for (const store of conn.stores.values()) n += store.size;
+  return n;
+}
+
+function enforceRowBudget(): void {
+  let total = 0;
+  let awake = 0;
+  for (const conn of connections.values()) {
+    if (conn.sleeping) continue;
+    awake++;
+    total += rowsHeld(conn);
+  }
+  while (total > rowBudget && awake > 1) {
+    let victim = "";
+    for (const [id, conn] of connections) {
+      if (conn.sleeping || protectedIds.has(id) || rowsHeld(conn) === 0) continue;
+      if (!victim || (lastViewed.get(id) ?? 0) < (lastViewed.get(victim) ?? 0)) victim = id;
+    }
+    if (!victim) return;
+    const conn = connections.get(victim)!;
+    total -= rowsHeld(conn);
+    awake--;
+    sleepCluster(conn);
+    evictHook?.(victim);
+  }
+}
+
 // ── Observability: React reads connections through useSyncExternalStore. ──
 const listeners = new Set<() => void>();
 let version = 0;
@@ -216,6 +273,7 @@ function ensureListener() {
         applyOps(ops, target);
         if (!conn.stores.has(key)) conn.stores.set(key, target);
         notifyData();
+        enforceRowBudget();
       }
     },
     onDelta: (id, ops) => {
@@ -228,6 +286,7 @@ function ensureListener() {
         // So a page opened later sees live data (at most a moment old).
         writeCacheSoon(conn.subs[0]?.cluster ?? "", key);
         notifyData();
+        enforceRowBudget();
       }
     },
     onSync: (id) => {
@@ -243,6 +302,7 @@ function ensureListener() {
         const store = conn.stores.get(key) ?? new Map();
         setStreamCache(key, Array.from(store.entries()), true);
         notifyData();
+        enforceRowBudget();
       }
     },
     onError: (id, message) => {
@@ -296,6 +356,7 @@ function makeSubId(): string {
 
 /** Start background subscriptions for a cluster. Idempotent. */
 export function connectCluster(cluster: string): void {
+  lastViewed.set(cluster, ++viewTick); // opening it again counts as a view
   const existing = connections.get(cluster);
   if (existing && !existing.sleeping) return; // already connected
 
@@ -343,6 +404,7 @@ export function disconnectCluster(cluster: string): void {
   }
 
   connections.delete(cluster);
+  lastViewed.delete(cluster);
   clearStreamCacheForCluster(cluster);
 
   // If no more connections, detach the shared listener
@@ -371,6 +433,7 @@ export function resetConnections(): void {
     disconnectCluster(cluster);
   }
   connections.clear();
+  lastViewed.clear();
   if (detach) { detach(); detach = null; }
   // Pending timers belong to the connections just dropped.
   if (dataTimer) { clearTimeout(dataTimer); dataTimer = null; }

@@ -51,6 +51,9 @@ type AppSettings struct {
 	// Triage is incident triage's switch, allowlist, endpoint and model
 	// (backlog #13). Set only through /api/triage; never holds the API key.
 	Triage *TriageSettings `json:"triage,omitempty"`
+	// Warm is the warm-cluster cap and idle limit (backlog #37). Set only
+	// through /api/warm-policy.
+	Warm *WarmSettings `json:"warm,omitempty"`
 }
 
 // PrometheusURLFor resolves the endpoint to query for one cluster. A
@@ -92,6 +95,9 @@ type SettingsManager struct {
 	// AuditFeedDisabled, when set, is why the audit-log feed is off in this
 	// deployment (see AuditFeedBlockReason). Fixed at startup by main.
 	AuditFeedDisabled string
+	// WarmPolicyDisabled, when set, is why the warm-cluster policy cannot be
+	// changed here (see WarmPolicyBlockReason). Fixed at startup by main.
+	WarmPolicyDisabled string
 	// AuditRunner runs aws/gcloud for cloud audit sources (nil = os/exec).
 	AuditRunner auditfeed.Runner
 	// Outbound limits what a user-supplied URL (Prometheus) may reach. Fixed at
@@ -272,7 +278,9 @@ func (s *SettingsManager) HandleSave(w http.ResponseWriter, r *http.Request) {
 	var auditSources map[string]auditfeed.CloudSource
 	var mcpSettings *MCPSettings
 	var triageSettings *TriageSettings
+	var warmSettings *WarmSettings
 	if current != nil {
+		warmSettings = current.Warm
 		mcpSettings = current.MCP
 		triageSettings = current.Triage
 		nodeShellImage = current.NodeShellImage
@@ -318,6 +326,7 @@ func (s *SettingsManager) HandleSave(w http.ResponseWriter, r *http.Request) {
 		AuditSources:      auditSources,
 		MCP:               mcpSettings,
 		Triage:            triageSettings,
+		Warm:              warmSettings,
 	}
 	if err := s.save(next); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

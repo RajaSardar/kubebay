@@ -224,6 +224,29 @@ func TestProtectingAClusterCountsAsUse(t *testing.T) {
 	}
 }
 
+func TestWarmPolicyGetter(t *testing.T) {
+	m, _, _ := warmManager(t)
+	m.SetWarmPolicy(4, 12*time.Minute)
+	c, idle := m.WarmPolicy()
+	if c != 4 || idle != 12*time.Minute {
+		t.Fatalf("WarmPolicy() = %d,%v", c, idle)
+	}
+}
+
+func TestLoweringWarmCapSleepsExtrasAtOnce(t *testing.T) {
+	m, clk, dropped := warmManager(t)
+	m.SetWarmPolicy(5, 0)
+	connectAll(t, m, clk, "c1", "c2", "c3", "c4", "c5")
+	m.SetProtected([]string{"c5"})
+	m.SetWarmPolicy(2, 0)
+	if got, want := connectedIDs(m), []string{"c4", "c5"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("connected = %v, want %v", got, want)
+	}
+	if len(*dropped) != 3 {
+		t.Fatalf("disconnect hooks ran for %v, want 3 clusters", *dropped)
+	}
+}
+
 func TestWarmPolicyFromEnv(t *testing.T) {
 	cases := []struct {
 		cap, idle string
