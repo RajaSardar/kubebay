@@ -80,8 +80,8 @@ export const PAGE_HELP: Record<string, PageHelpEntry> = {
   },
   "/helm": {
     name: "Helm",
-    what: "Every Helm release with its history, values and manifest, and a store of the charts in your repos.",
-    how: "Kubebay reads the release records the helm CLI does, and your local Helm repo config.",
+    what: "Every Helm release with its history, values and manifest, and a store of the charts in your repos: versions, README, what's installed, a preview before you apply.",
+    how: "Kubebay reads the release records the helm CLI does, and your local Helm repo config. A preview renders the chart without touching the cluster.",
     docs: "helm",
   },
   "/argocd": {

@@ -10,7 +10,6 @@ import (
 
 	"sigs.k8s.io/yaml"
 
-	"helm.sh/helm/v4/pkg/action"
 	"helm.sh/helm/v4/pkg/chart"
 	"helm.sh/helm/v4/pkg/chart/loader"
 	"helm.sh/helm/v4/pkg/cli"
@@ -169,11 +168,13 @@ func (h *HelmManager) HandleCharts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	type chartEntry struct {
-		Name        string `json:"name"`
-		Description string `json:"description"`
-		Version     string `json:"version"`
-		AppVersion  string `json:"appVersion,omitempty"`
-		Versions    int    `json:"versions"`
+		Name        string   `json:"name"`
+		Description string   `json:"description"`
+		Version     string   `json:"version"`
+		AppVersion  string   `json:"appVersion,omitempty"`
+		Versions    int      `json:"versions"`
+		Keywords    []string `json:"keywords,omitempty"`
+		Deprecated  bool     `json:"deprecated,omitempty"`
 	}
 	out := []chartEntry{}
 	names := make([]string, 0, len(idx.Entries))
@@ -190,12 +191,16 @@ func (h *HelmManager) HandleCharts(w http.ResponseWriter, r *http.Request) {
 		desc := ""
 		appVer := ""
 		ver := ""
+		var keywords []string
+		deprecated := false
 		if latest.Metadata != nil {
+			keywords = latest.Metadata.Keywords
+			deprecated = latest.Metadata.Deprecated
 			desc = latest.Metadata.Description
 			appVer = latest.Metadata.AppVersion
 			ver = latest.Metadata.Version
 		}
-		out = append(out, chartEntry{Name: n, Description: desc, Version: ver, AppVersion: appVer, Versions: len(versions)})
+		out = append(out, chartEntry{Name: n, Description: desc, Version: ver, AppVersion: appVer, Versions: len(versions), Keywords: keywords, Deprecated: deprecated})
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(out)
@@ -214,10 +219,9 @@ func (h *HelmManager) HandleChartValues(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	settings := h.settings()
-	cpo := action.ChartPathOptions{Version: version}
-	path, err := cpo.LocateChart(ref, settings)
+	path, err := h.locateChart(ref, version, settings)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("locate: %v", err), http.StatusBadGateway)
+		http.Error(w, fmt.Sprintf("locate: %v", err), locateStatus(err))
 		return
 	}
 	ch, err := loader.Load(path)

@@ -577,6 +577,25 @@ export interface HelmChartEntry {
   version: string;
   appVersion?: string;
   versions: number;
+  keywords?: string[];
+  deprecated?: boolean;
+}
+
+/** A chart's page: its repo's index of versions, and one version's own facts. */
+export interface HelmChartDetail {
+  name: string;
+  repo: string;
+  version: string;
+  appVersion?: string;
+  description?: string;
+  home?: string;
+  deprecated?: boolean;
+  keywords?: string[];
+  sources?: string[];
+  maintainers?: { name: string; email?: string; url?: string }[];
+  /** The chart's README, as text. It is never rendered as Markdown or HTML. */
+  readme?: string;
+  versions: { version: string; appVersion?: string; created?: string; deprecated?: boolean }[];
 }
 
 export const helmMarketApi = {
@@ -586,6 +605,11 @@ export const helmMarketApi = {
     send<Record<string, string>>("POST", `/api/helm/repos/update?cluster=${encodeURIComponent(cluster)}`, {}),
   charts: (cluster: string, repo: string) =>
     get<HelmChartEntry[]>(`/api/helm/charts?cluster=${encodeURIComponent(cluster)}&repo=${encodeURIComponent(repo)}`),
+  chart: (cluster: string, repo: string, name: string, version?: string) => {
+    const q = new URLSearchParams({ cluster, repo, name });
+    if (version) q.set("version", version);
+    return get<HelmChartDetail>(`/api/helm/chart?${q}`);
+  },
   chartValuesText: async (cluster: string, ref: string, version?: string): Promise<string> => {
     const q = new URLSearchParams({ cluster, ref });
     if (version) q.set("version", version);

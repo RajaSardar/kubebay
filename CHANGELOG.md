@@ -11,7 +11,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ### Added
 - **Open in bottom dock** on a drawer's YAML tab. The terminal dock gains a tab strip (Shell, YAML \<name\>) and hosts the same YAML editor for an object. One editor per object (opening it again focuses its tab, and the drawer shows "Editing in dock"), hiding the dock keeps the text, and closing a modified tab asks "Discard changes?". Opt-in; the drawer editor stays the default. Tabs are not kept across a restart. (Backlog 51, phase 1.)
+- **Helm Charts is more of a store** (first slice of backlog 11, see docs/HELM_STORE.md). Each chart's card shows an Installed badge for charts a release on the cluster runs and a Deprecated badge; search matches keywords; Installed only and Hide deprecated filters. A chart opens on a page with About (maintainers, home, sources, keywords, the releases running it), README (plain text), Values, and a version box listing every version in the repo. Preview renders the chart without touching the cluster: a new install shows its manifest, an upgrade shows a side-by-side diff against the running release, with Secret values hidden. Opening an installed chart starts from its release and the button reads Upgrade.
+
 - **Apply to production?** The YAML editor and Create Resource ask before applying to a cluster whose name reads like production (`prod`, `prd`, `live`, `production`), the same name check the terminal dock uses. Dry-run never asks.
+
+### Security
+- **A chart's archive address is checked like a repository's.** A repository's index can name any URL for a chart archive; the engine now refuses a metadata, link-local or (in a cluster) loopback address and fetches the archive through the guarded transport, for chart pages, default values, install and upgrade. Install, upgrade and preview responses no longer carry a Secret's values in the rendered manifest.
 
 ### Fixed
 - **Large kubeconfigs no longer load the machine.** The engine health check probes only connected clusters every 30 seconds; the others are checked when you open the Clusters page, at most every 5 minutes each and 10 at a time (so cloud login plugins are not run for every context). Connecting many clusters at once starts at most 3 initial lists at a time, and the Clusters table mounts only the visible rows once you have more than 100 clusters.
