@@ -7,6 +7,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 ## [Unreleased]
 
 ### Added
+- **Open in bottom dock** on a drawer's YAML tab. The terminal dock gains a tab strip (Shell, YAML \<name\>) and hosts the same YAML editor for an object. One editor per object (opening it again focuses its tab, and the drawer shows "Editing in dock"), hiding the dock keeps the text, and closing a modified tab asks "Discard changes?". Opt-in; the drawer editor stays the default. Tabs are not kept across a restart. (Backlog 51, phase 1.)
 - **Apply to production?** The YAML editor and Create Resource ask before applying to a cluster whose name reads like production (`prod`, `prd`, `live`, `production`), the same name check the terminal dock uses. Dry-run never asks.
 
 ### Fixed

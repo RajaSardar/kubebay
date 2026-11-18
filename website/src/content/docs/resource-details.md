@@ -51,6 +51,7 @@ The YAML tab is an editor for the live object.
 - **Revert** throws your edits away. **Reload** fetches the latest version from the cluster.
 - On a cluster whose name reads like production (`prod`, `prd`, `live`, `production`, the same name check the [terminal](/docs/terminal/#contexts-that-read-like-production) uses), **Apply** asks **Apply to production?** first, and applies only when you choose **Apply to …**. **Dry-run** never asks. It is a check of the name only: Kubebay can't tell what the cluster really is.
 - Unapplied edits are not dropped silently. Closing the drawer (**Close**, <kbd>Esc</kbd>, or a click on the page behind it) or changing tab while the YAML is modified asks **Discard changes?**. **Keep editing** leaves everything as it is; **Discard** drops the edit.
+- **Open in bottom dock** (above the editor) moves the edit to a YAML tab in the [terminal dock](/docs/terminal/#yaml-tabs-in-the-dock), so you can keep the shell open beside it. The drawer editor stays the default. While the object is open in the dock, the drawer shows **Editing in dock** with **Go to tab** instead of a second editor. If the drawer has unapplied edits, it asks **Discard changes?** first.
 - A **Secret** opens with its values hidden. **Reveal values** loads them, and the Audit Log records that.
 - If someone else changed a field you edited since you opened the editor, Kubebay doesn't apply. It lists those fields so you can **Reload current version** and make your edit again.
 

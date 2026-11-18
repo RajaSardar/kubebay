@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Badge, Button, Drawer, IconButton, InlineBanner, SkeletonLines, StatusDot, Tabs, TextField } from "@kubebay/ui";
 import { api, nodeApi } from "../lib/api";
-import { ExecTerm, YamlTab } from "./heavy";
+import { ExecTerm } from "./heavy";
 import { useDiscardGuard } from "./DiscardGuard";
+import { DrawerYaml } from "./DrawerYaml";
 import { EventsDrawer } from "./EventsDrawer";
 import { ObjectStarButton } from "./Favorites";
 import { WarningSparkline } from "./WarningSparkline";
@@ -198,7 +199,7 @@ function PaneContent({
   if ((isNode && nodeTab === "yaml") || (isService && svcTab === "yaml") || (!isNode && !isService && genTab === "yaml")) {
     return (
       <div className="yaml-wrap">
-        <YamlTab cluster={cluster} gvr={def.gvr} ns={ns} name={name} gitopsOwner={ownerOf(obj)} helmRelease={helmReleaseOf(obj)} />
+        <DrawerYaml cluster={cluster} gvr={def.gvr} ns={ns} name={name} gitopsOwner={ownerOf(obj)} helmRelease={helmReleaseOf(obj)} />
       </div>
     );
   }

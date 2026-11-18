@@ -21,6 +21,10 @@ export function setEditDirty(key: string, isDirty: boolean): void {
   emit();
 }
 
+export function isEditDirty(key: string): boolean {
+  return dirty.has(key);
+}
+
 export function anyEditDirty(): boolean {
   return dirty.size > 0;
 }

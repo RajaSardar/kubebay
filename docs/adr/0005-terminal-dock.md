@@ -80,7 +80,7 @@ Each ships alone, behind its gate:
 - Following the cluster picker.
 - Reopening shells automatically.
 - Resuming or replaying sessions in the engine.
-- Create, edit and Helm tabs.
+- Create, edit and Helm tabs. *(Reversed for YAML edit tabs, see the note below.)*
 - A fullscreen overlay.
 - ⌘W to close: in the desktop app it closes the window and the engine with it.
 - Broadcasting input to several shells.
@@ -88,3 +88,15 @@ Each ships alone, behind its gate:
 - Debug containers on "+".
 - Two fixed heights instead of a splitter: keyboard resizing is an accessibility need.
 - Ctrl+K, F6 or ⌘J as the toggle. Ctrl+K belongs to the shell, xterm swallows F6, and ⌘J is a line feed off macOS.
+
+## Note (backlog 51): YAML edit tabs reverse "no edit tabs in v1"
+
+v1 rejected create, edit and Helm tabs to keep the first slice small. That was sequencing, and `docs/YAML_EDIT_DOCK.md` recommends building edit tabs first because they need none of the exec work (no channel), only a tab strip and a store. So the dock now takes **YAML edit tabs**, opt-in beside the drawer editor, which stays the default.
+
+- **Same store.** The tabs live in `useTerminalDock` (`tabs`, `activeTab`), not a parallel store. The tab strip is `Shell | YAML <name>` and appears only once a YAML tab exists, so the dock with no edit tab is unchanged. Local-shell tabs (slice 4) will join the same strip.
+- **Same editor.** A tab hosts `YamlTab` for `cluster/gvr/ns/name`, so patch-only apply, stale-field refusal, Secret reveal, the production confirm and the Helm/GitOps banners come with it.
+- **One live editor per object.** Opening an object that already has a tab focuses it, and the drawer's YAML tab shows "Editing in dock" with **Go to tab** instead of a second editor.
+- **Hide is not close.** Hiding the dock keeps YAML tabs mounted, so an edit survives Hide and Ctrl+`. Closing a dirty tab asks **Discard changes?** (the edit guard, per tab).
+- **Not persisted.** Tabs and their text are not kept across a relaunch, the same rule as the open state (decision 10). Restore of unsaved text is a later phase.
+- **Unchanged:** the splitter height, Ctrl+`, and the shell's lifecycle. At most 8 tabs; the cap is a placeholder until memory is measured.
+- Still rejected: Helm tabs. Create Resource as a tab is a later phase.
