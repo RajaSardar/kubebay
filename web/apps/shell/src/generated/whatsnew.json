@@ -3,7 +3,30 @@
     {
       "version": "unreleased",
       "date": "",
-      "sections": []
+      "sections": [
+        {
+          "heading": "Added",
+          "items": [
+            {
+              "title": "Explain this pod",
+              "summary": "A pod that is not healthy shows a card at the top of its drawer's Summary with a short plain-language diagnosis, the field it was read from, and up to three next steps (previous container's logs, Events, YAML, the PVC or the node)."
+            },
+            {
+              "title": "YAML in the dock: recovery, New resource tab and a text budget",
+              "summary": "(backlog 51, rest of phases 3 to 5)."
+            }
+          ]
+        },
+        {
+          "heading": "Changed",
+          "items": [
+            {
+              "title": "GET /api/yaml answers 404 (not 502) for an object that does not exist, so editors can tell a deletion from an unreachable cluster",
+              "summary": ""
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.7.9",
