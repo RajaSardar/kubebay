@@ -55,10 +55,31 @@ If your identity can't read Helm's release records across the cluster, the page 
 
 The charts in the Helm repositories you already added. Kubebay reads your local Helm config, so the repos you added with `helm repo add` are already there. If you have none, it says so.
 
-- Pick **All repos** or one, and **Search charts…** by name.
+Each chart is a card with its latest version, description and app version. A chart that a release on this cluster runs shows an **Installed** badge, and a deprecated chart shows **Deprecated**.
+
+- Pick **All repos** or one, and **Search charts…** by name, description or keyword.
+- **Installed only** keeps the charts a release on this cluster runs. **Hide deprecated** drops the charts their maintainers deprecated.
 - **Update indexes** fetches each repo's latest index, like `helm repo update`.
-- Kubebay won't fetch a repo whose URL points at a cloud metadata or link-local address, isn't `http` or `https`, or carries a user name and password; **Update indexes** reports that repo as not fetched.
-- Click a chart, set the release name, namespace and version (the latest by default), then **Install**. Open another chart and the form starts again from that chart.
+- Kubebay won't fetch a repo whose URL points at a cloud metadata or link-local address, isn't `http` or `https`, or carries a user name and password; **Update indexes** reports that repo as not fetched. The same check applies to the address a repo's index gives for a chart's archive.
+
+### A chart's page
+
+Click a chart to open it. The release name, namespace and version, with **Preview** and **Install**, stay at the top; the tabs below are:
+
+- **About**: the description, the app version, the releases that already run the chart, its maintainers, home page and source links, and keywords. Links open only when they are `http` or `https` addresses.
+- **README**: the chart's README as plain text. Kubebay doesn't render a README as Markdown, because it comes from the repository.
+- **Values**: the chart's default `values.yaml` in an editor. Edit it to set your own values.
+- **Preview** (or **Changes**): appears after you click **Preview**.
+
+The version box lists every version in the repo's index, so you can pick an older one; the default values and About update to it.
+
+### Preview, then install or upgrade
+
+**Preview** renders the chart with your values and shows the result without touching the cluster, as `helm install --dry-run=client` would. For a release name that doesn't exist yet it shows the manifest the install would create. If the name and namespace match a release, the button reads **Upgrade** instead of **Install**, and Preview becomes **Changes**: a side-by-side diff of the running release's manifest against what the upgrade would apply. The values of a Secret show as `<redacted>` in both. Changing the form clears the preview.
+
+When a chart is already installed, opening it starts the form from that release, so an upgrade is one click and a preview. If the name you give is a release of a different chart, a banner says applying will replace it. **Install** and **Upgrade** are recorded in the [Audit Log](/docs/audit-log/).
+
+Adding a repository is still done with `helm repo add` in a terminal; Kubebay reads the result.
 
 ## Who Helm acts as
 

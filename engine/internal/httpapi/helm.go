@@ -512,9 +512,9 @@ func (h *HelmManager) HandleUpgrade(w http.ResponseWriter, r *http.Request) {
 	}
 	settings := h.settings()
 	cpo := action.ChartPathOptions{Version: req.Version}
-	chartPath, err := cpo.LocateChart(req.ChartRef, settings)
+	chartPath, err := h.locateChart(req.ChartRef, req.Version, settings)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("locate chart: %v", err), http.StatusBadGateway)
+		http.Error(w, fmt.Sprintf("locate chart: %v", err), locateStatus(err))
 		return
 	}
 	ch, err := loader.Load(chartPath)
@@ -552,7 +552,7 @@ func (h *HelmManager) HandleUpgrade(w http.ResponseWriter, r *http.Request) {
 				UserAgent: r.Header.Get("User-Agent"),
 			})
 		}
-		writeJSON(w, summarize(rel))
+		writeJSON(w, maskedSummary(rel))
 		return
 	}
 	if getErr != nil {
@@ -576,7 +576,16 @@ func (h *HelmManager) HandleUpgrade(w http.ResponseWriter, r *http.Request) {
 			UserAgent: r.Header.Get("User-Agent"),
 		})
 	}
-	writeJSON(w, summarize(rel))
+	writeJSON(w, maskedSummary(rel))
+}
+
+// maskedSummary is a release as an install or upgrade answers with it: its
+// manifest keeps its shape, but a Secret's values stay in the cluster, as in
+// the Manifest tab.
+func maskedSummary(rel ri.Releaser) ReleaseSummary {
+	s := summarize(rel)
+	s.Manifest = maskSecretValues(s.Manifest)
+	return s
 }
 
 // helmTimeout bounds every install, upgrade, rollback and uninstall.
