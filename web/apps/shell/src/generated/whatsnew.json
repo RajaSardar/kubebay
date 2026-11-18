@@ -3,7 +3,60 @@
     {
       "version": "unreleased",
       "date": "",
-      "sections": []
+      "sections": [
+        {
+          "heading": "Changed",
+          "items": [
+            {
+              "title": "Tables are lighter on large clusters",
+              "summary": "Moving the pointer over a row no longer redraws every visible row, and sorting a column reads each row's value once instead of once per comparison (about 38,000 reads down to 2,000 for 2,000 pods)."
+            }
+          ]
+        },
+        {
+          "heading": "Added",
+          "items": [
+            {
+              "title": "Open in bottom dock",
+              "summary": "On a drawer's YAML tab."
+            },
+            {
+              "title": "Helm Charts is more of a store",
+              "summary": "(first slice of backlog 11, see docs/HELM_STORE.md)."
+            },
+            {
+              "title": "Best practices page",
+              "summary": "In the sidebar's Tools."
+            },
+            {
+              "title": "Apply to production?",
+              "summary": "The YAML editor and Create Resource ask before applying to a cluster whose name reads like production (prod, prd, live, production), the same name check the terminal dock uses."
+            }
+          ]
+        },
+        {
+          "heading": "Security",
+          "items": [
+            {
+              "title": "A chart's archive address is checked like a repository's",
+              "summary": "A repository's index can name any URL for a chart archive; the engine now refuses a metadata, link-local or (in a cluster) loopback address and fetches the archive through the guarded transport, for chart pages, default values, install and…"
+            }
+          ]
+        },
+        {
+          "heading": "Fixed",
+          "items": [
+            {
+              "title": "Large kubeconfigs no longer load the machine",
+              "summary": "The engine health check probes only connected clusters every 30 seconds; the others are checked when you open the Clusters page, at most every 5 minutes each and 10 at a time (so cloud login plugins are not run for every context)."
+            },
+            {
+              "title": "Unapplied YAML edits are no longer dropped silently",
+              "summary": "Closing a resource or pod drawer (Close, Esc, or a click on the page behind), changing its tab, or, on Create Resource, switching kind or following a link, now asks \"Discard changes?\" when the YAML was edited."
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.7.6",
