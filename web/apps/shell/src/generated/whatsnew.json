@@ -3,6 +3,11 @@
     {
       "version": "unreleased",
       "date": "",
+      "sections": []
+    },
+    {
+      "version": "0.7.10",
+      "date": "2026-11-18",
       "sections": [
         {
           "heading": "Added",
