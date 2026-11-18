@@ -9,7 +9,7 @@ import {
   type NodeProps,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { Badge, EmptyState, PageHeader, Select, StatusDot } from "@kubebay/ui";
+import { Badge, EmptyState, PageHeader, Select, StatusDot, Tabs } from "@kubebay/ui";
 import { PageHelp } from "../components/PageHelp";
 import { PageLoader } from "../components/PageLoader";
 import { useCluster } from "../lib/useCluster";
@@ -18,6 +18,7 @@ import { useSingleNamespace } from "../lib/namespace-store";
 import { namespaceOptions, useNamespaceAccess } from "../lib/namespaceAccess";
 import { buildTopology, type KObj, type TopoNode } from "../lib/topology";
 import PodPanel from "./PodPanel";
+import ServiceMapView from "./ServiceMapView";
 
 interface FlowData {
   kb: TopoNode;
@@ -116,12 +117,17 @@ export default function Topology() {
   const [rawNs, setRawNs] = useSingleNamespace(effectiveCluster || undefined, "default");
   const effectiveNs = nsOptions.includes(rawNs) ? rawNs : nsOptions[0] ?? "default";
 
-  const pods = useResourceStream(effectiveCluster || undefined, "v1/pods", { mode: "full", ns: [effectiveNs] });
-  const rss = useResourceStream(effectiveCluster || undefined, "apps/v1/replicasets", { mode: "full", ns: [effectiveNs] });
-  const deps = useResourceStream(effectiveCluster || undefined, "apps/v1/deployments", { mode: "full", ns: [effectiveNs] });
-  const stss = useResourceStream(effectiveCluster || undefined, "apps/v1/statefulsets", { mode: "full", ns: [effectiveNs] });
-  const dss = useResourceStream(effectiveCluster || undefined, "apps/v1/daemonsets", { mode: "full", ns: [effectiveNs] });
-  const svcs = useResourceStream(effectiveCluster || undefined, "v1/services", { mode: "full", ns: [effectiveNs] });
+  const [tab, setTab] = useState<"graph" | "map">("graph");
+  // The Service map follows its own kinds; the graph's stay idle while it is open.
+  const on = tab === "graph";
+  const sopts = { mode: "full" as const, ns: [effectiveNs], enabled: on };
+
+  const pods = useResourceStream(effectiveCluster || undefined, "v1/pods", sopts);
+  const rss = useResourceStream(effectiveCluster || undefined, "apps/v1/replicasets", sopts);
+  const deps = useResourceStream(effectiveCluster || undefined, "apps/v1/deployments", sopts);
+  const stss = useResourceStream(effectiveCluster || undefined, "apps/v1/statefulsets", sopts);
+  const dss = useResourceStream(effectiveCluster || undefined, "apps/v1/daemonsets", sopts);
+  const svcs = useResourceStream(effectiveCluster || undefined, "v1/services", sopts);
 
   const ready =
     pods.synced && rss.synced && deps.synced && stss.synced && dss.synced && svcs.synced;
@@ -156,7 +162,14 @@ export default function Topology() {
 
   return (
     <div className="page page-full">
-      <PageHeader help={<PageHelp route="/topology" />} level={2} title="Topology" live={ready} actions={<Badge>{graph.nodes.length} objects</Badge>} />
+      <PageHeader help={<PageHelp route="/topology" />} level={2} title="Topology" live={on && ready} actions={on ? <Badge>{graph.nodes.length} objects</Badge> : undefined} />
+
+      <Tabs
+        tabs={["graph", "map"] as const}
+        active={tab}
+        labels={{ graph: "Topology", map: "Service map" }}
+        onChange={setTab}
+      />
 
       <div className="toolbar">
         <Select value={effectiveCluster} onChange={(e) => setCluster(e.target.value)} aria-label="cluster">
@@ -178,6 +191,8 @@ export default function Topology() {
 
       {!effectiveCluster ? (
         <PageLoader message="Waiting for cluster..." />
+      ) : tab === "map" ? (
+        <ServiceMapView cluster={effectiveCluster} namespace={effectiveNs} />
       ) : !ready && graph.nodes.length === 0 ? (
         <PageLoader message={`Mapping the bay... syncing workloads for ${effectiveNs}`} />
       ) : graph.nodes.length === 0 ? (

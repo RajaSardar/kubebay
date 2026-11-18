@@ -7,6 +7,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 ## [Unreleased]
 
 ### Added
+- **Service map** tab on Topology. Draws a namespace's Ingress to Service to workload paths, NetworkPolicy allowed paths and Services named in env vars, with no install. Every line is labelled declared or inferred (inferred lines show their evidence and can be hidden); it shows no live traffic. Click a node to open its drawer.
 - **Apply to production?** The YAML editor and Create Resource ask before applying to a cluster whose name reads like production (`prod`, `prd`, `live`, `production`), the same name check the terminal dock uses. Dry-run never asks.
 
 ### Fixed

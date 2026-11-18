@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 
@@ -59,7 +59,16 @@ describe("Topology's namespace", () => {
     useClusterMeta.getState().rememberNamespace("c1", "payments");
     renderTopology();
     expect(namespaceChoices()).toEqual(["shop", "payments"]);
-    expect(useResourceStream).toHaveBeenCalledWith("c1", "v1/pods", { mode: "full", ns: ["shop"] });
+    expect(useResourceStream).toHaveBeenCalledWith("c1", "v1/pods", { mode: "full", ns: ["shop"], enabled: true });
+  });
+
+  it("has a Service map tab that pauses the graph's own streams", () => {
+    rows.set("v1/services", [{ metadata: { name: "api" }, spec: { selector: { app: "api" } } }]);
+    renderTopology();
+    fireEvent.click(screen.getByRole("tab", { name: "Service map" }));
+    expect(useResourceStream).toHaveBeenCalledWith("c1", "v1/pods", { mode: "full", ns: ["default"], enabled: false });
+    expect(useResourceStream).toHaveBeenCalledWith("c1", "networking.k8s.io/v1/ingresses", { mode: "full", ns: ["default"] });
+    expect(screen.getByText(/No live traffic/)).toBeTruthy();
   });
 
   it("still lists every namespace for an identity that can", () => {
