@@ -3,7 +3,34 @@
     {
       "version": "unreleased",
       "date": "",
-      "sections": []
+      "sections": [
+        {
+          "heading": "Changed",
+          "items": [
+            {
+              "title": "Live tables redraw only the rows that changed",
+              "summary": "When a stream update arrives, a resource table or the Pods table now re-renders just the rows whose object changed, instead of every visible row."
+            },
+            {
+              "title": "No more blanket 30 s refetch",
+              "summary": "Pages no longer re-read CRD lists, RBAC, settings and similar data every 30 seconds while open; they refresh when you open the page, after an action, or on a cluster switch."
+            },
+            {
+              "title": "Only a few clusters stay streaming",
+              "summary": "With many clusters connected, the engine now keeps at most 5 streaming (--warm-clusters or KUBEBAY_WARM_CLUSTERS, 0 for no limit, at most 50)."
+            }
+          ]
+        },
+        {
+          "heading": "Added",
+          "items": [
+            {
+              "title": "YAML in the dock, phase 2",
+              "summary": "The dock has a Maximise toggle."
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.7.7",
