@@ -93,6 +93,10 @@ const RECONNECT_MAX_MS = 30_000;
 // How long a connection must stay open before we consider it "stable"
 // and reset the retry counter. Prevents ALB-killed flaps from resetting retry=0.
 const STABLE_MS = 5_000;
+// After a drop (a laptop waking, a network change) every warm cluster would
+// re-LIST at once. The first cluster resubscribes immediately; each other
+// cluster waits a random share of this, so the LISTs spread out.
+const REPLAY_JITTER_MS = 2_000;
 // Send an app-level ping every 20s as belt-and-suspenders keepalive.
 const PING_INTERVAL_MS = 20_000;
 // Cap on frames held while the socket is not open.
@@ -216,7 +220,7 @@ class MultiplexedStream {
     ws.onopen = () => {
       // Notify UI we're connected (but keep current retry count until stable)
       this.dispatch((h) => h.onStatus?.(true, this.retry, 0));
-      for (const spec of this.subs.values()) this.sendSub(spec);
+      this.replaySubs(ws);
       const queued = this.queue;
       this.queue = [];
       for (const payload of queued) ws.send(payload);
@@ -257,6 +261,30 @@ class MultiplexedStream {
       this.retry += 1;
       setTimeout(() => this.connect(), delay);
     };
+  }
+
+  /**
+   * Resubscribes everything on a fresh socket, one cluster at a time: the
+   * first cluster now, the others after a random delay. A stream dropped from
+   * this.subs while it waited (its page closed, its cluster slept) is skipped.
+   */
+  private replaySubs(ws: WebSocket) {
+    const byCluster = new Map<string, SubSpec[]>();
+    for (const spec of this.subs.values()) {
+      const group = byCluster.get(spec.cluster);
+      if (group) group.push(spec);
+      else byCluster.set(spec.cluster, [spec]);
+    }
+    let first = true;
+    for (const group of byCluster.values()) {
+      const send = () => {
+        if (this.ws !== ws || ws.readyState !== WebSocket.OPEN) return;
+        for (const spec of group) if (this.subs.get(spec.id) === spec) this.sendSub(spec);
+      };
+      if (first) send();
+      else setTimeout(send, Math.random() * REPLAY_JITTER_MS);
+      first = false;
+    }
   }
 
   /** Sends now if the socket is open, otherwise queues until it is. */

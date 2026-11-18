@@ -43,9 +43,15 @@ interface ClusterConn {
   subToSpec: Map<string, string>;
   // Map from specKey → resync buffer (while re-listing)
   resync: Map<string, Map<string, Record<string, unknown>> | null>;
-  // The engine refused or ended a subscription ("cluster disconnected").
+  // The engine refused or ended a subscription.
   error: string;
+  // The engine put the cluster to sleep (warm cap or idle eviction). Its
+  // streams, rows and cache are gone; connecting again wakes it.
+  sleeping: boolean;
 }
+
+// What the engine sends when it closes a cluster's streams itself.
+const ENGINE_DISCONNECTED = "cluster disconnected";
 
 const connections = new Map<string, ClusterConn>();
 
@@ -124,6 +130,11 @@ export function getConnectionsVersion(): number {
 /** The engine's reason a cluster's streams stopped, or "". */
 export function connectionError(cluster: string): string {
   return connections.get(cluster)?.error ?? "";
+}
+
+/** The engine evicted this cluster to stay under its warm cap; it holds no rows. */
+export function isClusterSleeping(cluster: string): boolean {
+  return connections.get(cluster)?.sleeping ?? false;
 }
 
 export interface ClusterSummary {
@@ -237,11 +248,39 @@ function ensureListener() {
     onError: (id, message) => {
       for (const conn of connections.values()) {
         if (!conn.subToSpec.has(id)) continue;
+        if (message === ENGINE_DISCONNECTED && !conn.sleeping) {
+          sleepCluster(conn);
+          continue;
+        }
+        if (conn.sleeping) continue;
         conn.error = message;
         notify();
       }
     },
   });
+}
+
+/**
+ * The engine closed this cluster's streams (it was evicted). Release
+ * everything it held, and unsubscribe so a socket reconnect cannot replay the
+ * subscriptions and wake it behind the user's back. The record stays, marked
+ * sleeping, until the next connectCluster replaces it.
+ */
+function sleepCluster(conn: ClusterConn) {
+  const cluster = conn.subs[0]?.cluster;
+  for (const sub of conn.subs) unsubscribe(sub.id);
+  conn.subs = [];
+  conn.subToSpec.clear();
+  conn.stores.clear();
+  conn.synced.clear();
+  conn.resync.clear();
+  conn.error = "";
+  conn.sleeping = true;
+  if (cluster) {
+    clearStreamCacheForCluster(cluster);
+    for (const [key, c] of cacheDirty) if (c === cluster) cacheDirty.delete(key);
+  }
+  notify();
 }
 
 function applyOps(ops: Op[], target: Map<string, Record<string, unknown>>) {
@@ -257,7 +296,8 @@ function makeSubId(): string {
 
 /** Start background subscriptions for a cluster. Idempotent. */
 export function connectCluster(cluster: string): void {
-  if (connections.has(cluster)) return; // already connected
+  const existing = connections.get(cluster);
+  if (existing && !existing.sleeping) return; // already connected
 
   ensureListener();
 
@@ -268,6 +308,7 @@ export function connectCluster(cluster: string): void {
     subToSpec: new Map(),
     resync: new Map(),
     error: "",
+    sleeping: false,
   };
 
   for (const { gvr, mode } of CORE_GVRS) {
@@ -314,11 +355,14 @@ export function disconnectCluster(cluster: string): void {
 
 /** Returns a snapshot of all currently-connected cluster IDs. */
 export function getConnectedClusters(): Set<string> {
-  return new Set(connections.keys());
+  const out = new Set<string>();
+  for (const [id, conn] of connections) if (!conn.sleeping) out.add(id);
+  return out;
 }
 
 export function isClusterConnected(cluster: string): boolean {
-  return connections.has(cluster);
+  const conn = connections.get(cluster);
+  return !!conn && !conn.sleeping;
 }
 
 /** Reset all connections — used in tests. */

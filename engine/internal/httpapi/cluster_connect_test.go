@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -17,6 +18,7 @@ func connectRouter(sm *SettingsManager, authOn bool) http.Handler {
 	r := chi.NewRouter()
 	r.Post("/api/clusters/{id}/connect", connectClusterHandler(sm.mgr))
 	r.Post("/api/clusters/{id}/disconnect", disconnectClusterHandler(sm.mgr, authOn))
+	r.Put("/api/clusters/protected", protectClustersHandler(sm.mgr, authOn))
 	return r
 }
 
@@ -94,5 +96,26 @@ func TestStopClusterStopsOnlyThatClustersForwards(t *testing.T) {
 	}
 	if got := p.List(context.Background()); len(got) != 1 || got[0].Cluster != "c2" {
 		t.Errorf("remaining forwards = %+v", got)
+	}
+}
+
+// The web reports the active cluster and the pins; the engine never evicts
+// those, and viewing one counts as use.
+func TestProtectClustersRoute(t *testing.T) {
+	sm := settingsWithManager(t)
+	h := connectRouter(sm, false)
+	put := func(h http.Handler, body string) *httptest.ResponseRecorder {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequest(http.MethodPut, "/api/clusters/protected", strings.NewReader(body)))
+		return rec
+	}
+	if rec := put(h, `{"ids":["kind-dev"]}`); rec.Code != http.StatusOK {
+		t.Fatalf("protect: %d %s", rec.Code, rec.Body)
+	}
+	if rec := put(h, `not json`); rec.Code != http.StatusBadRequest {
+		t.Errorf("bad body: %d", rec.Code)
+	}
+	if rec := put(connectRouter(sm, true), `{"ids":[]}`); rec.Code != http.StatusForbidden {
+		t.Errorf("with OIDC the pools are shared, so it is desktop-only: %d", rec.Code)
 	}
 }

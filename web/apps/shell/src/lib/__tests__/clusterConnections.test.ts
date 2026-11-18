@@ -28,6 +28,7 @@ import {
   clusterSummary,
   getClusterRows,
   isClusterSynced,
+  isClusterSleeping,
 } from "../clusterConnections";
 
 const CORE_GVR_COUNT = 7;
@@ -111,8 +112,51 @@ describe("clusterConnections is observable", () => {
     connectCluster("c1");
     const handlers = vi.mocked(ws.attach).mock.calls.at(-1)![0];
     const podsSub = vi.mocked(ws.subscribe).mock.calls.find(([s]) => s.gvr === "v1/pods")![0];
-    handlers.onError?.(podsSub.id, "cluster disconnected");
-    expect(connectionError("c1")).toBe("cluster disconnected");
+    handlers.onError?.(podsSub.id, "engine said no");
+    expect(connectionError("c1")).toBe("engine said no");
+  });
+
+  describe("an engine-evicted (sleeping) cluster", () => {
+    const evict = (cluster: string) => {
+      const handlers = vi.mocked(ws.attach).mock.calls.at(-1)![0];
+      const sub = vi.mocked(ws.subscribe).mock.calls.find(([s]) => s.cluster === cluster && s.gvr === "v1/pods")![0];
+      handlers.onError?.(sub.id, "cluster disconnected");
+    };
+
+    it("is sleeping, not errored, and no longer counts as streaming", () => {
+      connectCluster("c1");
+      evict("c1");
+      expect(isClusterSleeping("c1")).toBe(true);
+      expect(isClusterConnected("c1")).toBe(false);
+      expect(getConnectedClusters().has("c1")).toBe(false);
+      expect(connectionError("c1")).toBe("");
+    });
+
+    it("drops its subscriptions (so a socket replay cannot wake it) and its cached rows", () => {
+      connectCluster("c1");
+      const ids = vi.mocked(ws.subscribe).mock.calls.map(([s]) => s.id);
+      evict("c1");
+      for (const id of ids) expect(ws.unsubscribe).toHaveBeenCalledWith(id);
+      expect(cache.clearStreamCacheForCluster).toHaveBeenCalledWith("c1");
+      expect(getClusterRows("c1", "v1/pods", "full")).toEqual([]);
+    });
+
+    it("streams again the next time it is connected, with no leftover sleeping flag", () => {
+      connectCluster("c1");
+      evict("c1");
+      vi.mocked(ws.subscribe).mockClear();
+      connectCluster("c1");
+      expect(vi.mocked(ws.subscribe)).toHaveBeenCalledTimes(CORE_GVR_COUNT);
+      expect(isClusterSleeping("c1")).toBe(false);
+      expect(isClusterConnected("c1")).toBe(true);
+    });
+
+    it("notifies listeners so the strip and picker redraw", () => {
+      connectCluster("c1");
+      const before = getConnectionsVersion();
+      evict("c1");
+      expect(getConnectionsVersion()).toBeGreaterThan(before);
+    });
   });
 
   it("summarises pods into healthy / pending / failing and counts nodes", () => {

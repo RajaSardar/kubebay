@@ -6,6 +6,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ## [Unreleased]
 
+### Changed
+- **Only a few clusters stay streaming.** With many clusters connected, the engine now keeps at most 5 streaming (`--warm-clusters` or `KUBEBAY_WARM_CLUSTERS`, 0 for no limit, at most 50). Connecting a sixth puts the least recently viewed one to sleep: its live streams stop and its memory is freed. The cluster you are looking at and your pinned clusters are never put to sleep, and neither is one that was just connected. A cluster nobody has viewed for 30 minutes also sleeps (`--warm-idle` or `KUBEBAY_WARM_IDLE`, e.g. `10m`, 0 for never). A sleeping cluster has a dashed marker on the cluster rail and loads again, with fresh data, when you open it. Not applied with OIDC or in-cluster, where streams are shared between users. After a dropped connection (a laptop waking), clusters now re-list one after another over about two seconds instead of all at once. (Backlog 37, phases 2 and 3.)
+
 ## [0.7.7] - 2026-11-18
 
 ### Changed

@@ -40,6 +40,8 @@ The **⋮** at the end of a row has:
 
 ## Switching clusters
 
+Kubebay keeps at most **5 clusters streaming** at once. Connect a sixth and the one you looked at longest ago goes to sleep: its live updates stop and its memory is released. A sleeping cluster shows a dashed marker on the cluster rail, and clicking it connects it again with fresh data. The cluster you're on and your **pinned** clusters never go to sleep. A cluster you haven't looked at for 30 minutes sleeps too. Start the engine with `--warm-clusters N` (or `KUBEBAY_WARM_CLUSTERS`, `0` for no limit, at most 50) and `--warm-idle 10m` (or `KUBEBAY_WARM_IDLE`, `0` for never) to change this. It does not apply when Kubebay runs in a cluster or with OIDC, where streams are shared between users.
+
 The **cluster rail** at the far left shows an icon for each cluster you're connected to. Click an icon to switch. Right-click one to change its icon. While Kubebay switches, it shows each step: credentials, the API server, then the live stream.
 
 ## Adding kubeconfig files

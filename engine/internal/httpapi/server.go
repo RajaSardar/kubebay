@@ -128,6 +128,7 @@ func Router(d Deps, token string) http.Handler {
 			d.Clusters.RequestReachability()
 			writeJSON(w, d.Clusters.List())
 		})
+		r.Put("/api/clusters/protected", protectClustersHandler(d.Clusters, d.authEnabled()))
 		r.Post("/api/clusters/{id}/connect", connectClusterHandler(d.Clusters))
 		r.Post("/api/clusters/{id}/disconnect", disconnectClusterHandler(d.Clusters, d.authEnabled()))
 		r.Get("/ws", func(w http.ResponseWriter, req *http.Request) {

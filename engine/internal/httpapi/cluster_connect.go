@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"encoding/json"
 	"net/http"
 	"strings"
 
@@ -60,6 +61,27 @@ func disconnectClusterHandler(mgr *clusters.Manager, authOn bool) http.HandlerFu
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
 		}
+		writeJSON(w, map[string]any{"ok": true})
+	}
+}
+
+// protectClustersHandler records which clusters the engine must not evict from
+// its warm set: the one the user is looking at and their pins. The web owns
+// both (they live in the browser), so it reports them whenever they change.
+func protectClustersHandler(mgr *clusters.Manager, authOn bool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if authOn {
+			http.Error(w, "not available when OIDC is configured: streams are shared between users", http.StatusForbidden)
+			return
+		}
+		var body struct {
+			IDs []string `json:"ids"`
+		}
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&body); err != nil {
+			http.Error(w, "invalid JSON body", http.StatusBadRequest)
+			return
+		}
+		mgr.SetProtected(body.IDs)
 		writeJSON(w, map[string]any{"ok": true})
 	}
 }

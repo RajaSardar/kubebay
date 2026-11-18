@@ -136,6 +136,12 @@ body::before {
   border-left-color: var(--kb-fg-subtle);
 }
 
+/* Put to sleep by the engine to free memory: the same marker, dashed. */
+.cluster-strip-item.sleeping {
+  border-left-style: dashed;
+  border-left-color: var(--kb-fg-subtle);
+}
+
 /* The avatar button itself; its colour, label colour and faded look come
    from the cluster (inline). */
 .cluster-strip-avatar {
