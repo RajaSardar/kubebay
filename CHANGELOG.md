@@ -6,6 +6,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ## [Unreleased]
 
+## [0.7.7] - 2026-11-18
+
 ### Changed
 - **Tables are lighter on large clusters.** Moving the pointer over a row no longer redraws every visible row, and sorting a column reads each row's value once instead of once per comparison (about 38,000 reads down to 2,000 for 2,000 pods). The app shell also skips a redraw when the live connection repeats an unchanged status. Audit in `docs/PERFORMANCE_AUDIT.md`.
 

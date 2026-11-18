@@ -3,6 +3,11 @@
     {
       "version": "unreleased",
       "date": "",
+      "sections": []
+    },
+    {
+      "version": "0.7.7",
+      "date": "2026-11-18",
       "sections": [
         {
           "heading": "Changed",
@@ -17,6 +22,10 @@
           "heading": "Added",
           "items": [
             {
+              "title": "Pod Logs and Terminal open on the pod's default container",
+              "summary": "A pod with a kubectl.kubernetes.io/default-container annotation now opens on that container instead of the first one (the same rule kubectl logs uses)."
+            },
+            {
               "title": "Open in bottom dock",
               "summary": "On a drawer's YAML tab."
             },
@@ -27,6 +36,10 @@
             {
               "title": "Best practices page",
               "summary": "In the sidebar's Tools."
+            },
+            {
+              "title": "Service map",
+              "summary": "Tab on Topology."
             },
             {
               "title": "Apply to production?",
