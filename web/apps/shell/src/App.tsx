@@ -68,7 +68,8 @@ import { OpenSavedView, SavedViewsSidebar } from "./components/SavedViews";
 import { useClusterIcons } from "./lib/useClusterIcons";
 import { ClusterIconPicker, autoAvatar, avatarLabelColor, stripAvatarLook } from "./components/ClusterIconPicker";
 import { useWsStatus } from "./lib/useWsStatus";
-import { connectCluster, isClusterConnected, isClusterSleeping } from "./lib/clusterConnections";
+import { connectCluster, isClusterConnected, isClusterSleeping, setBudgetEvictHook, setProtectedClusters } from "./lib/clusterConnections";
+import { setReplayFirst } from "./lib/ws";
 import { protectedClusterIds, stripItemState } from "./lib/clusterStripState";
 import { useClusterMeta } from "./lib/cluster-meta-store";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -586,8 +587,17 @@ function AppInner() {
   // viewed to sleep. The active cluster and pins are the browser's to name.
   const clusterMeta = useClusterMeta((s) => s.meta);
   useEffect(() => {
-    void api.protectClusters(protectedClusterIds(effectiveActive, clusterMeta)).catch(() => {});
+    const ids = protectedClusterIds(effectiveActive, clusterMeta);
+    void api.protectClusters(ids).catch(() => {});
+    // The same set is spared by the browser's row budget and reconnects first after a wake.
+    setProtectedClusters(ids);
+    setReplayFirst(ids);
   }, [effectiveActive, clusterMeta]);
+  // A cluster the row budget put to sleep is dropped from the engine too.
+  useEffect(() => {
+    setBudgetEvictHook((id) => void api.disconnectCluster(id).catch(() => {}));
+    return () => setBudgetEvictHook(null);
+  }, []);
 
   const setActive = (id: string) => {
     // Snapshot before connecting so we can tell if this is the first visit.

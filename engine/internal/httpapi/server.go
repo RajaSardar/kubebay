@@ -382,6 +382,8 @@ func Router(d Deps, token string) http.Handler {
 		r.Post("/api/discover/aks/import", d.Discovery.HandleAKSImport)
 		r.Get("/api/settings", d.Settings.HandleGet)
 		r.Post("/api/settings", d.Settings.HandleSave)
+		r.Get("/api/warm-policy", d.Settings.HandleWarmGet)
+		r.Put("/api/warm-policy", d.Settings.HandleWarmSave)
 		r.Get("/api/prom/query_range", d.Settings.HandlePromQueryRange)
 		r.Get("/api/prom/query", d.Settings.HandlePromQuery)
 		r.Get("/api/prom/status", d.Settings.HandlePromStatus)

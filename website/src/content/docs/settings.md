@@ -44,6 +44,10 @@ Each cluster you've connected to is listed as **recording** or **stopped**. **St
 
 Usage history isn't recorded when the engine runs in a cluster.
 
+## Warm clusters
+
+How many connected clusters keep streaming live, and for how long one you haven't looked at stays warm. Set **Warm clusters** (0 to 50, 0 for no limit) and **Idle minutes** (0 to 1440, 0 for never), then **Save**; the engine applies it at once, and lowering the number puts the extra least recently viewed clusters to sleep right away. **Reset to defaults** puts back 5 clusters and 30 minutes. The cluster you're on and your pinned clusters never go to sleep. A value saved here wins over the `--warm-clusters` and `--warm-idle` flags. The fields are disabled, with the reason, when Kubebay runs in a cluster or with OIDC, where streams are shared between users. See [Switching clusters](/docs/connect-clusters/#switching-clusters).
+
 ## AI assistants (MCP)
 
 Lets an AI assistant such as Claude read the clusters you choose. See [AI assistants](/docs/ai-assistants/).

@@ -119,6 +119,13 @@ class MultiplexedStream {
   // lands straight on a pod terminal: the channel is opened in the same tick
   // the socket is created. Queue instead and flush on open.
   private queue: (string | Uint8Array)[] = [];
+  // Clusters that resubscribe at once after a drop: the one being looked at
+  // and the pinned ones. Only the rest wait their jittered turn.
+  private replayFirst = new Set<string>();
+
+  setReplayFirst(ids: string[]) {
+    this.replayFirst = new Set(ids);
+  }
 
   constructor(token: string) {
     this.token = token;
@@ -275,15 +282,16 @@ class MultiplexedStream {
       if (group) group.push(spec);
       else byCluster.set(spec.cluster, [spec]);
     }
-    let first = true;
-    for (const group of byCluster.values()) {
+    // With none named, the first cluster in map order goes now, as before.
+    let first = this.replayFirst.size === 0;
+    for (const [cluster, group] of byCluster) {
       const send = () => {
         if (this.ws !== ws || ws.readyState !== WebSocket.OPEN) return;
         for (const spec of group) if (this.subs.get(spec.id) === spec) this.sendSub(spec);
       };
-      if (first) send();
+      if (this.replayFirst.has(cluster) || first) send();
       else setTimeout(send, Math.random() * REPLAY_JITTER_MS);
-      first = false;
+      if (this.replayFirst.size === 0) first = false;
     }
   }
 
@@ -381,6 +389,10 @@ function s(): MultiplexedStream {
 
 export function attach(h: Handlers): () => void {
   return s().attach(h);
+}
+/** Clusters that resubscribe immediately after a reconnect (the active and pinned ones). */
+export function setReplayFirst(ids: string[]) {
+  s().setReplayFirst(ids);
 }
 export function subscribe(spec: SubSpec) {
   s().subscribe(spec);

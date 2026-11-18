@@ -71,6 +71,9 @@ const API_STATUS: Record<ClusterInfo["status"], { label: string; tone: StatusTon
   checking: { label: "Checking…", tone: "pending" },
 };
 
+/** A sleeping cluster is neutral, not a problem: the grey terminated tone. */
+const SLEEPING_TONE: StatusTone = "terminated";
+
 function plural(n: number, one: string, many = `${one}s`) {
   return `${n} ${n === 1 ? one : many}`;
 }
@@ -443,6 +446,10 @@ export default function ClusterPicker() {
                                 <StatusDot status={streamErr ? "unreachable" : "connected"} />
                                 <span title={streamErr || undefined}>{streamErr ? "Error" : "Connected"}</span>
                               </Row>
+                            ) : c.sleeping ? (
+                              <span title="Put to sleep to stay under the warm-cluster limit. Opening it wakes it.">
+                                <StatusPill tone={SLEEPING_TONE}>Sleeping</StatusPill>
+                              </span>
                             ) : (
                               <span className="cell-secondary">{opened || "—"}</span>
                             )}

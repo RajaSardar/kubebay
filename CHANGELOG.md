@@ -6,6 +6,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ## [Unreleased]
 
+### Added
+- **Warm-cluster settings.** Settings has a Warm clusters card for how many connected clusters keep streaming (0 to 50) and how long an unviewed one stays warm (idle minutes). The engine applies it at once, without a restart, and it survives restarts over the flag defaults. Disabled, with the reason, under OIDC or in-cluster.
+- **Sleeping clusters are labelled in the cluster list** with a grey Sleeping pill in the Session column.
+- **A row budget across all connected clusters.** The browser now holds at most about 50,000 live rows across every connected cluster; past that, the least recently viewed cluster (never the active or a pinned one) goes to sleep and the engine drops its streams.
+
+### Changed
+- After a dropped connection (a laptop waking), the active and pinned clusters reconnect immediately; the rest still follow over about two seconds. (Backlog 37, phase 3.)
+
 ## [0.7.8] - 2026-11-18
 
 ### Changed

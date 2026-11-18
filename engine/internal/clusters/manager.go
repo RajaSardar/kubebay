@@ -692,15 +692,26 @@ func (m *Manager) Connect(id string) error {
 }
 
 // SetWarmPolicy sets the cap on warm (connected) clusters and the idle limit.
-// Zero disables each. A lowered cap takes effect on the next Connect.
+// Zero disables each. A lowered cap puts the extra least recently viewed,
+// unprotected clusters to sleep at once.
 func (m *Manager) SetWarmPolicy(cap int, idle time.Duration) {
 	m.mu.Lock()
-	defer m.mu.Unlock()
 	if cap < 0 {
 		cap = 0
 	}
 	m.warmCap = cap
 	m.idleAfter = idle
+	evicted := m.evictOverCapLocked("")
+	hooks := append([]func(string){}, m.disconnectHooks...)
+	m.mu.Unlock()
+	m.runHooks(hooks, evicted)
+}
+
+// WarmPolicy returns the warm-cluster cap and idle limit in force.
+func (m *Manager) WarmPolicy() (int, time.Duration) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.warmCap, m.idleAfter
 }
 
 // SetProtected replaces the clusters that are never evicted: the one the user

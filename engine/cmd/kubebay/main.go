@@ -126,6 +126,9 @@ func main() {
 	helmMgr.Outbound = outbound
 	settingsMgr.LocalShell = localShellStatus
 	settingsMgr.AuditFeedDisabled = httpapi.AuditFeedBlockReason(*inCluster, auth.Enabled())
+	settingsMgr.WarmPolicyDisabled = httpapi.WarmPolicyBlockReason(*inCluster, auth.Enabled())
+	// A policy saved in Settings wins over the flag and env defaults.
+	settingsMgr.ApplyStoredWarmPolicy()
 	// Tier A (Prometheus) is a no-op until a cluster actually has one
 	// configured — this just wires up how to ask, per-cluster, same as
 	// promquery.go's own handlers.

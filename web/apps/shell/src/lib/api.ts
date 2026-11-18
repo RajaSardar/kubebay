@@ -894,6 +894,24 @@ export const settingsApi = {
   save: (b: AppSettings) => send<{ ok: boolean; saved: AppSettings }>("POST", "/api/settings", b),
 };
 
+/** The engine's warm-cluster policy (backlog 37): how many clusters keep streaming, and for how long unviewed. */
+export interface WarmPolicy {
+  /** False under OIDC or in-cluster, where streams are shared and the engine never evicts. */
+  available: boolean;
+  reason?: string;
+  /** 0 = no limit. */
+  clusters: number;
+  /** 0 = never. */
+  idleMinutes: number;
+  defaultClusters: number;
+  defaultIdleMinutes: number;
+}
+
+export const warmPolicyApi = {
+  get: () => get<WarmPolicy>("/api/warm-policy"),
+  save: (b: { clusters: number; idleMinutes: number }) => send<WarmPolicy>("PUT", "/api/warm-policy", b),
+};
+
 export interface HistoryCoverage {
   retentionDays: number;
   expectedHours: number;

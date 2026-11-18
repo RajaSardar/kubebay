@@ -29,6 +29,9 @@ import {
   getClusterRows,
   isClusterSynced,
   isClusterSleeping,
+  setRowBudget,
+  setProtectedClusters,
+  setBudgetEvictHook,
 } from "../clusterConnections";
 
 const CORE_GVR_COUNT = 7;
@@ -156,6 +159,67 @@ describe("clusterConnections is observable", () => {
       const before = getConnectionsVersion();
       evict("c1");
       expect(getConnectionsVersion()).toBeGreaterThan(before);
+    });
+  });
+
+  describe("the global row budget", () => {
+    const feed = (cluster: string, n: number) => {
+      const handlers = vi.mocked(ws.attach).mock.calls.at(-1)![0];
+      const sub = vi.mocked(ws.subscribe).mock.calls.filter(([s]) => s.cluster === cluster && s.gvr === "v1/pods").at(-1)![0];
+      handlers.onDelta?.(
+        sub.id,
+        Array.from({ length: n }, (_, i) => ({ op: "u", key: `default/p${i}`, obj: { metadata: { name: `p${i}`, namespace: "default" } } })),
+      );
+    };
+    afterEach(() => {
+      setRowBudget(50_000);
+      setProtectedClusters([]);
+      setBudgetEvictHook(null);
+    });
+
+    it("puts the least recently viewed cluster to sleep once all clusters hold more rows than the budget", () => {
+      setRowBudget(10);
+      const evicted = vi.fn();
+      setBudgetEvictHook(evicted);
+      connectCluster("a");
+      connectCluster("b");
+      feed("a", 6);
+      expect(isClusterSleeping("a")).toBe(false);
+      feed("b", 6);
+      expect(isClusterSleeping("a")).toBe(true);
+      expect(isClusterSleeping("b")).toBe(false);
+      expect(getClusterRows("a", "v1/pods", "full")).toEqual([]);
+      expect(evicted).toHaveBeenCalledWith("a");
+    });
+
+    it("counts viewing a cluster again as recent use", () => {
+      setRowBudget(10);
+      connectCluster("a");
+      connectCluster("b");
+      connectCluster("a"); // already streaming, but looked at again
+      feed("a", 6);
+      feed("b", 6);
+      expect(isClusterSleeping("b")).toBe(true);
+      expect(isClusterSleeping("a")).toBe(false);
+    });
+
+    it("never sleeps a protected (active or pinned) cluster", () => {
+      setRowBudget(10);
+      connectCluster("a");
+      connectCluster("b");
+      setProtectedClusters(["a"]);
+      feed("a", 6);
+      feed("b", 6);
+      expect(isClusterSleeping("a")).toBe(false);
+      expect(isClusterSleeping("b")).toBe(true);
+    });
+
+    it("lets a lone cluster exceed the budget: the cap is soft when nothing else can go", () => {
+      setRowBudget(10);
+      connectCluster("a");
+      feed("a", 30);
+      expect(isClusterSleeping("a")).toBe(false);
+      expect(getClusterRows("a", "v1/pods", "full")).toHaveLength(30);
     });
   });
 

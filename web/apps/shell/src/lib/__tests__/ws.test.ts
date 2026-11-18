@@ -298,6 +298,28 @@ describe("replaying subscriptions after a reconnect", () => {
     vi.restoreAllMocks();
   });
 
+  it("re-lists the active and pinned clusters at once, whatever their order, and staggers the rest", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+    vi.useFakeTimers();
+    const { mod } = await freshWs();
+    FakeWebSocket.instances[0]!.accept();
+    mod.setReplayFirst(["c", "b"]);
+    mod.subscribe(sub("a1", "a"));
+    mod.subscribe(sub("b1", "b"));
+    mod.subscribe(sub("c1", "c"));
+    const first = FakeWebSocket.instances[0]!;
+    first.readyState = FakeWebSocket.CLOSED;
+    first.onclose?.();
+    vi.advanceTimersByTime(60_000);
+    const second = FakeWebSocket.instances[1]!;
+    second.accept();
+    expect(sentIds(second).sort()).toEqual(["b1", "c1"]);
+    vi.advanceTimersByTime(2500);
+    expect(sentIds(second).sort()).toEqual(["a1", "b1", "c1"]);
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
   it("skips a stream unsubscribed while it waited for its turn", async () => {
     vi.spyOn(Math, "random").mockReturnValue(0.5);
     const { mod, second } = await dropAndReturn();
