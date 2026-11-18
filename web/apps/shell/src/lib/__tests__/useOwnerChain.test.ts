@@ -114,4 +114,34 @@ describe("useOwnerChain", () => {
     );
     expect(result.current.map((o) => o.slug)).toEqual(["replicasets", "ext--argoproj.io--v1alpha1--rollouts"]);
   });
+
+  describe("Helm release", () => {
+    const helmLabels = { "app.kubernetes.io/managed-by": "Helm" };
+    const helmAnn = { "meta.helm.sh/release-name": "web", "meta.helm.sh/release-namespace": "prod" };
+
+    it("tops the chain with the release found on a Deployment up the chain", () => {
+      streamMap["apps/v1/replicasets"] = [rs("web-abc", "Deployment", "web")];
+      streamMap["apps/v1/deployments"] = [{ metadata: { name: "web", namespace: "prod", labels: helmLabels, annotations: helmAnn } }];
+      const refs = [{ apiVersion: "apps/v1", kind: "ReplicaSet", name: "web-abc" }];
+      const { result } = renderHook(() => useOwnerChain("kind", "prod", refs));
+      expect(result.current.map((o) => o.kind)).toEqual(["ReplicaSet", "Deployment", "Helm release"]);
+      expect(result.current[2]).toMatchObject({ name: "web", href: "/helm?release=prod%2Fweb" });
+    });
+
+    it("uses the object itself when it carries the Helm labels", () => {
+      streamMap["apps/v1/replicasets"] = [rs("web-abc", "Deployment", "web")];
+      streamMap["apps/v1/deployments"] = [rs("web")];
+      const refs = [{ apiVersion: "apps/v1", kind: "ReplicaSet", name: "web-abc" }];
+      const self = { metadata: { namespace: "prod", labels: { ...helmLabels, "app.kubernetes.io/instance": "web" } } };
+      const { result } = renderHook(() => useOwnerChain("kind", "prod", refs, self));
+      expect(result.current.at(-1)).toMatchObject({ kind: "Helm release", name: "web" });
+    });
+
+    it("shows the release even for an object with no owners", () => {
+      const self = { metadata: { namespace: "prod", labels: helmLabels, annotations: helmAnn } };
+      const { result } = renderHook(() => useOwnerChain("kind", "prod", [], self));
+      expect(result.current).toHaveLength(1);
+      expect(result.current[0]).toMatchObject({ kind: "Helm release", name: "web" });
+    });
+  });
 });

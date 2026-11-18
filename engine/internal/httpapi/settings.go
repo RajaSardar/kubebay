@@ -33,6 +33,7 @@ type AppSettings struct {
 	ExtraKubeconfigs  []string          `json:"extraKubeconfigs,omitempty"`
 	OnlyListed        bool              `json:"onlyListedKubeconfigs,omitempty"`
 	NodeShellImage    string            `json:"nodeShellImage,omitempty"`
+	DebugImage        string            `json:"debugImage,omitempty"`
 	// HistoryClusters is consent to record usage history (backlog #36):
 	// true once the user connects to a cluster, false after an explicit Stop.
 	// A cluster absent from the map is never recorded.
@@ -206,6 +207,8 @@ func (s *SettingsManager) HandleGet(w http.ResponseWriter, r *http.Request) {
 		"activeKubeconfigs":     s.mgr.ActiveKubeconfigs(),
 		"nodeShellImage":        set.NodeShellImage,
 		"nodeShellImageDefault": DefaultNodeShellImage,
+		"debugImage":            set.DebugImage,
+		"debugImageDefault":     DefaultDebugImage,
 		"historyClusters":       set.HistoryClusters,
 		"localShell":            s.LocalShell,
 	})
@@ -219,6 +222,7 @@ func (s *SettingsManager) HandleSave(w http.ResponseWriter, r *http.Request) {
 		// Pointers so an omitted field keeps the stored value: callers that
 		// only save Prometheus settings must not wipe the node-shell image.
 		NodeShellImage  *string            `json:"nodeShellImage"`
+		DebugImage      *string            `json:"debugImage"`
 		PrometheusURLs  *map[string]string `json:"prometheusUrls"`
 		HistoryClusters *map[string]bool   `json:"historyClusters"`
 	}
@@ -260,6 +264,7 @@ func (s *SettingsManager) HandleSave(w http.ResponseWriter, r *http.Request) {
 	}
 
 	nodeShellImage := ""
+	debugImage := ""
 	var promURLs map[string]string
 	var promTargets map[string]string
 	var historyClusters map[string]bool
@@ -271,6 +276,7 @@ func (s *SettingsManager) HandleSave(w http.ResponseWriter, r *http.Request) {
 		mcpSettings = current.MCP
 		triageSettings = current.Triage
 		nodeShellImage = current.NodeShellImage
+		debugImage = current.DebugImage
 		promURLs = current.PrometheusURLs
 		promTargets = current.PrometheusTargets
 		historyClusters = current.HistoryClusters
@@ -282,6 +288,13 @@ func (s *SettingsManager) HandleSave(w http.ResponseWriter, r *http.Request) {
 	}
 	if incoming.NodeShellImage != nil {
 		nodeShellImage = strings.TrimSpace(*incoming.NodeShellImage)
+	}
+	if incoming.DebugImage != nil {
+		debugImage = strings.TrimSpace(*incoming.DebugImage)
+		if debugImage != "" && !validDebugImage(debugImage) {
+			http.Error(w, "invalid debug image", http.StatusBadRequest)
+			return
+		}
 	}
 	if incoming.PrometheusURLs != nil {
 		promURLs = map[string]string{}
@@ -299,6 +312,7 @@ func (s *SettingsManager) HandleSave(w http.ResponseWriter, r *http.Request) {
 		ExtraKubeconfigs:  validated,
 		OnlyListed:        incoming.OnlyListed,
 		NodeShellImage:    nodeShellImage,
+		DebugImage:        debugImage,
 		HistoryClusters:   historyClusters,
 		AuditLogPaths:     auditLogPaths,
 		AuditSources:      auditSources,

@@ -3,6 +3,7 @@ import { ConditionsTable, type Condition } from "./ConditionsTable";
 import { ageOf, fmtAge } from "../lib/resources";
 import { ownerOf, ownerLabel } from "../lib/gitops";
 import { useOwnerChain } from "../lib/useOwnerChain";
+import { helmReleaseOf } from "../lib/helmOwner";
 import { ResourceLink } from "./ResourceLink";
 
 function rec(v: unknown): Record<string, unknown> {
@@ -44,12 +45,14 @@ function OwnerChainRow({
   cluster,
   ns,
   rawOwnerRefs,
+  self,
 }: {
   cluster: string;
   ns: string;
   rawOwnerRefs: { apiVersion?: string; kind: string; name: string; controller?: boolean }[];
+  self: Record<string, unknown>;
 }) {
-  const chain = useOwnerChain(cluster, ns, rawOwnerRefs);
+  const chain = useOwnerChain(cluster, ns, rawOwnerRefs, self);
   if (!chain.length) return null;
   return (
     <Section title="Owned by">
@@ -57,8 +60,8 @@ function OwnerChainRow({
         {chain.map((o, i) => (
           <Row key={i} gap={1} align="center">
             {i > 0 && <span className="muted small">←</span>}
-            <ResourceLink kind={o.slug} ns={o.ns} name={o.name}>
-              <span className="mono small">{o.kind}/{o.name}</span>
+            <ResourceLink kind={o.slug} ns={o.ns} name={o.name} href={o.href}>
+              <span className="mono small">{o.href ? `${o.kind} ${o.name}` : `${o.kind}/${o.name}`}</span>
             </ResourceLink>
           </Row>
         ))}
@@ -101,8 +104,8 @@ export function MetadataSummary({
       </Section>
 
       {/* Owner chain — clickable links with multi-level tracing when cluster is available */}
-      {rawOwnerRefs.length > 0 && cluster && effectiveNs ? (
-        <OwnerChainRow cluster={cluster} ns={effectiveNs} rawOwnerRefs={rawOwnerRefs} />
+      {(rawOwnerRefs.length > 0 || helmReleaseOf(obj)) && cluster && effectiveNs ? (
+        <OwnerChainRow cluster={cluster} ns={effectiveNs} rawOwnerRefs={rawOwnerRefs} self={obj} />
       ) : rawOwnerRefs.length > 0 ? (
         <Section title={`Owner References (${rawOwnerRefs.length})`}>
           <Stack gap={1}>

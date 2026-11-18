@@ -6,11 +6,14 @@ export function ResourceLink({
   ns = "",
   name,
   children,
+  href,
 }: {
   kind: string;
   ns?: string;
   name: string;
   children?: ReactNode;
+  /** Navigate here instead of the /detail route (e.g. a Helm release's page). */
+  href?: string;
 }) {
   const navigate = useNavigate();
 
@@ -21,7 +24,7 @@ export function ResourceLink({
       className="cell-link"
       onClick={(e) => {
         e.stopPropagation();
-        navigate(`/detail/${kind}/${ns || "_"}/${name}`);
+        navigate(href ?? `/detail/${kind}/${ns || "_"}/${name}`);
       }}
     >
       {children ?? name}

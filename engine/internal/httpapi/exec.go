@@ -75,7 +75,7 @@ import (
 // succeed, returning a human-readable error string or "" on success.  We do
 // this before building the executor so we can surface actionable messages
 // (e.g. "pod is Pending") instead of the cryptic errors the API server returns.
-func preflightExec(ctx context.Context, cs *kubernetes.Clientset, ns, podName, container string) string {
+func preflightExec(ctx context.Context, cs kubernetes.Interface, ns, podName, container string) string {
 	p, err := cs.CoreV1().Pods(ns).Get(ctx, podName, metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -100,7 +100,9 @@ func preflightExec(ctx context.Context, cs *kubernetes.Clientset, ns, podName, c
 	}
 
 	// Check runtime status of the requested container.
-	for _, st := range p.Status.ContainerStatuses {
+	// Ephemeral (debug) containers report their status in their own list.
+	statuses := append(append([]corev1.ContainerStatus{}, p.Status.ContainerStatuses...), p.Status.EphemeralContainerStatuses...)
+	for _, st := range statuses {
 		if st.Name != container {
 			continue
 		}
@@ -120,6 +122,12 @@ func preflightExec(ctx context.Context, cs *kubernetes.Clientset, ns, podName, c
 	for _, c := range p.Spec.Containers {
 		if c.Name == container {
 			return fmt.Sprintf("container %q exists but has no runtime status yet (still initialising?)", container)
+		}
+	}
+
+	for _, c := range p.Spec.EphemeralContainers {
+		if c.Name == container {
+			return fmt.Sprintf("debug container %q exists but has no runtime status yet (still starting?)", container)
 		}
 	}
 

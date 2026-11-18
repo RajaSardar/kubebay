@@ -1,6 +1,6 @@
 ---
 title: Settings
-description: Themes, fonts and density, Prometheus, the node shell image, usage history, AI features, extensions, updates and saved views.
+description: Themes, fonts and density, Prometheus, the node shell image, the debug image, usage history, AI features, extensions, updates and saved views.
 section: Reference
 order: 1
 appRoutes: ["/settings"]
@@ -35,6 +35,10 @@ Kubeconfig files are added and removed on the Clusters page, next to the cluster
 ## Node shell image
 
 The image for the privileged pod behind [node shell](/docs/nodes/#node-shell). Set it to a mirror in your own registry if the cluster can't pull from `registry.k8s.io`.
+
+## Debug image
+
+The image **Debug with ephemeral container** offers in a pod's [Terminal tab](/docs/pods/#terminal). Leave it empty for the default (`busybox:1.36`), or set one with the tools you want (`nicolaka/netshoot`) or a mirror in your own registry.
 
 ## Usage history
 

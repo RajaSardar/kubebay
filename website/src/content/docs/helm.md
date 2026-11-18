@@ -14,6 +14,8 @@ Each release shows its name, namespace, chart, status, revision and when it was 
 
 Releases load in the background from the moment you connect to a cluster, so the list is usually there when you open Helm. It stays live: an install, upgrade, rollback or uninstall made anywhere, from Kubebay or a terminal, shows up as it happens, with no refresh. A release a change is still in progress on shows its pending status. While a release's chart details are still loading, its chart column shows a placeholder.
 
+A pod, or the workload that made it, installed by a release links here from its **Owned by** row (**Helm release <name>**), which opens that release's drawer.
+
 Click a release to open it. It opens on **Overview**. The drawer follows the release as it changes: its status, revision and **Rollback** buttons update while it's open, and if it's uninstalled elsewhere the drawer says so.
 
 ### Overview

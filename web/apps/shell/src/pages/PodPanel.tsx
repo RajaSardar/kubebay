@@ -10,6 +10,7 @@ import { forceDeleteEffect, forceDeleteLabel } from "../lib/podDelete";
 import { defaultContainer } from "../lib/pods";
 import { PodSummary } from "../components/PodSummary";
 import { PodGraphs } from "../components/PodGraphs";
+import { DebugContainerModal } from "../components/DebugContainerModal";
 import { ResizePanel } from "../components/ResizePanel";
 import { PodVulnerabilitiesTab } from "../components/PodVulnerabilitiesTab";
 import { ImageSignatureCheck } from "../components/ImageSignatureCheck";
@@ -90,6 +91,9 @@ export default function PodPanel({ pod, onClose: onCloseNow, onDeleted }: { pod:
   const triageAllowed = useTriageAllowed(pod.cluster);
   const tabs = triageAllowed ? POD_TABS : POD_TABS.filter((t) => t !== "triage");
   const [container, setContainer] = useState<string | undefined>(defaultContainer(pod.obj, pod.containers));
+  // Debug containers added from the Terminal tab; the pod object only lists them once it refreshes.
+  const [debugContainers, setDebugContainers] = useState<string[]>([]);
+  const [debugOpen, setDebugOpen] = useState(false);
   const [tail, setTail] = useState(2000);
   const [follow, setFollow] = useState(true);
   const [previous, setPrevious] = useState(false);
@@ -180,6 +184,20 @@ export default function PodPanel({ pod, onClose: onCloseNow, onDeleted }: { pod:
       }
     >
       {discardModal}
+      {debugOpen && (
+        <DebugContainerModal
+          cluster={pod.cluster}
+          namespace={pod.namespace}
+          pod={pod.pod}
+          containers={pod.containers}
+          onClose={() => setDebugOpen(false)}
+          onCreated={(name) => {
+            setDebugContainers((cs) => (cs.includes(name) ? cs : [...cs, name]));
+            setContainer(name);
+            setDebugOpen(false);
+          }}
+        />
+      )}
       {confirmingDelete && (
         <Modal
           label={`Delete ${pod.pod}?`}
@@ -238,12 +256,17 @@ export default function PodPanel({ pod, onClose: onCloseNow, onDeleted }: { pod:
               value={container ?? ""}
               onChange={(e) => setContainer(e.target.value || undefined)}
             >
-              {pod.containers.map((c) => (
+              {[...pod.containers, ...debugContainers].map((c) => (
                 <option key={c} value={c}>
                   {c}
                 </option>
               ))}
             </Select>
+            {tab === "shell" && (
+              <Button variant="ghost" onClick={() => setDebugOpen(true)}>
+                Debug with ephemeral container
+              </Button>
+            )}
             {tab === "shell" && (
               <Select
                 className="drawer-select"

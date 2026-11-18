@@ -205,6 +205,62 @@ function NodeShellSettings({ initial, fallback }: { initial?: string; fallback: 
   );
 }
 
+function DebugImageSettings({ initial, fallback }: { initial?: string; fallback: string }) {
+  const [image, setImage] = useState(initial ?? "");
+  const [saved, setSaved] = useState<string | null>(null);
+  const [err, setErr] = useState("");
+  const qc = useQueryClient();
+
+  useEffect(() => {
+    if (initial != null && saved == null) setImage(initial);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initial]);
+
+  async function save() {
+    setErr("");
+    try {
+      const cur = await settingsApi.get();
+      await settingsApi.save({
+        prometheusUrl: cur.prometheusUrl,
+        prometheusUrls: cur.prometheusUrls,
+        extraKubeconfigs: cur.extraKubeconfigs,
+        onlyListedKubeconfigs: cur.onlyListedKubeconfigs,
+        debugImage: image.trim(),
+      });
+      setSaved(image.trim());
+      await qc.invalidateQueries({ queryKey: ["settings"] });
+    } catch (e) {
+      setErr(String(e instanceof Error ? e.message : e));
+    }
+  }
+
+  return (
+    <Card style={{ marginTop: 18 }}>
+      <div className="rbac-section-title">Debug image</div>
+      <p className="small muted" style={{ marginTop: 0 }}>
+        Image offered by Debug with ephemeral container in a pod's Terminal tab. Pick one with the tools you need (a shell,
+        curl, dig), or a mirror in your own registry if the cluster cannot pull from the public one.
+      </p>
+      <div className="pf-form">
+        <TextField
+          aria-label="Debug image"
+          placeholder={fallback}
+          value={image}
+          onChange={(e) => setImage(e.target.value)}
+          spellCheck={false}
+          style={{ gridColumn: "span 4" }}
+        />
+        <Button onClick={() => void save()}>Save debug image</Button>
+      </div>
+      {(saved != null || err) && (
+        <p className={`small ${err ? "error-text" : "muted"}`} style={{ marginBottom: 0 }}>
+          {err || (saved === "" ? `Cleared — using the default ${fallback}` : `Saved. Debug containers will use ${saved}`)}
+        </p>
+      )}
+    </Card>
+  );
+}
+
 function OptionRow<T extends string>({
   label,
   value,
@@ -320,6 +376,12 @@ export default function Settings() {
         <NodeShellSettings
           initial={settings.data.nodeShellImage}
           fallback={settings.data.nodeShellImageDefault ?? ""}
+        />
+      )}
+      {settings.isSuccess && (
+        <DebugImageSettings
+          initial={settings.data.debugImage}
+          fallback={settings.data.debugImageDefault ?? ""}
         />
       )}
       {settings.isSuccess && <UsageHistoryCard clusters={settings.data.historyClusters ?? {}} />}
