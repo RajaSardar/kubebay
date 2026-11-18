@@ -6,6 +6,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ## [Unreleased]
 
+### Added
+- **YAML in the dock, phase 2.** The dock has a **Maximise** toggle. ⌘/Ctrl+S applies in a dock YAML editor (with the production confirm), Ctrl+PageUp/PageDown switch dock tabs and Ctrl+W closes a YAML tab (with the discard guard). A YAML tab's label shows a dot while modified and a **production** pill. **Edit in dock** is in the row menu of resource lists and Pods, and ⌘K offers **Edit YAML in dock: <name>** for found objects. A dock tab warns when its cluster isn't connected, and when the object changed on the cluster while it sat open (**Show changes**, **Load latest**). (Backlog 51.)
+
 ## [0.7.7] - 2026-11-18
 
 ### Changed

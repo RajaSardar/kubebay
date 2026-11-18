@@ -1,15 +1,16 @@
-import { lazy, Suspense, useState, type Ref } from "react";
+import { lazy, Suspense, useState, type KeyboardEvent, type ReactNode, type Ref } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Button, EmptyState, Splitter, StatusPill, Tabs, VisuallyHidden } from "@kubebay/ui";
+import { Button, EmptyState, InlineBanner, Splitter, StatusPill, Tabs, VisuallyHidden } from "@kubebay/ui";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { PageHelp } from "./PageHelp";
 import { DiscardChangesModal } from "./DiscardGuard";
 import { YamlTab } from "./heavy";
-import { isEditDirty } from "../lib/editGuard";
+import { isEditDirty, useEditDirty } from "../lib/editGuard";
+import { useClusterLooksProduction } from "../lib/useClusterLooksProduction";
 import { settingsApi, type ClusterInfo, type LocalShellCapability } from "../lib/api";
 import { bindingLooksProduction } from "../lib/localshell";
 import { currentShell, setCurrentShell } from "../lib/shellSession";
-import { dockBounds, useTerminalDock } from "../lib/terminalDock";
+import { dockBounds, useTerminalDock, type EditTab } from "../lib/terminalDock";
 
 // ADR 0005: the terminal lives in a dock under the page. This part loads with
 // the app and holds no terminal: the shell itself (xterm) is in DockShell,
@@ -30,6 +31,34 @@ function Unavailable({ cap }: { cap?: LocalShellCapability }) {
       </p>
     </EmptyState>
   );
+}
+
+/** A YAML tab's label: its name, a dot while it holds unapplied edits, and a pill on a production-looking cluster. */
+function YamlTabLabel({ tab }: { tab: EditTab }) {
+  const dirty = useEditDirty(tab.key);
+  const { production } = useClusterLooksProduction(tab.cluster);
+  return (
+    <>
+      {`YAML ${tab.name}`}
+      {dirty && (
+        <>
+          <span aria-hidden> ●</span>
+          <VisuallyHidden> unsaved changes</VisuallyHidden>
+        </>
+      )}
+      {production && (
+        <>
+          {" "}
+          <StatusPill tone="err">production</StatusPill>
+        </>
+      )}
+    </>
+  );
+}
+
+function isOffline(clusters: ClusterInfo[], id: string): boolean {
+  const c = clusters.find((x) => x.id === id);
+  return !!c && (c.status === "unreachable" || c.status === "misconfigured" || c.connected === false);
 }
 
 /** Ends the dock's shell, if there is one. Nothing opens until asked. */
@@ -59,6 +88,9 @@ export function TerminalDock({
   const activeTab = useTerminalDock((s) => s.activeTab);
   const focusTab = useTerminalDock((s) => s.focusTab);
   const closeEditTab = useTerminalDock((s) => s.closeEditTab);
+  const maximized = useTerminalDock((s) => s.maximized);
+  const toggleMaximized = useTerminalDock((s) => s.toggleMaximized);
+  const cycleTab = useTerminalDock((s) => s.cycleTab);
   const [confirmClose, setConfirmClose] = useState<string | null>(null);
   const settings = useQuery({ queryKey: ["settings"], queryFn: settingsApi.get });
 
@@ -68,19 +100,33 @@ export function TerminalDock({
 
   const cap = settings.data?.localShell;
   const bounds = dockBounds(window.innerHeight);
-  const shown = Math.min(height, bounds.max);
+  const shown = maximized ? bounds.max : Math.min(height, bounds.max);
   const prod = bindingLooksProduction(binding);
   const onYaml = tabs.some((t) => t.key === activeTab);
   const showShell = open && !onYaml;
   const tabIds = ["shell", ...tabs.map((t) => t.key)];
-  const labels: Record<string, string> = { shell: "Shell", ...Object.fromEntries(tabs.map((t) => [t.key, `YAML ${t.name}`])) };
+  const labels: Record<string, ReactNode> = { shell: "Shell", ...Object.fromEntries(tabs.map((t) => [t.key, <YamlTabLabel key={t.key} tab={t} />])) };
+  const titleOf = (key: string) => `YAML ${tabs.find((t) => t.key === key)?.name ?? ""}`;
   const closeActive = () => {
     if (isEditDirty(activeTab)) setConfirmClose(activeTab);
     else closeEditTab(activeTab);
   };
 
+  // Keys that belong to the dock's tabs, caught only inside the dock: Ctrl+PageUp/PageDown
+  // move between tabs, and Ctrl+W closes a YAML tab (the shell keeps its own Ctrl+W).
+  const onKeyDown = (e: KeyboardEvent<HTMLElement>) => {
+    if (!e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+    if (e.key === "PageDown" || e.key === "PageUp") {
+      e.preventDefault();
+      cycleTab(e.key === "PageDown" ? 1 : -1);
+    } else if (e.key.toLowerCase() === "w" && onYaml) {
+      e.preventDefault();
+      closeActive();
+    }
+  };
+
   return (
-    <section ref={dockRef} className="kb-dock" aria-label="Terminal" style={{ height: shown, display: open ? undefined : "none" }}>
+    <section ref={dockRef} onKeyDown={onKeyDown} className="kb-dock" aria-label="Terminal" style={{ height: shown, display: open ? undefined : "none" }}>
       <Splitter
         label="Resize the terminal"
         value={shown}
@@ -92,7 +138,7 @@ export function TerminalDock({
       {tabs.length > 0 && <Tabs tabs={tabIds} active={activeTab} labels={labels} onChange={focusTab} />}
       <div className="kb-dock-head">
         <span className="kb-dock-title">
-          {onYaml ? labels[activeTab] : "Terminal"}
+          {onYaml ? titleOf(activeTab) : "Terminal"}
           {!onYaml && binding && (
             <>
               {" · "}
@@ -117,6 +163,9 @@ export function TerminalDock({
               End shell
             </Button>
           )}
+          <Button variant="ghost" size="sm" aria-pressed={maximized} onClick={toggleMaximized}>
+            {maximized ? "Restore" : "Maximise"}
+          </Button>
           <Button variant="ghost" size="sm" onClick={closeDock}>
             Hide
           </Button>
@@ -127,7 +176,22 @@ export function TerminalDock({
         {tabs.map((t) => (
           <div key={t.key} className="yaml-wrap" style={t.key === activeTab ? undefined : { display: "none" }}>
             <ErrorBoundary>
-              <YamlTab cluster={t.cluster} gvr={t.gvr} ns={t.ns} name={t.name} gitopsOwner={t.gitopsOwner} helmRelease={t.helmRelease} />
+              {isOffline(clusters, t.cluster) && (
+                <InlineBanner tone="warn" flush role="alert">
+                  <strong>This cluster is not connected.</strong> Your edit stays here; Apply and Dry-run are off until it is back.
+                </InlineBanner>
+              )}
+              <YamlTab
+                cluster={t.cluster}
+                gvr={t.gvr}
+                ns={t.ns}
+                name={t.name}
+                gitopsOwner={t.gitopsOwner}
+                helmRelease={t.helmRelease}
+                dock
+                offline={isOffline(clusters, t.cluster)}
+                watch={open && t.key === activeTab}
+              />
             </ErrorBoundary>
           </div>
         ))}

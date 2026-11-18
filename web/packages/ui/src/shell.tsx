@@ -126,8 +126,8 @@ export function statusTone(word: string): StatusTone {
 export interface TabsProps<T extends string> {
   tabs: readonly T[];
   active: T;
-  /** Display label per tab; defaults to the tab id. */
-  labels?: Partial<Record<T, string>>;
+  /** Display label per tab (text, or text with a marker such as a dirty dot); defaults to the tab id. */
+  labels?: Partial<Record<T, ReactNode>>;
   onChange: (tab: T) => void;
   /** Container class; defaults to "tabs". Drawer panes use "drawer-pane-tabs". */
   className?: string;

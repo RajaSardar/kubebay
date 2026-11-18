@@ -104,7 +104,7 @@ describe("Pods on the shared list view", () => {
     fireEvent.click(within(rowOf("redis-a")).getByRole("button", { name: "Actions for redis-a" }));
     const menu = screen.getByRole("menu");
     expect(within(menu).getAllByRole("menuitem").map((m) => m.textContent)).toEqual([
-      "View details", "Logs", "Shell", "Edit YAML", "Copy name", "Add to favorites", "Delete",
+      "View details", "Logs", "Shell", "Edit YAML", "Edit in dock", "Copy name", "Add to favorites", "Delete",
     ]);
   });
 

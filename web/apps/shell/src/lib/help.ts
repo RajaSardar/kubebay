@@ -69,7 +69,7 @@ export const PAGE_HELP: Record<string, PageHelpEntry> = {
   "/terminal": {
     name: "Terminal",
     what: "A shell on your own machine, with kubectl and your other tools, bound to one cluster's context. It lives in a dock under every page: Ctrl+` opens it from anywhere.",
-    how: "The shell survives page changes and Hide. A drawer's YAML tab can open as a dock tab too (Open in bottom dock); the drawer editor stays the default.",
+    how: "The shell survives page changes and Hide. YAML can open as a dock tab (row menu Edit in dock, ⌘K, or Open in bottom dock); Ctrl/⌘+S applies.",
     docs: "terminal",
   },
   "/ports": {

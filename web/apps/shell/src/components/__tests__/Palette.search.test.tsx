@@ -7,6 +7,7 @@ import { useClusterStore } from "../../lib/cluster-store";
 import { getClusterRows, getConnectedClusters, isClusterSynced } from "../../lib/clusterConnections";
 import { useResourceStream } from "../../lib/useResourceStream";
 import { api } from "../../lib/api";
+import { useTerminalDock } from "../../lib/terminalDock";
 
 vi.mock("../../lib/useResourceStream", () => ({ useResourceStream: vi.fn(() => ({ rows: [], synced: true, connected: true })) }));
 vi.mock("../../lib/clusterConnections", () => ({
@@ -106,7 +107,7 @@ describe("Palette: search everything the app already holds", () => {
   it("opens a cluster-scoped object with an empty namespace", () => {
     renderPalette();
     type("ip-10");
-    fireEvent.click(screen.getByRole("button", { name: /ip-10-1-2-3/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^ip-10-1-2-3/ }));
     expect(screen.getByTestId("at").textContent).toBe("/detail/nodes/_/ip-10-1-2-3");
   });
 
@@ -114,7 +115,7 @@ describe("Palette: search everything the app already holds", () => {
     renderPalette();
     type("deploy api");
     expect(screen.queryByText("Pods")).toBeNull();
-    expect(screen.getByRole("button", { name: /api-gateway/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^api-gateway/ })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /billing-worker/ })).toBeNull();
   });
 
@@ -129,11 +130,11 @@ describe("Palette: search everything the app already holds", () => {
   it("remembers what you opened and lists it when the box is empty", () => {
     const { unmount } = renderPalette();
     type("api-gateway");
-    fireEvent.click(screen.getByRole("button", { name: /api-gateway/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^api-gateway/ }));
     unmount();
     renderPalette();
     expect(screen.getByText("Recent")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /api-gateway/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^api-gateway/ })).toBeInTheDocument();
   });
 });
 
@@ -175,16 +176,16 @@ describe("Palette: scope", () => {
   it("searches only the active cluster until you widen it", () => {
     renderPalette();
     type("api");
-    expect(screen.queryByRole("button", { name: /api-stage/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^api-stage/ })).toBeNull();
     fireEvent.click(screen.getByRole("radio", { name: "All clusters" }));
-    expect(screen.getByRole("button", { name: /api-stage/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^api-stage/ })).toBeInTheDocument();
   });
 
   it("names the cluster on a hit from another one, and switches to it when opened", () => {
     renderPalette();
     fireEvent.click(screen.getByRole("radio", { name: "All clusters" }));
     type("api-stage");
-    const hit = screen.getByRole("button", { name: /api-stage/ });
+    const hit = screen.getByRole("button", { name: /^api-stage/ });
     expect(within(hit).getByText("stage")).toBeInTheDocument();
     fireEvent.click(hit);
     expect(useClusterStore.getState().active).toBe("stage");
@@ -195,5 +196,21 @@ describe("Palette: scope", () => {
     vi.mocked(getConnectedClusters).mockReturnValue(new Set(["prod"]));
     renderPalette();
     expect(screen.queryByRole("radio", { name: "All clusters" })).toBeNull();
+  });
+
+  it("offers 'Edit YAML in dock: <name>' for a found object and opens it as a dock tab (backlog 51)", () => {
+    useTerminalDock.setState({ open: false, tabs: [], activeTab: "shell" });
+    renderPalette();
+    type("billing-worker");
+    fireEvent.click(screen.getByRole("button", { name: "Edit YAML in dock: billing-worker" }));
+    const s = useTerminalDock.getState();
+    expect(s.open).toBe(true);
+    expect(s.tabs.map((t) => [t.cluster, t.gvr, t.ns, t.name])).toEqual([["prod", "apps/v1/deployments", "billing", "billing-worker"]]);
+    expect(screen.getByTestId("at").textContent).toBe("/");
+  });
+
+  it("offers no dock edit when nothing is typed", () => {
+    renderPalette();
+    expect(screen.queryByRole("button", { name: /Edit YAML in dock/ })).toBeNull();
   });
 });

@@ -3,6 +3,7 @@ import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Badge, IconButton, Row, StatusPill } from "@kubebay/ui";
 import { api } from "../lib/api";
+import { dockEditItem } from "../lib/terminalDock";
 import { useResourceStream } from "../lib/useResourceStream";
 import PodPanel, { type SelectedPod } from "./PodPanel";
 import { useActiveCluster } from "../App";
@@ -275,6 +276,7 @@ export default function Workloads() {
           { label: "Logs", onClick: () => openPod(p, "logs") },
           { label: "Shell", onClick: () => openPod(p, "shell") },
           { label: "Edit YAML", onClick: () => openPod(p, "yaml") },
+          dockEditItem({ cluster: effectiveCluster, gvr: "v1/pods", ns: p.namespace, name: p.name }),
           { label: "Copy name", onClick: () => void navigator.clipboard?.writeText(p.name) },
           (() => {
             const fav = { cluster: effectiveCluster, slug: "pods", ns: p.namespace, name: p.name, kind: "Pod" };

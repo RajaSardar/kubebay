@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams, useLocation } from "react-router-dom";
 import { CellLink, EmptyState, StatusDot, StatusPill, statusTone } from "@kubebay/ui";
 import { api, crdApi, type PrinterColumn } from "../lib/api";
+import { dockEditItem } from "../lib/terminalDock";
 import { useQuery as useRQQuery } from "@tanstack/react-query";
 import { useCluster } from "../lib/useCluster";
 import { useResourceStream } from "../lib/useResourceStream";
@@ -527,6 +528,7 @@ export default function ResourceTable() {
           return [
             { label: "View details", onClick: () => setSelected({ ns, name }) },
             { label: "Edit YAML", onClick: () => setSelected({ ns, name, tab: "yaml" }) },
+            dockEditItem({ cluster: effectiveCluster, gvr: def.gvr, ns, name }),
             ...(HAS_PODS.has(def.slug)
               ? [
                   (() => {
