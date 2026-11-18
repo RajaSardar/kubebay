@@ -49,7 +49,7 @@
 ~~48. in crons jobs, there should be a col for paused or active or what status staus for the cron jobs.~~ ✅ Done (CronJobs table has a Status pill: Suspended, Active or Idle, plus an Active Jobs count)
 ~~49. i am not liking the favorite location at top, move it down and place it above tools.~~ ✅ Done (favorites sit just above Tools, and any pod, workload, service, ingress or other object can be starred from its drawer or row menu)
 50. 
-51. Research YAML editing in a bottom dock window, like Lens/Freelens, in addition to the drawer editor. Researched: see docs/YAML_EDIT_DOCK.md
+51. Research YAML editing in a bottom dock window, like Lens/Freelens, in addition to the drawer editor. Researched: see docs/YAML_EDIT_DOCK.md. Phases 0 to 2 built (phase 2 skipped restore-of-unsaved-text and the New-resource tab; Ctrl+PageUp/PageDown work from any dock tab, Ctrl+W only on YAML tabs; Cmd/Ctrl+S is the Apply button, not an automatic dry-run).
 
     Progress: phase 1 built (dock tab strip Shell | YAML name in useTerminalDock, same YamlTab hosted, one live editor per object with the drawer showing "Editing in dock", hide keeps text, dirty close uses the discard guard, not persisted; ADR 0005 note). Left open: Maximise, Cmd/Ctrl+S and tab keys, row action and command-palette entry (phase 2), staleness and restore (3), New resource tab (4), tab cap from measured memory (5), multiple-tab polish (cluster-drop banner, tab dirty dot, production pill).
 
@@ -66,6 +66,6 @@
 | 36 Best practices | First slice: 11 checks, install hints | CIS mapping, severity, more tools, lessons, fix actions |
 | 37 Many clusters | Health probes only connected clusters, LIST cap 3, windowed picker | Settings UI for the cap, browser store cap, fleet summary |
 | 39 Service map | Phase 1: declared and inferred edges on Topology | Gateway API, Istio / Linkerd / Cilium, Prometheus observed overlay, cross-namespace |
-| 51 YAML in the dock | Phases 0 and 1: discard guard, production confirm, YAML tab in the dock | Maximise, keyboard shortcuts, dirty dot, row action and palette entry, more tabs |
+| 51 YAML in the dock | Phases 0 to 2: discard guard, production confirm, YAML tab in the dock, Maximise, Cmd/Ctrl+S and tab keys, dirty dot and production pill, row action, palette entry, cluster-down and stale banners | Restore of unsaved text, deleted-object state, window-close confirm, New resource tab, memory-based tab cap |
 | 50 | (empty) | Waiting for your text |
 

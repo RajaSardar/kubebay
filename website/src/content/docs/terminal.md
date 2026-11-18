@@ -29,18 +29,24 @@ While the dock is open, a resource drawer ends above it, and pressing in the doc
 
 ### YAML tabs in the dock
 
-The dock can also hold YAML editors, the same editor as a resource drawer's YAML tab. It is optional: the drawer editor stays the default. Click **Open in bottom dock** on a drawer's YAML tab to open one.
+The dock can also hold YAML editors, the same editor as a resource drawer's YAML tab. It is optional: the drawer editor stays the default. Open one with **Open in bottom dock** on a drawer's YAML tab, **Edit in dock** in a row's menu (right-click a row, or its Actions button, on a resource list or Pods), or <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>K</kbd> and **Edit YAML in dock: \<name\>**, which appears under **Edit in dock** once you've typed a search.
 
 - Once a YAML tab exists, the dock shows a tab strip: **Shell** and **YAML \<name\>** for each object. The strip doesn't appear before then.
 - Each object has one editor. Opening it again focuses its tab, and the drawer shows **Editing in dock** with **Go to tab** instead of a second editor. You can open up to 8 tabs.
 - **Close YAML tab** in the dock's header closes the active one. If it holds unapplied edits it asks **Discard changes?** first.
 - **Hide** and <kbd>Ctrl</kbd>+<kbd>`</kbd> only hide the dock. A YAML tab keeps its text while the dock is hidden or you change pages. The dock keeps its height and keys as before.
+- A YAML tab's label shows a dot (●) while it holds unapplied edits, and a **production** pill when its cluster's name reads like production (a name check only).
+- <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>S</kbd> in a dock editor does what **Apply** does: it asks **Apply to production?** on a production-looking cluster, and does nothing when nothing changed. Use **Dry-run** to check first.
+- With the focus anywhere in the dock, <kbd>Ctrl</kbd>+<kbd>PageDown</kbd> and <kbd>Ctrl</kbd>+<kbd>PageUp</kbd> move to the next and previous tab, and <kbd>Ctrl</kbd>+<kbd>W</kbd> closes the active YAML tab (asking **Discard changes?** if it has unapplied edits). On the **Shell** tab <kbd>Ctrl</kbd>+<kbd>W</kbd> still goes to the shell. <kbd>⌘</kbd>+<kbd>W</kbd> is not used: in the desktop app it closes the window.
+- **Maximise** in the dock's header makes the dock as tall as it can be, for a long manifest; **Restore** puts it back.
+- If the tab's cluster isn't connected, the tab says **This cluster is not connected.** Your edit stays, and **Apply** and **Dry-run** stay off until it is back.
+- A tab left open can go stale. When the window regains focus, or you switch to the tab, Kubebay reads the object again. If you haven't edited, the tab quietly refreshes. If you have, it says **Changed on the cluster since you opened this.** and leaves your edit alone. **Show changes** compares the live object with what you loaded, and **Load latest** discards your edit and reloads.
 - Tabs and their text aren't kept across a restart: the dock starts hidden with no tabs.
 
 ### Keys in the shell
 
 The shell gets your keys, including <kbd>Ctrl</kbd>+<kbd>K</kbd>, <kbd>Ctrl</kbd>+<kbd>W</kbd>, <kbd>Ctrl</kbd>+<kbd>R</kbd>, <kbd>Esc</kbd> and <kbd>Tab</kbd>. Three keys are kept out of it:
-- <kbd>Ctrl</kbd>+<kbd>`</kbd>, which belongs to the dock;
+- <kbd>Ctrl</kbd>+<kbd>`</kbd>, which belongs to the dock (<kbd>Ctrl</kbd>+<kbd>PageUp</kbd> and <kbd>Ctrl</kbd>+<kbd>PageDown</kbd> switch dock tabs too);
 - the drawer's <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Enter</kbd> and <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd>, which do nothing while you type in the shell.
 
 ## Bound to a context

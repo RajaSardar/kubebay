@@ -15,6 +15,7 @@ import { usePaletteRemote } from "../lib/usePaletteRemote";
 import { usePaletteObjects } from "../lib/usePaletteObjects";
 import { readFavoriteObjects } from "./Favorites";
 import { targetFor } from "../lib/objectPath";
+import { useTerminalDock } from "../lib/terminalDock";
 import { pushRecent, readRecents, type Recent } from "../lib/paletteRecents";
 
 // ──── Nav items (static routes) ──────────────────────────────────────────────
@@ -247,11 +248,14 @@ function readScope(): Scope {
 
 const NAV_WHEN_SEARCHING = 5;
 const NAV_WITH_OBJECTS = 3;
+// "Edit YAML in dock" rows offered under a search: the best hit of up to this many kinds.
+const DOCK_EDIT_MAX = 3;
 const NAV_WHEN_EMPTY = 6;
 
 type Entry =
   | { kind: "nav"; item: PaletteItem }
   | { kind: "hit"; obj: SearchObject }
+  | { kind: "dockEdit"; obj: SearchObject; gvr: string }
   | { kind: "recent"; recent: Recent }
   | { kind: "more"; group: SearchGroup; to: string }
   | { kind: "cluster"; choice: ClusterChoice };
@@ -374,6 +378,16 @@ export function Palette({
         ...(g.total > g.hits.length ? [{ kind: "more", group: g, to: listTargetFor(g.slug, g.listQuery ?? termText, g.hits[0]?.obj.clusterScoped) } as Entry] : []),
       ],
     }));
+    // "Edit YAML in dock" for the best few objects found, once something is typed.
+    const dockEntries: Entry[] = [];
+    if (q.trim()) {
+      for (const g of groups) {
+        const gvr = (DEFS[g.slug] ?? EXTRA_DEFS[g.slug])?.gvr;
+        const top = g.hits[0];
+        if (gvr && top && dockEntries.length < DOCK_EDIT_MAX) dockEntries.push({ kind: "dockEdit", obj: top.obj, gvr });
+      }
+    }
+    const dockSection: Section[] = dockEntries.length ? [{ key: "dockEdit", title: "Edit in dock", entries: dockEntries }] : [];
     const clusterSection: Section[] = clusterRows.length
       ? [{ key: "clusters", title: "Switch cluster", entries: clusterRows.map((choice) => ({ kind: "cluster", choice })) }]
       : [];
@@ -384,9 +398,9 @@ export function Palette({
       !q.trim() && favObjects.length ? [{ key: "favorites", title: "Favorites", entries: favObjects.map((recent) => ({ kind: "recent", recent })) }] : [];
     // Asking for a cluster ("switch ...", "@...") puts the clusters first, and
     // so does an empty box: the pages list is long enough to push them off screen.
-    if (clusterMatch.intent) return [...clusterSection, ...navSection, ...objectSections];
+    if (clusterMatch.intent) return [...clusterSection, ...navSection, ...objectSections, ...dockSection];
     if (!q.trim()) return [...clusterSection, ...favSection, ...recentSection, ...navSection];
-    return [...navSection, ...objectSections, ...clusterSection];
+    return [...navSection, ...objectSections, ...dockSection, ...clusterSection];
   }, [filteredNav, groups, clusterRows, clusterMatch.intent, recents, favObjects, q, termText]);
   const flatEntries = useMemo(() => sections.flatMap((s) => s.entries), [sections]);
 
@@ -433,6 +447,12 @@ export function Palette({
     go(targetFor(o));
   }
 
+  // Backlog 51: open the object's YAML as a dock tab, staying on the page.
+  function editInDock(o: SearchObject, gvr: string) {
+    onClose();
+    useTerminalDock.getState().openEditTab({ cluster: o.cluster, gvr, ns: o.ns, name: o.name });
+  }
+
   function switchTo(c: ClusterChoice) {
     // A cluster whose kubeconfig is broken can't open: the Clusters page says why.
     if (!c.usable) return go("/clusters");
@@ -443,6 +463,7 @@ export function Palette({
   function activate(entry: Entry) {
     if (entry.kind === "nav") go(entry.item.to);
     else if (entry.kind === "hit") openObject(entry.obj);
+    else if (entry.kind === "dockEdit") editInDock(entry.obj, entry.gvr);
     else if (entry.kind === "recent") openObject(entry.recent);
     else if (entry.kind === "cluster") switchTo(entry.choice);
     else go(entry.to);
@@ -483,6 +504,21 @@ export function Palette({
         );
       case "hit":
         return objectRow(e.obj, i, `hit:${e.obj.cluster}/${e.obj.slug}/${e.obj.ns}/${e.obj.name}`);
+      case "dockEdit":
+        return (
+          <PaletteRow
+            key={`dock:${e.obj.cluster}/${e.gvr}/${e.obj.ns}/${e.obj.name}`}
+            label={`Edit YAML in dock: ${e.obj.name}`}
+            active={i === idx}
+            onHover={() => setIdx(i)}
+            onClick={() => editInDock(e.obj, e.gvr)}
+          >
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {`Edit YAML in dock: ${e.obj.name}`}
+              {e.obj.ns && <span className="palette-pod-ns">{` ${e.obj.ns}`}</span>}
+            </span>
+          </PaletteRow>
+        );
       case "recent":
         return objectRow({ ...e.recent }, i, `recent:${e.recent.cluster}/${e.recent.slug}/${e.recent.ns}/${e.recent.name}`);
       case "more":

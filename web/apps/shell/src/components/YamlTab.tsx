@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import Editor, { DiffEditor } from "../lib/monaco";
 import { Badge, Button, InlineBanner, Row, SkeletonLines, TextField } from "@kubebay/ui";
 import { api } from "../lib/api";
@@ -19,6 +19,9 @@ export function YamlTab({
   helmRelease,
   impactBanner,
   dangerousChangeCheck,
+  dock = false,
+  offline = false,
+  watch = false,
 }: {
   cluster: string;
   gvr: string;
@@ -35,6 +38,12 @@ export function YamlTab({
    * stays enabled — it never mutates the cluster.
    */
   dangerousChangeCheck?: (original: string, modified: string) => { message: string }[];
+  /** Hosted in the bottom dock: Cmd/Ctrl+S applies (backlog 51). */
+  dock?: boolean;
+  /** The cluster is not connected: Apply and Dry-run stay disabled. */
+  offline?: boolean;
+  /** Re-read the object when the window regains focus (or this tab is shown) and say if it changed. */
+  watch?: boolean;
 }) {
   const monacoTheme = useMonacoTheme();
   const [original, setOriginal] = useState("");
@@ -49,6 +58,9 @@ export function YamlTab({
   const [confirmText, setConfirmText] = useState("");
   // Fields the user edited that someone else changed after this editor loaded.
   const [staleFields, setStaleFields] = useState<string[] | null>(null);
+  // The live text when it differs from what this editor loaded and there are unapplied edits.
+  const [liveText, setLiveText] = useState<string | null>(null);
+  const [showLive, setShowLive] = useState(false);
   // A Secret's values stay hidden until asked for; asking is audited by the engine.
   const isSecret = gvr === "v1/secrets";
   const [revealed, setRevealed] = useState(false);
@@ -60,6 +72,8 @@ export function YamlTab({
     setPolicyRejection(null);
     setServerPreview(null);
     setStaleFields(null);
+    setLiveText(null);
+    setShowLive(false);
     try {
       const y = await (reveal ? api.getYamlText(cluster, gvr, ns, name, { reveal: true }) : api.getYamlText(cluster, gvr, ns, name));
       setOriginal(y);
@@ -80,6 +94,34 @@ export function YamlTab({
   }
 
   const dirty = modified !== original;
+  const seen = useRef({ original, dirty, loading, revealed });
+  seen.current = { original, dirty, loading, revealed };
+
+  // A tab left open in the dock goes stale: look again when the window regains focus.
+  useEffect(() => {
+    if (!watch) return;
+    const check = async () => {
+      const at = seen.current;
+      if (at.loading || at.original === "") return;
+      let live: string;
+      try {
+        live = await (at.revealed ? api.getYamlText(cluster, gvr, ns, name, { reveal: true }) : api.getYamlText(cluster, gvr, ns, name));
+      } catch {
+        return; // gone or unreachable: the cluster banner and Reload say so
+      }
+      const now = seen.current;
+      if (live === now.original) setLiveText(null);
+      else if (now.dirty) setLiveText(live);
+      else {
+        setOriginal(live);
+        setModified(live);
+        setLiveText(null);
+      }
+    };
+    void check();
+    window.addEventListener("focus", check);
+    return () => window.removeEventListener("focus", check);
+  }, [watch, cluster, gvr, ns, name]);
   // Tell the drawer and tab strip around us there is an edit to protect.
   const guardKey = `${cluster}/${gvr}/${ns}/${name}`;
   useEffect(() => {
@@ -108,6 +150,17 @@ export function YamlTab({
     setMsg(null);
     setPolicyRejection(null);
     setConfirmText("");
+  }
+
+  const canApply = !busy && dirty && !needsConfirm && !offline;
+  function applyOrConfirm() {
+    if (prod.production) setConfirmingProd(true);
+    else void apply(false);
+  }
+  function onKeyDown(e: KeyboardEvent<HTMLDivElement>) {
+    if (!dock || e.altKey || e.shiftKey || !(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== "s") return;
+    e.preventDefault();
+    if (canApply) applyOrConfirm();
   }
 
   async function apply(dryRun: boolean) {
@@ -159,8 +212,8 @@ export function YamlTab({
   // In diff mode: if we have a server preview, show live vs server-computed.
   // Otherwise show local edits vs original.
   const diffOriginal = original;
-  const diffModified = serverPreview ?? modified;
-  const diffLabel = serverPreview ? "server preview (dry-run)" : "local edits";
+  const diffModified = showLive && liveText !== null ? liveText : serverPreview ?? modified;
+  const diffLabel = showLive && liveText !== null ? "changed on the cluster" : serverPreview ? "server preview (dry-run)" : "local edits";
 
   const editor = showDiff ? (
     <DiffEditor
@@ -194,10 +247,13 @@ export function YamlTab({
   );
 
   return (
-    <div className="yaml-tab">
+    <div className="yaml-tab" onKeyDown={onKeyDown}>
       <div className="log-controls">
         <label className="ctl">
-          <input type="checkbox" checked={showDiff} onChange={(e) => setShowDiff(e.target.checked)} />
+          <input type="checkbox" checked={showDiff} onChange={(e) => {
+              setShowDiff(e.target.checked);
+              setShowLive(false);
+            }} />
           diff view
         </label>
         {showDiff && (
@@ -216,12 +272,12 @@ export function YamlTab({
           <Button variant="ghost" disabled={!dirty} onClick={revert}>
             Revert
           </Button>
-          <Button variant="ghost" disabled={busy || !dirty} onClick={() => void apply(true)}>
+          <Button variant="ghost" disabled={busy || !dirty || offline} onClick={() => void apply(true)}>
             Dry-run
           </Button>
           <Button
-            disabled={busy || !dirty || needsConfirm}
-            onClick={() => (prod.production ? setConfirmingProd(true) : void apply(false))}
+            disabled={!canApply}
+            onClick={applyOrConfirm}
           >
             Apply
           </Button>
@@ -267,6 +323,32 @@ export function YamlTab({
               spellCheck={false}
             />
           </Row>
+        </InlineBanner>
+      )}
+      {liveText !== null && (
+        <InlineBanner
+          tone="warn"
+          flush
+          role="alert"
+          actions={
+            <>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setShowLive(true);
+                  setShowDiff(true);
+                }}
+              >
+                Show changes
+              </Button>
+              <Button variant="ghost" onClick={() => void load()}>
+                Load latest
+              </Button>
+            </>
+          }
+        >
+          <strong>Changed on the cluster since you opened this.</strong> Your edit is untouched. Show changes compares the live
+          object with what you loaded; Load latest discards your edit and reloads.
         </InlineBanner>
       )}
       {staleFields && (

@@ -45,3 +45,15 @@ export function useAnyEditDirty(): boolean {
     anyEditDirty,
   );
 }
+
+/** Whether one editor holds unapplied edits; re-renders when it changes. */
+export function useEditDirty(key: string): boolean {
+  return useSyncExternalStore(
+    (cb) => {
+      listeners.add(cb);
+      return () => listeners.delete(cb);
+    },
+    () => dirty.has(key),
+    () => dirty.has(key),
+  );
+}

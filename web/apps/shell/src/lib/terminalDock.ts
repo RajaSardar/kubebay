@@ -79,6 +79,11 @@ export function editTabKey(o: { cluster: string; gvr: string; ns: string; name: 
   return `${o.cluster}/${o.gvr}/${o.ns}/${o.name}`;
 }
 
+/** The row-menu entry that opens an object's YAML as a dock tab. */
+export function dockEditItem(o: Omit<EditTab, "key">): { label: string; onClick: () => void } {
+  return { label: "Edit in dock", onClick: () => useTerminalDock.getState().openEditTab(o) };
+}
+
 /** Edit tabs held at once. Memory per editor is not measured; backlog 51 phase 5 sets the real cap. */
 export const MAX_EDIT_TABS = 8;
 
@@ -102,6 +107,11 @@ interface DockState {
   tabs: EditTab[];
   /** "shell" or an edit tab's key. */
   activeTab: string;
+  /** The dock fills the page's height (backlog 51). Not kept across a relaunch. */
+  maximized: boolean;
+  toggleMaximized(): void;
+  /** Move to the next (1) or previous (-1) tab, Shell first, wrapping. */
+  cycleTab(step: 1 | -1): void;
   /** Open (or focus, if already open) the editor tab for an object, and show the dock. */
   openEditTab(o: Omit<EditTab, "key">): void;
   closeEditTab(key: string): void;
@@ -130,6 +140,15 @@ export const useTerminalDock = create<DockState>()((set, get) => ({
   autoOpen: true,
   tabs: [],
   activeTab: "shell",
+  maximized: false,
+  toggleMaximized() {
+    set({ maximized: !get().maximized });
+  },
+  cycleTab(step) {
+    const ids = ["shell", ...get().tabs.map((t) => t.key)];
+    const at = Math.max(0, ids.indexOf(get().activeTab));
+    set({ activeTab: ids[(at + step + ids.length) % ids.length] ?? "shell" });
+  },
   openEditTab(o) {
     const key = editTabKey(o);
     const { tabs } = get();
