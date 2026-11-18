@@ -1,6 +1,17 @@
 import { statusTone, type StatusTone } from "@kubebay/ui";
 import { podResources, type PodResources } from "./podUsage";
 
+/**
+ * The container Logs and Terminal open on: the one the pod's
+ * `kubectl.kubernetes.io/default-container` annotation names (as kubectl does),
+ * else the first. An annotation naming a container the pod lacks is ignored.
+ */
+export function defaultContainer(obj: Record<string, unknown> | undefined, containers: string[]): string | undefined {
+  const meta = (obj?.metadata ?? {}) as { annotations?: Record<string, string> };
+  const want = meta.annotations?.["kubectl.kubernetes.io/default-container"];
+  return want && containers.includes(want) ? want : containers[0];
+}
+
 /** One row of the Pods table, derived from a Pod object. */
 export interface PodRow {
   key: string;

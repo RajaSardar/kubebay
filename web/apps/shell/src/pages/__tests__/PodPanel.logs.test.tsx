@@ -50,4 +50,14 @@ describe("PodPanel logs", () => {
     fireEvent.change(screen.getByPlaceholderText("Filter lines…"), { target: { value: "ERROR from" } });
     expect(screen.getAllByText(/./, { selector: ".log-line" })).toHaveLength(1);
   });
+
+  it("opens on the container the default-container annotation names", () => {
+    const annotated = {
+      ...pod,
+      containers: ["app", "sidecar"],
+      obj: { metadata: { name: "api-1", annotations: { "kubectl.kubernetes.io/default-container": "sidecar" } } },
+    };
+    render(<PodPanel pod={annotated} onClose={() => {}} />);
+    expect(screen.getByLabelText("Container")).toHaveValue("sidecar");
+  });
 });

@@ -34,7 +34,7 @@ The pod's metadata (including its **Pod IP** and **Host IP**, or **Pod IPs** and
 
 Logs stream as the container writes them.
 
-- **Container** picks which container to show.
+- **Container** picks which container to show. It starts on the container the pod's `kubectl.kubernetes.io/default-container` annotation names, as `kubectl logs` does, and otherwise on the first container. The Terminal tab uses the same choice.
 - **tail** sets how many earlier lines to load.
 - **follow** keeps the newest line in view.
 - **previous** shows the run before the last restart, which is where a crash's cause usually is.
