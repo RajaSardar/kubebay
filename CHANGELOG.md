@@ -6,6 +6,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ## [Unreleased]
 
+## [0.7.9] - 2026-11-18
+
 ### Added
 - **Best practices: severity, more checks and lessons** (backlog 36). Every check has a severity (Critical, High, Medium, Low), and a strip at the top shows the pass percentage, Pass, Fail and Unknown counts and failing checks per severity. Unknown (a resource Kubebay can't read) never counts as a pass. Filter by severity and by status, and sort by theme, severity or status. 13 new checks from data already streamed: privileged containers, hostNetwork/hostPID/hostPath, running as root, `:latest` or untagged images, missing liveness probes, default ServiceAccount token mounted, plain-text secrets in env vars, LoadBalancer Services without source ranges, PVCs with no Velero schedule, nodes not Ready, node version skew, certificates expiring within 14 days and HPAs at their maximum. Each check has a **Learn** disclosure with a short lesson and the official docs address as text. Still read-only.
 - **Helm release in the Owned-by chain.** A pod, or a workload above it, that Helm installed (label `app.kubernetes.io/managed-by: Helm`, release from the `meta.helm.sh/release-name` and `release-namespace` annotations, or the `app.kubernetes.io/instance` label) now ends its **Owned by** chain with **Helm release <name>**, which opens that release's drawer on the Helm page (`/helm?release=namespace/name`). The pods page no longer overstates this. (Backlog 12, gap G4.)

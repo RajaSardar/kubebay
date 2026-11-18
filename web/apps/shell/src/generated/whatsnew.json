@@ -6,6 +6,50 @@
       "sections": []
     },
     {
+      "version": "0.7.9",
+      "date": "2026-11-18",
+      "sections": [
+        {
+          "heading": "Added",
+          "items": [
+            {
+              "title": "Best practices: severity, more checks and lessons",
+              "summary": "(backlog 36)."
+            },
+            {
+              "title": "Helm release in the Owned-by chain",
+              "summary": "A pod, or a workload above it, that Helm installed (label app.kubernetes.io/managed-by: Helm, release from the meta.helm.sh/release-name and release-namespace annotations, or the app.kubernetes.io/instance label) now ends its Owned by chain…"
+            },
+            {
+              "title": "Debug with ephemeral container",
+              "summary": "In a pod's Terminal tab, for images with no shell."
+            },
+            {
+              "title": "Warm-cluster settings",
+              "summary": "Settings has a Warm clusters card for how many connected clusters keep streaming (0 to 50) and how long an unviewed one stays warm (idle minutes)."
+            },
+            {
+              "title": "Sleeping clusters are labelled in the cluster list",
+              "summary": "With a grey Sleeping pill in the Session column."
+            },
+            {
+              "title": "A row budget across all connected clusters",
+              "summary": "The browser now holds at most about 50,000 live rows across every connected cluster; past that, the least recently viewed cluster (never the active or a pinned one) goes to sleep and the engine drops its streams."
+            }
+          ]
+        },
+        {
+          "heading": "Changed",
+          "items": [
+            {
+              "title": "After a dropped connection (a laptop waking), the active and pinned clusters reconnect immediately; the rest still follow over about two seconds",
+              "summary": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
       "version": "0.7.8",
       "date": "2026-11-18",
       "sections": [
