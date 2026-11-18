@@ -104,8 +104,8 @@ export const PAGE_HELP: Record<string, PageHelpEntry> = {
   },
   "/best-practices": {
     name: "Best practices",
-    what: "A checklist for this cluster: disruption budgets, requests and probes, network and pod security, backups and the tools worth installing.",
-    how: "Each check reads what Kubebay already sees; a tool that isn't detected shows its install command as text, and Kubebay never runs it.",
+    what: "A severity-ranked checklist for this cluster: disruption budgets, probes, pod and network security, backups, nodes, certificates and the tools worth installing.",
+    how: "Each check reads what Kubebay already sees and has a Learn lesson; unreadable checks show Unknown, never Pass. A missing tool shows its install command as text, and Kubebay never runs it.",
     docs: "best-practices",
   },
   "/vulnerabilities": {

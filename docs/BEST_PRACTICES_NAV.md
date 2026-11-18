@@ -24,4 +24,11 @@ The ask: a place in the app that teaches Kubernetes best practice (DR, stability
 - Each check is pass, fail or unknown, with a one-line why. A stream RBAC forbids gives unknown, never pass. Tool checks say "not detected".
 - A missing tool gets a "How to install" disclosure with the official command as text; Kubebay never runs it. An installed tool links to Helm, Network policy or Vulnerabilities.
 - Workload checks show a count and up to three offenders; kube-system, kube-public and kube-node-lease are left out.
-- Deferred: a framework score (CIS), severity weighting, per-check exceptions, fix actions, multi-cluster comparison, more tools (backup restore tests, Prometheus alerts, secrets managers).
+- Deferred: a framework score (CIS), per-check exceptions, fix actions, multi-cluster comparison, more tools (backup restore tests, Prometheus alerts, secrets managers).
+
+## Slice 2 (built)
+
+- **Severity.** Each check is Critical, High, Medium or Low, fixed in code (`META` in `lib/bestPractices.ts`), not user-tunable and not mapped to CIS. A strip shows the pass percentage (pass over all checks, so Unknown pulls it down and is never counted as a pass), the three status counts and failing checks per severity. Filters for severity and status, and a sort by theme, severity or status.
+- **13 more checks** (24 in all), again from streams and discovery only: privileged, host access, runs as root, latest tag, liveness probe, default ServiceAccount token, plain-text env secrets, LoadBalancer source ranges, PVC backup schedule (Velero Schedules), nodes Ready, node version skew, certificate expiry (cert-manager, 14 days) and HPA at max. Services, PVCs, Nodes and HPAs are new streams; Certificates and Velero Schedules open only when discovery lists the group, and when the group is absent the check says so (cert expiry passes with nothing to check; PVC backup fails with "no schedule detected", worded as detection, not proof).
+- **Learn.** A short plain-language lesson and the official docs address as text, per check; no outbound fetch.
+- **Limits.** Only Deployments and StatefulSets are read, so DaemonSets, CronJobs and bare pods are not covered. Secret detection is by env var name, so it will miss a credential under a neutral name and may flag a harmless literal. Checks pass or fail on declared spec, not on what runs.
