@@ -6,6 +6,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ## [Unreleased]
 
+### Added
+- **Explain this pod.** A pod that is not healthy shows a card at the top of its drawer's Summary with a short plain-language diagnosis, the field it was read from, and up to three next steps (previous container's logs, Events, YAML, the PVC or the node). Deterministic rules over the pod's status and its streamed events, with no AI and no new requests; it covers evicted, node not ready, OOMKilled, image pull errors, container config errors, CrashLoopBackOff, unbound PVC, unschedulable, failing probes and non-zero exits, and says so when it finds no known cause. Healthy pods show nothing. Not yet checked against a live cluster. (Backlog 12, innovation I1.)
+
 ## [0.7.9] - 2026-11-18
 
 ### Added
