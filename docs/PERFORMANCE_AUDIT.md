@@ -1,4 +1,4 @@
-# Performance audit (backlog 23), pass 1
+# Performance audit (backlog 23), passes 1 and 2
 
 Method: source reading plus counting tests. No builds, no device profile, so
 nothing here is a wall-clock number. Counts below were measured by the new
@@ -21,12 +21,18 @@ tests, before and after each fix.
 ### Polling
 - `["clusters"]` refetches every 4 s from `AppInner`, `ClusterStrip` and `ClusterPicker`; one request (same key), and react-query structural sharing keeps the data identity when nothing changed.
 - React Query's default `refetchIntervalInBackground: false` pauses every interval while the page is hidden, so no per-query change was needed.
-- Open risk: `main.tsx` sets a global `refetchInterval: 30_000`, so every mounted query without its own interval polls every 30 s. Many of those are data the stream or an event already keeps fresh.
+- Fixed in pass 2: the global `refetchInterval: 30_000` is gone (the client now lives in `lib/queryClient.ts`; `queryClient.test.ts` fails if a global interval returns). Queries that polled only through the default and still need it got an explicit interval: `history-status` in `UsageHistoryCard` (30 s) and `mcp` in `McpSettingsCard` (15 s, as `McpChip`). Every other query already had its own interval or, being the same key as a polled one (`clusters`, 4 s), is covered by it. Queries that no longer poll, on purpose: `crds`, `apis`, `apiversions`, `rbac`, `settings`, `triage`, `prom-status`, `helm-release/history/values/manifest`, `chart-*`, `resize-current`, `gpu-utilisation` (its own `staleTime` is 5 min), `configmap-env`, `fav-exists`. They refetch on mount once stale (30 s), on invalidation, and on cluster switch. Behaviour change to check in the app: a page left open no longer refreshes those every 30 s.
+
+### Pass 2: row memoisation
+- `ResourceListView` rows are now a memoised `ListRow`. A stream flush rebuilds the rows array, but a row re-renders only if its object changed (same reference, or the same non-empty `versionOf`, which is how Workloads' freshly derived `PodRow`s compare) or its own selection, active, dimmed, tint, visible columns, column definitions or cluster changed. Callbacks given to rows (`onOpen`, menu, namespace pick) are stable and read the latest props through refs, so Workloads' `onOpen` (which depends on `rows`) no longer defeats the memo. Measured with a cell render counter on 40 rows: rebuilt array with the same versions, 9 cell renders before and 0 after; one row changed, 27 before and 2 after (new values, then the tint), all for that row; selecting one row, 18 before and 1 after.
+- Not done: caching `derivePod` per raw object (it embeds `ageMs` from `Date.now()`, so a cache would need that field dropped first). Profile the join cost in Workloads and WorkloadsOverview.
 
 ## Tests added
 - `components/__tests__/resourceListScale.test.tsx`: window size, hover does not re-render cells, sort reads each row once.
 - `lib/__tests__/useResourceStreamBurst.test.tsx`: burst coalescing.
 - `lib/__tests__/useWsStatus.test.tsx`: unchanged status does not re-render.
+- `components/__tests__/resourceListMemo.test.tsx`: row re-render counts (pass 2).
+- `lib/__tests__/queryClient.test.ts`: no global refetch interval; `UsageHistoryCard.test.tsx`: its own interval.
 All count work, not time, so they do not depend on CI load.
 
 ## Done
@@ -38,7 +44,5 @@ Hover re-render, sort decoration, `useWsStatus` bail-out, five regression tests.
 - Bundle bytes: not rebuilt in this pass.
 
 ## Next
-1. Drop the global 30 s `refetchInterval` default and give polling queries their own interval; check each page still refreshes.
-2. `React.memo` the row (`TableRow` children) so a stream flush re-renders only changed rows: needs stable `onClick`/menu callbacks per row.
-3. Profile Workloads and WorkloadsOverview, which join several streams per render.
-4. Decide on minifying the shell while keeping source maps.
+1. Profile Workloads and WorkloadsOverview, which join several streams per render.
+2. Decide on minifying the shell while keeping source maps.

@@ -23,7 +23,7 @@ function fmtTime(iso: string): string {
  */
 export function McpSettingsCard() {
   const qc = useQueryClient();
-  const status = useQuery({ queryKey: ["mcp"], queryFn: mcpApi.get });
+  const status = useQuery({ queryKey: ["mcp"], queryFn: mcpApi.get, refetchInterval: 15_000 });
   const clusters = useQuery({ queryKey: ["clusters"], queryFn: api.clusters });
   const st = status.data;
   const audit = useQuery({ queryKey: ["audit"], queryFn: api.auditLog, enabled: !!st?.enabled, refetchInterval: 10_000 });

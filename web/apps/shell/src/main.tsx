@@ -6,12 +6,13 @@ import "@fontsource/roboto/700.css";
 // text uses it, so this costs nothing until someone picks it.
 import "@fontsource/jetbrains-mono/400.css";
 import "@fontsource/jetbrains-mono/500.css";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import "./lib/theme";
 import "./lib/display";
+import { createQueryClient } from "./lib/queryClient";
 import { startWindowSync } from "./lib/windowSyncApply";
 import App from "./App";
 import { TokenGate } from "./components/TokenGate";
@@ -54,21 +55,7 @@ document.addEventListener(
   { passive: false },
 );
 
-const qc = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 1,
-      refetchInterval: 30_000,
-      // Show cached data immediately on context switch; background-refetch only when stale.
-      // Without staleTime the default is 0 — every focus/mount triggers a refetch even for
-      // data fetched a second ago, causing a loading flash when switching clusters.
-      staleTime: 30_000,
-      // Keep inactive query data in memory for 10 minutes so switching back to a previously-
-      // viewed context restores the cache instantly without a network round-trip.
-      gcTime: 10 * 60_000,
-    },
-  },
-});
+const qc = createQueryClient();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

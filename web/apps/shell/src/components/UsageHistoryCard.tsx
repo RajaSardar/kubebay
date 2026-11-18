@@ -11,7 +11,7 @@ export function UsageHistoryCard({ clusters }: { clusters: Record<string, boolea
   const qc = useQueryClient();
   const ids = Object.keys(clusters).sort();
   const statuses = useQueries({
-    queries: ids.map((id) => ({ queryKey: ["history-status", id], queryFn: () => historyApi.status(id) })),
+    queries: ids.map((id) => ({ queryKey: ["history-status", id], queryFn: () => historyApi.status(id), refetchInterval: 30_000 })),
   });
   const byId = new Map<string, HistoryStatus | undefined>(ids.map((id, i) => [id, statuses[i]?.data]));
   const first = statuses.find((s) => s.data)?.data;

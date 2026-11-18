@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { Badge, Button, ColumnChooser, EmptyState, IconButton, InlineBanner, NsPill, PageHeader, SelectAllHeader, SelectCell, SelectionBar, SkeletonTable, SortHeader, Table, TableRow, TableWrap, TextField, VisuallyHidden } from "@kubebay/ui";
 import { shouldShowSkeleton } from "../lib/useResourceStream";
 import { ForbiddenState, NamespacesDeniedBanner } from "./ForbiddenState";
@@ -115,6 +115,108 @@ function deletePreview(targets: readonly DeleteTarget[]): ReactNode {
     </>
   );
 }
+
+interface ListRowProps<R> {
+  r: R;
+  rowKey: string;
+  index: number;
+  measureRef: (el: HTMLTableRowElement | null) => void;
+  selected: boolean;
+  active: boolean;
+  dimmed: boolean;
+  changed: boolean;
+  visible: readonly string[];
+  byCol: ReadonlyMap<string, ListColumn<R>>;
+  cluster: string;
+  versionOf?: (r: R) => string;
+  nameOf: (r: R) => string;
+  nsOf: (r: R) => string;
+  createdOf: (r: R) => string;
+  onOpen: (r: R) => void;
+  onToggle: (key: string) => void;
+  onMenu: (x: number, y: number, row: R) => void;
+  onNamespace: (ns: string) => void;
+}
+
+function ListRowImpl<R>(p: ListRowProps<R>) {
+  const { r, rowKey, index, selected, active } = p;
+  const name = p.nameOf(r);
+  const ns = p.nsOf(r);
+  const created = p.createdOf(r);
+  return (
+    <TableRow
+      data-index={index}
+      ref={p.measureRef}
+      clickable
+      selected={selected}
+      hovered={active}
+      aria-current={active ? "true" : undefined}
+      dimmed={p.dimmed}
+      changed={p.changed}
+      onClick={() => p.onOpen(r)}
+      onContextMenu={(e) => { e.preventDefault(); p.onMenu(e.clientX, e.clientY, r); }}
+    >
+      <SelectCell checked={selected} onChange={() => p.onToggle(rowKey)} label={`Select ${name}`} />
+      <td className="mono td-name" title={name}><span>{name}</span></td>
+      {p.visible.map((id) => {
+        if (id === "Namespace")
+          return (
+            <td key={id} className="mono">
+              <NsPill title={`Filter by namespace: ${ns}`} onClick={() => p.onNamespace(ns)}>
+                {ns}
+              </NsPill>
+            </td>
+          );
+        if (id === "Age")
+          return (
+            <td key={id} className="mono muted" title={absoluteTime(created)}>
+              <LiveAge ts={created} />
+            </td>
+          );
+        const c = p.byCol.get(id);
+        if (!c) return null;
+        return (
+          <td
+            key={id}
+            className={(typeof c.className === "function" ? c.className(r) : c.className) ?? "mono muted"}
+            title={c.title?.(r)}
+          >
+            {c.cell(r)}
+          </td>
+        );
+      })}
+      {/* ⋮ kebab — visible only on row hover */}
+      <td className="col-row-menu" onClick={(e) => e.stopPropagation()}>
+        <IconButton
+          label={`Actions for ${name}`}
+          className="row-menu-btn"
+          onClick={(e) => {
+            e.stopPropagation();
+            p.onMenu(e.clientX, e.clientY, r);
+          }}
+        >
+          ⋮
+        </IconButton>
+      </td>
+    </TableRow>
+  );
+}
+
+/** Same object, or (with a versionOf) the same resourceVersion: the row shows the same. Everything else must match exactly. */
+function sameRow<R>(a: ListRowProps<R>, b: ListRowProps<R>): boolean {
+  if (
+    a.rowKey !== b.rowKey || a.index !== b.index || a.selected !== b.selected || a.active !== b.active ||
+    a.dimmed !== b.dimmed || a.changed !== b.changed || a.visible !== b.visible || a.byCol !== b.byCol ||
+    a.cluster !== b.cluster || a.measureRef !== b.measureRef || a.onOpen !== b.onOpen || a.onToggle !== b.onToggle ||
+    a.onMenu !== b.onMenu || a.onNamespace !== b.onNamespace
+  )
+    return false;
+  if (a.r === b.r) return true;
+  const v = b.versionOf;
+  return !!v && v === a.versionOf && v(a.r) !== "" && v(a.r) === v(b.r);
+}
+
+const ListRow = memo(ListRowImpl, sameRow) as typeof ListRowImpl;
 
 const NAME_W = 240;
 const NS_W = 120;
@@ -291,6 +393,18 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
   }, [confirming]);
   const { virtualizer, items: virtualRows, topSpace, bottomSpace } = list.virtual;
 
+  // Row callbacks are stable (they read the latest props through refs) so a
+  // memoised row re-renders only when its own object or state changes.
+  const onOpenRef = useRef(onOpen);
+  onOpenRef.current = onOpen;
+  const openRow = useCallback((r: R) => onOpenRef.current(r), []);
+  const openMenu = useCallback((x: number, y: number, row: R) => setCtx({ x, y, row }), []);
+  const nsRef = useRef({ cluster: p.cluster, setNamespaces });
+  nsRef.current = { cluster: p.cluster, setNamespaces };
+  const pickNamespace = useCallback((ns: string) => {
+    if (nsRef.current.cluster) nsRef.current.setNamespaces(nsRef.current.cluster, [ns]);
+  }, []);
+
   async function confirmDelete() {
     const succeeded = await bulkDelete.confirm();
     deselect(succeeded.map((t) => `${t.ns}/${t.name}`));
@@ -421,74 +535,30 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
             <tbody>
               <VirtualSpacer height={topSpace} colSpan={headers.length + 2} />
               {virtualRows.map((virtualRow) => {
-                const r = rows[virtualRow.index]!;
-                const name = nameOf(r);
-                const ns = nsOf(r);
                 const key = allKeys[virtualRow.index]!;
-                const isSelected = selectedKeys.has(key);
-                const created = createdOf(r);
                 return (
-                  <TableRow
+                  <ListRow<R>
                     key={key}
-                    data-index={virtualRow.index}
-                    ref={virtualizer.measureElement}
-                    clickable
-                    selected={isSelected}
-                    hovered={activeRow === virtualRow.index}
-                    aria-current={activeRow === virtualRow.index ? "true" : undefined}
-                    dimmed={p.isDimmed?.(r) ?? false}
+                    r={rows[virtualRow.index]!}
+                    rowKey={key}
+                    index={virtualRow.index}
+                    measureRef={virtualizer.measureElement}
+                    selected={selectedKeys.has(key)}
+                    active={activeRow === virtualRow.index}
+                    dimmed={p.isDimmed?.(rows[virtualRow.index]!) ?? false}
                     changed={changedKeys.has(key)}
-                    onClick={() => onOpen(r)}
-                    onContextMenu={(e) => { e.preventDefault(); setCtx({ x: e.clientX, y: e.clientY, row: r }); }}
-                  >
-                    <SelectCell checked={isSelected} onChange={() => toggleRow(key)} label={`Select ${name}`} />
-                    <td className="mono td-name" title={name}><span>{name}</span></td>
-                    {prefs.visible.map((id) => {
-                      if (id === "Namespace")
-                        return (
-                          <td key={id} className="mono">
-                            <NsPill
-                              title={`Filter by namespace: ${ns}`}
-                              onClick={() => {
-                                if (p.cluster) setNamespaces(p.cluster, [ns]);
-                              }}
-                            >
-                              {ns}
-                            </NsPill>
-                          </td>
-                        );
-                      if (id === "Age")
-                        return (
-                          <td key={id} className="mono muted" title={absoluteTime(created)}>
-                            <LiveAge ts={created} />
-                          </td>
-                        );
-                      const c = byCol.get(id);
-                      if (!c) return null;
-                      return (
-                        <td
-                          key={id}
-                          className={(typeof c.className === "function" ? c.className(r) : c.className) ?? "mono muted"}
-                          title={c.title?.(r)}
-                        >
-                          {c.cell(r)}
-                        </td>
-                      );
-                    })}
-                    {/* ⋮ kebab — visible only on row hover */}
-                    <td className="col-row-menu" onClick={(e) => e.stopPropagation()}>
-                      <IconButton
-                        label={`Actions for ${name}`}
-                        className="row-menu-btn"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setCtx({ x: e.clientX, y: e.clientY, row: r });
-                        }}
-                      >
-                        ⋮
-                      </IconButton>
-                    </td>
-                  </TableRow>
+                    visible={prefs.visible}
+                    byCol={byCol}
+                    cluster={p.cluster}
+                    versionOf={p.versionOf}
+                    nameOf={nameOf}
+                    nsOf={nsOf}
+                    createdOf={createdOf}
+                    onOpen={openRow}
+                    onToggle={toggleRow}
+                    onMenu={openMenu}
+                    onNamespace={pickNamespace}
+                  />
                 );
               })}
               <VirtualSpacer height={bottomSpace} colSpan={headers.length + 2} />
