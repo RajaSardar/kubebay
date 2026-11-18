@@ -49,7 +49,13 @@ export function useResourceList<R>(o: ResourceListOptions<R>) {
         : rows.filter((r) => matchesFilter(filterFields(r), filter));
     if (sort.col && (!sortable || sortable(sort.col))) {
       const col = sort.col;
-      out.sort((a, b) => (sort.asc ? compareValues(sortValue(a, col), sortValue(b, col)) : compareValues(sortValue(b, col), sortValue(a, col))));
+      // Each row's sort value is read once, not once per comparison: a column's
+      // value can be a parsed quantity or a formatted cell, and a comparison
+      // sort asks for two of them about N log N times.
+      const keyed = new Map<R, string | number>();
+      for (const r of out) keyed.set(r, sortValue(r, col));
+      const dir = sort.asc ? 1 : -1;
+      out.sort((a, b) => dir * compareValues(keyed.get(a)!, keyed.get(b)!));
     } else {
       out.sort(defaultSort);
     }
