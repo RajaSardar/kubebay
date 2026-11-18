@@ -8,6 +8,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ### Added
 - **Explain this pod.** A pod that is not healthy shows a card at the top of its drawer's Summary with a short plain-language diagnosis, the field it was read from, and up to three next steps (previous container's logs, Events, YAML, the PVC or the node). Deterministic rules over the pod's status and its streamed events, with no AI and no new requests; it covers evicted, node not ready, OOMKilled, image pull errors, container config errors, CrashLoopBackOff, unbound PVC, unschedulable, failing probes and non-zero exits, and says so when it finds no known cause. Healthy pods show nothing. Not yet checked against a live cluster. (Backlog 12, innovation I1.)
+- **YAML in the dock: recovery, New resource tab and a text budget** (backlog 51, rest of phases 3 to 5). Unapplied YAML is kept for this window (session storage, never for Secrets, never over about 200 KB) and a reload or crash offers **Restore unsaved edit** when you open the object again; applying, **Revert**, **Reload** and **Discard** clear it. A tab whose object is deleted on the cluster shows **Deleted on the cluster**, turns Apply and Dry-run off and offers **Re-create from this text** (through the create path, with the production confirmation). **Open in dock** on Create Resource opens a **New resource** tab with the kind templates. The fixed cap of 8 tabs is now a budget of about 2 MB of editor text with a clear message when it is used up. Closing or reloading the window with unapplied YAML asks first in the browser; the packaged Tauri window has not been checked.
+
+### Changed
+- `GET /api/yaml` answers 404 (not 502) for an object that does not exist, so editors can tell a deletion from an unreachable cluster.
 
 ## [0.7.9] - 2026-11-18
 

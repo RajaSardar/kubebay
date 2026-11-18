@@ -4,7 +4,7 @@ import { Button, EmptyState, InlineBanner, Splitter, StatusPill, Tabs, VisuallyH
 import { ErrorBoundary } from "./ErrorBoundary";
 import { PageHelp } from "./PageHelp";
 import { DiscardChangesModal } from "./DiscardGuard";
-import { YamlTab } from "./heavy";
+import { NewResourceTab, YamlTab } from "./heavy";
 import { isEditDirty, useEditDirty } from "../lib/editGuard";
 import { useClusterLooksProduction } from "../lib/useClusterLooksProduction";
 import { settingsApi, type ClusterInfo, type LocalShellCapability } from "../lib/api";
@@ -39,7 +39,7 @@ function YamlTabLabel({ tab }: { tab: EditTab }) {
   const { production } = useClusterLooksProduction(tab.cluster);
   return (
     <>
-      {`YAML ${tab.name}`}
+      {tab.isNew ? "New resource" : `YAML ${tab.name}`}
       {dirty && (
         <>
           <span aria-hidden> ●</span>
@@ -91,6 +91,8 @@ export function TerminalDock({
   const maximized = useTerminalDock((s) => s.maximized);
   const toggleMaximized = useTerminalDock((s) => s.toggleMaximized);
   const cycleTab = useTerminalDock((s) => s.cycleTab);
+  const capMessage = useTerminalDock((s) => s.capMessage);
+  const dismissCapMessage = useTerminalDock((s) => s.dismissCapMessage);
   const [confirmClose, setConfirmClose] = useState<string | null>(null);
   const settings = useQuery({ queryKey: ["settings"], queryFn: settingsApi.get });
 
@@ -106,7 +108,11 @@ export function TerminalDock({
   const showShell = open && !onYaml;
   const tabIds = ["shell", ...tabs.map((t) => t.key)];
   const labels: Record<string, ReactNode> = { shell: "Shell", ...Object.fromEntries(tabs.map((t) => [t.key, <YamlTabLabel key={t.key} tab={t} />])) };
-  const titleOf = (key: string) => `YAML ${tabs.find((t) => t.key === key)?.name ?? ""}`;
+  const titleOf = (key: string) => {
+    const t = tabs.find((x) => x.key === key);
+    return t?.isNew ? "New resource" : `YAML ${t?.name ?? ""}`;
+  };
+  const activeIsNew = !!tabs.find((t) => t.key === activeTab)?.isNew;
   const closeActive = () => {
     if (isEditDirty(activeTab)) setConfirmClose(activeTab);
     else closeEditTab(activeTab);
@@ -155,7 +161,7 @@ export function TerminalDock({
         <span className="kb-dock-actions">
           {onYaml && (
             <Button variant="ghost" size="sm" onClick={closeActive}>
-              Close YAML tab
+              {activeIsNew ? "Close tab" : "Close YAML tab"}
             </Button>
           )}
           {!onYaml && binding && (
@@ -172,10 +178,28 @@ export function TerminalDock({
           <PageHelp route="/terminal" align="end" />
         </span>
       </div>
+      {capMessage && (
+        <InlineBanner
+          tone="warn"
+          flush
+          role="alert"
+          actions={
+            <Button variant="ghost" onClick={dismissCapMessage}>
+              Dismiss
+            </Button>
+          }
+        >
+          {capMessage}
+        </InlineBanner>
+      )}
       <div className="kb-dock-body">
         {tabs.map((t) => (
           <div key={t.key} className="yaml-wrap" style={t.key === activeTab ? undefined : { display: "none" }}>
             <ErrorBoundary>
+              {t.isNew ? (
+                <NewResourceTab cluster={selectedCluster || null} guardKey={t.key} initialKind={t.newKind} initialYaml={t.newYaml} />
+              ) : (
+                <>
               {isOffline(clusters, t.cluster) && (
                 <InlineBanner tone="warn" flush role="alert">
                   <strong>This cluster is not connected.</strong> Your edit stays here; Apply and Dry-run are off until it is back.
@@ -192,6 +216,8 @@ export function TerminalDock({
                 offline={isOffline(clusters, t.cluster)}
                 watch={open && t.key === activeTab}
               />
+                </>
+              )}
             </ErrorBoundary>
           </div>
         ))}
@@ -207,6 +233,7 @@ export function TerminalDock({
       </div>
       {confirmClose && (
         <DiscardChangesModal
+          keys={[confirmClose]}
           onKeep={() => setConfirmClose(null)}
           onDiscard={() => {
             closeEditTab(confirmClose);

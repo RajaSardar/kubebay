@@ -132,7 +132,11 @@ func (c *Channels) HandleGetYAML(w http.ResponseWriter, r *http.Request) {
 		obj, err = d.Resource(g).Get(ctx, name, metav1.GetOptions{})
 	}
 	if err != nil {
-		http.Error(w, fmt.Sprintf("get: %v", err), http.StatusBadGateway)
+		status := http.StatusBadGateway
+		if apierrors.IsNotFound(err) {
+			status = http.StatusNotFound // the editor says "deleted", not "unreachable"
+		}
+		http.Error(w, fmt.Sprintf("get: %v", err), status)
 		return
 	}
 	u, ok := obj.(interface{ UnstructuredContent() map[string]interface{} })

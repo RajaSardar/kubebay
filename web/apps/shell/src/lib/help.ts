@@ -63,13 +63,13 @@ export const PAGE_HELP: Record<string, PageHelpEntry> = {
   "/create-resource": {
     name: "Create Resource",
     what: "Create any resource from a template or your own YAML.",
-    how: "Dry run has the API server validate it, admission webhooks included, without saving; Apply creates it.",
+    how: "Dry run has the API server validate it without saving; Apply creates it. Open in dock moves your text to a New resource tab.",
     docs: "create-resource",
   },
   "/terminal": {
     name: "Terminal",
     what: "A shell on your own machine, with kubectl and your other tools, bound to one cluster's context. It lives in a dock under every page: Ctrl+` opens it from anywhere.",
-    how: "The shell survives page changes and Hide. YAML can open as a dock tab (row menu Edit in dock, ⌘K, or Open in bottom dock); Ctrl/⌘+S applies.",
+    how: "YAML and New resource open as dock tabs and keep their text through Hide. Ctrl/⌘+S applies; a reload offers unsaved YAML back.",
     docs: "terminal",
   },
   "/ports": {

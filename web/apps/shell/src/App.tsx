@@ -9,6 +9,7 @@ import { Button, DisclosureButton, DrawerInset, EmptyState, Kbd, KubebayMark, na
 import { TerminalDock } from "./components/TerminalDock";
 import { DockToggle, SidebarTerminal, useDockInset, useDockShortcut } from "./components/DockEntryPoints";
 import { useTerminalDock } from "./lib/terminalDock";
+import { useUnloadGuard } from "./lib/unloadGuard";
 import {
   IconArgoCD,
   IconCube,
@@ -638,6 +639,7 @@ function AppInner() {
   // ADR 0005: the terminal dock under the page. Ctrl+` opens it from anywhere,
   // and drawers end above it and ignore presses in it.
   useDockShortcut();
+  useUnloadGuard(); // closing or reloading the window with an unapplied YAML edit asks first
   const dockRef = useRef<HTMLElement>(null);
   const dockOpen = useTerminalDock((s) => s.open);
   const dockHeight = useTerminalDock((s) => s.height);
