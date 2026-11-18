@@ -339,7 +339,18 @@ export default function PodPanel({ pod, onClose: onCloseNow, onDeleted }: { pod:
           <PodGraphs cluster={pod.cluster} namespace={pod.namespace} pod={pod.pod} />
         </div>
       ) : tab === "summary" ? (
-        <PodSummary obj={pod.obj ?? {}} cluster={pod.cluster} />
+        <PodSummary
+          obj={pod.obj ?? {}}
+          cluster={pod.cluster}
+          onOpenTab={(t, o) => {
+            if (t === "logs") {
+              if (o?.container) setContainer(o.container);
+              setPrevious(o?.previous === true);
+              if (o?.previous) setFollow(false);
+            }
+            setTab(t);
+          }}
+        />
       ) : tab === "size" ? (
         <ResizePanel
           cluster={pod.cluster}

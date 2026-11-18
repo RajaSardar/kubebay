@@ -7,6 +7,7 @@ import { PodContainerPortForward } from "./PodContainerPortForward";
 import { describeVolume } from "../lib/podVolumes";
 import { describeLastState } from "../lib/podContainerState";
 import { podResourceClaims } from "../lib/dra";
+import { ExplainPod, type ExplainTab } from "./ExplainPod";
 
 function rec(v: unknown): Record<string, unknown> {
   return (v ?? {}) as Record<string, unknown>;
@@ -77,9 +78,12 @@ function IPs({ ips }: { ips: string[] }) {
 export function PodSummary({
   obj,
   cluster,
+  onOpenTab,
 }: {
   obj: Record<string, unknown>;
   cluster: string;
+  /** Lets the Explain card's next steps open the drawer's own tabs; without it the card is not shown. */
+  onOpenTab?: (tab: ExplainTab, opts?: { container?: string; previous?: boolean }) => void;
 }) {
   const rawOwnerRefs = arr(rec(obj.metadata).ownerReferences) as { apiVersion?: string; kind: string; name: string; controller?: boolean }[];
   const ownerChain = useOwnerChain(cluster, String(rec(obj.metadata).namespace ?? ""), rawOwnerRefs, obj);
@@ -174,6 +178,7 @@ export function PodSummary({
 
   return (
     <div className="pod-summary" style={{ padding: 14, overflowY: "auto", flex: 1 }}>
+      {onOpenTab && <ExplainPod obj={obj} cluster={cluster} onOpenTab={onOpenTab} />}
       <div className="pod-section" style={{ marginBottom: 14 }}>
         <Row align="center" gap={2} wrap>
           <StatusDot status={data.phase === "Running" ? "connected" : data.phase === "Succeeded" ? "pending" : data.phase === "Failed" ? "unreachable" : "degraded"} />
