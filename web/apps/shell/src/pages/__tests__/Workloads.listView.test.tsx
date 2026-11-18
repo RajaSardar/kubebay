@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -71,11 +73,13 @@ describe("Pods on the shared list view", () => {
     expect(rowOf("web-b")).not.toHaveAttribute("data-terminating");
   });
 
-  it("highlights the row under the mouse", () => {
+  it("tints the row under the mouse with CSS, not React state", () => {
+    // The hover tint is the table's own `tr:hover` rule; tracking the hovered row in state
+    // re-rendered every cell on each mouse move.
+    const css = readFileSync(resolve(__dirname, "../../../../../packages/ui/src/styles.css"), "utf8");
+    expect(css).toMatch(/\.kb-table tbody tr:hover\s*\{/);
     renderPods();
     fireEvent.mouseEnter(rowOf("redis-a"));
-    expect(rowOf("redis-a")).toHaveClass("hovered");
-    fireEvent.mouseLeave(rowOf("redis-a"));
     expect(rowOf("redis-a")).not.toHaveClass("hovered");
   });
 
