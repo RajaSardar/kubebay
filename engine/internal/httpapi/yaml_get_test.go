@@ -76,3 +76,14 @@ func TestGetYAMLStillStripsServerFieldsFromTheEditorText(t *testing.T) {
 		t.Errorf("YAML lost the object:\n%s", body)
 	}
 }
+
+// A tab left open on an object someone deleted must be able to tell "gone"
+// from "the cluster is unreachable": a missing object is a 404.
+func TestGetYAMLOfADeletedObjectIs404(t *testing.T) {
+	c, _ := editChannels(t, liveForGet())
+	rr := httptest.NewRecorder()
+	c.HandleGetYAML(rr, httptest.NewRequest(http.MethodGet, "/api/yaml?cluster=c1&gvr=apps/v1/deployments&ns=shop&name=gone", nil))
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("status %d, want 404: %s", rr.Code, rr.Body.String())
+	}
+}

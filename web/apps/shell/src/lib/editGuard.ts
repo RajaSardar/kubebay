@@ -29,6 +29,11 @@ export function anyEditDirty(): boolean {
   return dirty.size > 0;
 }
 
+/** The keys of every editor that holds unapplied edits. */
+export function dirtyEditKeys(): string[] {
+  return [...dirty];
+}
+
 /** Test helper: forget every report. */
 export function resetEditGuard(): void {
   dirty.clear();

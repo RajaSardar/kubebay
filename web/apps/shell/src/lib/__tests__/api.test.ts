@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { api, cloudDiscoveryApi, mcpApi, triageApi } from "../api";
+import { api, cloudDiscoveryApi, mcpApi, triageApi, ObjectNotFoundError } from "../api";
 import { PolicyRejectionError, StaleEditError } from "../policyRejection";
 
 function jsonResponse(status: number, body: unknown) {
@@ -190,5 +190,23 @@ describe("mcpApi proposals (backlog #5 phase 2)", () => {
       ["/api/mcp/proposals/p-1a2b/approve", "POST"],
       ["/api/mcp/proposals/p-1a2b/reject", "POST"],
     ]);
+  });
+});
+
+describe("api.getYamlText", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("throws ObjectNotFoundError on a 404, so an editor can say the object was deleted", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(textResponse(404, 'get: configmaps "x" not found')));
+    await expect(api.getYamlText("c", "v1/configmaps", "d", "x")).rejects.toBeInstanceOf(ObjectNotFoundError);
+  });
+
+  it("keeps every other failure a plain error", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(textResponse(502, "get: connection refused")));
+    const e = await api.getYamlText("c", "v1/configmaps", "d", "x").catch((x: unknown) => x);
+    expect(e).not.toBeInstanceOf(ObjectNotFoundError);
+    expect((e as Error).message).toMatch(/connection refused/);
   });
 });

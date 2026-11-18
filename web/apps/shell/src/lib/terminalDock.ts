@@ -3,6 +3,7 @@ import type { ShellBinding } from "./localshell";
 import type { ShellPhase } from "./shellSession";
 import type { ShellPrefill } from "./useExtensions";
 import type { GitOpsOwner } from "./gitops";
+import { clearDraft } from "./editRecovery";
 
 // ADR 0005: the terminal dock's state. It imports no xterm, so the app shell,
 // the status bar and the sidebar can read it without loading a terminal. The
@@ -72,6 +73,10 @@ export interface EditTab {
   name: string;
   gitopsOwner?: GitOpsOwner | null;
   helmRelease?: string | null;
+  /** A "New resource" tab (Create Resource in the dock): no object yet, so cluster/gvr/ns/name are empty. */
+  isNew?: boolean;
+  newKind?: string;
+  newYaml?: string;
 }
 
 /** The tab id for an object; the same string YamlTab reports to the edit guard. */
@@ -84,8 +89,25 @@ export function dockEditItem(o: Omit<EditTab, "key">): { label: string; onClick:
   return { label: "Edit in dock", onClick: () => useTerminalDock.getState().openEditTab(o) };
 }
 
-/** Edit tabs held at once. Memory per editor is not measured; backlog 51 phase 5 sets the real cap. */
-export const MAX_EDIT_TABS = 8;
+/**
+ * Backlog 51 phase 5: the tab cap is a budget of editor text, not a count. The
+ * open editors hold their text two or three times over (loaded, edited, and
+ * Monaco's model), so this is about 2 MB of text: dozens of typical objects or
+ * a handful of large CRDs. A rule of thumb, not a measurement.
+ */
+export const EDIT_TEXT_BUDGET = 2_000_000;
+/** What a tab counts for before its text has loaded, and at the least. */
+export const MIN_TAB_CHARS = 20_000;
+
+/** The text the open tabs hold, each counted at least MIN_TAB_CHARS. */
+export function editTextUsed(tabs: EditTab[], sizes: Record<string, number>): number {
+  return tabs.reduce((n, t) => n + Math.max(MIN_TAB_CHARS, sizes[t.key] ?? 0), 0);
+}
+
+const CAP_MESSAGE =
+  "Not opened: the open editors already hold about as much text as the dock keeps. Close a tab, then open this one again.";
+
+let newTabSeq = 0;
 
 const windowHeight = () => (typeof window === "undefined" ? 800 : window.innerHeight);
 
@@ -107,6 +129,14 @@ interface DockState {
   tabs: EditTab[];
   /** "shell" or an edit tab's key. */
   activeTab: string;
+  /** Characters of text each edit tab holds, as its editor reports them. */
+  sizes: Record<string, number>;
+  /** Why a tab was not opened (the text budget), until dismissed or a tab closes. */
+  capMessage: string | null;
+  reportSize(key: string, chars: number): void;
+  dismissCapMessage(): void;
+  /** Open a "New resource" tab (Create Resource in the dock), optionally on a kind or carrying text. */
+  openNewTab(o: { kind?: string; yaml?: string }): void;
   /** The dock fills the page's height (backlog 51). Not kept across a relaunch. */
   maximized: boolean;
   toggleMaximized(): void;
@@ -140,6 +170,29 @@ export const useTerminalDock = create<DockState>()((set, get) => ({
   autoOpen: true,
   tabs: [],
   activeTab: "shell",
+  sizes: {},
+  capMessage: null,
+  reportSize(key, chars) {
+    if (get().sizes[key] !== chars) set({ sizes: { ...get().sizes, [key]: chars } });
+  },
+  dismissCapMessage() {
+    set({ capMessage: null });
+  },
+  openNewTab({ kind, yaml }) {
+    const { tabs, sizes } = get();
+    if (editTextUsed(tabs, sizes) >= EDIT_TEXT_BUDGET) {
+      set({ capMessage: CAP_MESSAGE });
+      get().openDock({ focus: false });
+      return;
+    }
+    const key = `new/${++newTabSeq}`;
+    set({
+      tabs: [...tabs, { key, cluster: "", gvr: "", ns: "", name: "", isNew: true, newKind: kind, newYaml: yaml }],
+      activeTab: key,
+      capMessage: null,
+    });
+    get().openDock({ focus: false });
+  },
   maximized: false,
   toggleMaximized() {
     set({ maximized: !get().maximized });
@@ -151,17 +204,24 @@ export const useTerminalDock = create<DockState>()((set, get) => ({
   },
   openEditTab(o) {
     const key = editTabKey(o);
-    const { tabs } = get();
+    const { tabs, sizes } = get();
     if (!tabs.some((t) => t.key === key)) {
-      if (tabs.length >= MAX_EDIT_TABS) return;
-      set({ tabs: [...tabs, { ...o, key }] });
+      if (editTextUsed(tabs, sizes) >= EDIT_TEXT_BUDGET) {
+        set({ capMessage: CAP_MESSAGE });
+        get().openDock({ focus: false });
+        return;
+      }
+      set({ tabs: [...tabs, { ...o, key }], capMessage: null });
     }
     set({ activeTab: key });
     get().openDock({ focus: false });
   },
   closeEditTab(key) {
-    const { tabs, activeTab } = get();
-    set({ tabs: tabs.filter((t) => t.key !== key), activeTab: activeTab === key ? "shell" : activeTab });
+    const { tabs, activeTab, sizes } = get();
+    const rest = { ...sizes };
+    delete rest[key];
+    clearDraft(key);
+    set({ tabs: tabs.filter((t) => t.key !== key), activeTab: activeTab === key ? "shell" : activeTab, sizes: rest, capMessage: null });
   },
   focusTab(key) {
     set({ activeTab: key });

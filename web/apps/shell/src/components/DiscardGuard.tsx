@@ -1,9 +1,19 @@
 import { useCallback, useState, type ReactNode } from "react";
 import { Button, Modal, Row, Stack } from "@kubebay/ui";
-import { anyEditDirty } from "../lib/editGuard";
+import { anyEditDirty, dirtyEditKeys } from "../lib/editGuard";
+import { clearDraft } from "../lib/editRecovery";
 
 /** "Discard changes?" — the answer to closing, switching or leaving with an unapplied YAML edit. */
-export function DiscardChangesModal({ onKeep, onDiscard }: { onKeep: () => void; onDiscard: () => void }) {
+export function DiscardChangesModal({
+  onKeep,
+  onDiscard,
+  keys,
+}: {
+  onKeep: () => void;
+  onDiscard: () => void;
+  /** The editors being dropped; every dirty one when not given. */
+  keys?: string[];
+}) {
   return (
     <Modal label="Discard changes?" title="Discard changes?" onClose={onKeep} placement="center">
       <Stack gap={3}>
@@ -12,7 +22,14 @@ export function DiscardChangesModal({ onKeep, onDiscard }: { onKeep: () => void;
           <Button variant="ghost" onClick={onKeep}>
             Keep editing
           </Button>
-          <Button variant="danger" onClick={onDiscard}>
+          <Button
+            variant="danger"
+            onClick={() => {
+              // Discarding is a choice, so the kept draft goes too: it is for crashes, not for this.
+              (keys ?? dirtyEditKeys()).forEach(clearDraft);
+              onDiscard();
+            }}
+          >
             Discard
           </Button>
         </Row>

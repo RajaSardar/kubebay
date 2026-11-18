@@ -257,10 +257,21 @@ async function fetchObject(
       signal: ctrl.signal,
       headers: { "X-Kubebay-Token": getToken() },
     });
-    if (!res.ok) throw new Error(await res.text());
+    if (!res.ok) {
+      const text = await res.text();
+      throw res.status === 404 ? new ObjectNotFoundError(text) : new Error(text);
+    }
     return res.text();
   } finally {
     clearTimeout(timer);
+  }
+}
+
+/** The object is not on the cluster (the engine answers 404 for a missing one, 502 for an unreachable cluster). */
+export class ObjectNotFoundError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ObjectNotFoundError";
   }
 }
 

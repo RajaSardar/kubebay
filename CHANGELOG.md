@@ -6,6 +6,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ## [Unreleased]
 
+### Added
+- **YAML in the dock: recovery, New resource tab and a text budget** (backlog 51, rest of phases 3 to 5). Unapplied YAML is kept for this window (session storage, never for Secrets, never over about 200 KB) and a reload or crash offers **Restore unsaved edit** when you open the object again; applying, **Revert**, **Reload** and **Discard** clear it. A tab whose object is deleted on the cluster shows **Deleted on the cluster**, turns Apply and Dry-run off and offers **Re-create from this text** (through the create path, with the production confirmation). **Open in dock** on Create Resource opens a **New resource** tab with the kind templates. The fixed cap of 8 tabs is now a budget of about 2 MB of editor text with a clear message when it is used up. Closing or reloading the window with unapplied YAML asks first in the browser; the packaged Tauri window has not been checked.
+
+### Changed
+- `GET /api/yaml` answers 404 (not 502) for an object that does not exist, so editors can tell a deletion from an unreachable cluster.
+
 ## [0.7.9] - 2026-11-18
 
 ### Added

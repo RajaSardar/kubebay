@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import Editor, { DiffEditor } from "../lib/monaco";
 import { Badge, Button, InlineBanner, Row, SkeletonLines, TextField } from "@kubebay/ui";
-import { api } from "../lib/api";
+import { api, ObjectNotFoundError } from "../lib/api";
+import { clearDraft, readDraft, writeDraft, type EditDraft } from "../lib/editRecovery";
+import { useTerminalDock } from "../lib/terminalDock";
 import { useMonacoTheme } from "../lib/theme";
 import { ownerWarning, type GitOpsOwner } from "../lib/gitops";
 import { PolicyRejectionError, StaleEditError, type PolicyRejectionDetail } from "../lib/policyRejection";
@@ -63,6 +65,12 @@ export function YamlTab({
   const [showLive, setShowLive] = useState(false);
   // A Secret's values stay hidden until asked for; asking is audited by the engine.
   const isSecret = gvr === "v1/secrets";
+  const guardKey = `${cluster}/${gvr}/${ns}/${name}`;
+  // Unsaved text kept from before a reload or crash (editRecovery.ts), offered once the object has loaded.
+  const [draft, setDraft] = useState<EditDraft | null>(() => readDraft(guardKey));
+  // The object is gone from the cluster while this editor is open.
+  const [deleted, setDeleted] = useState(false);
+  const [confirmingRecreate, setConfirmingRecreate] = useState(false);
   const [revealed, setRevealed] = useState(false);
   useEffect(() => setRevealed(false), [cluster, gvr, ns, name]);
 
@@ -78,8 +86,10 @@ export function YamlTab({
       const y = await (reveal ? api.getYamlText(cluster, gvr, ns, name, { reveal: true }) : api.getYamlText(cluster, gvr, ns, name));
       setOriginal(y);
       setModified(y);
+      setDeleted(false);
     } catch (e) {
-      setMsg({ ok: false, text: String(e instanceof Error ? e.message : e) });
+      if (e instanceof ObjectNotFoundError) setDeleted(true);
+      else setMsg({ ok: false, text: String(e instanceof Error ? e.message : e) });
     } finally {
       setLoading(false);
     }
@@ -106,9 +116,11 @@ export function YamlTab({
       let live: string;
       try {
         live = await (at.revealed ? api.getYamlText(cluster, gvr, ns, name, { reveal: true }) : api.getYamlText(cluster, gvr, ns, name));
-      } catch {
-        return; // gone or unreachable: the cluster banner and Reload say so
+      } catch (e) {
+        if (e instanceof ObjectNotFoundError) setDeleted(true);
+        return; // unreachable: the cluster banner and Reload say so
       }
+      setDeleted(false);
       const now = seen.current;
       if (live === now.original) setLiveText(null);
       else if (now.dirty) setLiveText(live);
@@ -123,11 +135,20 @@ export function YamlTab({
     return () => window.removeEventListener("focus", check);
   }, [watch, cluster, gvr, ns, name]);
   // Tell the drawer and tab strip around us there is an edit to protect.
-  const guardKey = `${cluster}/${gvr}/${ns}/${name}`;
   useEffect(() => {
     setEditDirty(guardKey, dirty);
     return () => setEditDirty(guardKey, false);
   }, [guardKey, dirty]);
+  // Keep the unapplied text for this window, so a reload or crash can offer it back. Cleared when
+  // the edit is applied, reverted or reloaded away, and when you choose Discard.
+  useEffect(() => {
+    if (dirty) writeDraft(guardKey, { text: modified, original });
+  }, [guardKey, dirty, modified, original]);
+  // The dock's text budget counts what this editor holds.
+  const reportSize = useTerminalDock((s) => s.reportSize);
+  useEffect(() => {
+    if (dock) reportSize(guardKey, original.length + modified.length);
+  }, [dock, guardKey, original, modified, reportSize]);
   const prod = useClusterLooksProduction(cluster);
   const [confirmingProd, setConfirmingProd] = useState(false);
   const dangerousChanges = dangerousChangeCheck ? dangerousChangeCheck(original, modified) : [];
@@ -150,9 +171,38 @@ export function YamlTab({
     setMsg(null);
     setPolicyRejection(null);
     setConfirmText("");
+    forgetDraft();
   }
 
-  const canApply = !busy && dirty && !needsConfirm && !offline;
+  function forgetDraft() {
+    clearDraft(guardKey);
+    setDraft(null);
+  }
+  // Reload and Load latest drop the edit, so the kept copy goes with it.
+  async function reloadClean() {
+    forgetDraft();
+    await load();
+  }
+
+  // The object is gone: create it again from the text in the editor, through the create path.
+  async function recreate() {
+    setBusy(true);
+    setMsg(null);
+    setPolicyRejection(null);
+    try {
+      await api.createResource({ cluster, yaml: modified, dryRun: false });
+      forgetDraft();
+      await load();
+      setMsg({ ok: true, text: "Re-created from your text." });
+    } catch (e) {
+      if (e instanceof PolicyRejectionError) setPolicyRejection(e.rejection);
+      else setMsg({ ok: false, text: String(e instanceof Error ? e.message : e) });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const canApply = !busy && dirty && !needsConfirm && !offline && !deleted;
   function applyOrConfirm() {
     if (prod.production) setConfirmingProd(true);
     else void apply(false);
@@ -191,6 +241,7 @@ export function YamlTab({
         }
       } else {
         // Reload first: load() clears the message, which used to hide this one.
+        forgetDraft();
         await load();
         setMsg({ ok: true, text: `Applied: patched ${fields}.` });
       }
@@ -266,13 +317,13 @@ export function YamlTab({
           </span>
         )}
         <Row gap={2} style={{ marginLeft: "auto" }}>
-          <Button variant="ghost" onClick={() => void load()}>
+          <Button variant="ghost" onClick={() => void reloadClean()}>
             Reload
           </Button>
           <Button variant="ghost" disabled={!dirty} onClick={revert}>
             Revert
           </Button>
-          <Button variant="ghost" disabled={busy || !dirty || offline} onClick={() => void apply(true)}>
+          <Button variant="ghost" disabled={busy || !dirty || offline || deleted} onClick={() => void apply(true)}>
             Dry-run
           </Button>
           <Button
@@ -284,6 +335,41 @@ export function YamlTab({
         </Row>
       </div>
       {impactBanner}
+      {deleted && (
+        <InlineBanner
+          tone="warn"
+          flush
+          role="alert"
+          actions={
+            <Button
+              disabled={busy || offline || modified.trim() === ""}
+              onClick={() => (prod.production ? setConfirmingRecreate(true) : void recreate())}
+            >
+              Re-create from this text
+            </Button>
+          }
+        >
+          <strong>Deleted on the cluster.</strong> This object no longer exists, so Apply and Dry-run are off. Your text is still
+          here: copy it out, or create the object again from it.
+        </InlineBanner>
+      )}
+      {draft && !dirty && draft.text !== original && (
+        <InlineBanner
+          tone="warn"
+          flush
+          actions={
+            <>
+              <Button onClick={() => setModified(draft.text)}>Restore unsaved edit</Button>
+              <Button variant="ghost" onClick={forgetDraft}>
+                Discard saved edit
+              </Button>
+            </>
+          }
+        >
+          <strong>You had an unsaved edit to this object.</strong> Kubebay kept it from before this window reloaded.
+          {draft.original !== original && " The object has changed since; applying still refuses fields that changed under you."}
+        </InlineBanner>
+      )}
       {isSecret && !revealed && (
         <InlineBanner
           tone="warn"
@@ -341,7 +427,7 @@ export function YamlTab({
               >
                 Show changes
               </Button>
-              <Button variant="ghost" onClick={() => void load()}>
+              <Button variant="ghost" onClick={() => void reloadClean()}>
                 Load latest
               </Button>
             </>
@@ -357,7 +443,7 @@ export function YamlTab({
           flush
           role="alert"
           actions={
-            <Button variant="ghost" onClick={() => void load()}>
+            <Button variant="ghost" onClick={() => void reloadClean()}>
               Reload current version
             </Button>
           }
@@ -384,6 +470,17 @@ export function YamlTab({
           onConfirm={() => {
             setConfirmingProd(false);
             void apply(false);
+          }}
+        />
+      )}
+      {confirmingRecreate && (
+        <ProdApplyModal
+          context={prod.context}
+          target={`a new ${name} created from your text`}
+          onCancel={() => setConfirmingRecreate(false)}
+          onConfirm={() => {
+            setConfirmingRecreate(false);
+            void recreate();
           }}
         />
       )}
