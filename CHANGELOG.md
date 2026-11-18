@@ -6,6 +6,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ## [Unreleased]
 
+## [0.7.8] - 2026-11-18
+
 ### Changed
 - **Live tables redraw only the rows that changed.** When a stream update arrives, a resource table or the Pods table now re-renders just the rows whose object changed, instead of every visible row. Selecting a row redraws only that row. Audit in `docs/PERFORMANCE_AUDIT.md`.
 - **No more blanket 30 s refetch.** Pages no longer re-read CRD lists, RBAC, settings and similar data every 30 seconds while open; they refresh when you open the page, after an action, or on a cluster switch. Data that changes on its own (clusters, metrics, port-forwards, audit log, recording status, MCP status) still refreshes on its own timer.

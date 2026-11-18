@@ -3,6 +3,11 @@
     {
       "version": "unreleased",
       "date": "",
+      "sections": []
+    },
+    {
+      "version": "0.7.8",
+      "date": "2026-11-18",
       "sections": [
         {
           "heading": "Changed",
@@ -27,6 +32,10 @@
             {
               "title": "YAML in the dock, phase 2",
               "summary": "The dock has a Maximise toggle."
+            },
+            {
+              "title": "Service map: Gateway API, Istio and findings",
+              "summary": "(backlog 39, phase 2)."
             }
           ]
         }
