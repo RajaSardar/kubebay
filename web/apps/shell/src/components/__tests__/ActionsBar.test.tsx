@@ -4,6 +4,9 @@ import { ActionsBar } from "../ActionsBar";
 import { api } from "../../lib/api";
 import { PolicyRejectionError } from "../../lib/policyRejection";
 
+vi.mock("../../lib/useResourceStream", () => ({
+  useResourceStream: () => ({ rows: [], synced: true, connected: true }),
+}));
 vi.mock("../../lib/api", async () => {
   const actual = await vi.importActual<typeof import("../../lib/api")>("../../lib/api");
   return { ...actual, api: { ...actual.api, scale: vi.fn() } };

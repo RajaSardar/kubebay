@@ -7,6 +7,7 @@ import type { NamespaceDenial } from "../lib/useResourceStream";
 import { useColumnWidths } from "../lib/useColumnWidths";
 import { useColumnPrefs } from "../lib/useColumnPrefs";
 import { useRowSelection } from "../lib/useRowSelection";
+import { BlastRadiusPreview } from "./BlastRadiusPreview";
 import { useBulkDelete, type DeleteTarget } from "../lib/useBulkDelete";
 import { useResourceList } from "../lib/useResourceList";
 import { matchesQuery, parseQuery, type Query } from "../lib/filterQuery";
@@ -50,6 +51,8 @@ export interface ResourceListViewProps<R> {
   rows: readonly R[];
   /** The raw objects behind the rows, to find a GitOps owner before a delete. */
   objects: readonly Record<string, unknown>[];
+  /** The Kubernetes kind (for example "Deployment"): lets a single delete show its blast-radius preview. */
+  kind?: string;
   synced: boolean;
   /** The API server's message when RBAC doesn't let this identity list the
    *  kind: said in place of a table that would never load. */
@@ -445,6 +448,14 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
             {(() => {
               const owner = ownerAmongTargets(bulkDelete.pending, [...p.objects]);
               return owner && <div className="small">{ownerWarning(owner)}</div>;
+            })()}
+            {bulkDelete.pending.length === 1 && p.kind && (() => {
+              const t = bulkDelete.pending[0]!;
+              const target = p.objects.find((o) => {
+                const m = (o.metadata ?? {}) as Record<string, unknown>;
+                return m.name === t.name && (m.namespace ?? "") === (t.ns ?? "");
+              });
+              return target && <BlastRadiusPreview cluster={p.cluster} kind={p.kind} obj={target} action="delete" />;
             })()}
           </span>
           <div className="inline-banner-actions">

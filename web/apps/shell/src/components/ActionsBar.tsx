@@ -3,6 +3,7 @@ import { ArmedButton, Badge, Button, InlineBanner, Row } from "@kubebay/ui";
 import { actionApi, api } from "../lib/api";
 import { ownerLabel, ownerWarning, type GitOpsOwner } from "../lib/gitops";
 import { PolicyRejectionError, type PolicyRejectionDetail } from "../lib/policyRejection";
+import { BlastRadiusPreview } from "./BlastRadiusPreview";
 import { PolicyRejectionCard } from "./PolicyRejectionCard";
 
 type Slug = "deployments" | "statefulsets" | "daemonsets" | "cronjobs" | "nodes" | "rollouts";
@@ -211,6 +212,7 @@ export function ActionsBar({
       )}
       {!msg && !err && !rejection && !busy && <Badge>actions</Badge>}
       </Row>
+      {slug === "nodes" && <BlastRadiusPreview cluster={cluster} kind="Node" obj={{ metadata: { name } }} action="drain" />}
     </div>
   );
 }

@@ -4,6 +4,9 @@ import { WorkloadActionDialog, workloadActions } from "../WorkloadActionDialog";
 import { api } from "../../lib/api";
 import { PolicyRejectionError } from "../../lib/policyRejection";
 
+vi.mock("../../lib/useResourceStream", () => ({
+  useResourceStream: () => ({ rows: [], synced: true, connected: true }),
+}));
 vi.mock("../../lib/api", async () => {
   const actual = await vi.importActual<typeof import("../../lib/api")>("../../lib/api");
   return { ...actual, api: { ...actual.api, scale: vi.fn(), restart: vi.fn() } };
@@ -125,5 +128,19 @@ describe("WorkloadActionDialog — restart", () => {
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(onClose).toHaveBeenCalled();
     expect(api.restart).not.toHaveBeenCalled();
+  });
+});
+
+describe("WorkloadActionDialog: blast-radius preview", () => {
+  it("shows What this affects for a restart", () => {
+    render(<WorkloadActionDialog action="restart" slug="deployments" cluster="kind-shop" obj={deploy(3)} onClose={() => {}} />);
+    expect(screen.getByRole("button", { name: /What this affects/ })).toBeInTheDocument();
+  });
+
+  it("shows it only once a scale reaches zero", () => {
+    render(<WorkloadActionDialog action="scale" slug="deployments" cluster="kind-shop" obj={deploy(1)} onClose={() => {}} />);
+    expect(screen.queryByRole("button", { name: /What this affects/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Decrease replicas" }));
+    expect(screen.getByRole("button", { name: /What this affects/ })).toBeInTheDocument();
   });
 });
