@@ -3,7 +3,43 @@
     {
       "version": "unreleased",
       "date": "",
-      "sections": []
+      "sections": [
+        {
+          "heading": "Added",
+          "items": [
+            {
+              "title": "Owner column",
+              "summary": "(backlog 54)."
+            },
+            {
+              "title": "Argo Rollouts dashboard",
+              "summary": "(backlog 52, Rollouts part)."
+            },
+            {
+              "title": "Argo Workflows and Argo Events pages",
+              "summary": "(backlog 52, part)."
+            }
+          ]
+        },
+        {
+          "heading": "Fixed",
+          "items": [
+            {
+              "title": "Cmd/Ctrl+K opens the command palette from inside a YAML editor",
+              "summary": "(backlog 53)."
+            }
+          ]
+        },
+        {
+          "heading": "Changed",
+          "items": [
+            {
+              "title": "Selected namespaces come first in the namespace filter",
+              "summary": "(backlog 55)."
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.8.0",
