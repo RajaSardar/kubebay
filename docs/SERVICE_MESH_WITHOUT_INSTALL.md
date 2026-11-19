@@ -94,3 +94,7 @@ Each phase is test-first (pure functions with fixtures), updates its docs page a
 - Cross-namespace in v1, or per namespace like Topology? (RBAC: a namespace-limited identity sees only its own, see `namespaceAccess.ts`.)
 - Which overlay first: Prometheus-generic (covers Istio, Linkerd, ingress) or Hubble (covers any Cilium cluster, needs a gRPC client)?
 - Is "inferred from env" acceptable to ship given false positives? Proposed: yes, dashed and hideable.
+
+## 11. Phase 3 status (2026-11-19)
+
+Built: an All namespaces map (per-namespace groups, 400-node budget) and an opt-in Prometheus observed overlay limited to `istio_requests_total` (source/destination workload and namespace labels) and `nginx_ingress_controller_requests` (ingress, namespace, service labels), via the existing guarded `/api/prom/query`. Not read, because no field or metric names could be verified from a schema in this repo: Linkerd, Cilium CRDs and Hubble. The metric names are upstream conventions and have not been run against a live Istio or ingress-nginx cluster.

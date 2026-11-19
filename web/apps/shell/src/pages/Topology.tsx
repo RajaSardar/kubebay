@@ -19,6 +19,7 @@ import { namespaceOptions, useNamespaceAccess } from "../lib/namespaceAccess";
 import { buildTopology, type KObj, type TopoNode } from "../lib/topology";
 import PodPanel from "./PodPanel";
 import ServiceMapView from "./ServiceMapView";
+import { ALL_NAMESPACES } from "../lib/serviceMapAll";
 
 interface FlowData {
   kb: TopoNode;
@@ -118,6 +119,9 @@ export default function Topology() {
   const effectiveNs = nsOptions.includes(rawNs) ? rawNs : nsOptions[0] ?? "default";
 
   const [tab, setTab] = useState<"graph" | "map">("graph");
+  // "All namespaces" belongs to the Service map; the graph always draws one namespace.
+  const [allNs, setAllNs] = useState(false);
+  const mapAll = allNs && tab === "map";
   // The Service map follows its own kinds; the graph's stay idle while it is open.
   const on = tab === "graph";
   const sopts = { mode: "full" as const, ns: [effectiveNs], enabled: on };
@@ -179,7 +183,18 @@ export default function Topology() {
             </option>
           ))}
         </Select>
-        <Select value={effectiveNs} onChange={(e) => setRawNs(e.target.value)} aria-label="namespace">
+        <Select
+          value={mapAll ? ALL_NAMESPACES : effectiveNs}
+          onChange={(e) => {
+            if (e.target.value === ALL_NAMESPACES) setAllNs(true);
+            else {
+              setAllNs(false);
+              setRawNs(e.target.value);
+            }
+          }}
+          aria-label="namespace"
+        >
+          {tab === "map" && <option value={ALL_NAMESPACES}>All namespaces</option>}
           {nsOptions.map((n) => (
             <option key={n} value={n}>
               {n}
@@ -192,7 +207,7 @@ export default function Topology() {
       {!effectiveCluster ? (
         <PageLoader message="Waiting for cluster..." />
       ) : tab === "map" ? (
-        <ServiceMapView cluster={effectiveCluster} namespace={effectiveNs} />
+        <ServiceMapView cluster={effectiveCluster} namespace={mapAll ? ALL_NAMESPACES : effectiveNs} />
       ) : !ready && graph.nodes.length === 0 ? (
         <PageLoader message={`Mapping the bay... syncing workloads for ${effectiveNs}`} />
       ) : graph.nodes.length === 0 ? (

@@ -76,4 +76,18 @@ describe("Topology's namespace", () => {
     renderTopology();
     expect(namespaceChoices()).toEqual(["default", "kube-system"]);
   });
+
+  it("offers All namespaces on the Service map only, and subscribes without a namespace when chosen", () => {
+    rows.set("v1/namespaces", [{ metadata: { name: "default" } }, { metadata: { name: "shop" } }]);
+    renderTopology();
+    expect(namespaceChoices()).not.toContain("All namespaces");
+    fireEvent.click(screen.getByRole("tab", { name: "Service map" }));
+    expect(namespaceChoices()).toContain("All namespaces");
+    vi.mocked(useResourceStream).mockClear();
+    fireEvent.change(screen.getByRole("combobox", { name: "namespace" }), { target: { value: "*all*" } });
+    expect(useResourceStream).toHaveBeenCalledWith("c1", "networking.k8s.io/v1/ingresses", { mode: "full", ns: undefined });
+    expect(useResourceStream).toHaveBeenCalledWith("c1", "v1/pods", { mode: "full", ns: ["default"], enabled: false });
+    fireEvent.click(screen.getByRole("tab", { name: "Topology" }));
+    expect(namespaceChoices()).not.toContain("All namespaces");
+  });
 });
