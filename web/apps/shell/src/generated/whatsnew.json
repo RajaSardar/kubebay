@@ -8,6 +8,10 @@
           "heading": "Added",
           "items": [
             {
+              "title": "Restart in the Rollout drawer",
+              "summary": "An Argo Rollout's drawer has a Restart button beside the replica stepper."
+            },
+            {
               "title": "Owner column",
               "summary": "(backlog 54)."
             },

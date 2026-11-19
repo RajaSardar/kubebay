@@ -34,7 +34,7 @@ Services have **Summary** (ports, selector, traffic) and **YAML**. Nodes have th
 Above the tabs:
 
 - **Deployments and StatefulSets**: set the replicas with **−** and **+**, then **Apply scale**. **Restart** rolls the pods.
-- **Argo Rollouts**: the same **−**, **+** and **Apply scale** set a Rollout's replicas. There is no Restart on a Rollout.
+- **Argo Rollouts**: the same **−**, **+** and **Apply scale** set a Rollout's replicas, and **Restart** replaces its pods following its strategy by setting `spec.restartAt` (the same as Restart on the Rollouts page).
 - **DaemonSets**: **Restart**.
 - **Owner column**: ReplicaSets show **Owner** (the Deployment, or a custom controller such as an Argo `Rollout`, that controls them; — for a bare one). Every other list can show it from the column chooser (hidden by default; Events have none), which is how a Job shows its CronJob. It is the Kubernetes controller, not the GitOps app (that is **Managed by**). Each owner links to its drawer, and the filter takes `controller:deployment`.
 - **CronJobs**: the list has a **Status** column (Suspended, Active when jobs are running, or Idle) and an **Active Jobs** count beside **Last Schedule**. **Next Schedule** shows when it will next run ("in 12m"); hover for the exact time. It reads the schedule (lists, ranges, steps, month and day names, `@daily` and the other `@` shortcuts) in the CronJob's `timeZone`, or UTC when none is set, and shows – when the CronJob is suspended or its schedule is invalid. **Trigger now** runs a Job from it at once. **Suspend** and **Resume** stop and restart its schedule.

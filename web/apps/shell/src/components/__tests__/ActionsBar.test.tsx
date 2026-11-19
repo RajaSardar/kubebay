@@ -116,7 +116,7 @@ describe("ActionsBar — structured policy rejection (backlog #17)", () => {
 });
 
 describe("ActionsBar — Argo Rollouts (backlog #33)", () => {
-  it("scales a Rollout like a Deployment, and offers no restart", async () => {
+  it("scales a Rollout like a Deployment", async () => {
     vi.mocked(api.scale).mockResolvedValue(undefined as never);
     render(<ActionsBar slug="rollouts" cluster="kind-test" ns="default" name="web" currentReplicas={2} />);
     fireEvent.click(screen.getByRole("button", { name: "Increase replicas" }));
@@ -126,6 +126,17 @@ describe("ActionsBar — Argo Rollouts (backlog #33)", () => {
         expect.objectContaining({ gvr: "argoproj.io/v1alpha1/rollouts", ns: "default", name: "web", replicas: 3 }),
       ),
     );
-    expect(screen.queryByRole("button", { name: /restart/i })).toBeNull();
+  });
+
+  it("restarts a Rollout by setting spec.restartAt, not the pod-template annotation", async () => {
+    const applyYaml = vi.spyOn(api, "applyYaml").mockResolvedValue(undefined as never);
+    render(<ActionsBar slug="rollouts" cluster="kind-test" ns="default" name="web" currentReplicas={2} />);
+    fireEvent.click(screen.getByRole("button", { name: "Restart" }));
+    await waitFor(() => expect(applyYaml).toHaveBeenCalledTimes(1));
+    const req = applyYaml.mock.calls[0]![0] as { gvr: string; mode: string; action: string; yaml: string };
+    expect(req).toMatchObject({ gvr: "argoproj.io/v1alpha1/rollouts", mode: "merge", action: "rollout-restart" });
+    expect(JSON.parse(req.yaml).spec.restartAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    expect(await screen.findByText(/restart triggered/i)).toBeTruthy();
+    applyYaml.mockRestore();
   });
 });

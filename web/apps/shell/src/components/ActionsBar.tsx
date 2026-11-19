@@ -3,6 +3,7 @@ import { ArmedButton, Badge, Button, InlineBanner, Row } from "@kubebay/ui";
 import { actionApi, api } from "../lib/api";
 import { ownerLabel, ownerWarning, type GitOpsOwner } from "../lib/gitops";
 import { PolicyRejectionError, type PolicyRejectionDetail } from "../lib/policyRejection";
+import { rolloutActionRequest } from "../lib/rollouts";
 import { BlastRadiusPreview } from "./BlastRadiusPreview";
 import { PolicyRejectionCard } from "./PolicyRejectionCard";
 
@@ -64,7 +65,7 @@ export function ActionsBar({
   const ownerDetail = gitopsOwner ? ownerLabel(gitopsOwner) : undefined;
 
   const showScale = slug === "deployments" || slug === "statefulsets" || slug === "rollouts";
-  const showRestart = slug === "deployments" || slug === "statefulsets" || slug === "daemonsets";
+  const showRestart = slug === "deployments" || slug === "statefulsets" || slug === "daemonsets" || slug === "rollouts";
 
   return (
     <div className="log-controls actionsbar" style={{ flexDirection: "column", alignItems: "stretch" }}>
@@ -115,7 +116,10 @@ export function ActionsBar({
           disabled={busy}
           onClick={() =>
             void run(async () => {
-              await api.restart({ cluster, gvr: GVR[slug]!, ns, name, gitopsOwner: ownerDetail });
+              // An Argo Rollout restarts through spec.restartAt, which its controller honours;
+              // the pod-template annotation the other kinds use would not be the Rollout's own restart.
+              if (slug === "rollouts") await api.applyYaml(rolloutActionRequest({ cluster, gvr: GVR[slug]!, ns, name }, "restart"));
+              else await api.restart({ cluster, gvr: GVR[slug]!, ns, name, gitopsOwner: ownerDetail });
               return "Rollout restart triggered.";
             })
           }
