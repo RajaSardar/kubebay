@@ -53,9 +53,9 @@
 
     Progress: phase 1 built (dock tab strip Shell | YAML name in useTerminalDock, same YamlTab hosted, one live editor per object with the drawer showing "Editing in dock", hide keeps text, dirty close uses the discard guard, not persisted; ADR 0005 note). Left open: Maximise, Cmd/Ctrl+S and tab keys, row action and command-palette entry (phase 2), staleness and restore (3), New resource tab (4), tab cap from measured memory (5), multiple-tab polish (cluster-drop banner, tab dirty dot, production pill).
 52. add all tools for Argo (Workflows, Events, Rollouts, CD) and load the Rollouts dashboard if possible
-53. when the YAML editor is open, CMD+K is not working; please check that
+~~53. when the YAML editor is open, CMD+K is not working; please check that~~ ✅ Done (every Monaco editor, via the shared lib/monaco wrapper, toggles the palette on Cmd/Ctrl+K through a capture listener and an editor command, using a small palette store)
 54. add a column for the owner kind (Deployment, StatefulSet, ReplicaSet...) in the Pods list; the same for ReplicaSets; research where else it belongs
-55. when someone selects a namespace or a list of namespaces, the selected ones should move to the top of the namespace list
+~~55. when someone selects a namespace or a list of namespaces, the selected ones should move to the top of the namespace list~~ ✅ Done (selected namespaces are listed first, in a Selected group above the Rancher projects)
 ---
 
 ## Status of the open items (2026-11-19)

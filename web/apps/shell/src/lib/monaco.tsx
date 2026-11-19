@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useRef } from "react";
-import type { DiffEditorProps, DiffOnMount, EditorProps } from "@monaco-editor/react";
+import type { DiffEditorProps, DiffOnMount, EditorProps, OnMount } from "@monaco-editor/react";
+import { usePalette } from "./palette-store";
 
 // @monaco-editor/react fetches Monaco from cdn.jsdelivr.net unless it is handed
 // one, so an offline or air-gapped install would never get an editor. Every
@@ -20,10 +21,36 @@ const DiffEditorLazy = lazy(() =>
   loadMonaco().then(() => import("@monaco-editor/react")).then((m) => ({ default: m.DiffEditor })),
 );
 
-export default function Editor(props: EditorProps) {
+/**
+ * Monaco starts its Cmd/Ctrl+K chords (comment, fold, ...) on that key and
+ * stops the keydown, so the app's palette shortcut never saw it. Toggle the
+ * palette from a capture listener on the editor (it runs before Monaco's own
+ * handler) and as a Monaco command, so both routes reach the same store.
+ */
+function bindPaletteKey(editor: Parameters<OnMount>[0], monaco: Parameters<OnMount>[1]) {
+  const toggle = () => usePalette.getState().toggle();
+  editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyK, toggle);
+  editor.getContainerDomNode().addEventListener(
+    "keydown",
+    (e) => {
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        e.stopPropagation();
+        toggle();
+      }
+    },
+    true,
+  );
+}
+
+export default function Editor({ onMount, ...props }: EditorProps) {
+  const mount: OnMount = (editor, monaco, ...rest) => {
+    bindPaletteKey(editor, monaco);
+    onMount?.(editor, monaco, ...rest);
+  };
   return (
     <Suspense fallback={<div className="tab-loading" />}>
-      <EditorLazy {...props} />
+      <EditorLazy {...props} onMount={mount} />
     </Suspense>
   );
 }
@@ -49,6 +76,8 @@ export function DiffEditor({ onMount, ...props }: DiffEditorProps) {
   const mount: DiffOnMount = (editor, monaco) => {
     models.current = editor.getModel();
     editor.onDidChangeModel(() => (models.current = editor.getModel() ?? models.current));
+    const modified = editor.getModifiedEditor?.();
+    if (modified) bindPaletteKey(modified, monaco);
     onMount?.(editor, monaco);
   };
   return (
