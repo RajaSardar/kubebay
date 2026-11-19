@@ -6,6 +6,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ## [Unreleased]
 
+### Added
+- **Argo Rollouts dashboard** (backlog 52, Rollouts part). **Rollouts** in the sidebar's Tools, listed only where the `rollouts.argoproj.io` CRD is served, shows each Rollout's phase, canary or blueGreen strategy, step N of M, canary and stable weight, desired, updated, ready and available replicas, stable and canary ReplicaSet revisions with images, pause reason and owned AnalysisRuns with their phase. **Promote**, **Promote fully**, **Abort**, **Retry** and **Restart** patch the Rollout through the audited YAML apply path, with a production confirmation. The patches follow the kubectl-argo-rollouts plugin from memory and have not been run against a live cluster; skip-step and pause are not offered.
+
 ## [0.8.0] - 2026-11-19
 
 ### Added

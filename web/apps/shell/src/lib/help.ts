@@ -138,6 +138,12 @@ export const PAGE_HELP: Record<string, PageHelpEntry> = {
     how: "Read from KEDA's ScaledObjects and TriggerAuthentications and the cluster's HPAs.",
     docs: "keda",
   },
+  "/rollouts": {
+    name: "Rollouts",
+    what: "Argo Rollouts at a glance: phase, step, canary weight, revisions, AnalysisRuns, and Promote, Abort, Retry and Restart.",
+    how: "Read from Rollouts, their ReplicaSets and AnalysisRuns; actions patch the Rollout with your own permissions and are audited.",
+    docs: "argo-rollouts",
+  },
   "/upgrade-readiness": {
     name: "Upgrade Readiness",
     what: "API versions your cluster still serves that the next Kubernetes releases remove.",

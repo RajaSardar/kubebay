@@ -1,0 +1,180 @@
+import { describe, it, expect } from "vitest";
+import {
+  detectRollouts,
+  describeRollout,
+  rolloutPhase,
+  rolloutTone,
+  canaryWeights,
+  rolloutActionRequest,
+  availableRolloutActions,
+} from "../rollouts";
+
+const NS = "shop";
+function rollout(over: Record<string, unknown> = {}, status: Record<string, unknown> = {}, spec: Record<string, unknown> = {}) {
+  return {
+    metadata: { name: "web", namespace: NS, uid: "u1" },
+    spec: {
+      replicas: 4,
+      template: { spec: { containers: [{ name: "app", image: "web:2" }] } },
+      strategy: {
+        canary: { steps: [{ setWeight: 20 }, { pause: {} }, { setWeight: 50 }, { pause: { duration: "1m" } }, { setWeight: 100 }] },
+      },
+      ...spec,
+    },
+    status: { replicas: 4, updatedReplicas: 1, readyReplicas: 4, availableReplicas: 4, ...status },
+    ...over,
+  };
+}
+function rs(name: string, hash: string, rev: string, image: string, replicas = 1, owner = "web") {
+  return {
+    metadata: {
+      name,
+      namespace: NS,
+      labels: { "rollouts-pod-template-hash": hash },
+      annotations: { "rollout.argoproj.io/revision": rev },
+      ownerReferences: [{ kind: "Rollout", name: owner }],
+    },
+    spec: { replicas, template: { spec: { containers: [{ image }] } } },
+    status: { readyReplicas: replicas },
+  };
+}
+function ar(name: string, phase: string, owner = "web") {
+  return { metadata: { name, namespace: NS, ownerReferences: [{ kind: "Rollout", name: owner }] }, status: { phase } };
+}
+
+describe("detectRollouts", () => {
+  it("finds the Rollout and AnalysisRun CRDs", () => {
+    const d = detectRollouts([
+      { group: "argoproj.io", resource: "rollouts", gvr: "argoproj.io/v1alpha1/rollouts" },
+      { group: "argoproj.io", resource: "analysisruns", gvr: "argoproj.io/v1alpha1/analysisruns" },
+    ] as never);
+    expect(d).toEqual({ installed: true, rolloutGvr: "argoproj.io/v1alpha1/rollouts", analysisRunGvr: "argoproj.io/v1alpha1/analysisruns" });
+  });
+  it("is not installed without the Rollout CRD (Application alone does not count)", () => {
+    expect(detectRollouts([{ group: "argoproj.io", resource: "applications", gvr: "argoproj.io/v1alpha1/applications" }] as never).installed).toBe(false);
+  });
+});
+
+describe("rolloutPhase", () => {
+  it.each([
+    ["status.phase wins", { phase: "Healthy" }, {}, "Healthy"],
+    ["abort shows Aborted", { abort: true }, {}, "Aborted"],
+    ["paused via pauseConditions", { pauseConditions: [{ reason: "CanaryPauseStep" }] }, {}, "Paused"],
+    ["paused via spec", {}, { paused: true }, "Paused"],
+    ["nothing known is Progressing", {}, {}, "Progressing"],
+  ])("%s", (_n, status, spec, want) => {
+    expect(rolloutPhase(rollout({}, status, spec))).toBe(want);
+  });
+  it("abort beats a Degraded phase", () => {
+    expect(rolloutPhase(rollout({}, { phase: "Degraded", abort: true }))).toBe("Aborted");
+  });
+});
+
+describe("rolloutTone", () => {
+  it.each([
+    ["Healthy", "ok"],
+    ["Progressing", "pending"],
+    ["Paused", "warn"],
+    ["Degraded", "err"],
+    ["Aborted", "err"],
+    ["Successful", "ok"],
+    ["Running", "ok"],
+    ["Inconclusive", "warn"],
+  ])("%s -> %s", (w, t) => expect(rolloutTone(w)).toBe(t));
+});
+
+describe("canaryWeights", () => {
+  it.each([
+    ["from status.canary.weights", { canary: { weights: { canary: { weight: 30 }, stable: { weight: 70 } } }, currentStepIndex: 0 }, 30, 70],
+    ["from the last setWeight before the current step", { currentStepIndex: 3 }, 50, 50],
+    ["step 0 is before any step completed", { currentStepIndex: 0 }, 0, 100],
+    ["past the last step is 100", { currentStepIndex: 5 }, 100, 0],
+  ])("%s", (_n, status, canary, stable) => {
+    expect(canaryWeights(rollout({}, status))).toEqual({ canary, stable });
+  });
+  it("blue-green has no weights", () => {
+    expect(canaryWeights(rollout({}, {}, { strategy: { blueGreen: {} } }))).toBeNull();
+  });
+});
+
+describe("describeRollout", () => {
+  it("summarises a paused canary", () => {
+    const r = rollout(
+      {},
+      { phase: "Paused", message: "CanaryPauseStep", currentStepIndex: 1, currentPodHash: "bbb", stableRS: "aaa", pauseConditions: [{ reason: "CanaryPauseStep" }] },
+    );
+    const d = describeRollout(
+      r,
+      [rs("web-aaa", "aaa", "1", "web:1", 3), rs("web-bbb", "bbb", "2", "web:2", 1), rs("other-x", "x", "9", "o:1", 1, "other")],
+      [ar("web-bbb-1", "Running"), ar("other-1", "Failed", "other")],
+    );
+    expect(d.strategy).toBe("canary");
+    expect(d.phase).toBe("Paused");
+    expect(d.tone).toBe("warn");
+    expect(d.step).toEqual({ current: 2, total: 5 });
+    expect(d.paused).toBe(true);
+    expect(d.pauseMessage).toBe("CanaryPauseStep");
+    expect(d.weights).toEqual({ canary: 20, stable: 80 });
+    expect(d.replicas).toEqual({ desired: 4, updated: 1, ready: 4, available: 4 });
+    expect(d.stable).toEqual({ name: "web-aaa", revision: "1", images: ["web:1"] });
+    expect(d.canary).toEqual({ name: "web-bbb", revision: "2", images: ["web:2"] });
+    expect(d.analysisRuns).toEqual([{ name: "web-bbb-1", phase: "Running", tone: "ok" }]);
+  });
+  it("blue-green has no step and uses the stable and current hashes", () => {
+    const r = rollout({}, { phase: "Healthy", currentPodHash: "bbb", stableRS: "aaa" }, { strategy: { blueGreen: {} } });
+    const d = describeRollout(r, [rs("web-aaa", "aaa", "1", "web:1"), rs("web-bbb", "bbb", "2", "web:2")], []);
+    expect(d.strategy).toBe("blueGreen");
+    expect(d.step).toBeNull();
+    expect(d.weights).toBeNull();
+    expect(d.stable?.name).toBe("web-aaa");
+    expect(d.canary?.name).toBe("web-bbb");
+  });
+  it("has no canary when stable and current are the same", () => {
+    const d = describeRollout(rollout({}, { phase: "Healthy", currentPodHash: "aaa", stableRS: "aaa" }), [rs("web-aaa", "aaa", "1", "web:1")], []);
+    expect(d.canary).toBeNull();
+  });
+});
+
+describe("availableRolloutActions", () => {
+  it("offers Promote, Promote fully and Abort while paused", () => {
+    expect(availableRolloutActions(rollout({}, { phase: "Paused", pauseConditions: [{}] }))).toEqual(["promote", "promote-full", "abort", "restart"]);
+  });
+  it("offers Retry, not Abort, when aborted", () => {
+    expect(availableRolloutActions(rollout({}, { abort: true, phase: "Degraded" }))).toEqual(["retry", "restart"]);
+  });
+  it("offers Promote and Abort while progressing", () => {
+    expect(availableRolloutActions(rollout({}, { phase: "Progressing" }))).toEqual(["promote", "promote-full", "abort", "restart"]);
+  });
+  it("only Restart when healthy", () => {
+    expect(availableRolloutActions(rollout({}, { phase: "Healthy" }))).toEqual(["restart"]);
+  });
+});
+
+describe("rolloutActionRequest", () => {
+  const t = { cluster: "kind-x", gvr: "argoproj.io/v1alpha1/rollouts", ns: NS, name: "web" };
+  const parse = (y: string) => JSON.parse(y);
+  it("promote clears the pause", () => {
+    const r = rolloutActionRequest(t, "promote");
+    expect(parse(r.yaml)).toMatchObject({ spec: { paused: false }, status: { pauseConditions: null } });
+    expect(r.mode).toBe("merge");
+    expect(r.action).toBe("rollout-promote");
+    expect(r.dryRun).toBe(false);
+  });
+  it("promote-full sets status.promoteFull", () => {
+    expect(parse(rolloutActionRequest(t, "promote-full").yaml).status).toMatchObject({ promoteFull: true, pauseConditions: null });
+  });
+  it("abort sets status.abort", () => {
+    expect(parse(rolloutActionRequest(t, "abort").yaml).status).toEqual({ abort: true });
+  });
+  it("retry clears status.abort", () => {
+    expect(parse(rolloutActionRequest(t, "retry").yaml).status).toEqual({ abort: false });
+  });
+  it("restart sets spec.restartAt to the given time", () => {
+    const y = parse(rolloutActionRequest(t, "restart", new Date("2026-01-02T03:04:05Z")).yaml);
+    expect(y.spec).toEqual({ restartAt: "2026-01-02T03:04:05.000Z" });
+  });
+  it("names the object", () => {
+    const y = parse(rolloutActionRequest(t, "abort").yaml);
+    expect(y).toMatchObject({ apiVersion: "argoproj.io/v1alpha1", kind: "Rollout", metadata: { name: "web", namespace: NS } });
+  });
+});

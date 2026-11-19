@@ -58,6 +58,7 @@ const RightSizing = lazy(() => import("./pages/RightSizing"));
 const CostWaste = lazy(() => import("./pages/CostWaste"));
 const Karpenter = lazy(() => import("./pages/Karpenter"));
 const Keda = lazy(() => import("./pages/Keda"));
+const Rollouts = lazy(() => import("./pages/Rollouts"));
 const UpgradeReadiness = lazy(() => import("./pages/UpgradeReadiness"));
 const Flux = lazy(() => import("./pages/Flux"));
 const BestPractices = lazy(() => import("./pages/BestPractices"));
@@ -228,6 +229,7 @@ const TOOLS = [
   { to: "/ports", label: "Ports", icon: <IconForward /> },
   { to: "/helm", label: "Helm", icon: <IconHelm /> },
   { to: "/argocd", label: "ArgoCD", icon: <IconArgoCD /> },
+  { to: "/rollouts", label: "Rollouts", icon: <IconArgoCD /> },
   { to: "/flux", label: "Flux", icon: <IconRefresh /> },
   { to: "/rbac", label: "RBAC", icon: <IconShield /> },
   { to: "/vulnerabilities", label: "Vulnerabilities", icon: <IconShield /> },
@@ -440,6 +442,15 @@ export function Sidebar({ onOpenPalette, sidebar }: { onOpenPalette: () => void;
   const clusterList = queryClient.getQueryData<ClusterInfo[]>(["clusters"]) ?? [];
   const activeCluster = clusterList.find((c) => c.id === active);
   const navigate = useNavigate();
+  // Same query (and cache entry) as CustomResourcesGroup: Rollouts is listed only where its CRD is served.
+  const apis = useQuery({
+    queryKey: ["apis", active],
+    queryFn: () => discoveryApi.apis(active),
+    enabled: !!active,
+    staleTime: 5 * 60_000,
+    retry: false,
+  });
+  const hasRollouts = (apis.data ?? []).some((e) => e.group === "argoproj.io" && e.resource === "rollouts");
   const disconnectCluster = useDisconnectCluster();
   const disconnectActive = () => {
     if (!active) return;
@@ -515,7 +526,7 @@ export function Sidebar({ onOpenPalette, sidebar }: { onOpenPalette: () => void;
 
         <div className="nav-section">Tools</div>
         <SidebarTerminal />
-        {TOOLS.filter((t) => t.to !== SETTINGS_TOOL.to).map((t) => (
+        {TOOLS.filter((t) => t.to !== SETTINGS_TOOL.to && (t.to !== "/rollouts" || hasRollouts)).map((t) => (
           <NavLink key={t.to} to={t.to} className={({ isActive }) => navItemClass({ active: isActive })}>
             <span className="nav-icon">{t.icon}</span>
             <span>{t.label}</span>
@@ -701,6 +712,7 @@ function AppInner() {
               <Route path="/fleet" element={<Navigate to="/clusters" replace />} />
               <Route path="/karpenter" element={<Karpenter />} />
               <Route path="/keda" element={<Keda />} />
+              <Route path="/rollouts" element={<Rollouts />} />
               <Route path="/upgrade-readiness" element={<UpgradeReadiness />} />
               <Route path="/best-practices" element={<BestPractices />} />
               <Route path="/helm" element={<Helm />} />

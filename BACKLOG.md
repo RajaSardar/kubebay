@@ -53,6 +53,8 @@
 
     Progress: phase 1 built (dock tab strip Shell | YAML name in useTerminalDock, same YamlTab hosted, one live editor per object with the drawer showing "Editing in dock", hide keeps text, dirty close uses the discard guard, not persisted; ADR 0005 note). Left open: Maximise, Cmd/Ctrl+S and tab keys, row action and command-palette entry (phase 2), staleness and restore (3), New resource tab (4), tab cap from measured memory (5), multiple-tab polish (cluster-drop banner, tab dirty dot, production pill).
 52. add all tools for Argo (Workflows, Events, Rollouts, CD) and load the Rollouts dashboard if possible
+
+    Progress: Rollouts built (Rollouts page under Tools when the CRD exists: phase, strategy, step, weights, revisions, AnalysisRuns, Promote/Promote fully/Abort/Retry/Restart; docs argo-rollouts). Patches unverified against a live cluster; skip-step and Pause not offered. Left open: Workflows, Events.
 53. when the YAML editor is open, CMD+K is not working; please check that
 54. add a column for the owner kind (Deployment, StatefulSet, ReplicaSet...) in the Pods list; the same for ReplicaSets; research where else it belongs
 55. when someone selects a namespace or a list of namespaces, the selected ones should move to the top of the namespace list
