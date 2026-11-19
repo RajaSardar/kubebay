@@ -65,7 +65,9 @@ If something is important to you and it is not on the roadmap, make the case in 
 
 ## License
 
-Currently MIT. I am evaluating whether AGPL-3.0 is a better fit before v1.0. Any license change will be announced in advance with a clear rationale and migration window.
+From v0.8.0, Kubebay is fair source under the Functional Source License (`FSL-1.1-MIT`): free for everyone to use, including at work, with the source public, but not to be sold or offered as a competing commercial product or service. Each release becomes MIT two years after it ships. v0.7.10 and earlier stay MIT.
+
+The rationale is in [ADR 0006](docs/adr/0006-licence-fair-source.md). As promised here before, the change is announced ahead of the first release it applies to.
 
 ---
 

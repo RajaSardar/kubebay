@@ -5,7 +5,7 @@ section: Getting started
 order: 0
 ---
 
-Kubebay is a free, open-source Kubernetes IDE. It runs on your machine: a Go engine talks to your clusters with your own kubeconfig, and the app shows what it streams. There's no account and no cloud service. Apart from your clusters, the desktop app makes one request on its own, a daily check for updates that you can turn off. Anything else that sends data elsewhere, such as AI triage, stays off until you turn it on.
+Kubebay is a free Kubernetes IDE with its source in the open. It runs on your machine: a Go engine talks to your clusters with your own kubeconfig, and the app shows what it streams. There's no account and no cloud service. Apart from your clusters, the desktop app makes one request on its own, a daily check for updates that you can turn off. Anything else that sends data elsewhere, such as AI triage, stays off until you turn it on.
 
 These docs are the manual. Each page covers one part of the app: what it's for, how to open it, what you'll see, and what it needs from your cluster.
 
@@ -22,3 +22,7 @@ These docs are the manual. Each page covers one part of the app: what it's for, 
 - **A drawer** opens when you click a row. It shows the object's summary, YAML, events and the actions you can take on it.
 
 Everything you see is live. Kubebay watches the cluster, so a table changes as the cluster does, with no Refresh button.
+
+## Licence
+
+Kubebay is free for everyone to use, including at work, with no account and no licence key. From v0.8.0 its source is public under the Functional Source License (`FSL-1.1-MIT`): you can read, change, build and share it, but you can't sell it, rebrand it, or offer it as a paid service. Each release becomes MIT two years after it ships, and v0.7.10 and earlier stay MIT. The [LICENSE](https://github.com/RajaSardar/kubebay/blob/main/LICENSE) file is what applies.

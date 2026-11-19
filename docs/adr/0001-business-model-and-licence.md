@@ -3,6 +3,7 @@
 - **Status:** Proposed (2026-10-17). It's Raja's decision. This draft follows the recommendation in `docs/COMPETITIVE_ANALYSIS.md` and KB-01.
 - **Date:** 2026-10-17
 - **Backlog:** KB-01. It gates KB-17 step 2 (opt-in usage signal) and KB-20 (team edition).
+- **Superseded in part:** section (d) "Licence: stay on MIT" is superseded by [ADR 0006](0006-licence-fair-source.md) (fair source, `FSL-1.1-MIT`, from v0.8.0).
 
 ## Context
 
@@ -72,6 +73,8 @@ Carve-out (b) from the innovation backlog, guided automation over third-party co
 No hosted control plane, no hosted sync, no hosted accounts. This confirms PRD §3 and §7, and rejects RESEARCH §8.4's "SaaS control plane". The reason is trust (PRD principle #1): holding users' kubeconfigs in a hosted service is a breach liability, and it is the failure mode Lens demonstrated. Team sharing is served by self-hosted in-cluster mode.
 
 ### (d) Licence: stay on MIT
+
+> **Superseded by [ADR 0006](0006-licence-fair-source.md).** Kept below as the reasoning at the time.
 
 AGPL-3.0 (RESEARCH §10.3) is rejected:
 

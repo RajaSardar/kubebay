@@ -1,5 +1,7 @@
 # Kubebay launch kit
 
+> **Licence changed (ADR 0006).** From v0.8.0 Kubebay is fair source (`FSL-1.1-MIT`), not MIT. The drafts in this folder still say "MIT" and "open source". Update each one before posting, and check that a listing accepts a non-OSI licence before submitting (the CNCF Landscape notes in `cncf-landscape.md` assume an OSI licence).
+
 > **Status: ON HOLD. Ready, not launched.** Prepared 2026-11-08. Nothing has been posted, submitted or announced anywhere, and nothing in this folder posts itself. Raja picks the launch date; until then, nothing goes out.
 > This is the working plan for [KB-06](../BACKLOG.md). Every post here is a draft for Raja to edit **into his own voice** and publish from his own accounts.
 

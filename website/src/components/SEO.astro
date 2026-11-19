@@ -26,7 +26,7 @@ const keywords = [
   'kubernetes ide',
   'kubernetes desktop app',
   'kubernetes gui',
-  'open source kubernetes ide',
+  'free kubernetes ide',
   'lens alternative',
   'lens kubernetes alternative',
   'freelens alternative',
@@ -50,7 +50,7 @@ const keywords = [
   'kubernetes namespace browser',
   'pod terminal',
   'kubernetes log viewer',
-  'open source kubernetes dashboard',
+  'free kubernetes dashboard',
   'kubebay',
   'no account kubernetes',
   'local first kubernetes',
@@ -69,10 +69,10 @@ const softwareAppSchema = {
     priceCurrency: 'USD',
     availability: 'https://schema.org/InStock',
   },
-  license: 'https://opensource.org/licenses/MIT',
+  license: 'https://github.com/RajaSardar/kubebay/blob/main/LICENSE',
   url: siteUrl,
   downloadUrl: 'https://github.com/RajaSardar/kubebay/releases/latest',
-  description: 'Free, open-source, local-first Kubernetes IDE. Manage pods, nodes, Helm releases and more — no account required.',
+  description: 'Free, local-first Kubernetes IDE with its source in the open. Manage pods, nodes, Helm releases and more — no account required.',
   featureList: [
     'Live-streaming pod and node views',
     'Integrated pod terminal',
@@ -132,7 +132,7 @@ const howToSchema = {
   '@context': 'https://schema.org',
   '@type': 'HowTo',
   name: 'How to install Kubebay Kubernetes IDE',
-  description: 'Install Kubebay, the free open-source Kubernetes IDE, on macOS, Windows, or Linux.',
+  description: 'Install Kubebay, the free Kubernetes IDE, on macOS, Windows, or Linux.',
   step: [
     {
       '@type': 'HowToStep',
@@ -171,7 +171,7 @@ const faqSchema = {
       name: 'Is Kubebay really free?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Yes. Kubebay is fully open-source under the MIT license. There are no paid tiers, no accounts required, and no usage limits. You download it, run it, and it works — forever.',
+        text: 'Yes. Kubebay is free for everyone to use, including at work, with no account, no licence key and no usage limits. Its source is public under the Functional Source License (FSL-1.1-MIT): you can read, change and share it, but not sell it or offer it as a competing product. Each release becomes MIT two years after it ships.',
       },
     },
     {
@@ -195,7 +195,7 @@ const faqSchema = {
       name: 'How does Kubebay compare to Lens or Freelens?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Kubebay is a drop-in alternative to Lens and Freelens. Unlike Lens which requires a paid subscription for many features, Kubebay is permanently free and open-source. Kubebay is actively developed, with live-streaming views, an integrated pod terminal, and a modern cluster catalog UI.',
+        text: 'Kubebay is a drop-in alternative to Lens and Freelens. Unlike Lens which requires a paid subscription for many features, Kubebay is free to use, with its source in the open. Kubebay is actively developed, with live-streaming views, an integrated pod terminal, and a modern cluster catalog UI.',
       },
     },
     {
@@ -203,7 +203,7 @@ const faqSchema = {
       name: 'Is Kubebay a good Lens alternative?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Yes. Kubebay was built specifically as a free, open-source Lens alternative. It provides the same core features — multi-cluster management, pod browsing, log streaming, Helm — without requiring a Lens subscription, an account, or any cloud connectivity.',
+        text: 'Yes. Kubebay was built specifically as a free Lens alternative, with its source in the open. It provides the same core features — multi-cluster management, pod browsing, log streaming, Helm — without requiring a Lens subscription, an account, or any cloud connectivity.',
       },
     },
     {
@@ -285,7 +285,7 @@ const breadcrumbSchema = {
 <meta property="og:image" content={ogImage} />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
-<meta property="og:image:alt" content="Kubebay — Free Open-Source Kubernetes IDE, Lens Alternative" />
+<meta property="og:image:alt" content="Kubebay — Free Kubernetes IDE, Lens Alternative" />
 <meta property="article:author" content="https://github.com/RajaSardar" />
 <meta property="article:published_time" content="2024-01-01T00:00:00Z" />
 <meta property="article:modified_time" content="2025-09-21T00:00:00Z" />
@@ -293,7 +293,7 @@ const breadcrumbSchema = {
 <meta property="article:tag" content="kubernetes" />
 <meta property="article:tag" content="kubernetes ide" />
 <meta property="article:tag" content="lens alternative" />
-<meta property="article:tag" content="open source" />
+<meta property="article:tag" content="fair source" />
 <meta property="article:tag" content="devtools" />
 
 <!-- Twitter / X card -->
@@ -305,7 +305,7 @@ const breadcrumbSchema = {
 <meta name="twitter:image" content={ogImage} />
 <meta name="twitter:image:alt" content="Kubebay — Free Open-Source Kubernetes IDE, Lens Alternative" />
 <meta name="twitter:label1" content="License" />
-<meta name="twitter:data1" content="MIT — Free Forever" />
+<meta name="twitter:data1" content="FSL-1.1-MIT — free to use" />
 <meta name="twitter:label2" content="Platforms" />
 <meta name="twitter:data2" content="macOS · Windows · Linux" />
 
