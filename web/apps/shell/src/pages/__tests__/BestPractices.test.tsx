@@ -77,4 +77,60 @@ describe("BestPractices page", () => {
     expect(within(li).getByText(/skips most of the isolation/)).toBeInTheDocument();
     expect(within(li).getByText(/kubernetes\.io\/docs/)).toBeInTheDocument();
   });
+
+  it("names what the workload checks covered", async () => {
+    renderPage();
+    const cov = await screen.findByLabelText("Coverage");
+    expect(cov).toHaveTextContent(/Deployments 1/);
+    expect(cov).toHaveTextContent(/DaemonSets 0/);
+  });
+
+  it("shows a CIS reference tag on a mapped check only", async () => {
+    renderPage();
+    await screen.findByRole("group", { name: "Summary" });
+    const li = screen.getByText("No privileged containers").closest("li")!;
+    expect(within(li).getByText("CIS 5.2.2")).toHaveAttribute("title", expect.stringMatching(/reference/i));
+    expect(within(screen.getByText("Images use a pinned tag").closest("li")!).queryByText(/CIS/)).toBeNull();
+  });
+
+  it("ignores a check with a reason, leaves it out of the score, and undoes it", async () => {
+    localStorage.clear();
+    renderPage();
+    await screen.findByRole("group", { name: "Summary" });
+    let li = screen.getByText("No privileged containers").closest("li")!;
+    await userEvent.click(within(li).getByRole("button", { name: "Ignore this check" }));
+    await userEvent.click(within(li).getByRole("button", { name: "Save exception" }));
+    expect(within(li).getByText(/reason is required/i)).toBeInTheDocument();
+    await userEvent.type(within(li).getByLabelText("Reason"), "node agent");
+    await userEvent.click(within(li).getByRole("button", { name: "Save exception" }));
+    li = screen.getByText("No privileged containers").closest("li")!;
+    expect(within(li).getByText("Ignored")).toBeInTheDocument();
+    expect(within(li).getByText(/node agent/)).toBeInTheDocument();
+    expect(within(li).queryByText("Pass")).toBeNull();
+    expect(within(screen.getByRole("group", { name: "Summary" })).getByText("Ignored 1")).toBeInTheDocument();
+    expect(localStorage.getItem("kb.bestPractices.exceptions.c1")).toContain("node agent");
+    await userEvent.click(within(li).getByRole("button", { name: "Undo ignore" }));
+    expect(within(screen.getByText("No privileged containers").closest("li")!).getByText("Fail")).toBeInTheDocument();
+    expect(localStorage.getItem("kb.bestPractices.exceptions.c1")).toBeNull();
+  });
+
+  it("ignores a check for one namespace", async () => {
+    localStorage.clear();
+    renderPage();
+    await screen.findByRole("group", { name: "Summary" });
+    const li = screen.getByText("No privileged containers").closest("li")!;
+    await userEvent.click(within(li).getByRole("button", { name: "Ignore for namespace shop" }));
+    await userEvent.type(within(li).getByLabelText("Reason"), "ok");
+    await userEvent.click(within(li).getByRole("button", { name: "Save exception" }));
+    expect(within(screen.getByText("No privileged containers").closest("li")!).getByText("Ignored")).toBeInTheDocument();
+    expect(localStorage.getItem("kb.bestPractices.exceptions.c1")).toContain('"namespace":"shop"');
+  });
+
+  it("exports the result as JSON or Markdown", async () => {
+    renderPage();
+    await screen.findByRole("group", { name: "Summary" });
+    await userEvent.click(screen.getByRole("button", { name: "Export report" }));
+    expect(screen.getByRole("button", { name: "Save JSON" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save Markdown" })).toBeInTheDocument();
+  });
 });

@@ -29,12 +29,12 @@ const FORMATS = [
   { label: "Markdown", ext: "md", type: "text/markdown", write: reportToMarkdown },
 ] as const;
 
-function stamp(d: Date): string {
+export function stamp(d: Date): string {
   const p = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`;
 }
 
-function save(name: string, type: string, text: string) {
+export function save(name: string, type: string, text: string) {
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([text], { type }));
   a.download = name;
