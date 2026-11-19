@@ -3,7 +3,17 @@
     {
       "version": "unreleased",
       "date": "",
-      "sections": []
+      "sections": [
+        {
+          "heading": "Changed",
+          "items": [
+            {
+              "title": "Licence: MIT → Functional Source License (FSL-1.1-MIT), from v0.8.0",
+              "summary": "Kubebay stays free for everyone to use, at work included, with no account and no feature limits, and its source stays public."
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.7.10",

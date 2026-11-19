@@ -40,6 +40,8 @@ Above the tabs:
 - **Nodes**: **Cordon**, **Uncordon** and **Drain**. See [Nodes](/docs/nodes/).
 - **Delete**, with a confirmation.
 
+**What this affects.** Before you delete a workload, Pod or Node, scale a workload to zero, restart it, or drain a Node, the confirmation has a collapsed **What this affects** line. Open it to see, from the data Kubebay already streams: the ReplicaSets and Pods involved, Services whose only backing Pods would go (they would lose all endpoints) and the Ingresses and HTTPRoutes that reach them, HorizontalPodAutoscalers aimed at the workload, PodDisruptionBudgets that cover the Pods (flagged when they would be violated or block a drain), PersistentVolumeClaims in use (the data is kept), and Pods with no controller that nothing will recreate. Each list shows up to five names and a count of the rest. A part Kubebay cannot read, for example because RBAC forbids it, says unknown instead of guessing. On a cluster whose name looks like production a warning shows above it. It is advisory: it never blocks the action, and the API server still decides.
+
 Changes are recorded in the [Audit Log](/docs/audit-log/).
 
 ## YAML

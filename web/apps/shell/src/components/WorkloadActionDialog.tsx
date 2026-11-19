@@ -3,7 +3,10 @@ import { Button, InlineBanner, Modal, Row, Stack } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { ownerLabel, ownerOf, ownerWarning } from "../lib/gitops";
 import { PolicyRejectionError, type PolicyRejectionDetail } from "../lib/policyRejection";
+import { BlastRadiusPreview } from "./BlastRadiusPreview";
 import { PolicyRejectionCard } from "./PolicyRejectionCard";
+
+const KIND: Record<string, string> = { deployments: "Deployment", statefulsets: "StatefulSet", daemonsets: "DaemonSet" };
 
 const GVR: Record<string, string> = {
   deployments: "apps/v1/deployments",
@@ -104,6 +107,14 @@ export function WorkloadActionDialog({
             </Row>
           ) : (
             <span className="muted small">Its pods are replaced one by one, following its rollout strategy.</span>
+          )}
+          {(action === "restart" || Number(replicas) === 0) && (
+            <BlastRadiusPreview
+              cluster={cluster}
+              kind={KIND[slug] ?? ""}
+              obj={obj}
+              action={action === "restart" ? "restart" : "scale-zero"}
+            />
           )}
           {rejection && <PolicyRejectionCard rejection={rejection} />}
           {err && <InlineBanner flush>{err}</InlineBanner>}

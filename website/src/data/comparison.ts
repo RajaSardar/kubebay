@@ -98,7 +98,7 @@ const headlamp = {
 export const rows: Row[] = [
   {
     feature: "License",
-    kubebay: { kind: "text", label: "MIT", source: kubebay.license },
+    kubebay: { kind: "text", label: "FSL-1.1-MIT (fair source)", source: kubebay.license },
     lens: { kind: "text", label: "Proprietary", source: lens.licensing },
     freelens: { kind: "text", label: "MIT", source: freelens.license },
     k9s: { kind: "text", label: "Apache 2.0", source: k9s.license },
