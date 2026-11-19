@@ -5,6 +5,40 @@
       "date": "",
       "sections": [
         {
+          "heading": "Added",
+          "items": [
+            {
+              "title": "Blast-radius preview",
+              "summary": "Delete, scale to zero, restart and Node drain confirmations have a collapsible What this affects: ReplicaSets and Pods involved, Services that would lose all endpoints and the Ingresses and HTTPRoutes that reach them, HPAs…"
+            },
+            {
+              "title": "Helm store: add and remove repositories, rendered README, letter avatars",
+              "summary": "(backlog 11)."
+            },
+            {
+              "title": "Service map: All namespaces and an observed-traffic overlay",
+              "summary": "(backlog 39, phase 3)."
+            },
+            {
+              "title": "Object history in the Timeline tab",
+              "summary": "(backlog 42 follow-up)."
+            },
+            {
+              "title": "Best practices: wider coverage, exceptions, CIS references and export",
+              "summary": "The workload checks now also read DaemonSets, CronJobs and bare Pods, and a Coverage line says how many of each were checked and which kinds couldn't be read."
+            }
+          ]
+        },
+        {
+          "heading": "Fixed",
+          "items": [
+            {
+              "title": "Adding the first Helm repository on a machine with no repositories.yaml failed with a 500 (the missing-file check did not recognise Helm's wrapped error)",
+              "summary": ""
+            }
+          ]
+        },
+        {
           "heading": "Changed",
           "items": [
             {
