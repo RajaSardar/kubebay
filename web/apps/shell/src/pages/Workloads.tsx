@@ -19,6 +19,8 @@ import { fmtBytes, fmtCpu } from "../lib/format";
 import { useExtensions } from "../lib/useExtensions";
 import { contextOf } from "../lib/localshell";
 import { useFavoriteObjects } from "../components/Favorites";
+import { OwnerCellLink } from "../components/OwnerCellLink";
+import { ownerCellOf, replicaSetOwners, type OwnerCell } from "../lib/ownerColumn";
 
 const PODS_DEF = { resource: "pods", group: "", kind: "Pod" };
 
@@ -55,7 +57,7 @@ const byNsThenName = (a: PodRow, b: PodRow) => compareValues(a.namespace, b.name
 type Usage = Map<string, { cpuMillis: number; memBytes: number }>;
 
 /** The Pods table's own columns, between Namespace and Age. */
-function podColumns(usage: Usage): ListColumn<PodRow>[] {
+function podColumns(usage: Usage, ownerOf: (p: PodRow) => OwnerCell): ListColumn<PodRow>[] {
   return [
     { id: "Ready", header: "Ready", width: 70, className: "mono", cell: (p) => p.ready, sortValue: (p) => p.ready },
     {
@@ -71,6 +73,19 @@ function podColumns(usage: Usage): ListColumn<PodRow>[] {
       sortValue: (p) => p.statusLabel,
       filterText: (p) => p.statusLabel,
       filterKey: "status",
+    },
+    {
+      // The controller from the pod's ownerReferences; a Deployment's pods show the
+      // Deployment (through the ReplicaSet), a static pod its Node, a bare pod a dash.
+      id: "Controller",
+      header: "Owner",
+      width: 170,
+      className: "mono small",
+      title: (p) => ownerOf(p).text,
+      cell: (p) => <OwnerCellLink cell={ownerOf(p)} />,
+      sortValue: (p) => ownerOf(p).text,
+      filterText: (p) => ownerOf(p).text,
+      filterKey: "controller",
     },
     {
       id: "Restarts",
@@ -182,7 +197,16 @@ export default function Workloads() {
   podObjectsRef.current = podObjects;
   const objectOf = useCallback((p: PodRow) => podObjectsRef.current.get(p.key), []);
   const ext = useExtensions<PodRow>(PODS_DEF, effectiveCluster, contextOf(effectiveCluster, clusters.data ?? []), objectOf);
-  const columns = useMemo(() => [...podColumns(usage), ...ext.columns], [usage, ext.columns]);
+  // ReplicaSets (names and owners only) let a pod's Owner read through to its Deployment.
+  const replicaSets = useResourceStream(effectiveCluster || undefined, "apps/v1/replicasets", {
+    ns: scope ? (scope.ns ? [scope.ns] : undefined) : nsFilter.length > 0 ? nsFilter : undefined,
+  });
+  const rsOwners = useMemo(() => replicaSetOwners(replicaSets.rows), [replicaSets.rows]);
+  const ownerOf = useCallback(
+    (p: PodRow) => ownerCellOf(podObjectsRef.current.get(p.key), rsOwners),
+    [rsOwners],
+  );
+  const columns = useMemo(() => [...podColumns(usage, ownerOf), ...ext.columns], [usage, ownerOf, ext.columns]);
 
   const openPod = useCallback(
     (p: PodRow, tab?: SelectedPod["tab"]) => {

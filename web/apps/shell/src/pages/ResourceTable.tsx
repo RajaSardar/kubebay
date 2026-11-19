@@ -13,6 +13,8 @@ import { useNodeExtras } from "../lib/useNodeExtras";
 import { evalPrinterPath } from "../lib/printerPath";
 import { claimDeviceClasses, claimDevices, claimState, claimUsers, classDriver, sliceNodes } from "../lib/dra";
 import { ownerOf, ownerLabel, ownerPath } from "../lib/gitops";
+import { ownerCellOf } from "../lib/ownerColumn";
+import { OwnerCellLink } from "../components/OwnerCellLink";
 import { templateKindFor } from "../lib/resourceTemplates";
 import { podsOfWorkloadPath } from "../lib/selector";
 import { ResourceListView, type ListColumn } from "../components/ResourceListView";
@@ -438,6 +440,24 @@ export default function ResourceTable() {
         filterKey: filterKeyOf(pc.name),
       })),
       ...ext.columns,
+      // Kubernetes ownership (ownerReferences): shown on ReplicaSets, one click
+      // away in the column chooser on the other kinds. Events have none.
+      ...(def?.slug === "events"
+        ? []
+        : [
+            {
+              id: "Controller",
+              header: "Owner",
+              width: 170,
+              className: "mono small",
+              defaultHidden: def?.slug !== "replicasets",
+              title: (o: Row) => ownerCellOf(o).text,
+              cell: (o: Row) => <OwnerCellLink cell={ownerCellOf(o)} />,
+              sortValue: (o: Row) => ownerCellOf(o).text,
+              filterText: (o: Row) => ownerCellOf(o).text,
+              filterKey: "controller",
+            } satisfies ListColumn<Row>,
+          ]),
       {
         // "Managed by", not "Owner": this is the GitOps app (Argo CD / Flux), not
         // Kubernetes ownerReferences. The id stays Owner so saved sorts keep working.

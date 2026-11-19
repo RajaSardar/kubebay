@@ -95,7 +95,7 @@ describe("Pods on the shared list view", () => {
     // Namespace, then name.
     expect(names()).toEqual(["redis-a", "web-a", "web-b"]);
     const headers = screen.getAllByRole("columnheader").map((h) => h.textContent);
-    expect(headers).toEqual(["", "Name", "Namespace", "Ready", "Status", "Restarts", "Node", "IP", "CPU", "Memory", "Age", ""]);
+    expect(headers).toEqual(["", "Name", "Namespace", "Ready", "Status", "Owner", "Restarts", "Node", "IP", "CPU", "Memory", "Age", ""]);
     expect(within(rowOf("web-b")).getByText("3")).toHaveClass("restart-warn");
     expect(within(rowOf("redis-a")).getByText("node-7")).toHaveAttribute("title", "node-7");
     // The filter reaches the node column.

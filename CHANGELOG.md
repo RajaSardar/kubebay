@@ -6,6 +6,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ## [Unreleased]
 
+### Added
+- **Owner column** (backlog 54). Pods and ReplicaSets show **Owner**: the controller from `ownerReferences` as `Kind/name`, linking to its drawer (a Deployment's pods show the Deployment through their ReplicaSet; StatefulSet, DaemonSet, Job, Argo `Rollout` and a static pod's Node are shown directly; a bare object shows —). Filter with `controller:statefulset`. Every other resource list has it in the column chooser, hidden by default (not on Events). A column added after a layout was saved now follows its own default instead of always showing. Research in `docs/OWNER_COLUMN.md`.
+
 ## [0.8.0] - 2026-11-19
 
 ### Added

@@ -53,10 +53,13 @@ export function useColumnPrefs(table: string, columns: readonly ColumnDefault[])
     return [...kept, ...ids.filter((id) => !kept.includes(id))];
   }, [saved, idKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const hidden = useMemo(
-    () => new Set(saved ? saved.hidden : columns.filter((c) => c.defaultHidden).map((c) => c.id)),
-    [saved, columns],
-  );
+  // A column added after the layout was saved (not in its order) follows its
+  // own default, so a new default-hidden column does not appear unasked.
+  const hidden = useMemo(() => {
+    if (!saved) return new Set(columns.filter((c) => c.defaultHidden).map((c) => c.id));
+    const seen = new Set(saved.order);
+    return new Set([...saved.hidden, ...columns.filter((c) => c.defaultHidden && !seen.has(c.id)).map((c) => c.id)]);
+  }, [saved, columns]);
   const visible = useMemo(() => order.filter((id) => !hidden.has(id)), [order, hidden]);
 
   const commit = useCallback(
