@@ -105,7 +105,7 @@ export const PAGE_HELP: Record<string, PageHelpEntry> = {
   "/best-practices": {
     name: "Best practices",
     what: "A severity-ranked checklist for this cluster: disruption budgets, probes, pod and network security, backups, nodes, certificates and the tools worth installing.",
-    how: "Each check reads what Kubebay already sees and has a Learn lesson; unreadable ones show Unknown, never Pass. A missing tool shows its install command as text only.",
+    how: "Reads what Kubebay sees; unreadable is Unknown, never Pass. You can ignore a check with a reason, and export JSON or Markdown. Install commands are text only.",
     docs: "best-practices",
   },
   "/vulnerabilities": {

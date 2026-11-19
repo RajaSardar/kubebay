@@ -6,6 +6,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ## [Unreleased]
 
+### Added
+- **Best practices: wider coverage, exceptions, CIS references and export.** The workload checks now also read DaemonSets, CronJobs and bare Pods, and a Coverage line says how many of each were checked and which kinds couldn't be read. A failing or Unknown check can be ignored, wholly or for one namespace, with a required reason: it shows as Ignored, is never counted as a pass, is left out of the score with the count shown, and can be undone; exceptions are saved in this browser, per cluster. Four checks carry a CIS Kubernetes Benchmark reference tag (privileged, root, NetworkPolicies, ServiceAccount token), labelled a reference only. **Export report** saves the result as JSON or Markdown. (Backlog 36, slice 3.)
+
 ### Changed
 - **Licence: MIT → Functional Source License (`FSL-1.1-MIT`), from v0.8.0.** Kubebay stays free for everyone to use, at work included, with no account and no feature limits, and its source stays public. What's no longer allowed is offering it to others in a commercial product or service that competes with it: selling, rebranding or hosting it as a paid service. Each release becomes MIT two years after it ships. v0.7.10 and earlier stay MIT. Contributions now come with the agreement in `CONTRIBUTING.md` § Licensing. Rationale: [ADR 0006](docs/adr/0006-licence-fair-source.md).
 
