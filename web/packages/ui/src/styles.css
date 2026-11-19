@@ -114,6 +114,20 @@
   white-space: nowrap;
 }
 
+.kb-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  font-family: var(--kb-font-mono);
+  font-size: var(--kb-text-xs);
+  font-weight: 600;
+  border-radius: var(--kb-radius-xs);
+  background: var(--kb-bg-inset);
+  color: var(--kb-fg-muted);
+  border: 1px solid var(--kb-border-subtle);
+}
+
 .kb-badge-ok {
   color: var(--kb-status-ok);
   border-color: color-mix(in srgb, var(--kb-status-ok) 30%, transparent);

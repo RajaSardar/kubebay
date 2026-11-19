@@ -2,14 +2,18 @@ package httpapi
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 
 	"sigs.k8s.io/yaml"
 
+	"github.com/RajaSardar/kubebay/engine/internal/audit"
 	"helm.sh/helm/v4/pkg/chart"
 	"helm.sh/helm/v4/pkg/chart/loader"
 	"helm.sh/helm/v4/pkg/cli"
@@ -80,22 +84,63 @@ func (h *HelmManager) HandleUpdateRepos(w http.ResponseWriter, r *http.Request) 
 // addOrUpdateRepoEntry adds a new repo entry to f, or updates an existing
 // one's URL in place, returning whether the file actually changed so the
 // caller only needs to persist it to disk when something moved.
-func addOrUpdateRepoEntry(f *repo.File, name, url string) (*repo.Entry, bool) {
+func addOrUpdateRepoEntry(f *repo.File, name, url, username, password string) (*repo.Entry, bool) {
 	if existing := f.Get(name); existing != nil {
-		if existing.URL == url {
+		if existing.URL == url && existing.Username == username && existing.Password == password {
 			return existing, false
 		}
 		existing.URL = url
+		existing.Username = username
+		existing.Password = password
 		return existing, true
 	}
-	entry := &repo.Entry{Name: name, URL: url}
+	entry := &repo.Entry{Name: name, URL: url, Username: username, Password: password}
 	f.Add(entry)
 	return entry, true
 }
 
 type AddRepoRequest struct {
+	Name     string `json:"name"`
+	URL      string `json:"url"`
+	Username string `json:"username,omitempty"`
+	Password string `json:"password,omitempty"`
+}
+
+// repoNameRE is what a repository name may be. The name becomes part of a cache
+// file path, so it must not hold a separator or a leading dot.
+var repoNameRE = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$`)
+
+type RemoveRepoRequest struct {
 	Name string `json:"name"`
-	URL  string `json:"url"`
+}
+
+// HandleRemoveRepo drops a repository from the local Helm config and deletes its
+// cached index. Releases installed from it are untouched.
+func (h *HelmManager) HandleRemoveRepo(w http.ResponseWriter, r *http.Request) {
+	var req RemoveRepoRequest
+	if err := decodeBody(r, &req); err != nil || !repoNameRE.MatchString(req.Name) {
+		http.Error(w, "a valid repository name is required", http.StatusBadRequest)
+		return
+	}
+	settings := h.settings()
+	f, err := repo.LoadFile(settings.RepositoryConfig)
+	if err != nil || !f.Has(req.Name) {
+		http.Error(w, fmt.Sprintf("repository %q is not configured", req.Name), http.StatusNotFound)
+		return
+	}
+	f.Remove(req.Name)
+	if err := f.WriteFile(settings.RepositoryConfig, 0o600); err != nil {
+		http.Error(w, fmt.Sprintf("write repo file: %v", err), http.StatusInternalServerError)
+		return
+	}
+	_ = os.Remove(filepath.Join(settings.RepositoryCache, req.Name+"-index.yaml"))
+	_ = os.Remove(filepath.Join(settings.RepositoryCache, req.Name+"-charts.txt"))
+	h.Audit.Record(audit.Entry{
+		Action:    "helm-repo-remove",
+		Resource:  req.Name,
+		UserAgent: r.Header.Get("User-Agent"),
+	})
+	writeJSON(w, map[string]bool{"ok": true})
 }
 
 // HandleAddRepo is the missing piece backlog #2/#3 flagged: without it, a
@@ -108,6 +153,10 @@ func (h *HelmManager) HandleAddRepo(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "name and url required", http.StatusBadRequest)
 		return
 	}
+	if !repoNameRE.MatchString(req.Name) {
+		http.Error(w, "repository name: use letters, digits, dot, dash or underscore, starting with a letter or digit", http.StatusBadRequest)
+		return
+	}
 	if err := h.Outbound.ValidateURL(req.URL); err != nil {
 		http.Error(w, "repository URL: "+err.Error(), http.StatusBadRequest)
 		return
@@ -116,14 +165,14 @@ func (h *HelmManager) HandleAddRepo(w http.ResponseWriter, r *http.Request) {
 	settings := h.settings()
 	f, err := repo.LoadFile(settings.RepositoryConfig)
 	if err != nil {
-		if !os.IsNotExist(err) {
+		if !errors.Is(err, fs.ErrNotExist) {
 			http.Error(w, fmt.Sprintf("load repo file: %v", err), http.StatusInternalServerError)
 			return
 		}
 		f = repo.NewFile()
 	}
 
-	entry, changed := addOrUpdateRepoEntry(f, req.Name, req.URL)
+	entry, changed := addOrUpdateRepoEntry(f, req.Name, req.URL, req.Username, req.Password)
 
 	cr, cerr := repo.NewChartRepository(entry, h.getters(settings, entry))
 	if cerr != nil {
@@ -147,6 +196,12 @@ func (h *HelmManager) HandleAddRepo(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	h.Audit.Record(audit.Entry{
+		Action:    "helm-repo-add",
+		Resource:  entry.Name,
+		Detail:    entry.URL,
+		UserAgent: r.Header.Get("User-Agent"),
+	})
 	writeJSON(w, RepoSummary{Name: entry.Name, URL: entry.URL})
 }
 

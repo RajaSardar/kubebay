@@ -80,6 +80,19 @@ export function Badge({ children, tone, title }: { children: ReactNode; tone?: B
   return <span className={tone ? `kb-badge kb-badge-${tone}` : "kb-badge"} title={title}>{children}</span>;
 }
 
+/**
+ * A letter tile for something with a name and no picture: the first letter of
+ * `name`. It never loads an image, so it reaches no other host.
+ */
+export function Avatar({ name, size = 28 }: { name: string; size?: number }) {
+  const letter = name.match(/[\p{L}\p{N}]/u)?.[0]?.toUpperCase() ?? "?";
+  return (
+    <span className="kb-avatar" aria-hidden="true" style={{ width: size, height: size }}>
+      {letter}
+    </span>
+  );
+}
+
 export function Skeleton({ w = 120, h = 12, r }: { w?: number | string; h?: number; r?: number }) {
   return <span className="kb-skeleton" style={{ width: w, height: h, borderRadius: r }} />;
 }

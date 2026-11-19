@@ -68,9 +68,9 @@ Deferred, with the reason:
 | Deferred | Why |
 |---|---|
 | Artifact Hub search | A third-party call from the engine; breaks air-gapped; ratings are not security signals. Revisit as opt-in. |
-| Add repository form | Writes the user's repo file, needs audit and a trust prompt. The endpoint exists. |
-| README as rendered Markdown | Needs a sanitizing renderer chosen and reviewed. |
-| Icons | Loading arbitrary image hosts; breaks air-gapped. |
+| ~~Add repository form~~ | Built (2026-11-19): audited, with a trust note in the form; credentials are stored in the user's repo file as `helm repo add` does and never returned. Remove repository added too. |
+| ~~README as rendered Markdown~~ | Built (2026-11-19) with an in-repo renderer that creates React elements (no HTML string, no new dependency); raw HTML dropped, images as alt text, links http/https/mailto only. Tables not rendered. |
+| Icons | Loading arbitrary image hosts; breaks air-gapped. Cards use a letter avatar (2026-11-19). A real icon would need an engine proxy through the guarded transport with a size and type limit. |
 | Provenance (`.prov`) badge | Needs keyring handling; not a first-slice need. |
 | OCI registries, charts in repos not in the Helm config | Different fetch path to guard. |
 | Values diff between versions, "what changed in this upgrade" | Needs the chart's values for two versions. The rendered diff covers the on-call need. |
