@@ -6,6 +6,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ## [Unreleased]
 
+### Added
+- **Service map: All namespaces and an observed-traffic overlay** (backlog 39, phase 3). The Service map's namespace picker has **All namespaces**: nodes are grouped by namespace, joined where a reference names a Service elsewhere, and capped at 400 nodes with a "Showing the first 400 of N, narrow by namespace" message. Its streams open without a namespace filter only while that choice is selected. When the cluster has a Prometheus (yours or auto-detected), **observed traffic (Prometheus)** asks it, only once ticked, whether `istio_requests_total` or `nginx_ingress_controller_requests` exist and draws request-rate lines labelled **observed** with the rate, the time and the PromQL; with neither metric it says **No traffic metrics found** and draws nothing. Cilium/Hubble and Linkerd are not read. Not checked against a live Istio or ingress-nginx cluster.
+
 ### Changed
 - **Licence: MIT → Functional Source License (`FSL-1.1-MIT`), from v0.8.0.** Kubebay stays free for everyone to use, at work included, with no account and no feature limits, and its source stays public. What's no longer allowed is offering it to others in a commercial product or service that competes with it: selling, rebranding or hosting it as a paid service. Each release becomes MIT two years after it ships. v0.7.10 and earlier stay MIT. Contributions now come with the agreement in `CONTRIBUTING.md` § Licensing. Rationale: [ADR 0006](docs/adr/0006-licence-fair-source.md).
 

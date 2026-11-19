@@ -8,7 +8,9 @@ import { ForbiddenState } from "../components/ForbiddenState";
 import { PageLoader } from "../components/PageLoader";
 import { deniedStreams, listKinds } from "../lib/forbidden";
 import { useResourceStream } from "../lib/useResourceStream";
-import { crdApi } from "../lib/api";
+import { crdApi, promApi } from "../lib/api";
+import { ALL_NAMESPACES, ALL_NAMESPACES_BUDGET, buildAllNamespacesMap } from "../lib/serviceMapAll";
+import { OBSERVED_PROBES, observedEdges, type ProbeResult } from "../lib/observedTraffic";
 import { buildServiceMap, detectMapCrds, filterEdges, visibleNodes, type MapEdge, type MapNode } from "../lib/serviceMap";
 import type { KObj } from "../lib/topology";
 
@@ -18,12 +20,17 @@ const KIND_LABEL: Record<MapEdge["kind"], string> = {
   allowed: "allowed",
   references: "references",
   subset: "subset",
+  traffic: "traffic",
 };
 
 function MapNodeView(props: NodeProps) {
   const kb = (props.data as unknown as { kb: MapNode }).kb;
   return (
     <>
+      {kb.type === "group" ? (
+        <div className="mono strong" style={{ fontSize: "var(--kb-text-sm)" }}>{kb.name}</div>
+      ) : (
+      <>
       <Handle type="target" position={Position.Left} />
       <Handle type="source" position={Position.Right} />
       <div className={`topo-card${kb.type === "service" ? " topo-svc" : ""}`} title={kb.detail}>
@@ -35,15 +42,18 @@ function MapNodeView(props: NodeProps) {
           <div className="muted" style={{ fontSize: "var(--kb-text-2xs)" }}>{kb.detail}</div>
         </div>
       </div>
+      </>
+      )}
     </>
   );
 }
 
 const MAX_FINDINGS = 6;
 
-const NODE_TYPES = { ingress: MapNodeView, service: MapNodeView, workload: MapNodeView };
+const NODE_TYPES = { ingress: MapNodeView, service: MapNodeView, workload: MapNodeView, group: MapNodeView };
 
 function edgeStyle(e: MapEdge): Record<string, unknown> {
+  if (e.basis === "observed") return { stroke: "var(--kb-status-ok)", strokeWidth: 2 };
   if (e.kind === "allowed") return { stroke: "var(--kb-border-strong)", opacity: 0.55 };
   if (e.basis === "inferred") return { stroke: "var(--kb-status-warn)", strokeDasharray: "5 3" };
   return { stroke: "var(--kb-accent)" };
@@ -52,7 +62,9 @@ function edgeStyle(e: MapEdge): Record<string, unknown> {
 /** The Topology page's "Service map" view: who routes to, serves and is allowed to reach whom. */
 export default function ServiceMapView({ cluster, namespace }: { cluster: string; namespace: string }) {
   const navigate = useNavigate();
-  const opts = { mode: "full" as const, ns: [namespace] };
+  const all = namespace === ALL_NAMESPACES;
+  // No ns means every namespace the identity may list; the engine subscribes per namespace it is allowed.
+  const opts = { mode: "full" as const, ns: all ? undefined : [namespace] };
   const ingresses = useResourceStream(cluster, "networking.k8s.io/v1/ingresses", opts);
   const services = useResourceStream(cluster, "v1/services", opts);
   const slices = useResourceStream(cluster, "discovery.k8s.io/v1/endpointslices", opts);
@@ -82,36 +94,61 @@ export default function ServiceMapView({ cluster, namespace }: { cluster: string
   const [showAllowed, setShowAllowed] = useState(true);
   const [showCross, setShowCross] = useState(true);
 
-  const graph = useMemo(
-    () =>
-      buildServiceMap({
-        namespace,
-        ingresses: ingresses.rows as KObj[],
-        services: services.rows as KObj[],
-        slices: slices.rows as KObj[],
-        pods: pods.rows as KObj[],
-        replicaSets: rss.rows as KObj[],
-        deployments: deps.rows as KObj[],
-        statefulSets: stss.rows as KObj[],
-        daemonSets: dss.rows as KObj[],
-        networkPolicies: netpols.rows as KObj[],
-        gvrs,
-        gateways: gateways.rows as KObj[],
-        httpRoutes: httpRoutes.rows as KObj[],
-        grpcRoutes: grpcRoutes.rows as KObj[],
-        virtualServices: virtualServices.rows as KObj[],
-        destinationRules: destinationRules.rows as KObj[],
-      }),
-    [namespace, gvrs, ingresses.rows, services.rows, slices.rows, pods.rows, rss.rows, deps.rows, stss.rows, dss.rows, netpols.rows, gateways.rows, httpRoutes.rows, grpcRoutes.rows, virtualServices.rows, destinationRules.rows],
+  const baseGraph = useMemo(() => {
+    const objs = {
+      ingresses: ingresses.rows as KObj[],
+      services: services.rows as KObj[],
+      slices: slices.rows as KObj[],
+      pods: pods.rows as KObj[],
+      replicaSets: rss.rows as KObj[],
+      deployments: deps.rows as KObj[],
+      statefulSets: stss.rows as KObj[],
+      daemonSets: dss.rows as KObj[],
+      networkPolicies: netpols.rows as KObj[],
+      gvrs,
+      gateways: gateways.rows as KObj[],
+      httpRoutes: httpRoutes.rows as KObj[],
+      grpcRoutes: grpcRoutes.rows as KObj[],
+      virtualServices: virtualServices.rows as KObj[],
+      destinationRules: destinationRules.rows as KObj[],
+    };
+    if (all) return buildAllNamespacesMap(objs, { budget: ALL_NAMESPACES_BUDGET });
+    return { ...buildServiceMap({ namespace, ...objs }), truncated: false, total: 0 };
+  }, [all, namespace, gvrs, ingresses.rows, services.rows, slices.rows, pods.rows, rss.rows, deps.rows, stss.rows, dss.rows, netpols.rows, gateways.rows, httpRoutes.rows, grpcRoutes.rows, virtualServices.rows, destinationRules.rows]);
+
+  // Observed traffic: single namespace only, only when a Prometheus is found, and only once asked for.
+  const [showObserved, setShowObserved] = useState(false);
+  const prom = useQuery({ queryKey: ["prom-status", cluster], queryFn: () => promApi.status(cluster), enabled: !!cluster && !all, staleTime: 60_000 });
+  const promFound = !all && !!prom.data && prom.data.source !== "none";
+  const observed = useQuery({
+    queryKey: ["service-map-observed", cluster, namespace],
+    enabled: promFound && showObserved,
+    retry: false,
+    refetchInterval: 60_000,
+    queryFn: async (): Promise<ProbeResult[]> => {
+      const out: ProbeResult[] = [];
+      for (const probe of OBSERVED_PROBES) {
+        const present = await promApi.query({ cluster, query: probe.presenceQuery });
+        if (!present.some((x) => Number(x.value?.[1]) > 0)) continue;
+        const query = probe.rateQuery(namespace);
+        out.push({ probe, query, at: Date.now(), samples: await promApi.query({ cluster, query }) });
+      }
+      return out;
+    },
+  });
+  const observedList = useMemo(
+    () => (promFound && showObserved ? (observed.data ?? []).flatMap((r) => observedEdges(r, namespace, baseGraph.nodes)) : []),
+    [promFound, showObserved, observed.data, namespace, baseGraph.nodes],
   );
+  const graph = baseGraph;
 
   const shownEdges = useMemo(
-    () => filterEdges(graph.edges, { inferred: showInferred, allowed: showAllowed, crossNamespace: showCross }),
-    [graph.edges, showInferred, showAllowed, showCross],
+    () => [...filterEdges(baseGraph.edges, { inferred: showInferred, allowed: showAllowed, crossNamespace: showCross }), ...observedList],
+    [baseGraph.edges, observedList, showInferred, showAllowed, showCross],
   );
 
   const rfNodes = useMemo(
-    () => visibleNodes(graph.nodes, shownEdges).map((n) => ({ id: n.id, type: n.type, position: n.position, data: { kb: n } })),
+    () => visibleNodes(graph.nodes, shownEdges).map((n) => ({ id: n.id, type: n.type, position: n.position, data: { kb: n }, ...(n.type === "group" ? { selectable: false, draggable: false } : {}) })),
     [graph.nodes, shownEdges],
   );
   const rfEdges = useMemo(
@@ -120,7 +157,10 @@ export default function ServiceMapView({ cluster, namespace }: { cluster: string
         id: e.id,
         source: e.source,
         target: e.target,
-        label: `${KIND_LABEL[e.kind]} · ${e.basis}${e.basis === "inferred" && e.evidence ? ` · ${e.evidence}` : ""}`,
+        label:
+          e.basis === "observed"
+            ? `traffic · observed · ${(e.rate ?? 0).toFixed(2)} req/s · ${new Date(e.observedAt ?? 0).toLocaleTimeString()}`
+            : `${KIND_LABEL[e.kind]} · ${e.basis}${e.basis === "inferred" && e.evidence ? ` · ${e.evidence}` : ""}`,
         animated: false,
         style: edgeStyle(e),
       })),
@@ -129,7 +169,8 @@ export default function ServiceMapView({ cluster, namespace }: { cluster: string
 
   const onNodeClick = useCallback(
     (_: unknown, node: { id: string }) => {
-      const ref = graph.nodes.find((n) => n.id === node.id)?.ref;
+      const hit = graph.nodes.find((x) => x.id === node.id);
+      const ref = hit?.type === "group" ? undefined : hit?.ref;
       if (ref) navigate(`/detail/${ref.slug}/${ref.ns || "_"}/${ref.name}`);
     },
     [graph.nodes, navigate],
@@ -139,7 +180,13 @@ export default function ServiceMapView({ cluster, namespace }: { cluster: string
     <div className="toolbar">
       <Badge tone="ok" title="An object states it: an Ingress or Gateway API route backend, an Istio VirtualService, an EndpointSlice, a NetworkPolicy.">declared</Badge>
       <Badge tone="warn" title="A heuristic: a Service selector with no EndpointSlice, or a host named in an env var. The edge's label carries the evidence.">inferred</Badge>
-      <span className="muted small">No live traffic: nothing here is observed.</span>
+      <span className="muted small">No live traffic unless you tick observed traffic: lines are set-up paths, not requests.</span>
+      {promFound && (
+        <label className="ctl" style={{ cursor: "pointer" }}>
+          <input type="checkbox" checked={showObserved} onChange={(e) => setShowObserved(e.target.checked)} />
+          observed traffic (Prometheus)
+        </label>
+      )}
       <label className="ctl" style={{ cursor: "pointer" }}>
         <input type="checkbox" checked={showInferred} onChange={(e) => setShowInferred(e.target.checked)} />
         inferred edges
@@ -169,6 +216,24 @@ export default function ServiceMapView({ cluster, namespace }: { cluster: string
   return (
     <>
       {legend}
+      {baseGraph.truncated && (
+        <InlineBanner>
+          Showing the first {ALL_NAMESPACES_BUDGET} of {baseGraph.total} nodes, in namespace order. Narrow by namespace to see the rest.
+        </InlineBanner>
+      )}
+      {showObserved && promFound && observed.isError && <InlineBanner>Could not read traffic from Prometheus: {(observed.error as Error).message}</InlineBanner>}
+      {showObserved && promFound && observed.data && observed.data.length === 0 && (
+        <InlineBanner>No traffic metrics found. Kubebay looks for istio_requests_total and nginx_ingress_controller_requests in this cluster's Prometheus and draws nothing else.</InlineBanner>
+      )}
+      {showObserved && observed.data && observed.data.length > 0 && (
+        <div className="muted small">
+          {observed.data.map((r) => (
+            <div key={r.probe.metric} className="mono">
+              observed from {r.probe.metric} at {new Date(r.at).toLocaleTimeString()}: {r.query}
+            </div>
+          ))}
+        </div>
+      )}
       {graph.findings.length > 0 && (
         <div className="toolbar" aria-label="findings">
           {graph.findings.slice(0, MAX_FINDINGS).map((f) => (

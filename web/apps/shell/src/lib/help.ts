@@ -159,7 +159,7 @@ export const PAGE_HELP: Record<string, PageHelpEntry> = {
   "/topology": {
     name: "Topology",
     what: "One namespace drawn as a graph of its workloads, pods and Services, or as a Service map of Ingress, Gateway API and Istio paths to workloads.",
-    how: "Built live from the namespace's objects. Lines are declared or inferred (a guess, with evidence); chips flag broken Services. No live traffic.",
+    how: "Built live from the namespace's objects. Lines are declared or inferred (a guess); a Prometheus with mesh metrics adds observed rates. All namespaces is capped.",
     docs: "topology#service-map",
   },
   "/settings": {

@@ -7,10 +7,10 @@ import type { Health, KObj } from "./topology";
  * app already reads. Every edge says how we know it:
  *   declared  - an object states it (Ingress backend, EndpointSlice, NetworkPolicy)
  *   inferred  - a heuristic (selector fallback, a host named in an env var), with evidence
- *   observed  - measured traffic; never produced here (needs a data plane)
+ *   observed  - measured traffic from the cluster's Prometheus (lib/observedTraffic.ts); never produced by this builder
  */
 export type EdgeBasis = "declared" | "inferred" | "observed";
-export type EdgeKind = "routes-to" | "serves" | "allowed" | "references" | "subset";
+export type EdgeKind = "routes-to" | "serves" | "allowed" | "references" | "subset" | "traffic";
 
 export interface ObjRef {
   slug: string;
@@ -20,12 +20,14 @@ export interface ObjRef {
 
 export interface MapNode {
   id: string;
-  type: "ingress" | "service" | "workload";
+  type: "ingress" | "service" | "workload" | "group";
   name: string;
   detail: string;
   health: Health;
   ref: ObjRef;
   external?: boolean;
+  /** The namespace a node belongs to on the all-namespaces map. */
+  group?: string;
   position: { x: number; y: number };
 }
 
@@ -38,6 +40,9 @@ export interface MapEdge {
   evidence?: string;
   /** The Service on the far end lives in another namespace. */
   crossNamespace?: boolean;
+  /** Observed edges: requests per second, and when it was measured (epoch ms). */
+  rate?: number;
+  observedAt?: number;
 }
 
 /** Something worth a look on the map: a Service nothing serves, or a route to a Service that does not exist. */
@@ -127,7 +132,7 @@ export function buildServiceMap(input: ServiceMapInput): { nodes: MapNode[]; edg
     const id = `${e.kind}:${e.source}->${e.target}`;
     if (!edges.has(id)) edges.set(id, { id, ...e });
   };
-  const addNode = (n: Omit<MapNode, "position">) => {
+  const addNode = (n: Omit<MapNode, "position" | "type"> & { type: "ingress" | "service" | "workload" }) => {
     if (!nodes.has(n.id)) nodes.set(n.id, { ...n, position: { x: COL_X[n.type], y: 0 } });
   };
 
@@ -422,7 +427,7 @@ export function buildServiceMap(input: ServiceMapInput): { nodes: MapNode[]; edg
 
   // Layout: one row per node in its column.
   const rows = { ingress: 0, service: 0, workload: 0 };
-  for (const n of nodes.values()) n.position.y = 30 + rows[n.type]++ * ROW_H;
+  for (const n of nodes.values()) n.position.y = 30 + rows[n.type as keyof typeof rows]++ * ROW_H;
   return { nodes: [...nodes.values()], edges: [...edges.values()], findings };
 }
 

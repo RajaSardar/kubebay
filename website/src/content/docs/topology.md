@@ -30,18 +30,32 @@ The **Service map** tab, next to **Topology**, draws how traffic is set up to fl
 - If the cluster has the **Gateway API** CRDs, a Gateway is drawn with a line to each Service its HTTPRoute or GRPCRoute `backendRefs` name, labelled with the route, its hostnames and any weight. A route with no parent Gateway is drawn as a node of its own. Only Service backends are drawn.
 - If the cluster has **Istio**, a VirtualService is drawn with a line to each Service its `http`, `tls` and `tcp` destinations name (with the subset and weight), and a DestinationRule's subsets are drawn as **subset** lines from the Service to the workloads whose pods match the subset's labels.
 
-Kubebay looks for these CRDs once through cluster discovery and follows them only when they exist. A cluster without them shows exactly the map above. Linkerd is not drawn yet: its resources are not read.
+Kubebay looks for these CRDs once through cluster discovery and follows them only when they exist. A cluster without them shows exactly the map above. Linkerd and Cilium/Hubble are not read: their resources and metrics are not drawn.
 
 Every line says how Kubebay knows it:
 
 - **declared**: an object states it, such as an Ingress backend, an EndpointSlice or a NetworkPolicy.
+- **observed**: measured traffic from Prometheus, with a request rate and the time it was measured. See Observed traffic below.
 - **inferred**: a guess. It is either a Service selector matched to pods because no EndpointSlice was seen, or a host found in an environment variable. An inferred line shows its evidence in its label, and the **inferred edges** checkbox hides them all.
 
 Lines to a Service in another namespace (an env var, a route `backendRef` with a namespace, an Istio host such as `postgres.data.svc`) can be hidden with **other namespaces**, which also removes the nodes only they reach. The map still covers one namespace: Services elsewhere appear as a node marked `in <namespace>` with no endpoint counts.
 
 Allowed lines are permissions, not traffic: they show what a policy lets through, and can be hidden with **allowed paths (NetworkPolicy)**.
 
-**No live traffic.** The map shows no request rates, errors or latency, because the Kubernetes API does not see pod-to-pod traffic. A line means a path is set up, not that anything used it. For real traffic you need a mesh, an eBPF agent or your own metrics.
+**No live traffic by default.** The Kubernetes API does not see pod-to-pod traffic, so a line means a path is set up, not that anything used it.
+
+### Observed traffic
+
+If the cluster has a Prometheus (the one in **Settings**, or one Kubebay auto-detected), an **observed traffic (Prometheus)** checkbox appears for a single namespace. It does nothing until you tick it. Then Kubebay asks that Prometheus whether either of these metrics exists:
+
+- `istio_requests_total` draws a line from the calling workload to the called workload, within the namespace.
+- `nginx_ingress_controller_requests` draws a line from an Ingress to the Service it sends requests to.
+
+Each observed line reads `traffic · observed · N req/s · time` (the rate over the last 5 minutes), and the exact PromQL and time are listed under the legend. Lines are drawn only between objects already on the map, and only for a non-zero rate. If neither metric exists, the map says **No traffic metrics found** and draws nothing; Kubebay never guesses at other metrics. Linkerd and Cilium/Hubble traffic are not read. The overlay is not available with **All namespaces**.
+
+### All namespaces
+
+On the **Service map** tab only, the namespace picker has **All namespaces**. Each namespace is drawn as a labelled group, and a reference to a Service in another namespace joins that Service's node. To keep the map usable it shows at most 400 nodes, in namespace order; past that a banner reads "Showing the first 400 of N nodes... Narrow by namespace to see the rest." The map follows the cluster's objects across every namespace only while this choice is selected. An account that can list only some namespaces sees the message about what it can't list.
 
 **Findings** appear as chips above the map:
 
