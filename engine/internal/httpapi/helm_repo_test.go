@@ -8,7 +8,7 @@ import (
 
 func TestAddOrUpdateRepoEntryAddsNew(t *testing.T) {
 	f := repo.NewFile()
-	entry, changed := addOrUpdateRepoEntry(f, "autoscaler", "https://kubernetes.github.io/autoscaler")
+	entry, changed := addOrUpdateRepoEntry(f, "autoscaler", "https://kubernetes.github.io/autoscaler", "", "")
 
 	if !changed {
 		t.Fatal("expected changed=true when adding a brand-new repo")
@@ -25,7 +25,7 @@ func TestAddOrUpdateRepoEntryNoopWhenUnchanged(t *testing.T) {
 	f := repo.NewFile()
 	f.Add(&repo.Entry{Name: "autoscaler", URL: "https://kubernetes.github.io/autoscaler"})
 
-	_, changed := addOrUpdateRepoEntry(f, "autoscaler", "https://kubernetes.github.io/autoscaler")
+	_, changed := addOrUpdateRepoEntry(f, "autoscaler", "https://kubernetes.github.io/autoscaler", "", "")
 
 	if changed {
 		t.Error("expected changed=false when the same name/url already exists")
@@ -36,7 +36,7 @@ func TestAddOrUpdateRepoEntryUpdatesExistingUrl(t *testing.T) {
 	f := repo.NewFile()
 	f.Add(&repo.Entry{Name: "autoscaler", URL: "https://old.example.com"})
 
-	entry, changed := addOrUpdateRepoEntry(f, "autoscaler", "https://kubernetes.github.io/autoscaler")
+	entry, changed := addOrUpdateRepoEntry(f, "autoscaler", "https://kubernetes.github.io/autoscaler", "", "")
 
 	if !changed {
 		t.Fatal("expected changed=true when the URL differs from the existing entry")

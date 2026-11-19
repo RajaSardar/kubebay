@@ -55,7 +55,7 @@ If your identity can't read Helm's release records across the cluster, the page 
 
 ## Charts — install
 
-The charts in the Helm repositories you already added. Kubebay reads your local Helm config, so the repos you added with `helm repo add` are already there. If you have none, it says so.
+The charts in the Helm repositories you already added. Kubebay reads your local Helm config, so the repos you added with `helm repo add` are already there, and you can add more with **Add repository**. If you have none, it says so.
 
 Each chart is a card with its latest version, description and app version. A chart that a release on this cluster runs shows an **Installed** badge, and a deprecated chart shows **Deprecated**.
 
@@ -69,7 +69,7 @@ Each chart is a card with its latest version, description and app version. A cha
 Click a chart to open it. The release name, namespace and version, with **Preview** and **Install**, stay at the top; the tabs below are:
 
 - **About**: the description, the app version, the releases that already run the chart, its maintainers, home page and source links, and keywords. Links open only when they are `http` or `https` addresses.
-- **README**: the chart's README as plain text. Kubebay doesn't render a README as Markdown, because it comes from the repository.
+- **README**: the chart's README as formatted text: headings, paragraphs, lists, code, quotes, bold and italic. Raw HTML in it is dropped, never run. An image is shown as its alt text and is not loaded, so the README's host learns nothing about you. A link opens in a new tab only for `http`, `https` and `mailto` addresses; any other link is plain text. Tables show as plain lines.
 - **Values**: the chart's default `values.yaml` in an editor. Edit it to set your own values.
 - **Preview** (or **Changes**): appears after you click **Preview**.
 
@@ -81,7 +81,15 @@ The version box lists every version in the repo's index, so you can pick an olde
 
 When a chart is already installed, opening it starts the form from that release, so an upgrade is one click and a preview. If the name you give is a release of a different chart, a banner says applying will replace it. **Install** and **Upgrade** are recorded in the [Audit Log](/docs/audit-log/).
 
-Adding a repository is still done with `helm repo add` in a terminal; Kubebay reads the result.
+### Adding and removing repositories
+
+**Add repository** opens a form with **Repository name**, **Repository URL** and an optional **Username** and **Password** for a repository behind basic auth. **Add** has the engine download the repository's index to check it, then saves it in your Helm config (the same `repositories.yaml` `helm repo add` writes, with the password in it if you gave one). Nothing is saved if the check fails, and the reason is shown in the form: a URL that is not `http` or `https`, one that points at a cloud metadata or link-local address, a wrong password, an unreachable host. The password is never shown again. A name may hold letters, digits, dots, dashes and underscores. Only add repositories you trust: their charts are rendered and applied as you.
+
+**Remove repository** (click again to confirm) removes the selected repository from your Helm config and deletes its cached index. Releases already installed from it are not touched. Both actions are recorded in the [Audit Log](/docs/audit-log/).
+
+### Icons
+
+Cards show a letter tile made from the chart's name, not the chart's icon. A chart's `icon` is a URL on another host, and loading it would make your browser contact that host for every card, which Kubebay's content security policy forbids and an air-gapped setup could not do.
 
 ## Who Helm acts as
 

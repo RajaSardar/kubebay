@@ -618,7 +618,9 @@ export interface HelmChartDetail {
 
 export const helmMarketApi = {
   repos: (cluster: string) => get<HelmRepo[]>(`/api/helm/repos?cluster=${encodeURIComponent(cluster)}`),
-  addRepo: (b: { name: string; url: string }) => send<HelmRepo>("POST", "/api/helm/repos/add", b),
+  addRepo: (b: { name: string; url: string; username?: string; password?: string }) =>
+    send<HelmRepo>("POST", "/api/helm/repos/add", b),
+  removeRepo: (name: string) => send<{ ok: boolean }>("POST", "/api/helm/repos/remove", { name }),
   updateRepos: (cluster: string) =>
     send<Record<string, string>>("POST", `/api/helm/repos/update?cluster=${encodeURIComponent(cluster)}`, {}),
   charts: (cluster: string, repo: string) =>

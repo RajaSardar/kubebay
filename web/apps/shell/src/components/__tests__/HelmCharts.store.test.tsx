@@ -115,7 +115,7 @@ describe("the chart store's cards", () => {
 });
 
 describe("a chart's page", () => {
-  it("shows its maintainers and versions, and its README as plain text", async () => {
+  it("shows its maintainers and versions, and its README as Markdown", async () => {
     mount();
     fireEvent.click(await screen.findByText("redis"));
     fireEvent.click(await screen.findByRole("tab", { name: "About" }));
@@ -124,9 +124,9 @@ describe("a chart's page", () => {
     expect(helmMarketApi.chart).toHaveBeenCalledWith("c1", "store", "redis", undefined);
 
     fireEvent.click(screen.getByRole("tab", { name: "README" }));
-    // Markdown is not rendered: nothing a chart ships is ever turned into HTML.
+    // Rendered as Markdown, built from elements, never from the README's own HTML.
     expect(await screen.findByText(/Runs a cache\./)).toBeInTheDocument();
-    expect(screen.getByText(/# Redis/)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Redis" })).toBeInTheDocument();
   });
 
   it("asks for the version picked", async () => {

@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
 import Editor, { DiffEditor } from "../lib/monaco";
-import { Badge, Button, Card, Drawer, EmptyState, InlineBanner, Row, Select, Skeleton, Stack, Tabs, TextField } from "@kubebay/ui";
+import { ArmedButton, Avatar, Badge, Button, Card, Drawer, EmptyState, InlineBanner, Row, Select, Skeleton, Stack, Tabs, TextField } from "@kubebay/ui";
 import { helmApi, helmMarketApi, type HelmChartDetail, type HelmChartEntry, type HelmRelease } from "../lib/api";
 import { helmReleasesQuery } from "../lib/helmReleases";
 import { installedAs, isWebUrl, matchesChart, releaseNameFor } from "../lib/helmStore";
 import { useMonacoTheme } from "../lib/theme";
+import { Markdown } from "./Markdown";
 
 const ALL_REPOS = "__all__";
 
@@ -292,12 +293,7 @@ function ChartDrawer({
         <div style={{ padding: "10px 14px" }}>
           {!detail && detailQ.isLoading && <Skeleton w={260} h={12} />}
           {detail && !detail.readme && <p className="muted small">This chart ships no README.</p>}
-          {detail?.readme && (
-            // Plain text on purpose: a README is its repo's say-so and is never turned into HTML.
-            <pre className="log-view" style={{ whiteSpace: "pre-wrap", margin: 0 }}>
-              {detail.readme}
-            </pre>
-          )}
+          {detail?.readme && <Markdown source={detail.readme} />}
         </div>
       )}
 
@@ -360,6 +356,10 @@ export function ChartsTab({ cluster }: { cluster: string }) {
   const [hideDeprecated, setHideDeprecated] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [updateMsg, setUpdateMsg] = useState("");
+  const [addOpen, setAddOpen] = useState(false);
+  const [repoForm, setRepoForm] = useState({ name: "", url: "", username: "", password: "" });
+  const [repoBusy, setRepoBusy] = useState(false);
+  const [repoErr, setRepoErr] = useState("");
   const [installing, setInstalling] = useState<{ chart: HelmChartEntry; repoName: string } | null>(null);
 
   const repoList = repos.data ?? [];
@@ -417,6 +417,38 @@ export function ChartsTab({ cluster }: { cluster: string }) {
     if (!search) out.sort((a, b) => a.name.localeCompare(b.name));
     return out.map((chart) => ({ chart, repoName: effectiveRepo }));
   }, [isAll, allItems, singleCharts.data, search, effectiveRepo, hideDeprecated, installedOnly, releaseList]);
+
+  async function addRepo() {
+    setRepoBusy(true);
+    setRepoErr("");
+    try {
+      const { name, url, username, password } = repoForm;
+      await helmMarketApi.addRepo({ name: name.trim(), url: url.trim(), ...(username ? { username, password } : {}) });
+      setRepoForm({ name: "", url: "", username: "", password: "" });
+      setAddOpen(false);
+      setRepoSel(name.trim());
+      await qc.invalidateQueries({ queryKey: ["helm-repos"] });
+    } catch (e) {
+      setRepoErr(String(e instanceof Error ? e.message : e));
+    } finally {
+      setRepoBusy(false);
+    }
+  }
+
+  async function removeRepo(name: string) {
+    setRepoBusy(true);
+    setRepoErr("");
+    try {
+      await helmMarketApi.removeRepo(name);
+      setRepoSel("");
+      await qc.invalidateQueries({ queryKey: ["helm-repos"] });
+      qc.removeQueries({ queryKey: ["helm-charts", cluster, name] });
+    } catch (e) {
+      setRepoErr(String(e instanceof Error ? e.message : e));
+    } finally {
+      setRepoBusy(false);
+    }
+  }
 
   async function updateIndexes() {
     setUpdating(true);
@@ -492,8 +524,91 @@ export function ChartsTab({ cluster }: { cluster: string }) {
         <Button variant="ghost" disabled={updating || !repoList.length} onClick={() => void updateIndexes()}>
           {updating ? "Updating…" : "Update indexes"}
         </Button>
+        <Button variant="ghost" onClick={() => setAddOpen((o) => !o)}>
+          Add repository
+        </Button>
+        {!isAll && effectiveRepo && (
+          <ArmedButton
+            label="Remove repository"
+            confirmLabel={`Confirm remove ${effectiveRepo}`}
+            busy={repoBusy}
+            onGo={() => void removeRepo(effectiveRepo)}
+          />
+        )}
         <Badge>{filtered.length}{isAll && loadingRepoCount > 0 ? "+" : ""}</Badge>
       </div>
+
+      {addOpen && (
+        <Card>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void addRepo();
+            }}
+          >
+            <Stack gap={3}>
+              <Row gap={2}>
+                <TextField
+                  aria-label="Repository name"
+                  placeholder="name, e.g. bitnami"
+                  value={repoForm.name}
+                  onChange={(e) => setRepoForm({ ...repoForm, name: e.target.value })}
+                  spellCheck={false}
+                />
+                <TextField
+                  aria-label="Repository URL"
+                  placeholder="https://charts.example.com"
+                  value={repoForm.url}
+                  onChange={(e) => setRepoForm({ ...repoForm, url: e.target.value })}
+                  spellCheck={false}
+                  style={{ flex: 1, minWidth: 240 }}
+                />
+              </Row>
+              <Row gap={2}>
+                <TextField
+                  aria-label="Username (optional)"
+                  placeholder="username (optional)"
+                  value={repoForm.username}
+                  onChange={(e) => setRepoForm({ ...repoForm, username: e.target.value })}
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+                <TextField
+                  aria-label="Password (optional)"
+                  type="password"
+                  placeholder="password (optional)"
+                  value={repoForm.password}
+                  onChange={(e) => setRepoForm({ ...repoForm, password: e.target.value })}
+                  autoComplete="off"
+                />
+              </Row>
+              <p className="muted small" style={{ margin: 0 }}>
+                The engine downloads this repository's index to check it, then saves it in your Helm config, with the password if you gave one.
+                Only add repositories you trust: their charts are rendered and applied as you. Addresses the engine must not reach (cloud
+                metadata, link-local) are refused. Removing a repository later does not touch releases installed from it.
+              </p>
+              {repoErr && <InlineBanner flush>{repoErr}</InlineBanner>}
+              <Row gap={2}>
+                <Button type="submit" disabled={repoBusy || !repoForm.name.trim() || !repoForm.url.trim()}>
+                  {repoBusy ? "Adding…" : "Add"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => {
+                    setAddOpen(false);
+                    setRepoErr("");
+                  }}
+                >
+                  Cancel
+                </Button>
+              </Row>
+            </Stack>
+          </form>
+        </Card>
+      )}
+
+      {!addOpen && repoErr && <InlineBanner flush>{repoErr}</InlineBanner>}
 
       {updateMsg && (
         <p className="muted small" style={{ marginTop: -6, marginBottom: 10 }}>
@@ -504,7 +619,7 @@ export function ChartsTab({ cluster }: { cluster: string }) {
       {!repoList.length && (
         <EmptyState>
           <p>No Helm repositories configured.</p>
-          <p className="muted small">Kubebay reads your local helm config — run "helm repo add …" once.</p>
+          <p className="muted small">Kubebay reads your local helm config. Use Add repository above, or run "helm repo add …" once.</p>
         </EmptyState>
       )}
 
@@ -519,6 +634,7 @@ export function ChartsTab({ cluster }: { cluster: string }) {
           <Card key={`${repoName}/${c.name}`} interactive className="fleet-card">
             <div style={{ cursor: "pointer" }} onClick={() => setInstalling({ chart: c, repoName })}>
               <Row align="center" gap={2}>
+                <Avatar name={c.name} />
                 <strong>{c.name}</strong>
                 <Badge>v{c.version}</Badge>
                 {installedAs(releaseList, c.name).length > 0 && <Badge tone="ok">Installed</Badge>}
