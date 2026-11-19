@@ -96,6 +96,18 @@ export const PAGE_HELP: Record<string, PageHelpEntry> = {
     how: "Read from Flux's own objects and events; Flux fixes drift as it reconciles, so there's no diff view.",
     docs: "flux",
   },
+  "/argo-workflows": {
+    name: "Argo Workflows",
+    what: "Workflows with phase, progress and a node tree, plus WorkflowTemplates and CronWorkflows with next run.",
+    how: "Read from the Argo objects; Stop, Suspend, Resume and Resubmit are small patches or a create, each audited.",
+    docs: "argo-workflows",
+  },
+  "/argo-events": {
+    name: "Argo Events",
+    what: "EventSources, Sensors and EventBus: whether each is Ready, the events declared and what each trigger creates.",
+    how: "Read from the objects' own conditions and spec; read-only.",
+    docs: "argo-events",
+  },
   "/rbac": {
     name: "RBAC and security",
     what: "Who can do what, risky permissions, attack paths, exposed secrets and image signatures.",
