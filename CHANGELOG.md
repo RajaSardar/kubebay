@@ -6,6 +6,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-19
+
 ### Added
 - **Blast-radius preview.** Delete, scale to zero, restart and Node drain confirmations have a collapsible **What this affects**: ReplicaSets and Pods involved, Services that would lose all endpoints and the Ingresses and HTTPRoutes that reach them, HPAs, PodDisruptionBudgets that would be violated, PersistentVolumeClaims kept, Pods nothing recreates, and a warning on production-looking clusters. Built from streamed data, advisory, says unknown for anything it cannot read, never blocks.
 - **Helm store: add and remove repositories, rendered README, letter avatars** (backlog 11). The Charts tab has **Add repository** (name, URL, optional basic-auth username and password; the engine checks the URL with the same SSRF guard and downloads the index before saving, and shows the refusal in the form) and **Remove repository** (confirm, deletes the cached index, leaves releases alone). `POST /api/helm/repos/add` now takes `username` and `password` and refuses names that could escape the cache directory; new `POST /api/helm/repos/remove`; both are audited. A chart's README is rendered as Markdown by a small in-repo renderer that builds elements (raw HTML dropped, images shown as alt text and never loaded, links only for http, https and mailto with `noopener noreferrer`). Cards show a letter tile (new `Avatar` in `@kubebay/ui`) instead of the chart icon, since an icon is a third-party URL the CSP forbids. Not run against a real private repository.
