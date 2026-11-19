@@ -47,6 +47,14 @@ describe("useColumnPrefs", () => {
     expect(h.result.current.order).toEqual(["Namespace", "Age", "Phase"]);
   });
 
+  it("shows a column added after a layout was saved, unless it is default-hidden", () => {
+    localStorage.setItem("kb.cols.r/x", JSON.stringify({ v: 1, order: ["Status", "Age"], hidden: ["Age"] }));
+    const { result } = renderHook(() =>
+      useColumnPrefs("r/x", [{ id: "Status" }, { id: "Age" }, { id: "Owner" }, { id: "Zone", defaultHidden: true }]),
+    );
+    expect(result.current.visible).toEqual(["Status", "Owner"]);
+  });
+
   it("resets to the page's layout", () => {
     const h = renderHook(() => useColumnPrefs("r/nodes", cols));
     act(() => h.result.current.toggle("Status"));
