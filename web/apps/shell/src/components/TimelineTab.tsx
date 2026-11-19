@@ -1,7 +1,10 @@
-import { useMemo } from "react";
-import { Badge, DataTable, Stack, type BadgeTone } from "@kubebay/ui";
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
+import { Badge, CellLink, DataTable, SegmentedControl, Stack, type BadgeTone } from "@kubebay/ui";
+import { api } from "../lib/api";
 import { useResourceStream } from "../lib/useResourceStream";
-import { buildTimeline, type TimelineEntry } from "../lib/resourceTimeline";
+import { buildTimeline, filterTimeline, timelineHref, type TimelineEntry, type TimelineGroup } from "../lib/resourceTimeline";
 import { fmtAge } from "../lib/resources";
 
 const SOURCE_LABEL: Record<TimelineEntry["source"], string> = {
@@ -9,11 +12,21 @@ const SOURCE_LABEL: Record<TimelineEntry["source"], string> = {
   rollout: "rollout",
   condition: "condition",
   container: "container",
+  audit: "audit",
+};
+
+type View = "all" | TimelineGroup;
+const GROUPS: Record<View, ReadonlySet<TimelineGroup>> = {
+  all: new Set<TimelineGroup>(["events", "audit", "rollouts"]),
+  events: new Set<TimelineGroup>(["events"]),
+  audit: new Set<TimelineGroup>(["audit"]),
+  rollouts: new Set<TimelineGroup>(["rollouts"]),
 };
 
 /**
  * Intelligence roadmap Tier 2 #18: a workload's events, rollout revisions,
- * condition changes and container terminations on one timeline.
+ * condition changes, container terminations and the changes made through
+ * Kubebay (audit log) on one timeline, filterable by source.
  */
 export function TimelineTab({ cluster, ns, obj }: { cluster: string; ns: string; obj: Record<string, unknown> | null }) {
   const kind = typeof obj?.kind === "string" ? obj.kind : "";
@@ -21,10 +34,22 @@ export function TimelineTab({ cluster, ns, obj }: { cluster: string; ns: string;
   const replicaSets = useResourceStream(cluster, "apps/v1/replicasets", { mode: "full", ns: [ns], enabled: kind === "Deployment" });
   const pods = useResourceStream(cluster, "v1/pods", { mode: "full", ns: [ns] });
 
-  const entries = useMemo(
-    () => (obj ? buildTimeline({ obj, events: events.rows, replicaSets: replicaSets.rows, pods: pods.rows }) : []),
-    [obj, events.rows, replicaSets.rows, pods.rows],
+  const metaName = (obj?.metadata as { name?: unknown } | undefined)?.name;
+  const name = typeof metaName === "string" ? metaName : "";
+  const audit = useQuery({
+    queryKey: ["audit", cluster, ns, name],
+    queryFn: () => api.auditLog({ cluster, namespace: ns, resource: name }),
+    enabled: !!name,
+    retry: false,
+  });
+  const [view, setView] = useState<View>("all");
+  const navigate = useNavigate();
+
+  const all = useMemo(
+    () => (obj ? buildTimeline({ obj, events: events.rows, replicaSets: replicaSets.rows, pods: pods.rows, audit: audit.data }) : []),
+    [obj, events.rows, replicaSets.rows, pods.rows, audit.data],
   );
+  const entries = useMemo(() => filterTimeline(all, GROUPS[view]), [all, view]);
 
   return (
     <Stack gap={2}>
@@ -32,6 +57,17 @@ export function TimelineTab({ cluster, ns, obj }: { cluster: string; ns: string;
         Events are kept for about an hour by default, so older history comes from rollout revisions, condition
         changes and containers' last termination.
       </div>
+      <SegmentedControl<View>
+        label="Timeline source"
+        value={view}
+        onChange={setView}
+        options={[
+          { value: "all", label: "All" },
+          { value: "events", label: "Events" },
+          { value: "audit", label: "Audit" },
+          { value: "rollouts", label: "Rollouts" },
+        ]}
+      />
       {entries.length === 0 ? (
         <div className="muted small">Nothing recorded for this {kind.toLowerCase() || "resource"} yet.</div>
       ) : (
@@ -53,7 +89,27 @@ export function TimelineTab({ cluster, ns, obj }: { cluster: string; ns: string;
                 return <Badge tone={tone}>{SOURCE_LABEL[e.source]}</Badge>;
               },
             },
-            { key: "subject", header: "Object", className: "mono small", render: (e) => e.subject },
+            {
+              key: "subject",
+              header: "Object",
+              className: "mono small",
+              render: (e) => {
+                const to = timelineHref(e.subject, ns);
+                return to ? (
+                  <CellLink
+                    href={to}
+                    onClick={(ev) => {
+                      ev.preventDefault();
+                      navigate(to);
+                    }}
+                  >
+                    {e.subject}
+                  </CellLink>
+                ) : (
+                  e.subject
+                );
+              },
+            },
             {
               key: "what",
               header: "What",

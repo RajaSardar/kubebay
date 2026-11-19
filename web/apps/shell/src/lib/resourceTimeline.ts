@@ -10,6 +10,9 @@
  * come only from revisions, conditions and last states.
  */
 
+import { auditObjectHref } from "./auditLinks";
+import { slugForKind } from "./resources";
+
 type Obj = Record<string, unknown>;
 
 function rec(v: unknown): Obj {
@@ -24,7 +27,7 @@ function arr(v: unknown): unknown[] {
 
 export interface TimelineEntry {
   at: string;
-  source: "event" | "rollout" | "condition" | "container";
+  source: "event" | "rollout" | "condition" | "container" | "audit";
   severity: "normal" | "warning";
   /** Kind/name of the object the entry is about. */
   subject: string;
@@ -39,7 +42,42 @@ function ownedBy(o: Obj, uid: string): boolean {
   return !!uid && arr(rec(o.metadata).ownerReferences).some((r) => rec(r).uid === uid);
 }
 
-export function buildTimeline(input: { obj: Obj; events: Obj[]; replicaSets: Obj[]; pods: Obj[] }): TimelineEntry[] {
+/** One line of Kubebay's own audit log (GET /api/audit). */
+export interface AuditRow {
+  time: string;
+  action: string;
+  cluster?: string;
+  namespace?: string;
+  resource?: string;
+  detail?: string;
+  outcome?: string;
+  source?: string;
+}
+
+export type TimelineGroup = "events" | "audit" | "rollouts";
+
+const GROUP_SOURCES: Record<TimelineGroup, TimelineEntry["source"][]> = {
+  events: ["event", "condition", "container"],
+  audit: ["audit"],
+  rollouts: ["rollout"],
+};
+
+/** Keeps the entries whose source belongs to one of the selected filter groups. */
+export function filterTimeline(entries: TimelineEntry[], groups: ReadonlySet<TimelineGroup>): TimelineEntry[] {
+  const keep = new Set<string>([...groups].flatMap((g) => GROUP_SOURCES[g]));
+  return entries.filter((e) => keep.has(e.source));
+}
+
+/** In-app link for an entry's "Kind/name" subject, or null when the kind has no page. */
+export function timelineHref(subject: string, namespace: string): string | null {
+  const i = subject.indexOf("/");
+  if (i < 0) return null;
+  const kind = subject.slice(0, i);
+  const slug = kind === "Pod" ? "pods" : slugForKind(kind);
+  return slug ? auditObjectHref({ resource: slug, namespace, name: subject.slice(i + 1) }) : null;
+}
+
+export function buildTimeline(input: { obj: Obj; events: Obj[]; replicaSets: Obj[]; pods: Obj[]; audit?: AuditRow[] }): TimelineEntry[] {
   const meta = rec(input.obj.metadata);
   const kind = str(input.obj.kind);
   const ns = str(meta.namespace);
@@ -82,13 +120,14 @@ export function buildTimeline(input: { obj: Obj; events: Obj[]; replicaSets: Obj
       .map((c) => `${str(rec(c).name)}=${str(rec(c).image)}`)
       .join(", ");
     const rev = str(rec(m.annotations)[REVISION]);
+    const cause = str(rec(m.annotations)["kubernetes.io/change-cause"]);
     out.push({
       at,
       source: "rollout",
       severity: "normal",
       subject: `ReplicaSet/${str(m.name)}`,
       title: rev ? `Revision ${rev}` : "New ReplicaSet",
-      detail: images,
+      detail: cause ? `${images} · ${cause}` : images,
     });
   }
 
@@ -133,6 +172,19 @@ export function buildTimeline(input: { obj: Obj; events: Obj[]; replicaSets: Obj
           .join(" · "),
       });
     }
+  }
+
+  for (const a of input.audit ?? []) {
+    if (!a.time || a.resource !== str(meta.name) || (ns && (a.namespace ?? "") !== ns)) continue;
+    const rejected = a.outcome === "rejected";
+    out.push({
+      at: a.time,
+      source: "audit",
+      severity: rejected ? "warning" : "normal",
+      subject: `${kind}/${str(meta.name)}`,
+      title: rejected ? `${a.action} (rejected)` : a.action,
+      detail: [a.detail, a.source === "mcp" ? "via MCP" : ""].filter(Boolean).join(" · "),
+    });
   }
 
   const t = (e: TimelineEntry) => Date.parse(e.at) || 0;

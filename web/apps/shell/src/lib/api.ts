@@ -198,7 +198,11 @@ export const api = {
   applyYaml: applyYamlRequest,
   createResource: (b: { cluster: string; yaml: string; dryRun: boolean }) =>
     send<{ applied: number; total: number; dryRun: boolean }>("POST", "/api/yaml/create", b),
-  auditLog: () => get<{ time: string; action: string; cluster: string; namespace?: string; resource?: string; detail?: string; userAgent?: string; source?: string }[]>("/api/audit"),
+  /** The audit log, optionally narrowed engine-side to one object (the drawer's Timeline tab). */
+  auditLog: (filter?: { cluster?: string; namespace?: string; resource?: string }) => {
+    const qs = new URLSearchParams(Object.entries(filter ?? {}).filter(([, v]) => v) as [string, string][]).toString();
+    return get<{ time: string; action: string; cluster: string; namespace?: string; resource?: string; detail?: string; userAgent?: string; source?: string; outcome?: string }[]>(`/api/audit${qs ? `?${qs}` : ""}`);
+  },
 };
 
 export const secretApi = {
