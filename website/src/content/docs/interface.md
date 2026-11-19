@@ -38,9 +38,11 @@ Most pages have a namespace filter. Pick one namespace, several, or **All namesp
 
 On clusters managed by Rancher, namespaces are grouped by Rancher project.
 
+The namespaces you have ticked are listed first, right after **All namespaces**, so they are easy to untick. On a cluster with Rancher projects they form a **Selected** group above the project groups. Search still narrows the list.
+
 ## The command palette
 
-Press <kbd>⌘</kbd> <kbd>K</kbd> (<kbd>Ctrl</kbd> <kbd>K</kbd>) anywhere to open the palette, then type to search:
+Press <kbd>⌘</kbd> <kbd>K</kbd> (<kbd>Ctrl</kbd> <kbd>K</kbd>) anywhere to open the palette, including while the cursor is in a YAML editor, then type to search:
 
 - every page and resource kind;
 - your saved views;

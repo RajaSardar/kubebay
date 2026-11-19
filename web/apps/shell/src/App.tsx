@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { APIResourceEntry, ClusterInfo } from "./lib/api";
 import { NavLink, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { useClusterStore } from "./lib/cluster-store";
+import { usePalette } from "./lib/palette-store";
 import { resolveActiveCluster, shouldRedirectToPicker } from "./lib/clusterPickerLogic";
 import { Button, DisclosureButton, DrawerInset, EmptyState, Kbd, KubebayMark, navItemClass, Spinner, StatusDot } from "@kubebay/ui";
 import { TerminalDock } from "./components/TerminalDock";
@@ -563,7 +564,8 @@ function AppInner() {
   const up = health.data?.ok === true;
   const ws = useWsStatus();
   const { icons: clusterIcons } = useClusterIcons();
-  const [paletteOpen, setPaletteOpen] = useState(false);
+  const paletteOpen = usePalette((s) => s.open);
+  const setPaletteOpen = usePalette((s) => s.setOpen);
   const sidebar = useSidebar();
   const [switching, setSwitching] = useState(false);
   const [fastSwitch, setFastSwitch] = useState(false);
@@ -649,7 +651,7 @@ function AppInner() {
     function onKey(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        setPaletteOpen((o) => !o);
+        usePalette.getState().toggle();
       }
     }
     window.addEventListener("keydown", onKey);

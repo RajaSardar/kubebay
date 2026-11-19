@@ -5,6 +5,8 @@ import { isNamespaceName, useNamespaceAccess } from "../lib/namespaceAccess";
 import { IconButton, InlineBanner, Row, Stack, TextField } from "@kubebay/ui";
 import { groupByProject, rancherProject } from "../lib/rancher";
 
+const SELECTED = "\u0000selected";
+
 const fieldStyle = {
   width: "100%",
   borderRadius: 0,
@@ -67,6 +69,17 @@ export function NamespaceFilter({ cluster }: { cluster: string | undefined }) {
     [all, filtered],
   );
   const grouped = groups.length > 1 || (groups[0]?.project ?? "") !== "";
+  // Selected namespaces lead the list (backlog 55): a "Selected" group above
+  // the project groups, or simply first in a flat list. Search still narrows.
+  const shown = useMemo(() => {
+    const pinned = filtered.map((n) => n.name).filter((n) => selected.includes(n));
+    if (!pinned.length) return groups;
+    const rest = groups
+      .map((g) => ({ ...g, names: g.names.filter((n) => !selected.includes(n)) }))
+      .filter((g) => g.names.length);
+    if (!grouped) return [{ project: "", names: [...pinned, ...(rest[0]?.names ?? [])] }];
+    return [{ project: SELECTED, names: pinned }, ...rest];
+  }, [groups, filtered, selected, grouped]);
 
   useEffect(() => {
     function onMouseDown(e: MouseEvent) {
@@ -215,7 +228,7 @@ export function NamespaceFilter({ cluster }: { cluster: string | undefined }) {
               </button>
             )}
 
-            {groups.map((g) => {
+            {shown.map((g) => {
               const options = g.names.map((ns) => {
                 const isSelected = selected.includes(ns);
                 const option = (
@@ -246,7 +259,7 @@ export function NamespaceFilter({ cluster }: { cluster: string | undefined }) {
                 );
               });
               if (!grouped) return options;
-              const label = g.project ? `Project ${g.project}` : "Not in a project";
+              const label = g.project === SELECTED ? "Selected" : g.project ? `Project ${g.project}` : "Not in a project";
               return (
                 <div key={g.project || "-"} role="group" aria-label={label}>
                   <div className="muted small strong" style={{ padding: "6px 12px 2px" }} aria-hidden>

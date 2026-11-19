@@ -6,6 +6,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ## [Unreleased]
 
+### Fixed
+- **Cmd/Ctrl+K opens the command palette from inside a YAML editor** (backlog 53). Monaco kept the key for its own chords (comment, fold) and the palette never saw it; every editor now passes it on, in the drawer, Create Resource, the dock and the Helm and KEDA previews.
+
+### Changed
+- **Selected namespaces come first in the namespace filter** (backlog 55). They sit right after **All namespaces**; on clusters with Rancher projects they form a **Selected** group above the project groups. Search still works.
+
 ## [0.8.0] - 2026-11-19
 
 ### Added
