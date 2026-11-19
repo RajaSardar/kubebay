@@ -4,10 +4,10 @@
 
 **A bay is where ships anchor safely. Kubebay is where your clusters come to rest.**
 
-A free, open-source, **local-first Kubernetes IDE** — cleaner than Lens, friendlier than k9s.
+A free, **local-first Kubernetes IDE** with its source in the open — cleaner than Lens, friendlier than k9s.
 
 [![CI](https://github.com/RajaSardar/kubebay/actions/workflows/ci.yml/badge.svg)](https://github.com/RajaSardar/kubebay/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-41c98e.svg)](LICENSE)
+[![License: FSL-1.1-MIT](https://img.shields.io/badge/License-FSL--1.1--MIT-41c98e.svg)](LICENSE)
 [![Latest Release](https://img.shields.io/github/v/release/RajaSardar/kubebay?color=22d3ee)](https://github.com/RajaSardar/kubebay/releases/latest)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-ef5f68.svg)](CONTRIBUTING.md)
 
@@ -122,7 +122,7 @@ Kubebay's answer: **one Go engine, three surfaces, zero compromises on trust or 
 4. **One engine, many surfaces.** Desktop (Tauri), standalone web binary, in-cluster Helm chart.
 5. **RBAC-aware everywhere.** The UI reflects what you're actually allowed to do.
 6. **Keyboard-first.** Command palette drives everything; mouse optional.
-7. **Truly open source.** MIT, public roadmap, no bait-and-switch.
+7. **Free to use, source in the open.** Free for everyone, at work too, with no account and no feature limits. Public roadmap. The code is public under the Functional Source License, and each release becomes MIT two years after it ships ([License](#license)).
 
 ---
 
@@ -142,4 +142,13 @@ See **[CONTRIBUTING.md](CONTRIBUTING.md)** — it covers dev setup, repo layout,
 
 ## License
 
-[MIT](LICENSE) © 2026 RajaSardar
+Kubebay is **fair source** under the [Functional Source License, Version 1.1, MIT Future License](LICENSE) (`FSL-1.1-MIT`), © 2026 RajaSardar, from v0.8.0 on.
+
+What that means in practice:
+
+- **Free for everyone to use**, including inside your company, for any internal purpose. No account, no licence key, no feature limits.
+- **Read it, change it, build it, share it.** You can fork it, patch it, and redistribute it with the licence included.
+- **The one thing you can't do:** make Kubebay available to others in a commercial product or service that substitutes for it or offers substantially the same functionality. In short, don't sell it, rebrand it, or host it as a paid service.
+- **Each release becomes MIT two years after it ships.** The licence grants that in advance, irrevocably.
+
+**v0.7.10 and earlier stay MIT**, as they were released. The reasons for the change are in [ADR 0006](docs/adr/0006-licence-fair-source.md). This is a plain-language summary; the [LICENSE](LICENSE) is what applies.

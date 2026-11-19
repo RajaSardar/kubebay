@@ -213,7 +213,13 @@ If you are unsure whether your idea is in scope, open a Discussion before writin
 
 ## Licensing
 
-By contributing you agree your contributions are licensed under the MIT License covering this project.
+Kubebay is licensed under the Functional Source License (`FSL-1.1-MIT`, see [LICENSE](LICENSE)). By opening a pull request or otherwise submitting a contribution, you agree that:
+
+1. **It's yours to give.** You wrote the contribution, or have the right to submit it, and it doesn't knowingly include anyone else's code under terms that conflict with these.
+2. **It's licensed like the rest of Kubebay.** Your contribution is available to everyone under the project's licence, including the conversion of each release to MIT two years after it ships.
+3. **The maintainer may relicense it.** You grant RajaSardar a perpetual, worldwide, non-exclusive, royalty-free, irrevocable licence to use, copy, modify, distribute and sublicense your contribution, and to license it under other terms, including in other products. You keep the copyright in your contribution.
+
+If you can't agree to this, say so in your pull request before it's reviewed, and we'll work it out.
 
 ---
 
