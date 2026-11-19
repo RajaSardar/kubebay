@@ -6,6 +6,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ## [Unreleased]
 
+### Added
+- **Object history in the Timeline tab** (backlog 42 follow-up). A workload's Timeline tab now also lists the changes made to it through Kubebay (scale, restart, apply, delete, including rejected ones and MCP calls), shows each rollout revision's `kubernetes.io/change-cause`, filters by All, Events, Audit or Rollouts, and links every object it names. `GET /api/audit` takes optional `cluster`, `namespace` and `resource` filters, applied before the 500-entry limit.
+
 ### Changed
 - **Licence: MIT → Functional Source License (`FSL-1.1-MIT`), from v0.8.0.** Kubebay stays free for everyone to use, at work included, with no account and no feature limits, and its source stays public. What's no longer allowed is offering it to others in a commercial product or service that competes with it: selling, rebranding or hosting it as a paid service. Each release becomes MIT two years after it ships. v0.7.10 and earlier stay MIT. Contributions now come with the agreement in `CONTRIBUTING.md` § Licensing. Rationale: [ADR 0006](docs/adr/0006-licence-fair-source.md).
 

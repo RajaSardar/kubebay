@@ -67,8 +67,24 @@ func (l *Logger) Record(e Entry) {
 	_, _ = fmt.Fprintf(l.f, "%s\n", b)
 }
 
+// Filter narrows Query to one object. Empty fields match anything.
+type Filter struct {
+	Cluster, Namespace, Resource string
+}
+
+func (f Filter) match(e Entry) bool {
+	return (f.Cluster == "" || e.Cluster == f.Cluster) &&
+		(f.Namespace == "" || e.Namespace == f.Namespace) &&
+		(f.Resource == "" || e.Resource == f.Resource)
+}
+
 // Tail returns the last n entries from the audit log file.
-func (l *Logger) Tail(n int) ([]Entry, error) {
+func (l *Logger) Tail(n int) ([]Entry, error) { return l.Query(Filter{}, n) }
+
+// Query returns the last n entries matching f, oldest first. It filters
+// before it takes the last n, so an object's old entries are not pushed out
+// by other objects' activity.
+func (l *Logger) Query(flt Filter, n int) ([]Entry, error) {
 	if l == nil {
 		return nil, nil
 	}
@@ -98,16 +114,15 @@ func (l *Logger) Tail(n int) ([]Entry, error) {
 		return nil, err
 	}
 
-	if len(lines) > n {
-		lines = lines[len(lines)-n:]
-	}
-
 	entries := make([]Entry, 0, len(lines))
 	for _, line := range lines {
 		var e Entry
-		if err := json.Unmarshal([]byte(line), &e); err == nil {
+		if err := json.Unmarshal([]byte(line), &e); err == nil && flt.match(e) {
 			entries = append(entries, e)
 		}
+	}
+	if len(entries) > n {
+		entries = entries[len(entries)-n:]
 	}
 	return entries, nil
 }

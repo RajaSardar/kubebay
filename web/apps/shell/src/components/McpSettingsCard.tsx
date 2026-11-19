@@ -26,7 +26,7 @@ export function McpSettingsCard() {
   const status = useQuery({ queryKey: ["mcp"], queryFn: mcpApi.get, refetchInterval: 15_000 });
   const clusters = useQuery({ queryKey: ["clusters"], queryFn: api.clusters });
   const st = status.data;
-  const audit = useQuery({ queryKey: ["audit"], queryFn: api.auditLog, enabled: !!st?.enabled, refetchInterval: 10_000 });
+  const audit = useQuery({ queryKey: ["audit"], queryFn: () => api.auditLog(), enabled: !!st?.enabled, refetchInterval: 10_000 });
   // null follows the engine; the first edit takes a copy.
   const [edited, setEdited] = useState<ScopeDraft | null>(null);
   const [error, setError] = useState<string | null>(null);

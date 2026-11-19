@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildTimeline } from "../resourceTimeline";
+import { buildTimeline, filterTimeline, timelineHref } from "../resourceTimeline";
 
 type Obj = Record<string, unknown>;
 
@@ -127,5 +127,67 @@ describe("buildTimeline", () => {
   it("shows a repeated event's count", () => {
     const t = buildTimeline({ ...base, obj: { ...deploy, status: {} }, events: [ev("Deployment", "web", "X", "2026-09-30T12:00:00Z", "Normal", { count: 4 })] });
     expect(t[0]!.detail).toBe("X happened (×4)");
+  });
+});
+
+describe("buildTimeline audit entries and change-cause", () => {
+  const a = (extra: Record<string, unknown>) => ({ time: "2026-09-30T10:10:00Z", action: "scale", cluster: "c1", namespace: "shop", resource: "web", ...extra });
+
+  it("adds audit entries made through Kubebay for this object, newest first among the rest", () => {
+    const t = buildTimeline({
+      ...base,
+      audit: [a({ detail: "replicas=3" }), a({ time: "2026-09-30T10:20:00Z", action: "restart" }), a({ resource: "other" }), a({ namespace: "elsewhere" })],
+    });
+    const au = t.filter((e) => e.source === "audit");
+    expect(au.map((e) => e.title)).toEqual(["restart", "scale"]);
+    expect(au[1]).toMatchObject({ subject: "Deployment/web", detail: "replicas=3", severity: "normal" });
+    expect(t[0]?.source).toBe("audit");
+  });
+
+  it("marks a rejected audit entry as a warning and shows who (MCP) made it", () => {
+    const t = buildTimeline({ ...base, audit: [a({ outcome: "rejected", source: "mcp", detail: "denied" })] });
+    expect(t.find((e) => e.source === "audit")).toMatchObject({ severity: "warning", title: "scale (rejected)", detail: "denied · via MCP" });
+  });
+
+  it("ignores audit rows when none are given", () => {
+    expect(buildTimeline(base).some((e) => e.source === "audit")).toBe(false);
+  });
+
+  it("appends a revision's change-cause to its detail", () => {
+    const r = rs("web-2", "2", "2026-09-30T10:00:00Z", "shop/web:2") as { metadata: { annotations: Record<string, string> } };
+    r.metadata.annotations["kubernetes.io/change-cause"] = "bump to 2";
+    const t = buildTimeline({ ...base, replicaSets: [r as Obj] });
+    expect(t.find((e) => e.source === "rollout")?.detail).toBe("app=shop/web:2 · bump to 2");
+  });
+});
+
+describe("filterTimeline", () => {
+  const entries = buildTimeline({
+    ...base,
+    replicaSets: [rs("web-2", "2", "2026-09-30T10:00:00Z", "shop/web:2")],
+    events: [ev("Deployment", "web", "ScalingReplicaSet", "2026-09-30T10:00:01Z")],
+    audit: [{ time: "2026-09-30T10:10:00Z", action: "scale", cluster: "c1", namespace: "shop", resource: "web" }],
+  });
+
+  it.each([
+    [["events"], ["event", "condition"]],
+    [["audit"], ["audit"]],
+    [["rollouts"], ["rollout"]],
+    [["events", "audit", "rollouts"], ["audit", "event", "rollout", "condition"]],
+    [[], []],
+  ] as const)("group %j keeps sources %j", (groups, sources) => {
+    const got = new Set(filterTimeline(entries, new Set(groups)).map((e) => e.source));
+    expect([...got].sort()).toEqual([...sources].sort());
+  });
+});
+
+describe("timelineHref", () => {
+  it.each([
+    ["Deployment/web", "shop", "/detail/deployments/shop/web"],
+    ["ReplicaSet/web-2", "shop", "/detail/replicasets/shop/web-2"],
+    ["Pod/web-2-abc", "shop", "/workloads?pod=shop%2Fweb-2-abc"],
+    ["Mystery/x", "shop", null],
+  ])("%s", (subject, ns, href) => {
+    expect(timelineHref(subject, ns)).toBe(href);
   });
 });

@@ -1069,8 +1069,10 @@ Intelligence roadmap Tier 2 #18. It adds a **Timeline** tab in the drawer for De
 
 **Not in v1:**
 - the research's "alert" merge, since Kubebay has no Alertmanager source yet
-- a Pod-drawer timeline (the lib already handles `kind: Pod`)
+- a Pod-drawer timeline (the lib already handles `kind: Pod`; the pod drawer is bespoke, so it needs its own tab wiring)
 - a fleet-wide timeline
+
+**Follow-up (object history): shipped.** The same tab now merges the audit-log entries made through Kubebay for the object (`GET /api/audit?cluster=&namespace=&resource=`, filtered before the 500 limit; rejected and MCP calls flagged), shows `kubernetes.io/change-cause` on revisions, has an All/Events/Audit/Rollouts filter, relative times with the absolute time as a title, and links to related objects. Limits: audit rows carry no kind, so they match by cluster, namespace and name; `/api/audit` is not caller-scoped under OIDC today (the new filter only narrows it); the history store's spec-change data is not merged yet.
 ### 43. Live connectivity diagnostic pod — status: shipped 2026-10-01
 
 Intelligence roadmap Tier 2 #23. It is the live counterpart to #39's static "can A reach B?" check, and sits right below it on the NetworkPolicy page as a "Live network check" card.

@@ -376,7 +376,12 @@ func Router(d Deps, token string) http.Handler {
 		})
 
 		r.Get("/api/audit", func(w http.ResponseWriter, r *http.Request) {
-			entries, err := d.Audit.Tail(500)
+			// Optional per-object filter (?cluster=&namespace=&resource=)
+			// for the drawer History tab; it only narrows the result.
+			q := r.URL.Query()
+			entries, err := d.Audit.Query(audit.Filter{
+				Cluster: q.Get("cluster"), Namespace: q.Get("namespace"), Resource: q.Get("resource"),
+			}, 500)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
