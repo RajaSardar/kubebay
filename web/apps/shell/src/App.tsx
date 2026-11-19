@@ -60,6 +60,8 @@ const Karpenter = lazy(() => import("./pages/Karpenter"));
 const Keda = lazy(() => import("./pages/Keda"));
 const UpgradeReadiness = lazy(() => import("./pages/UpgradeReadiness"));
 const Flux = lazy(() => import("./pages/Flux"));
+const ArgoWorkflows = lazy(() => import("./pages/ArgoWorkflows"));
+const ArgoEvents = lazy(() => import("./pages/ArgoEvents"));
 const BestPractices = lazy(() => import("./pages/BestPractices"));
 import { Palette } from "./components/Palette";
 import { discoveryApi } from "./lib/api";
@@ -229,6 +231,8 @@ const TOOLS = [
   { to: "/helm", label: "Helm", icon: <IconHelm /> },
   { to: "/argocd", label: "ArgoCD", icon: <IconArgoCD /> },
   { to: "/flux", label: "Flux", icon: <IconRefresh /> },
+  { to: "/argo-workflows", label: "Argo Workflows", icon: <IconArgoCD /> },
+  { to: "/argo-events", label: "Argo Events", icon: <IconArgoCD /> },
   { to: "/rbac", label: "RBAC", icon: <IconShield /> },
   { to: "/vulnerabilities", label: "Vulnerabilities", icon: <IconShield /> },
   { to: "/right-sizing", label: "Right-sizing", icon: <IconLayers /> },
@@ -706,6 +710,8 @@ function AppInner() {
               <Route path="/helm" element={<Helm />} />
               <Route path="/argocd" element={<ArgoCD />} />
               <Route path="/flux" element={<Flux />} />
+              <Route path="/argo-workflows" element={<ArgoWorkflows />} />
+              <Route path="/argo-events" element={<ArgoEvents />} />
               <Route path="/crds" element={<Crds />} />
               <Route path="/network-policy" element={<NetworkPolicy />} />
               <Route path="/terminal" element={<TerminalPage />} />

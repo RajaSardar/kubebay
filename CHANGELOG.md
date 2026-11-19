@@ -6,6 +6,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ## [Unreleased]
 
+### Added
+- **Argo Workflows and Argo Events pages** (backlog 52, part). **Argo Workflows** (`/argo-workflows`) lists Workflows with a phase pill, progress, duration and start time, with tabs for WorkflowTemplates, ClusterWorkflowTemplates and CronWorkflows (schedule, time zone, next run, suspended state). A workflow opens to its node tree (type, phase, message, and a link to the pod that ran each step). **Stop**, **Terminate**, **Suspend** and **Resume** patch `spec.shutdown` / `spec.suspend`; **Resubmit** creates a new Workflow from the old spec with `generateName`; each asks for a second click, is audited and uses your own permissions. Retry is not offered (Argo rewrites node status for it). **Argo Events** (`/argo-events`) is a read-only inventory of EventSources (declared event types), Sensors (dependencies and what each trigger creates, linked to the Workflow or other object) and EventBus, with Ready / Not ready from their conditions. Both pages appear under Tools and say so when the CRDs are absent. Not run against a live Argo install.
+
 ## [0.8.0] - 2026-11-19
 
 ### Added
