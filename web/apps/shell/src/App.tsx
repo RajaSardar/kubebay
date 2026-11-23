@@ -405,7 +405,7 @@ function ClusterStrip({ sidebar }: { sidebar: SidebarState }) {
                 height: 9,
                 borderRadius: "50%",
                 background: c.status === "reachable" ? "var(--kb-status-ok)" : broken ? "var(--kb-fg-subtle)" : "var(--kb-status-err)",
-                border: "2px solid var(--kb-bg-sidebar)",
+                border: "2px solid var(--kb-bg-chrome)",
               }} />
             </button>
           </div>

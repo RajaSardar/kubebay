@@ -212,6 +212,49 @@ describe("no resting shadows", () => {
   });
 });
 
+describe("the frame is opaque chrome", () => {
+  // The sidebar, rail and status bar are one opaque shade, --kb-bg-chrome. No
+  // translucency, no blur and no background glow; the brand gradient survives
+  // as a 1px rule on top of the status bar.
+  const decl = (css: string, sel: string, prop: string) =>
+    declarations(css, new RegExp(`^${prop}$`)).filter((d) => d.sel === sel).map((d) => d.value);
+
+  it.each([".sidebar", ".cluster-strip", ".statusbar", ".catalog-statusbar"])("%s is opaque chrome", (sel) => {
+    expect(decl(appCss, sel, "background")).toEqual(["var(--kb-bg-chrome)"]);
+  });
+
+  it("the page header is opaque", () => {
+    expect(decl(stylesCss, ".page-header", "background")).toEqual(["var(--kb-bg-surface)"]);
+  });
+
+  it("nothing in the frame is blurred or translucent", () => {
+    const blur = [...declarations(appCss, /^(-webkit-)?backdrop-filter$/), ...declarations(stylesCss, /^(-webkit-)?backdrop-filter$/)]
+      .filter(({ sel }) => /^\.(sidebar|cluster-strip|statusbar|catalog-statusbar|page-header)$/.test(sel))
+      .map(({ sel }) => sel);
+    expect(blur).toEqual([]);
+    for (const t of ["--kb-material", "--kb-material-blur", "--kb-bg-sidebar", "--kb-glow-a", "--kb-glow-b"]) {
+      expect({ t, used: [tokensCss, appCss, stylesCss].some((css) => new RegExp(`${t}\\b`).test(css)) }).toEqual({ t, used: false });
+    }
+  });
+
+  it("there is no background glow", () => {
+    expect(appCss).not.toMatch(/body::before/);
+  });
+
+  it("the status bar's top rule is the 1px brand gradient", () => {
+    const bg = decl(appCss, ".statusbar::before", "background");
+    expect(bg).toEqual(["linear-gradient(90deg, var(--kb-brand-cyan), var(--kb-brand-green))"]);
+    expect(decl(appCss, ".statusbar::before", "height")).toEqual(["1px"]);
+  });
+
+  it("the sidebar has no side padding, so nav items run edge to edge", () => {
+    expect(decl(appCss, ".sidebar", "padding")).toEqual(["0 0 8px"]);
+    // The nav items' own side padding is the sidebar gutter, and indentation is a variable, not a margin.
+    expect(decl(stylesCss, ".nav-item", "margin")).toEqual([]);
+    expect(decl(stylesCss, ".nav-item.active", "font-weight")).toEqual(["500"]);
+  });
+});
+
 describe("no dead styles or pages", () => {
   // Classes put together at runtime, e.g. `events-${type.toLowerCase()}`.
   const DYNAMIC = [/^events-(normal|warning)$/];
@@ -275,9 +318,8 @@ describe("overlays and buttons go through @kubebay/ui", () => {
       .filter(({ value }) => value === "fixed")
       .map(({ sel }) => sel)
       .sort();
-    // The page backdrop, the new-resource button and the icon picker's
-    // placement (a Modal className).
-    expect(fixed).toEqual(["body::before", ".icon-picker", ".resource-fab"].sort());
+    // The new-resource button and the icon picker's placement (a Modal className).
+    expect(fixed).toEqual([".icon-picker", ".resource-fab"].sort());
   });
 
   // Raw <button>s still in the shell, per file. The count may only go down:

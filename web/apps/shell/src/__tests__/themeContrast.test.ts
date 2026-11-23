@@ -62,7 +62,13 @@ const NATIVE = [
 
 describe.each(NATIVE)("$id theme contrast", ({ id, text }) => {
   const v = themeVars(id);
-  const c = (name: string) => parse(v[name]!);
+  // A token may alias another (`--kb-separator: var(--kb-border-subtle)`); follow the alias.
+  const c = (name: string): RGBA => {
+    const alias = /^var\(--(kb-[\w-]+)\)$/.exec(v[name] ?? "");
+    if (alias) return c(alias[1]!);
+    if (!v[name]) throw new Error(`${id} has no --${name}`);
+    return parse(v[name]!);
+  };
   const ground = (name: string) => over(c(name), c("kb-bg-surface"));
   let failures: string[] = [];
   beforeEach(() => {
@@ -72,7 +78,8 @@ describe.each(NATIVE)("$id theme contrast", ({ id, text }) => {
     const r = contrast(c(fg), bg);
     if (r < min) failures.push(`${fg} on ${bgName}: ${r.toFixed(2)} < ${min}`);
   };
-  const grounds = ["kb-bg-canvas", "kb-bg-surface", "kb-bg-raised", "kb-bg-inset"];
+  // Chrome is the fifth ground: the sidebar, rail, status bar and tab strips sit on it.
+  const grounds = ["kb-bg-canvas", "kb-bg-surface", "kb-bg-raised", "kb-bg-inset", "kb-bg-chrome"];
 
   it("text tokens meet the floor on every ground", () => {
     for (const g of grounds) {
@@ -81,7 +88,7 @@ describe.each(NATIVE)("$id theme contrast", ({ id, text }) => {
       check("kb-fg-subtle", c(g), g, 4.5);
       check("kb-accent", c(g), g, text === 7 ? 7 : 4.5);
     }
-    for (const g of ["kb-bg-canvas", "kb-bg-surface"]) {
+    for (const g of ["kb-bg-canvas", "kb-bg-surface", "kb-bg-chrome"]) {
       for (const s of ["ok", "warn", "err", "pending", "done"]) check(`kb-status-${s}`, c(g), g, 4.5);
     }
     expect(failures).toEqual([]);
@@ -177,7 +184,7 @@ describe.each(NATIVE)("$id theme contrast", ({ id, text }) => {
   it("the focus ring is solid and at least 3:1 against surfaces", () => {
     const ring = /(#[0-9a-f]{6}|rgba?\([^)]*\))\s*$/i.exec(v["kb-focus-ring"]!)![1]!;
     expect(parse(ring)[3]).toBe(1);
-    for (const g of ["kb-bg-canvas", "kb-bg-surface"]) {
+    for (const g of ["kb-bg-canvas", "kb-bg-surface", "kb-bg-chrome"]) {
       expect(contrast(parse(ring), c(g))).toBeGreaterThanOrEqual(3);
     }
   });
@@ -232,10 +239,41 @@ describe.each(NATIVE)("$id theme contrast", ({ id, text }) => {
     expect(failures).toEqual([]);
   });
 
+  it("the active nav item keeps its label readable on chrome", () => {
+    // .nav-item.active: the accent label on the accent tint at N% (read from
+    // styles.css), over the chrome sidebar.
+    const pct = Number(/\.nav-item\.active\s*\{[^}]*background:\s*color-mix\(in srgb,\s*var\(--kb-accent-subtle\)\s+([\d.]+)%/.exec(stylesCss)?.[1] ?? 100) / 100;
+    const tint = c("kb-accent-subtle");
+    const band = over([tint[0], tint[1], tint[2], tint[3] * pct], c("kb-bg-chrome"));
+    check("kb-accent", band, "active nav on chrome", text === 7 ? 7 : 4.5);
+    check("kb-fg-default", band, "active nav on chrome", text);
+    expect(failures).toEqual([]);
+  });
+
   if (text === 7) {
     it("high-contrast control borders reach 3:1", () => {
       check("kb-border-strong", c("kb-bg-surface"), "kb-bg-surface", 3);
       expect(failures).toEqual([]);
+    });
+
+    it("HC region borders (--kb-separator) reach 3:1 on chrome and surface", () => {
+      // Shade alone can't carry structure in HC themes, so the hairline between bands is a real border.
+      for (const g of ["kb-bg-chrome", "kb-bg-surface"]) {
+        const r = contrast(over(c("kb-separator"), c(g)), c(g));
+        if (r < 3) failures.push(`kb-separator on ${g}: ${r.toFixed(2)} < 3`);
+      }
+      expect(failures).toEqual([]);
+    });
+  } else {
+    it("chrome is a visible step from surface (1.10 to 1.30)", () => {
+      // Above 1.30 it reads as a frame, not a block; below 1.10 the regions merge.
+      const step = contrast(c("kb-bg-chrome"), c("kb-bg-surface"));
+      expect(step).toBeGreaterThanOrEqual(1.1);
+      expect(step).toBeLessThanOrEqual(1.3);
+    });
+
+    it("the separator is the subtle border", () => {
+      expect(v["kb-separator"]).toBe("var(--kb-border-subtle)");
     });
   }
 });

@@ -29,17 +29,6 @@ body {
   font-feature-settings: "kern" 1, "liga" 1;
 }
 
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background:
-    radial-gradient(600px 300px at 0% 0%, var(--kb-glow-a), transparent 70%),
-    radial-gradient(400px 250px at 100% 0%, var(--kb-glow-b), transparent 70%);
-}
-
 ::selection {
   background: var(--kb-selection);
 }
@@ -109,10 +98,8 @@ body::before {
   align-items: center;
   padding: 0 0 8px;
   gap: 6px;
-  background: var(--kb-material);
-  backdrop-filter: var(--kb-material-blur);
-  -webkit-backdrop-filter: var(--kb-material-blur);
-  border-right: 1px solid var(--kb-border-subtle);
+  background: var(--kb-bg-chrome);
+  border-right: 1px solid var(--kb-separator);
   overflow-y: auto;
 }
 
@@ -192,11 +179,10 @@ body::before {
   grid-area: sidebar;
   display: flex;
   flex-direction: column;
-  background: var(--kb-bg-sidebar);
-  backdrop-filter: var(--kb-material-blur);
-  -webkit-backdrop-filter: var(--kb-material-blur);
-  border-right: 1px solid var(--kb-border-subtle);
-  padding: 0 8px 8px;
+  background: var(--kb-bg-chrome);
+  border-right: 1px solid var(--kb-separator);
+  /* No side padding: nav rows run edge to edge; everything else sits in the gutter. */
+  padding: 0 0 8px;
   overflow-y: auto;
   /* contain: when sidebar scrolls to its boundary, stop here — do not
      chain to the parent (which causes the WKWebView window bounce). */
@@ -215,8 +201,8 @@ body::before {
   padding: 0 4px;
   min-height: 44px;
   flex-shrink: 0;
-  border-bottom: 1px solid var(--kb-border-subtle);
-  margin: 0 -8px 8px;
+  border-bottom: 1px solid var(--kb-separator);
+  margin: 0 0 8px;
   padding-left: 12px;
 }
 
@@ -275,15 +261,14 @@ body::before {
   display: flex;
   align-items: center;
   gap: 7px;
-  width: 100%;
   font: inherit;
   font-size: var(--kb-text-sm);
   color: var(--kb-fg-subtle);
   background: var(--kb-bg-inset);
-  border: 1px solid var(--kb-border-subtle);
+  border: 1px solid var(--kb-border-control);
   border-radius: var(--kb-radius-control);
   padding: 6px 9px;
-  margin-bottom: 12px;
+  margin: 8px var(--kb-gutter) 12px;
   cursor: pointer;
   transition:
     border-color var(--kb-dur-fast) var(--kb-ease),
@@ -365,9 +350,8 @@ h2 {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-top: 1px solid var(--kb-border-subtle);
-  background: color-mix(in srgb, var(--kb-bg-surface) 95%, transparent);
-  backdrop-filter: blur(12px);
+  border-top: 1px solid var(--kb-separator);
+  background: var(--kb-bg-chrome);
   height: var(--kb-h-status);
   padding: 0 14px;
   font-size: var(--kb-text-xs);
@@ -378,17 +362,12 @@ h2 {
 .statusbar::before {
   content: "";
   position: absolute;
-  top: -1px;
+  /* Kubebay's signature: the brand gradient as a 1px rule, just under the separator. */
+  top: 0;
   left: 0;
   right: 0;
   height: 1px;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    color-mix(in srgb, var(--kb-accent) 10%, transparent) 30%,
-    color-mix(in srgb, var(--kb-accent) 10%, transparent) 70%,
-    transparent
-  );
+  background: linear-gradient(90deg, var(--kb-brand-cyan), var(--kb-brand-green));
 }
 
 .statusbar-dock {
@@ -1156,7 +1135,7 @@ h2 {
 .favorites-link {
   display: block;
   flex: 1;
-  padding: 4px 8px 4px 33px;
+  padding: 4px var(--kb-gutter) 4px calc(var(--kb-gutter) + var(--kb-nav-indent, 0px) + 25px);
   font: inherit;
   font-size: var(--kb-text-sm);
   color: var(--kb-fg-muted);
@@ -1229,7 +1208,7 @@ h2 {
 }
 
 .sidebar-disconnect {
-  margin: 6px 8px 0;
+  margin: 6px var(--kb-gutter) 0;
 }
 
 /* A favourite is starred in the warn amber, like a macOS flag. */
@@ -2033,7 +2012,7 @@ h2 {
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
-  margin: 8px 8px 0;
+  margin: 8px var(--kb-gutter) 0;
   border-radius: var(--kb-radius-control);
   border: 1px solid var(--kb-border-subtle);
   background: var(--kb-bg-inset);
@@ -2204,8 +2183,8 @@ h2 {
   align-items: center;
   gap: 10px;
   padding: 7px 18px;
-  border-top: 1px solid var(--kb-border-subtle);
-  background: var(--kb-bg-sidebar);
+  border-top: 1px solid var(--kb-separator);
+  background: var(--kb-bg-chrome);
   flex-shrink: 0;
   font-size: var(--kb-text-xs);
   color: var(--kb-fg-subtle);

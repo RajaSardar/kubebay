@@ -103,7 +103,7 @@ describe("Settings theme swatches", () => {
     "%s swatch shows its canvas, surface and accent",
     (id, canvas, surface, accent) => {
       expect(canvas.toLowerCase()).toBe(value(id, "kb-bg-canvas"));
-      expect(["kb-bg-surface", "kb-bg-raised", "kb-bg-sidebar"].map((t) => value(id, t))).toContain(surface.toLowerCase());
+      expect(["kb-bg-surface", "kb-bg-raised", "kb-bg-chrome"].map((t) => value(id, t))).toContain(surface.toLowerCase());
       expect(accent.toLowerCase()).toBe(value(id, "kb-accent"));
     },
   );

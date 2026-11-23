@@ -22,7 +22,7 @@ const THEMES: { id: ThemeName; label: string; hint: string; swatch: [string, str
   { id: "dusk",        label: "Dusk",         hint: "Dark · macOS",         swatch: ["#161617", "#1c1c1e", "#32ade6"] },
   { id: "system",      label: "System",       hint: "Follows OS",           swatch: ["#161617", "#f2f2f7", "#32ade6"] },
   { id: "dusk-hc",     label: "Dusk HC",      hint: "High contrast dark",   swatch: ["#000000", "#141414", "#40c8e0"] },
-  { id: "dawn-hc",     label: "Dawn HC",      hint: "High contrast light",  swatch: ["#ffffff", "#f0f0f0", "#004e9b"] },
+  { id: "dawn-hc",     label: "Dawn HC",      hint: "High contrast light",  swatch: ["#ffffff", "#ffffff", "#004e9b"] },
   // ── VSCode ───────────────────────────────────────────────────────────
   { id: "vscode-dark",  label: "VS Dark+",    hint: "VSCode Dark+",         swatch: ["#1e1e1e", "#252526", "#31a6ff"] },
   { id: "vscode-light", label: "VS Light+",   hint: "VSCode Light+",        swatch: ["#f3f3f3", "#ffffff", "#0063b1"] },

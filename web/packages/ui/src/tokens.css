@@ -92,12 +92,11 @@
   --kb-bg-raised:  #242426;
   --kb-bg-overlay: #2c2c2e;
   --kb-bg-inset:   #0f0f10;
+  --kb-bg-chrome:  #111112;
+  --kb-separator:  var(--kb-border-subtle);
   --kb-bg-hover:   rgba(255, 255, 255, 0.05);
-  --kb-bg-sidebar: rgba(22, 22, 23, 0.82);
 
   /* Frosted glass material (sidebar/toolbar) */
-  --kb-material:           rgba(28, 28, 30, 0.75);
-  --kb-material-blur:      blur(24px) saturate(180%);
 
   /* Foreground */
   --kb-fg-default: rgba(255, 255, 255, 0.92);
@@ -144,8 +143,6 @@
   --kb-focus-ring: 0 0 0 2px #32ade6;
   --kb-selection:  rgba(50, 173, 230, 0.28);
 
-  --kb-glow-a: rgba(50, 173, 230, 0.04);
-  --kb-glow-b: rgba(48, 209, 88,  0.03);
   --kb-theme-color: #161617;
 
   /* Chart series: 3:1 on every ground, hues at least 20° apart */
@@ -165,11 +162,10 @@
   --kb-bg-raised:  #ffffff;
   --kb-bg-overlay: #ffffff;
   --kb-bg-inset:   #e5e5ea;
+  --kb-bg-chrome:  #f2f2f7;
+  --kb-separator:  var(--kb-border-subtle);
   --kb-bg-hover:   rgba(60, 60, 67, 0.05);
-  --kb-bg-sidebar: rgba(242, 242, 247, 0.8);
 
-  --kb-material:      rgba(248, 248, 250, 0.82);
-  --kb-material-blur: blur(24px) saturate(180%);
 
   --kb-fg-default: rgba(0, 0, 0, 0.88);
   --kb-fg-muted:   rgba(60, 60, 67, 0.85);
@@ -212,8 +208,6 @@
   --kb-focus-ring: 0 0 0 2px #005dba;
   --kb-selection:  rgba(0, 119, 237, 0.18);
 
-  --kb-glow-a: transparent;
-  --kb-glow-b: transparent;
   --kb-theme-color: #f2f2f7;
 
   /* Chart series: 3:1 on every ground, hues at least 20° apart */
@@ -233,11 +227,10 @@
   --kb-bg-raised:  #141414;
   --kb-bg-overlay: #1e1e1e;
   --kb-bg-inset:   #000000;
+  --kb-bg-chrome:  #000000;
+  --kb-separator:  var(--kb-border-strong);
   --kb-bg-hover:   rgba(255, 255, 255, 0.07);
-  --kb-bg-sidebar: #050505;
 
-  --kb-material:      rgba(10, 10, 10, 0.9);
-  --kb-material-blur: blur(12px);
 
   --kb-fg-default: #ffffff;
   --kb-fg-muted:   rgba(255, 255, 255, 0.7);
@@ -270,7 +263,7 @@
   --kb-status-done-fg:      #cbaee0;
 
   --kb-border-subtle: rgba(255, 255, 255, 0.14);
-  --kb-border-strong: rgba(255, 255, 255, 0.34);
+  --kb-border-strong: rgba(255, 255, 255, 0.36);
   --kb-border-control: rgba(255, 255, 255, 0.36);
   --kb-highlight-inset: none;
 
@@ -280,8 +273,6 @@
   --kb-focus-ring: 0 0 0 2px #40c8e0;
   --kb-selection:  rgba(64, 200, 224, 0.4);
 
-  --kb-glow-a: transparent;
-  --kb-glow-b: transparent;
   --kb-theme-color: #000000;
 
   /* Chart series: 3:1 on every ground, hues at least 20° apart */
@@ -301,11 +292,10 @@
   --kb-bg-raised:  #ffffff;
   --kb-bg-overlay: #ffffff;
   --kb-bg-inset:   #efefef;
+  --kb-bg-chrome:  #ffffff;
+  --kb-separator:  var(--kb-border-strong);
   --kb-bg-hover:   rgba(0, 0, 0, 0.06);
-  --kb-bg-sidebar: #f0f0f0;
 
-  --kb-material:      rgba(255, 255, 255, 0.92);
-  --kb-material-blur: blur(12px);
 
   --kb-fg-default: #000000;
   --kb-fg-muted:   rgba(0, 0, 0, 0.67);
@@ -348,8 +338,6 @@
   --kb-focus-ring: 0 0 0 2px #004e9b;
   --kb-selection:  rgba(0, 107, 214, 0.22);
 
-  --kb-glow-a: transparent;
-  --kb-glow-b: transparent;
   --kb-theme-color: #ffffff;
 
   /* Chart series: 3:1 on every ground, hues at least 20° apart */
@@ -369,11 +357,10 @@
   --kb-bg-raised:  #2d2d2d;
   --kb-bg-overlay: #333333;
   --kb-bg-inset:   #141414;
+  --kb-bg-chrome:  #1a1a1a;
+  --kb-separator:  var(--kb-border-subtle);
   --kb-bg-hover:   rgba(255, 255, 255, 0.06);
-  --kb-bg-sidebar: rgba(37, 37, 38, 0.92);
 
-  --kb-material:      rgba(37, 37, 38, 0.82);
-  --kb-material-blur: blur(20px) saturate(160%);
 
   --kb-fg-default: #cccccc;
   --kb-fg-muted:   #9d9d9d;
@@ -416,8 +403,6 @@
   --kb-focus-ring: 0 0 0 1px #31a6ff;
   --kb-selection:  rgba(0, 120, 212, 0.30);
 
-  --kb-glow-a: transparent;
-  --kb-glow-b: transparent;
   --kb-theme-color: #1e1e1e;
 
   /* Chart series: 3:1 on every ground, hues at least 20° apart */
@@ -437,11 +422,10 @@
   --kb-bg-raised:  #ffffff;
   --kb-bg-overlay: #ffffff;
   --kb-bg-inset:   #ebebeb;
+  --kb-bg-chrome:  #f3f3f3;
+  --kb-separator:  var(--kb-border-subtle);
   --kb-bg-hover:   rgba(0, 0, 0, 0.05);
-  --kb-bg-sidebar: rgba(243, 243, 243, 0.92);
 
-  --kb-material:      rgba(255, 255, 255, 0.85);
-  --kb-material-blur: blur(20px) saturate(160%);
 
   --kb-fg-default: #1f1f1f;
   --kb-fg-muted:   #616161;
@@ -484,8 +468,6 @@
   --kb-focus-ring: 0 0 0 1px #0063b1;
   --kb-selection:  rgba(0, 120, 212, 0.20);
 
-  --kb-glow-a: transparent;
-  --kb-glow-b: transparent;
   --kb-theme-color: #f3f3f3;
 
   /* Chart series: 3:1 on every ground, hues at least 20° apart */
@@ -505,11 +487,10 @@
   --kb-bg-raised:  #2c313c;
   --kb-bg-overlay: #3e4451;
   --kb-bg-inset:   #1b1f27;
+  --kb-bg-chrome:  #2a2e36;
+  --kb-separator:  var(--kb-border-subtle);
   --kb-bg-hover:   rgba(255, 255, 255, 0.06);
-  --kb-bg-sidebar: rgba(33, 37, 43, 0.92);
 
-  --kb-material:      rgba(33, 37, 43, 0.82);
-  --kb-material-blur: blur(20px) saturate(160%);
 
   --kb-fg-default: #abb2bf;
   --kb-fg-muted:   #9498a0;
@@ -552,8 +533,6 @@
   --kb-focus-ring: 0 0 0 2px #61afef;
   --kb-selection:  rgba(97, 175, 239, 0.22);
 
-  --kb-glow-a: transparent;
-  --kb-glow-b: transparent;
   --kb-theme-color: #282c34;
 
   /* Chart series: 3:1 on every ground, hues at least 20° apart */
@@ -573,11 +552,10 @@
   --kb-bg-raised:  #2c2d3e;
   --kb-bg-overlay: #3a3b4e;
   --kb-bg-inset:   #191a24;
+  --kb-bg-chrome:  #282a36;
+  --kb-separator:  var(--kb-border-subtle);
   --kb-bg-hover:   rgba(255, 255, 255, 0.07);
-  --kb-bg-sidebar: rgba(33, 34, 44, 0.92);
 
-  --kb-material:      rgba(33, 34, 44, 0.82);
-  --kb-material-blur: blur(20px) saturate(160%);
 
   --kb-fg-default: #f8f8f2;
   --kb-fg-muted:   #b6bcd6;
@@ -620,8 +598,6 @@
   --kb-focus-ring: 0 0 0 2px #bd93f9;
   --kb-selection:  rgba(189, 147, 249, 0.22);
 
-  --kb-glow-a: rgba(189, 147, 249, 0.04);
-  --kb-glow-b: rgba(80, 250, 123, 0.03);
   --kb-theme-color: #282a36;
 
   /* Chart series: 3:1 on every ground, hues at least 20° apart */
@@ -641,11 +617,10 @@
   --kb-bg-raised:  #434c5e;
   --kb-bg-overlay: #4c566a;
   --kb-bg-inset:   #242933;
+  --kb-bg-chrome:  #2e3440;
+  --kb-separator:  var(--kb-border-subtle);
   --kb-bg-hover:   rgba(255, 255, 255, 0.06);
-  --kb-bg-sidebar: rgba(59, 66, 82, 0.9);
 
-  --kb-material:      rgba(46, 52, 64, 0.85);
-  --kb-material-blur: blur(20px) saturate(140%);
 
   --kb-fg-default: #eceff4;
   --kb-fg-muted:   #d8dee9;
@@ -688,8 +663,6 @@
   --kb-focus-ring: 0 0 0 2px #aed4de;
   --kb-selection:  rgba(136, 192, 208, 0.22);
 
-  --kb-glow-a: transparent;
-  --kb-glow-b: transparent;
   --kb-theme-color: #2e3440;
 
   /* Chart series: 3:1 on every ground, hues at least 20° apart */
@@ -709,11 +682,10 @@
   --kb-bg-raised:  #21262d;
   --kb-bg-overlay: #30363d;
   --kb-bg-inset:   #010409;
+  --kb-bg-chrome:  #090c12;
+  --kb-separator:  var(--kb-border-subtle);
   --kb-bg-hover:   rgba(255, 255, 255, 0.05);
-  --kb-bg-sidebar: rgba(22, 27, 34, 0.92);
 
-  --kb-material:      rgba(22, 27, 34, 0.82);
-  --kb-material-blur: blur(20px) saturate(160%);
 
   --kb-fg-default: #e6edf3;
   --kb-fg-muted:   #8d96a0;
@@ -756,8 +728,6 @@
   --kb-focus-ring: 0 0 0 3px #58a6ff;
   --kb-selection:  rgba(88, 166, 255, 0.22);
 
-  --kb-glow-a: rgba(88, 166, 255, 0.03);
-  --kb-glow-b: rgba(63, 185, 80, 0.02);
   --kb-theme-color: #0d1117;
 
   /* Chart series: 3:1 on every ground, hues at least 20° apart */
@@ -777,15 +747,14 @@
   --kb-bg-raised:  #ffffff;
   --kb-bg-overlay: #ffffff;
   --kb-bg-inset:   #f6f8fa;
+  --kb-bg-chrome:  #f0f3f6;
+  --kb-separator:  var(--kb-border-subtle);
   --kb-bg-hover:   rgba(175, 184, 193, 0.20);
-  --kb-bg-sidebar: rgba(246, 248, 250, 0.92);
 
-  --kb-material:      rgba(255, 255, 255, 0.85);
-  --kb-material-blur: blur(20px) saturate(160%);
 
   --kb-fg-default: #1f2328;
   --kb-fg-muted:   #636c76;
-  --kb-fg-subtle:  #6b737d;
+  --kb-fg-subtle:  #656d77;
 
   --kb-accent:        #0964d0;
   --kb-accent-hover:  #054ba4;
@@ -824,8 +793,6 @@
   --kb-focus-ring: 0 0 0 3px #0964d0;
   --kb-selection:  rgba(9, 100, 208, 0.18);
 
-  --kb-glow-a: transparent;
-  --kb-glow-b: transparent;
   --kb-theme-color: #f6f8fa;
 
   /* Chart series: 3:1 on every ground, hues at least 20° apart */
@@ -845,11 +812,10 @@
   --kb-bg-raised:  #1e1e2e;
   --kb-bg-overlay: #313244;
   --kb-bg-inset:   #11111b;
+  --kb-bg-chrome:  #0b0b12;
+  --kb-separator:  var(--kb-border-subtle);
   --kb-bg-hover:   rgba(205, 214, 244, 0.06);
-  --kb-bg-sidebar: rgba(24, 24, 37, 0.92);
 
-  --kb-material:      rgba(24, 24, 37, 0.85);
-  --kb-material-blur: blur(20px) saturate(160%);
 
   --kb-fg-default: #cdd6f4;
   --kb-fg-muted:   #a6adc8;
@@ -892,8 +858,6 @@
   --kb-focus-ring: 0 0 0 2px #cba6f7;
   --kb-selection:  rgba(203, 166, 247, 0.22);
 
-  --kb-glow-a: rgba(203, 166, 247, 0.04);
-  --kb-glow-b: rgba(166, 227, 161, 0.03);
   --kb-theme-color: #1e1e2e;
 
   /* Chart series: 3:1 on every ground, hues at least 20° apart */
