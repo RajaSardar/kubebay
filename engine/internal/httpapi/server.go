@@ -367,8 +367,8 @@ func Router(d Deps, token string) http.Handler {
 			image := strings.TrimSpace(body.Image)
 			if image == "" {
 				image = DefaultDebugImage
-				if set, err := d.Settings.Load(); err == nil && set.DebugImage != "" {
-					image = set.DebugImage
+				if d.Settings != nil {
+					image = d.Settings.DebugImageDefault()
 				}
 			}
 			ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
@@ -585,7 +585,7 @@ func Router(d Deps, token string) http.Handler {
 		r.Get("/api/argocd/apps", argoCDAppsHandler(d.Metrics))
 		r.Post("/api/argocd/sync", argoCDSyncHandler(d.Metrics))
 
-		r.Get("/api/waste/workloads", wasteWorkloadsHandler(d.Waste))
+		r.Get("/api/waste/workloads", wasteWorkloadsHandler(d.Waste, podListAccessFor(d.Clusters)))
 
 		if d.History != nil {
 			r.Post("/api/history/enroll", d.History.HandleEnroll)

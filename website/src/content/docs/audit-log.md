@@ -29,4 +29,6 @@ With OIDC sign-in, the Audit Log only shows your own entries. Kubebay has no adm
 
 The log is a file on your machine: `audit.log` in Kubebay's folder in your user config directory (`~/Library/Application Support/kubebay` on macOS, `~/.config/kubebay` on Linux, `%AppData%\kubebay` on Windows). It's never sent anywhere.
 
+When Kubebay runs in a cluster from the Helm chart, the log is on a 64Mi `emptyDir` in the engine's pod, so it's lost whenever the pod restarts or moves. The chart has no persistent volume option yet. The cluster's API server audit log keeps its own record of each change, under the signed-in user Kubebay impersonated.
+
 This is Kubebay's own record of what you did with it. Your cluster's API server audit log is a different thing: to read security events from that, see [Audit-log security events](/docs/rbac/#audit-log-security-events).

@@ -22,7 +22,7 @@ Kubebay starts a short-lived helper pod pinned to that node. The pod is privileg
 
 The helper pod is deleted when you close the drawer. If Kubebay or your browser stops before that, the pod stops itself: it carries a one-hour deadline, after which the cluster ends it, so a privileged pod is never left running. A shell session ends at that deadline too; start another to continue.
 
-The helper pod runs in the `default` namespace. Its image is `registry.k8s.io/e2e-test-images/busybox:1.29-2` unless you change it in [Settings](/docs/settings/#node-shell-image), for example to a mirror your cluster can pull from. `KUBEBAY_NODE_SHELL_IMAGE` sets it for an engine without Settings, such as one in a cluster. The image needs `nsenter`.
+The helper pod runs in the `default` namespace. Its image is `registry.k8s.io/e2e-test-images/busybox:1.29-2` unless you change it in [Settings](/docs/settings/#node-shell-image), for example to a mirror your cluster can pull from. `KUBEBAY_NODE_SHELL_IMAGE` sets it for an engine without Settings. In a cluster or with OIDC, only the operator sets it, with `KUBEBAY_NODE_SHELL_IMAGE` or the chart's `nodeShellImage` value, and a saved setting is ignored, so nobody can choose the image another person's node shell runs. The image needs `nsenter`.
 
 > A node shell is root on the node. Your identity needs permission to create privileged pods in `default`, and your cluster's admission policies, such as Pod Security `restricted` or `baseline`, may refuse them.
 

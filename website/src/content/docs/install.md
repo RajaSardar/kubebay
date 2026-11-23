@@ -84,6 +84,8 @@ The token is in `docker logs kubebay`.
 | `--no-open` | `false` | Don't open a browser on start |
 | `--in-cluster` | `false` | Use the pod's ServiceAccount instead of a kubeconfig |
 | `--oidc-issuer-url`, `--oidc-client-id`, `--oidc-client-secret`, `--oidc-redirect-url` | | Sign users in with OIDC (in-cluster installs) |
+| `--prometheus-url` | | A Prometheus the engine queries directly for every cluster. On your own machine a URL set in Settings wins over it. In a cluster or with OIDC it's the only one used. `KUBEBAY_PROMETHEUS_URL` |
+| `--prometheus-all-users` | `false` | With OIDC, let every signed-in user send queries to `--prometheus-url`. `KUBEBAY_PROMETHEUS_ALL_USERS=true` |
 | `--web-dist` | embedded | Serve the app from a directory instead |
 | `--version` | | Print the version |
 
@@ -96,6 +98,21 @@ helm install kubebay charts/kubebay --set ingress.enabled=true --set ingress.hos
 ```
 
 The chart's values cover OIDC, TLS and resources. In a cluster, Kubebay turns off what only makes sense on your own machine: the local terminal, AI assistants (MCP), AI triage and usage history.
+
+One engine serves everyone, so settings that apply to every user are read-only in the app, and **Save** on them says so. You set them in the chart's values instead:
+
+| Value | Environment variable | What it sets |
+|---|---|---|
+| `nodeShellImage` | `KUBEBAY_NODE_SHELL_IMAGE` | The image of the privileged [node shell](/docs/nodes/#node-shell) pod |
+| `debugImage` | `KUBEBAY_DEBUG_IMAGE` | The default image of a [debug container](/docs/pods/#terminal) |
+| `prometheus.url` | `KUBEBAY_PROMETHEUS_URL` | A Prometheus the engine queries directly, for graphs and right-sizing |
+| `prometheus.allUsers` | `KUBEBAY_PROMETHEUS_ALL_USERS` | With OIDC, let every signed-in user query `prometheus.url` |
+
+Leave `prometheus.url` empty and each user's queries go to an auto-detected Prometheus through the API server's service proxy, as that user, so RBAC decides who may query it. A URL you set answers for every namespace whatever a user's RBAC says, so with OIDC users only get it once you set `prometheus.allUsers: true`. Until then their queries fall back to the service proxy. The Kubernetes Service list and the proxy both need RBAC: `list` on `services` and `get` on `services/proxy`.
+
+With OIDC, [Cost / Waste](/docs/cost-waste/#workload-usage-vs-requests) shows each person only the workloads in namespaces where they may list pods. See [Security and privacy](/docs/security/#in-a-cluster).
+
+The audit log and settings live on a 64Mi `emptyDir`, so a pod restart loses them. The chart has no persistent volume option yet.
 
 ## Verify a download
 

@@ -104,6 +104,12 @@ type SettingsManager struct {
 	// startup by main; the zero value is the desktop's, where loopback is fine.
 	Outbound netguard.Policy
 
+	// SharedLocked, when set, is why the settings API is read-only here
+	// (see SharedSettingsBlockReason). Fixed at startup by main.
+	SharedLocked string
+	// Operator holds the flag/env settings a shared engine uses instead.
+	Operator OperatorSettings
+
 	promOnce  sync.Once
 	promCache *prometheus.Cache
 }
@@ -204,6 +210,25 @@ func (s *SettingsManager) HandleGet(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	if s.SharedLocked != "" {
+		// What is in force, set by the operator; nothing stored by a user.
+		writeJSON(w, map[string]any{
+			"prometheusUrl":         normalizePromURL(s.Operator.PrometheusURL),
+			"prometheusUrls":        map[string]string{},
+			"prometheusTargets":     map[string]string{},
+			"extraKubeconfigs":      []string{},
+			"onlyListedKubeconfigs": false,
+			"activeKubeconfigs":     s.mgr.ActiveKubeconfigs(),
+			"nodeShellImage":        s.NodeShellImage(),
+			"nodeShellImageDefault": DefaultNodeShellImage,
+			"debugImage":            s.DebugImageDefault(),
+			"debugImageDefault":     DefaultDebugImage,
+			"historyClusters":       set.HistoryClusters,
+			"localShell":            s.LocalShell,
+			"sharedLocked":          s.SharedLocked,
+		})
+		return
+	}
 	writeJSON(w, map[string]any{
 		"prometheusUrl":         set.PrometheusURL,
 		"prometheusUrls":        set.PrometheusURLs,
@@ -221,6 +246,9 @@ func (s *SettingsManager) HandleGet(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *SettingsManager) HandleSave(w http.ResponseWriter, r *http.Request) {
+	if s.refuseIfLocked(w) {
+		return
+	}
 	var incoming struct {
 		PrometheusURL    string   `json:"prometheusUrl"`
 		ExtraKubeconfigs []string `json:"extraKubeconfigs"`

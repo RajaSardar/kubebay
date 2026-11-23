@@ -18,7 +18,7 @@ func (f fakeSnapshotter) Snapshot(cluster string) []waste.WorkloadWaste {
 }
 
 func TestWasteWorkloadsHandler_RequiresCluster(t *testing.T) {
-	h := wasteWorkloadsHandler(fakeSnapshotter{})
+	h := wasteWorkloadsHandler(fakeSnapshotter{}, nil)
 	req := httptest.NewRequest(http.MethodGet, "/api/waste/workloads", nil)
 	rec := httptest.NewRecorder()
 	h(rec, req)
@@ -31,7 +31,7 @@ func TestWasteWorkloadsHandler_ReturnsSnapshotForCluster(t *testing.T) {
 	rows := []waste.WorkloadWaste{
 		{Cluster: "kind-dev", Ns: "default", Kind: "Deployment", Name: "app", RequestedCPUMillis: 500, P95CPUMillis: 100, Source: "metrics-server", Window: "observed over 1h, 60 samples"},
 	}
-	h := wasteWorkloadsHandler(fakeSnapshotter{byCluster: map[string][]waste.WorkloadWaste{"kind-dev": rows}})
+	h := wasteWorkloadsHandler(fakeSnapshotter{byCluster: map[string][]waste.WorkloadWaste{"kind-dev": rows}}, nil)
 	req := httptest.NewRequest(http.MethodGet, "/api/waste/workloads?cluster=kind-dev", nil)
 	rec := httptest.NewRecorder()
 	h(rec, req)
@@ -49,7 +49,7 @@ func TestWasteWorkloadsHandler_ReturnsSnapshotForCluster(t *testing.T) {
 }
 
 func TestWasteWorkloadsHandler_EmptyWhenSnapshotterUnset(t *testing.T) {
-	h := wasteWorkloadsHandler(nil)
+	h := wasteWorkloadsHandler(nil, nil)
 	req := httptest.NewRequest(http.MethodGet, "/api/waste/workloads?cluster=kind-dev", nil)
 	rec := httptest.NewRecorder()
 	h(rec, req)
@@ -67,7 +67,7 @@ func TestWasteWorkloadsHandler_EmptyWhenSnapshotterUnset(t *testing.T) {
 }
 
 func TestWasteWorkloadsHandler_EmptyForUnknownCluster(t *testing.T) {
-	h := wasteWorkloadsHandler(fakeSnapshotter{byCluster: map[string][]waste.WorkloadWaste{"a": {{Name: "x"}}}})
+	h := wasteWorkloadsHandler(fakeSnapshotter{byCluster: map[string][]waste.WorkloadWaste{"a": {{Name: "x"}}}}, nil)
 	req := httptest.NewRequest(http.MethodGet, "/api/waste/workloads?cluster=b", nil)
 	rec := httptest.NewRecorder()
 	h(rec, req)

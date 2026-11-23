@@ -159,3 +159,48 @@ func TestThePodRunsWithNoMoreThanItNeeds(t *testing.T) {
 		t.Error("no writable /tmp mounted for the read-only root filesystem")
 	}
 }
+
+func engineEnv(t *testing.T, sets ...string) map[string]string {
+	t.Helper()
+	deps := ofKind(render(t, sets...), "Deployment")
+	if len(deps) != 1 {
+		t.Fatalf("want one Deployment, got %d", len(deps))
+	}
+	c := dig(deps[0], "spec", "template", "spec").(map[string]any)["containers"].([]any)[0].(map[string]any)
+	out := map[string]string{}
+	for _, e := range c["env"].([]any) {
+		m := e.(map[string]any)
+		if v, ok := m["value"].(string); ok {
+			out[m["name"].(string)] = v
+		}
+	}
+	return out
+}
+
+// On a shared engine the settings API is read-only, so whatever runs or is
+// queried on every user's behalf is set here, by the operator.
+func TestOperatorSetsTheSharedSettingsThroughValues(t *testing.T) {
+	env := engineEnv(t)
+	for _, k := range []string{"KUBEBAY_NODE_SHELL_IMAGE", "KUBEBAY_DEBUG_IMAGE", "KUBEBAY_PROMETHEUS_URL", "KUBEBAY_PROMETHEUS_ALL_USERS"} {
+		if _, ok := env[k]; ok {
+			t.Errorf("%s is set with no value given", k)
+		}
+	}
+	env = engineEnv(t,
+		"nodeShellImage=mirror.corp/busybox:1",
+		"debugImage=mirror.corp/debug:1",
+		"prometheus.url=http://prometheus.monitoring:9090",
+		"prometheus.allUsers=true",
+	)
+	want := map[string]string{
+		"KUBEBAY_NODE_SHELL_IMAGE":     "mirror.corp/busybox:1",
+		"KUBEBAY_DEBUG_IMAGE":          "mirror.corp/debug:1",
+		"KUBEBAY_PROMETHEUS_URL":       "http://prometheus.monitoring:9090",
+		"KUBEBAY_PROMETHEUS_ALL_USERS": "true",
+	}
+	for k, v := range want {
+		if env[k] != v {
+			t.Errorf("%s = %q, want %q", k, env[k], v)
+		}
+	}
+}

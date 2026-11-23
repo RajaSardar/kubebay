@@ -3,6 +3,7 @@ package httpapi
 import (
 	"net/http"
 
+	"github.com/RajaSardar/kubebay/engine/internal/clusters"
 	"github.com/RajaSardar/kubebay/engine/internal/waste"
 )
 
@@ -16,7 +17,11 @@ type wasteSnapshotter interface {
 // shared usage recommender's current snapshot (metrics-server Tier B only;
 // see internal/waste's doc comment). Rendered as a per-workload banner in
 // the right-sizing flow and as a sorted table in the Cost/Waste view.
-func wasteWorkloadsHandler(s wasteSnapshotter) http.HandlerFunc {
+//
+// The sampler collects under the engine's own identity, so with a signed-in
+// OIDC user the rows are cut to the namespaces that user may list pods in.
+// A failed or missing access check shows nothing (fail closed).
+func wasteWorkloadsHandler(s wasteSnapshotter, can podListAccess) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cluster := r.URL.Query().Get("cluster")
 		if cluster == "" {
@@ -27,6 +32,33 @@ func wasteWorkloadsHandler(s wasteSnapshotter) http.HandlerFunc {
 			writeJSON(w, []waste.WorkloadWaste{})
 			return
 		}
-		writeJSON(w, s.Snapshot(cluster))
+		rows := s.Snapshot(cluster)
+		if id := clusters.IdentityFromContext(r.Context()); id != nil && id.Name != "" {
+			rows = filterWasteByPodAccess(r, cluster, rows, can)
+		}
+		writeJSON(w, rows)
 	}
+}
+
+func filterWasteByPodAccess(r *http.Request, cluster string, rows []waste.WorkloadWaste, can podListAccess) []waste.WorkloadWaste {
+	out := []waste.WorkloadWaste{}
+	if can == nil || len(rows) == 0 {
+		return out
+	}
+	if all, err := can(r.Context(), cluster, ""); err == nil && all {
+		return rows
+	}
+	allowed := map[string]bool{}
+	for _, row := range rows {
+		ok, seen := allowed[row.Ns]
+		if !seen {
+			v, err := can(r.Context(), cluster, row.Ns)
+			ok = err == nil && v
+			allowed[row.Ns] = ok
+		}
+		if ok {
+			out = append(out, row)
+		}
+	}
+	return out
 }
