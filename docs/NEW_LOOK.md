@@ -147,7 +147,7 @@ Freelens dark (built-in theme `freelens.theme.yaml`, colours by role, V):
 | Role | Dark | Light |
 |---|---|---|
 | App frame (`mainBackground`) | `#1e2124` | `#f1f1f1` |
-| Content (`contentColor`) | `#262b2f` | n/a in excerpt |
+| Content (`contentColor`) | `#262b2f` | `#ffffff` (corrected in round 2: it was "n/a in excerpt") |
 | Top bar (`layoutBackground`) | `#2e3136` | `#e8e8e8` |
 | Sidebar | `#36393e` | `#e8e8e8` |
 | Table header | `#262b2f` | `#f1f1f1` |
@@ -212,7 +212,7 @@ Contrast, computed by us from these values:
 | Borders | `--kb-border-subtle` (Dusk white 8%), `-strong` (14%), `-control` (34%) |
 | Surfaces (Dusk) | canvas `#161617`, surface `#1c1c1e`, raised `#242426`, overlay `#2c2c2e`, inset `#0f0f10`; sidebar and material translucent, with a 24px blur |
 | Surface steps (Dusk) | surface against canvas 1.06:1; raised against surface 1.10:1; inset against surface 1.13:1 |
-| Density (`display.ts`) | row padding 4 / 8 / 12 px × 16px. Virtualised row heights 35 / **43** / 51px, set by the 26px row-menu button rather than by the text. |
+| Density (`display.ts`) | row padding 4 / 8 / 12 px × 16px. Virtualised row heights 35 / **43** / 51px, set by the 26px row-menu button rather than by the text. **Corrected in round 2:** the button does set the height, but only because `.col-row-menu { padding: 0 }` (specificity 0,1,0) loses to `.kb-table td { padding: var(--kb-row-padding) }` (0,1,1), so the menu cell is 26 + 2 × padding = 34 / **42** / 50px. The extra 1px in `ROW_HEIGHT` and `rowHeight.test.ts` is a "row rule" that no CSS draws (rows have no rule). Text alone would give 29 / 37 / 45px (a 21px line box at 1.5 × 14px). Whether the rendered row is 42 or 43 is unverified without rendering; the virtualiser measures each row anyway. |
 
 Kubebay already matches Lens and Freelens on font family (Roboto) and base size (14px). The
 difference the owner sees isn't type. It's shape, height and separation.
@@ -221,7 +221,7 @@ difference the owner sees isn't type. It's shape, height and separation.
 
 | Component | Today |
 |---|---|
-| `DataTable` / `.kb-table` | th 12px uppercase, 500 weight, `--kb-fg-subtle`, translucent header with an 8px blur, 1px subtle underline; td 8px × 16px; no row rules; **43px rows** |
+| `DataTable` / `.kb-table` | th 12px uppercase, 500 weight, `--kb-fg-subtle`, translucent header with an 8px blur, 1px subtle underline. **Corrected in round 2:** that's only non-sortable headers. Every `SortHeader` gets `.th-sortable`, which is **13px mixed case, `--kb-fg-muted`**, so the headers of resource lists are already mixed case. td 8px × 16px; no row rules; hover and selected both draw a 3px inset accent bar; **42–43px rows** |
 | `PageHeader` | 40px, 1px bottom border, translucent surface (60%) |
 | `.toolbar` | 38px, 1px bottom border |
 | Nav (`NavItem`) | padding 6px 10px, **radius 8px**, inset 8px inside the sidebar; active = 60% accent tint + 3px inset accent bar + 600 weight |
@@ -242,7 +242,7 @@ difference the owner sees isn't type. It's shape, height and separation.
 | Status bar (`app.css`) | ~29px, translucent with a 12px blur, mono 12px, accent gradient top line |
 | `body::before` | two radial accent "glows" behind the app |
 
-Radius declarations: `styles.css` has 40 (11 default, 11 pill, 9 sm, 8 xs, 1 lg). `app.css` has 45
+Radius declarations: `styles.css` has 42 (11 default, 11 pill, 9 sm, 8 xs, 1 lg, 1 2xs, 1 at 50%; corrected in round 2, it said 40). `app.css` has 45
 (15 default, 12 sm, 9 xs, 6 at 50%). Shadow declarations in `app.css`: 14.
 
 What makes Kubebay read as "macOS sheets" rather than blocks:
@@ -271,7 +271,7 @@ What makes Kubebay read as "macOS sheets" rather than blocks:
 | Shadows | rest on cards and buttons, lift on drawer | drawer and menus only | **Menus and dialogs only**; the drawer gets an edge shadow |
 | Separation | 1px borders + shadows + blur | shade steps 1.08–1.25:1 + hairlines 1.2–1.4:1 | **Surface levels** ≥1.10:1 + one hairline token; borders kept only in HC themes |
 | Table row | 43px | 33px (both) | **32px default**, 28 compact, 40 relaxed |
-| Table header | 12px uppercase, blur | 14px sentence case, solid | 12px uppercase kept (I: SREs scan it), **solid chrome shade**, 32px |
+| Table header | 13px mixed case on sortable columns, 12px uppercase on the rest; blur (corrected in round 2) | 14px sentence case, solid | **13px sentence case on every column** (round 2, R1), **solid chrome shade**, 32px |
 | Page header | 40px | ~40px toolbar | **40px** |
 | Toolbar | 38px | ~40px | **40px** (merged with the page header where a page has both, see 5.2) |
 | Tab strip | ~50px, rounded chips | 33–34px, square | **36px**, square, 2px accent underline |
@@ -318,12 +318,12 @@ disagreements and how each was settled. The plan in section 5 follows only the s
 | D2 | Remove all borders and separate by shade alone? | Designer vs A11y | **Shade steps for regions, plus one hairline token, `--kb-separator`, between bands.** In the normal themes the hairline is `--kb-border-subtle`, which already exists. **In Dawn HC and Dusk HC, region boundaries keep a visible border ≥3:1** (`--kb-border-strong`), because shade alone can't carry structure there. Freelens's own High Contrast theme also uses `borderFaintColor #7a7a7a` on black (V). |
 | D3 | Three new surface tokens (chrome, panel, well)? | Designer vs Engineer | **One new colour token: `--kb-bg-chrome`** (sidebar, tab strips, table header, drawer head, status bar, the ground cards sit on). Content stays `--kb-bg-surface`, wells stay `--kb-bg-inset`, selected stays the existing selected-row tint. A new token goes in 12 blocks and becomes a ground in `themeContrast` ("text tokens meet the floor on every ground", "status colours read on raised and inset grounds"). That's one ground to add, not three. |
 | D4 | How big a shade step between chrome and surface? | Designer (1.08, as Lens) vs A11y (≥1.5) | **≥1.10:1 and ≤1.30:1 in normal themes, enforced by a new `themeContrast` case.** Above 1.3 it reads as a frame, not a block (Freelens sidebar 1.23). The boundary isn't the only cue: the hairline and fixed heights carry it too. HC themes get their border (D2). |
-| D5 | Sentence-case table headers like Lens? | Designer vs SRE | **Keep 12px uppercase headers.** Kubebay users already scan them, and they set the header apart from data without a heavier shade. Revisit with the owner (Q6). |
+| D5 | Sentence-case table headers like Lens? | Designer vs SRE | **Superseded in round 2 (R1): the premise was wrong, sortable headers are already 13px mixed case.** Original verdict: **Keep 12px uppercase headers.** Kubebay users already scan them, and they set the header apart from data without a heavier shade. Revisit with the owner (Q6). |
 | D6 | 32px or 28px default rows? | SRE (28) vs A11y and Designer (32) | **32px default, 28px compact, 40px relaxed.** 28px with 13px text keeps the line box above the text with 4px to spare, but the row-menu target becomes 24px. That meets WCAG 2.5.8 (24×24 minimum), but only just, so compact stays opt-in. |
-| D7 | What sets row height? | Engineer | **Fix the coupling the comments in `display.ts` describe.** The 26px `.kb-icon-btn` sets row height today. Add an `IconButton size="row"` (22px at default, 20px compact, 24px relaxed) so the text line box (20px) plus padding sets the row. `ROW_HEIGHT` becomes 28 / 32 / 40, and the virtualiser tests move with it. |
+| D7 | What sets row height? | Engineer | **Refined in round 2 (R2): no new IconButton size is needed.** Original verdict: **Fix the coupling the comments in `display.ts` describe.** The 26px `.kb-icon-btn` sets row height today. Add an `IconButton size="row"` (22px at default, 20px compact, 24px relaxed) so the text line box (20px) plus padding sets the row. `ROW_HEIGHT` becomes 28 / 32 / 40, and the virtualiser tests move with it. |
 | D8 | Minimum text size | A11y vs SRE (who wants more in a compact row) | **11px floor at every Settings size.** The S scale changes from `10, 11, 12…` to `11, 11, 12, 13, 15, 18, 28`. Mono cells stay a step below table text, but never under 12px. Compact rows use 13px text, not 12px. |
 | D9 | Solid accent status bar and drawer title like Freelens? | Designer vs A11y | **Rejected.** Freelens's white on `#00a7a0` is 2.99:1. Kubebay keeps a chrome-shaded status bar and drawer head with default text. Where the accent appears as a fill (primary button, active segment), the existing `--kb-accent-fg` rule and contrast test already apply. |
-| D10 | Replace the current look, or offer both? | Designer (replace) vs Engineer (attribute) vs SRE (doesn't care if density is right) | **Ship behind `data-look="block"` on `<html>`, orthogonal to `data-theme`, so all 12 themes work in both looks.** While it is built, the default stays Classic. Flipping the default is a separate owner decision after the theme audit (Q1, Q2). The look attribute overrides only `:root`-level scale tokens plus a handful of component rules in `styles.css`, so `themeTokens` ("all 12 themes define the same tokens") is unaffected. |
+| D10 | Replace the current look, or offer both? | Designer (replace) vs Engineer (attribute) vs SRE (doesn't care if density is right) | **Superseded in round 2 (R4): no `data-look`.** Original verdict: **Ship behind `data-look="block"` on `<html>`, orthogonal to `data-theme`, so all 12 themes work in both looks.** While it is built, the default stays Classic. Flipping the default is a separate owner decision after the theme audit (Q1, Q2). The look attribute overrides only `:root`-level scale tokens plus a handful of component rules in `styles.css`, so `themeTokens` ("all 12 themes define the same tokens") is unaffected. |
 | D11 | Flush drawer: lose the click-outside affordance? | SRE vs Designer | **Flush to the top (under the tab strip or page header) and to the right, full height to the status bar. It keeps an edge shadow on its leading side and a hairline**, so the boundary still shows where a click closes it. The behaviour rules in `DESIGN_SYSTEM.md` (Escape, press-behind, focus return) are unchanged. |
 | D12 | Translucency and blur | Designer (remove) vs owner's macOS feel | **Off in the block look** (opaque chrome). Classic keeps them. Blur also costs compositing on WebKit (see `PERFORMANCE.md`), which is a small bonus for the SRE. |
 | D13 | Font: switch to a Lens-like humanist sans? | Designer (curious) vs Engineer and A11y | **Keep Roboto.** Freelens uses it (V), Lens's current family isn't confirmed (I), and the block feel doesn't come from the font. Drop weight 600, which renders as 700 anyway, and use 500 for emphasis and 700 for titles. Roboto 500 is already bundled. |
@@ -396,7 +396,7 @@ New colour tokens, in **all 12 theme blocks**:
 
 | Token | Role | Starting values (to be tuned by the audit) |
 |---|---|---|
-| `--kb-bg-chrome` | sidebar, tab strips, table header, drawer head, status bar, ground behind block cards | Dusk: a step below surface (≈`#141415`, ~1.10:1); Dawn: ≈`#ececf1`; HC themes: same as canvas, with borders |
+| `--kb-bg-chrome` | sidebar, tab strips, table header, drawer head, status bar, ground behind block cards | Dusk: a step below surface (≈`#111112`, 1.11:1; corrected in round 2: the `#141415` given here was 1.08:1 and failed the plan's own 1.10 floor); Dawn: ≈`#ececf1` (1.18:1 against white); HC themes: same as canvas, with borders |
 | `--kb-separator` | hairline between bands and drawer rows | an alias for `--kb-border-subtle` in normal themes and `--kb-border-strong` in HC. It's declared per theme, so it needs no new colour. |
 
 Type: keep the seven `--kb-text-*` steps. Change the S row in `TYPE_SCALE` to `11, 11, 12, 13, 15,
@@ -473,7 +473,8 @@ Type: keep the seven `--kb-text-*` steps. Change the S row in `TYPE_SCALE` to `1
  [ ] = 2px chips   █ = full-bleed selected band   ▌= 3px accent bar   ▒ = chrome shade
  One left edge at 16px for title, filter, checkbox. Header column edges are implied by the
  text start, not drawn (the │ marks only show the alignment).
- 900px of table: 20 rows before, 27 after (+35%).
+ 900px of table: 20 rows before, 28 after (+40%). (Corrected in round 2: it said 27, +35%;
+ 27 is the count at Lens's 33px.)
 ```
 
 #### Drawer, before (Classic)
@@ -602,3 +603,196 @@ All paths are under `packages/core/src/renderer/components/` unless shown otherw
 | `overview-cards/capacity-card.scss`, `overview-cards/status-card.scss`, `cluster/cluster-overview.module.scss` | overview cards and their grid |
 | `input/search-input.scss`, `menu/menu.scss`, `badge/badge.module.scss`, `packages/ui-components/button/src/button.scss` | controls |
 | `packages/core/src/features/theme/files/common/freelens.theme.yaml`, `high-contrast.theme.yaml`, `docs/themes.md` | colours by role |
+
+---
+
+## Debate round 2 and final verdict
+
+Round 1 (sections 1 to 5) was written by one agent playing four roles. Round 2 is an independent
+cross-challenge: it re-checked the key facts against the Freelens source (`main`, fetched
+2026-11-23) and the Kubebay code at this commit, then argued the plan from three viewpoints round 1
+under-weighted: a long-session SRE, a maintainer, and a brand/product owner. Where round 2 corrected
+a number in the body, the body now says "corrected in round 2". Where it disagrees with a verdict,
+the verdict in section 4.2 is marked superseded or refined and the resolution is here. **Section 5.5
+(the slice order) and the look-attribute parts of 5.2 and 5.3 are replaced by the revised slice
+order below.**
+
+### Fact check
+
+Freelens values were read again from the source files the appendix names. Contrast ratios were
+recomputed with the WCAG 2 formula.
+
+| Claim | Verdict | Notes |
+|---|---|---|
+| Freelens font stack `"Roboto", "Helvetica", "Arial", sans-serif` | confirmed | `app.scss` `--font-main` |
+| Roboto faces 300, 300 italic, 400, 700; no 500 | confirmed | `fonts.scss` |
+| Weights thin 300 / normal 400 / "bold" 500; 500 renders as 400 | confirmed | `vars.scss`. CSS font matching for 500 tries lighter weights first, so it lands on 400 |
+| Kubebay 600 renders as 700 | confirmed | Kubebay bundles 300/400/500/700 (`main.tsx`); 600 matches heavier first, so 700. `.td-name` uses 600, so every name cell is really bold |
+| Base 14px (`calc(1.75 × 8px)`), small 12, big 16 | confirmed | `app.scss` |
+| Row 33px = 17 line + 2 × 8 padding | confirmed | `table.tsx` defaults `rowPadding: 8`, `rowLineHeight: 17`, `customRowHeights = lineHeight + paddings` |
+| `--border-radius: 3px`; menu 4px, items 6px | confirmed | `app.scss`, `menu/menu.scss` |
+| "3px and 4px are the most common literal radii, about 40 declarations" | unverifiable | not recounted; it doesn't change any decision |
+| Sidebar 200px default | confirmed | `defaultSidebarWidth = 200` |
+| Hotbar 75px; top bar 40px; status bar 21px | confirmed | `cluster-manager.scss`, `app.scss` |
+| Selected row: 4px `--primary` bar | confirmed | `table.scss` |
+| Row-menu column 55px | confirmed | `table.mixins.scss` |
+| Drawer title min-height 54px, `--blue` fill (= `#00a7a0` in the Freelens theme), shadow `0 0 16px` | confirmed | `drawer.scss`, `freelens.theme.yaml` |
+| Drawer item 2-column grid, 8px vertical padding | confirmed | `drawer-item.scss` |
+| Status bar solid `--primary`, text `textColorOnPrimary #ffffff` | confirmed | `status-bar.module.scss`, theme YAML |
+| Theme colours (dark) | confirmed | all values in 2.1 match `freelens.theme.yaml` |
+| Light `contentColor` "n/a" | **wrong**, it is `#ffffff` | fixed in the body |
+| HC `borderFaintColor #7a7a7a` on black | confirmed; it is **4.89:1** | |
+| Primary text on content 4.57:1 | confirmed (4.567) | |
+| White on teal 2.99:1 | confirmed (2.985) | |
+| Content against frame 1.13:1; sidebar against content 1.23:1; faint border 1.25:1 | confirmed (1.132, 1.233, 1.251) | |
+| Not in round 1: Freelens primary text on its own sidebar `#36393e` | **3.70:1, fails AA** | if sidebar items inherit `textColorPrimary`, which the item rule suggests. A warning against copying Freelens greys |
+| Lens values (all M) | unverifiable here | the arithmetic is right: 1.08, 1.21, 1.42, 1.22 recompute exactly from the quoted hexes. The pixel readings themselves weren't re-measured |
+| Kubebay Dusk steps 1.06 / 1.10 / 1.13 | confirmed (1.063, 1.098, 1.126) | |
+| Kubebay `--kb-border-subtle` (white 8%) on Dusk surface | 1.26:1, so it is already a Freelens-weight hairline | supports `--kb-separator` as an alias |
+| Proposed Dusk chrome `#141415` "~1.10:1" | **wrong: 1.08:1**, under the plan's own 1.10 floor | `#111112` gives 1.11:1. Fixed in the body. Note it sits next to `--kb-bg-inset` `#0f0f10` (1.13:1), see R5 |
+| Sidebar 210px + 56px rail; page header 40; toolbar 38; status bar ~29 (5 + 18 + 5 + 1) | confirmed | `app.css` grid `56px 210px`, `styles.css`. A literal `calc(56px + 210px + 20px)` in `app.css` also depends on the width |
+| Nav radius 8, tabs 6, buttons 6, inputs 26px/6, card 8 + rest shadow | confirmed | `styles.css` |
+| Radius declarations in `styles.css`: 40 | **wrong: 42** (adds 1 at 2xs and 1 at 50%) | fixed in the body; `app.css` 45 and 14 shadows confirmed |
+| "th 12px uppercase" | **wrong for most tables** | `SortHeader` adds `.th-sortable`: 13px, mixed case, `--kb-fg-muted`. Only non-sortable headers are uppercase. Fixed in the body |
+| 43px rows "set by the 26px row-menu button" | **half right** | the button sets it only because `.col-row-menu { padding: 0 }` loses on specificity to `.kb-table td`, so the button also gets the row padding: 26 + 16 = 42. The "+1px rule" in `ROW_HEIGHT` and `rowHeight.test.ts` has no CSS behind it. Fixed in the body |
+| Mock-up "27 rows after (+35%)" at 32px | **wrong: 28 rows (+40%)** | 900 / 32 = 28.1; 27 is the count at 33px. Fixed in the body |
+| "23% fewer pods" at 43 vs 33 | roughly right | 1 − 33/43 = 23% continuous; 20 vs 27 whole rows is 26% |
+
+### Disagreements and resolutions
+
+**R1. Table headers: the uppercase question was settled on a wrong premise (long-session SRE).**
+D5 kept "12px uppercase headers that users already scan". Kubebay's resource lists already use 13px
+mixed-case muted headers (`.th-sortable`). Only non-sortable headers, such as most `DataTable`
+uses, are uppercase, so today's tables mix the two. For an eight-hour session, all-caps 12px with
+letter spacing is the harder of the two to read, and it is the minority case.
+*Resolution:* one header style everywhere, 13px sentence case in `--kb-fg-muted` at weight 500, on
+a solid header. Drop the uppercase path. This is a small, low-risk slice that everyone gets.
+
+**R2. Row height: fix the specificity bug, not the button (maintainer and SRE).**
+D7 proposed a new `IconButton size="row"` of 22px. Its numbers don't work: in a 32px row with 6px
+padding, a 22px button in a padded cell is 34px, so the row stays above 32. The real defect is that
+the row-menu cell's `padding: 0` never applies.
+*Resolution:* make `.kb-table td.col-row-menu` padding 0 win, and give `td` a fixed 20px line box.
+Set the row padding to 4 / 6 / 10px (compact keeps 13px text in its 20px box). Rows then come out at
+28 / 32 / 40 and the 26px button fits in every one, so no new component size is needed. The row
+menu keeps a 26px target, which is better than 22px for WCAG 2.5.8. `rowHeight.test.ts` is
+rewritten first: line box + 2 × padding, with no phantom rule, plus a CSS assertion that the menu
+cell has no padding.
+
+**R3. Hover and selection look the same (long-session SRE).**
+Today `tr:hover` and `tr.selected` both draw the 3px inset accent bar. The plan made the bar "the
+selection cue", but a pointer resting over a table would still paint one. During triage that's a
+false "this row is selected" signal.
+*Resolution:* hover is a shade only. The accent bar marks the selected row and the keyboard cursor
+row only. Nav items follow the same rule. Pinned lead cells repaint the same way. A behaviour test
+checks that the hovered row has no bar class.
+
+**R4. No parallel `data-look` system: change the system itself (maintainer).**
+D10 put the look behind `data-look="block"`. That means 12 themes × 2 looks × 3 densities = 72
+combinations to audit, and a look block overriding per-theme tokens such as `--kb-shadow-rest`,
+which round 1 already admitted needs a `themeTokens` exception. Most of the work isn't a matter of
+taste anyway. Correct row heights, one header style, 8px band heights, the 11px floor and the hover
+fix are fixes that nobody would choose "Classic" to keep. Two further points:
+
+- The website imports `tokens.css`, so a `:root` retune reaches kubebay.sardar.dev. That is the
+  wanted outcome (round 1's Q9 answers itself), but it means every slice runs the website build.
+- A look attribute would also need its own Settings control, store key, docs and window-sync key.
+
+*Resolution:* no `data-look` and no Settings → Look. Every slice changes the one system directly,
+small enough to review from screenshots and to roll back with `git revert`. The shape slice (R6) is
+the only one that is taste-heavy. It is staged so the owner sees screenshots of Dusk, Dawn and Dusk
+HC before it merges.
+
+**R5. One chrome token is still one too many in some themes (maintainer).**
+In Dusk the corrected chrome `#111112` is almost `--kb-bg-inset` `#0f0f10`. Inputs sit on inset, so
+a toolbar input on chrome loses its well and leans entirely on its control border. In One Dark,
+Dracula and Catppuccin, canvas is *lighter* than surface, so "chrome darker than surface" isn't a
+universal rule.
+*Resolution:* keep the one token, but define it by role and test it both ways:
+
+- `themeContrast` asserts the chrome-to-surface step (1.10–1.30 either direction) and that the
+  input control border stays ≥3:1 on chrome.
+- Where a theme's canvas already makes that step, chrome is set to the canvas hex, so there is no
+  new colour to tune.
+- Values are hex literals, because the contrast test only parses hex and `color-mix(… transparent)`.
+
+**R6. A Lens look-alike loses Kubebay's identity (brand/product).**
+Radius 0 or 2 everywhere, opaque grey chrome, no glow and no gradient: that is Freelens with a cyan
+accent. Kubebay's tells are the cyan accent, the cyan-to-green brand gradient, mono identifiers in
+tables, 12 themes with real HC, and a macOS softness.
+*Resolution:* "tiles are square, floats are soft". It keeps the grid feel and is Kubebay's own rule
+rather than Lens's.
+
+- **Tiles are square, radius 0:** anything that tiles the window, meaning panels, the sidebar, tab
+  strips, tables, the drawer and cards.
+- **Controls get 2px:** buttons, inputs, pills and segments.
+- **Floats keep 6px and their shadow:** menus, modals, the command palette and HelpTips.
+- **The brand gradient stays as a signature:** a 1px top rule on the status bar from
+  `--kb-brand-cyan` to `--kb-brand-green`. That's where round 1 dropped "the gradient line".
+- The `body::before` glows go.
+- Never fill a bar with the accent.
+
+Do this with **role tokens**: `--kb-radius-tile`, `--kb-radius-control` and `--kb-radius-float`,
+with uses migrated to them. Don't flatten the size scale to 0 / 2 / 2 / 0 / 0, because that would
+make `--kb-radius-lg: 0` mean nothing and defeat the "radii from the scale" hygiene test.
+Separately, keep the sidebar at **210px** and put it in a `--kb-sidebar-w` token that also fixes the
+`calc(56px + 210px + 20px)` literal. 216 was change for its own sake.
+
+**R7. Eye strain from the grey palette (long-session SRE).**
+The grid look gets its reputation partly from dim text. Freelens primary text is 4.57:1 on content
+and about 3.7:1 on its sidebar. Kubebay must not import that.
+*Resolution:* the new look changes no `--kb-fg-*` token. `themeContrast` gains chrome as a fifth
+ground, so default, muted and subtle text, status pills and focus rings are checked on it. On a
+darker chrome, Dusk subtle text rises from 4.74:1 to about 5.26:1. The body line height of 1.43
+(20px on 14px) stands.
+
+### Final recommended direction
+
+Evolve the one design system in place, with no second look. Fix density and consistency first,
+because everyone gains and nobody will miss what goes:
+
+- rows 28 / 32 / 40 from a 20px line box
+- one sentence-case header
+- bands on 8px heights
+- an 11px floor
+- hover without the selection bar
+
+Then change shape by role: square tiles, 2px controls, soft floats. Add one chrome ground, defined
+by role and tested in all 12 themes, with HC themes keeping ≥3:1 region borders. Make chrome
+opaque, with no glow and no resting shadows, and keep the cyan accent and the brand gradient
+hairline as Kubebay's signature. The drawer goes flush with a `PropertyList`, and cards become
+blocks, last.
+
+### Revised slice order (smallest first)
+
+Each slice writes its failing test first, updates the user manual page for what changed, runs
+`themeContrast`/`themeTokens`/`shellAdoption`/`cssHygiene` and (for colour or ground changes) the
+theme audit, and builds the website because it shares `tokens.css`.
+
+| # | Slice | First failing test |
+|---|---|---|
+| 1 | Row geometry: menu-cell padding 0 actually applies, `td` 20px line box, padding 4 / 6 / 10, `ROW_HEIGHT` 28 / 32 / 40 | `rowHeight.test.ts` rewritten (line box + padding, no phantom rule); CSS assertion on `.col-row-menu` |
+| 2 | One header style: 13px sentence case, muted, solid background (no blur) | `uiTableAndFeedback`: a non-sortable header has the same class as a sortable one |
+| 3 | Hover is shade only; accent bar marks selected and the keyboard cursor row | `uiTable…`: hovered row has no bar, selected row keeps it |
+| 4 | 11px floor (S scale 11 / 11 / 12 / 13 / 15 / 18 / 28; mono ≥12) | `display.test.ts`: no `TYPE_SCALE` step under 11 |
+| 5 | Height tokens `--kb-h-*` and `--kb-sidebar-w` (210) at today's values, then bands to 40 / 36 / 24 | `cssHygiene`: bands use `--kb-h-*`; no `210px` literal |
+| 6 | Role radii (`tile` 0, `control` 2, `float` 6), uses migrated; pills 2px, dots `50%`; no resting shadow on cards and buttons. Owner screenshot review before merge | `cssHygiene`: radii are role tokens; no resting shadow on `.kb-card`/`.kb-btn` |
+| 7 | `--kb-bg-chrome` in 12 themes; opaque sidebar, rail and status bar; glow off; gradient hairline on the status bar; full-bleed `NavItem` | `themeContrast`: chrome step 1.10–1.30, text and control borders on chrome, HC region borders ≥3:1 |
+| 8 | Drawer flush with chrome head; `PropertyList` (`dl/dt/dd`) replaces `.pod-kv` | `uiPropertyList.test.tsx`; then ban `.pod-kv` in `shellAdoption` |
+| 9 | Cards as blocks; banners and empty states square | overview grid uses `Stack`/`Row` gap |
+| 10 | Update `DESIGN_SYSTEM.md` with the principles and re-sync the design-system artifact | none (docs) |
+
+### Questions for the owner
+
+1. **Ship each slice straight to everyone, with no Classic/Block switch?** *Recommended: yes.*
+   Rollback is `git revert`, and you review screenshots before the shape slice (6) merges.
+2. **Default row height?** *Recommended: 32px by default, with 28 compact and 40 relaxed.* Keep the
+   three steps rather than Lens's free "row line height" number.
+3. **Table headers: one 13px sentence-case style everywhere?** *Recommended: yes.* Most headers
+   already use it, and the uppercase ones go.
+4. **Radius by role: square tiles, 2px controls, 6px floating menus and dialogs?** *Recommended: yes.*
+   It gives the grid feel without becoming a Freelens copy.
+5. **Drop translucency and the background glow, keeping the brand gradient as a 1px status-bar
+   rule?** *Recommended: yes.* Opaque chrome is also cheaper to composite in WebKit.
+6. **Sidebar: keep 210px fixed for now, with resizing as a separate backlog item?**
+   *Recommended: yes.* Zoom (round 1's Q7) is out of scope, because font size and density cover it.
