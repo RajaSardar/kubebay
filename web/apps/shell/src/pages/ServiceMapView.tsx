@@ -10,7 +10,7 @@ import { deniedStreams, listKinds } from "../lib/forbidden";
 import { useResourceStream } from "../lib/useResourceStream";
 import { crdApi, promApi } from "../lib/api";
 import { ALL_NAMESPACES, ALL_NAMESPACES_BUDGET, buildAllNamespacesMap } from "../lib/serviceMapAll";
-import { OBSERVED_PROBES, observedEdges, type ProbeResult } from "../lib/observedTraffic";
+import { OBSERVED_PROBES, OBSERVED_SERIES_CAP, capSeries, observedEdges, observedEdgesAllNamespaces, type ProbeResult } from "../lib/observedTraffic";
 import { buildServiceMap, detectMapCrds, filterEdges, visibleNodes, type MapEdge, type MapNode } from "../lib/serviceMap";
 import type { KObj } from "../lib/topology";
 
@@ -84,9 +84,13 @@ export default function ServiceMapView({ cluster, namespace }: { cluster: string
   const grpcRoutes = useResourceStream(gvrs.grpcRoutes ? cluster : undefined, gvrs.grpcRoutes ?? "", optionalOpts(gvrs.grpcRoutes));
   const virtualServices = useResourceStream(gvrs.virtualServices ? cluster : undefined, gvrs.virtualServices ?? "", optionalOpts(gvrs.virtualServices));
   const destinationRules = useResourceStream(gvrs.destinationRules ? cluster : undefined, gvrs.destinationRules ?? "", optionalOpts(gvrs.destinationRules));
+  // A ReferenceGrant lives in the namespace a route points into, so it is read from every namespace, and only when routes are followed.
+  const grantsWanted = !!gvrs.referenceGrants && !!(gvrs.httpRoutes || gvrs.grpcRoutes);
+  const referenceGrants = useResourceStream(grantsWanted ? cluster : undefined, gvrs.referenceGrants ?? "", { mode: "full", enabled: grantsWanted });
+  const grantRows = grantsWanted && referenceGrants.synced && !referenceGrants.forbidden ? (referenceGrants.rows as KObj[]) : undefined;
 
   const streams = { ingresses, services, endpointslices: slices, pods, replicasets: rss, deployments: deps, statefulsets: stss, daemonsets: dss, networkpolicies: netpols };
-  const optionalStreams = { gateways, httproutes: httpRoutes, grpcroutes: grpcRoutes, virtualservices: virtualServices, destinationrules: destinationRules };
+  const optionalStreams = { gateways, httproutes: httpRoutes, grpcroutes: grpcRoutes, referencegrants: referenceGrants, virtualservices: virtualServices, destinationrules: destinationRules };
   const denied = deniedStreams({ ...streams, ...Object.fromEntries(Object.entries(optionalStreams).filter(([, v]) => v.forbidden)) });
   const ready = Object.values(streams).every((s) => s.synced || s.forbidden);
 
@@ -111,15 +115,17 @@ export default function ServiceMapView({ cluster, namespace }: { cluster: string
       grpcRoutes: grpcRoutes.rows as KObj[],
       virtualServices: virtualServices.rows as KObj[],
       destinationRules: destinationRules.rows as KObj[],
+      referenceGrants: grantRows,
     };
     if (all) return buildAllNamespacesMap(objs, { budget: ALL_NAMESPACES_BUDGET });
     return { ...buildServiceMap({ namespace, ...objs }), truncated: false, total: 0 };
-  }, [all, namespace, gvrs, ingresses.rows, services.rows, slices.rows, pods.rows, rss.rows, deps.rows, stss.rows, dss.rows, netpols.rows, gateways.rows, httpRoutes.rows, grpcRoutes.rows, virtualServices.rows, destinationRules.rows]);
+  }, [all, namespace, gvrs, ingresses.rows, services.rows, slices.rows, pods.rows, rss.rows, deps.rows, stss.rows, dss.rows, netpols.rows, gateways.rows, httpRoutes.rows, grpcRoutes.rows, virtualServices.rows, destinationRules.rows, grantRows]);
 
-  // Observed traffic: single namespace only, only when a Prometheus is found, and only once asked for.
+  // Observed traffic: only when a Prometheus is found, and only once asked for.
+  // One namespace runs a namespace-scoped query per metric; All namespaces runs one capped cluster-wide query per metric.
   const [showObserved, setShowObserved] = useState(false);
-  const prom = useQuery({ queryKey: ["prom-status", cluster], queryFn: () => promApi.status(cluster), enabled: !!cluster && !all, staleTime: 60_000 });
-  const promFound = !all && !!prom.data && prom.data.source !== "none";
+  const prom = useQuery({ queryKey: ["prom-status", cluster], queryFn: () => promApi.status(cluster), enabled: !!cluster, staleTime: 60_000 });
+  const promFound = !!prom.data && prom.data.source !== "none";
   const observed = useQuery({
     queryKey: ["service-map-observed", cluster, namespace],
     enabled: promFound && showObserved,
@@ -130,20 +136,24 @@ export default function ServiceMapView({ cluster, namespace }: { cluster: string
       for (const probe of OBSERVED_PROBES) {
         const present = await promApi.query({ cluster, query: probe.presenceQuery });
         if (!present.some((x) => Number(x.value?.[1]) > 0)) continue;
-        const query = probe.rateQuery(namespace);
-        out.push({ probe, query, at: Date.now(), samples: await promApi.query({ cluster, query }) });
+        const query = all ? probe.clusterRateQuery(OBSERVED_SERIES_CAP) : probe.rateQuery(namespace);
+        const samples = await promApi.query({ cluster, query });
+        out.push({ probe, query, at: Date.now(), ...(all ? capSeries(samples, OBSERVED_SERIES_CAP) : { samples }) });
       }
       return out;
     },
   });
   const observedList = useMemo(
-    () => (promFound && showObserved ? (observed.data ?? []).flatMap((r) => observedEdges(r, namespace, baseGraph.nodes)) : []),
-    [promFound, showObserved, observed.data, namespace, baseGraph.nodes],
+    () =>
+      promFound && showObserved
+        ? (observed.data ?? []).flatMap((r) => (all ? observedEdgesAllNamespaces(r, baseGraph.nodes) : observedEdges(r, namespace, baseGraph.nodes)))
+        : [],
+    [promFound, showObserved, observed.data, all, namespace, baseGraph.nodes],
   );
   const graph = baseGraph;
 
   const shownEdges = useMemo(
-    () => [...filterEdges(baseGraph.edges, { inferred: showInferred, allowed: showAllowed, crossNamespace: showCross }), ...observedList],
+    () => filterEdges([...baseGraph.edges, ...observedList], { inferred: showInferred, allowed: showAllowed, crossNamespace: showCross }),
     [baseGraph.edges, observedList, showInferred, showAllowed, showCross],
   );
 
@@ -219,8 +229,18 @@ export default function ServiceMapView({ cluster, namespace }: { cluster: string
       {baseGraph.truncated && (
         <InlineBanner>
           Showing the first {ALL_NAMESPACES_BUDGET} of {baseGraph.total} nodes, in namespace order. Narrow by namespace to see the rest.
+          {showObserved && promFound && " Observed traffic is drawn only between nodes shown."}
         </InlineBanner>
       )}
+      {showObserved &&
+        promFound &&
+        (observed.data ?? [])
+          .filter((r) => r.truncated)
+          .map((r) => (
+            <InlineBanner key={`cap:${r.probe.metric}`}>
+              Showing the top {OBSERVED_SERIES_CAP} series of {r.probe.metric} by request rate; quieter ones are not drawn. Narrow by namespace to see them all.
+            </InlineBanner>
+          ))}
       {showObserved && promFound && observed.isError && <InlineBanner>Could not read traffic from Prometheus: {(observed.error as Error).message}</InlineBanner>}
       {showObserved && promFound && observed.data && observed.data.length === 0 && (
         <InlineBanner>No traffic metrics found. Kubebay looks for istio_requests_total and nginx_ingress_controller_requests in this cluster's Prometheus and draws nothing else.</InlineBanner>

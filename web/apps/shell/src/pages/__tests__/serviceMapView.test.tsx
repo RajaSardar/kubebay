@@ -51,7 +51,7 @@ vi.mock("@xyflow/react", () => ({
 
 const { default: ServiceMapView } = await import("../ServiceMapView");
 const { ALL_NAMESPACES } = await import("../../lib/serviceMapAll");
-const { OBSERVED_PROBES } = await import("../../lib/observedTraffic");
+const { OBSERVED_PROBES, OBSERVED_SERIES_CAP } = await import("../../lib/observedTraffic");
 
 const render1 = (namespace = "shop") =>
   render(
@@ -127,6 +127,16 @@ describe("ServiceMapView", () => {
     await vi.waitFor(() => expect(streamCalls.some((c) => c.gvr === "gateway.networking.k8s.io/v1/httproutes" && c.enabled)).toBe(true));
   });
 
+  it("shows a finding for a cross-namespace route backend no ReferenceGrant permits, once ReferenceGrants are read", async () => {
+    crds = [
+      { group: "gateway.networking.k8s.io", resource: "httproutes", gvr: "gateway.networking.k8s.io/v1/httproutes" },
+      { group: "gateway.networking.k8s.io", resource: "referencegrants", gvr: "gateway.networking.k8s.io/v1beta1/referencegrants" },
+    ];
+    rows.set("gateway.networking.k8s.io/v1/httproutes", [{ metadata: { name: "r", namespace: "shop" }, spec: { rules: [{ backendRefs: [{ name: "pg", namespace: "data" }] }] } }]);
+    render1();
+    expect(await screen.findByText(/HTTPRoute r in shop points at Service pg in data/)).toBeTruthy();
+  });
+
   it("hides cross-namespace lines with the toggle", () => {
     rows.set("v1/services", [{ metadata: { name: "api" }, spec: {} }]);
     rows.set("apps/v1/deployments", [{ metadata: { name: "web" }, spec: { template: { spec: { containers: [{ env: [{ name: "DB", value: "pg.data.svc" }] }] } } } }]);
@@ -187,5 +197,45 @@ describe("ServiceMapView", () => {
     fireEvent.click(await screen.findByLabelText(/observed traffic/i));
     expect(await screen.findByText(/istio_requests_total/)).toBeTruthy();
     await vi.waitFor(() => expect(screen.getByTestId("edge-count").textContent).toBe("1"));
+  });
+
+  it("on All namespaces runs one cluster-wide query per metric and draws a cross-namespace observed edge", async () => {
+    promSource = "auto";
+    const [istio, nginx] = OBSERVED_PROBES;
+    promSamples = {
+      [istio!.presenceQuery]: [{ metric: {}, value: [1, "3"] }],
+      [nginx!.presenceQuery]: [{ metric: {}, value: [1, "2"] }],
+      [istio!.clusterRateQuery(OBSERVED_SERIES_CAP)]: [
+        { metric: { source_workload: "web", source_workload_namespace: "a", destination_workload: "api", destination_workload_namespace: "b" }, value: [1700000000, "2.5"] },
+      ],
+    };
+    rows.set("apps/v1/deployments", [
+      { metadata: { name: "web", namespace: "a" }, spec: { replicas: 1 }, status: { readyReplicas: 1 } },
+      { metadata: { name: "api", namespace: "b" }, spec: { replicas: 1 }, status: { readyReplicas: 1 } },
+    ]);
+    render1(ALL_NAMESPACES);
+    fireEvent.click(await screen.findByLabelText(/observed traffic/i));
+    await vi.waitFor(() => expect(screen.getByTestId("edge-count").textContent).toBe("1"));
+    expect(promQueries.filter((q) => !q.startsWith("count("))).toEqual([istio!.clusterRateQuery(OBSERVED_SERIES_CAP), nginx!.clusterRateQuery(OBSERVED_SERIES_CAP)]);
+    expect(screen.getByText(/observed from istio_requests_total at .*topk/)).toBeTruthy();
+    // Cross-namespace observed lines follow the "other namespaces" toggle.
+    fireEvent.click(screen.getByLabelText(/other namespaces/i));
+    expect(screen.getByTestId("edge-count").textContent).toBe("0");
+  });
+
+  it("on All namespaces says when the series were capped", async () => {
+    promSource = "auto";
+    const istio = OBSERVED_PROBES[0]!;
+    promSamples = {
+      [istio.presenceQuery]: [{ metric: {}, value: [1, "3"] }],
+      [istio.clusterRateQuery(OBSERVED_SERIES_CAP)]: Array.from({ length: OBSERVED_SERIES_CAP + 1 }, (_, i) => ({
+        metric: { source_workload: `s${i}`, source_workload_namespace: "a", destination_workload: "d", destination_workload_namespace: "b" },
+        value: [1, String(i + 1)],
+      })),
+    };
+    rows.set("v1/services", [{ metadata: { name: "api", namespace: "a" }, spec: {} }]);
+    render1(ALL_NAMESPACES);
+    fireEvent.click(await screen.findByLabelText(/observed traffic/i));
+    expect(await screen.findByText(new RegExp(`top ${OBSERVED_SERIES_CAP} series of istio_requests_total`, "i"))).toBeTruthy();
   });
 });

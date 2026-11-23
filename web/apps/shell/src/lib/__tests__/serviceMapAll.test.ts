@@ -62,6 +62,15 @@ describe("buildAllNamespacesMap", () => {
     for (const f of g.findings) expect(ids.has(f.nodeId)).toBe(true);
   });
 
+  it("checks a cross-namespace backendRef against ReferenceGrants in the target namespace, not the route's", () => {
+    const route = { metadata: { name: "r", namespace: "a" }, spec: { rules: [{ backendRefs: [{ name: "pg", namespace: "b" }] }] } };
+    const grantIn = (ns: string) => ({ metadata: { name: "g", namespace: ns }, spec: { from: [{ group: "gateway.networking.k8s.io", kind: "HTTPRoute", namespace: "a" }], to: [{ group: "", kind: "Service" }] } });
+    const o = (grants: unknown[]): Objs => ({ ...empty(), services: [svc("b", "pg")], httpRoutes: [route], referenceGrants: grants as never, gvrs: { httpRoutes: "gateway.networking.k8s.io/v1/httproutes" } });
+    expect(buildAllNamespacesMap(o([grantIn("b")]), { budget: 400 }).findings.some((f) => f.kind === "ungranted-reference")).toBe(false);
+    const bad = buildAllNamespacesMap(o([grantIn("a")]), { budget: 400 });
+    expect(bad.findings).toContainEqual(expect.objectContaining({ kind: "ungranted-reference", nodeId: "svc:b/pg" }));
+  });
+
   it("gives every node its own position", () => {
     const o = empty();
     o.services = [svc("a", "x"), svc("a", "y"), svc("b", "z")];

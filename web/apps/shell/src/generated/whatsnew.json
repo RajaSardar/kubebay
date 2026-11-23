@@ -8,6 +8,10 @@
           "heading": "Added",
           "items": [
             {
+              "title": "Service map: observed traffic on All namespaces, and ReferenceGrant checks",
+              "summary": "(backlog 39 follow-up)."
+            },
+            {
               "title": "Helm store: README tables, per-repo Refresh, Compare versions",
               "summary": "(backlog 11 follow-up)."
             },
