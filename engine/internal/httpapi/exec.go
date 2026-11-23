@@ -285,9 +285,10 @@ func (c *Channels) OpenExec(
 	}
 
 	// Audit log the exec action before opening the stream.
-	c.Audit.Record(audit.Entry{
+	c.Audit.RecordCtx(ctx, audit.Entry{
 		Action:    "exec",
 		Cluster:   spec.Cluster,
+		GVR:       "v1/pods",
 		Namespace: spec.Namespace,
 		Resource:  spec.Pod,
 		Detail:    fmt.Sprintf("container=%s command=%s", spec.Container, strings.Join(spec.Command, " ")),

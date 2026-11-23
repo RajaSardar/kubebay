@@ -153,10 +153,18 @@ func resourceVersion(o map[string]any) string {
 }
 
 func (s *Store) record(p *Proposal, action, detail, outcome string) {
+	s.recordAs("", p, action, detail, outcome)
+}
+
+// recordAs records an entry made by user: the person who approved a
+// proposal, rather than the MCP client that wrote it. Empty means local.
+func (s *Store) recordAs(user string, p *Proposal, action, detail, outcome string) {
 	s.audit(audit.Entry{
 		Time:      s.now(),
 		Action:    action,
+		User:      user,
 		Cluster:   p.Cluster,
+		GVR:       p.GVR,
 		Namespace: p.Namespace,
 		Resource:  p.Name,
 		Detail:    fmt.Sprintf("id=%s kind=%s fields=%s request=%s%s", p.ID, p.Kind, strings.Join(p.ChangedPaths, ","), p.requestID, detail),
@@ -349,12 +357,12 @@ func (s *Store) Approve(ctx context.Context, id string) (Proposal, error) {
 		live, err := s.patcher.Get(ctx, p.Cluster, p.GVR, p.Namespace, p.Name)
 		if err != nil {
 			out := s.finish(p, StatusFailed, err.Error())
-			s.record(p, "mcp:apply-proposal", " error="+err.Error(), "failed")
+			s.recordAs(audit.UserFrom(ctx), p, "mcp:apply-proposal", " error="+err.Error(), "failed")
 			return out, err
 		}
 		if canonical(clean(live)) != p.reviewed {
 			out := s.finish(p, StatusStale, staleMessage)
-			s.record(p, "mcp:apply-proposal", "", "stale")
+			s.recordAs(audit.UserFrom(ctx), p, "mcp:apply-proposal", "", "stale")
 			return out, errors.New(out.Message)
 		}
 		// A resourceVersion in the patch makes it conditional: the API
@@ -368,22 +376,22 @@ func (s *Store) Approve(ctx context.Context, id string) (Proposal, error) {
 			select {
 			case <-ctx.Done():
 				out := s.finish(p, StatusFailed, ctx.Err().Error())
-				s.record(p, "mcp:apply-proposal", " error="+ctx.Err().Error(), "failed")
+				s.recordAs(audit.UserFrom(ctx), p, "mcp:apply-proposal", " error="+ctx.Err().Error(), "failed")
 				return out, ctx.Err()
 			case <-time.After(time.Duration(attempt) * 25 * time.Millisecond):
 			}
 			continue
 		case apierrors.IsConflict(err):
 			out := s.finish(p, StatusStale, staleMessage)
-			s.record(p, "mcp:apply-proposal", fmt.Sprintf(" conflicts=%d", attempt), "stale")
+			s.recordAs(audit.UserFrom(ctx), p, "mcp:apply-proposal", fmt.Sprintf(" conflicts=%d", attempt), "stale")
 			return out, errors.New(out.Message)
 		case err != nil:
 			out := s.finish(p, StatusFailed, err.Error())
-			s.record(p, "mcp:apply-proposal", " error="+err.Error(), "failed")
+			s.recordAs(audit.UserFrom(ctx), p, "mcp:apply-proposal", " error="+err.Error(), "failed")
 			return out, err
 		}
 		out := s.finish(p, StatusApplied, "applied; the object is now at resourceVersion "+resourceVersion(res))
-		s.record(p, "mcp:apply-proposal", "", "")
+		s.recordAs(audit.UserFrom(ctx), p, "mcp:apply-proposal", "", "")
 		return out, nil
 	}
 }

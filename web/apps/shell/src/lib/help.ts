@@ -165,7 +165,7 @@ export const PAGE_HELP: Record<string, PageHelpEntry> = {
   "/audit": {
     name: "Audit Log",
     what: "Every change you made through Kubebay, and every call an AI assistant made.",
-    how: "A file on your machine that Kubebay appends to; it's never sent anywhere.",
+    how: "A file Kubebay appends to, never sent anywhere. Each entry names who acted (the OIDC user, else local); with OIDC you see only your own.",
     docs: "audit-log",
   },
   "/timeline": {

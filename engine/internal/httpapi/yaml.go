@@ -374,9 +374,10 @@ func (c *Channels) HandleApplyYAML(w http.ResponseWriter, r *http.Request) {
 			if owner := gitopsOwnerFromDoc(doc); owner != "" {
 				detail += " owner=" + owner
 			}
-			c.Audit.Record(audit.Entry{
+			c.Audit.RecordCtx(r.Context(), audit.Entry{
 				Action:    auditActionFor(req),
 				Cluster:   req.Cluster,
+				GVR:       req.GVR,
 				Namespace: req.Namespace,
 				Resource:  req.Name,
 				Detail:    detail,
@@ -390,9 +391,10 @@ func (c *Channels) HandleApplyYAML(w http.ResponseWriter, r *http.Request) {
 	if owner := gitopsOwnerFromDoc(doc); owner != "" {
 		detail += " owner=" + owner
 	}
-	c.Audit.Record(audit.Entry{
+	c.Audit.RecordCtx(r.Context(), audit.Entry{
 		Action:    auditActionFor(req),
 		Cluster:   req.Cluster,
+		GVR:       req.GVR,
 		Namespace: req.Namespace,
 		Resource:  req.Name,
 		Detail:    detail,
@@ -550,9 +552,10 @@ func (c *Channels) HandleCreateResource(w http.ResponseWriter, r *http.Request) 
 		}
 		if err != nil {
 			if rejection := writePolicyRejectionOrError(w, err); rejection != nil {
-				c.Audit.Record(audit.Entry{
+				c.Audit.RecordCtx(r.Context(), audit.Entry{
 					Action:    "create",
 					Cluster:   req.Cluster,
+					GVR:       gvrString(gvr),
 					Namespace: ns,
 					Resource:  name,
 					Detail:    fmt.Sprintf("kind=%s doc=%d/%d webhook=%s: %s", kind, i+1, len(docs), rejection.Webhook, rejection.Message),
@@ -561,6 +564,17 @@ func (c *Channels) HandleCreateResource(w http.ResponseWriter, r *http.Request) 
 				})
 			}
 			return
+		}
+		if !req.DryRun {
+			c.Audit.RecordCtx(r.Context(), audit.Entry{
+				Action:    "create",
+				Cluster:   req.Cluster,
+				GVR:       gvrString(gvr),
+				Namespace: ns,
+				Resource:  name,
+				Detail:    fmt.Sprintf("kind=%s doc=%d/%d", kind, i+1, len(docs)),
+				UserAgent: r.Header.Get("User-Agent"),
+			})
 		}
 		applied++
 	}

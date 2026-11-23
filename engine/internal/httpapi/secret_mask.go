@@ -40,9 +40,10 @@ func maskSecret(doc map[string]interface{}) {
 // auditSecretReveal records that a Secret's whole YAML was asked for with its
 // values, the same entry the single-key reveal leaves.
 func (c *Channels) auditSecretReveal(r *http.Request, cluster, ns, name string) {
-	c.Audit.Record(audit.Entry{
+	c.Audit.RecordCtx(r.Context(), audit.Entry{
 		Action:    "secret-reveal",
 		Cluster:   cluster,
+		GVR:       "v1/secrets",
 		Namespace: ns,
 		Resource:  name,
 		Detail:    fmt.Sprintf("secret=%s keys=all (yaml)", name),

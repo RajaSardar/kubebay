@@ -11,7 +11,7 @@
  */
 
 import { auditObjectHref } from "./auditLinks";
-import { slugForKind } from "./resources";
+import { gvrForKind, slugForKind } from "./resources";
 
 type Obj = Record<string, unknown>;
 
@@ -52,6 +52,15 @@ export interface AuditRow {
   detail?: string;
   outcome?: string;
   source?: string;
+  /** Who acted: the OIDC user, or "local". Absent on entries written before it was recorded. */
+  user?: string;
+  /** What kind was acted on, as "group/version/resource". Absent on older entries. */
+  gvr?: string;
+}
+
+/** The plural resource of a "group/version/resource" string ("deployments"). */
+function pluralOf(gvr: string): string {
+  return gvr.slice(gvr.lastIndexOf("/") + 1);
 }
 
 export type TimelineGroup = "events" | "audit" | "rollouts";
@@ -174,8 +183,12 @@ export function buildTimeline(input: { obj: Obj; events: Obj[]; replicaSets: Obj
     }
   }
 
+  const ownGvr = kind === "Pod" ? "v1/pods" : gvrForKind(kind);
   for (const a of input.audit ?? []) {
     if (!a.time || a.resource !== str(meta.name) || (ns && (a.namespace ?? "") !== ns)) continue;
+    // Entries that say which kind they are about must be about this one;
+    // older entries don't say, so they match by name as before.
+    if (a.gvr && ownGvr && pluralOf(a.gvr) !== pluralOf(ownGvr)) continue;
     const rejected = a.outcome === "rejected";
     out.push({
       at: a.time,
@@ -183,7 +196,7 @@ export function buildTimeline(input: { obj: Obj; events: Obj[]; replicaSets: Obj
       severity: rejected ? "warning" : "normal",
       subject: `${kind}/${str(meta.name)}`,
       title: rejected ? `${a.action} (rejected)` : a.action,
-      detail: [a.detail, a.source === "mcp" ? "via MCP" : ""].filter(Boolean).join(" · "),
+      detail: [a.detail, a.source === "mcp" ? "via MCP" : "", a.user && a.user !== "local" ? `by ${a.user}` : ""].filter(Boolean).join(" · "),
     });
   }
 

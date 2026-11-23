@@ -448,9 +448,10 @@ func (h *HelmManager) HandleRollback(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("rollback: %v", err), http.StatusBadGateway)
 		return
 	}
-	h.Audit.Record(audit.Entry{
+	h.Audit.RecordCtx(r.Context(), audit.Entry{
 		Action:    "helm-rollback",
 		Cluster:   req.Cluster,
+		GVR:       helmReleaseGVR,
 		Namespace: req.NS,
 		Resource:  req.Name,
 		Detail:    fmt.Sprintf("revision=%d", req.Revision),
@@ -475,9 +476,10 @@ func (h *HelmManager) HandleUninstall(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("uninstall: %v", err), http.StatusBadGateway)
 		return
 	}
-	h.Audit.Record(audit.Entry{
+	h.Audit.RecordCtx(r.Context(), audit.Entry{
 		Action:    "helm-uninstall",
 		Cluster:   req.Cluster,
+		GVR:       helmReleaseGVR,
 		Namespace: req.NS,
 		Resource:  req.Name,
 		UserAgent: r.Header.Get("User-Agent"),
@@ -543,9 +545,10 @@ func (h *HelmManager) HandleUpgrade(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if !req.DryRun {
-			h.Audit.Record(audit.Entry{
+			h.Audit.RecordCtx(r.Context(), audit.Entry{
 				Action:    "helm-install",
 				Cluster:   req.Cluster,
+				GVR:       helmReleaseGVR,
 				Namespace: req.NS,
 				Resource:  req.Name,
 				Detail:    helmUpgradeAuditDetail(req.ChartRef, req.Version),
@@ -567,9 +570,10 @@ func (h *HelmManager) HandleUpgrade(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !req.DryRun {
-		h.Audit.Record(audit.Entry{
+		h.Audit.RecordCtx(r.Context(), audit.Entry{
 			Action:    "helm-upgrade",
 			Cluster:   req.Cluster,
+			GVR:       helmReleaseGVR,
 			Namespace: req.NS,
 			Resource:  req.Name,
 			Detail:    helmUpgradeAuditDetail(req.ChartRef, req.Version),

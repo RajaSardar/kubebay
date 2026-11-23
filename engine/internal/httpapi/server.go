@@ -163,9 +163,10 @@ func Router(d Deps, token string) http.Handler {
 				http.Error(w, err.Error(), pfErrorStatus(err))
 				return
 			}
-			d.Audit.Record(audit.Entry{
+			d.Audit.RecordCtx(r.Context(), audit.Entry{
 				Action:    "port-forward",
 				Cluster:   body.Cluster,
+				GVR:       "v1/pods",
 				Namespace: body.Namespace,
 				Resource:  body.Pod,
 				Detail:    fmt.Sprintf("podPort=%d localPort=%d", body.PodPort, fw.LocalPort),
@@ -197,9 +198,10 @@ func Router(d Deps, token string) http.Handler {
 			}
 			if err := d.Actions.Scale(r.Context(), body.Cluster, body.GVR, body.NS, body.Name, body.Replicas); err != nil {
 				if rejection := writePolicyRejectionOrError(w, err); rejection != nil {
-					d.Audit.Record(audit.Entry{
+					d.Audit.RecordCtx(r.Context(), audit.Entry{
 						Action:    "scale",
 						Cluster:   body.Cluster,
+						GVR:       body.GVR,
 						Namespace: body.NS,
 						Resource:  body.Name,
 						Detail:    appendOwnerDetail(fmt.Sprintf("gvr=%s replicas=%d webhook=%s: %s", body.GVR, body.Replicas, rejection.Webhook, rejection.Message), body.GitOpsOwner),
@@ -209,9 +211,10 @@ func Router(d Deps, token string) http.Handler {
 				}
 				return
 			}
-			d.Audit.Record(audit.Entry{
+			d.Audit.RecordCtx(r.Context(), audit.Entry{
 				Action:    "scale",
 				Cluster:   body.Cluster,
+				GVR:       body.GVR,
 				Namespace: body.NS,
 				Resource:  body.Name,
 				Detail:    appendOwnerDetail(fmt.Sprintf("gvr=%s replicas=%d", body.GVR, body.Replicas), body.GitOpsOwner),
@@ -233,9 +236,10 @@ func Router(d Deps, token string) http.Handler {
 			}
 			if err := d.Actions.Restart(r.Context(), body.Cluster, body.GVR, body.NS, body.Name); err != nil {
 				if rejection := writePolicyRejectionOrError(w, err); rejection != nil {
-					d.Audit.Record(audit.Entry{
+					d.Audit.RecordCtx(r.Context(), audit.Entry{
 						Action:    "restart",
 						Cluster:   body.Cluster,
+						GVR:       body.GVR,
 						Namespace: body.NS,
 						Resource:  body.Name,
 						Detail:    appendOwnerDetail(fmt.Sprintf("gvr=%s webhook=%s: %s", body.GVR, rejection.Webhook, rejection.Message), body.GitOpsOwner),
@@ -245,9 +249,10 @@ func Router(d Deps, token string) http.Handler {
 				}
 				return
 			}
-			d.Audit.Record(audit.Entry{
+			d.Audit.RecordCtx(r.Context(), audit.Entry{
 				Action:    "restart",
 				Cluster:   body.Cluster,
+				GVR:       body.GVR,
 				Namespace: body.NS,
 				Resource:  body.Name,
 				Detail:    appendOwnerDetail(fmt.Sprintf("gvr=%s", body.GVR), body.GitOpsOwner),
@@ -271,9 +276,10 @@ func Router(d Deps, token string) http.Handler {
 			}
 			if err := d.Actions.Delete(r.Context(), body.Cluster, body.GVR, body.NS, body.Name, body.GraceSeconds, body.ForceFinalizers); err != nil {
 				if rejection := writePolicyRejectionOrError(w, err); rejection != nil {
-					d.Audit.Record(audit.Entry{
+					d.Audit.RecordCtx(r.Context(), audit.Entry{
 						Action:    "delete",
 						Cluster:   body.Cluster,
+						GVR:       body.GVR,
 						Namespace: body.NS,
 						Resource:  body.Name,
 						Detail:    appendOwnerDetail(fmt.Sprintf("gvr=%s webhook=%s: %s", body.GVR, rejection.Webhook, rejection.Message), body.GitOpsOwner),
@@ -287,9 +293,10 @@ func Router(d Deps, token string) http.Handler {
 			if body.GraceSeconds != nil {
 				detail += fmt.Sprintf(" gracePeriod=%ds", *body.GraceSeconds)
 			}
-			d.Audit.Record(audit.Entry{
+			d.Audit.RecordCtx(r.Context(), audit.Entry{
 				Action:    "delete",
 				Cluster:   body.Cluster,
+				GVR:       body.GVR,
 				Namespace: body.NS,
 				Resource:  body.Name,
 				Detail:    appendOwnerDetail(detail, body.GitOpsOwner),
@@ -314,9 +321,10 @@ func Router(d Deps, token string) http.Handler {
 			defer cancel()
 			if err := d.Actions.ResizePod(ctx, body.Cluster, body.NS, body.Name, body.Container, body.Resources); err != nil {
 				if rejection := writePolicyRejectionOrError(w, err); rejection != nil {
-					d.Audit.Record(audit.Entry{
+					d.Audit.RecordCtx(r.Context(), audit.Entry{
 						Action:    "resize-pod",
 						Cluster:   body.Cluster,
+						GVR:       "v1/pods",
 						Namespace: body.NS,
 						Resource:  body.Name,
 						Detail:    appendOwnerDetail(fmt.Sprintf("%s webhook=%s: %s", resizePodAuditDetail(body.Container, body.Resources), rejection.Webhook, rejection.Message), body.GitOpsOwner),
@@ -326,9 +334,10 @@ func Router(d Deps, token string) http.Handler {
 				}
 				return
 			}
-			d.Audit.Record(audit.Entry{
+			d.Audit.RecordCtx(r.Context(), audit.Entry{
 				Action:    "resize-pod",
 				Cluster:   body.Cluster,
+				GVR:       "v1/pods",
 				Namespace: body.NS,
 				Resource:  body.Name,
 				Detail:    appendOwnerDetail(resizePodAuditDetail(body.Container, body.Resources), body.GitOpsOwner),
@@ -360,9 +369,10 @@ func Router(d Deps, token string) http.Handler {
 			container, err := d.Actions.AddEphemeralContainer(ctx, body.Cluster, body.NS, body.Name, image, body.Target)
 			if err != nil {
 				if rejection := writePolicyRejectionOrError(w, err); rejection != nil {
-					d.Audit.Record(audit.Entry{
+					d.Audit.RecordCtx(r.Context(), audit.Entry{
 						Action:    "debug-container",
 						Cluster:   body.Cluster,
+						GVR:       "v1/pods",
 						Namespace: body.NS,
 						Resource:  body.Name,
 						Detail:    fmt.Sprintf("image=%s webhook=%s: %s", image, rejection.Webhook, rejection.Message),
@@ -372,9 +382,10 @@ func Router(d Deps, token string) http.Handler {
 				}
 				return
 			}
-			d.Audit.Record(audit.Entry{
+			d.Audit.RecordCtx(r.Context(), audit.Entry{
 				Action:    "debug-container",
 				Cluster:   body.Cluster,
+				GVR:       "v1/pods",
 				Namespace: body.NS,
 				Resource:  body.Name,
 				Detail:    debugContainerAuditDetail(container, image, body.Target),
@@ -383,22 +394,7 @@ func Router(d Deps, token string) http.Handler {
 			writeJSON(w, map[string]string{"container": container, "image": image})
 		})
 
-		r.Get("/api/audit", func(w http.ResponseWriter, r *http.Request) {
-			// Optional per-object filter (?cluster=&namespace=&resource=)
-			// for the drawer History tab; it only narrows the result.
-			q := r.URL.Query()
-			entries, err := d.Audit.Query(audit.Filter{
-				Cluster: q.Get("cluster"), Namespace: q.Get("namespace"), Resource: q.Get("resource"),
-			}, 500)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-			if entries == nil {
-				entries = []audit.Entry{}
-			}
-			writeJSON(w, entries)
-		})
+		r.Get("/api/audit", auditHandler(d.Audit))
 
 		r.Get("/api/yaml", d.Channels.HandleGetYAML)
 		r.Get("/api/secret-value", d.Channels.HandleGetSecretValue)
@@ -476,9 +472,10 @@ func Router(d Deps, token string) http.Handler {
 			}
 			if err := d.Actions.Cordon(r.Context(), body.Cluster, body.Node, body.Cordon); err != nil {
 				if rejection := writePolicyRejectionOrError(w, err); rejection != nil {
-					d.Audit.Record(audit.Entry{
+					d.Audit.RecordCtx(r.Context(), audit.Entry{
 						Action:    "cordon",
 						Cluster:   body.Cluster,
+						GVR:       "v1/nodes",
 						Resource:  body.Node,
 						Detail:    appendOwnerDetail(fmt.Sprintf("cordon=%t webhook=%s: %s", body.Cordon, rejection.Webhook, rejection.Message), body.GitOpsOwner),
 						UserAgent: r.Header.Get("User-Agent"),
@@ -487,9 +484,10 @@ func Router(d Deps, token string) http.Handler {
 				}
 				return
 			}
-			d.Audit.Record(audit.Entry{
+			d.Audit.RecordCtx(r.Context(), audit.Entry{
 				Action:    "cordon",
 				Cluster:   body.Cluster,
+				GVR:       "v1/nodes",
 				Resource:  body.Node,
 				Detail:    appendOwnerDetail(fmt.Sprintf("cordon=%t", body.Cordon), body.GitOpsOwner),
 				UserAgent: r.Header.Get("User-Agent"),
@@ -513,9 +511,10 @@ func Router(d Deps, token string) http.Handler {
 			sum, err := d.Actions.Drain(r.Context(), body.Cluster, body.Node, body.IgnoreDaemonsets)
 			if err != nil {
 				if rejection := writePolicyRejectionOrError(w, err); rejection != nil {
-					d.Audit.Record(audit.Entry{
+					d.Audit.RecordCtx(r.Context(), audit.Entry{
 						Action:    "drain",
 						Cluster:   body.Cluster,
+						GVR:       "v1/nodes",
 						Resource:  body.Node,
 						Detail:    appendOwnerDetail(fmt.Sprintf("ignoreDaemonsets=%t webhook=%s: %s", body.IgnoreDaemonsets, rejection.Webhook, rejection.Message), body.GitOpsOwner),
 						UserAgent: r.Header.Get("User-Agent"),
@@ -524,9 +523,10 @@ func Router(d Deps, token string) http.Handler {
 				}
 				return
 			}
-			d.Audit.Record(audit.Entry{
+			d.Audit.RecordCtx(r.Context(), audit.Entry{
 				Action:    "drain",
 				Cluster:   body.Cluster,
+				GVR:       "v1/nodes",
 				Resource:  body.Node,
 				Detail:    appendOwnerDetail(fmt.Sprintf("ignoreDaemonsets=%t evicted=%d", body.IgnoreDaemonsets, len(sum.Evicted)), body.GitOpsOwner),
 				UserAgent: r.Header.Get("User-Agent"),

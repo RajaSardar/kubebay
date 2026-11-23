@@ -32,6 +32,8 @@ vi.mock("@tanstack/react-query", async (importOriginal) => {
           resource: "example-consumer-xyz",
           detail: "pod deleted by user admin",
           userAgent: "kubectl/v1.28.0",
+          user: "alice@example.com",
+          gvr: "v1/pods",
         },
       ],
       isLoading: false,
@@ -68,5 +70,23 @@ describe("AuditLog — row click shows full details (backlog #4)", () => {
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /close/i }));
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("shows who acted in a User column, and the user and kind in the detail modal", () => {
+    render(<AuditLog />);
+    expect(screen.getByRole("columnheader", { name: "User" })).toBeInTheDocument();
+    expect(screen.getByText("alice@example.com")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("delete"));
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent("alice@example.com");
+    expect(dialog).toHaveTextContent("v1/pods");
+  });
+
+  it("filters by user", () => {
+    render(<AuditLog />);
+    fireEvent.change(screen.getByPlaceholderText(/filter/i), { target: { value: "bob@" } });
+    expect(screen.queryByText("delete")).toBeNull();
+    fireEvent.change(screen.getByPlaceholderText(/filter/i), { target: { value: "alice@" } });
+    expect(screen.getByText("delete")).toBeInTheDocument();
   });
 });

@@ -59,7 +59,7 @@ func (c *LocalShellChannels) OpenLocalShell(
 		return 0, err
 	}
 
-	c.Audit.Record(audit.Entry{
+	c.Audit.RecordCtx(ctx, audit.Entry{
 		Action:  "local-shell",
 		Cluster: spec.Cluster,
 		Detail:  fmt.Sprintf("event=open context=%s shell=%s", ctxName, shell),
@@ -99,7 +99,7 @@ func (c *LocalShellChannels) OpenLocalShell(
 	if runErr != nil {
 		detail += " error=" + runErr.Error()
 	}
-	c.Audit.Record(audit.Entry{Action: "local-shell", Cluster: spec.Cluster, Detail: detail})
+	c.Audit.RecordCtx(ctx, audit.Entry{Action: "local-shell", Cluster: spec.Cluster, Detail: detail})
 
 	return out.ExitCode, runErr
 }
