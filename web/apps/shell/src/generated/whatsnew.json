@@ -3,7 +3,33 @@
     {
       "version": "unreleased",
       "date": "",
-      "sections": []
+      "sections": [
+        {
+          "heading": "Changed",
+          "items": [
+            {
+              "title": "Shorter table rows",
+              "summary": "Rows are 28px at Compact, 32px at Default and 40px at Relaxed (they were 35, 43 and 51px), so a 900px table shows 28 rows at Default instead of 20."
+            },
+            {
+              "title": "One table header style",
+              "summary": "Every column header is now 13px sentence case in the muted text colour at weight 500, as sortable headers already were."
+            },
+            {
+              "title": "Hovering a row only shades it",
+              "summary": "The accent bar at a row's left edge now marks only selected rows and the row the keyboard is on (↑, ↓, j, k)."
+            },
+            {
+              "title": "No text under 11px",
+              "summary": "At font size S the two smallest steps of the type scale are now 11px (they were 10 and 11px); the scale is 11, 11, 12, 13, 15, 18 and 28px."
+            },
+            {
+              "title": "Fixed band heights",
+              "summary": "Page headers and toolbars are both 40px (toolbars were 38px), tab strips are 36px (the page tab strip was about 50px), and the status bar is 24px (it was about 29px)."
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.8.1",
