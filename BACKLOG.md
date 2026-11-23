@@ -59,6 +59,7 @@
 ~~54. add a column for the owner kind (Deployment, StatefulSet, ReplicaSet...) in the Pods list; the same for ReplicaSets; research where else it belongs~~ ✅ Done (an **Owner** column, `Kind/name` from ownerReferences linking to the drawer, filter `controller:`: shown by default on Pods, where a Deployment's pods read through the ReplicaSet, and on ReplicaSets; also in the column chooser, hidden by default, on every other resource list except Events; see docs/OWNER_COLUMN.md)
 ~~55. when someone selects a namespace or a list of namespaces, the selected ones should move to the top of the namespace list~~ ✅ Done (selected namespaces are listed first, in a Selected group above the Rancher projects)
 56. add a sidecar container to a workload just by clicking a button
+57. research how the new Lens/Freelens UI looks (block, rectangular, square design that reads as a grid everywhere without visible grid lines; fonts, default text size) in depth, and plan a new look for Kubebay
 ---
 
 ## Status of the open items (2026-11-19)
@@ -76,5 +77,6 @@
 | 52 Argo | Rollouts dashboard, Workflows (node tree, Stop / Terminate / Suspend / Resume / Resubmit), Events inventory; ArgoCD existed | Live testing of the patches and field names; Retry for Workflows; skip step and Pause for Rollouts; ArgoCD Applications dashboard parity |
 | 50 | (empty) | Waiting for your text |
 | 56 Add sidecar | Not started | One-click sidecar on a workload |
+| 57 New look | Not started | Lens/Freelens UI research and a redesign plan |
 
 Nothing in the table above has had a hands-on check in the running desktop app; the tests are unit and component tests.
