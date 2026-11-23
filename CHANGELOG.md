@@ -6,6 +6,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ## [Unreleased]
 
+### Added
+- **One-line install on Linux** (backlog 58). `curl -fsSL https://github.com/RajaSardar/kubebay/releases/latest/download/install.sh | sh` installs the engine for Linux or macOS on x86_64 or arm64 into `~/.local/bin` (`/usr/local/bin` as root), says when that folder isn't on `PATH`, and prints how to start it and where the token is. `sh -s -- --desktop` installs the Linux desktop app instead: the `.deb` through `apt-get`, so apt installs WebKitGTK and GTK with it, or with `--appimage` (or where there is no apt) the AppImage as `kubebay-desktop` with an applications-menu entry. It runs under POSIX `sh` (dash on Ubuntu), works with `curl` or `wget`, checks every download against the release's SHA-256 and, with `cosign` installed, its signature before installing anything, refuses a release with no checksum unless `KUBEBAY_INSTALL_UNVERIFIED=1`, and takes a version (`sh -s -- v0.9.0`). Each release publishes it next to `install-mac.sh`. On arm64 Linux `--desktop` says the desktop app is x86_64 only and points at the engine.
+- **An Install section in the README** for macOS, Linux, Windows, Docker, Helm and building from source.
+
+### Fixed
+- **Linux install instructions that didn't work** (backlog 58). Tested in Ubuntu 22.04 and 24.04 containers on x86_64 and arm64: `docs/INSTALL.md` downloaded from the v0.1.0 release, which has no assets, so `curl -LO` saved GitHub's "Not Found" page and `tar` failed with `gzip: stdin: not in gzip format`; the checksum step used `shasum`, which a stock Ubuntu doesn't have (`shasum: command not found`); no page said how to install the `.deb`, and `sudo dpkg -i Kubebay_0.8.0_amd64.deb` stops with `dependency problems prevent configuration of kubebay` (`libwebkit2gtk-4.1-0`, `libgtk-3-0`) and leaves the package broken, while `sudo apt install ./Kubebay_0.8.0_amd64.deb` installs and starts; and nothing said the AppImage needs FUSE 2. The install page, `docs/INSTALL.md`, the README and the site's Download section now give the install script, `apt install ./…deb`, `sha256sum -c`, the AppImage's `libfuse2t64` / `libfuse2`, and say there's no ARM64 desktop app. They also no longer say Homebrew installs the macOS desktop app: the formula installs the engine. The Windows engine is a `.tar.gz`, not the `.zip` `docs/INSTALL.md` named.
+- **The release's Homebrew tap update** wrote formula URLs without the tag's `v` (`releases/download/0.8.0/…`) and `sha256 "LINUX_PLACEHOLDER"` for Linux, and failed every release with a 403 because `GITHUB_TOKEN` can't push to the tap repository. It now uses `v#{version}`, the Linux tarballs' real checksums, stops if any checksum is missing, pushes with a `HOMEBREW_TAP_TOKEN` secret and skips with a warning when that isn't set.
+
 ## [0.8.1] - 2026-11-24
 
 ### Added

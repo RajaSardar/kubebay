@@ -32,28 +32,54 @@ It checks the `.dmg` against the SHA-256 the release publishes next to it, and a
 
 ### Manual
 
-Download from [releases](https://github.com/RajaSardar/kubebay/releases):
+Download the engine from the [latest release](https://github.com/RajaSardar/kubebay/releases/latest) (`kubebay-darwin-amd64.tar.gz` on Intel):
 
 ```bash
-curl -LO https://github.com/RajaSardar/kubebay/releases/download/v0.1.0/kubebay-darwin-arm64.tar.gz
+curl -fsSLO https://github.com/RajaSardar/kubebay/releases/latest/download/kubebay-darwin-arm64.tar.gz
+curl -fsSLO https://github.com/RajaSardar/kubebay/releases/latest/download/kubebay-darwin-arm64.tar.gz.sha256
+shasum -a 256 -c kubebay-darwin-arm64.tar.gz.sha256
 tar xzf kubebay-darwin-arm64.tar.gz
-cd kubebay-darwin-arm64
-./kubebay
+./kubebay-darwin-arm64/kubebay
 ```
 
 ## Linux
 
-### Binary (all distros)
+### Install script (recommended)
+
+The desktop app (x86_64). On Ubuntu and Debian it installs the `.deb` through apt, which brings in WebKitGTK; elsewhere the AppImage:
 
 ```bash
-curl -LO https://github.com/RajaSardar/kubebay/releases/download/v0.1.0/kubebay-linux-amd64.tar.gz
+curl -fsSL https://github.com/RajaSardar/kubebay/releases/latest/download/install.sh | sh -s -- --desktop
+```
+
+The engine on its own, x86_64 or arm64, into `~/.local/bin` (`/usr/local/bin` as root):
+
+```bash
+curl -fsSL https://github.com/RajaSardar/kubebay/releases/latest/download/install.sh | sh
+```
+
+It checks the download against the release's SHA-256, and its cosign signature when `cosign` is installed, before it installs. `wget -qO- <URL> | sh` works too. `--appimage` picks the AppImage over the `.deb`, a version (`sh -s -- v0.9.0`) pins a release, `KUBEBAY_INSTALL_DIR` changes where it installs.
+
+### Desktop packages by hand
+
+```bash
+sudo apt install ./Kubebay_<version>_amd64.deb   # not dpkg -i: it leaves libwebkit2gtk-4.1-0 and libgtk-3-0 missing
+```
+
+The AppImage needs FUSE 2 (`libfuse2t64` on Ubuntu 24.04, `libfuse2` on 22.04), or run it with `APPIMAGE_EXTRACT_AND_RUN=1`.
+
+### Engine binary (all distros)
+
+```bash
+curl -fsSLO https://github.com/RajaSardar/kubebay/releases/latest/download/kubebay-linux-amd64.tar.gz
+curl -fsSLO https://github.com/RajaSardar/kubebay/releases/latest/download/kubebay-linux-amd64.tar.gz.sha256
+sha256sum -c kubebay-linux-amd64.tar.gz.sha256
 tar xzf kubebay-linux-amd64.tar.gz
-cd kubebay-linux-amd64
-sudo mv kubebay /usr/local/bin/
+sudo mv kubebay-linux-amd64/kubebay /usr/local/bin/
 kubebay
 ```
 
-Also available for linux/arm64 (e.g. Raspberry Pi, Graviton).
+Also available for linux/arm64 (`kubebay-linux-arm64.tar.gz`, e.g. Raspberry Pi, Graviton).
 
 ### Homebrew on Linux
 
@@ -82,12 +108,16 @@ See [charts/kubebay](charts/kubebay/) for OIDC, TLS, and resource options.
 
 ## Windows
 
-### Manual
+### Desktop app
 
-Download `kubebay-windows-amd64.zip` from [releases](https://github.com/RajaSardar/kubebay/releases):
+Download and run `Kubebay_<version>_x64-setup.exe` from the [latest release](https://github.com/RajaSardar/kubebay/releases/latest).
+
+### Engine
+
+Download `kubebay-windows-amd64.tar.gz` from the [latest release](https://github.com/RajaSardar/kubebay/releases/latest). Windows 10 and later have `tar`:
 
 ```powershell
-Expand-Archive kubebay-windows-amd64.zip
+tar xzf kubebay-windows-amd64.tar.gz
 cd kubebay-windows-amd64
 .\kubebay.exe
 ```
@@ -105,10 +135,10 @@ scoop install kubebay
 
 Every release asset is signed keylessly with [cosign](https://docs.sigstore.dev/cosign/) by the release workflow and has a GitHub build-provenance attestation, so you can check both what you downloaded and how it was built. Starting with v0.8, each asset has a `<asset>.cosign.bundle` next to it, as well as a `.sha256`.
 
-Checksum:
+Checksum (`shasum -a 256 -c` on macOS):
 
 ```bash
-shasum -a 256 -c kubebay-linux-amd64.tar.gz.sha256
+sha256sum -c kubebay-linux-amd64.tar.gz.sha256
 ```
 
 Signature (cosign 2.x). The certificate must name this repository's release workflow at a release tag:
@@ -169,7 +199,7 @@ The desktop app updates itself once its releases carry an updater key (KB-04). B
 - **What it installs:** nothing, until you ask. A newer version shows an **Update available** button in the window's bottom-right corner; **Update now** downloads it, verifies it against Kubebay's update signing key and against the version it was signed for, installs it and restarts. The app won't restart while a terminal, port-forward or change is in flight, and it says which.
 - **Turning it off:** Settings → Updates → *Check for updates automatically*.
 - **Homebrew:** the formula installs the engine CLI, and `brew upgrade` updates it. A desktop app installed with a Homebrew cask is told to `brew upgrade --cask kubebay` instead of updating itself.
-- **.deb and .rpm installs:** these update through your package manager, or from the releases page.
+- **.deb and AppImage installs:** the app updates itself like the others. An engine installed with `install.sh` updates when you run the script again.
 
 ---
 

@@ -287,3 +287,32 @@ test("the release workflow publishes install.sh", () => {
   assert.match(wf, /cp scripts\/install\.sh dist\/install\.sh/);
 });
 
+// Backlog 58: the README is where most people land, so it carries the whole
+// install story, and no install doc points at a release that doesn't exist.
+test("the README's Install section covers every platform and the Linux one-liner", () => {
+  const readme = readFileSync(join(here, "..", "README.md"), "utf8");
+  const start = readme.search(/^## Install\b/m);
+  assert.ok(start >= 0, "README.md has no '## Install' section");
+  const next = readme.slice(start + 1).search(/^## /m);
+  const install = readme.slice(start, next < 0 ? undefined : start + 1 + next);
+  for (const h of ["macOS", "Linux", "Windows", "Helm", "source"]) {
+    assert.match(install, new RegExp(`^###.*${h}`, "mi"), `no ### heading for ${h}`);
+  }
+  assert.match(install, /releases\/latest\/download\/install\.sh \| sh -s -- --desktop/);
+  assert.match(install, /releases\/latest\/download\/install\.sh \| sh\n/);
+  assert.match(install, /releases\/latest\/download\/install-mac\.sh \| bash/);
+  assert.match(install, /sudo apt install \.\/Kubebay_/);
+  assert.doesNotMatch(install, /dpkg -i/);
+  // The Homebrew formula is the engine; it doesn't install the desktop app.
+  assert.doesNotMatch(readme, /Install the desktop app:\s*```bash\s*brew install/);
+});
+
+test("no install doc downloads from a hard-coded old release", () => {
+  for (const f of ["README.md", "docs/INSTALL.md", "website/src/content/docs/install.md"]) {
+    const text = readFileSync(join(here, "..", f), "utf8");
+    assert.doesNotMatch(text, /releases\/download\/v\d+\.\d+\.\d+\//, `${f} pins a download to one release`);
+    // shasum isn't on a stock Ubuntu; every shasum check offers sha256sum too.
+    if (/shasum -a 256 -c/.test(text)) assert.match(text, /sha256sum -c/, `${f} checks with shasum only`);
+  }
+});
+

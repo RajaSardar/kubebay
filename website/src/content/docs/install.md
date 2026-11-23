@@ -8,7 +8,7 @@ appRoutes: []
 
 Kubebay comes in three forms. They're the same engine and the same app:
 
-- **The desktop app.** A native window on macOS, with Windows and Linux builds in Preview (see below). Most people want this.
+- **The desktop app.** A native window on macOS, with Windows and Linux (x86_64) builds in Preview (see below). Most people want this.
 - **The engine on its own.** One binary that serves the app to your browser. Use it on a server, in a container, or when you'd rather not install a desktop app.
 - **In a cluster.** A Helm chart that runs the engine for a team, behind your own sign-in.
 
@@ -16,16 +16,18 @@ All downloads are on the [latest release](https://github.com/RajaSardar/kubebay/
 
 ## macOS
 
+Install the desktop app from the command line with the release's script:
+
 ```bash
-brew install rajasardar/tap/kubebay
+curl -fsSL https://github.com/RajaSardar/kubebay/releases/latest/download/install-mac.sh | bash
 ```
 
 Or download the `.dmg` from the release and drag Kubebay to Applications. It's a universal build, for Apple Silicon and Intel.
 
-Or install from the command line with the release's script:
+Homebrew installs the [engine on its own](#the-engine-on-its-own), not the desktop app:
 
 ```bash
-curl -fsSL https://github.com/RajaSardar/kubebay/releases/latest/download/install-mac.sh | bash
+brew install rajasardar/tap/kubebay
 ```
 
 The script checks the download before it replaces the app. It compares the `.dmg` with the SHA-256 the release publishes next to it, and also checks the release's cosign signature if `cosign` is installed. If the checksum doesn't match, or the release publishes none, it stops and changes nothing. Only after the checks does it clear the quarantine flag that would otherwise make macOS refuse the first launch. Set `KUBEBAY_INSTALL_UNVERIFIED=1` to install a release that has no published checksum (older releases do not).
@@ -36,21 +38,76 @@ If macOS says **"Kubebay" Not Opened**, open it from **System Settings → Priva
 xattr -dr com.apple.quarantine /Applications/Kubebay.app
 ```
 
-## Windows and Linux
+## Linux
 
-Each release has a Windows installer (`Kubebay_<version>_x64-setup.exe`) and Linux packages (`.deb` and `.AppImage`), for x86_64.
+One command installs Kubebay. It finds the right download for your machine, checks it against the SHA-256 the release publishes (and the cosign signature too when `cosign` is installed), and only then installs it. It works with `curl` or `wget`.
 
-> These builds are **Preview**. CI builds, launches and checks them on every change, but no release has been tested by hand on Windows or Linux yet.
+The desktop app, on Ubuntu, Debian and other x86_64 distributions:
+
+```bash
+curl -fsSL https://github.com/RajaSardar/kubebay/releases/latest/download/install.sh | sh -s -- --desktop
+```
+
+Where `apt` exists, this installs the `.deb` with `sudo apt-get install`, which also installs the WebKitGTK and GTK libraries the app needs. Elsewhere it installs the AppImage as `~/.local/bin/kubebay-desktop` with an entry in your applications menu. Add `--appimage` to get the AppImage on Ubuntu too, without root.
+
+The engine on its own, for x86_64 and ARM64, desktops and servers:
+
+```bash
+curl -fsSL https://github.com/RajaSardar/kubebay/releases/latest/download/install.sh | sh
+```
+
+It installs `kubebay` into `~/.local/bin`, or `/usr/local/bin` when run as root, and says so if that folder isn't on your `PATH`. Run `kubebay` and see [The engine on its own](#the-engine-on-its-own). With `wget` instead of `curl`, use `wget -qO- <the same URL> | sh`.
+
+| Option or variable | What it does |
+|---|---|
+| `--desktop` | Install the desktop app instead of the engine (x86_64 only) |
+| `--appimage` | With `--desktop`, install the AppImage even where `apt` exists |
+| `v0.9.0` | Install that release instead of the latest: `sh -s -- v0.9.0` |
+| `KUBEBAY_INSTALL_DIR` | Where the engine or the AppImage goes |
+| `KUBEBAY_INSTALL_UNVERIFIED=1` | Install a release that publishes no checksum |
+
+### By hand
+
+Download from the [latest release](https://github.com/RajaSardar/kubebay/releases/latest) and check it with `sha256sum -c` against the `.sha256` next to it.
+
+- **`.deb` (Ubuntu 22.04 and later, Debian 12 and later):** install it with apt, not `dpkg -i`. `dpkg` doesn't install dependencies, so it stops with `dependency problems prevent configuration of kubebay` and leaves the package broken. If that already happened, `sudo apt --fix-broken install` finishes the job.
+
+  ```bash
+  sudo apt install ./Kubebay_<version>_amd64.deb
+  ```
+
+  The package needs `libwebkit2gtk-4.1-0` and `libgtk-3-0`, which apt installs with it. Start it from your applications menu or with `kubebay`. Remove it with `sudo apt remove kubebay`.
+
+- **AppImage (any x86_64 distribution):** make it executable and run it. AppImages need FUSE 2, which Ubuntu 22.04 and later leave out: install `libfuse2t64` (Ubuntu 24.04) or `libfuse2` (22.04), or start it with `APPIMAGE_EXTRACT_AND_RUN=1`. It uses your desktop's own graphics libraries (Mesa's EGL and GLES), which every desktop install has.
+
+  ```bash
+  chmod +x Kubebay_<version>_amd64.AppImage
+  ./Kubebay_<version>_amd64.AppImage
+  ```
+
+There is no desktop app for ARM64 Linux: install the engine and use your browser.
+
+> The Linux desktop app is **Preview**. CI builds and launches it on every change, and the `.deb` installs and starts in Ubuntu 22.04 and 24.04 containers, but no release has been tested by hand on a Linux desktop yet.
+
+## Windows
+
+Each release has a Windows installer, `Kubebay_<version>_x64-setup.exe`, for x86_64. Download it from the [latest release](https://github.com/RajaSardar/kubebay/releases/latest) and run it.
+
+> The Windows build is **Preview**. CI builds, launches and checks it on every change, but no release has been tested by hand on Windows yet.
 
 ## The engine on its own
 
-Download the archive for your platform from the release, extract it and run it:
+On Linux, the [install script](#linux) puts it on your `PATH`. Or download the archive for your platform from the release (`kubebay-<os>-<arch>.tar.gz`, where `<os>` is `linux`, `darwin` or `windows` and `<arch>` is `amd64` or `arm64`), check it, extract it and run it:
 
 ```bash
+curl -fsSLO https://github.com/RajaSardar/kubebay/releases/latest/download/kubebay-linux-amd64.tar.gz
+curl -fsSLO https://github.com/RajaSardar/kubebay/releases/latest/download/kubebay-linux-amd64.tar.gz.sha256
+sha256sum -c kubebay-linux-amd64.tar.gz.sha256
 tar xzf kubebay-linux-amd64.tar.gz
-cd kubebay-linux-amd64
-./kubebay
+./kubebay-linux-amd64/kubebay
 ```
+
+On macOS, use `shasum -a 256 -c` in place of `sha256sum -c`. Homebrew installs the engine too, on macOS and Linux: `brew install rajasardar/tap/kubebay`.
 
 The engine prints its address and where it wrote this session's token:
 
@@ -118,10 +175,10 @@ The audit log and settings live on a 64Mi `emptyDir`, so a pod restart loses the
 
 ## Verify a download
 
-Every release asset has a keyless [cosign](https://docs.sigstore.dev/cosign/) signature (`.cosign.bundle`, from v0.7) and a GitHub build-provenance attestation. The engine tarballs also have a `.sha256`:
+Every release asset has a keyless [cosign](https://docs.sigstore.dev/cosign/) signature (`.cosign.bundle`, from v0.7) and a GitHub build-provenance attestation. The engine tarballs and the desktop installers also have a `.sha256`. Check one with `sha256sum -c` on Linux, or `shasum -a 256 -c` on macOS:
 
 ```bash
-shasum -a 256 -c kubebay-linux-amd64.tar.gz.sha256
+sha256sum -c kubebay-linux-amd64.tar.gz.sha256
 
 cosign verify-blob kubebay-linux-amd64.tar.gz \
   --bundle kubebay-linux-amd64.tar.gz.cosign.bundle \
@@ -137,7 +194,7 @@ The desktop app can update itself. It checks 30 seconds after launch, then once 
 
 After an update, by hand or by the app, a **What's new in Kubebay** window opens once on the next start. It lists the changes in the new version grouped as Added, Changed, Fixed and Security, and in every version you skipped if you jumped several. **Full release notes** opens the release on GitHub; **Got it** or <kbd>Esc</kbd> closes it, and it doesn't come back for that version. It doesn't open on a first install or in a development build.
 
-Homebrew installs update with `brew upgrade`, and `.deb` installs through your package manager.
+That covers the `.dmg`, the `.deb`, the AppImage and the Windows installer. Homebrew installs update with `brew upgrade`, and an engine from `install.sh` updates when you run the script again.
 
 Only builds that carry Kubebay's update key can do this, and every release does. Settings → Updates says **This build doesn't update itself** when the key is missing, as in an app you built from source without it. Each update is signed, and the app installs it only if the signature matches the key it was built with.
 
