@@ -46,12 +46,14 @@ Allowed lines are permissions, not traffic: they show what a policy lets through
 
 ### Observed traffic
 
-If the cluster has a Prometheus (the one in **Settings**, or one Kubebay auto-detected), an **observed traffic (Prometheus)** checkbox appears for a single namespace. It does nothing until you tick it. Then Kubebay asks that Prometheus whether either of these metrics exists:
+If the cluster has a Prometheus (the one in **Settings**, or one Kubebay auto-detected), an **observed traffic (Prometheus)** checkbox appears. It does nothing until you tick it. Then Kubebay asks that Prometheus whether either of these metrics exists:
 
-- `istio_requests_total` draws a line from the calling workload to the called workload, within the namespace.
+- `istio_requests_total` draws a line from the calling workload to the called workload.
 - `nginx_ingress_controller_requests` draws a line from an Ingress to the Service it sends requests to.
 
-Each observed line reads `traffic · observed · N req/s · time` (the rate over the last 5 minutes), and the exact PromQL and time are listed under the legend. Lines are drawn only between objects already on the map, and only for a non-zero rate. If neither metric exists, the map says **No traffic metrics found** and draws nothing; Kubebay never guesses at other metrics. Linkerd and Cilium/Hubble traffic are not read. The overlay is not available with **All namespaces**.
+Each observed line reads `traffic · observed · N req/s · time` (the rate over the last 5 minutes), and the exact PromQL and time are listed under the legend. Lines are drawn only between objects already on the map, and only for a non-zero rate. If neither metric exists, the map says **No traffic metrics found** and draws nothing; Kubebay never guesses at other metrics. Linkerd and Cilium/Hubble traffic are not read.
+
+With one namespace picked, each metric's query is limited to that namespace, and only calls within it are drawn. With **All namespaces**, Kubebay runs one query per metric for the whole cluster, never one per namespace, grouped by source and destination namespace and workload (for ingress-nginx, by namespace, Ingress and Service). Each end of a series is matched to the node in the namespace its labels name, so a call from a workload in one namespace to a workload in another is drawn as an observed line between the two groups; **other namespaces** hides those lines too. Each query keeps only the 500 busiest series; when there were more, a banner reads "Showing the top 500 series of `<metric>` by request rate". Nodes past the 400-node limit are not on the map, so their traffic is not drawn either.
 
 ### All namespaces
 
@@ -61,6 +63,7 @@ On the **Service map** tab only, the namespace picker has **All namespaces**. Ea
 
 - **Service X has no ready endpoints**: a Service with a selector whose EndpointSlices have no ready endpoint, or that matches no pods. ExternalName and selector-less Services are not flagged.
 - **Ingress X points at Service Y, which does not exist**: an Ingress, Gateway API route or Istio VirtualService names a Service the namespace doesn't have. The same Service is also drawn as the red node.
+- **HTTPRoute X in A points at Service Y in B, but no ReferenceGrant there allows it**: with the Gateway API ReferenceGrant CRD present, a route `backendRef` to a Service in another namespace needs a ReferenceGrant in that Service's namespace whose `from` names the route's kind and namespace and whose `to` names Services (all of them, or that one). Kubebay reads ReferenceGrants from every namespace it can list; a grant in a namespace your account can't read counts as missing. The line is still drawn, and its label adds "no ReferenceGrant in B allows it".
 
 Click a node to open its drawer: an Ingress, a Service, or a workload. A route to a Service that does not exist is drawn as a red node reading "Service not found".
 

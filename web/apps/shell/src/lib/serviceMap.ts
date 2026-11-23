@@ -47,7 +47,7 @@ export interface MapEdge {
 
 /** Something worth a look on the map: a Service nothing serves, or a route to a Service that does not exist. */
 export interface MapFinding {
-  kind: "no-ready-endpoints" | "missing-service";
+  kind: "no-ready-endpoints" | "missing-service" | "ungranted-reference";
   nodeId: string;
   text: string;
 }
@@ -57,6 +57,7 @@ export interface MapGvrs {
   gateways?: string;
   httpRoutes?: string;
   grpcRoutes?: string;
+  referenceGrants?: string;
   virtualServices?: string;
   destinationRules?: string;
 }
@@ -76,6 +77,12 @@ export interface ServiceMapInput {
   gateways?: KObj[];
   httpRoutes?: KObj[];
   grpcRoutes?: KObj[];
+  /**
+   * Gateway API ReferenceGrants from every namespace (a grant lives in the
+   * namespace it opens up, not the route's). Undefined when they were not read,
+   * and then no cross-namespace backendRef is checked.
+   */
+  referenceGrants?: KObj[];
   /** Istio objects; present only when those CRDs exist. */
   virtualServices?: KObj[];
   destinationRules?: KObj[];
@@ -86,6 +93,7 @@ const CRD_KINDS: [keyof MapGvrs, string, string][] = [
   ["gateways", "gateway.networking.k8s.io", "gateways"],
   ["httpRoutes", "gateway.networking.k8s.io", "httproutes"],
   ["grpcRoutes", "gateway.networking.k8s.io", "grpcroutes"],
+  ["referenceGrants", "gateway.networking.k8s.io", "referencegrants"],
   ["virtualServices", "networking.istio.io", "virtualservices"],
   ["destinationRules", "networking.istio.io", "destinationrules"],
 ];
@@ -377,8 +385,17 @@ export function buildServiceMap(input: ServiceMapInput): { nodes: MapNode[]; edg
         for (const b of arr(rule.backendRefs)) {
           if ((b.kind ?? "Service") !== "Service" || (b.group ?? "") !== "" || typeof b.name !== "string") continue;
           const bns = typeof b.namespace === "string" ? b.namespace : ns;
-          const evidence = `${rkind} ${rname}${hosts ? ` · ${hosts}` : ""}${b.weight != null ? ` · weight ${String(b.weight)}` : ""}`;
+          const ungranted = bns !== ns && input.referenceGrants !== undefined && !granted(input.referenceGrants, rkind, ns, bns, b.name);
+          const evidence = `${rkind} ${rname}${hosts ? ` · ${hosts}` : ""}${b.weight != null ? ` · weight ${String(b.weight)}` : ""}${ungranted ? ` · no ReferenceGrant in ${bns} allows it` : ""}`;
           for (const src of parents) routeTo(src, b.name, bns, evidence, `${rkind} ${rname}`);
+          const target = svcId(b.name, bns);
+          if (ungranted && !findings.some((f) => f.kind === "ungranted-reference" && f.nodeId === target)) {
+            findings.push({
+              kind: "ungranted-reference",
+              nodeId: target,
+              text: `${rkind} ${rname} in ${ns} points at Service ${b.name} in ${bns}, but no ReferenceGrant there allows it`,
+            });
+          }
         }
       }
     }
@@ -429,6 +446,21 @@ export function buildServiceMap(input: ServiceMapInput): { nodes: MapNode[]; edg
   const rows = { ingress: 0, service: 0, workload: 0 };
   for (const n of nodes.values()) n.position.y = 30 + rows[n.type as keyof typeof rows]++ * ROW_H;
   return { nodes: [...nodes.values()], edges: [...edges.values()], findings };
+}
+
+/**
+ * Whether a ReferenceGrant in `toNs` lets a `routeKind` in `fromNs` reference
+ * Service `name` (Gateway API: spec.from[] group/kind/namespace, spec.to[]
+ * group/kind and an optional name).
+ */
+function granted(grants: KObj[], routeKind: string, fromNs: string, toNs: string, name: string): boolean {
+  return grants.some((g) => {
+    if (g.metadata?.namespace !== toNs) return false;
+    const spec = rec(g.spec);
+    const from = arr(spec.from).some((f) => f.group === "gateway.networking.k8s.io" && f.kind === routeKind && f.namespace === fromNs);
+    const to = arr(spec.to).some((t) => (t.group ?? "") === "" && t.kind === "Service" && (t.name == null || t.name === "" || t.name === name));
+    return from && to;
+  });
 }
 
 /** The host of "http://u:p@host:80/x", "host:5432" or "host". */

@@ -183,6 +183,47 @@ describe("Gateway API", () => {
   });
 });
 
+describe("ReferenceGrant", () => {
+  const grant = (ns: string, from: Record<string, string>[], to: Record<string, string>[]) => ({ metadata: { name: `g-${ns}`, namespace: ns }, spec: { from, to } });
+  const fromShop = { group: "gateway.networking.k8s.io", kind: "HTTPRoute", namespace: "shop" };
+
+  it("checks nothing when ReferenceGrants were not read", () => {
+    const g = buildServiceMap(gw());
+    expect(g.findings.some((f) => f.kind === "ungranted-reference")).toBe(false);
+  });
+
+  it("marks a cross-namespace backendRef no ReferenceGrant in the target namespace permits as a finding", () => {
+    const g = buildServiceMap(gw({ referenceGrants: [] }));
+    expect(g.findings).toContainEqual(
+      expect.objectContaining({ kind: "ungranted-reference", nodeId: "svc:other/api", text: expect.stringMatching(/HTTPRoute web-route.*Service api in other.*ReferenceGrant/) }),
+    );
+    expect(find(g, "gw:shop/edge", "svc:other/api")?.evidence).toMatch(/no ReferenceGrant/);
+    // Same-namespace backends need no grant.
+    expect(g.findings.some((f) => f.kind === "ungranted-reference" && f.nodeId === "svc:shop/frontend")).toBe(false);
+  });
+
+  it("accepts a grant in the target namespace from the route's kind and namespace to Services (any name, or that name)", () => {
+    for (const to of [{ group: "", kind: "Service" }, { group: "", kind: "Service", name: "api" }] as Record<string, string>[]) {
+      const g = buildServiceMap(gw({ referenceGrants: [grant("other", [fromShop], [to])] }));
+      expect(g.findings.some((f) => f.kind === "ungranted-reference")).toBe(false);
+      expect(find(g, "gw:shop/edge", "svc:other/api")?.evidence).not.toMatch(/no ReferenceGrant/);
+    }
+  });
+
+  it("rejects a grant in the wrong namespace, from another kind or namespace, or to another name", () => {
+    const bad = [
+      grant("shop", [fromShop], [{ group: "", kind: "Service" }]),
+      grant("other", [{ ...fromShop, kind: "GRPCRoute" }], [{ group: "", kind: "Service" }]),
+      grant("other", [{ ...fromShop, namespace: "elsewhere" }], [{ group: "", kind: "Service" }]),
+      grant("other", [fromShop], [{ group: "", kind: "Service", name: "db" }]),
+    ];
+    for (const b of bad) {
+      const g = buildServiceMap(gw({ referenceGrants: [b] }));
+      expect(g.findings.some((f) => f.kind === "ungranted-reference")).toBe(true);
+    }
+  });
+});
+
 describe("Istio", () => {
   const istio = (): ServiceMapInput => ({
     ...fixture(),
@@ -262,6 +303,7 @@ describe("cross-namespace toggle and detection", () => {
     const d = detectMapCrds([c("gateway.networking.k8s.io", "httproutes"), c("gateway.networking.k8s.io", "gateways"), c("networking.istio.io", "virtualservices"), c("networking.istio.io", "gateways")]);
     expect(d.gvrs).toMatchObject({ httpRoutes: "gateway.networking.k8s.io/v1/httproutes", gateways: "gateway.networking.k8s.io/v1/gateways", virtualServices: "networking.istio.io/v1/virtualservices" });
     expect(d.gvrs.grpcRoutes).toBeUndefined();
+    expect(detectMapCrds([c("gateway.networking.k8s.io", "referencegrants")]).gvrs.referenceGrants).toBe("gateway.networking.k8s.io/v1/referencegrants");
     expect(detectMapCrds([]).gvrs).toEqual({});
   });
 });

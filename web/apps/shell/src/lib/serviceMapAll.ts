@@ -79,6 +79,8 @@ export function buildAllNamespacesMap(input: Omit<ServiceMapInput, "namespace">,
       grpcRoutes: get("grpcRoutes"),
       virtualServices: get("virtualServices"),
       destinationRules: get("destinationRules"),
+      // Not bucketed: a grant is read in the namespace a route points into.
+      referenceGrants: input.referenceGrants,
       gvrs: input.gvrs,
     });
     const q = (id: string) => qualify(id, ns);
