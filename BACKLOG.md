@@ -58,25 +58,25 @@
 ~~53. when the YAML editor is open, CMD+K is not working; please check that~~ ✅ Done (every Monaco editor, via the shared lib/monaco wrapper, toggles the palette on Cmd/Ctrl+K through a capture listener and an editor command, using a small palette store)
 ~~54. add a column for the owner kind (Deployment, StatefulSet, ReplicaSet...) in the Pods list; the same for ReplicaSets; research where else it belongs~~ ✅ Done (an **Owner** column, `Kind/name` from ownerReferences linking to the drawer, filter `controller:`: shown by default on Pods, where a Deployment's pods read through the ReplicaSet, and on ReplicaSets; also in the column chooser, hidden by default, on every other resource list except Events; see docs/OWNER_COLUMN.md)
 ~~55. when someone selects a namespace or a list of namespaces, the selected ones should move to the top of the namespace list~~ ✅ Done (selected namespaces are listed first, in a Selected group above the Rancher projects)
-56. add a sidecar container to a workload just by clicking a button
+~~56. add a sidecar container to a workload just by clicking a button~~ ✅ Done (Add sidecar in the workload drawer; see docs/ADD_SIDECAR.md)
 57. research how the new Lens/Freelens UI looks (block, rectangular, square design that reads as a grid everywhere without visible grid lines; fonts, default text size) in depth, and plan a new look for Kubebay
 ---
 
-## Status of the open items (2026-11-19)
+## Status of the open items (2026-11-23)
 
 | # | Built | Still to do |
 |---|---|---|
-| 11 Helm store | Store cards, chart drawer (About / README / Values), preview and diff, Installed and Deprecated badges, guarded chart URLs, masked Secrets, Add and Remove repository, rendered README, letter avatars | Artifact Hub, real chart icons (needs an engine proxy), OCI repos, signature badges, README tables |
-| 12 Rancher / Lens gaps | docs/GAP_PLAN.md; default-container annotation; Helm release in the owned-by chain; ephemeral debug container; Explain this pod; blast-radius preview; object history in the Timeline tab (events, audit, rollouts) | Signed and notarised builds (needs Apple keys), cross-cluster search; blast radius for scale-down and bulk delete; audit entries carry no user or kind. None of it has run on a live cluster |
-| 23 Lag | Pass 1 (hover, sort, socket status) and pass 2 (row memoisation, no global 30 s refetch), with render-count tests | Profiling in the real app, the minify decision, caching derivePod |
-| 26 Windows / profiles | Phase 1: several windows on one engine, Dock menu | Profiles: real isolation needs one engine per profile, which you ruled out; a filter-style profile in one engine is possible but cosmetic. Waiting for your call |
-| 36 Best practices | Slices 1-3: 24 checks with severity, score, exceptions, DaemonSet/CronJob/Pod coverage, CIS reference tags (4), export | Framework score, more tools, fix actions; the CIS numbers need checking against the benchmark |
-| 37 Many clusters | Phases 0-3: probes only connected clusters, LIST cap, windowed picker, warm-cluster cap and idle eviction, Settings card, Sleeping pill, 50k-row budget, active cluster reconnects first | Fleet summary tier, measurement harness (all memory and latency numbers are estimates) |
-| 39 Service map | Phases 1-3: declared and inferred edges, Gateway API, Istio, findings chips, All namespaces (400-node budget), Prometheus observed overlay | Linkerd, Cilium / Hubble, overlay across namespaces |
-| 51 YAML in the dock | Phases 0-5: discard guard, production confirm, YAML and New resource dock tabs, Maximise, shortcuts, dirty dot, row action, palette entry, banners, restore of unsaved text, 2 MB budget | Measure real memory at the cap; Tauri close interception (Cmd+Q) is unverified |
-| 52 Argo | Rollouts dashboard, Workflows (node tree, Stop / Terminate / Suspend / Resume / Resubmit), Events inventory; ArgoCD existed | Live testing of the patches and field names; Retry for Workflows; skip step and Pause for Rollouts; ArgoCD Applications dashboard parity |
+| 11 Helm store | Store cards, chart drawer (About / README / Values / Compare versions), preview and diff, Installed and Deprecated badges, guarded chart URLs, masked Secrets, Add, Remove and per-repo Refresh, rendered README with tables, letter avatars, "version not in this repo's index" note | Artifact Hub, real chart icons (needs an engine proxy), OCI repos, signature badges. Matching an installed release to its repo is not possible (Helm does not record the repo) |
+| 12 Rancher / Lens gaps | docs/GAP_PLAN.md; default-container annotation; Helm release in the owned-by chain; ephemeral debug container; Explain this pod; blast-radius preview including scale-down and bulk delete; object history in the Timeline tab; audit entries with user and kind, filters, OIDC users see only their own; Search all clusters (/search), disconnected clusters opt-in | Signed and notarised builds (needs Apple keys); audit for CronJob trigger/suspend, node shell and Argo CD sync. None of it has run on a live cluster |
+| 23 Lag | Passes 1-3: hover, sort, socket status, row memoisation, no global refetch, derivePod cache (0 derivations on an unchanged flush), linear SPOF and Service Health joins; minify kept off (trade-off in docs/PERFORMANCE_AUDIT.md) | Profiling in the real app (WebKit); attackPaths, blastRadius and routeResolution scans unchecked |
+| 26 Windows / profiles | Phase 1: several windows on one engine, Dock menu | Profiles: waiting for your call (filter-style profile in one engine, or drop) |
+| 36 Best practices | Slices 1-4: 24 checks, severity, score, framework scores, exceptions, coverage, CIS tags (checked against kube-bench's copy), export, Fix YAML for PDBs, default-deny NetworkPolicy, Pod Security labels, SA token automount | More tools; Fix YAML not applied on a live cluster |
+| 37 Many clusters | Phases 0-3 plus the fleet summary (version and ready/total nodes for clusters that aren't connected, on demand in the picker) | Measurement harness (all memory and latency numbers are estimates); grouping for huge kubeconfigs |
+| 39 Service map | Phases 1-3 plus the observed overlay across all namespaces (one query per metric, 500-series cap) and ReferenceGrant findings | Linkerd, Cilium / Hubble (no verified field or metric names) |
+| 51 YAML in the dock | Phases 0-5 | Measure real memory at the cap; Tauri close interception (Cmd+Q) is unverified |
+| 52 Argo | Rollouts dashboard with Promote, Promote fully, Abort, Retry, Restart, Pause/Resume, Skip step (status patches now go to the status subresource); Workflows; Events | Live testing; Workflows Retry needs argo-server (the copyable `argo retry` command is shown); ArgoCD Applications dashboard parity |
 | 50 | (empty) | Waiting for your text |
-| 56 Add sidecar | Not started | One-click sidecar on a workload |
-| 57 New look | Not started | Lens/Freelens UI research and a redesign plan |
+| 56 Add sidecar | Add sidecar in the workload drawer: presets, custom form, native sidecar on 1.29+, dry-run diff, blast radius, GitOps warning (docs/ADD_SIDECAR.md) | Not run on a live cluster |
+| 57 New look | Research and plan with a debate round and final verdict (docs/NEW_LOOK.md) | Your answers to the six questions, then the slices |
 
 Nothing in the table above has had a hands-on check in the running desktop app; the tests are unit and component tests.
