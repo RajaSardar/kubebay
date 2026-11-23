@@ -348,8 +348,10 @@ jobs:
         with:
           merge-multiple: true
           path: dist
-      - name: Add install script to release
-        run: cp scripts/install-mac.sh dist/install-mac.sh
+      - name: Add install scripts to release
+        run: |
+          cp scripts/install-mac.sh dist/install-mac.sh
+          cp scripts/install.sh dist/install.sh
       # KB-04: the manifest the desktop app's updater reads, from the bundles
       # the build signed. No signatures (no updater key): no manifest.
       - name: Updater manifest
