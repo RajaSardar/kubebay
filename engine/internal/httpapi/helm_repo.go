@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"time"
 
 	"sigs.k8s.io/yaml"
 
@@ -24,6 +25,9 @@ import (
 type RepoSummary struct {
 	Name string `json:"name"`
 	URL  string `json:"url"`
+	// Updated is when the repository's index was last fetched (RFC 3339), from
+	// the cached index file; absent when it never was.
+	Updated string `json:"updated,omitempty"`
 }
 
 func (h *HelmManager) HandleRepos(w http.ResponseWriter, r *http.Request) {
@@ -36,12 +40,22 @@ func (h *HelmManager) HandleRepos(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]RepoSummary, 0, len(f.Repositories))
 	for _, e := range f.Repositories {
-		out = append(out, RepoSummary{Name: e.Name, URL: e.URL})
+		s := RepoSummary{Name: e.Name, URL: e.URL}
+		if repoNameRE.MatchString(e.Name) {
+			if fi, err := os.Stat(filepath.Join(settings.RepositoryCache, e.Name+"-index.yaml")); err == nil {
+				s.Updated = fi.ModTime().UTC().Format(time.RFC3339)
+			}
+		}
+		out = append(out, s)
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(out)
 }
 
+// HandleUpdateRepos re-fetches repository indexes: every configured repository,
+// or with ?repo=name only that one. Each URL is checked by the outbound guard
+// before it is fetched, and a new index replaces the cached one only once Helm
+// has loaded and validated it.
 func (h *HelmManager) HandleUpdateRepos(w http.ResponseWriter, r *http.Request) {
 	settings := h.settings()
 	f, err := repo.LoadFile(settings.RepositoryConfig)
@@ -49,36 +63,48 @@ func (h *HelmManager) HandleUpdateRepos(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, "no repositories configured (run: helm repo add …)", http.StatusBadRequest)
 		return
 	}
+	entries := f.Repositories
+	if only := r.URL.Query().Get("repo"); only != "" {
+		e := f.Get(only)
+		if e == nil {
+			http.Error(w, fmt.Sprintf("repository %q is not configured", only), http.StatusNotFound)
+			return
+		}
+		entries = []*repo.Entry{e}
+	}
 	type result struct {
 		name string
 		msg  string
 	}
-	done := make(chan result, len(f.Repositories))
-	for _, entry := range f.Repositories {
+	done := make(chan result, len(entries))
+	for _, entry := range entries {
 		go func(e *repo.Entry) {
-			if verr := h.Outbound.ValidateURL(e.URL); verr != nil {
-				done <- result{e.Name, "error: not fetched: " + verr.Error()}
-				return
-			}
-			cr, cerr := repo.NewChartRepository(e, h.getters(settings, e))
-			if cerr != nil {
-				done <- result{e.Name, "error: " + cerr.Error()}
-				return
-			}
-			cr.CachePath = settings.RepositoryCache
-			if _, derr := cr.DownloadIndexFile(); derr != nil {
-				done <- result{e.Name, "error: " + derr.Error()}
-				return
-			}
-			done <- result{e.Name, "ok"}
+			done <- result{e.Name, h.refreshRepo(settings, e)}
 		}(entry)
 	}
 	results := map[string]string{}
-	for range f.Repositories {
+	for range entries {
 		res := <-done
 		results[res.name] = res.msg
 	}
 	writeJSON(w, results)
+}
+
+// refreshRepo fetches one repository's index into the cache and says how it
+// went: "ok", or "error: …".
+func (h *HelmManager) refreshRepo(settings *cli.EnvSettings, e *repo.Entry) string {
+	if verr := h.Outbound.ValidateURL(e.URL); verr != nil {
+		return "error: not fetched: " + verr.Error()
+	}
+	cr, cerr := repo.NewChartRepository(e, h.getters(settings, e))
+	if cerr != nil {
+		return "error: " + cerr.Error()
+	}
+	cr.CachePath = settings.RepositoryCache
+	if _, derr := cr.DownloadIndexFile(); derr != nil {
+		return "error: " + derr.Error()
+	}
+	return "ok"
 }
 
 // addOrUpdateRepoEntry adds a new repo entry to f, or updates an existing

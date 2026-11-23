@@ -57,20 +57,22 @@ If your identity can't read Helm's release records across the cluster, the page 
 
 The charts in the Helm repositories you already added. Kubebay reads your local Helm config, so the repos you added with `helm repo add` are already there, and you can add more with **Add repository**. If you have none, it says so.
 
-Each chart is a card with its latest version, description and app version. A chart that a release on this cluster runs shows an **Installed** badge, and a deprecated chart shows **Deprecated**.
+Each chart is a card with its latest version, description and app version. A chart that a release on this cluster runs shows an **Installed** badge, and a deprecated chart shows **Deprecated**. **Installed** goes by the chart's name: a Helm release records its chart's name and version but not the repo it came from, so when two repos have a chart of the same name, both show **Installed**. The chart's **About** tab narrows it down by version.
 
 - Pick **All repos** or one, and **Search charts…** by name, description or keyword.
 - **Installed only** keeps the charts a release on this cluster runs. **Hide deprecated** drops the charts their maintainers deprecated.
 - **Update indexes** fetches each repo's latest index, like `helm repo update`.
-- Kubebay won't fetch a repo whose URL points at a cloud metadata or link-local address, isn't `http` or `https`, or carries a user name and password; **Update indexes** reports that repo as not fetched. The same check applies to the address a repo's index gives for a chart's archive.
+- With one repo picked, **Refresh** fetches that repo's index only, like `helm repo update <name>`, and beside it the toolbar says when its index was last fetched, such as "Index updated 5m ago" (hover for the exact time), or "Index never fetched". A refresh that fails says why, and the index you had stays in place: a new index replaces the cached one only once Helm has read and validated it.
+- Kubebay won't fetch a repo whose URL points at a cloud metadata or link-local address, isn't `http` or `https`, or carries a user name and password; **Update indexes** and **Refresh** report that repo as not fetched. The same check applies to the address a repo's index gives for a chart's archive.
 
 ### A chart's page
 
 Click a chart to open it. The release name, namespace and version, with **Preview** and **Install**, stay at the top; the tabs below are:
 
-- **About**: the description, the app version, the releases that already run the chart, its maintainers, home page and source links, and keywords. Links open only when they are `http` or `https` addresses.
-- **README**: the chart's README as formatted text: headings, paragraphs, lists, code, quotes, bold and italic. Raw HTML in it is dropped, never run. An image is shown as its alt text and is not loaded, so the README's host learns nothing about you. A link opens in a new tab only for `http`, `https` and `mailto` addresses; any other link is plain text. Tables show as plain lines.
+- **About**: the description, the app version, the releases that already run the chart, its maintainers, home page and source links, and keywords. Links open only when they are `http` or `https` addresses. A release whose chart version this repo's index doesn't list is marked "version not in *repo*'s index": it came from another repo with a chart of the same name, or the version was dropped from this one.
+- **README**: the chart's README as formatted text: headings, paragraphs, lists, code, quotes, bold and italic, and tables (GitHub's pipe tables, with their column alignment; long cells wrap). Raw HTML in it is dropped, never run. An image is shown as its alt text and is not loaded, so the README's host learns nothing about you. A link opens in a new tab only for `http`, `https` and `mailto` addresses; any other link is plain text.
 - **Values**: the chart's default `values.yaml` in an editor. Edit it to set your own values.
+- **Compare versions**: a side-by-side diff of two versions' default `values.yaml`. Pick them in **From version** and **To version**; it starts on the version a release runs (marked "installed") against the newest, or on the two newest. It shows the chart's defaults, not your edits on **Values**. A chart with one version says there is nothing to compare. Each version's archive is fetched through the same checks as an install.
 - **Preview** (or **Changes**): appears after you click **Preview**.
 
 The version box lists every version in the repo's index, so you can pick an older one; the default values and About update to it.

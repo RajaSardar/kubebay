@@ -400,6 +400,8 @@ export interface Column<T> {
   /** Tooltip for truncated cells. */
   title?: (row: T) => string | undefined;
   sortable?: boolean;
+  /** Horizontal alignment of the header and cells; default is the table's (left). */
+  align?: "left" | "center" | "right";
 }
 
 export interface DataTableProps<T> {
@@ -426,6 +428,8 @@ export interface DataTableProps<T> {
   loadingLabel?: string;
   /** Wrap in TableWrap (default). Set false inside a Card or drawer that scrolls itself. */
   wrap?: boolean;
+  /** Cells wrap their text instead of cutting it short with an ellipsis: for prose tables such as a README's. */
+  textWrap?: boolean;
   style?: CSSProperties;
 }
 
@@ -443,13 +447,14 @@ export function DataTable<T>({
   loading,
   loadingLabel = "Loading…",
   wrap = true,
+  textWrap,
   style,
 }: DataTableProps<T>) {
   if (!loading && rows.length === 0 && empty != null) return <>{empty}</>;
   const keys = rows.map((r, i) => rowKey(r, i));
   const selectedCount = selection ? keys.filter((k) => selection.selected.has(k)).length : 0;
   const table = (
-    <Table style={style}>
+    <Table style={style} className={textWrap ? "kb-table-text-wrap" : undefined}>
       {loading && <TableLoadingCaption label={loadingLabel} />}
       <thead>
         <tr>
@@ -469,9 +474,10 @@ export function DataTable<T>({
                 asc={sort?.asc}
                 onSort={() => onSort(c.key)}
                 width={c.width}
+                style={c.align ? { textAlign: c.align } : undefined}
               />
             ) : (
-              <th key={c.key} style={{ width: c.width }}>
+              <th key={c.key} style={{ width: c.width, textAlign: c.align }}>
                 {c.header}
               </th>
             ),
@@ -500,7 +506,7 @@ export function DataTable<T>({
                   />
                 )}
                 {columns.map((c) => (
-                  <td key={c.key} className={c.className} title={c.title?.(row)}>
+                  <td key={c.key} className={c.className} title={c.title?.(row)} style={c.align ? { textAlign: c.align } : undefined}>
                     {c.render(row, i)}
                   </td>
                 ))}

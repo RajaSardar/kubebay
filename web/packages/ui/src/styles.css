@@ -632,6 +632,22 @@ button.nav-item {
   --kb-pin-select-w: 40px;
 }
 
+/* A prose table (a README's): columns size to their content and cells wrap
+   their text rather than cutting it off; the wrap scrolls sideways if it must. */
+.kb-table-text-wrap {
+  table-layout: auto;
+}
+
+.kb-table-text-wrap th,
+.kb-table-text-wrap td,
+.kb-table-text-wrap td:not(.col-select):not(.col-row-menu) {
+  white-space: normal;
+  text-overflow: clip;
+  max-width: none;
+  overflow-wrap: break-word;
+  vertical-align: top;
+}
+
 .kb-table-pin-lead .col-select {
   position: sticky;
   left: 0;

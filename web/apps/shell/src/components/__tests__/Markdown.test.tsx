@@ -41,6 +41,62 @@ describe("Markdown", () => {
     expect(container.textContent).toContain("build badge");
   });
 
+  it("renders a GFM pipe table as a design-system table, with its alignment", () => {
+    const { container } = md(
+      [
+        "Parameters:",
+        "",
+        "| Name | Description | Value |",
+        "|:-----|:-----------:|------:|",
+        "| `replicas` | How **many** pods | `1` |",
+        "| image.tag | The tag, with a \\| pipe | latest |",
+        "",
+        "After.",
+      ].join("\n"),
+    );
+    const table = screen.getByRole("table");
+    expect(table).toHaveClass("kb-table");
+    expect(container.querySelectorAll("table")).toHaveLength(1);
+    const headers = screen.getAllByRole("columnheader");
+    expect(headers.map((h) => h.textContent)).toEqual(["Name", "Description", "Value"]);
+    expect(headers.map((h) => h.style.textAlign)).toEqual(["left", "center", "right"]);
+    const rows = table.querySelectorAll("tbody tr");
+    expect(rows).toHaveLength(2);
+    const first = rows[0]!.querySelectorAll("td");
+    expect(first[0]!.querySelector("code")?.textContent).toBe("replicas");
+    expect(first[1]!.querySelector("strong")?.textContent).toBe("many");
+    expect(first[2]!.style.textAlign).toBe("right");
+    expect(rows[1]!.querySelectorAll("td")[1]!.textContent).toBe("The tag, with a | pipe");
+    expect(container.textContent).toContain("Parameters:");
+    expect(container.textContent).toContain("After.");
+  });
+
+  it("works without outer pipes, pads short rows and drops extra cells", () => {
+    md("a | b\n--- | ---\n1\n2 | 3 | 4");
+    const rows = screen.getByRole("table").querySelectorAll("tbody tr");
+    expect(Array.from(rows[0]!.querySelectorAll("td")).map((td) => td.textContent)).toEqual(["1", ""]);
+    expect(Array.from(rows[1]!.querySelectorAll("td")).map((td) => td.textContent)).toEqual(["2", "3"]);
+  });
+
+  it("ends a table at a blank line, and starts one right after a paragraph", () => {
+    const { container } = md("Intro line\n| a | b |\n| - | - |\n| 1 | 2 |\n\nTail");
+    expect(screen.getByRole("table").querySelectorAll("tbody tr")).toHaveLength(1);
+    expect(container.querySelector("p")?.textContent).toBe("Intro line");
+    expect(container.textContent).toContain("Tail");
+  });
+
+  it("is not a table when the delimiter row does not match the header", () => {
+    const { container } = md("| a | b |\n| --- |\n| 1 | 2 |");
+    expect(container.querySelector("table")).toBeNull();
+    expect(container.textContent).toContain("| a | b |");
+  });
+
+  it("keeps table cells as text: no HTML, no unsafe links", () => {
+    const { container } = md('| x |\n| - |\n| <img src="https://evil.example/x.png" onerror="alert(1)"> [bad](javascript:alert(1)) [ok](https://example.com) |');
+    expect(container.querySelector("img, script, [onerror]")).toBeNull();
+    expect(Array.from(container.querySelectorAll("a")).map((a) => a.getAttribute("href"))).toEqual(["https://example.com"]);
+  });
+
   it("does not hang or throw on odd input", () => {
     expect(() => md("**unclosed `code [link](")).not.toThrow();
     expect(() => md("")).not.toThrow();
