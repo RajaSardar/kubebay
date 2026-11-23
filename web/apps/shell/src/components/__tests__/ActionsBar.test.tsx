@@ -156,4 +156,63 @@ describe("ActionsBar — Argo Rollouts (backlog #33)", () => {
     expect(await screen.findByText(/restart triggered/i)).toBeTruthy();
     applyYaml.mockRestore();
   });
+
+  const canary = (status: Record<string, unknown>, spec: Record<string, unknown> = {}) => ({
+    apiVersion: "argoproj.io/v1alpha1",
+    kind: "Rollout",
+    metadata: { name: "web", namespace: "default" },
+    spec: { strategy: { canary: { steps: [{ setWeight: 20 }, { pause: {} }, { setWeight: 50 }] } }, ...spec },
+    status,
+  });
+
+  it("pauses a progressing Rollout by setting spec.paused", async () => {
+    const applyYaml = vi.spyOn(api, "applyYaml").mockResolvedValue(undefined as never);
+    render(<ActionsBar slug="rollouts" cluster="kind-test" ns="default" name="web" rollout={canary({ phase: "Progressing", currentStepIndex: 0 })} />);
+    expect(screen.queryByRole("button", { name: "Resume" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Pause" }));
+    await waitFor(() => expect(applyYaml).toHaveBeenCalledTimes(1));
+    const req = applyYaml.mock.calls[0]![0] as { action: string; yaml: string; subresource?: string };
+    expect(req.action).toBe("rollout-pause");
+    expect(req.subresource).toBeUndefined();
+    expect(JSON.parse(req.yaml).spec).toEqual({ paused: true });
+    expect(await screen.findByText(/paused/i)).toBeTruthy();
+    applyYaml.mockRestore();
+  });
+
+  it("offers Resume on a Rollout the user paused, which clears spec.paused", async () => {
+    const applyYaml = vi.spyOn(api, "applyYaml").mockResolvedValue(undefined as never);
+    render(
+      <ActionsBar slug="rollouts" cluster="kind-test" ns="default" name="web" rollout={canary({ phase: "Paused", currentStepIndex: 0 }, { paused: true })} />,
+    );
+    expect(screen.queryByRole("button", { name: "Pause" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Resume" }));
+    await waitFor(() => expect(applyYaml).toHaveBeenCalledTimes(1));
+    const req = applyYaml.mock.calls[0]![0] as { action: string; yaml: string };
+    expect(req.action).toBe("rollout-resume");
+    expect(JSON.parse(req.yaml).spec).toEqual({ paused: false });
+    applyYaml.mockRestore();
+  });
+
+  it("skips the current step through the status subresource, after a confirm", async () => {
+    const applyYaml = vi.spyOn(api, "applyYaml").mockResolvedValue(undefined as never);
+    render(<ActionsBar slug="rollouts" cluster="kind-test" ns="default" name="web" rollout={canary({ phase: "Paused", currentStepIndex: 1, pauseConditions: [{}] })} />);
+    fireEvent.click(screen.getByRole("button", { name: "Skip step" }));
+    expect(applyYaml).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: /confirm skip/i }));
+    await waitFor(() => expect(applyYaml).toHaveBeenCalledTimes(1));
+    const req = applyYaml.mock.calls[0]![0] as { action: string; yaml: string; subresource?: string };
+    expect(req.action).toBe("rollout-skip-step");
+    expect(req.subresource).toBe("status");
+    expect(JSON.parse(req.yaml).status).toEqual({ currentStepIndex: 2 });
+    applyYaml.mockRestore();
+  });
+
+  it("no Pause or Skip step on a healthy Rollout, or before the object loads", () => {
+    const { unmount } = render(<ActionsBar slug="rollouts" cluster="kind-test" ns="default" name="web" rollout={canary({ phase: "Healthy" })} />);
+    expect(screen.queryByRole("button", { name: "Pause" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Skip step" })).toBeNull();
+    unmount();
+    render(<ActionsBar slug="rollouts" cluster="kind-test" ns="default" name="web" />);
+    expect(screen.queryByRole("button", { name: "Pause" })).toBeNull();
+  });
 });

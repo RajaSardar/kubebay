@@ -38,7 +38,7 @@ Each action asks you to click twice, and the second click carries it out. A prod
 - **Suspend** sets `spec.suspend` to `true`, so no new steps start; **Resume** clears it again. This is the workflow-level switch. A step that is itself a suspend template, waiting for approval, isn't resumed from here.
 - **Resubmit** creates a **new** workflow from the old one's spec, with a `generateName` taken from the old workflow's name, so the API server picks a new name. The copy leaves out `spec.shutdown` and `spec.suspend`, so it runs, and leaves out the status and Argo's own labels and annotations. It's marked with the annotation `kubebay.dev/resubmitted-from`. It's available on every workflow, finished or not. The old workflow is untouched.
 
-There's no **Retry**. Argo implements it by rewriting the workflow's node status, which isn't a safe edit to make from here. Use `argo retry`.
+There's no **Retry** button. Retrying a workflow in place isn't one patch: Argo's server resets the failed and errored nodes in `status.nodes`, deletes their pods and restarts the workflow, using its own rules for node IDs and memoization, and it can't be done at all when node status is offloaded to Argo's database. Kubebay talks to the Kubernetes API, not to Argo's server, so it doesn't imitate it. A **Failed** or **Error** workflow's detail shows the `argo retry <name> -n <namespace>` command with a copy button instead. **Resubmit** is the in-app alternative: it runs a fresh copy from the start.
 
 ## WorkflowTemplates and ClusterWorkflowTemplates
 

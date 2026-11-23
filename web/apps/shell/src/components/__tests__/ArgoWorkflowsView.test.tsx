@@ -126,6 +126,20 @@ describe("ArgoWorkflowsView", () => {
     expect(JSON.parse(call.yaml).metadata.generateName).toBe("build-0-");
   });
 
+  it("a failed workflow shows the argo retry command, not a Retry button that patches it", () => {
+    renderView();
+    fireEvent.click(screen.getByText("build-0"));
+    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+    expect(screen.getByLabelText("argo retry command").textContent).toBe("argo retry build-0 -n ci");
+    expect(screen.getByText(/needs Argo's server/i)).toBeTruthy();
+  });
+
+  it("a running workflow shows no retry command", () => {
+    renderView();
+    fireEvent.click(screen.getByText("build-1"));
+    expect(screen.queryByLabelText("argo retry command")).toBeNull();
+  });
+
   it("shows a failed action's error", async () => {
     vi.mocked(api.applyYaml).mockRejectedValueOnce(new Error("forbidden"));
     renderView();

@@ -187,15 +187,22 @@ export function describeRollout(ro: Obj, replicaSets: Obj[], analysisRuns: Obj[]
   };
 }
 
-export type RolloutAction = "promote" | "promote-full" | "abort" | "retry" | "restart";
+export type RolloutAction = "promote" | "promote-full" | "skip-step" | "pause" | "resume" | "abort" | "retry" | "restart";
 
 export const ROLLOUT_ACTION_LABELS: Record<RolloutAction, string> = {
   promote: "Promote",
   "promote-full": "Promote fully",
+  "skip-step": "Skip step",
+  pause: "Pause",
+  resume: "Resume",
   abort: "Abort",
   retry: "Retry",
   restart: "Restart",
 };
+
+function canarySteps(ro: Obj): unknown[] {
+  return rolloutStrategy(ro) === "canary" ? arr(rec(rec(rec(ro.spec).strategy).canary).steps) : [];
+}
 
 /** Which actions make sense for the rollout's current state, in display order. */
 export function availableRolloutActions(ro: Obj): RolloutAction[] {
@@ -203,38 +210,16 @@ export function availableRolloutActions(ro: Obj): RolloutAction[] {
   if (status.abort === true) return ["retry", "restart"];
   const phase = rolloutPhase(ro).toLowerCase();
   if (phase === "healthy") return ["restart"];
-  return ["promote", "promote-full", "abort", "restart"];
+  const out: RolloutAction[] = ["promote", "promote-full"];
+  if (num(status.currentStepIndex, 0) < canarySteps(ro).length) out.push("skip-step");
+  out.push(rec(ro.spec).paused === true ? "resume" : "pause", "abort", "restart");
+  return out;
 }
 
-/**
- * The patch each action sends through the existing YAML apply path (JSON
- * merge patch, impersonated and audit-logged). These mirror what the
- * kubectl-argo-rollouts plugin patches: promote clears spec.paused and
- * status.pauseConditions, promote --full sets status.promoteFull, abort sets
- * status.abort, retry clears it, restart sets spec.restartAt. The status
- * fields are patched on the main resource, as the plugin does; the Rollout
- * CRD has no status subresource.
- */
-export function rolloutActionRequest(target: { cluster: string; gvr: string; ns: string; name: string }, action: RolloutAction, now: Date = new Date()) {
-  let patch: Obj;
-  switch (action) {
-    case "promote":
-      patch = { spec: { paused: false }, status: { pauseConditions: null } };
-      break;
-    case "promote-full":
-      patch = { spec: { paused: false }, status: { pauseConditions: null, promoteFull: true } };
-      break;
-    case "abort":
-      patch = { status: { abort: true } };
-      break;
-    case "retry":
-      patch = { status: { abort: false } };
-      break;
-    case "restart":
-      patch = { spec: { restartAt: now.toISOString() } };
-      break;
-  }
-  const doc = { apiVersion: "argoproj.io/v1alpha1", kind: "Rollout", metadata: { name: target.name, namespace: target.ns }, ...patch };
+type RolloutTarget = { cluster: string; gvr: string; ns: string; name: string };
+
+function request(target: RolloutTarget, action: RolloutAction, patch: Obj, subresource?: "status", metadata: Obj = {}) {
+  const doc = { apiVersion: "argoproj.io/v1alpha1", kind: "Rollout", metadata: { ...metadata, name: target.name, namespace: target.ns }, ...patch };
   return {
     cluster: target.cluster,
     gvr: target.gvr,
@@ -245,5 +230,50 @@ export function rolloutActionRequest(target: { cluster: string; gvr: string; ns:
     force: false,
     mode: "merge" as const,
     action: `rollout-${action}`,
+    ...(subresource ? { subresource } : {}),
   };
+}
+
+/**
+ * The JSON merge patches each action sends through the existing YAML apply
+ * path (impersonated and audit-logged), in order. They mirror what the
+ * kubectl-argo-rollouts plugin patches. Since Rollouts v1.0 the CRD has a
+ * status subresource, so status fields (pauseConditions, promoteFull,
+ * abort, currentStepIndex) go to it (the engine falls back to the main
+ * resource where there is none, as the plugin does); spec fields go to the
+ * resource itself.
+ *   promote: clear status.pauseConditions, then spec.paused=false
+ *   promote fully: also status.promoteFull=true
+ *   skip step: status.currentStepIndex+1 (promote --skip-current-step),
+ *     pinned to the resourceVersion it was read from
+ *   pause: spec.paused=true; resume: spec.paused=false only, so it undoes a
+ *     Pause without also skipping a step's own pause
+ *   abort / retry: status.abort true / false; restart: spec.restartAt
+ */
+export function rolloutActionRequests(target: RolloutTarget, action: RolloutAction, ro: Obj, now: Date = new Date()) {
+  switch (action) {
+    case "promote":
+      return [request(target, action, { status: { pauseConditions: null } }, "status"), request(target, action, { spec: { paused: false } })];
+    case "promote-full":
+      return [
+        request(target, action, { status: { pauseConditions: null, promoteFull: true } }, "status"),
+        request(target, action, { spec: { paused: false } }),
+      ];
+    case "skip-step": {
+      const total = canarySteps(ro).length;
+      const next = Math.min(num(rec(ro.status).currentStepIndex, 0) + 1, total);
+      const rv = str(rec(ro.metadata).resourceVersion);
+      return [request(target, action, { status: { currentStepIndex: next } }, "status", rv ? { resourceVersion: rv } : {})];
+    }
+    case "pause":
+      return [request(target, action, { spec: { paused: true } })];
+    case "resume":
+      return [request(target, action, { spec: { paused: false } })];
+    case "abort":
+      return [request(target, action, { status: { abort: true } }, "status")];
+    case "retry":
+      return [request(target, action, { status: { abort: false } }, "status")];
+    case "restart":
+      return [request(target, action, { spec: { restartAt: now.toISOString() } })];
+  }
 }

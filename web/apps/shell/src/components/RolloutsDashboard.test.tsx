@@ -79,11 +79,48 @@ describe("RolloutsDashboard", () => {
   it("Promote sends the pause-clearing merge patch", async () => {
     ui();
     fireEvent.click(screen.getByRole("button", { name: "Promote" }));
+    await waitFor(() => expect(api.applyYaml).toHaveBeenCalledTimes(2));
+    const [status, spec] = vi.mocked(api.applyYaml).mock.calls.map((c) => c[0]);
+    expect(status!.action).toBe("rollout-promote");
+    expect(status!.mode).toBe("merge");
+    expect(status!.subresource).toBe("status");
+    expect(JSON.parse(status!.yaml).status.pauseConditions).toBeNull();
+    expect(JSON.parse(spec!.yaml).spec.paused).toBe(false);
+  });
+
+  it("Pause sets spec.paused", async () => {
+    ui();
+    fireEvent.click(screen.getByRole("button", { name: "Pause" }));
     await waitFor(() => expect(api.applyYaml).toHaveBeenCalledTimes(1));
     const req = vi.mocked(api.applyYaml).mock.calls[0]![0];
-    expect(req.action).toBe("rollout-promote");
-    expect(req.mode).toBe("merge");
-    expect(JSON.parse(req.yaml).status.pauseConditions).toBeNull();
+    expect(req.action).toBe("rollout-pause");
+    expect(JSON.parse(req.yaml).spec).toEqual({ paused: true });
+  });
+
+  it("Skip step moves status.currentStepIndex to the next step through the status subresource", async () => {
+    ui();
+    fireEvent.click(screen.getByRole("button", { name: "Skip step" }));
+    await waitFor(() => expect(api.applyYaml).toHaveBeenCalledTimes(1));
+    const req = vi.mocked(api.applyYaml).mock.calls[0]![0];
+    expect(req.action).toBe("rollout-skip-step");
+    expect(req.subresource).toBe("status");
+    expect(JSON.parse(req.yaml).status).toEqual({ currentStepIndex: 2 });
+  });
+
+  it("offers Resume, not Pause, on a rollout the user paused", () => {
+    render(
+      <MemoryRouter>
+        <RolloutsDashboard
+          cluster="kind-test"
+          rolloutGvr={GVR}
+          rollouts={[{ ...rollout, spec: { ...rollout.spec, paused: true } }]}
+          replicaSets={sets}
+          analysisRuns={runs}
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole("button", { name: "Resume" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Pause" })).toBeNull();
   });
 
   it("asks before acting on a production-looking cluster", async () => {

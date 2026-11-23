@@ -8,6 +8,22 @@
           "heading": "Added",
           "items": [
             {
+              "title": "Best practices: framework scores and Fix",
+              "summary": "(backlog 36 follow-up)."
+            },
+            {
+              "title": "Blast-radius preview for scale downs and bulk deletes",
+              "summary": "(backlog 12 follow-up)."
+            },
+            {
+              "title": "Fleet summary on the Clusters page",
+              "summary": "(backlog 37, summary tier)."
+            },
+            {
+              "title": "Argo Rollouts: Pause, Resume and Skip step",
+              "summary": "(backlog 52 follow-up)."
+            },
+            {
               "title": "Restart in the Rollout drawer",
               "summary": "An Argo Rollout's drawer has a Restart button beside the replica stepper."
             },
