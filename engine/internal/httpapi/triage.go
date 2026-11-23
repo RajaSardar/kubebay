@@ -340,7 +340,7 @@ func (a *TriageAPI) HandlePreview(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
 	defer cancel()
 	ev, err := a.Evidence(ctx, body.Cluster, body.Namespace, body.Pod)
-	entry := audit.Entry{Action: "triage:preview", Cluster: body.Cluster, Namespace: body.Namespace, Resource: body.Pod, UserAgent: r.Header.Get("User-Agent"), Source: "triage"}
+	entry := audit.Entry{Action: "triage:preview", User: audit.UserFrom(r.Context()), Cluster: body.Cluster, GVR: "v1/pods", Namespace: body.Namespace, Resource: body.Pod, UserAgent: r.Header.Get("User-Agent"), Source: "triage"}
 	if err != nil {
 		entry.Detail = "error=" + err.Error()
 		a.record(entry)
@@ -438,7 +438,7 @@ func (a *TriageAPI) HandleSend(w http.ResponseWriter, r *http.Request) {
 	}
 	a.mu.Unlock()
 
-	entry := audit.Entry{Action: "triage:send", Cluster: p.cluster, Namespace: p.ns, Resource: p.pod, UserAgent: r.Header.Get("User-Agent"), Source: "triage"}
+	entry := audit.Entry{Action: "triage:send", User: audit.UserFrom(r.Context()), Cluster: p.cluster, GVR: "v1/pods", Namespace: p.ns, Resource: p.pod, UserAgent: r.Header.Get("User-Agent"), Source: "triage"}
 	entry.Detail = fmt.Sprintf("endpoint=%s model=%s approxTokens=%d", p.baseURL, p.model, p.approxTokens)
 	switch {
 	case err != nil:

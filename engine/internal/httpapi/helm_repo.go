@@ -135,8 +135,9 @@ func (h *HelmManager) HandleRemoveRepo(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = os.Remove(filepath.Join(settings.RepositoryCache, req.Name+"-index.yaml"))
 	_ = os.Remove(filepath.Join(settings.RepositoryCache, req.Name+"-charts.txt"))
-	h.Audit.Record(audit.Entry{
+	h.Audit.RecordCtx(r.Context(), audit.Entry{
 		Action:    "helm-repo-remove",
+		GVR:       helmRepoGVR,
 		Resource:  req.Name,
 		UserAgent: r.Header.Get("User-Agent"),
 	})
@@ -196,8 +197,9 @@ func (h *HelmManager) HandleAddRepo(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	h.Audit.Record(audit.Entry{
+	h.Audit.RecordCtx(r.Context(), audit.Entry{
 		Action:    "helm-repo-add",
+		GVR:       helmRepoGVR,
 		Resource:  entry.Name,
 		Detail:    entry.URL,
 		UserAgent: r.Header.Get("User-Agent"),

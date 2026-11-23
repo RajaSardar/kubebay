@@ -217,9 +217,24 @@ export const api = {
   createResource: (b: { cluster: string; yaml: string; dryRun: boolean }) =>
     send<{ applied: number; total: number; dryRun: boolean }>("POST", "/api/yaml/create", b),
   /** The audit log, optionally narrowed engine-side to one object (the drawer's Timeline tab). */
-  auditLog: (filter?: { cluster?: string; namespace?: string; resource?: string }) => {
+  /** An OIDC user only ever gets their own entries; `kind` is a full GVR or its plural resource. */
+  auditLog: (filter?: { cluster?: string; namespace?: string; resource?: string; user?: string; kind?: string }) => {
     const qs = new URLSearchParams(Object.entries(filter ?? {}).filter(([, v]) => v) as [string, string][]).toString();
-    return get<{ time: string; action: string; cluster: string; namespace?: string; resource?: string; detail?: string; userAgent?: string; source?: string; outcome?: string }[]>(`/api/audit${qs ? `?${qs}` : ""}`);
+    return get<
+      {
+        time: string;
+        action: string;
+        cluster: string;
+        user?: string;
+        gvr?: string;
+        namespace?: string;
+        resource?: string;
+        detail?: string;
+        userAgent?: string;
+        source?: string;
+        outcome?: string;
+      }[]
+    >(`/api/audit${qs ? `?${qs}` : ""}`);
   },
 };
 

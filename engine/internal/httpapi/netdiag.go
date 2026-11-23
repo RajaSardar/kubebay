@@ -143,9 +143,10 @@ func (m *NetDiagManager) HandleStart(w http.ResponseWriter, r *http.Request) {
 		}
 		switch p.Status.Phase {
 		case corev1.PodRunning:
-			m.Audit.Record(audit.Entry{
+			m.Audit.RecordCtx(r.Context(), audit.Entry{
 				Action:    "netdiag-start",
 				Cluster:   req.Cluster,
+				GVR:       "v1/pods",
 				Namespace: req.Namespace,
 				Resource:  name,
 				Detail:    "image=" + p.Spec.Containers[0].Image,

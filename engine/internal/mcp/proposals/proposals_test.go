@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/RajaSardar/kubebay/engine/internal/audit"
+	"github.com/RajaSardar/kubebay/engine/internal/clusters"
 )
 
 // fakeCluster holds one Deployment and applies patches as JSON merge
@@ -373,5 +374,24 @@ func TestAnEndlessRaceGivesUpStale(t *testing.T) {
 	got, err := h.store.Approve(context.Background(), p.ID)
 	if err == nil || got.Status != StatusStale || h.cluster.obj["spec"].(map[string]any)["replicas"] != float64(2) {
 		t.Fatalf("approve = %+v, %v", got, err)
+	}
+}
+
+// Who approved a proposal is who changed the cluster; every entry says what
+// kind it is about.
+func TestApprovalRecordsTheApproverAndGVR(t *testing.T) {
+	h := newHarness()
+	p, _ := h.store.Propose(context.Background(), scale(4))
+	ctx := clusters.WithIdentity(context.Background(), &clusters.Identity{Name: "dana@example.com"})
+	if _, err := h.store.Approve(ctx, p.ID); err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range h.entries {
+		if e.GVR != "apps/v1/deployments" {
+			t.Errorf("%s gvr = %q", e.Action, e.GVR)
+		}
+	}
+	if e := h.entries[len(h.entries)-1]; e.User != "dana@example.com" {
+		t.Errorf("apply-proposal user = %q, want dana@example.com", e.User)
 	}
 }

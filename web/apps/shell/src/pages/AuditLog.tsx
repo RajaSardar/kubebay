@@ -8,6 +8,10 @@ interface AuditEntry {
   time: string;
   action: string;
   cluster: string;
+  /** Who acted: the OIDC user, or "local". Absent on entries from before it was recorded. */
+  user?: string;
+  /** The kind acted on, as "group/version/resource". */
+  gvr?: string;
   namespace?: string;
   resource?: string;
   detail?: string;
@@ -50,6 +54,8 @@ export default function AuditLog() {
     ? entries.filter((e) =>
         e.action.includes(filter) ||
         e.cluster.includes(filter) ||
+        (e.user ?? "").includes(filter) ||
+        (e.gvr ?? "").includes(filter) ||
         (e.resource ?? "").includes(filter) ||
         (e.namespace ?? "").includes(filter) ||
         (e.detail ?? "").includes(filter),
@@ -64,7 +70,7 @@ export default function AuditLog() {
 
       <div className="toolbar">
         <TextField
-          placeholder="Filter by action, cluster, resource…"
+          placeholder="Filter by action, user, cluster, resource…"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           spellCheck={false}
@@ -85,7 +91,9 @@ export default function AuditLog() {
               [
                 ["Time", fmtTime(detail.time)],
                 ["Action", detail.action],
+                ["User", detail.user || "–"],
                 ["Cluster", detail.cluster],
+                ["Kind", detail.gvr || "–"],
                 ["Namespace", detail.namespace || "–"],
                 ["Resource", detail.resource || "–"],
                 ["Detail", detail.detail || "–"],
@@ -138,6 +146,7 @@ export default function AuditLog() {
                 </span>
               ),
             },
+            { key: "user", header: "User", width: 150, className: "mono small", title: (e) => e.user, render: (e) => e.user || "–" },
             { key: "cluster", header: "Cluster", width: 130, className: "mono muted small", render: (e) => e.cluster },
             { key: "ns", header: "Namespace", width: 110, className: "mono muted small", render: (e) => e.namespace || "–" },
             {

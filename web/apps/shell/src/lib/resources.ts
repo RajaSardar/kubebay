@@ -193,3 +193,12 @@ const SLUG_BY_KIND: Record<string, string> = Object.fromEntries(
 export function slugForKind(kind: string): string | undefined {
   return SLUG_BY_KIND[kind];
 }
+
+const GVR_BY_KIND: Record<string, string> = Object.fromEntries(
+  [...Object.values(DEFS), ...Object.values(EXTRA_DEFS)].map((d) => [d.kind, d.gvr]),
+);
+
+/** The "group/version/resource" Kubebay lists a Kind under, or undefined for a Kind it has no def for. */
+export function gvrForKind(kind: string): string | undefined {
+  return GVR_BY_KIND[kind];
+}

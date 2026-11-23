@@ -149,6 +149,21 @@ describe("buildTimeline audit entries and change-cause", () => {
     expect(t.find((e) => e.source === "audit")).toMatchObject({ severity: "warning", title: "scale (rejected)", detail: "denied · via MCP" });
   });
 
+  it("shows who made an audit entry when an OIDC user made it, but not for the local user", () => {
+    const t = buildTimeline({ ...base, audit: [a({ user: "alice@example.com", detail: "replicas=3" }), a({ time: "2026-09-30T10:20:00Z", action: "restart", user: "local" })] });
+    const au = t.filter((e) => e.source === "audit");
+    expect(au.find((e) => e.title === "scale")?.detail).toBe("replicas=3 · by alice@example.com");
+    expect(au.find((e) => e.title === "restart")?.detail).toBe("");
+  });
+
+  it("skips an audit entry about another kind that shares the object's name", () => {
+    const t = buildTimeline({
+      ...base,
+      audit: [a({ gvr: "v1/services", action: "delete" }), a({ gvr: "apps/v1/deployments" }), a({ action: "restart" })],
+    });
+    expect(t.filter((e) => e.source === "audit").map((e) => e.title).sort()).toEqual(["restart", "scale"]);
+  });
+
   it("ignores audit rows when none are given", () => {
     expect(buildTimeline(base).some((e) => e.source === "audit")).toBe(false);
   });

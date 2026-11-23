@@ -2,23 +2,48 @@ package audit
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
+
+	"github.com/RajaSardar/kubebay/engine/internal/clusters"
 )
 
+// LocalUser is the acting identity of an entry no OIDC login stands behind:
+// the desktop app's launch token, an unauthenticated loopback engine, or an
+// MCP client holding the engine's own token.
+const LocalUser = "local"
+
+// UserFrom returns the OIDC user (email, else preferred_username) the request
+// on ctx was authenticated as, or LocalUser when there is none.
+func UserFrom(ctx context.Context) string {
+	if ident := clusters.IdentityFromContext(ctx); ident != nil && ident.Name != "" {
+		return ident.Name
+	}
+	return LocalUser
+}
+
 type Entry struct {
-	Time      time.Time `json:"time"`
-	Action    string    `json:"action"`    // "exec", "port-forward", "scale", "delete", "restart", "drain", "cordon", "apply"
-	Cluster   string    `json:"cluster"`
-	Namespace string    `json:"namespace,omitempty"`
-	Resource  string    `json:"resource,omitempty"` // pod/deployment name
-	Detail    string    `json:"detail,omitempty"`   // extra context (command, replicas, etc.)
-	UserAgent string    `json:"userAgent,omitempty"`
+	Time    time.Time `json:"time"`
+	Action  string    `json:"action"` // "exec", "port-forward", "scale", "delete", "restart", "drain", "cordon", "apply"
+	Cluster string    `json:"cluster"`
+	// User is who acted: the OIDC user, or LocalUser. Empty only on lines
+	// written before the field existed.
+	User string `json:"user,omitempty"`
+	// GVR is the kind acted on, as "group/version/resource" ("v1/pods",
+	// "apps/v1/deployments"; Helm releases are "helm/releases"). Empty on
+	// older lines and on entries not about one object (local shell).
+	GVR       string `json:"gvr,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
+	Resource  string `json:"resource,omitempty"` // object name
+	Detail    string `json:"detail,omitempty"`   // extra context (command, replicas, etc.)
+	UserAgent string `json:"userAgent,omitempty"`
 	// Outcome is empty for a successful mutation (the default, and the only
 	// value every entry recorded before this field existed has) or
 	// "rejected" when an admission webhook denied the request — see
@@ -61,21 +86,47 @@ func (l *Logger) Record(e Entry) {
 		return
 	}
 	e.Time = time.Now().UTC()
+	if e.User == "" {
+		e.User = LocalUser
+	}
 	b, _ := json.Marshal(e)
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	_, _ = fmt.Fprintf(l.f, "%s\n", b)
 }
 
-// Filter narrows Query to one object. Empty fields match anything.
+// RecordCtx records e as done by the identity on ctx (see UserFrom), unless e
+// already names a user. Every handler that has a request records through it.
+func (l *Logger) RecordCtx(ctx context.Context, e Entry) {
+	if e.User == "" {
+		e.User = UserFrom(ctx)
+	}
+	l.Record(e)
+}
+
+// Filter narrows Query. Empty fields match anything.
 type Filter struct {
 	Cluster, Namespace, Resource string
+	// User matches the acting identity exactly.
+	User string
+	// Kind matches the entry's GVR in full ("apps/v1/deployments") or by its
+	// plural resource ("deployments"), case-insensitively.
+	Kind string
 }
 
 func (f Filter) match(e Entry) bool {
 	return (f.Cluster == "" || e.Cluster == f.Cluster) &&
 		(f.Namespace == "" || e.Namespace == f.Namespace) &&
-		(f.Resource == "" || e.Resource == f.Resource)
+		(f.Resource == "" || e.Resource == f.Resource) &&
+		(f.User == "" || e.User == f.User) &&
+		(f.Kind == "" || kindMatches(e.GVR, f.Kind))
+}
+
+func kindMatches(gvr, kind string) bool {
+	if gvr == "" {
+		return false
+	}
+	return strings.EqualFold(gvr, kind) || strings.EqualFold(gvr[strings.LastIndex(gvr, "/")+1:], kind)
 }
 
 // Tail returns the last n entries from the audit log file.

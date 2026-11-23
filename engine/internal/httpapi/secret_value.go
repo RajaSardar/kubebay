@@ -78,9 +78,10 @@ func (c *Channels) HandleGetSecretValue(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	c.Audit.Record(audit.Entry{
+	c.Audit.RecordCtx(r.Context(), audit.Entry{
 		Action:    "secret-reveal",
 		Cluster:   cluster,
+		GVR:       "v1/secrets",
 		Namespace: ns,
 		Resource:  name,
 		Detail:    secretRevealAuditDetail(name, key),
