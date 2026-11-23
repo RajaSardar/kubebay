@@ -58,6 +58,7 @@
 ~~53. when the YAML editor is open, CMD+K is not working; please check that~~ ✅ Done (every Monaco editor, via the shared lib/monaco wrapper, toggles the palette on Cmd/Ctrl+K through a capture listener and an editor command, using a small palette store)
 ~~54. add a column for the owner kind (Deployment, StatefulSet, ReplicaSet...) in the Pods list; the same for ReplicaSets; research where else it belongs~~ ✅ Done (an **Owner** column, `Kind/name` from ownerReferences linking to the drawer, filter `controller:`: shown by default on Pods, where a Deployment's pods read through the ReplicaSet, and on ReplicaSets; also in the column chooser, hidden by default, on every other resource list except Events; see docs/OWNER_COLUMN.md)
 ~~55. when someone selects a namespace or a list of namespaces, the selected ones should move to the top of the namespace list~~ ✅ Done (selected namespaces are listed first, in a Selected group above the Rancher projects)
+56. add a sidecar container to a workload just by clicking a button
 ---
 
 ## Status of the open items (2026-11-19)
@@ -74,5 +75,6 @@
 | 51 YAML in the dock | Phases 0-5: discard guard, production confirm, YAML and New resource dock tabs, Maximise, shortcuts, dirty dot, row action, palette entry, banners, restore of unsaved text, 2 MB budget | Measure real memory at the cap; Tauri close interception (Cmd+Q) is unverified |
 | 52 Argo | Rollouts dashboard, Workflows (node tree, Stop / Terminate / Suspend / Resume / Resubmit), Events inventory; ArgoCD existed | Live testing of the patches and field names; Retry for Workflows; skip step and Pause for Rollouts; ArgoCD Applications dashboard parity |
 | 50 | (empty) | Waiting for your text |
+| 56 Add sidecar | Not started | One-click sidecar on a workload |
 
 Nothing in the table above has had a hands-on check in the running desktop app; the tests are unit and component tests.
