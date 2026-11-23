@@ -8,6 +8,10 @@
           "heading": "Added",
           "items": [
             {
+              "title": "Argo Rollouts: Pause, Resume and Skip step",
+              "summary": "(backlog 52 follow-up)."
+            },
+            {
               "title": "Restart in the Rollout drawer",
               "summary": "An Argo Rollout's drawer has a Restart button beside the replica stepper."
             },

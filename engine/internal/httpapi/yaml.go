@@ -68,6 +68,12 @@ type ApplyYAMLRequest struct {
 	// fields it names (RightSizing's resources-only document): containers
 	// merge by name and fields it leaves out, like limits, are kept.
 	Mode string `json:"mode,omitempty"`
+	// Subresource "status" sends a mode=merge patch to the status
+	// subresource, for controllers that read user intent from status (Argo
+	// Rollouts' abort and currentStepIndex). If the kind has no status
+	// subresource (NotFound), the patch goes to the main resource instead,
+	// as kubectl-argo-rollouts does. No other subresource is accepted.
+	Subresource string `json:"subresource,omitempty"`
 }
 
 // auditActionFor names the audit entry for an apply — "apply" by default, or
@@ -205,6 +211,14 @@ func (c *Channels) HandleApplyYAML(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "doc missing kind", http.StatusBadRequest)
 		return
 	}
+	if req.Subresource != "" && req.Subresource != "status" {
+		http.Error(w, fmt.Sprintf("subresource %q is not supported; only status", req.Subresource), http.StatusBadRequest)
+		return
+	}
+	if req.Subresource != "" && (req.Mode != "merge" || req.Original != "") {
+		http.Error(w, "subresource requires mode=merge", http.StatusBadRequest)
+		return
+	}
 
 	// Every write here is an Update patch under manager "kubebay": Updates never
 	// conflict with other field managers and own only the fields they change.
@@ -331,16 +345,28 @@ func (c *Channels) HandleApplyYAML(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	var target dynamic.ResourceInterface = ri
 	if req.Namespace != "" {
-		applied, err = ri.Namespace(req.Namespace).Patch(r.Context(), req.Name, patchType, data, patchOpts)
-	} else {
-		applied, err = ri.Patch(r.Context(), req.Name, patchType, data, patchOpts)
+		target = ri.Namespace(req.Namespace)
+	}
+	subresource := req.Subresource
+	if subresource != "" {
+		applied, err = target.Patch(r.Context(), req.Name, patchType, data, patchOpts, subresource)
+		if apierrors.IsNotFound(err) {
+			subresource = "" // no status subresource on this kind: status is part of the main resource
+		}
+	}
+	if subresource == "" {
+		applied, err = target.Patch(r.Context(), req.Name, patchType, data, patchOpts)
 	}
 	kind, _ := doc["kind"].(string)
 	// Field names only, never values: an edited field may be a password.
 	editDetail := ""
 	if edit != nil {
 		editDetail = fmt.Sprintf(" patch=%s fields=%s", patchTypeName(edit.Type), strings.Join(edit.ChangedPaths, ","))
+	}
+	if subresource != "" {
+		editDetail += " subresource=" + subresource
 	}
 	if err != nil {
 		if rejection := writePolicyRejectionOrError(w, err); rejection != nil {

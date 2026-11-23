@@ -231,6 +231,8 @@ function applyYamlRequest(b: {
   original?: string;
   /** "strategic" (built-in kinds) or "merge" (any kind; null deletes a field): the yaml is itself a patch of the fields to change. */
   mode?: "strategic" | "merge";
+  /** "status" sends a mode=merge patch to the status subresource (falling back to the resource itself where the kind has none). */
+  subresource?: "status";
 }): Promise<{
   applied: boolean;
   dryRun: boolean;

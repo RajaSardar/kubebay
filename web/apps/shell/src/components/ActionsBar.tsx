@@ -3,7 +3,7 @@ import { ArmedButton, Badge, Button, InlineBanner, Row } from "@kubebay/ui";
 import { actionApi, api } from "../lib/api";
 import { ownerLabel, ownerWarning, type GitOpsOwner } from "../lib/gitops";
 import { PolicyRejectionError, type PolicyRejectionDetail } from "../lib/policyRejection";
-import { rolloutActionRequest } from "../lib/rollouts";
+import { availableRolloutActions, rolloutActionRequests, type RolloutAction } from "../lib/rollouts";
 import { BlastRadiusPreview } from "./BlastRadiusPreview";
 import { PolicyRejectionCard } from "./PolicyRejectionCard";
 
@@ -49,6 +49,7 @@ export function ActionsBar({
   name,
   gitopsOwner,
   currentReplicas,
+  rollout,
 }: {
   slug: Slug;
   cluster: string;
@@ -56,6 +57,8 @@ export function ActionsBar({
   name: string;
   gitopsOwner?: GitOpsOwner | null;
   currentReplicas?: number;
+  /** The live Rollout (slug "rollouts"): which of Pause, Resume and Skip step apply depends on its state. */
+  rollout?: Record<string, unknown>;
 }) {
   const { msg, err, rejection, busy, run } = useFeedback();
   // null = untouched → follow the live spec.replicas (the object may load after mount)
@@ -65,6 +68,14 @@ export function ActionsBar({
   const ownerDetail = gitopsOwner ? ownerLabel(gitopsOwner) : undefined;
 
   const showScale = slug === "deployments" || slug === "statefulsets" || slug === "rollouts";
+  // Promote, Abort and Retry live on the Rollouts dashboard; the drawer adds the step controls.
+  const drawerRolloutActions: RolloutAction[] =
+    slug === "rollouts" && rollout ? availableRolloutActions(rollout).filter((a) => a === "pause" || a === "resume" || a === "skip-step") : [];
+  const runRolloutAction = (action: RolloutAction, done: string) =>
+    void run(async () => {
+      for (const req of rolloutActionRequests({ cluster, gvr: GVR.rollouts!, ns, name }, action, rollout ?? {})) await api.applyYaml(req);
+      return done;
+    });
   const showRestart = slug === "deployments" || slug === "statefulsets" || slug === "daemonsets" || slug === "rollouts";
 
   return (
@@ -118,7 +129,7 @@ export function ActionsBar({
             void run(async () => {
               // An Argo Rollout restarts through spec.restartAt, which its controller honours;
               // the pod-template annotation the other kinds use would not be the Rollout's own restart.
-              if (slug === "rollouts") await api.applyYaml(rolloutActionRequest({ cluster, gvr: GVR[slug]!, ns, name }, "restart"));
+              if (slug === "rollouts") for (const req of rolloutActionRequests({ cluster, gvr: GVR[slug]!, ns, name }, "restart", {})) await api.applyYaml(req);
               else await api.restart({ cluster, gvr: GVR[slug]!, ns, name, gitopsOwner: ownerDetail });
               return "Rollout restart triggered.";
             })
@@ -126,6 +137,25 @@ export function ActionsBar({
         >
           Restart
         </Button>
+      )}
+      {drawerRolloutActions.includes("pause") && (
+        <Button variant="ghost" disabled={busy} onClick={() => runRolloutAction("pause", "Rollout paused.")}>
+          Pause
+        </Button>
+      )}
+      {drawerRolloutActions.includes("resume") && (
+        <Button variant="ghost" disabled={busy} onClick={() => runRolloutAction("resume", "Rollout resumed.")}>
+          Resume
+        </Button>
+      )}
+      {drawerRolloutActions.includes("skip-step") && (
+        <ArmedButton
+          label="Skip step"
+          confirmLabel="Confirm skip?"
+          variant="primary"
+          busy={busy}
+          onGo={() => runRolloutAction("skip-step", "Moved to the next step.")}
+        />
       )}
       {slug === "cronjobs" && (
         <Button

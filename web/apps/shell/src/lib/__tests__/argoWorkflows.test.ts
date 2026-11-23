@@ -7,6 +7,7 @@ import {
   workflowActions,
   workflowActionRequest,
   resubmitManifest,
+  retryCommand,
   summarizeCronWorkflow,
   summarizeTemplate,
   formatDuration,
@@ -221,6 +222,16 @@ describe("workflowActions", () => {
   });
   it("a workflow already shutting down cannot be stopped again", () => {
     expect(workflowActions(wf("Running", { shutdown: "Stop" })).map((a) => a.id)).toEqual(["terminate", "suspend", "resubmit"]);
+  });
+});
+
+describe("retryCommand", () => {
+  const wf = (phase: string) => ({ metadata: { name: "build-0", namespace: "ci" }, spec: {}, status: { phase } });
+  it.each(["Failed", "Error"])("a %s workflow gets the argo retry command", (p) => {
+    expect(retryCommand(wf(p))).toBe("argo retry build-0 -n ci");
+  });
+  it.each(["Succeeded", "Running", "Pending"])("a %s workflow has none", (p) => {
+    expect(retryCommand(wf(p))).toBeNull();
   });
 });
 

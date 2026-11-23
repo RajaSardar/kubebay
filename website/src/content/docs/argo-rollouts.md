@@ -1,6 +1,6 @@
 ---
 title: Argo Rollouts
-description: A dashboard of your Argo Rollouts, with phase, step, canary weight, revisions and AnalysisRuns, and Promote, Abort, Retry and Restart.
+description: A dashboard of your Argo Rollouts, with phase, step, canary weight, revisions and AnalysisRuns, and Promote, Skip step, Pause, Resume, Abort, Retry and Restart.
 section: Integrations
 order: 7
 appRoutes: ["/rollouts"]
@@ -23,15 +23,18 @@ Each Rollout offers the actions that make sense for its state. They go through t
 
 | Action | Shown | Patch | Confidence |
 | --- | --- | --- | --- |
-| **Promote** | not aborted, not Healthy | `spec.paused: false` and `status.pauseConditions: null` | Follows what `kubectl argo rollouts promote` sends. Not tested against a live cluster. |
+| **Promote** | not aborted, not Healthy | `status.pauseConditions: null` on the status subresource, then `spec.paused: false` | Follows what `kubectl argo rollouts promote` sends. Not tested against a live cluster. |
 | **Promote fully** | not aborted, not Healthy | the same, plus `status.promoteFull: true` | As above. |
-| **Abort** | not aborted, not Healthy | `status.abort: true` | As above. |
-| **Retry** | aborted | `status.abort: false` | As above. |
+| **Skip step** | canary, not aborted, not Healthy, not past the last step | `status.currentStepIndex` set to the next step, on the status subresource | Follows `kubectl argo rollouts promote --skip-current-step`. The patch carries the `resourceVersion` it was worked out from, when Kubebay has it, so a Rollout that moved on in the meantime refuses it instead of going back a step. Not tested against a live cluster. |
+| **Pause** | not aborted, not Healthy, not already paused by you | `spec.paused: true` | Follows `kubectl argo rollouts pause`. Not tested against a live cluster. |
+| **Resume** | in place of Pause when `spec.paused` is true | `spec.paused: false` | The spec half of Promote. It leaves a step's own pause in place, so it undoes a Pause without also passing a pause step; use Promote for that. Not tested against a live cluster. |
+| **Abort** | not aborted, not Healthy | `status.abort: true` on the status subresource | Follows `kubectl argo rollouts abort`. Not tested against a live cluster. |
+| **Retry** | aborted | `status.abort: false` on the status subresource | Follows `kubectl argo rollouts retry rollout`. Not tested against a live cluster. |
 | **Restart** | always | `spec.restartAt` set to now | Documented Rollout field. Not tested against a live cluster. |
 
-Not offered: **skip the current step** (`status.currentStepIndex`) and **Pause**, because the patch Kubebay would send for them wasn't verified. Use `kubectl argo rollouts` for those.
+The Rollout CRD has a status subresource since Argo Rollouts v1.0, and the API server ignores `status` fields sent to the Rollout itself, so Kubebay writes them to the status subresource. On an older install without one, the API server answers Not Found and Kubebay writes them to the Rollout itself, as the kubectl plugin does. The audit entry says `subresource=status` when the status subresource took the patch.
 
-The `status` fields are written on the Rollout itself, as the kubectl plugin does. If your Rollout CRD has the status subresource turned on, the API server ignores them and the action does nothing.
+A Rollout's drawer has **Pause**, **Resume** and **Skip step** too, beside **Restart**. **Skip step** there asks for a second click.
 
 ## Not here yet
 

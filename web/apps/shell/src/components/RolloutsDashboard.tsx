@@ -9,7 +9,7 @@ import {
   ROLLOUT_ACTION_LABELS,
   availableRolloutActions,
   describeRollout,
-  rolloutActionRequest,
+  rolloutActionRequests,
   type RolloutAction,
   type RolloutRevision,
 } from "../lib/rollouts";
@@ -29,7 +29,7 @@ function Revision({ label, rev }: { label: string; rev: RolloutRevision | null }
 /**
  * The Argo Rollouts dashboard: one card per Rollout with its strategy, phase,
  * step, traffic split, replica counts, stable and canary revisions, pause
- * state and AnalysisRuns, plus Promote / Abort / Retry / Restart. Actions go
+ * state and AnalysisRuns, plus Promote / Skip step / Pause / Resume / Abort / Retry / Restart. Actions go
  * through the same impersonated, audited YAML apply path as every other edit
  * and ask first on a cluster whose name looks like production.
  */
@@ -58,10 +58,15 @@ export function RolloutsDashboard({
 
   async function run(ns: string, name: string, action: RolloutAction) {
     if (!rolloutGvr) return;
+    const ro = rollouts.find((r) => {
+      const m = (r.metadata ?? {}) as Record<string, unknown>;
+      return m.namespace === ns && m.name === name;
+    });
+    if (!ro) return;
     setBusy(true);
     setError(null);
     try {
-      await api.applyYaml(rolloutActionRequest({ cluster, gvr: rolloutGvr, ns, name }, action));
+      for (const req of rolloutActionRequests({ cluster, gvr: rolloutGvr, ns, name }, action, ro)) await api.applyYaml(req);
     } catch (e) {
       setError(`Couldn't ${ROLLOUT_ACTION_LABELS[action].toLowerCase()} ${name}: ${e instanceof Error ? e.message : String(e)}`);
     } finally {

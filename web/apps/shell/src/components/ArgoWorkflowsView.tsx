@@ -2,12 +2,14 @@ import { useMemo, useState } from "react";
 import { ArmedButton, Button, Card, DataTable, EmptyState, InlineBanner, Row, SegmentedControl, Stack, StatusPill, statusTone } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { ResourceLink } from "./ResourceLink";
+import { CopyableCommand } from "./CopyableCommand";
 import { extSlug, fmtAge } from "../lib/resources";
 import { useClusterLooksProduction } from "../lib/useClusterLooksProduction";
 import {
   buildNodeTree,
   matchNodePods,
   resubmitManifest,
+  retryCommand,
   summarizeCronWorkflow,
   summarizeTemplate,
   summarizeWorkflow,
@@ -266,6 +268,7 @@ function WorkflowDetail({
   const nodes = useMemo(() => buildNodeTree(wf), [wf]);
   const podFor = useMemo(() => matchNodePods(summary.name, nodes, pods), [summary.name, nodes, pods]);
   const actions = workflowActions(wf);
+  const retry = retryCommand(wf);
 
   return (
     <Card>
@@ -299,6 +302,12 @@ function WorkflowDetail({
             />
           ))}
         </Row>
+        {retry && (
+          <div className="small">
+            <span className="muted">Retry in place needs Argo's server, which resets the failed steps; run it with the argo CLI, or Resubmit a fresh copy.</span>
+            <CopyableCommand command={retry} label="argo retry command" />
+          </div>
+        )}
         {nodes.length === 0 ? (
           <div className="muted small">No node status yet. The controller has not started this workflow.</div>
         ) : (

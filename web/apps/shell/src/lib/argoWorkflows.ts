@@ -181,9 +181,24 @@ const LABELS: Record<WorkflowActionId, string> = {
 };
 
 /**
+ * The `argo retry` command for a Failed or Error workflow, else null. Retry is
+ * not a patch: Argo's server (or the argo CLI) resets the failed nodes in
+ * status.nodes, deletes their pods and restarts the workflow in place, using
+ * its own node-ID and memoization rules, and cannot do it at all when node
+ * status is offloaded to its database. Kubebay does not talk to that server,
+ * so it hands over the command instead of imitating it.
+ */
+export function retryCommand(wf: Record<string, unknown>): string | null {
+  const phase = str(rec(wf.status).phase);
+  if (phase !== "Failed" && phase !== "Error") return null;
+  const meta = rec(wf.metadata);
+  const ns = str(meta.namespace);
+  return `argo retry ${str(meta.name)}${ns ? ` -n ${ns}` : ""}`;
+}
+
+/**
  * Only operations that are one small patch (spec.shutdown, spec.suspend) or a
- * plain create (resubmit). Retry is left out: Argo implements it by rewriting
- * status.nodes, which is not a safe thing to do from here.
+ * plain create (resubmit). Retry is left out (see retryCommand).
  */
 export function workflowActions(wf: Record<string, unknown>): WorkflowAction[] {
   const spec = rec(wf.spec);

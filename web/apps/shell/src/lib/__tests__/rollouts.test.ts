@@ -5,7 +5,7 @@ import {
   rolloutPhase,
   rolloutTone,
   canaryWeights,
-  rolloutActionRequest,
+  rolloutActionRequests,
   availableRolloutActions,
 } from "../rollouts";
 
@@ -136,45 +136,108 @@ describe("describeRollout", () => {
 });
 
 describe("availableRolloutActions", () => {
-  it("offers Promote, Promote fully and Abort while paused", () => {
-    expect(availableRolloutActions(rollout({}, { phase: "Paused", pauseConditions: [{}] }))).toEqual(["promote", "promote-full", "abort", "restart"]);
+  it("offers Promote, Promote fully, Skip step, Pause and Abort while paused at a step", () => {
+    expect(availableRolloutActions(rollout({}, { phase: "Paused", pauseConditions: [{}], currentStepIndex: 1 }))).toEqual([
+      "promote",
+      "promote-full",
+      "skip-step",
+      "pause",
+      "abort",
+      "restart",
+    ]);
+  });
+  it("offers Resume instead of Pause when the user paused it (spec.paused)", () => {
+    const ro = rollout({}, { phase: "Paused", currentStepIndex: 2 }, { paused: true });
+    expect(availableRolloutActions(ro)).toContain("resume");
+    expect(availableRolloutActions(ro)).not.toContain("pause");
   });
   it("offers Retry, not Abort, when aborted", () => {
     expect(availableRolloutActions(rollout({}, { abort: true, phase: "Degraded" }))).toEqual(["retry", "restart"]);
   });
-  it("offers Promote and Abort while progressing", () => {
-    expect(availableRolloutActions(rollout({}, { phase: "Progressing" }))).toEqual(["promote", "promote-full", "abort", "restart"]);
+  it("offers Promote, Skip step, Pause and Abort while progressing", () => {
+    expect(availableRolloutActions(rollout({}, { phase: "Progressing" }))).toEqual(["promote", "promote-full", "skip-step", "pause", "abort", "restart"]);
+  });
+  it("no Skip step past the last step, or for blue-green", () => {
+    expect(availableRolloutActions(rollout({}, { phase: "Progressing", currentStepIndex: 5 }))).not.toContain("skip-step");
+    const bg = rollout({}, { phase: "Paused" }, { strategy: { blueGreen: { activeService: "web" } } });
+    expect(availableRolloutActions(bg)).not.toContain("skip-step");
+    expect(availableRolloutActions(bg)).toContain("pause");
   });
   it("only Restart when healthy", () => {
     expect(availableRolloutActions(rollout({}, { phase: "Healthy" }))).toEqual(["restart"]);
   });
 });
 
-describe("rolloutActionRequest", () => {
+describe("rolloutActionRequests", () => {
   const t = { cluster: "kind-x", gvr: "argoproj.io/v1alpha1/rollouts", ns: NS, name: "web" };
   const parse = (y: string) => JSON.parse(y);
-  it("promote clears the pause", () => {
-    const r = rolloutActionRequest(t, "promote");
-    expect(parse(r.yaml)).toMatchObject({ spec: { paused: false }, status: { pauseConditions: null } });
-    expect(r.mode).toBe("merge");
-    expect(r.action).toBe("rollout-promote");
-    expect(r.dryRun).toBe(false);
+  const only = (action: Parameters<typeof rolloutActionRequests>[1], ro: Record<string, unknown> = rollout()) => {
+    const rs = rolloutActionRequests(t, action, ro);
+    expect(rs).toHaveLength(1);
+    return rs[0]!;
+  };
+  it("promote clears status.pauseConditions on the status subresource, then spec.paused on the resource", () => {
+    const [status, spec] = rolloutActionRequests(t, "promote", rollout());
+    expect(status!.subresource).toBe("status");
+    expect(parse(status!.yaml)).toMatchObject({ status: { pauseConditions: null } });
+    expect(parse(status!.yaml).spec).toBeUndefined();
+    expect(spec!.subresource).toBeUndefined();
+    expect(parse(spec!.yaml)).toMatchObject({ spec: { paused: false } });
+    expect(parse(spec!.yaml).status).toBeUndefined();
+    for (const r of [status!, spec!]) {
+      expect(r.mode).toBe("merge");
+      expect(r.action).toBe("rollout-promote");
+      expect(r.dryRun).toBe(false);
+    }
   });
-  it("promote-full sets status.promoteFull", () => {
-    expect(parse(rolloutActionRequest(t, "promote-full").yaml).status).toMatchObject({ promoteFull: true, pauseConditions: null });
+  it("promote-full sets status.promoteFull on the status subresource", () => {
+    const [status] = rolloutActionRequests(t, "promote-full", rollout());
+    expect(status!.subresource).toBe("status");
+    expect(parse(status!.yaml).status).toMatchObject({ promoteFull: true, pauseConditions: null });
   });
-  it("abort sets status.abort", () => {
-    expect(parse(rolloutActionRequest(t, "abort").yaml).status).toEqual({ abort: true });
+  it("abort sets status.abort on the status subresource", () => {
+    const r = only("abort");
+    expect(r.subresource).toBe("status");
+    expect(parse(r.yaml).status).toEqual({ abort: true });
   });
-  it("retry clears status.abort", () => {
-    expect(parse(rolloutActionRequest(t, "retry").yaml).status).toEqual({ abort: false });
+  it("retry clears status.abort on the status subresource", () => {
+    const r = only("retry");
+    expect(r.subresource).toBe("status");
+    expect(parse(r.yaml).status).toEqual({ abort: false });
+  });
+  it("pause sets spec.paused, like kubectl argo rollouts pause", () => {
+    const r = only("pause");
+    expect(r.subresource).toBeUndefined();
+    expect(parse(r.yaml).spec).toEqual({ paused: true });
+    expect(parse(r.yaml).status).toBeUndefined();
+    expect(r.action).toBe("rollout-pause");
+  });
+  it("resume only clears spec.paused, leaving any step pause in place", () => {
+    const r = only("resume", rollout({}, {}, { paused: true }));
+    expect(parse(r.yaml).spec).toEqual({ paused: false });
+    expect(parse(r.yaml).status).toBeUndefined();
+  });
+  it("skip step sets status.currentStepIndex to the next step on the status subresource", () => {
+    const r = only("skip-step", rollout({ metadata: { name: "web", namespace: NS, resourceVersion: "42" } }, { currentStepIndex: 1 }));
+    expect(r.subresource).toBe("status");
+    expect(r.action).toBe("rollout-skip-step");
+    const y = parse(r.yaml);
+    expect(y.status).toEqual({ currentStepIndex: 2 });
+    // The index was read from this version: refuse (409) rather than move it backwards if the controller got there first.
+    expect(y.metadata.resourceVersion).toBe("42");
+  });
+  it("skip step from an unset index moves to the second step", () => {
+    expect(parse(only("skip-step", rollout()).yaml).status).toEqual({ currentStepIndex: 1 });
+  });
+  it("skip step never passes the step count", () => {
+    expect(parse(only("skip-step", rollout({}, { currentStepIndex: 5 })).yaml).status).toEqual({ currentStepIndex: 5 });
   });
   it("restart sets spec.restartAt to the given time", () => {
-    const y = parse(rolloutActionRequest(t, "restart", new Date("2026-01-02T03:04:05Z")).yaml);
+    const y = parse(rolloutActionRequests(t, "restart", rollout(), new Date("2026-01-02T03:04:05Z"))[0]!.yaml);
     expect(y.spec).toEqual({ restartAt: "2026-01-02T03:04:05.000Z" });
   });
   it("names the object", () => {
-    const y = parse(rolloutActionRequest(t, "abort").yaml);
+    const y = parse(only("abort").yaml);
     expect(y).toMatchObject({ apiVersion: "argoproj.io/v1alpha1", kind: "Rollout", metadata: { name: "web", namespace: NS } });
   });
 });
