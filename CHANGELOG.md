@@ -23,6 +23,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 - **Cmd/Ctrl+K opens the command palette from inside a YAML editor** (backlog 53). Monaco kept the key for its own chords (comment, fold) and the palette never saw it; every editor now passes it on, in the drawer, Create Resource, the dock and the Helm and KEDA previews.
 
 ### Changed
+- **Less work per live update on big clusters** (backlog 23, performance pass 3). A pod's row in the Pods list is worked out once per change to that pod, not again for every pod on every update, so an update where one pod changed redoes one row (measured at 2,000 pods: 2,000 derivations per update before, 0 for an unchanged update and 1 for one changed pod after). The Overview's SPOF Radar and Service Health tabs match pods and EndpointSlices to workloads and Services through an index instead of scanning every pod for each one: at 2,000 pods and 500 Deployments, Services and EndpointSlices they read pod objects 501,750 and 1,000,000 times before, 3,750 and 2,000 after. Nothing on screen changes.
 - **Selected namespaces come first in the namespace filter** (backlog 55). They sit right after **All namespaces**; on clusters with Rancher projects they form a **Selected** group above the project groups. Search still works.
 
 ## [0.8.0] - 2026-11-19

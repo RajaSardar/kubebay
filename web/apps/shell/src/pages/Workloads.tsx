@@ -210,10 +210,7 @@ export default function Workloads() {
 
   const openPod = useCallback(
     (p: PodRow, tab?: SelectedPod["tab"]) => {
-      const rawObj = rows.find((r) => {
-        const m = rec((r ?? {}) as Record<string, unknown>).metadata as Record<string, unknown> | undefined;
-        return (m?.name as string) === p.name && (m?.namespace as string) === p.namespace;
-      });
+      const rawObj = podObjectsRef.current.get(p.key) as Record<string, unknown> | undefined;
       setSelected({
         cluster: effectiveCluster,
         namespace: p.namespace,
@@ -223,7 +220,7 @@ export default function Workloads() {
         tab,
       });
     },
-    [rows, effectiveCluster],
+    [effectiveCluster],
   );
   const onOpen = useCallback((p: PodRow) => openPod(p), [openPod]);
 

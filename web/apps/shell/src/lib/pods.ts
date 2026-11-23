@@ -21,7 +21,6 @@ export interface PodRow {
   status: "running" | "succeeded" | "pending" | "failed" | "warning";
   statusLabel: string;
   restarts: number;
-  ageMs: number;
   containers: string[];
   node: string;
   podIP: string;
@@ -41,12 +40,29 @@ function asRecord(v: unknown): Record<string, unknown> {
   return (v ?? {}) as Record<string, unknown>;
 }
 
+// Derived rows by pod object. A stream keeps a pod's object while it is
+// unchanged and replaces it (a freshly decoded one) when it changes, so the
+// object is the cache key; a WeakMap lets a removed pod's entry go with it.
+// The resourceVersion is checked too, in case an object is ever edited in place.
+const cache = new WeakMap<object, { rv: unknown; row: PodRow | null }>();
+
 /**
  * The Pods table's view of a Pod: its status (a waiting reason such as
  * CrashLoopBackOff wins over the phase, and its message becomes the tooltip),
  * ready and restart counts, placement, and requests/limits for the usage bars.
+ * Cached per object: the row depends on nothing but the object (age is shown
+ * from `created`, not stored), so a flush with no changes derives nothing.
  */
 export function derivePod(obj: Record<string, unknown>): PodRow | null {
+  const rv = (obj.metadata as { resourceVersion?: unknown } | undefined)?.resourceVersion;
+  const hit = cache.get(obj);
+  if (hit && hit.rv === rv) return hit.row;
+  const row = computePod(obj);
+  cache.set(obj, { rv, row });
+  return row;
+}
+
+function computePod(obj: Record<string, unknown>): PodRow | null {
   const meta = asRecord(obj.metadata);
   const name = meta.name as string | undefined;
   const namespace = (meta.namespace as string) ?? "default";
@@ -98,8 +114,6 @@ export function derivePod(obj: Record<string, unknown>): PodRow | null {
     ]),
   ];
 
-  const created = meta.creationTimestamp ? Date.parse(meta.creationTimestamp as string) : Date.now();
-
   return {
     key: `${namespace}/${name}`,
     name,
@@ -108,7 +122,6 @@ export function derivePod(obj: Record<string, unknown>): PodRow | null {
     status: state,
     statusLabel: label,
     restarts,
-    ageMs: Math.max(0, Date.now() - created),
     containers: containerNames,
     node: (spec.nodeName as string) ?? "",
     podIP: (status.podIP as string) ?? "",

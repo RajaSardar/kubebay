@@ -62,6 +62,10 @@
           "heading": "Changed",
           "items": [
             {
+              "title": "Less work per live update on big clusters",
+              "summary": "(backlog 23, performance pass 3)."
+            },
+            {
               "title": "Selected namespaces come first in the namespace filter",
               "summary": "(backlog 55)."
             }
