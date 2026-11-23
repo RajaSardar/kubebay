@@ -30,7 +30,7 @@ Kubebay refuses a Prometheus URL that points at a cloud metadata or link-local a
 
 ## When Kubebay runs in a cluster
 
-One engine serves everyone in a cluster, or with OIDC sign-in, so the settings on this page that apply to every user are read-only: the Prometheus URLs and the pinned Prometheus Service, kubeconfig sources, the node shell image and the debug image. **Save** says why. The page shows the values the operator set, through the Helm chart's values or the engine's environment. See [Install in a cluster](/docs/install/#in-a-cluster).
+One engine serves everyone in a cluster, or with OIDC sign-in, so the settings on this page that apply to every user are read-only: the Prometheus URLs and the pinned Prometheus Service, kubeconfig sources, the node shell image and the debug image. A banner at the top of the page says why. The **Default Prometheus URL**, **Node shell image** and **Debug image** fields, their **Save** buttons and **Change** next to an auto-detected Prometheus are turned off. The page shows the values the operator set, through the Helm chart's values or the engine's environment. See [Install in a cluster](/docs/install/#in-a-cluster).
 
 ## Kubeconfig sources
 
@@ -50,7 +50,7 @@ Kubebay records hourly usage per namespace for the clusters you connect to, only
 
 Each cluster you've connected to is listed as **recording** or **stopped**. **Stop** and **Resume** control recording. **Clear** deletes a cluster's history.
 
-Usage history isn't recorded when the engine runs in a cluster.
+Usage history isn't recorded when the engine runs in a cluster, or when OIDC sign-in is configured: the history is collected with the engine's own access, not each user's, so one person would see usage from namespaces their RBAC hides. Connecting doesn't turn it on there, and nobody can turn it on or erase it.
 
 ## Warm clusters
 

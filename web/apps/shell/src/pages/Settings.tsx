@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Button, Card, CellLink, ChoiceCard, PageHeader, SegmentedControl, Stack, TextField } from "@kubebay/ui";
+import { Button, Card, CellLink, ChoiceCard, InlineBanner, PageHeader, SegmentedControl, Stack, TextField } from "@kubebay/ui";
 import { PageHelp } from "../components/PageHelp";
 import { settingsApi, promApi } from "../lib/api";
 import ConfigurePrometheusModal from "../components/ConfigurePrometheusModal";
@@ -40,7 +40,7 @@ const THEMES: { id: ThemeName; label: string; hint: string; swatch: [string, str
  * from its details on the Clusters page, since a port-forward usually reaches
  * one cluster's Prometheus.
  */
-function PrometheusSettings({ initial, initialPerCluster, cluster }: { initial?: string; initialPerCluster?: Record<string, string>; cluster?: string }) {
+function PrometheusSettings({ initial, initialPerCluster, cluster, locked }: { initial?: string; initialPerCluster?: Record<string, string>; cluster?: string; locked: boolean }) {
   const status = useQuery({
     queryKey: ["prom-status", cluster],
     queryFn: async () => await promApi.status(cluster ?? ""),
@@ -79,7 +79,7 @@ function PrometheusSettings({ initial, initialPerCluster, cluster }: { initial?:
       {cluster && status.data?.source === "auto" && (
         <p className="small">
           Auto-detected for {cluster}: <span className="mono">{status.data.target}</span>{" "}
-          <Button variant="ghost" aria-label={`Change Prometheus for ${cluster}`} onClick={() => setChanging(true)}>
+          <Button variant="ghost" aria-label={`Change Prometheus for ${cluster}`} disabled={locked} onClick={() => setChanging(true)}>
             Change
           </Button>
         </p>
@@ -106,11 +106,12 @@ function PrometheusSettings({ initial, initialPerCluster, cluster }: { initial?:
           aria-label="Default Prometheus URL"
           placeholder="http://localhost:9090"
           value={url}
+          disabled={locked}
           onChange={(e) => setUrl(e.target.value)}
           spellCheck={false}
           style={{ gridColumn: "span 4" }}
         />
-        <Button aria-label="Save default Prometheus URL" onClick={() => void save()}>Save</Button>
+        <Button aria-label="Save default Prometheus URL" disabled={locked} onClick={() => void save()}>Save</Button>
       </div>
       {overrides.length > 0 && (
         <ul className="small muted" style={{ margin: "8px 0 0", paddingLeft: 18 }}>
@@ -151,7 +152,7 @@ function KubeconfigPointer() {
   );
 }
 
-function NodeShellSettings({ initial, fallback }: { initial?: string; fallback: string }) {
+function NodeShellSettings({ initial, fallback, locked }: { initial?: string; fallback: string; locked: boolean }) {
   const [image, setImage] = useState(initial ?? "");
   const [saved, setSaved] = useState<string | null>(null);
   const [err, setErr] = useState("");
@@ -189,13 +190,15 @@ function NodeShellSettings({ initial, fallback }: { initial?: string; fallback: 
       </p>
       <div className="pf-form">
         <TextField
+          aria-label="Node shell image"
           placeholder={fallback}
           value={image}
+          disabled={locked}
           onChange={(e) => setImage(e.target.value)}
           spellCheck={false}
           style={{ gridColumn: "span 4" }}
         />
-        <Button onClick={() => void save()}>Save</Button>
+        <Button aria-label="Save node shell image" disabled={locked} onClick={() => void save()}>Save</Button>
       </div>
       {(saved != null || err) && (
         <p className={`small ${err ? "error-text" : "muted"}`} style={{ marginBottom: 0 }}>
@@ -206,7 +209,7 @@ function NodeShellSettings({ initial, fallback }: { initial?: string; fallback: 
   );
 }
 
-function DebugImageSettings({ initial, fallback }: { initial?: string; fallback: string }) {
+function DebugImageSettings({ initial, fallback, locked }: { initial?: string; fallback: string; locked: boolean }) {
   const [image, setImage] = useState(initial ?? "");
   const [saved, setSaved] = useState<string | null>(null);
   const [err, setErr] = useState("");
@@ -247,11 +250,12 @@ function DebugImageSettings({ initial, fallback }: { initial?: string; fallback:
           aria-label="Debug image"
           placeholder={fallback}
           value={image}
+          disabled={locked}
           onChange={(e) => setImage(e.target.value)}
           spellCheck={false}
           style={{ gridColumn: "span 4" }}
         />
-        <Button onClick={() => void save()}>Save debug image</Button>
+        <Button disabled={locked} onClick={() => void save()}>Save debug image</Button>
       </div>
       {(saved != null || err) && (
         <p className={`small ${err ? "error-text" : "muted"}`} style={{ marginBottom: 0 }}>
@@ -285,6 +289,9 @@ export default function Settings() {
   const { theme, setTheme } = useTheme();
   const { fontSize, fontFamily, density, setFontSize, setFontFamily, setDensity } = useDisplay();
   const settings = useQuery({ queryKey: ["settings"], queryFn: settingsApi.get });
+  // A shared engine (in a cluster or with OIDC): one user's settings would
+  // apply to everyone, so the operator sets them and the engine refuses saves.
+  const sharedLocked = settings.data?.sharedLocked ?? "";
   const { cluster } = useCluster();
   const location = useLocation();
 
@@ -303,6 +310,11 @@ export default function Settings() {
   return (
     <div className="page" style={{ overflowY: "auto" }}>
       <PageHeader help={<PageHelp route="/settings" />} title="Settings" />
+      {sharedLocked && (
+        <InlineBanner tone="warn" style={{ marginBottom: 12 }}>
+          {sharedLocked}
+        </InlineBanner>
+      )}
 
       <div className="settings-section-wrap">
         <div className="settings-section-title">Theme</div>
@@ -371,18 +383,21 @@ export default function Settings() {
           initial={settings.data.prometheusUrl}
           initialPerCluster={settings.data.prometheusUrls}
           cluster={cluster}
+          locked={!!sharedLocked}
         />
       )}
       {settings.isSuccess && (
         <NodeShellSettings
           initial={settings.data.nodeShellImage}
           fallback={settings.data.nodeShellImageDefault ?? ""}
+          locked={!!sharedLocked}
         />
       )}
       {settings.isSuccess && (
         <DebugImageSettings
           initial={settings.data.debugImage}
           fallback={settings.data.debugImageDefault ?? ""}
+          locked={!!sharedLocked}
         />
       )}
       {settings.isSuccess && <UsageHistoryCard clusters={settings.data.historyClusters ?? {}} />}

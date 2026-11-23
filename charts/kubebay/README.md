@@ -44,7 +44,8 @@ To enforce it, give Kyverno or Sigstore policy-controller the same identity, for
   user: `nodeShellImage` (the privileged node-shell pod), `debugImage`, and `prometheus.url`. With
   OIDC, users can query `prometheus.url` only once you set `prometheus.allUsers: true`, since it
   answers for every namespace whatever their RBAC; until then their queries go through the API
-  server's service proxy as them.
+  server's service proxy as them. Users can't add, repoint or remove Helm repositories either,
+  since every user's installs use the same list: set them in `helmRepos` (each a `name` and `url`).
 - The in-cluster deployment already turns off the local shell, MCP, AI triage, extensions, cloud
   discovery and the cloud audit feed.
 

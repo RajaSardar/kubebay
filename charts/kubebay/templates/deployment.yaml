@@ -46,6 +46,10 @@ spec:
             - name: KUBEBAY_PROMETHEUS_URL
               value: {{ . | quote }}
             {{- end }}
+            {{- with .Values.helmRepos }}
+            - name: KUBEBAY_HELM_REPOS
+              value: {{ $repos := list }}{{ range . }}{{ $repos = append $repos (printf "%s=%s" .name .url) }}{{ end }}{{ join "," $repos | quote }}
+            {{- end }}
             {{- if .Values.prometheus.allUsers }}
             - name: KUBEBAY_PROMETHEUS_ALL_USERS
               value: "true"

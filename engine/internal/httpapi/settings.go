@@ -107,6 +107,10 @@ type SettingsManager struct {
 	// SharedLocked, when set, is why the settings API is read-only here
 	// (see SharedSettingsBlockReason). Fixed at startup by main.
 	SharedLocked string
+	// HelmReposLocked, when set, is why the Helm repository list is
+	// read-only (SharedHelmReposBlockReason); GET /api/settings reports it
+	// so the Helm store can say so. Fixed at startup by main.
+	HelmReposLocked string
 	// Operator holds the flag/env settings a shared engine uses instead.
 	Operator OperatorSettings
 
@@ -226,6 +230,7 @@ func (s *SettingsManager) HandleGet(w http.ResponseWriter, r *http.Request) {
 			"historyClusters":       set.HistoryClusters,
 			"localShell":            s.LocalShell,
 			"sharedLocked":          s.SharedLocked,
+			"helmReposLocked":       s.HelmReposLocked,
 		})
 		return
 	}

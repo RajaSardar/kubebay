@@ -204,3 +204,20 @@ func TestOperatorSetsTheSharedSettingsThroughValues(t *testing.T) {
 		}
 	}
 }
+
+// The Helm repository list is read-only in the app on a shared engine, so the
+// operator lists the repositories every user installs from here.
+func TestOperatorSetsTheHelmRepositoriesThroughValues(t *testing.T) {
+	if _, ok := engineEnv(t)["KUBEBAY_HELM_REPOS"]; ok {
+		t.Error("KUBEBAY_HELM_REPOS is set with no repositories given")
+	}
+	env := engineEnv(t,
+		"helmRepos[0].name=bitnami",
+		"helmRepos[0].url=https://charts.example.com/bitnami",
+		"helmRepos[1].name=corp",
+		"helmRepos[1].url=https://charts.corp.example/stable",
+	)
+	if got, want := env["KUBEBAY_HELM_REPOS"], "bitnami=https://charts.example.com/bitnami,corp=https://charts.corp.example/stable"; got != want {
+		t.Errorf("KUBEBAY_HELM_REPOS = %q, want %q", got, want)
+	}
+}

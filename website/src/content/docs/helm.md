@@ -89,6 +89,8 @@ When a chart is already installed, opening it starts the form from that release,
 
 **Remove repository** (click again to confirm) removes the selected repository from your Helm config and deletes its cached index. Releases already installed from it are not touched. Both actions are recorded in the [Audit Log](/docs/audit-log/).
 
+When Kubebay runs in a cluster, or with OIDC sign-in, every user installs from the same repository list, so the store has no **Add repository** or **Remove repository**, and a banner says why. The engine also refuses to point an existing repository name at another URL or change its credentials. **Update indexes** and **Refresh** still work. The operator lists the repositories in the Helm chart's `helmRepos` value (each a `name` and `url`) or the engine's `--helm-repos name=url,name=url` flag (`KUBEBAY_HELM_REPOS`). The engine writes them into its Helm config at startup, replacing any entry with the same name, and fetches their indexes. A repository that needs a password goes in a `repositories.yaml` the operator mounts and names with `HELM_REPOSITORY_CONFIG`. One-click installs that add their own repository work only when the operator has listed that repository with the same URL.
+
 ### Icons
 
 Cards show a letter tile made from the chart's name, not the chart's icon. A chart's `icon` is a URL on another host, and loading it would make your browser contact that host for every card, which Kubebay's content security policy forbids and an air-gapped setup could not do.

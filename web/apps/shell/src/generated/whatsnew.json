@@ -74,6 +74,10 @@
           "heading": "Security",
           "items": [
             {
+              "title": "On a shared engine one user can't change another user's Helm repositories, and usage history stays off with OIDC",
+              "summary": "(internal security review, follow-up)."
+            },
+            {
               "title": "A shared engine no longer goes past each user's RBAC",
               "summary": "(internal security review)."
             }
