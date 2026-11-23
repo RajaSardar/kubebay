@@ -8,6 +8,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ### Changed
 - **Shorter table rows.** Rows are 28px at Compact, 32px at Default and 40px at Relaxed (they were 35, 43 and 51px), so a 900px table shows 28 rows at Default instead of 20. The text now sets the height: each cell has a 20px line box plus 4, 6 or 10px of padding above and below. The row's ⋮ menu button stays 26px and sits in a cell with no padding, which it previously got by mistake. Status pills and badges in a cell fit inside the line box.
+- **One table header style.** Every column header is now 13px sentence case in the muted text colour at weight 500, as sortable headers already were. The 12px uppercase headers on columns that don't sort are gone. The header row has a solid background and no longer blurs the rows that scroll under it.
 
 ## [0.8.1] - 2026-11-24
 

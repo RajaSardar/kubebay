@@ -501,17 +501,14 @@ button.nav-item {
   z-index: 1;
   background: color-mix(in srgb, var(--kb-bg-surface) 90%, var(--kb-bg-inset));
   text-align: left;
-  font-size: var(--kb-text-xs);
+  font-size: var(--kb-text-sm);
   font-weight: 500;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  color: var(--kb-fg-subtle);
+  letter-spacing: 0.01em;
+  color: var(--kb-fg-muted);
   padding: var(--kb-space-2) var(--kb-gutter);
   border-bottom: 1px solid var(--kb-border-subtle);
   white-space: nowrap;
   overflow: hidden;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
   user-select: none;
 }
 
@@ -1471,16 +1468,6 @@ button.nav-item {
 .kb-table tbody tr.hovered .row-menu-btn,
 .row-menu-btn:focus-visible {
   opacity: 1;
-}
-
-/* ──── Column header: slightly softer treatment (match FreeLens weight) ──── */
-/* Override the all-caps + heavy weight to mixed-case + medium for readability */
-.kb-table th.th-sortable {
-  text-transform: none;
-  font-weight: 500;
-  letter-spacing: 0.01em;
-  font-size: var(--kb-text-sm);
-  color: var(--kb-fg-muted);
 }
 
 /* Sort indicator styling */
