@@ -28,6 +28,15 @@
               "summary": "Page headers and toolbars are both 40px (toolbars were 38px), tab strips are 36px (the page tab strip was about 50px), and the status bar is 24px (it was about 29px)."
             }
           ]
+        },
+        {
+          "heading": "Fixed",
+          "items": [
+            {
+              "title": "DaemonSets no longer all count as issues on the Workloads Overview",
+              "summary": "Their card counted every DaemonSet as unhealthy because it looked for Deployment fields; it now compares ready pods with the number the DaemonSet should run (numberReady against desiredNumberScheduled)."
+            }
+          ]
         }
       ]
     },

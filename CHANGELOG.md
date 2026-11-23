@@ -13,6 +13,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 - **No text under 11px.** At font size S the two smallest steps of the type scale are now 11px (they were 10 and 11px); the scale is 11, 11, 12, 13, 15, 18 and 28px. Monospace cells in tables (names, IPs, ages) are never under 12px: at S with Compact density they now use 12px instead of 11px.
 - **Fixed band heights.** Page headers and toolbars are both 40px (toolbars were 38px), tab strips are 36px (the page tab strip was about 50px), and the status bar is 24px (it was about 29px). The heights, the table row line box, and the widths of the cluster rail (56px) and sidebar (210px) are now tokens in `tokens.css`, so the sidebar width is no longer repeated as a literal in the layout.
 
+### Fixed
+- **DaemonSets no longer all count as issues on the Workloads Overview.** Their card counted every DaemonSet as unhealthy because it looked for Deployment fields; it now compares ready pods with the number the DaemonSet should run (`numberReady` against `desiredNumberScheduled`).
+
 ## [0.8.1] - 2026-11-24
 
 ### Added

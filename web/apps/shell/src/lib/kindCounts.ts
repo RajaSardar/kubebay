@@ -33,6 +33,20 @@ function workloadHealth(rows: Record<string, unknown>[]): { ok: number; bad: num
   return { ok, bad };
 }
 
+/** DaemonSets have no spec.replicas or readyReplicas: they report numberReady out of desiredNumberScheduled. */
+function daemonSetHealth(rows: Record<string, unknown>[]): { ok: number; bad: number } {
+  let ok = 0;
+  let bad = 0;
+  for (const raw of rows) {
+    const status = rec(raw.status);
+    const desired = Number((status.desiredNumberScheduled as number) ?? 0);
+    const ready = Number((status.numberReady as number) ?? 0);
+    if (ready >= desired) ok++;
+    else bad++;
+  }
+  return { ok, bad };
+}
+
 /**
  * Extracted out of WorkloadsOverview.tsx's useKindCounts (backlog #15) so
  * the per-kind health math is a pure, cluster-parameterized function the
@@ -55,7 +69,7 @@ export function computeKindCounts(input: KindCountsInput): KindSummary[] {
   out.push({ label: "Deployments", to: "/r/deployments", total: input.deployments.length, healthy: depH.ok, unhealthy: depH.bad });
   const stsH = workloadHealth(input.statefulsets);
   out.push({ label: "StatefulSets", to: "/r/statefulsets", total: input.statefulsets.length, healthy: stsH.ok, unhealthy: stsH.bad });
-  const dsH = workloadHealth(input.daemonsets);
+  const dsH = daemonSetHealth(input.daemonsets);
   out.push({ label: "DaemonSets", to: "/r/daemonsets", total: input.daemonsets.length, healthy: dsH.ok, unhealthy: dsH.bad });
 
   let jobOk = 0;

@@ -22,6 +22,13 @@ function node(ready: boolean) {
 }
 
 describe("computeKindCounts", () => {
+  it("judges DaemonSets by numberReady against desiredNumberScheduled, which is what they report", () => {
+    const ds = (desired: number, ready: number) => ({ spec: {}, status: { desiredNumberScheduled: desired, numberReady: ready } });
+    const input = { ...empty(), daemonsets: [ds(3, 3), ds(1, 1), ds(3, 2), ds(0, 0)] };
+    const daemonsets = computeKindCounts(input).find((k) => k.label === "DaemonSets")!;
+    expect(daemonsets).toMatchObject({ total: 4, healthy: 3, unhealthy: 1 });
+  });
+
   it("counts Running and Succeeded pods as healthy, everything else as unhealthy", () => {
     const input = { ...empty(), pods: [pod("Running"), pod("Succeeded"), pod("Pending"), pod("Failed"), pod("CrashLoopBackOff")] };
     const pods = computeKindCounts(input).find((k) => k.label === "Pods")!;
