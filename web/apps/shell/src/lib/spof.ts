@@ -1,4 +1,5 @@
 import { matchesSelector, type LabelSelector } from "./labelSelector";
+import { LabelIndex, groupByLabel, groupByNamespace } from "./labelIndex";
 
 function rec(v: unknown): Record<string, unknown> {
   return (v ?? {}) as Record<string, unknown>;
@@ -54,6 +55,7 @@ function replicasOf(workload: Record<string, unknown>): number {
  */
 export function findSingleReplicaNoPdb(workloads: WorkloadEntry[], pdbs: Record<string, unknown>[]): SpofFinding[] {
   const out: SpofFinding[] = [];
+  const pdbsByNs = groupByNamespace(pdbs);
   for (const { kind, obj } of workloads) {
     if (!SPOF_WORKLOAD_KINDS.has(kind)) continue;
     if (replicasOf(obj) > 1) continue;
@@ -61,9 +63,7 @@ export function findSingleReplicaNoPdb(workloads: WorkloadEntry[], pdbs: Record<
     const ns = str(meta.namespace);
     const name = str(meta.name);
     const labels = podTemplateLabels(obj);
-    const covered = pdbs.some((pdb) => {
-      const pdbMeta = rec(pdb.metadata);
-      if (str(pdbMeta.namespace) !== ns) return false;
+    const covered = (pdbsByNs.get(ns) ?? []).some((pdb) => {
       const selector = rec(rec(pdb.spec).selector) as LabelSelector;
       return matchesSelector(labels, selector);
     });
@@ -98,6 +98,7 @@ function hasSpreadOrAntiAffinity(workload: Record<string, unknown>): boolean {
  */
 export function findClusteredReplicas(workloads: WorkloadEntry[], pods: Record<string, unknown>[]): SpofFinding[] {
   const out: SpofFinding[] = [];
+  const podIndex = new LabelIndex(pods);
   for (const { kind, obj } of workloads) {
     if (!SPOF_WORKLOAD_KINDS.has(kind)) continue;
     if (replicasOf(obj) <= 1) continue;
@@ -105,14 +106,7 @@ export function findClusteredReplicas(workloads: WorkloadEntry[], pods: Record<s
     const meta = rec(obj.metadata);
     const ns = str(meta.namespace);
     const name = str(meta.name);
-    const labels = podTemplateLabels(obj);
-    const labelEntries = Object.entries(labels);
-    const ownPods = pods.filter((p) => {
-      const pm = rec(p.metadata);
-      if (str(pm.namespace) !== ns) return false;
-      const plabels = rec(pm.labels);
-      return labelEntries.every(([k, v]) => plabels[k] === v);
-    });
+    const ownPods = podIndex.select(ns, podTemplateLabels(obj));
     if (ownPods.length < 2) continue;
     const nodes = new Set(ownPods.map((p) => str(rec(p.spec).nodeName)).filter(Boolean));
     if (nodes.size <= 1) {
@@ -135,16 +129,12 @@ export function findClusteredReplicas(workloads: WorkloadEntry[], pods: Record<s
  */
 export function findSingleReadyBackend(services: Record<string, unknown>[], endpointSlices: Record<string, unknown>[]): SpofFinding[] {
   const out: SpofFinding[] = [];
+  const slicesByService = groupByLabel(endpointSlices, "kubernetes.io/service-name");
   for (const svc of services) {
     const meta = rec(svc.metadata);
     const ns = str(meta.namespace);
     const name = str(meta.name);
-    const slices = endpointSlices.filter((es) => {
-      const esMeta = rec(es.metadata);
-      if (str(esMeta.namespace) !== ns) return false;
-      const labels = rec(esMeta.labels);
-      return str(labels["kubernetes.io/service-name"]) === name;
-    });
+    const slices = slicesByService.get(`${ns}/${name}`) ?? [];
     if (slices.length === 0) continue;
 
     let readyCount = 0;

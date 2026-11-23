@@ -255,9 +255,10 @@ export function findAttention(input: AttentionInput): AttentionRow[] {
   }
 
   // A Deployment short of copies with no pod to blame (a quota, a deleted pod).
+  const seen = new Set(rows.map((r) => r.key));
   for (const d of input.deployments) {
     const key = `Deployment/${nsName(d)}`;
-    if (rows.some((r) => r.key === key)) continue;
+    if (seen.has(key)) continue;
     const cond = arr(rec(d.status).conditions).find((c) => c.type === "Available" && c.status === "False");
     const { ready, desired } = readyOf("Deployment", d);
     if (!cond || ready >= desired) continue;

@@ -1,4 +1,4 @@
-import { matchesSelector, type LabelSelector } from "./labelSelector";
+import { LabelIndex, groupByLabel } from "./labelIndex";
 
 function rec(v: unknown): Record<string, unknown> {
   return v && typeof v === "object" ? (v as Record<string, unknown>) : {};
@@ -37,6 +37,8 @@ export function findServiceSelectorMismatches(
   endpointSlices: Record<string, unknown>[],
 ): ServiceMismatchFinding[] {
   const out: ServiceMismatchFinding[] = [];
+  const podIndex = new LabelIndex(pods);
+  const slicesByService = groupByLabel(endpointSlices, "kubernetes.io/service-name");
 
   for (const svc of services) {
     const meta = rec(svc.metadata);
@@ -48,23 +50,14 @@ export function findServiceSelectorMismatches(
     const selectorMap = rec(spec.selector) as Record<string, string>;
     if (Object.keys(selectorMap).length === 0) continue;
 
-    const selector: LabelSelector = { matchLabels: selectorMap };
-    const matchingPods = pods.filter((p) => {
-      const pm = rec(p.metadata);
-      if (str(pm.namespace) !== namespace) return false;
-      return matchesSelector(rec(pm.labels) as Record<string, string>, selector);
-    });
+    const matchingPods = podIndex.select(namespace, selectorMap);
 
     if (matchingPods.length === 0) {
       out.push({ namespace, serviceName, reason: "no-matching-pods" });
       continue;
     }
 
-    const slices = endpointSlices.filter((es) => {
-      const esMeta = rec(es.metadata);
-      if (str(esMeta.namespace) !== namespace) return false;
-      return str(rec(esMeta.labels)["kubernetes.io/service-name"]) === serviceName;
-    });
+    const slices = slicesByService.get(`${namespace}/${serviceName}`) ?? [];
     if (slices.length === 0) continue; // no EndpointSlice data available -- can't assess readiness
 
     let readyCount = 0;
