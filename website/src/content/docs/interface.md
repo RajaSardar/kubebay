@@ -110,6 +110,8 @@ Tick rows to select them, then delete them together. The whole cell around a che
 | <kbd>x</kbd> | select the row |
 | <kbd>/</kbd> | jump to the filter |
 
+The row the keys are on, and every selected row, has a bar in the accent colour at its left edge. A row under the mouse pointer is only shaded, so the bar never marks a row you're just pointing at.
+
 Keys are ignored while you're typing in a field, or while a drawer or dialog is open.
 
 ## Favourites

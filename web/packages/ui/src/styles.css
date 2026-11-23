@@ -608,6 +608,13 @@ button.nav-item {
   transition: background var(--kb-dur-fast) var(--kb-ease);
 }
 
+/* The keyboard cursor row (TableRow hovered): shaded like a hovered row, with the accent bar.
+   Before .selected, so a selected row under the cursor keeps its tint. */
+.kb-table tbody tr.hovered {
+  background: var(--kb-bg-raised);
+  box-shadow: inset 3px 0 0 var(--kb-accent);
+}
+
 .kb-table tbody tr.selected {
   background: var(--kb-accent-subtle);
   box-shadow: inset 3px 0 0 var(--kb-accent);
@@ -619,9 +626,10 @@ button.nav-item {
   background: var(--kb-bg-surface);
 }
 
+/* Hover is a shade only. The accent bar marks the selected row and the keyboard cursor row, so a
+   resting pointer never looks like a selection. */
 .kb-table tbody tr:hover {
   background: var(--kb-bg-raised);
-  box-shadow: inset 3px 0 0 var(--kb-accent);
 }
 
 .kb-table tbody tr[data-terminating] {
@@ -683,7 +691,9 @@ button.nav-item {
 }
 
 .kb-table-pin-lead tbody tr:hover > td.col-select,
-.kb-table-pin-lead tbody tr:hover > td.td-name {
+.kb-table-pin-lead tbody tr:hover > td.td-name,
+.kb-table-pin-lead tbody tr.hovered > td.col-select,
+.kb-table-pin-lead tbody tr.hovered > td.td-name {
   background-color: var(--kb-bg-raised);
 }
 
@@ -693,7 +703,7 @@ button.nav-item {
 }
 
 .kb-table-pin-lead tbody tr.selected > td.col-select,
-.kb-table-pin-lead tbody tr:hover > td.col-select {
+.kb-table-pin-lead tbody tr.hovered > td.col-select {
   box-shadow: inset 3px 0 0 var(--kb-accent);
 }
 
