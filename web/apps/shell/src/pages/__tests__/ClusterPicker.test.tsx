@@ -17,7 +17,7 @@ vi.mock("react-router-dom", async () => {
 
 vi.mock("../../lib/api", async (orig) => {
   const actual = await orig<typeof import("../../lib/api")>();
-  return { ...actual, api: { ...actual.api, clusters: vi.fn(), disconnectCluster: vi.fn() }, historyApi: { ...actual.historyApi, enroll: vi.fn(() => Promise.resolve()), summary: vi.fn() } };
+  return { ...actual, api: { ...actual.api, clusters: vi.fn(), disconnectCluster: vi.fn(), fleetSummary: vi.fn() }, historyApi: { ...actual.historyApi, enroll: vi.fn(() => Promise.resolve()), summary: vi.fn() } };
 });
 
 vi.mock("../../lib/clusterChannel", () => ({ announceDisconnect: vi.fn(), onRemoteDisconnect: vi.fn(() => () => {}) }));
@@ -71,6 +71,8 @@ beforeEach(() => {
   for (const k of Object.keys(summaries)) delete summaries[k];
   useClusterStore.setState({ active: "" });
   useClusterMeta.setState({ meta: {} });
+  localStorage.removeItem("kubebay.fleetSummary");
+  vi.mocked(api.fleetSummary).mockReset().mockResolvedValue({ summaries: [] });
 });
 
 describe("ClusterPicker", () => {
@@ -330,5 +332,40 @@ describe("ClusterPicker: updates (KB-04)", () => {
     renderPage([dev, stage, down, broken]);
     await screen.findByText("kind-dev", { selector: "[data-cluster-name]" });
     expect(document.querySelectorAll("[data-cluster-name]").length).toBe(4);
+  });
+
+  describe("fleet summary", () => {
+    it("is on demand: nothing is summarised until asked", async () => {
+      renderPage();
+      await screen.findByText("stage", { selector: "[data-cluster-name]" });
+      expect(api.fleetSummary).not.toHaveBeenCalled();
+    });
+
+    it("summarises the shown clusters that are not connected, without connecting them", async () => {
+      vi.mocked(api.fleetSummary).mockResolvedValue({
+        summaries: [
+          { id: "stage", status: "reachable", version: "v1.30.2", nodes: 3, readyNodes: 2 },
+          { id: "lab", status: "unreachable", error: "dial tcp: i/o timeout" },
+          { id: "new", status: "reachable", version: "v1.29.4", nodes: 1, readyNodes: 1 },
+        ],
+      });
+      renderPage([dev, stage, down, broken, fresh]);
+      fireEvent.click(await screen.findByRole("button", { name: "Show fleet summary" }));
+      await waitFor(() => expect(api.fleetSummary).toHaveBeenCalledWith(["lab", "new", "stage"]));
+      expect(await within(rowOf("stage")).findByText("2/3")).toBeInTheDocument();
+      expect(within(rowOf("new")).getByText("1/1")).toBeInTheDocument();
+      expect(within(rowOf("new")).getByText("v1.29.4")).toBeInTheDocument();
+      expect(screen.getByText(/Summary · 1 node not ready in 1 cluster · 1 unreachable/)).toBeInTheDocument();
+      expect(conns.connectCluster).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByRole("button", { name: "Hide fleet summary" }));
+      expect(within(rowOf("stage")).queryByText("2/3")).toBeNull();
+    });
+
+    it("remembers that it is on", async () => {
+      localStorage.setItem("kubebay.fleetSummary", "1");
+      renderPage();
+      expect(await screen.findByRole("button", { name: "Hide fleet summary" })).toBeInTheDocument();
+      await waitFor(() => expect(api.fleetSummary).toHaveBeenCalled());
+    });
   });
 });

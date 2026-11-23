@@ -18,6 +18,7 @@ import (
 
 	"github.com/RajaSardar/kubebay/engine/internal/audit"
 	"github.com/RajaSardar/kubebay/engine/internal/clusters"
+	"github.com/RajaSardar/kubebay/engine/internal/fleet"
 	"github.com/RajaSardar/kubebay/engine/internal/informers"
 	"github.com/RajaSardar/kubebay/engine/internal/stream"
 )
@@ -50,6 +51,8 @@ type Deps struct {
 	Search *SearchAPI
 	// Extensions serves ~/.kubebay/extensions.yaml (KB-13); nil = off.
 	Extensions *ExtensionsAPI
+	// Fleet is the cached cluster summary tier; nil gets the defaults.
+	Fleet *fleet.Summarizer
 }
 
 func (d Deps) authEnabled() bool { return d.Auth != nil && d.Auth.Enabled() }
@@ -129,6 +132,11 @@ func Router(d Deps, token string) http.Handler {
 			writeJSON(w, d.Clusters.List())
 		})
 		r.Put("/api/clusters/protected", protectClustersHandler(d.Clusters, d.authEnabled()))
+		fleetSum := d.Fleet
+		if fleetSum == nil {
+			fleetSum = fleet.New(fleet.Options{})
+		}
+		r.Post("/api/clusters/summary", fleetSummaryHandler(d.Clusters, fleetSum))
 		r.Post("/api/clusters/{id}/connect", connectClusterHandler(d.Clusters))
 		r.Post("/api/clusters/{id}/disconnect", disconnectClusterHandler(d.Clusters, d.authEnabled()))
 		r.Get("/ws", func(w http.ResponseWriter, req *http.Request) {
