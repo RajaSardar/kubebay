@@ -516,11 +516,24 @@ button.nav-item {
 }
 
 /* No line between rows: the hover tint and the selected tint tell them apart, and the header keeps
-   its underline. */
+   its underline. The text sets the row: a fixed 20px line box plus the density's padding
+   (4 / 6 / 10px) gives 28 / 32 / 40px rows, ROW_HEIGHT in the shell's display.ts. */
 .kb-table td {
-  padding: var(--kb-row-padding, var(--kb-space-2) var(--kb-gutter));
+  padding: var(--kb-row-padding, 6px var(--kb-gutter));
+  line-height: 20px;
   white-space: nowrap;
   overflow: hidden;
+}
+
+/* The row-menu cell has no padding, so its 26px button fits inside the row instead of setting
+   its height. Two classes, so it wins over .kb-table td. */
+.kb-table td.col-row-menu {
+  padding: 0;
+}
+
+/* A badge in a cell keeps inside the 20px line box. */
+.kb-table td .kb-badge {
+  padding-block: 2px;
 }
 
 /* Text overflow only on data cells — never on the checkbox or menu columns,
@@ -1283,6 +1296,7 @@ button.nav-item {
   padding: 1px 8px;
   border-radius: var(--kb-radius-pill);
   font-size: var(--kb-text-xs);
+  line-height: 16px;
   font-weight: 500;
   background: var(--kb-status-ok-subtle);
   color: var(--kb-status-ok-fg);
@@ -1297,6 +1311,7 @@ button.nav-item {
   padding: 1px 8px;
   border-radius: var(--kb-radius-pill);
   font-size: var(--kb-text-xs);
+  line-height: 16px;
   font-weight: 500;
   background: var(--kb-status-err-subtle);
   color: var(--kb-status-err-fg);
@@ -1311,6 +1326,7 @@ button.nav-item {
   padding: 1px 8px;
   border-radius: var(--kb-radius-pill);
   font-size: var(--kb-text-xs);
+  line-height: 16px;
   font-weight: 500;
   background: var(--kb-status-warn-subtle);
   color: var(--kb-status-warn-fg);
@@ -1325,6 +1341,7 @@ button.nav-item {
   padding: 1px 8px;
   border-radius: var(--kb-radius-pill);
   font-size: var(--kb-text-xs);
+  line-height: 16px;
   font-weight: 500;
   background: var(--kb-status-pending-subtle);
   color: var(--kb-status-pending-fg);
@@ -1339,6 +1356,7 @@ button.nav-item {
   padding: 1px 8px;
   border-radius: var(--kb-radius-pill);
   font-size: var(--kb-text-xs);
+  line-height: 16px;
   font-weight: 500;
   background: var(--kb-status-done-subtle);
   color: var(--kb-status-done-fg);
@@ -1353,6 +1371,7 @@ button.nav-item {
   padding: 1px 8px;
   border-radius: var(--kb-radius-pill);
   font-size: var(--kb-text-xs);
+  line-height: 16px;
   font-weight: 500;
   background: color-mix(in srgb, var(--kb-status-terminated) 10%, transparent);
   color: var(--kb-status-terminated);
@@ -1369,6 +1388,7 @@ button.nav-item {
   padding: 1px 8px;
   border-radius: var(--kb-radius-pill);
   font-size: var(--kb-text-xs);
+  line-height: 16px;
   font-weight: 500;
   background: color-mix(in srgb, var(--kb-status-terminated) 10%, transparent);
   color: var(--kb-status-terminated);

@@ -18,7 +18,7 @@ appRoutes: ["/settings"]
   **Reset to system** goes back to following your OS. Every theme meets WCAG contrast for text: 4.5:1, and 7:1 in the high-contrast themes.
 - **Font size**: S (13px), M (14px), L (15px) or XL (16px).
 - **Font family**: Roboto (the default), JetBrains Mono or System Mono.
-- **Table density**: Compact, Default or Relaxed.
+- **Table density**: Compact (28px rows), Default (32px) or Relaxed (40px). Compact also sets table text a step smaller, and Relaxed a step larger.
 
 ## Prometheus
 

@@ -23,19 +23,20 @@ const FONT_FAMILY_VALUES: Record<FontFamily, string> = {
 
 const ROW_PADDING_VALUES: Record<Density, string> = {
   compact: "4px 16px",
-  default: "8px 16px",
-  relaxed: "12px 16px",
+  default: "6px 16px",
+  relaxed: "10px 16px",
 };
 
 // Row height (px) per density, for virtualised tables; in step with ROW_PADDING_VALUES.
-// The 26px row-menu button (.kb-icon-btn), not the text line, sets the height:
-// compact: 4+4px pad + 26px button + 1px border = 35px
-// default: 8+8px pad + 26px button + 1px border = 43px
-// relaxed: 12+12px pad + 26px button + 1px border = 51px
+// The text sets the height: a 20px line box (.kb-table td) plus the vertical padding.
+// The row-menu cell has no padding, so its 26px button fits inside every row.
+// compact: 4+4px pad + 20px line = 28px
+// default: 6+6px pad + 20px line = 32px
+// relaxed: 10+10px pad + 20px line = 40px
 export const ROW_HEIGHT: Record<Density, number> = {
-  compact: 35,
-  default: 43,
-  relaxed: 51,
+  compact: 28,
+  default: 32,
+  relaxed: 40,
 };
 
 // Table text follows the font size: a step below body when compact, a step above when relaxed.
