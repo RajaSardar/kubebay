@@ -426,6 +426,21 @@ spec:
 `,
   },
   {
+    kind: "PodDisruptionBudget",
+    apiVersion: "policy/v1",
+    yaml: `apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: my-app-pdb
+  namespace: default
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: my-app
+`,
+  },
+  {
     kind: "NetworkPolicy",
     apiVersion: "networking.k8s.io/v1",
     yaml: `apiVersion: networking.k8s.io/v1

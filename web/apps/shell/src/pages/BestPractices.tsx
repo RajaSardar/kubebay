@@ -12,6 +12,7 @@ import {
   SEVERITIES,
   computeBestPractices,
   filterChecks,
+  frameworkScores,
   sortChecks,
   summarize,
   workloadCoverage,
@@ -22,6 +23,8 @@ import {
   type SortKey,
 } from "../lib/bestPractices";
 import { applyExceptions, loadExceptions, saveExceptions, type BpException } from "../lib/bestPracticesExceptions";
+import { fixFor, type BpFix } from "../lib/bestPracticesFixes";
+import { useTerminalDock } from "../lib/terminalDock";
 
 const GROUP_ORDER: CheckGroup[] = ["Reliability", "Security", "Disaster recovery", "Platform"];
 const STATUS_TONE: Record<CheckStatus, BadgeTone | undefined> = { pass: "ok", fail: "warn", unknown: undefined, ignored: undefined };
@@ -65,7 +68,12 @@ function IgnoreForm({ label, onSave, onCancel }: { label: string; onSave: (reaso
   );
 }
 
-function CheckCard({ check, actions }: { check: BestPracticeCheck; actions: CardActions }) {
+/** Opens the generated YAML in a "New resource" dock tab; the user reviews, dry-runs and applies it there. */
+function openFix(fix: BpFix) {
+  useTerminalDock.getState().openNewTab({ kind: fix.kind, yaml: fix.yaml });
+}
+
+function CheckCard({ check, actions, fix }: { check: BestPracticeCheck; actions: CardActions; fix?: BpFix }) {
   const [form, setForm] = useState<{ namespace?: string } | null>(null);
   const [open, setOpen] = useState(false);
   const [learnOpen, setLearnOpen] = useState(false);
@@ -95,6 +103,16 @@ function CheckCard({ check, actions }: { check: BestPracticeCheck; actions: Card
             </Button>
           </Row>
         ))}
+        {fix && (
+          <Row gap={2} align="center" wrap>
+            <Button size="sm" onClick={() => openFix(fix)}>
+              Fix
+            </Button>
+            <span className="small muted">
+              Opens {fix.count === 1 ? "the generated YAML" : `YAML for ${fix.count} objects`} in a New resource tab to review. Nothing is applied until you press Apply.
+            </span>
+          </Row>
+        )}
         {(check.status === "fail" || check.status === "unknown") && !form && (
           <Row gap={2} wrap>
             <Button variant="ghost" size="sm" onClick={() => setForm({})}>
@@ -239,6 +257,7 @@ export default function BestPractices() {
   );
   const checks = useMemo(() => applyExceptions(computeBestPractices(input), exceptions), [input, exceptions]);
   const coverage = useMemo(() => workloadCoverage(input), [input]);
+  const fixes = useMemo(() => new Map(checks.map((k) => [k.id, fixFor(k, input)])), [checks, input]);
 
   const header = <PageHeader help={<PageHelp route="/best-practices" />} level={2} title="Best practices" />;
 
@@ -265,7 +284,7 @@ export default function BestPractices() {
     <Stack as="ul" gap={2} style={{ listStyle: "none", margin: 0, padding: 0 }}>
       {items.map((k) => (
         <li key={k.id}>
-          <CheckCard check={k} actions={actions} />
+          <CheckCard check={k} actions={actions} fix={fixes.get(k.id)} />
         </li>
       ))}
     </Stack>
@@ -287,6 +306,21 @@ export default function BestPractices() {
             {SEVERITIES.map((sv) => (
               <Badge key={sv} tone={SEVERITY_TONE[sv]} title={`${sv} checks that fail`}>
                 {sv} {summary.failedBySeverity[sv]}
+              </Badge>
+            ))}
+          </Row>
+          <Row role="group" aria-label="Framework scores" align="center" gap={2} wrap>
+            <span className="small muted">By framework:</span>
+            {frameworkScores(checks).map((f) => (
+              <Badge
+                key={f.framework}
+                title={
+                  f.framework === "CIS-referenced"
+                    ? `The ${f.total} checks Kubebay tags with a CIS Kubernetes Benchmark reference; not a CIS compliance score`
+                    : `${f.framework} checks that pass, of those not ignored`
+                }
+              >
+                {f.framework} {f.score === null ? "all ignored" : `${f.score}% (${f.pass} of ${f.scored})`}
               </Badge>
             ))}
           </Row>

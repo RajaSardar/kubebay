@@ -695,7 +695,8 @@ const K = "https://kubernetes.io/docs/";
 const PSS = K + "concepts/security/pod-security-standards/";
 const PROBES = K + "tasks/configure-pod-container/configure-liveness-readiness-startup-probes/";
 /**
- * `cis` is a reference to the CIS Kubernetes Benchmark section (numbering of v1.8),
+ * `cis` is a reference to the CIS Kubernetes Benchmark section (numbering of v1.8, checked
+ * against kube-bench cfg/cis-1.8 and cis-1.10; see docs/BEST_PRACTICES_NAV.md),
  * set only where the control plainly matches the check. It is not a compliance claim.
  */
 const META: Record<string, { severity: Severity; learn: Lesson; cis?: string }> = {
@@ -777,4 +778,36 @@ export function filterChecks(
   f: { severity: Severity | "all"; status: CheckStatus | "all" },
 ): BestPracticeCheck[] {
   return checks.filter((c) => (f.severity === "all" || c.severity === f.severity) && (f.status === "all" || c.status === f.status));
+}
+
+// Framework scores
+
+export type Framework = CheckGroup | "CIS-referenced";
+/** The pillars in the order the page shows them, then the checks that carry a CIS reference. */
+export const FRAMEWORKS: Framework[] = ["Security", "Reliability", "Disaster recovery", "Platform", "CIS-referenced"];
+
+export interface FrameworkScore {
+  framework: Framework;
+  total: number;
+  pass: number;
+  ignored: number;
+  /** Checks that count: every one but the ignored, so Unknown counts against the score. */
+  scored: number;
+  /** pass over scored, as a whole percent; null when every check of the framework is ignored. */
+  score: number | null;
+}
+
+/**
+ * A score per pillar (the check's group) and one over the CIS-referenced checks,
+ * worked out like the overall score: Ignored is left out, Unknown counts against.
+ * The CIS figure covers only the checks Kubebay tags, so it is not a benchmark result.
+ */
+export function frameworkScores(checks: BestPracticeCheck[]): FrameworkScore[] {
+  return FRAMEWORKS.map((framework) => {
+    const mine = checks.filter((c) => (framework === "CIS-referenced" ? !!c.reference : c.group === framework));
+    const pass = mine.filter((c) => c.status === "pass").length;
+    const ignored = mine.filter((c) => c.status === "ignored").length;
+    const scored = mine.length - ignored;
+    return { framework, total: mine.length, pass, ignored, scored, score: scored ? Math.round((pass / scored) * 100) : null };
+  }).filter((f) => f.total > 0);
 }
