@@ -59,8 +59,8 @@
 ~~54. add a column for the owner kind (Deployment, StatefulSet, ReplicaSet...) in the Pods list; the same for ReplicaSets; research where else it belongs~~ ✅ Done (an **Owner** column, `Kind/name` from ownerReferences linking to the drawer, filter `controller:`: shown by default on Pods, where a Deployment's pods read through the ReplicaSet, and on ReplicaSets; also in the column chooser, hidden by default, on every other resource list except Events; see docs/OWNER_COLUMN.md)
 ~~55. when someone selects a namespace or a list of namespaces, the selected ones should move to the top of the namespace list~~ ✅ Done (selected namespaces are listed first, in a Selected group above the Rancher projects)
 ~~56. add a sidecar container to a workload just by clicking a button~~ ✅ Done (Add sidecar in the workload drawer; see docs/ADD_SIDECAR.md)
-57. research how the new Lens/Freelens UI looks (block, rectangular, square design that reads as a grid everywhere without visible grid lines; fonts, default text size) in depth, and plan a new look for Kubebay. Researched and planned (docs/NEW_LOOK.md); the owner said yes to all six questions on 2026-11-24, slices 1 to 10 being built.
-58. installing on Linux/Ubuntu does not work: test it, make an easy way to install, and put it everywhere (website, docs, GitHub README, which has no proper install instructions for every platform)
+~~57. research how the new Lens/Freelens UI looks (block, rectangular, square design that reads as a grid everywhere without visible grid lines; fonts, default text size) in depth, and plan a new look for Kubebay~~ ✅ Done in v0.8.2 (slices 1 to 10 of docs/NEW_LOOK.md)
+~~58. installing on Linux/Ubuntu does not work: test it, make an easy way to install, and put it everywhere (website, docs, GitHub README, which has no proper install instructions for every platform)~~ ✅ Done in v0.8.2 (scripts/install.sh one-liner, tested on Ubuntu 22.04 and 24.04; README Install section)
 ---
 
 ## Status of the open items (2026-11-23)
