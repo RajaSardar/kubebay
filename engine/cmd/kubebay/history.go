@@ -19,10 +19,13 @@ import (
 // engine simply runs without history, and says why in /api/history/status.
 // In-cluster deployments never record: a store that keeps recording while
 // no laptop is open is the Enterprise line (#6/#15).
-func setupHistory(log *slog.Logger, mgr *clusters.Manager, settings *httpapi.SettingsManager, sampler *waste.Sampler, inCluster bool, ctx context.Context) (*httpapi.HistoryAPI, func()) {
+func setupHistory(log *slog.Logger, mgr *clusters.Manager, settings *httpapi.SettingsManager, sampler *waste.Sampler, blocked string, ctx context.Context) (*httpapi.HistoryAPI, func()) {
 	api := &httpapi.HistoryAPI{Settings: settings}
-	if inCluster {
-		api.Unavailable = "usage history is not recorded for in-cluster deployments"
+	// A shared engine (in a cluster, or with OIDC on any host): the sampler's
+	// identity is the engine's, not the signed-in user's.
+	if blocked != "" {
+		api.Unavailable = blocked
+		api.Shared = blocked
 		return api, func() {}
 	}
 	base, err := os.UserConfigDir()

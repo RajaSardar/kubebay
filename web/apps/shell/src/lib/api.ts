@@ -773,6 +773,10 @@ export interface AppSettings {
   localShell?: LocalShellCapability;
   /** Usage-history consent per cluster (backlog #36): true once connected, false after Stop. */
   historyClusters?: Record<string, boolean>;
+  /** Why settings are read-only (a shared engine: in a cluster or with OIDC); absent on the desktop. */
+  sharedLocked?: string;
+  /** Why Helm repositories can't be added, repointed or removed here; absent on the desktop. */
+  helmReposLocked?: string;
 }
 
 export interface AwsProfile {

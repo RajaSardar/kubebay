@@ -75,6 +75,10 @@ type HelmManager struct {
 	// Outbound limits what a Helm repository URL may reach. Fixed at startup by
 	// main; the zero value is the desktop's, where loopback is fine.
 	Outbound netguard.Policy
+	// ReposLocked, when set, is why adding, repointing and removing Helm
+	// repositories is refused (a shared engine; SharedHelmReposBlockReason).
+	// Refreshing a configured repository's index stays allowed.
+	ReposLocked string
 	// config, when set, replaces actionCfg: tests hand the handlers Helm's
 	// in-memory storage.
 	config func(r *http.Request, cluster, ns string) (*action.Configuration, error)

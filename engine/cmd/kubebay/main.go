@@ -54,6 +54,7 @@ func main() {
 	warmIdle := flag.String("warm-idle", os.Getenv("KUBEBAY_WARM_IDLE"), "a connected cluster nobody viewed for this long sleeps, e.g. 30m (default 30m, 0 = never; KUBEBAY_WARM_IDLE)")
 	promURL := flag.String("prometheus-url", os.Getenv("KUBEBAY_PROMETHEUS_URL"), "Prometheus to query directly for every cluster; the only one a shared engine (in a cluster or with OIDC) uses (KUBEBAY_PROMETHEUS_URL)")
 	promAllUsers := flag.Bool("prometheus-all-users", os.Getenv("KUBEBAY_PROMETHEUS_ALL_USERS") == "true", "let every OIDC user send raw PromQL to --prometheus-url, which answers for every namespace whatever their RBAC (KUBEBAY_PROMETHEUS_ALL_USERS=true)")
+	helmRepos := flag.String("helm-repos", os.Getenv("KUBEBAY_HELM_REPOS"), "Helm repositories to configure at startup, as name=url,name=url; the only way to change them on a shared engine (in a cluster or with OIDC) (KUBEBAY_HELM_REPOS)")
 	localShell := flag.Bool("local-shell", false, "serve a shell on this machine (requires a binary built with -tags localshell, a loopback --addr, no --in-cluster and no OIDC)")
 	flag.Parse()
 
@@ -126,12 +127,38 @@ func main() {
 	outbound := netguard.Policy{BlockLoopback: *inCluster}
 	settingsMgr.Outbound = outbound
 	helmMgr.Outbound = outbound
+	// One repositories file serves every user's installs on a shared engine,
+	// so only the operator changes it, through --helm-repos.
+	helmMgr.ReposLocked = httpapi.SharedHelmReposBlockReason(*inCluster, auth.Enabled())
+	operatorRepos, err := httpapi.ParseOperatorHelmRepos(*helmRepos)
+	if err != nil {
+		log.Error("bad --helm-repos", "err", err)
+		os.Exit(1)
+	}
+	if err := helmMgr.SeedOperatorRepos(operatorRepos); err != nil {
+		log.Error("could not configure --helm-repos", "err", err)
+		os.Exit(1)
+	}
+	if len(operatorRepos) > 0 {
+		names := make([]string, len(operatorRepos))
+		for i, r := range operatorRepos {
+			names[i] = r.Name
+		}
+		go func() {
+			for name, res := range helmMgr.RefreshRepos(names) {
+				if res != "ok" {
+					log.Warn("helm repo index fetch failed", "repo", name, "result", res)
+				}
+			}
+		}()
+	}
 	settingsMgr.LocalShell = localShellStatus
 	settingsMgr.AuditFeedDisabled = httpapi.AuditFeedBlockReason(*inCluster, auth.Enabled())
 	settingsMgr.WarmPolicyDisabled = httpapi.WarmPolicyBlockReason(*inCluster, auth.Enabled())
 	// One engine serving many people: what the node shell and debug containers
 	// run, and which Prometheus is queried, come from the operator only.
 	settingsMgr.SharedLocked = httpapi.SharedSettingsBlockReason(*inCluster, auth.Enabled())
+	settingsMgr.HelmReposLocked = helmMgr.ReposLocked
 	settingsMgr.Operator = httpapi.OperatorSettings{PrometheusURL: *promURL, PrometheusAllUsers: *promAllUsers}
 	// A policy saved in Settings wins over the flag and env defaults.
 	settingsMgr.ApplyStoredWarmPolicy()
@@ -143,7 +170,7 @@ func main() {
 	// usage history, never on every context that answers /version.
 	wasteSampler.SetGate(func(id string) bool { return mgr.IsConnected(id) || settingsMgr.HistoryEnabled(id) })
 	wasteSampler.SetConnected(mgr.IsConnected)
-	historyAPI, closeHistory := setupHistory(log, mgr, settingsMgr, wasteSampler, *inCluster, wasteCtx)
+	historyAPI, closeHistory := setupHistory(log, mgr, settingsMgr, wasteSampler, httpapi.HistoryBlockReason(*inCluster, auth.Enabled()), wasteCtx)
 	defer closeHistory()
 	// Started only now, after the history recorder is set, so the sampler
 	// goroutine never races those fields.

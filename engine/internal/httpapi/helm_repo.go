@@ -143,6 +143,9 @@ type RemoveRepoRequest struct {
 // HandleRemoveRepo drops a repository from the local Helm config and deletes its
 // cached index. Releases installed from it are untouched.
 func (h *HelmManager) HandleRemoveRepo(w http.ResponseWriter, r *http.Request) {
+	if h.refuseIfReposLocked(w) {
+		return
+	}
 	var req RemoveRepoRequest
 	if err := decodeBody(r, &req); err != nil || !repoNameRE.MatchString(req.Name) {
 		http.Error(w, "a valid repository name is required", http.StatusBadRequest)
@@ -197,6 +200,15 @@ func (h *HelmManager) HandleAddRepo(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		f = repo.NewFile()
+	}
+	// On a shared engine only a no-op re-add, which just refreshes the
+	// index, gets through: a new or changed entry is another user's chart source.
+	if h.ReposLocked != "" {
+		e := f.Get(req.Name)
+		if e == nil || e.URL != req.URL || e.Username != req.Username || e.Password != req.Password {
+			h.refuseIfReposLocked(w)
+			return
+		}
 	}
 
 	entry, changed := addOrUpdateRepoEntry(f, req.Name, req.URL, req.Username, req.Password)

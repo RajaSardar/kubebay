@@ -86,6 +86,7 @@ The token is in `docker logs kubebay`.
 | `--oidc-issuer-url`, `--oidc-client-id`, `--oidc-client-secret`, `--oidc-redirect-url` | | Sign users in with OIDC (in-cluster installs) |
 | `--prometheus-url` | | A Prometheus the engine queries directly for every cluster. On your own machine a URL set in Settings wins over it. In a cluster or with OIDC it's the only one used. `KUBEBAY_PROMETHEUS_URL` |
 | `--prometheus-all-users` | `false` | With OIDC, let every signed-in user send queries to `--prometheus-url`. `KUBEBAY_PROMETHEUS_ALL_USERS=true` |
+| `--helm-repos` | | Helm repositories to add at startup, as `name=url,name=url`. In a cluster or with OIDC it's the only way to change them. `KUBEBAY_HELM_REPOS` |
 | `--web-dist` | embedded | Serve the app from a directory instead |
 | `--version` | | Print the version |
 
@@ -107,6 +108,7 @@ One engine serves everyone, so settings that apply to every user are read-only i
 | `debugImage` | `KUBEBAY_DEBUG_IMAGE` | The default image of a [debug container](/docs/pods/#terminal) |
 | `prometheus.url` | `KUBEBAY_PROMETHEUS_URL` | A Prometheus the engine queries directly, for graphs and right-sizing |
 | `prometheus.allUsers` | `KUBEBAY_PROMETHEUS_ALL_USERS` | With OIDC, let every signed-in user query `prometheus.url` |
+| `helmRepos` | `KUBEBAY_HELM_REPOS` | The Helm repositories every user installs from, each a `name` and `url`. See [Helm](/docs/helm/#adding-and-removing-repositories) |
 
 Leave `prometheus.url` empty and each user's queries go to an auto-detected Prometheus through the API server's service proxy, as that user, so RBAC decides who may query it. A URL you set answers for every namespace whatever a user's RBAC says, so with OIDC users only get it once you set `prometheus.allUsers: true`. Until then their queries fall back to the service proxy. The Kubernetes Service list and the proxy both need RBAC: `list` on `services` and `get` on `services/proxy`.
 

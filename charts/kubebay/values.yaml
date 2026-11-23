@@ -23,6 +23,11 @@ impersonation:
 nodeShellImage: ""
 # Default image of a debug container; empty = busybox:1.36.
 debugImage: ""
+# Helm repositories every user's chart installs come from. Users can't add,
+# repoint or remove repositories in the app here; they can refresh these.
+# Each is {name, url}. A repository that needs credentials goes in a mounted
+# repositories.yaml named by HELM_REPOSITORY_CONFIG instead.
+helmRepos: []
 prometheus:
   # Prometheus the engine queries directly for graphs and right-sizing. Empty =
   # each user's queries go through the API server's service proxy as that user.

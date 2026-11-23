@@ -23,6 +23,10 @@ type HistoryAPI struct {
 	Recorder    *history.Recorder
 	Settings    *SettingsManager
 	Unavailable string
+	// Shared, when set, is why history is off on a shared engine
+	// (HistoryBlockReason): consent is then not stored, so one user can't
+	// turn recording on, or erase it, for everyone.
+	Shared string
 	// HTTP queries Prometheus for source=prometheus series (default: 30s timeout).
 	HTTP *http.Client
 }
@@ -36,10 +40,39 @@ func clusterParam(w http.ResponseWriter, r *http.Request) (string, bool) {
 	return c, true
 }
 
-// HandleEnroll is called when the user connects to a cluster.
+// HistoryBlockReason is why usage history is not recorded here, or "". The
+// sampler reads every namespace with the engine's own identity, so on an
+// engine many people sign in to (in a cluster, or with OIDC on any host) the
+// history would show each of them more than their RBAC does.
+func HistoryBlockReason(inCluster, oidcEnabled bool) string {
+	switch {
+	case oidcEnabled:
+		return "Usage history is not recorded when OIDC is configured: it is collected with the engine's own access, not each user's."
+	case inCluster:
+		return "Usage history is not recorded for in-cluster deployments: it is collected with the engine's own access, not each user's."
+	}
+	return ""
+}
+
+// refuseIfShared answers 403 and returns true on a shared engine.
+func (h *HistoryAPI) refuseIfShared(w http.ResponseWriter) bool {
+	if h.Shared == "" {
+		return false
+	}
+	http.Error(w, h.Shared, http.StatusForbidden)
+	return true
+}
+
+// HandleEnroll is called when the user connects to a cluster. On a shared
+// engine it records nothing and says so; it is not an error, since every
+// connect calls it.
 func (h *HistoryAPI) HandleEnroll(w http.ResponseWriter, r *http.Request) {
 	c, ok := clusterParam(w, r)
 	if !ok {
+		return
+	}
+	if h.Shared != "" {
+		writeJSON(w, map[string]bool{"recording": false})
 		return
 	}
 	on, err := h.Settings.EnrollHistory(c)
@@ -61,6 +94,9 @@ func (h *HistoryAPI) HandleRecording(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "on must be true or false", http.StatusBadRequest)
 		return
 	}
+	if h.refuseIfShared(w) {
+		return
+	}
 	if err := h.Settings.SetHistoryRecording(c, on); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -72,6 +108,9 @@ func (h *HistoryAPI) HandleRecording(w http.ResponseWriter, r *http.Request) {
 func (h *HistoryAPI) HandleErase(w http.ResponseWriter, r *http.Request) {
 	c, ok := clusterParam(w, r)
 	if !ok {
+		return
+	}
+	if h.refuseIfShared(w) {
 		return
 	}
 	if h.Recorder == nil {
@@ -91,7 +130,7 @@ func (h *HistoryAPI) HandleStatus(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	out := map[string]any{"cluster": c, "recording": h.Settings.HistoryEnabled(c)}
+	out := map[string]any{"cluster": c, "recording": h.Shared == "" && h.Settings.HistoryEnabled(c)}
 	if h.Recorder == nil {
 		out["available"] = false
 		out["reason"] = h.Unavailable

@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
 import Editor, { DiffEditor } from "../lib/monaco";
 import { ArmedButton, Avatar, Badge, Button, Card, Drawer, EmptyState, InlineBanner, Row, Select, Skeleton, SkeletonLines, Stack, Tabs, TextField } from "@kubebay/ui";
-import { helmApi, helmMarketApi, type HelmChartDetail, type HelmChartEntry, type HelmRelease } from "../lib/api";
+import { helmApi, helmMarketApi, settingsApi, type HelmChartDetail, type HelmChartEntry, type HelmRelease } from "../lib/api";
 import { helmReleasesQuery } from "../lib/helmReleases";
 import { compareVersions, indexUpdatedLabel, installedAs, isWebUrl, matchesChart, releaseNameFor, versionInIndex } from "../lib/helmStore";
 import { useMonacoTheme } from "../lib/theme";
@@ -443,6 +443,10 @@ export function ChartsTab({ cluster }: { cluster: string }) {
   // The release list the Helm page keeps live: it says which charts are installed.
   const releases = useQuery({ ...helmReleasesQuery(cluster), retry: false });
   const releaseList = releases.data?.releases;
+  // A shared engine (in a cluster or with OIDC) refuses to add, repoint or
+  // remove repositories: every user installs from the same list.
+  const settings = useQuery({ queryKey: ["settings"], queryFn: settingsApi.get, retry: false });
+  const reposLocked = settings.data?.helmReposLocked ?? "";
   const [repoSel, setRepoSel] = useState("");
   const [search, setSearch] = useState("");
   const [installedOnly, setInstalledOnly] = useState(false);
@@ -638,9 +642,11 @@ export function ChartsTab({ cluster }: { cluster: string }) {
         <Button variant="ghost" disabled={updating || !repoList.length} onClick={() => void updateIndexes()}>
           {updating ? "Updating…" : "Update indexes"}
         </Button>
-        <Button variant="ghost" onClick={() => setAddOpen((o) => !o)}>
-          Add repository
-        </Button>
+        {!reposLocked && (
+          <Button variant="ghost" onClick={() => setAddOpen((o) => !o)}>
+            Add repository
+          </Button>
+        )}
         {!isAll && effectiveRepo && (
           <>
             <Button
@@ -656,7 +662,7 @@ export function ChartsTab({ cluster }: { cluster: string }) {
             </span>
           </>
         )}
-        {!isAll && effectiveRepo && (
+        {!isAll && effectiveRepo && !reposLocked && (
           <ArmedButton
             label="Remove repository"
             confirmLabel={`Confirm remove ${effectiveRepo}`}
@@ -667,7 +673,13 @@ export function ChartsTab({ cluster }: { cluster: string }) {
         <Badge>{filtered.length}{isAll && loadingRepoCount > 0 ? "+" : ""}</Badge>
       </div>
 
-      {addOpen && (
+      {reposLocked && (
+        <InlineBanner tone="warn" flush>
+          {reposLocked}
+        </InlineBanner>
+      )}
+
+      {addOpen && !reposLocked && (
         <Card>
           <form
             onSubmit={(e) => {
@@ -748,7 +760,11 @@ export function ChartsTab({ cluster }: { cluster: string }) {
       {!repoList.length && (
         <EmptyState>
           <p>No Helm repositories configured.</p>
-          <p className="muted small">Kubebay reads your local helm config. Use Add repository above, or run "helm repo add …" once.</p>
+          <p className="muted small">
+            {reposLocked
+              ? "The operator configures this engine's repositories."
+              : 'Kubebay reads your local helm config. Use Add repository above, or run "helm repo add …" once.'}
+          </p>
         </EmptyState>
       )}
 
