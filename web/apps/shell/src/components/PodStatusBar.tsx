@@ -30,7 +30,7 @@ export function PodStatusBar({ segments }: { segments: PodStatusSegment[] }) {
           <strong id={id}>Pods by status</strong>
           <span className="muted small">{`${total} pods`}</span>
         </Row>
-        <Row gap={0} aria-hidden="true" style={{ height: 10, borderRadius: "var(--kb-radius-xs)", overflow: "hidden", background: "var(--kb-bg-inset)" }}>
+        <Row gap={0} aria-hidden="true" style={{ height: 10, borderRadius: "var(--kb-radius-control)", overflow: "hidden", background: "var(--kb-bg-inset)" }}>
           {segments.map((s) => (
             <div key={s.label} title={`${s.label}: ${s.count}`} style={{ width: `${(s.count / total) * 100}%`, background: FILL[s.tone] }} />
           ))}
@@ -46,7 +46,7 @@ export function PodStatusBar({ segments }: { segments: PodStatusSegment[] }) {
               }}
             >
               <Row gap={2} align="center" as="span">
-                <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: "var(--kb-radius-2xs)", background: FILL[s.tone] }} />
+                <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: "var(--kb-radius-control)", background: FILL[s.tone] }} />
                 <span>{s.label}</span>{" "}
                 <span className="mono">{s.count}</span>
               </Row>

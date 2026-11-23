@@ -47,7 +47,7 @@ body::before {
 :focus-visible {
   outline: none;
   box-shadow: var(--kb-focus-ring);
-  border-radius: var(--kb-radius-sm);
+  border-radius: var(--kb-radius-control);
 }
 
 * {
@@ -62,7 +62,7 @@ body::before {
 
 ::-webkit-scrollbar-thumb {
   background: var(--kb-border-strong);
-  border-radius: var(--kb-radius);
+  border-radius: var(--kb-radius-control);
   border: 3px solid transparent;
   background-clip: content-box;
 }
@@ -154,7 +154,7 @@ body::before {
   height: 40px;
   padding: 0;
   overflow: hidden;
-  border-radius: var(--kb-radius);
+  border-radius: var(--kb-radius-control);
   /* Inset to the layout, never clipped by overflow */
   border: 2.5px solid transparent;
   font-family: var(--kb-font-mono);
@@ -281,7 +281,7 @@ body::before {
   color: var(--kb-fg-subtle);
   background: var(--kb-bg-inset);
   border: 1px solid var(--kb-border-subtle);
-  border-radius: var(--kb-radius);
+  border-radius: var(--kb-radius-control);
   padding: 6px 9px;
   margin-bottom: 12px;
   cursor: pointer;
@@ -422,7 +422,7 @@ h2 {
 .swatch {
   width: 34px;
   height: 34px;
-  border-radius: var(--kb-radius);
+  border-radius: var(--kb-radius-control);
   flex-shrink: 0;
   border: 1px solid var(--kb-border-strong);
   position: relative;
@@ -615,9 +615,8 @@ h2 {
 .topo-canvas {
   height: calc(100vh - 235px);
   border: 1px solid var(--kb-border-subtle);
-  border-radius: var(--kb-radius);
+  border-radius: var(--kb-radius-tile);
   background: var(--kb-bg-surface);
-  box-shadow: var(--kb-shadow-rest), var(--kb-highlight-inset);
   overflow: hidden;
 }
 
@@ -633,10 +632,9 @@ h2 {
   align-items: center;
   background: var(--kb-bg-raised);
   border: 1px solid var(--kb-border-strong);
-  border-radius: var(--kb-radius);
+  border-radius: var(--kb-radius-tile);
   padding: 7px 11px;
   width: 205px;
-  box-shadow: var(--kb-shadow-rest), var(--kb-highlight-inset);
 }
 
 .topo-svc {
@@ -656,7 +654,7 @@ h2 {
   color: var(--kb-fg-muted);
   border: 1px solid var(--kb-border-subtle);
   padding: 1px 5px;
-  border-radius: var(--kb-radius-xs);
+  border-radius: var(--kb-radius-control);
   flex-shrink: 0;
 }
 
@@ -681,7 +679,7 @@ h2 {
   gap: 10px;
   padding: 7px 10px;
   border: 1px solid var(--kb-border-subtle);
-  border-radius: var(--kb-radius);
+  border-radius: var(--kb-radius-tile);
   background: var(--kb-bg-inset);
 }
 
@@ -702,7 +700,7 @@ h2 {
   align-items: center;
   gap: 8px;
   padding: 8px 11px;
-  border-radius: var(--kb-radius);
+  border-radius: var(--kb-radius-tile);
   border: 1px solid var(--kb-border-subtle);
   background: var(--kb-bg-inset);
 }
@@ -737,7 +735,7 @@ h2 {
 .rollout-bar {
   display: flex;
   height: 20px;
-  border-radius: var(--kb-radius-xs);
+  border-radius: var(--kb-radius-control);
   overflow: hidden;
   background: var(--kb-bg-inset);
   margin-bottom: 10px;
@@ -819,7 +817,7 @@ h2 {
   color: var(--kb-fg-default);
   background: var(--kb-bg-inset);
   border: 1px solid var(--kb-border-subtle);
-  border-radius: var(--kb-radius);
+  border-radius: var(--kb-radius-control);
   padding: 5px 10px;
   cursor: pointer;
   min-width: 160px;
@@ -846,7 +844,7 @@ h2 {
   background: var(--kb-accent-subtle);
   color: var(--kb-fg-default);
   border: 1px solid color-mix(in srgb, var(--kb-accent) 30%, transparent);
-  border-radius: var(--kb-radius-xs);
+  border-radius: var(--kb-radius-control);
   padding: 1px 5px;
 }
 
@@ -858,7 +856,7 @@ h2 {
   max-height: 280px;
   background: var(--kb-bg-raised);
   border: 1px solid var(--kb-border-strong);
-  border-radius: var(--kb-radius);
+  border-radius: var(--kb-radius-float);
   box-shadow: var(--kb-shadow-lift);
   z-index: var(--kb-z-dropdown);
   display: flex;
@@ -905,7 +903,7 @@ h2 {
 .ns-checkbox {
   width: 15px;
   height: 15px;
-  border-radius: var(--kb-radius-xs);
+  border-radius: var(--kb-radius-control);
   border: 1px solid var(--kb-border-strong);
   display: inline-flex;
   align-items: center;
@@ -940,7 +938,7 @@ h2 {
 .line-progress {
   width: 100%;
   height: 4px;
-  border-radius: var(--kb-radius-xs);
+  border-radius: var(--kb-radius-control);
   background: var(--kb-bg-inset);
   overflow: hidden;
   box-shadow: inset 0 0 0 1px var(--kb-border-subtle);
@@ -948,7 +946,7 @@ h2 {
 
 .line-progress-fill {
   height: 100%;
-  border-radius: var(--kb-radius-xs);
+  border-radius: var(--kb-radius-control);
   transition: width var(--kb-dur-slower) var(--kb-ease), background var(--kb-dur-slower) var(--kb-ease);
 }
 
@@ -966,7 +964,7 @@ h2 {
 
 .heat-strip-bar {
   flex: 1;
-  border-radius: var(--kb-radius-2xs);
+  border-radius: var(--kb-radius-control);
   background: var(--kb-status-err);
 }
 
@@ -1033,7 +1031,7 @@ h2 {
 /* ──── CRD tree browser ──── */
 .crd-tree { display: flex; flex-direction: column; gap: 2px; }
 
-.crd-tree-group { border: 1px solid var(--kb-border-subtle); border-radius: var(--kb-radius); overflow: hidden; }
+.crd-tree-group { border: 1px solid var(--kb-border-subtle); border-radius: var(--kb-radius-tile); overflow: hidden; }
 
 .crd-tree-group-header {
   display: flex;
@@ -1062,7 +1060,7 @@ h2 {
   color: var(--kb-fg-muted);
   background: var(--kb-bg-surface);
   border: 1px solid var(--kb-border-subtle);
-  border-radius: var(--kb-radius);
+  border-radius: var(--kb-radius-control);
   padding: 0 7px;
   line-height: 18px;
   flex-shrink: 0;
@@ -1163,7 +1161,7 @@ h2 {
   font-size: var(--kb-text-sm);
   color: var(--kb-fg-muted);
   text-decoration: none;
-  border-radius: var(--kb-radius-sm);
+  border-radius: var(--kb-radius-tile);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1252,7 +1250,7 @@ h2 {
 
 .events-row {
   padding: 8px 10px;
-  border-radius: var(--kb-radius-sm);
+  border-radius: var(--kb-radius-tile);
   background: var(--kb-bg-inset);
   border-left: 3px solid var(--kb-border-subtle);
 }
@@ -1386,7 +1384,7 @@ h2 {
 .icon-picker-preview {
   width: 44px;
   height: 44px;
-  border-radius: var(--kb-radius);
+  border-radius: var(--kb-radius-control);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1415,7 +1413,7 @@ h2 {
 .icon-swatch {
   width: 24px;
   height: 24px;
-  border-radius: var(--kb-radius-sm);
+  border-radius: var(--kb-radius-control);
   border: 2px solid transparent;
   cursor: pointer;
   padding: 0;
@@ -1446,7 +1444,7 @@ h2 {
   width: 100%;
   background: var(--kb-bg-inset);
   border: 1px solid var(--kb-border-control);
-  border-radius: var(--kb-radius-sm);
+  border-radius: var(--kb-radius-control);
   color: var(--kb-fg-default);
   font-family: var(--kb-font-mono, monospace);
   font-size: var(--kb-text-md);
@@ -1483,7 +1481,7 @@ h2 {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  border-radius: var(--kb-radius-sm);
+  border-radius: var(--kb-radius-control);
 }
 
 .icon-picker-upload-btn {
@@ -1492,7 +1490,7 @@ h2 {
   font-size: var(--kb-text-sm);
   padding: 8px 12px;
   border: 1px dashed var(--kb-border-subtle);
-  border-radius: var(--kb-radius);
+  border-radius: var(--kb-radius-control);
   cursor: pointer;
   text-align: center;
 }
@@ -1515,7 +1513,7 @@ h2 {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  border-radius: var(--kb-radius-xs);
+  border-radius: var(--kb-radius-control);
 }
 
 /* ──── Cluster connecting overlay ──── */
@@ -1556,7 +1554,7 @@ h2 {
 .conn-avatar {
   width: 64px;
   height: 64px;
-  border-radius: var(--kb-radius-lg);
+  border-radius: var(--kb-radius-control);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1802,7 +1800,7 @@ h2 {
   justify-content: center;
   width: 18px;
   height: 18px;
-  border-radius: var(--kb-radius-xs);
+  border-radius: var(--kb-radius-control);
   font-size: var(--kb-text-xs);
   font-weight: 600;
   line-height: 1;
@@ -1967,7 +1965,7 @@ h2 {
   font-weight: 600;
   text-transform: capitalize;
   padding: 2px 8px;
-  border-radius: var(--kb-radius-pill);
+  border-radius: var(--kb-radius-control);
 }
 
 .np-detail-body {
@@ -2001,7 +1999,7 @@ h2 {
   width: min(420px, 100%);
   padding: var(--kb-space-5);
   border: 1px solid var(--kb-border-subtle);
-  border-radius: var(--kb-radius);
+  border-radius: var(--kb-radius-tile);
   background: var(--kb-bg-surface);
 }
 
@@ -2019,7 +2017,7 @@ h2 {
   font-size: var(--kb-text-sm);
   padding: 8px 10px;
   border: 1px solid var(--kb-border-control);
-  border-radius: var(--kb-radius-sm);
+  border-radius: var(--kb-radius-control);
   background: var(--kb-bg-inset);
   color: var(--kb-fg-default);
 }
@@ -2036,7 +2034,7 @@ h2 {
   gap: 6px;
   padding: 6px 12px;
   margin: 8px 8px 0;
-  border-radius: var(--kb-radius-sm);
+  border-radius: var(--kb-radius-control);
   border: 1px solid var(--kb-border-subtle);
   background: var(--kb-bg-inset);
   color: var(--kb-fg-muted);
@@ -2077,7 +2075,7 @@ h2 {
   width: 28px;
   height: 28px;
   flex-shrink: 0;
-  border-radius: var(--kb-radius-sm);
+  border-radius: var(--kb-radius-control);
 }
 
 .catalog-header-title {
@@ -2090,7 +2088,7 @@ h2 {
   display: inline-flex;
   width: 60px;
   height: 6px;
-  border-radius: var(--kb-radius-sm);
+  border-radius: var(--kb-radius-control);
   overflow: hidden;
   background: var(--kb-bg-hover);
 }
@@ -2143,7 +2141,7 @@ h2 {
 .catalog-row-icon {
   width: 26px;
   height: 26px;
-  border-radius: var(--kb-radius-sm);
+  border-radius: var(--kb-radius-control);
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -2298,7 +2296,7 @@ h2 {
 .cluster-headroom-track {
   display: flex;
   height: 3px;
-  border-radius: var(--kb-radius-sm);
+  border-radius: var(--kb-radius-control);
   overflow: hidden;
   background: var(--kb-bg-hover);
 }
@@ -2321,7 +2319,7 @@ h2 {
 .markdown h1, .markdown h2, .markdown h3, .markdown h4, .markdown h5, .markdown h6 { margin: 16px 0 8px; line-height: 1.25; }
 .markdown p, .markdown ul, .markdown ol, .markdown blockquote, .markdown pre { margin: 0 0 10px; }
 .markdown ul, .markdown ol { padding-left: 22px; }
-.markdown code { font-family: var(--kb-font-mono); background: var(--kb-bg-inset); padding: 1px 4px; border-radius: var(--kb-radius-xs); }
+.markdown code { font-family: var(--kb-font-mono); background: var(--kb-bg-inset); padding: 1px 4px; border-radius: var(--kb-radius-control); }
 .markdown pre code { background: none; padding: 0; }
 .markdown blockquote { padding-left: 12px; border-left: 3px solid var(--kb-border-subtle); color: var(--kb-fg-muted); }
 .markdown hr { border: 0; border-top: 1px solid var(--kb-border-subtle); margin: 14px 0; }

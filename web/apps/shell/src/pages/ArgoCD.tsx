@@ -118,7 +118,7 @@ export default function ArgoCD() {
         {linkedMissing && <InlineBanner tone="warn">Application {linked} isn&apos;t in this cluster.</InlineBanner>}
         {isLoading && (
           <Stack gap={2} style={{ paddingTop: 12 }}>
-            {[0, 1, 2].map((i) => <Skeleton key={i} w="100%" h={44} r={8} />)}
+            {[0, 1, 2].map((i) => <Skeleton key={i} w="100%" h={44} />)}
           </Stack>
         )}
 

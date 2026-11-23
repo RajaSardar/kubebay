@@ -314,7 +314,7 @@ export default function RightSizing() {
                   {preview?.status === "error" && <InlineBanner flush style={{ marginTop: 10 }}>{preview.error}</InlineBanner>}
 
                   {preview?.status === "ready" && preview.original !== undefined && (
-                    <div style={{ marginTop: 10, height: 220, border: "1px solid var(--kb-border-subtle)", borderRadius: 6, overflow: "hidden" }}>
+                    <div style={{ marginTop: 10, height: 220, border: "1px solid var(--kb-border-subtle)", borderRadius: "var(--kb-radius-tile)", overflow: "hidden" }}>
                       <DiffEditor
                         original={preview.original}
                         modified={preview.resultYaml ?? preview.original}

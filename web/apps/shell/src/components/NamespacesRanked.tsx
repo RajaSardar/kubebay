@@ -59,7 +59,7 @@ export function NamespacesRanked({ rows, by, onBy }: { rows: NamespaceRank[]; by
                   </span>
                   <span className="muted small">{facts(r, by)}</span>
                 </Row>
-                <div aria-hidden="true" style={{ height: 6, borderRadius: "var(--kb-radius-xs)", background: "var(--kb-bg-inset)", overflow: "hidden" }}>
+                <div aria-hidden="true" style={{ height: 6, borderRadius: "var(--kb-radius-control)", background: "var(--kb-bg-inset)", overflow: "hidden" }}>
                   <div style={{ height: "100%", width: `${(value(r) / max) * 100}%`, background: fill(r) }} />
                 </div>
               </Stack>

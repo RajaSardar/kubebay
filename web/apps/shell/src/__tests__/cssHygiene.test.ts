@@ -128,11 +128,43 @@ describe("type, radius and motion scales", () => {
     expect(offenders).toEqual([]);
   });
 
-  it.each(Object.entries(sheets))("%s radii come from --kb-radius-*", (_, css) => {
+  // Radius by role: anything that tiles the window is square, anything you
+  // press or read as a chip has 2px, anything that floats over the page has
+  // 6px. A circle is 50%. Never a size picked per rule.
+  const ROLE_RADIUS = /^(var\(--kb-radius-(tile|control|float)\)|50%|0|inherit)$/;
+
+  it("declares the role radii", () => {
+    expect(rootToken("--kb-radius-tile")).toBe("0");
+    expect(rootToken("--kb-radius-control")).toBe("2px");
+    expect(rootToken("--kb-radius-float")).toBe("6px");
+  });
+
+  it.each(Object.entries(sheets))("%s radii are role tokens", (_, css) => {
     const offenders = declarations(css, /^border(-[a-z]+)*-radius$/)
-      .filter(({ value }) => value.split(/\s+/).some((v) => !/^(var\(--kb-radius[\w-]*\)|50%|0|inherit)$/.test(v)))
+      .filter(({ value }) => value.split(/\s+/).some((v) => !ROLE_RADIUS.test(v)))
       .map(({ sel, value }) => `${sel} { border-radius: ${value} }`);
     expect(offenders).toEqual([]);
+  });
+
+  it("inline radii in TSX are role tokens", () => {
+    const offenders: string[] = [];
+    for (const f of [...shellFiles, ...uiFiles].filter((f) => f.endsWith(".tsx"))) {
+      for (const m of read(f).matchAll(/borderRadius\s*:\s*([^,}\n]+)/g)) {
+        const v = m[1]!.trim().replace(/^["']|["']$/g, "");
+        if (!ROLE_RADIUS.test(v)) offenders.push(`${relative(root, f)}: borderRadius: ${m[1]!.trim()}`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it("dots are circles and pills are 2px chips", () => {
+    const radius = (sel: string) =>
+      declarations(stylesCss, /^border-radius$/).filter((d) => d.sel === sel).map((d) => d.value);
+    expect(radius(".kb-dot")).toEqual(["50%"]);
+    expect(radius(".live-pill::before")).toEqual(["50%"]);
+    for (const pill of [".status-ok", ".status-err", ".status-warn", ".status-pending", ".ns-pill", ".live-pill", ".kb-badge"]) {
+      expect({ pill, r: radius(pill) }).toEqual({ pill, r: ["var(--kb-radius-control)"] });
+    }
   });
 
   it.each(Object.entries(sheets))("%s UI transitions use --kb-dur-* (only long loops are literal)", (_, css) => {
@@ -160,6 +192,22 @@ describe("type, radius and motion scales", () => {
         offenders.push(`${relative(src, f)}: fontSize: ${m[1]!.trim()}`);
       }
     }
+    expect(offenders).toEqual([]);
+  });
+});
+
+describe("no resting shadows", () => {
+  // Things at rest sit flat on their ground; only things that float over the
+  // page (menus, dialogs, the drawer, the palette) cast a shadow.
+  it("no stylesheet uses a resting shadow, and no theme declares one", () => {
+    expect([...Object.values(sheets), tokensCss].filter((css) => /--kb-shadow-rest\b/.test(css))).toEqual([]);
+  });
+
+  it("cards and buttons at rest have no box-shadow (only the selection bar)", () => {
+    const offenders = declarations(stylesCss, /^box-shadow$/)
+      .filter(({ sel }) => /^\.kb-(card|btn)[\w-]*(\.[\w-]+)*$/.test(sel))
+      .filter(({ value }) => value !== "none" && value !== "inset 3px 0 0 var(--kb-accent)")
+      .map(({ sel, value }) => `${sel} { box-shadow: ${value} }`);
     expect(offenders).toEqual([]);
   });
 });

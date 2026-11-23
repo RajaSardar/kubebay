@@ -352,7 +352,7 @@ export default function WorkloadsOverview() {
                   </Row>
                 </Row>
                 {k.total > 0 && (
-                  <Row gap={0} style={{ height: 6, borderRadius: "var(--kb-radius-xs)", overflow: "hidden", background: "var(--kb-bg-inset)" }}>
+                  <Row gap={0} style={{ height: 6, borderRadius: "var(--kb-radius-control)", overflow: "hidden", background: "var(--kb-bg-inset)" }}>
                     <div style={{
                       width: `${k.healthy > 0 ? (k.healthy / k.total) * 100 : 0}%`,
                       background: "var(--kb-status-ok)",

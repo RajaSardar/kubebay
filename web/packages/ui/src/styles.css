@@ -6,7 +6,7 @@
   font-size: var(--kb-text-md);
   font-weight: 500;
   padding: 6px 13px;
-  border-radius: var(--kb-radius-sm);
+  border-radius: var(--kb-radius-control);
   cursor: pointer;
   border: 1px solid transparent;
   transition:
@@ -44,7 +44,6 @@
 .kb-btn-primary {
   background: var(--kb-accent);
   color: var(--kb-accent-fg);
-  box-shadow: var(--kb-shadow-rest), var(--kb-highlight-inset);
 }
 
 .kb-btn-primary:hover:not([disabled]) {
@@ -65,9 +64,8 @@
 .kb-card {
   background: var(--kb-bg-surface);
   border: 1px solid var(--kb-border-subtle);
-  border-radius: var(--kb-radius);
+  border-radius: var(--kb-radius-tile);
   padding: var(--kb-space-4);
-  box-shadow: var(--kb-shadow-rest), var(--kb-highlight-inset);
   transition:
     border-color var(--kb-dur) var(--kb-ease),
     box-shadow var(--kb-dur) var(--kb-ease),
@@ -88,7 +86,7 @@
 .kb-dot {
   width: 8px;
   height: 8px;
-  border-radius: var(--kb-radius-pill);
+  border-radius: 50%;
   display: inline-block;
   flex-shrink: 0;
 }
@@ -112,7 +110,7 @@
   font-size: var(--kb-text-xs);
   line-height: 1;
   padding: 4px 8px;
-  border-radius: var(--kb-radius-xs);
+  border-radius: var(--kb-radius-control);
   background: var(--kb-bg-inset);
   color: var(--kb-fg-muted);
   border: 1px solid var(--kb-border-subtle);
@@ -127,7 +125,7 @@
   font-family: var(--kb-font-mono);
   font-size: var(--kb-text-xs);
   font-weight: 600;
-  border-radius: var(--kb-radius-xs);
+  border-radius: var(--kb-radius-control);
   background: var(--kb-bg-inset);
   color: var(--kb-fg-muted);
   border: 1px solid var(--kb-border-subtle);
@@ -172,7 +170,7 @@
   color: var(--kb-fg-muted);
   background: transparent;
   border: 1px solid transparent;
-  border-radius: var(--kb-radius-sm);
+  border-radius: var(--kb-radius-control);
   cursor: pointer;
   transition:
     background var(--kb-dur-fast) var(--kb-ease),
@@ -211,7 +209,7 @@
   padding: 2px;
   background: var(--kb-bg-inset);
   border: 1px solid var(--kb-border-control);
-  border-radius: var(--kb-radius-sm);
+  border-radius: var(--kb-radius-control);
 }
 
 .kb-segment {
@@ -222,7 +220,7 @@
   color: var(--kb-fg-muted);
   background: transparent;
   border: 1px solid transparent;
-  border-radius: var(--kb-radius-xs);
+  border-radius: var(--kb-radius-control);
   cursor: pointer;
   white-space: nowrap;
   transition:
@@ -271,7 +269,7 @@
   display: inline-block;
   vertical-align: middle;
   overflow: hidden;
-  border-radius: var(--kb-radius-sm);
+  border-radius: var(--kb-radius-control);
   /* A tint of the text colour reads on every ground; kb-bg-inset vanished on
      dark surfaces. */
   background: color-mix(in srgb, var(--kb-fg-default) 14%, transparent);
@@ -310,7 +308,7 @@ kbd {
   font-size: var(--kb-text-2xs);
   line-height: 1;
   padding: 3px 5px;
-  border-radius: var(--kb-radius-xs);
+  border-radius: var(--kb-radius-control);
   border: 1px solid var(--kb-border-strong);
   border-bottom-width: 2px;
   background: var(--kb-bg-inset);
@@ -344,7 +342,7 @@ kbd {
   font-size: var(--kb-text-md);
   font-weight: 500;
   padding: 6px 10px;
-  border-radius: var(--kb-radius);
+  border-radius: var(--kb-radius-tile);
   transition:
     background var(--kb-dur-fast) var(--kb-ease),
     color var(--kb-dur-fast) var(--kb-ease);
@@ -393,7 +391,7 @@ button.nav-item {
   font-family: var(--kb-font-mono);
   color: var(--kb-fg-subtle);
   border: 1px solid var(--kb-border-subtle);
-  border-radius: var(--kb-radius-xs);
+  border-radius: var(--kb-radius-control);
   padding: 1px 4px;
 }
 
@@ -452,7 +450,7 @@ button.nav-item {
   color: var(--kb-fg-default);
   background: var(--kb-bg-inset);
   border: 1px solid var(--kb-border-control);
-  border-radius: var(--kb-radius-sm);
+  border-radius: var(--kb-radius-control);
   padding: 4px 9px;
   height: 26px;
   outline: none;
@@ -770,7 +768,7 @@ button.nav-item {
   padding: var(--kb-space-2);
   background: var(--kb-bg-raised);
   border: 1px solid var(--kb-border-subtle);
-  border-radius: var(--kb-radius);
+  border-radius: var(--kb-radius-float);
   box-shadow: var(--kb-shadow-lift);
 }
 
@@ -863,7 +861,7 @@ button.nav-item {
   color: var(--kb-fg-muted);
   background: transparent;
   border: none;
-  border-radius: var(--kb-radius-sm);
+  border-radius: var(--kb-radius-tile);
   padding: 7px 14px;
   cursor: pointer;
   transition:
@@ -899,7 +897,7 @@ button.nav-item {
   color: var(--kb-fg-muted);
   background: transparent;
   border: none;
-  border-radius: var(--kb-radius-sm);
+  border-radius: var(--kb-radius-tile);
   cursor: pointer;
   transition:
     background var(--kb-dur-fast) var(--kb-ease),
@@ -988,7 +986,7 @@ button.nav-item {
   color: var(--kb-fg-muted);
   background: transparent;
   border: none;
-  border-radius: var(--kb-radius-sm);
+  border-radius: var(--kb-radius-tile);
   cursor: pointer;
   transition:
     background var(--kb-dur-fast) var(--kb-ease),
@@ -1048,7 +1046,7 @@ button.nav-item {
   width: min(520px, 92vw);
   background: var(--kb-bg-raised);
   border: 1px solid var(--kb-border-strong);
-  border-radius: var(--kb-radius-lg);
+  border-radius: var(--kb-radius-float);
   box-shadow: var(--kb-shadow-lift), var(--kb-highlight-inset);
   overflow: hidden;
   animation: palette-box-in var(--kb-dur-slow) var(--kb-ease-out) both;
@@ -1091,7 +1089,7 @@ button.nav-item {
   color: var(--kb-fg-default);
   background: transparent;
   border: none;
-  border-radius: var(--kb-radius);
+  border-radius: var(--kb-radius-control);
   padding: 9px 11px;
   cursor: pointer;
 }
@@ -1181,7 +1179,7 @@ button.nav-item {
   color: var(--kb-fg-subtle);
   background: var(--kb-bg-inset);
   border: 1px solid var(--kb-border-subtle);
-  border-radius: var(--kb-radius-xs);
+  border-radius: var(--kb-radius-control);
   padding: 1px 5px;
   white-space: nowrap;
   flex-shrink: 0;
@@ -1223,7 +1221,7 @@ button.nav-item {
   background: var(--kb-accent-subtle);
   color: var(--kb-accent);
   padding: 1px 4px;
-  border-radius: var(--kb-radius-xs);
+  border-radius: var(--kb-radius-control);
 }
 
 /* ──── Context menu ──── */
@@ -1233,7 +1231,7 @@ button.nav-item {
   min-width: 180px;
   background: var(--kb-bg-raised);
   border: 1px solid var(--kb-border-strong);
-  border-radius: var(--kb-radius);
+  border-radius: var(--kb-radius-float);
   box-shadow: var(--kb-shadow-lift);
   padding: 4px;
   animation: ctx-appear var(--kb-dur-fast) var(--kb-ease);
@@ -1255,7 +1253,7 @@ button.nav-item {
   background: transparent;
   border: none;
   padding: 6px 10px;
-  border-radius: var(--kb-radius-xs);
+  border-radius: var(--kb-radius-control);
   cursor: pointer;
   text-align: left;
 }
@@ -1308,7 +1306,7 @@ button.nav-item {
   align-items: center;
   gap: 4px;
   padding: 1px 8px;
-  border-radius: var(--kb-radius-pill);
+  border-radius: var(--kb-radius-control);
   font-size: var(--kb-text-xs);
   line-height: 16px;
   font-weight: 500;
@@ -1323,7 +1321,7 @@ button.nav-item {
   align-items: center;
   gap: 4px;
   padding: 1px 8px;
-  border-radius: var(--kb-radius-pill);
+  border-radius: var(--kb-radius-control);
   font-size: var(--kb-text-xs);
   line-height: 16px;
   font-weight: 500;
@@ -1338,7 +1336,7 @@ button.nav-item {
   align-items: center;
   gap: 4px;
   padding: 1px 8px;
-  border-radius: var(--kb-radius-pill);
+  border-radius: var(--kb-radius-control);
   font-size: var(--kb-text-xs);
   line-height: 16px;
   font-weight: 500;
@@ -1353,7 +1351,7 @@ button.nav-item {
   align-items: center;
   gap: 4px;
   padding: 1px 8px;
-  border-radius: var(--kb-radius-pill);
+  border-radius: var(--kb-radius-control);
   font-size: var(--kb-text-xs);
   line-height: 16px;
   font-weight: 500;
@@ -1368,7 +1366,7 @@ button.nav-item {
   align-items: center;
   gap: 4px;
   padding: 1px 8px;
-  border-radius: var(--kb-radius-pill);
+  border-radius: var(--kb-radius-control);
   font-size: var(--kb-text-xs);
   line-height: 16px;
   font-weight: 500;
@@ -1383,7 +1381,7 @@ button.nav-item {
   align-items: center;
   gap: 4px;
   padding: 1px 8px;
-  border-radius: var(--kb-radius-pill);
+  border-radius: var(--kb-radius-control);
   font-size: var(--kb-text-xs);
   line-height: 16px;
   font-weight: 500;
@@ -1400,7 +1398,7 @@ button.nav-item {
   align-items: center;
   gap: 4px;
   padding: 1px 8px;
-  border-radius: var(--kb-radius-pill);
+  border-radius: var(--kb-radius-control);
   font-size: var(--kb-text-xs);
   line-height: 16px;
   font-weight: 500;
@@ -1427,7 +1425,7 @@ button.nav-item {
 .ns-pill {
   display: inline-block;
   padding: 0 6px;
-  border-radius: var(--kb-radius-pill);
+  border-radius: var(--kb-radius-control);
   background: var(--kb-accent-subtle);
   color: var(--kb-accent);
   font-size: var(--kb-text-xs);
@@ -1455,7 +1453,7 @@ button.nav-item {
   display: inline-block;
   width: 8px;
   height: 8px;
-  border-radius: var(--kb-radius-2xs);
+  border-radius: var(--kb-radius-control);
   flex-shrink: 0;
 }
 
@@ -1562,7 +1560,7 @@ button.nav-item {
   color: var(--kb-fg-default);
   background: var(--kb-bg-raised);
   border: 1px solid var(--kb-border-strong);
-  border-radius: var(--kb-radius);
+  border-radius: var(--kb-radius-float);
   box-shadow: var(--kb-shadow-menu);
 }
 
@@ -1590,14 +1588,14 @@ button.nav-item {
   border: 1px solid color-mix(in srgb, var(--kb-status-ok) 35%, transparent);
   background: color-mix(in srgb, var(--kb-status-ok) 8%, transparent);
   padding: 3px 9px;
-  border-radius: var(--kb-radius-pill);
+  border-radius: var(--kb-radius-control);
 }
 
 .live-pill::before {
   content: "";
   width: 6px;
   height: 6px;
-  border-radius: var(--kb-radius-pill);
+  border-radius: 50%;
   background: currentColor;
   flex-shrink: 0;
   /* Three pulses, then still: the word "live" says the rest. */
@@ -1612,7 +1610,7 @@ button.nav-item {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  border-radius: var(--kb-radius-sm);
+  border-radius: var(--kb-radius-tile);
   padding: var(--kb-space-6) var(--kb-space-5);
   text-align: center;
   background: var(--kb-bg-surface);
@@ -1631,7 +1629,7 @@ button.nav-item {
   background: var(--kb-status-err-subtle);
   color: var(--kb-status-err-fg);
   border: 1px solid color-mix(in srgb, var(--kb-status-err) 35%, transparent);
-  border-radius: var(--kb-radius);
+  border-radius: var(--kb-radius-tile);
   margin: 0 var(--kb-gutter) var(--kb-space-3);
   font-size: var(--kb-text-md);
 }
@@ -1947,7 +1945,7 @@ tr.row-clickable:active {
   z-index: calc(var(--kb-z-modal) + 1);
   background: var(--kb-bg-surface);
   border: 1px solid var(--kb-border-subtle);
-  border-radius: var(--kb-radius);
+  border-radius: var(--kb-radius-float);
   box-shadow: var(--kb-shadow-menu);
   outline: none;
 }
@@ -2029,7 +2027,7 @@ tr.row-clickable:active {
   background: var(--kb-bg-surface);
   color: var(--kb-fg-default);
   border: 1px solid var(--kb-border-strong);
-  border-radius: var(--kb-radius);
+  border-radius: var(--kb-radius-tile);
   padding: 11px 13px;
   cursor: pointer;
   font: inherit;
@@ -2048,7 +2046,7 @@ tr.row-clickable:active {
 
 .kb-choice-card.active {
   border-color: var(--kb-accent);
-  box-shadow: 0 0 0 1px var(--kb-accent), var(--kb-shadow-rest);
+  box-shadow: 0 0 0 1px var(--kb-accent);
 }
 
 /* After .active, so keyboard focus on the chosen theme still shows its ring. */
@@ -2073,7 +2071,7 @@ tr.row-clickable:active {
   margin-bottom: var(--kb-space-2);
   background: var(--kb-bg-inset);
   border: 1px solid var(--kb-border-subtle);
-  border-radius: var(--kb-radius);
+  border-radius: var(--kb-radius-tile);
 }
 
 .kb-collapsible-title {
@@ -2093,7 +2091,7 @@ tr.row-clickable:active {
   color: var(--kb-fg-default);
   background: transparent;
   border: none;
-  border-radius: var(--kb-radius);
+  border-radius: var(--kb-radius-tile);
   cursor: pointer;
   text-align: left;
 }

@@ -24,12 +24,18 @@
   /* Glyph size for an icon or monogram inside a control or avatar, not text. */
   --kb-text-icon: 22px;
 
-  --kb-radius-2xs:  2px;  /* hairline bars and swatches */
-  --kb-radius-xs:   4px;
-  --kb-radius-sm:   6px;
+  /* Radius by role: tiles are square, floats are soft. A tile is anything that
+     tiles the window (panels, the sidebar, tab strips, tables, the drawer,
+     cards, banners). A control is anything you press or read as a chip
+     (buttons, inputs, segments, pills, badges, keycaps, progress bars). A float
+     is anything over the page (menus, dialogs, the palette, HelpTips). A
+     circle (a status dot) is 50%. */
+  --kb-radius-tile:    0;
+  --kb-radius-control: 2px;
+  --kb-radius-float:   6px;
+  /* The website's card and chip radii (website/src/styles/global.css). */
   --kb-radius:      8px;
-  --kb-radius-lg:   14px;
-  --kb-radius-pill: 999px;
+  --kb-radius-sm:   6px;
 
   /* Shared horizontal gutter for page headers, toolbars and table cells so
      the title, the search field and the first column share one left edge. */
@@ -132,7 +138,6 @@
   --kb-border-control: rgba(255, 255, 255, 0.34);
   --kb-highlight-inset: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 
-  --kb-shadow-rest: 0 1px 3px rgba(0, 0, 0, 0.4), 0 0 0 0.5px rgba(0,0,0,0.2);
   --kb-shadow-lift: 0 12px 40px -12px rgba(0, 0, 0, 0.65), 0 2px 8px rgba(0, 0, 0, 0.3);
   --kb-shadow-menu: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 0 0.5px rgba(255,255,255,0.08);
 
@@ -201,7 +206,6 @@
   --kb-border-control: rgba(60, 60, 67, 0.59);
   --kb-highlight-inset: inset 0 1px 0 rgba(255, 255, 255, 0.8);
 
-  --kb-shadow-rest: 0 1px 3px rgba(0, 0, 0, 0.08), 0 0 0 0.5px rgba(0,0,0,0.06);
   --kb-shadow-lift: 0 10px 30px -10px rgba(0, 0, 0, 0.18), 0 2px 6px rgba(0, 0, 0, 0.08);
   --kb-shadow-menu: 0 8px 32px rgba(0, 0, 0, 0.15), 0 0 0 0.5px rgba(0,0,0,0.08);
 
@@ -270,7 +274,6 @@
   --kb-border-control: rgba(255, 255, 255, 0.36);
   --kb-highlight-inset: none;
 
-  --kb-shadow-rest: none;
   --kb-shadow-lift: 0 0 0 1px rgba(255,255,255,0.14);
   --kb-shadow-menu: 0 0 0 1px rgba(255,255,255,0.2);
 
@@ -339,7 +342,6 @@
   --kb-border-control: rgba(0, 0, 0, 0.43);
   --kb-highlight-inset: none;
 
-  --kb-shadow-rest: none;
   --kb-shadow-lift: 0 0 0 1px rgba(0,0,0,0.18);
   --kb-shadow-menu: 0 0 0 1px rgba(0,0,0,0.2);
 
@@ -408,7 +410,6 @@
   --kb-border-control: rgba(255, 255, 255, 0.35);
   --kb-highlight-inset: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 
-  --kb-shadow-rest: 0 1px 3px rgba(0, 0, 0, 0.5);
   --kb-shadow-lift: 0 8px 32px rgba(0, 0, 0, 0.6);
   --kb-shadow-menu: 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 0 0.5px rgba(255,255,255,0.1);
 
@@ -477,7 +478,6 @@
   --kb-border-control: rgba(0, 0, 0, 0.43);
   --kb-highlight-inset: none;
 
-  --kb-shadow-rest: 0 1px 3px rgba(0, 0, 0, 0.08);
   --kb-shadow-lift: 0 4px 16px rgba(0, 0, 0, 0.12);
   --kb-shadow-menu: 0 4px 16px rgba(0, 0, 0, 0.12), 0 0 0 0.5px rgba(0,0,0,0.08);
 
@@ -546,7 +546,6 @@
   --kb-border-control: rgba(255, 255, 255, 0.36);
   --kb-highlight-inset: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 
-  --kb-shadow-rest: 0 1px 4px rgba(0, 0, 0, 0.5);
   --kb-shadow-lift: 0 8px 28px rgba(0, 0, 0, 0.6);
   --kb-shadow-menu: 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 0 0.5px rgba(255,255,255,0.08);
 
@@ -615,7 +614,6 @@
   --kb-border-control: rgba(255, 255, 255, 0.36);
   --kb-highlight-inset: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 
-  --kb-shadow-rest: 0 1px 4px rgba(0, 0, 0, 0.5);
   --kb-shadow-lift: 0 8px 28px rgba(0, 0, 0, 0.65);
   --kb-shadow-menu: 0 4px 16px rgba(0, 0, 0, 0.55), 0 0 0 0.5px rgba(255,255,255,0.08);
 
@@ -684,7 +682,6 @@
   --kb-border-control: rgba(255, 255, 255, 0.44);
   --kb-highlight-inset: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 
-  --kb-shadow-rest: 0 1px 4px rgba(0, 0, 0, 0.4);
   --kb-shadow-lift: 0 8px 24px rgba(0, 0, 0, 0.55);
   --kb-shadow-menu: 0 4px 16px rgba(0, 0, 0, 0.45), 0 0 0 0.5px rgba(255,255,255,0.08);
 
@@ -753,7 +750,6 @@
   --kb-border-control: rgba(240, 246, 252, 0.37);
   --kb-highlight-inset: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 
-  --kb-shadow-rest: 0 1px 4px rgba(0, 0, 0, 0.6);
   --kb-shadow-lift: 0 8px 32px rgba(0, 0, 0, 0.7);
   --kb-shadow-menu: 0 4px 16px rgba(0, 0, 0, 0.6), 0 0 0 0.5px rgba(255,255,255,0.08);
 
@@ -822,7 +818,6 @@
   --kb-border-control: rgba(31, 35, 40, 0.50);
   --kb-highlight-inset: none;
 
-  --kb-shadow-rest: 0 1px 3px rgba(31, 35, 40, 0.10);
   --kb-shadow-lift: 0 4px 16px rgba(31, 35, 40, 0.15);
   --kb-shadow-menu: 0 4px 16px rgba(31, 35, 40, 0.15), 0 0 0 0.5px rgba(0,0,0,0.08);
 
@@ -891,7 +886,6 @@
   --kb-border-control: rgba(205, 214, 244, 0.41);
   --kb-highlight-inset: inset 0 1px 0 rgba(205, 214, 244, 0.04);
 
-  --kb-shadow-rest: 0 1px 4px rgba(0, 0, 0, 0.5);
   --kb-shadow-lift: 0 8px 28px rgba(0, 0, 0, 0.65);
   --kb-shadow-menu: 0 4px 16px rgba(0, 0, 0, 0.55), 0 0 0 0.5px rgba(205,214,244,0.08);
 

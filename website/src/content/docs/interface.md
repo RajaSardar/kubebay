@@ -19,6 +19,10 @@ The sidebar starts with **Clusters**, which goes back to the [cluster list](/doc
 
 Press <kbd>⌘</kbd> <kbd>B</kbd> (<kbd>Ctrl</kbd> <kbd>B</kbd> on Windows and Linux) to hide the sidebar and get the width back. Press it again, or click the button on the cluster rail, to bring it back.
 
+## How the window is laid out
+
+Everything that tiles the window has square corners: the sidebar and its items, tab strips, tables, the drawer, cards, banners and empty states. Things you press or read as a chip, such as buttons, fields, status pills, namespace pills and badges, have 2px corners. Menus, dialogs, the command palette and the ⓘ panels float over the page, so they keep 6px corners and a shadow. Nothing else casts a shadow. Status dots stay round.
+
 ## Several windows
 
 In the desktop app, **File > New Window** (<kbd>⌘</kbd> <kbd>N</kbd>, <kbd>Ctrl</kbd> <kbd>N</kbd> on Windows and Linux) opens another window on the same Kubebay engine. Use it to look at two clusters side by side. On a Mac, right-click the Kubebay icon in the Dock and choose **New Window** for the same thing. Clicking the Dock icon when every window is closed also opens one.

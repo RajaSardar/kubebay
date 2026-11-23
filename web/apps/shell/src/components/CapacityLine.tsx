@@ -17,7 +17,7 @@ function Bullet({ r, text }: { r: CapacityResource; text: string }) {
       <div
         role="img"
         aria-label={text}
-        style={{ position: "relative", height: 10, borderRadius: "var(--kb-radius-xs)", background: "var(--kb-bg-inset)", overflow: "hidden" }}
+        style={{ position: "relative", height: 10, borderRadius: "var(--kb-radius-control)", background: "var(--kb-bg-inset)", overflow: "hidden" }}
       >
         <div style={{ height: "100%", width: pct(r.requested), background: r.over ? "var(--kb-status-warn)" : "var(--kb-accent)" }} />
         {r.used !== undefined && (
