@@ -1,6 +1,6 @@
 # ADR 0006: Licence — fair source (FSL-1.1-MIT)
 
-- **Status:** Proposed (2026-11-19). Accepted when Raja merges it.
+- **Status:** Accepted (2026-11-24). Proposed 2026-11-19; in effect from v0.8.0.
 - **Date:** 2026-11-19
 - **Supersedes:** section (d) "Licence: stay on MIT" of [ADR 0001](0001-business-model-and-licence.md). The rest of ADR 0001 is unchanged by this record.
 - **Backlog:** KB-01 (d).
