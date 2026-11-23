@@ -94,6 +94,7 @@
   --kb-bg-inset:   #0f0f10;
   --kb-bg-chrome:  #111112;
   --kb-separator:  var(--kb-border-subtle);
+  --kb-card-edge:  transparent;
   --kb-bg-hover:   rgba(255, 255, 255, 0.05);
 
   /* Frosted glass material (sidebar/toolbar) */
@@ -164,6 +165,7 @@
   --kb-bg-inset:   #e5e5ea;
   --kb-bg-chrome:  #f2f2f7;
   --kb-separator:  var(--kb-border-subtle);
+  --kb-card-edge:  transparent;
   --kb-bg-hover:   rgba(60, 60, 67, 0.05);
 
 
@@ -229,6 +231,7 @@
   --kb-bg-inset:   #000000;
   --kb-bg-chrome:  #000000;
   --kb-separator:  var(--kb-border-strong);
+  --kb-card-edge:  var(--kb-border-strong);
   --kb-bg-hover:   rgba(255, 255, 255, 0.07);
 
 
@@ -294,6 +297,7 @@
   --kb-bg-inset:   #efefef;
   --kb-bg-chrome:  #ffffff;
   --kb-separator:  var(--kb-border-strong);
+  --kb-card-edge:  var(--kb-border-strong);
   --kb-bg-hover:   rgba(0, 0, 0, 0.06);
 
 
@@ -359,6 +363,7 @@
   --kb-bg-inset:   #141414;
   --kb-bg-chrome:  #1a1a1a;
   --kb-separator:  var(--kb-border-subtle);
+  --kb-card-edge:  transparent;
   --kb-bg-hover:   rgba(255, 255, 255, 0.06);
 
 
@@ -424,6 +429,7 @@
   --kb-bg-inset:   #ebebeb;
   --kb-bg-chrome:  #f3f3f3;
   --kb-separator:  var(--kb-border-subtle);
+  --kb-card-edge:  transparent;
   --kb-bg-hover:   rgba(0, 0, 0, 0.05);
 
 
@@ -489,6 +495,7 @@
   --kb-bg-inset:   #1b1f27;
   --kb-bg-chrome:  #2a2e36;
   --kb-separator:  var(--kb-border-subtle);
+  --kb-card-edge:  transparent;
   --kb-bg-hover:   rgba(255, 255, 255, 0.06);
 
 
@@ -554,6 +561,7 @@
   --kb-bg-inset:   #191a24;
   --kb-bg-chrome:  #282a36;
   --kb-separator:  var(--kb-border-subtle);
+  --kb-card-edge:  transparent;
   --kb-bg-hover:   rgba(255, 255, 255, 0.07);
 
 
@@ -619,6 +627,7 @@
   --kb-bg-inset:   #242933;
   --kb-bg-chrome:  #2e3440;
   --kb-separator:  var(--kb-border-subtle);
+  --kb-card-edge:  transparent;
   --kb-bg-hover:   rgba(255, 255, 255, 0.06);
 
 
@@ -684,6 +693,7 @@
   --kb-bg-inset:   #010409;
   --kb-bg-chrome:  #090c12;
   --kb-separator:  var(--kb-border-subtle);
+  --kb-card-edge:  transparent;
   --kb-bg-hover:   rgba(255, 255, 255, 0.05);
 
 
@@ -749,6 +759,7 @@
   --kb-bg-inset:   #f6f8fa;
   --kb-bg-chrome:  #f0f3f6;
   --kb-separator:  var(--kb-border-subtle);
+  --kb-card-edge:  transparent;
   --kb-bg-hover:   rgba(175, 184, 193, 0.20);
 
 
@@ -814,6 +825,7 @@
   --kb-bg-inset:   #11111b;
   --kb-bg-chrome:  #0b0b12;
   --kb-separator:  var(--kb-border-subtle);
+  --kb-card-edge:  transparent;
   --kb-bg-hover:   rgba(205, 214, 244, 0.06);
 
 

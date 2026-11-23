@@ -29,6 +29,8 @@ Sidebar items fill the sidebar's full width. The page you're on is shaded edge t
 
 A drawer runs from the top of the window down to the status bar, against the right edge, with a thin line and a shadow where it starts. Its header, with the object's name and its buttons, and its tab strip are in the frame's shade. In **Summary**, each section title is a band in the same shade, and the facts under it are two columns, label then value, with a thin line between rows. Rows with no value are left out.
 
+Cards, such as the kind cards on the Overview, are plain blocks a shade lighter or darker than the page, with no outline. Cards in a grid are 8px apart. Hovering a card you can click shades it; it doesn't lift. In the high-contrast themes, where the page and a card are the same shade, cards and empty states keep a visible edge. A banner is a tinted block with a 3px bar in its status colour on the left: red for a problem, amber for a warning, green for success. An empty state, such as a list with nothing in it, is a plain block with no dashed outline.
+
 ## Several windows
 
 In the desktop app, **File > New Window** (<kbd>⌘</kbd> <kbd>N</kbd>, <kbd>Ctrl</kbd> <kbd>N</kbd> on Windows and Linux) opens another window on the same Kubebay engine. Use it to look at two clusters side by side. On a Mac, right-click the Kubebay icon in the Dock and choose **New Window** for the same thing. Clicking the Dock icon when every window is closed also opens one.

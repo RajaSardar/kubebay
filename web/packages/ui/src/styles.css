@@ -61,15 +61,15 @@
   color: var(--kb-fg-default);
 }
 
+/* A card is a block: a square of surface, told apart from the ground by
+   shade alone. --kb-card-edge is transparent, except in the HC themes, where
+   surface is no step from canvas and the edge is the strong border. */
 .kb-card {
   background: var(--kb-bg-surface);
-  border: 1px solid var(--kb-border-subtle);
+  border: 1px solid var(--kb-card-edge);
   border-radius: var(--kb-radius-tile);
   padding: var(--kb-space-4);
-  transition:
-    border-color var(--kb-dur) var(--kb-ease),
-    box-shadow var(--kb-dur) var(--kb-ease),
-    transform var(--kb-dur) var(--kb-ease);
+  transition: background-image var(--kb-dur) var(--kb-ease);
 }
 
 .kb-card-selected {
@@ -77,10 +77,9 @@
   box-shadow: inset 3px 0 0 var(--kb-accent);
 }
 
+/* Hover shades the block, as it shades a table row; it doesn't lift. */
 .kb-card-interactive:hover {
-  border-color: var(--kb-border-strong);
-  box-shadow: var(--kb-shadow-lift), var(--kb-highlight-inset);
-  transform: translateY(-1px);
+  background-image: linear-gradient(var(--kb-bg-hover), var(--kb-bg-hover));
 }
 
 .kb-dot {
@@ -1616,7 +1615,7 @@ button.nav-item {
   background: var(--kb-bg-surface);
   min-height: 200px;
   margin-bottom: var(--kb-space-3);
-  border: 1px dashed var(--kb-border-strong);
+  border: 1px solid var(--kb-card-edge);
 }
 
 .inline-banner {
@@ -1628,7 +1627,9 @@ button.nav-item {
   padding: var(--kb-space-2) var(--kb-space-3);
   background: var(--kb-status-err-subtle);
   color: var(--kb-status-err-fg);
-  border: 1px solid color-mix(in srgb, var(--kb-status-err) 35%, transparent);
+  /* A square block with a 3px status bar on its leading edge. */
+  border: 0;
+  border-left: 3px solid var(--kb-status-err);
   border-radius: var(--kb-radius-tile);
   margin: 0 var(--kb-gutter) var(--kb-space-3);
   font-size: var(--kb-text-md);
@@ -1637,13 +1638,13 @@ button.nav-item {
 .inline-banner.ok {
   background: var(--kb-status-ok-subtle);
   color: var(--kb-status-ok-fg);
-  border-color: color-mix(in srgb, var(--kb-status-ok) 35%, transparent);
+  border-left-color: var(--kb-status-ok);
 }
 
 .inline-banner.warn {
   background: var(--kb-status-warn-subtle);
   color: var(--kb-status-warn-fg);
-  border-color: color-mix(in srgb, var(--kb-status-warn) 35%, transparent);
+  border-left-color: var(--kb-status-warn);
 }
 
 .inline-banner-actions {
@@ -1997,6 +1998,11 @@ tr.row-clickable:active {
   display: flex;
 }
 
+/* Columns of blocks (cards); the gap is the only separator between them. */
+.kb-grid {
+  display: grid;
+}
+
 .kb-stack {
   display: flex;
   flex-direction: column;
@@ -2039,13 +2045,12 @@ tr.row-clickable:active {
   text-align: left;
   transition:
     border-color var(--kb-dur-fast) var(--kb-ease),
-    box-shadow var(--kb-dur-fast) var(--kb-ease),
-    transform var(--kb-dur-fast) var(--kb-ease);
+    box-shadow var(--kb-dur-fast) var(--kb-ease);
 }
 
+/* Shade, don't lift: the same hover as a Card or a table row. */
 .kb-choice-card:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--kb-shadow-lift);
+  background-image: linear-gradient(var(--kb-bg-hover), var(--kb-bg-hover));
 }
 
 .kb-choice-card.active {

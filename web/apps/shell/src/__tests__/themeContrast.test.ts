@@ -264,7 +264,23 @@ describe.each(NATIVE)("$id theme contrast", ({ id, text }) => {
       }
       expect(failures).toEqual([]);
     });
+
+    it("HC cards keep a 3:1 edge (--kb-card-edge) on canvas, where surface is no step", () => {
+      for (const g of ["kb-bg-canvas", "kb-bg-chrome"]) {
+        const r = contrast(over(c("kb-card-edge"), c(g)), c(g));
+        if (r < 3) failures.push(`kb-card-edge on ${g}: ${r.toFixed(2)} < 3`);
+      }
+      expect(failures).toEqual([]);
+    });
   } else {
+    it("cards are blocks: no visible edge (--kb-card-edge is transparent)", () => {
+      expect(v["kb-card-edge"]).toBe("transparent");
+    });
+
+    it("a card (surface) is a visible step from the chrome ground", () => {
+      expect(contrast(c("kb-bg-surface"), c("kb-bg-chrome"))).toBeGreaterThanOrEqual(1.1);
+    });
+
     it("chrome is a visible step from surface (1.10 to 1.30)", () => {
       // Above 1.30 it reads as a frame, not a block; below 1.10 the regions merge.
       const step = contrast(c("kb-bg-chrome"), c("kb-bg-surface"));

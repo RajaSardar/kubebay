@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useQuery as useRQQuery } from "@tanstack/react-query";
-import { Badge, Button, Card, PageHeader, Row, SegmentedControl, Select, Skeleton, Stack } from "@kubebay/ui";
+import { Badge, Button, Card, Grid, PageHeader, Row, SegmentedControl, Select, Skeleton, Stack } from "@kubebay/ui";
 import { CardHelp, PageHelp } from "../components/PageHelp";
 import { useCluster } from "../lib/useCluster";
 import { useResourceStream, shouldShowSkeleton } from "../lib/useResourceStream";
@@ -314,7 +314,7 @@ export default function WorkloadsOverview() {
       ) : shouldShowSkeleton(synced, totals.total) && denied.length > 0 ? (
         <ForbiddenState denied={denied} action={openPods} />
       ) : shouldShowSkeleton(synced, totals.total) ? (
-        <div className="cluster-grid">
+        <Grid>
           {[0, 1, 2, 3, 4, 5].map((i) => (
             <Card key={i}>
               <Skeleton w={100} h={14} />
@@ -326,7 +326,7 @@ export default function WorkloadsOverview() {
               </div>
             </Card>
           ))}
-        </div>
+        </Grid>
       ) : (
         <Stack gap={5}>
         <HealthVerdictLine verdict={verdict} trend={trend} scope={selectedNs} showingAll={showAllNs} onToggleScope={() => setShowAllNs((v) => !v)} />
@@ -339,7 +339,7 @@ export default function WorkloadsOverview() {
         />
         <RolloutsInProgress rows={rollouts} />
         <PodStatusBar segments={statusSegments} />
-        <div className="cluster-grid">
+        <Grid>
           {kinds.map((k) => (
             <Card key={k.label} interactive className="fleet-card">
               <Link to={k.to} style={{ textDecoration: "none", color: "inherit" }}>
@@ -369,7 +369,7 @@ export default function WorkloadsOverview() {
               </Link>
             </Card>
           ))}
-        </div>
+        </Grid>
         <CapacityLine capacity={capacity} />
         <NamespacesRanked rows={namespaces} by={rankBy} onBy={setRankBy} />
         </Stack>

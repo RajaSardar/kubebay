@@ -384,12 +384,6 @@ h2 {
   gap: 8px;
 }
 
-.cluster-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 12px;
-}
-
 .theme-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
