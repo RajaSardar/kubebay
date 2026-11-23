@@ -2,6 +2,23 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { ResourceListView, type ListColumn, type ResourceListViewProps } from "../ResourceListView";
 
+// The blast-radius preview reads pods; each selected Job owns one.
+vi.mock("../../lib/useResourceStream", async () => {
+  const actual = await vi.importActual<typeof import("../../lib/useResourceStream")>("../../lib/useResourceStream");
+  const jobPod = (job: string, ns: string) => ({
+    metadata: { name: `${job}-x`, namespace: ns, ownerReferences: [{ kind: "Job", name: job }] },
+    spec: { nodeName: "n1" },
+  });
+  return {
+    ...actual,
+    useResourceStream: (_c: string, gvr: string) => ({
+      rows: gvr === "v1/pods" ? [jobPod("job-9", "data"), jobPod("job-10", "shop")] : [],
+      synced: true,
+      connected: true,
+    }),
+  };
+});
+
 // The one list every resource table renders through: header count, filter,
 // sort, selection, bulk delete, skeleton and empty states, row menu.
 // Slice 6 of docs/TABLE_UNIFICATION.md.
@@ -163,5 +180,15 @@ describe("ResourceListView", () => {
     expect(cell).toHaveClass("mono", "warn");
     expect(cell).toHaveAttribute("title", "10 failed");
     expect(screen.getByText("9").closest("td")).not.toHaveClass("warn");
+  });
+
+  it("previews what a bulk delete affects across every selected object", () => {
+    renderView({ kind: "Job" });
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select job-9" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select job-10" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete 2 selected" }));
+    fireEvent.click(screen.getByRole("button", { name: /What this affects/ }));
+    expect(screen.getByText(/2 selected\. The counts are the total/)).toBeInTheDocument();
+    expect(screen.getByText("data/job-9-x, shop/job-10-x")).toBeInTheDocument();
   });
 });

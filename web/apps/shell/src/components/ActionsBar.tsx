@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ArmedButton, Badge, Button, InlineBanner, Row } from "@kubebay/ui";
 import { actionApi, api } from "../lib/api";
 import { ownerLabel, ownerWarning, type GitOpsOwner } from "../lib/gitops";
@@ -63,6 +63,8 @@ export function ActionsBar({
   const replicas = edited ?? currentReplicas ?? 0;
   const setReplicas = (fn: (r: number) => number) => setEdited(fn(replicas));
   const ownerDetail = gitopsOwner ? ownerLabel(gitopsOwner) : undefined;
+  // What a scale down is measured against: the live count the stepper started from.
+  const scaleTarget = useMemo(() => ({ metadata: { name, namespace: ns }, spec: { replicas: currentReplicas } }), [name, ns, currentReplicas]);
 
   const showScale = slug === "deployments" || slug === "statefulsets" || slug === "rollouts";
   const showRestart = slug === "deployments" || slug === "statefulsets" || slug === "daemonsets" || slug === "rollouts";
@@ -217,6 +219,15 @@ export function ActionsBar({
       {!msg && !err && !rejection && !busy && <Badge>actions</Badge>}
       </Row>
       {slug === "nodes" && <BlastRadiusPreview cluster={cluster} kind="Node" obj={{ metadata: { name } }} action="drain" />}
+      {(slug === "deployments" || slug === "statefulsets") && typeof currentReplicas === "number" && replicas < currentReplicas && (
+        <BlastRadiusPreview
+          cluster={cluster}
+          kind={slug === "deployments" ? "Deployment" : "StatefulSet"}
+          obj={scaleTarget}
+          action={replicas === 0 ? "scale-zero" : "scale-down"}
+          toReplicas={replicas}
+        />
+      )}
     </div>
   );
 }

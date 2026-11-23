@@ -449,13 +449,14 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
               const owner = ownerAmongTargets(bulkDelete.pending, [...p.objects]);
               return owner && <div className="small">{ownerWarning(owner)}</div>;
             })()}
-            {bulkDelete.pending.length === 1 && p.kind && (() => {
-              const t = bulkDelete.pending[0]!;
-              const target = p.objects.find((o) => {
+            {p.kind && (() => {
+              // One aggregate preview across every selected object (a bulk delete), or the one.
+              const wanted = new Set(bulkDelete.pending.map((t) => `${t.ns ?? ""}/${t.name}`));
+              const targets = p.objects.filter((o) => {
                 const m = (o.metadata ?? {}) as Record<string, unknown>;
-                return m.name === t.name && (m.namespace ?? "") === (t.ns ?? "");
+                return wanted.has(`${m.namespace ?? ""}/${m.name}`);
               });
-              return target && <BlastRadiusPreview cluster={p.cluster} kind={p.kind} obj={target} action="delete" />;
+              return targets.length > 0 && <BlastRadiusPreview cluster={p.cluster} kind={p.kind} objs={targets} action="delete" />;
             })()}
           </span>
           <div className="inline-banner-actions">

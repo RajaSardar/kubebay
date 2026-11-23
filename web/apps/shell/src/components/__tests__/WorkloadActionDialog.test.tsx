@@ -143,4 +143,14 @@ describe("WorkloadActionDialog: blast-radius preview", () => {
     fireEvent.click(screen.getByRole("button", { name: "Decrease replicas" }));
     expect(screen.getByRole("button", { name: /What this affects/ })).toBeInTheDocument();
   });
+
+  it("shows it for a scale down to a non-zero count, and hides it again going back up", () => {
+    render(<WorkloadActionDialog action="scale" slug="deployments" cluster="kind-shop" obj={deploy(5)} onClose={() => {}} />);
+    expect(screen.queryByRole("button", { name: /What this affects/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Decrease replicas" }));
+    expect(screen.getByRole("button", { name: /What this affects/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Increase replicas" }));
+    fireEvent.click(screen.getByRole("button", { name: "Increase replicas" }));
+    expect(screen.queryByRole("button", { name: /What this affects/ })).not.toBeInTheDocument();
+  });
 });
