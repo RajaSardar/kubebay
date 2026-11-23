@@ -7,9 +7,11 @@ export type Density = "compact" | "default" | "relaxed";
 // Every font size in the app is one of the --kb-text-* tokens, so a size
 // setting sets them all: whole pixels only (half pixels render fuzzy). M is
 // the default and matches Lens and Freelens: 14px body, 12px small print.
+// No step is under 11px at any size.
 const TEXT_STEPS = ["2xs", "xs", "sm", "md", "lg", "xl", "2xl"] as const;
+type TextStep = (typeof TEXT_STEPS)[number];
 export const TYPE_SCALE: Record<FontSize, readonly number[]> = {
-  sm: [10, 11, 12, 13, 15, 18, 28],
+  sm: [11, 11, 12, 13, 15, 18, 28],
   md: [11, 12, 13, 14, 16, 20, 30],
   lg: [12, 13, 14, 15, 17, 21, 32],
   xl: [13, 14, 15, 16, 18, 22, 34],
@@ -46,12 +48,21 @@ const TABLE_FONT_SIZE_VALUES: Record<Density, string> = {
   relaxed: "var(--kb-text-lg)",
 };
 
-// Monospace runs wide, so names, IPs and ages sit a step below the table's text.
-const TABLE_MONO_FONT_SIZE_VALUES: Record<Density, string> = {
-  compact: "var(--kb-text-xs)",
-  default: "var(--kb-text-sm)",
-  relaxed: "var(--kb-text-md)",
+// Monospace runs wide, so names, IPs and ages sit a step below the table's text,
+// but never under 12px: where that step is smaller (compact at S), the next one up.
+const TABLE_MONO_STEP: Record<Density, TextStep> = {
+  compact: "xs",
+  default: "sm",
+  relaxed: "md",
 };
+const MONO_MIN_PX = 12;
+
+function tableMonoFontSize(fontSize: FontSize, density: Density): string {
+  const scale = TYPE_SCALE[fontSize];
+  let i = TEXT_STEPS.indexOf(TABLE_MONO_STEP[density]);
+  while (scale[i]! < MONO_MIN_PX && i < TEXT_STEPS.length - 1) i++;
+  return `var(--kb-text-${TEXT_STEPS[i]})`;
+}
 
 interface DisplayState {
   fontSize: FontSize;
@@ -68,7 +79,7 @@ function applyDisplay(s: Pick<DisplayState, "fontSize" | "fontFamily" | "density
   root.style.setProperty("--kb-font", FONT_FAMILY_VALUES[s.fontFamily]);
   root.style.setProperty("--kb-row-padding", ROW_PADDING_VALUES[s.density]);
   root.style.setProperty("--kb-table-font-size", TABLE_FONT_SIZE_VALUES[s.density]);
-  root.style.setProperty("--kb-table-mono-font-size", TABLE_MONO_FONT_SIZE_VALUES[s.density]);
+  root.style.setProperty("--kb-table-mono-font-size", tableMonoFontSize(s.fontSize, s.density));
 }
 
 /** A saved size, including the old XS–L scale (xs was the smallest, so it reads as S). */

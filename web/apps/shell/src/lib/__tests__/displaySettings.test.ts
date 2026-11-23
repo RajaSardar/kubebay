@@ -58,6 +58,33 @@ describe("Display settings", () => {
     expect(css).toMatch(/\.kb-table td\.mono,\s*\.kb-table td \.mono \{\s*font-size: var\(--kb-table-mono-font-size, var\(--kb-text-sm\)\);/);
   });
 
+  it("no type step is under 11px at any font size (S was 10px at its smallest)", async () => {
+    const { TYPE_SCALE } = await import("../display");
+    for (const [size, steps] of Object.entries(TYPE_SCALE)) {
+      expect(Math.min(...steps), size).toBeGreaterThanOrEqual(11);
+      expect([...steps].sort((a, b) => a - b), size).toEqual([...steps]);
+    }
+    expect(TYPE_SCALE.sm).toEqual([11, 11, 12, 13, 15, 18, 28]);
+  });
+
+  it("monospace cells are never under 12px, at any font size and density", async () => {
+    const display = await load();
+    const { TYPE_SCALE } = await import("../display");
+    const steps = ["2xs", "xs", "sm", "md", "lg", "xl", "2xl"];
+    for (const size of ["sm", "md", "lg", "xl"] as const) {
+      for (const density of ["compact", "default", "relaxed"] as const) {
+        display.getState().setFontSize(size);
+        display.getState().setDensity(density);
+        const step = /^var\(--kb-text-([\w]+)\)$/.exec(root().getPropertyValue("--kb-table-mono-font-size"))![1]!;
+        expect(TYPE_SCALE[size][steps.indexOf(step)], `${size} ${density}`).toBeGreaterThanOrEqual(12);
+      }
+    }
+    // The .mono class (names, IPs outside tables) is --kb-text-sm, 12px or more at every size.
+    const css = readFileSync(resolve(__dirname, "../../../../../packages/ui/src/styles.css"), "utf8");
+    expect(css).toMatch(/\n\.mono \{\s*font-family: var\(--kb-font-mono\);\s*font-size: var\(--kb-text-sm\);/);
+    for (const steps of Object.values(TYPE_SCALE)) expect(steps[2]).toBeGreaterThanOrEqual(12);
+  });
+
   it("reads an old saved size: xs (the smallest) becomes S", async () => {
     localStorage.setItem("kb.fontSize", "xs");
     const display = await load();
