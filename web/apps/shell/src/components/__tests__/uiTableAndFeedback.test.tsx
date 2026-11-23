@@ -1,5 +1,8 @@
+/// <reference types="node" />
 import { describe, expect, it, vi } from "vitest";
 import { createRef } from "react";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import {
   Button,
@@ -327,5 +330,97 @@ describe("StatusDot tones", () => {
     );
     const bg = [...container.querySelectorAll(".kb-dot")].map((d) => (d as HTMLElement).style.background);
     expect(bg).toEqual(["var(--kb-status-ok)", "var(--kb-status-warn)", "var(--kb-status-err)"]);
+  });
+});
+
+describe("row hover is a shade, the accent bar marks selection", () => {
+  // Hover and selection both drew the 3px accent bar, so a pointer resting on
+  // a table showed a false "this row is selected". The bar now marks only the
+  // selected row and the keyboard cursor row; hover only shades.
+  const css = readFileSync(resolve(__dirname, "../../../../../packages/ui/src/styles.css"), "utf8");
+  const rules = [...css.matchAll(/(^|\n)([^{}\n@][^{}]*)\{([^}]*)\}/g)].map((m) => ({ sel: m[2]!.trim(), body: m[3]! }));
+  const bar = /inset 3px 0 0 var\(--kb-accent\)/;
+
+  it("no table hover rule draws the accent bar", () => {
+    const hover = rules.filter((r) => r.sel.includes(".kb-table") && r.sel.includes("tr:hover"));
+    expect(hover.length).toBeGreaterThan(0);
+    for (const r of hover) expect(r.body, r.sel).not.toMatch(bar);
+  });
+
+  it("the selected row and the keyboard cursor row keep the bar, a plain row has none", () => {
+    const style = document.createElement("style");
+    style.textContent = css;
+    document.head.appendChild(style);
+    try {
+      render(
+        <Table>
+          <tbody>
+            <TableRow data-testid="plain"><td>a</td></TableRow>
+            <TableRow data-testid="selected" selected><td>b</td></TableRow>
+            <TableRow data-testid="cursor" hovered><td>c</td></TableRow>
+          </tbody>
+        </Table>,
+      );
+      const shadow = (id: string) => getComputedStyle(screen.getByTestId(id)).boxShadow;
+      expect(shadow("plain")).not.toMatch(bar);
+      expect(shadow("selected")).toMatch(bar);
+      expect(shadow("cursor")).toMatch(bar);
+    } finally {
+      style.remove();
+    }
+  });
+
+  it("pinned lead cells repaint the bar for selected and cursor rows only, not on hover", () => {
+    const pinned = rules.filter((r) => r.sel.includes(".kb-table-pin-lead") && bar.test(r.body));
+    expect(pinned.length).toBeGreaterThan(0);
+    for (const r of pinned) {
+      expect(r.sel).not.toMatch(/:hover/);
+      expect(r.sel).toMatch(/tr\.selected|tr\.hovered/);
+    }
+  });
+});
+
+describe("table headers: one style", () => {
+  // Sortable headers were 13px mixed case and muted; the rest were 12px
+  // uppercase and subtle, so most tables mixed the two. Every header now has
+  // the one style, and a sortable one only adds its pointer and hover.
+  const css = readFileSync(resolve(__dirname, "../../../../../packages/ui/src/styles.css"), "utf8");
+  type Row = { name: string; phase: string };
+  const columns: Column<Row>[] = [
+    { key: "name", header: "Name", sortable: true, render: (r) => r.name },
+    { key: "phase", header: "Status", render: (r) => r.phase },
+  ];
+
+  it("a non-sortable header looks the same as a sortable one, in sentence case", () => {
+    const style = document.createElement("style");
+    style.textContent = css;
+    document.head.appendChild(style);
+    try {
+      render(<DataTable columns={columns} rows={[{ name: "api", phase: "Running" }]} rowKey={(r) => r.name} onSort={() => {}} />);
+      const [sortable, plain] = screen.getAllByRole("columnheader");
+      expect(sortable).toHaveClass("th-sortable");
+      expect(plain).not.toHaveClass("th-sortable");
+      const look = (el: HTMLElement) => {
+        const s = getComputedStyle(el);
+        return { textTransform: s.textTransform, fontSize: s.fontSize, fontWeight: s.fontWeight, letterSpacing: s.letterSpacing, color: s.color };
+      };
+      expect(look(plain!)).toEqual(look(sortable!));
+      expect(look(plain!).textTransform).not.toBe("uppercase");
+    } finally {
+      style.remove();
+    }
+  });
+
+  it("the header is 13px, muted, weight 500, on a solid background with no blur", () => {
+    const th = /\n\.kb-table th \{([^}]*)\}/.exec(css)![1]!;
+    expect(th).toMatch(/font-size: var\(--kb-text-sm\);/);
+    expect(th).toMatch(/color: var\(--kb-fg-muted\);/);
+    expect(th).toMatch(/font-weight: 500;/);
+    expect(th).not.toMatch(/uppercase/);
+    expect(th).not.toMatch(/backdrop-filter/);
+    expect(th).not.toMatch(/transparent/);
+    // The sortable header no longer restyles the type.
+    const sortable = /\n\.kb-table th\.th-sortable \{([^}]*)\}/.exec(css)?.[1] ?? "";
+    expect(sortable).not.toMatch(/font-size|text-transform|letter-spacing|color/);
   });
 });

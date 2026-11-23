@@ -7,9 +7,11 @@ export type Density = "compact" | "default" | "relaxed";
 // Every font size in the app is one of the --kb-text-* tokens, so a size
 // setting sets them all: whole pixels only (half pixels render fuzzy). M is
 // the default and matches Lens and Freelens: 14px body, 12px small print.
+// No step is under 11px at any size.
 const TEXT_STEPS = ["2xs", "xs", "sm", "md", "lg", "xl", "2xl"] as const;
+type TextStep = (typeof TEXT_STEPS)[number];
 export const TYPE_SCALE: Record<FontSize, readonly number[]> = {
-  sm: [10, 11, 12, 13, 15, 18, 28],
+  sm: [11, 11, 12, 13, 15, 18, 28],
   md: [11, 12, 13, 14, 16, 20, 30],
   lg: [12, 13, 14, 15, 17, 21, 32],
   xl: [13, 14, 15, 16, 18, 22, 34],
@@ -23,19 +25,20 @@ const FONT_FAMILY_VALUES: Record<FontFamily, string> = {
 
 const ROW_PADDING_VALUES: Record<Density, string> = {
   compact: "4px 16px",
-  default: "8px 16px",
-  relaxed: "12px 16px",
+  default: "6px 16px",
+  relaxed: "10px 16px",
 };
 
 // Row height (px) per density, for virtualised tables; in step with ROW_PADDING_VALUES.
-// The 26px row-menu button (.kb-icon-btn), not the text line, sets the height:
-// compact: 4+4px pad + 26px button + 1px border = 35px
-// default: 8+8px pad + 26px button + 1px border = 43px
-// relaxed: 12+12px pad + 26px button + 1px border = 51px
+// The text sets the height: a 20px line box (.kb-table td) plus the vertical padding.
+// The row-menu cell has no padding, so its 26px button fits inside every row.
+// compact: 4+4px pad + 20px line = 28px
+// default: 6+6px pad + 20px line = 32px
+// relaxed: 10+10px pad + 20px line = 40px
 export const ROW_HEIGHT: Record<Density, number> = {
-  compact: 35,
-  default: 43,
-  relaxed: 51,
+  compact: 28,
+  default: 32,
+  relaxed: 40,
 };
 
 // Table text follows the font size: a step below body when compact, a step above when relaxed.
@@ -45,12 +48,21 @@ const TABLE_FONT_SIZE_VALUES: Record<Density, string> = {
   relaxed: "var(--kb-text-lg)",
 };
 
-// Monospace runs wide, so names, IPs and ages sit a step below the table's text.
-const TABLE_MONO_FONT_SIZE_VALUES: Record<Density, string> = {
-  compact: "var(--kb-text-xs)",
-  default: "var(--kb-text-sm)",
-  relaxed: "var(--kb-text-md)",
+// Monospace runs wide, so names, IPs and ages sit a step below the table's text,
+// but never under 12px: where that step is smaller (compact at S), the next one up.
+const TABLE_MONO_STEP: Record<Density, TextStep> = {
+  compact: "xs",
+  default: "sm",
+  relaxed: "md",
 };
+const MONO_MIN_PX = 12;
+
+function tableMonoFontSize(fontSize: FontSize, density: Density): string {
+  const scale = TYPE_SCALE[fontSize];
+  let i = TEXT_STEPS.indexOf(TABLE_MONO_STEP[density]);
+  while (scale[i]! < MONO_MIN_PX && i < TEXT_STEPS.length - 1) i++;
+  return `var(--kb-text-${TEXT_STEPS[i]})`;
+}
 
 interface DisplayState {
   fontSize: FontSize;
@@ -67,7 +79,7 @@ function applyDisplay(s: Pick<DisplayState, "fontSize" | "fontFamily" | "density
   root.style.setProperty("--kb-font", FONT_FAMILY_VALUES[s.fontFamily]);
   root.style.setProperty("--kb-row-padding", ROW_PADDING_VALUES[s.density]);
   root.style.setProperty("--kb-table-font-size", TABLE_FONT_SIZE_VALUES[s.density]);
-  root.style.setProperty("--kb-table-mono-font-size", TABLE_MONO_FONT_SIZE_VALUES[s.density]);
+  root.style.setProperty("--kb-table-mono-font-size", tableMonoFontSize(s.fontSize, s.density));
 }
 
 /** A saved size, including the old XS–L scale (xs was the smallest, so it reads as S). */

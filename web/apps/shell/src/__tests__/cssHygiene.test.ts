@@ -79,6 +79,47 @@ describe("z-index scale", () => {
   });
 });
 
+describe("band heights and layout widths", () => {
+  // Every horizontal band has a fixed height from a token, so bands stack on
+  // one rhythm: 40 for page headers and toolbars, 36 for tab strips, 24 for
+  // the status bar. The sidebar width is one token, not a literal repeated in
+  // the grid and in every calc() that steps over it.
+  const decl = (css: string, sel: string, prop: string) =>
+    declarations(css, new RegExp(`^${prop}$`)).filter((d) => d.sel === sel).map((d) => d.value);
+
+  it("declares the band and layout tokens", () => {
+    expect(rootToken("--kb-h-bar")).toBe("40px");
+    expect(rootToken("--kb-h-tabs")).toBe("36px");
+    expect(rootToken("--kb-h-status")).toBe("24px");
+    expect(rootToken("--kb-line-row")).toBe("20px");
+    expect(rootToken("--kb-rail-w")).toBe("56px");
+    expect(rootToken("--kb-sidebar-w")).toBe("210px");
+  });
+
+  it.each([
+    ["styles.css", ".page-header", "--kb-h-bar"],
+    ["styles.css", ".toolbar", "--kb-h-bar"],
+    ["styles.css", ".tabs", "--kb-h-tabs"],
+    ["styles.css", ".drawer-pane-tabs", "--kb-h-tabs"],
+    ["app.css", ".statusbar", "--kb-h-status"],
+  ] as const)("%s %s is var(%s) tall", (sheet, sel, token) => {
+    expect(decl(sheets[sheet], sel, "height")).toEqual([`var(${token})`]);
+  });
+
+  it("a table cell's line box is var(--kb-line-row)", () => {
+    expect(decl(stylesCss, ".kb-table td", "line-height")).toEqual(["var(--kb-line-row)"]);
+  });
+
+  it("the sidebar width is never a literal", () => {
+    expect(decl(appCss, ".app", "grid-template-columns")).toEqual(["var(--kb-rail-w) var(--kb-sidebar-w) minmax(0, 1fr)"]);
+    // 210px is allowed only as a card's minimum width in a grid, not as the sidebar.
+    const literal = [...appCss.matchAll(/[^;{}\n]*\b(56|210)px[^;{}\n]*/g)]
+      .map((m) => m[0]!.trim())
+      .filter((d) => /210px/.test(d) ? !/minmax\(210px, 1fr\)/.test(d) : /\b56px\s*\+/.test(d));
+    expect(literal).toEqual([]);
+  });
+});
+
 describe("type, radius and motion scales", () => {
   it.each(Object.entries(sheets))("%s font sizes come from --kb-text-*", (_, css) => {
     const offenders = declarations(css, /^font-size$/)

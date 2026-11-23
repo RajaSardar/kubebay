@@ -22,6 +22,11 @@
   gap: 4px;
 }
 
+/* A keycap inside a small button (the status bar's Terminal) stays inside its 24px band. */
+.kb-btn.kb-btn-sm kbd {
+  padding: 1px 4px;
+}
+
 .kb-btn:focus-visible {
   outline: none;
   box-shadow: var(--kb-focus-ring);
@@ -399,7 +404,7 @@ button.nav-item {
   gap: var(--kb-space-3);
   flex-shrink: 0;
   padding: 0 var(--kb-gutter);
-  height: 40px;
+  height: var(--kb-h-bar);
   border-bottom: 1px solid var(--kb-border-subtle);
   background: color-mix(in srgb, var(--kb-bg-surface) 60%, transparent);
   backdrop-filter: blur(12px);
@@ -435,7 +440,7 @@ button.nav-item {
   gap: var(--kb-space-2);
   flex-shrink: 0;
   padding: 0 var(--kb-gutter);
-  height: 38px;
+  height: var(--kb-h-bar);
   border-bottom: 1px solid var(--kb-border-subtle);
 }
 
@@ -501,26 +506,36 @@ button.nav-item {
   z-index: 1;
   background: color-mix(in srgb, var(--kb-bg-surface) 90%, var(--kb-bg-inset));
   text-align: left;
-  font-size: var(--kb-text-xs);
+  font-size: var(--kb-text-sm);
   font-weight: 500;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  color: var(--kb-fg-subtle);
+  letter-spacing: 0.01em;
+  color: var(--kb-fg-muted);
   padding: var(--kb-space-2) var(--kb-gutter);
   border-bottom: 1px solid var(--kb-border-subtle);
   white-space: nowrap;
   overflow: hidden;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
   user-select: none;
 }
 
 /* No line between rows: the hover tint and the selected tint tell them apart, and the header keeps
-   its underline. */
+   its underline. The text sets the row: a fixed 20px line box plus the density's padding
+   (4 / 6 / 10px) gives 28 / 32 / 40px rows, ROW_HEIGHT in the shell's display.ts. */
 .kb-table td {
-  padding: var(--kb-row-padding, var(--kb-space-2) var(--kb-gutter));
+  padding: var(--kb-row-padding, 6px var(--kb-gutter));
+  line-height: var(--kb-line-row);
   white-space: nowrap;
   overflow: hidden;
+}
+
+/* The row-menu cell has no padding, so its 26px button fits inside the row instead of setting
+   its height. Two classes, so it wins over .kb-table td. */
+.kb-table td.col-row-menu {
+  padding: 0;
+}
+
+/* A badge in a cell keeps inside the 20px line box. */
+.kb-table td .kb-badge {
+  padding-block: 2px;
 }
 
 /* Text overflow only on data cells — never on the checkbox or menu columns,
@@ -598,6 +613,13 @@ button.nav-item {
   transition: background var(--kb-dur-fast) var(--kb-ease);
 }
 
+/* The keyboard cursor row (TableRow hovered): shaded like a hovered row, with the accent bar.
+   Before .selected, so a selected row under the cursor keeps its tint. */
+.kb-table tbody tr.hovered {
+  background: var(--kb-bg-raised);
+  box-shadow: inset 3px 0 0 var(--kb-accent);
+}
+
 .kb-table tbody tr.selected {
   background: var(--kb-accent-subtle);
   box-shadow: inset 3px 0 0 var(--kb-accent);
@@ -609,9 +631,10 @@ button.nav-item {
   background: var(--kb-bg-surface);
 }
 
+/* Hover is a shade only. The accent bar marks the selected row and the keyboard cursor row, so a
+   resting pointer never looks like a selection. */
 .kb-table tbody tr:hover {
   background: var(--kb-bg-raised);
-  box-shadow: inset 3px 0 0 var(--kb-accent);
 }
 
 .kb-table tbody tr[data-terminating] {
@@ -673,7 +696,9 @@ button.nav-item {
 }
 
 .kb-table-pin-lead tbody tr:hover > td.col-select,
-.kb-table-pin-lead tbody tr:hover > td.td-name {
+.kb-table-pin-lead tbody tr:hover > td.td-name,
+.kb-table-pin-lead tbody tr.hovered > td.col-select,
+.kb-table-pin-lead tbody tr.hovered > td.td-name {
   background-color: var(--kb-bg-raised);
 }
 
@@ -683,7 +708,7 @@ button.nav-item {
 }
 
 .kb-table-pin-lead tbody tr.selected > td.col-select,
-.kb-table-pin-lead tbody tr:hover > td.col-select {
+.kb-table-pin-lead tbody tr.hovered > td.col-select {
   box-shadow: inset 3px 0 0 var(--kb-accent);
 }
 
@@ -825,7 +850,9 @@ button.nav-item {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 8px 12px;
+  flex-shrink: 0;
+  height: var(--kb-h-tabs);
+  padding: 0 12px;
   border-bottom: 1px solid var(--kb-border-subtle);
 }
 
@@ -1283,6 +1310,7 @@ button.nav-item {
   padding: 1px 8px;
   border-radius: var(--kb-radius-pill);
   font-size: var(--kb-text-xs);
+  line-height: 16px;
   font-weight: 500;
   background: var(--kb-status-ok-subtle);
   color: var(--kb-status-ok-fg);
@@ -1297,6 +1325,7 @@ button.nav-item {
   padding: 1px 8px;
   border-radius: var(--kb-radius-pill);
   font-size: var(--kb-text-xs);
+  line-height: 16px;
   font-weight: 500;
   background: var(--kb-status-err-subtle);
   color: var(--kb-status-err-fg);
@@ -1311,6 +1340,7 @@ button.nav-item {
   padding: 1px 8px;
   border-radius: var(--kb-radius-pill);
   font-size: var(--kb-text-xs);
+  line-height: 16px;
   font-weight: 500;
   background: var(--kb-status-warn-subtle);
   color: var(--kb-status-warn-fg);
@@ -1325,6 +1355,7 @@ button.nav-item {
   padding: 1px 8px;
   border-radius: var(--kb-radius-pill);
   font-size: var(--kb-text-xs);
+  line-height: 16px;
   font-weight: 500;
   background: var(--kb-status-pending-subtle);
   color: var(--kb-status-pending-fg);
@@ -1339,6 +1370,7 @@ button.nav-item {
   padding: 1px 8px;
   border-radius: var(--kb-radius-pill);
   font-size: var(--kb-text-xs);
+  line-height: 16px;
   font-weight: 500;
   background: var(--kb-status-done-subtle);
   color: var(--kb-status-done-fg);
@@ -1353,6 +1385,7 @@ button.nav-item {
   padding: 1px 8px;
   border-radius: var(--kb-radius-pill);
   font-size: var(--kb-text-xs);
+  line-height: 16px;
   font-weight: 500;
   background: color-mix(in srgb, var(--kb-status-terminated) 10%, transparent);
   color: var(--kb-status-terminated);
@@ -1369,6 +1402,7 @@ button.nav-item {
   padding: 1px 8px;
   border-radius: var(--kb-radius-pill);
   font-size: var(--kb-text-xs);
+  line-height: 16px;
   font-weight: 500;
   background: color-mix(in srgb, var(--kb-status-terminated) 10%, transparent);
   color: var(--kb-status-terminated);
@@ -1451,16 +1485,6 @@ button.nav-item {
 .kb-table tbody tr.hovered .row-menu-btn,
 .row-menu-btn:focus-visible {
   opacity: 1;
-}
-
-/* ──── Column header: slightly softer treatment (match FreeLens weight) ──── */
-/* Override the all-caps + heavy weight to mixed-case + medium for readability */
-.kb-table th.th-sortable {
-  text-transform: none;
-  font-weight: 500;
-  letter-spacing: 0.01em;
-  font-size: var(--kb-text-sm);
-  color: var(--kb-fg-muted);
 }
 
 /* Sort indicator styling */
@@ -1652,7 +1676,8 @@ tr.row-clickable:active {
   display: flex;
   align-items: center;
   gap: 2px;
-  padding: 5px 8px;
+  height: var(--kb-h-tabs);
+  padding: 0 8px;
   border-bottom: 1px solid var(--kb-border-subtle);
   flex-shrink: 0;
   background: color-mix(in srgb, var(--kb-bg-inset) 40%, transparent);

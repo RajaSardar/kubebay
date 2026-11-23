@@ -35,6 +35,18 @@
      the title, the search field and the first column share one left edge. */
   --kb-gutter: 16px;
 
+  /* Band heights: every horizontal band has one fixed height, so they stack on
+     one rhythm. Page headers and toolbars, tab strips, the status bar, and the
+     line box of a table row (density adds padding: 28 / 32 / 40px rows). */
+  --kb-h-bar:    40px;
+  --kb-h-tabs:   36px;
+  --kb-h-status: 24px;
+  --kb-line-row: 20px;
+
+  /* Layout widths: the cluster rail and the sidebar beside it. */
+  --kb-rail-w:    56px;
+  --kb-sidebar-w: 210px;
+
   /* Snappy Apple-style timing */
   --kb-dur-fast: 70ms;
   --kb-dur:      120ms;

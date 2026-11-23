@@ -13,7 +13,7 @@ https://claude.ai/artifact/J35D45QQ7X6Sgd7mwfRSnF
 | What | File | Notes |
 |---|---|---|
 | Colour, shadow and focus tokens for all 12 themes | `web/packages/ui/src/tokens.css` | `--kb-*` custom properties, one block per `data-theme` |
-| Type scale, spacing, radii, motion, layers | `web/packages/ui/src/tokens.css` (`:root`) | `--kb-text-*`, `--kb-space-*`, `--kb-radius-*`, `--kb-dur*`, `--kb-ease*`, `--kb-z-*` |
+| Type scale, spacing, radii, motion, layers, band heights, layout widths | `web/packages/ui/src/tokens.css` (`:root`) | `--kb-text-*`, `--kb-space-*`, `--kb-radius-*`, `--kb-dur*`, `--kb-ease*`, `--kb-z-*`, `--kb-h-bar` (40px page header and toolbar), `--kb-h-tabs` (36px tab strip), `--kb-h-status` (24px status bar), `--kb-line-row` (20px table line box), `--kb-rail-w`, `--kb-sidebar-w` |
 | Component styles | `web/packages/ui/src/styles.css` | the only CSS for package classes |
 | Core components | `web/packages/ui/src/index.tsx` | `Button` (`size="sm"` for the status bar or a dense header), `ArmedButton`, `Card`, `Badge`, `Avatar` (letter tile, never an image), `StatusDot`, `Skeleton`, `chartColor()` |
 | Shell components | `web/packages/ui/src/shell.tsx` | `StatusPill`/`phaseTone`, `Tabs` (with `trailing` controls), `Splitter` (the keyboard-resizable top edge of a panel docked under the page), `SegmentedControl`, `IconButton`, `NavItem` (a button, pressed while what it opens is open, when it has an `onClick` and no `href`)/`NavSection`/`navItemClass`, `DisclosureButton`, `CollapsibleSection` (a page section whose header opens and closes it; the body mounts only while open), `ChoiceCard`, `TextField`, `Select`, `Kbd`, `PageHeader`, `ContextMenu` |
