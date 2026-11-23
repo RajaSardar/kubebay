@@ -528,6 +528,7 @@ export default function GenericDrawer({
           name={name}
           gitopsOwner={ownerOf(obj)}
           rollout={def.gvr === "argoproj.io/v1alpha1/rollouts" && obj && typeof obj === "object" ? (obj as Record<string, unknown>) : undefined}
+          obj={obj && typeof obj === "object" ? (obj as Record<string, unknown>) : undefined}
           currentReplicas={obj && typeof (obj as Record<string, unknown>).spec === "object"
             ? Number(((obj as Record<string, unknown>).spec as Record<string, unknown>)?.replicas) || 0
             : undefined}

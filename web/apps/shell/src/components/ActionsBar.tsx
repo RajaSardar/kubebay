@@ -4,6 +4,8 @@ import { actionApi, api } from "../lib/api";
 import { ownerLabel, ownerWarning, type GitOpsOwner } from "../lib/gitops";
 import { PolicyRejectionError, type PolicyRejectionDetail } from "../lib/policyRejection";
 import { availableRolloutActions, rolloutActionRequests, type RolloutAction } from "../lib/rollouts";
+import { sidecarSlug } from "../lib/addSidecar";
+import { AddSidecarDialog } from "./AddSidecarDialog";
 import { BlastRadiusPreview } from "./BlastRadiusPreview";
 import { PolicyRejectionCard } from "./PolicyRejectionCard";
 
@@ -50,6 +52,7 @@ export function ActionsBar({
   gitopsOwner,
   currentReplicas,
   rollout,
+  obj,
 }: {
   slug: Slug;
   cluster: string;
@@ -59,8 +62,11 @@ export function ActionsBar({
   currentReplicas?: number;
   /** The live Rollout (slug "rollouts"): which of Pause, Resume and Skip step apply depends on its state. */
   rollout?: Record<string, unknown>;
+  /** The live object: Add sidecar reads its pod template (existing containers and volumes). */
+  obj?: Record<string, unknown>;
 }) {
-  const { msg, err, rejection, busy, run } = useFeedback();
+  const { msg, err, rejection, busy, run, setMsg } = useFeedback();
+  const [addingSidecar, setAddingSidecar] = useState(false);
   // null = untouched → follow the live spec.replicas (the object may load after mount)
   const [edited, setEdited] = useState<number | null>(null);
   const replicas = edited ?? currentReplicas ?? 0;
@@ -138,6 +144,11 @@ export function ActionsBar({
           }
         >
           Restart
+        </Button>
+      )}
+      {sidecarSlug(slug) && obj && (
+        <Button variant="ghost" disabled={busy} onClick={() => setAddingSidecar(true)}>
+          Add sidecar
         </Button>
       )}
       {drawerRolloutActions.includes("pause") && (
@@ -248,6 +259,18 @@ export function ActionsBar({
       )}
       {!msg && !err && !rejection && !busy && <Badge>actions</Badge>}
       </Row>
+      {addingSidecar && sidecarSlug(slug) && obj && (
+        <AddSidecarDialog
+          slug={slug}
+          cluster={cluster}
+          obj={obj}
+          onClose={() => setAddingSidecar(false)}
+          onApplied={(m) => {
+            setAddingSidecar(false);
+            setMsg(m);
+          }}
+        />
+      )}
       {slug === "nodes" && <BlastRadiusPreview cluster={cluster} kind="Node" obj={{ metadata: { name } }} action="drain" />}
       {(slug === "deployments" || slug === "statefulsets") && typeof currentReplicas === "number" && replicas < currentReplicas && (
         <BlastRadiusPreview

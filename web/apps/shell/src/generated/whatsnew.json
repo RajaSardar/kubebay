@@ -8,6 +8,10 @@
           "heading": "Added",
           "items": [
             {
+              "title": "Add sidecar",
+              "summary": "(backlog 56)."
+            },
+            {
               "title": "Service map: observed traffic on All namespaces, and ReferenceGrant checks",
               "summary": "(backlog 39 follow-up)."
             },
