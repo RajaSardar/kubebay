@@ -8,7 +8,7 @@ appRoutes: ["/create-resource"]
 
 **Create Resource** in the sidebar's Tools opens an editor with a template for the kind you pick. The **+** next to a resource table's title opens it on that table's kind.
 
-Templates: Deployment, StatefulSet, DaemonSet, Job, CronJob, Service, Ingress, ConfigMap, Secret, PersistentVolumeClaim, ServiceAccount, Namespace, Role, ClusterRole, RoleBinding, ClusterRoleBinding, HorizontalPodAutoscaler, Pod, ReplicaSet, ReplicationController, PersistentVolume, NetworkPolicy, PriorityClass and RuntimeClass.
+Templates: Deployment, StatefulSet, DaemonSet, Job, CronJob, Service, Ingress, ConfigMap, Secret, PersistentVolumeClaim, ServiceAccount, Namespace, Role, ClusterRole, RoleBinding, ClusterRoleBinding, HorizontalPodAutoscaler, Pod, ReplicaSet, ReplicationController, PersistentVolume, PodDisruptionBudget, NetworkPolicy, PriorityClass and RuntimeClass.
 
 Edit the YAML, or paste your own. Several documents separated by `---` are applied together, and Kubebay says how many were applied.
 

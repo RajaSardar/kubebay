@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import BestPractices from "../BestPractices";
+import { useTerminalDock } from "../../lib/terminalDock";
 
 vi.mock("../../lib/useCluster", () => ({
   useCluster: () => ({ cluster: "c1", setCluster: vi.fn(), list: [{ id: "c1" }], isLoading: false }),
@@ -132,5 +133,28 @@ describe("BestPractices page", () => {
     await userEvent.click(screen.getByRole("button", { name: "Export report" }));
     expect(screen.getByRole("button", { name: "Save JSON" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save Markdown" })).toBeInTheDocument();
+  });
+  it("shows a score per framework beside the overall score", async () => {
+    renderPage();
+    const fw = await screen.findByRole("group", { name: "Framework scores" });
+    expect(within(fw).getByText(/^Security \d+%/)).toBeInTheDocument();
+    expect(within(fw).getByText(/^Reliability \d+%/)).toBeInTheDocument();
+    expect(within(fw).getByText(/^CIS-referenced \d+%/)).toHaveAttribute("title", expect.stringMatching(/not a CIS compliance score/i));
+  });
+
+  it("Fix opens the generated YAML in a New resource dock tab to review, and applies nothing", async () => {
+    localStorage.clear();
+    useTerminalDock.setState({ tabs: [], activeTab: "shell" });
+    renderPage();
+    await screen.findByRole("group", { name: "Summary" });
+    expect(within(screen.getByText("No privileged containers").closest("li")!).queryByRole("button", { name: /^Fix/ })).toBeNull();
+    const li = screen.getByText("Default ServiceAccount token not mounted").closest("li")!;
+    await userEvent.click(within(li).getByRole("button", { name: /^Fix/ }));
+    const { tabs, open } = useTerminalDock.getState();
+    expect(open).toBe(true);
+    expect(tabs).toHaveLength(1);
+    expect(tabs[0]).toMatchObject({ isNew: true, newKind: "Deployment" });
+    expect(tabs[0]!.newYaml).toContain("automountServiceAccountToken: false");
+    expect(tabs[0]!.newYaml).toContain('name: "priv"');
   });
 });
