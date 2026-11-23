@@ -18,7 +18,12 @@ describe("ROW_HEIGHT", () => {
     expect(m, `${selector} rule`).not.toBeNull();
     return m![1]!;
   };
-  const lineBox = Number(/line-height:\s*(\d+)px/.exec(rule(".kb-table td"))?.[1]);
+  const tokens = readFileSync(resolve(__dirname, "../../../../../packages/ui/src/tokens.css"), "utf8");
+  const px = (v: string | undefined) => {
+    const token = /^var\((--kb-[\w-]+)\)$/.exec(v ?? "")?.[1];
+    return Number(/^(\d+)px$/.exec(token ? new RegExp(`${token}:\\s*([^;]+);`).exec(tokens)![1]!.trim() : v ?? "")?.[1]);
+  };
+  const lineBox = px(/line-height:\s*([^;]+);/.exec(rule(".kb-table td"))?.[1]?.trim());
   const button = Number(/\bheight:\s*(\d+)px/.exec(rule(".kb-icon-btn"))![1]);
   const padding = (d: string) => Number(new RegExp(`${d}: "(\\d+)px`).exec(display.slice(display.indexOf("ROW_PADDING_VALUES")))![1]);
 

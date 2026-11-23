@@ -22,6 +22,11 @@
   gap: 4px;
 }
 
+/* A keycap inside a small button (the status bar's Terminal) stays inside its 24px band. */
+.kb-btn.kb-btn-sm kbd {
+  padding: 1px 4px;
+}
+
 .kb-btn:focus-visible {
   outline: none;
   box-shadow: var(--kb-focus-ring);
@@ -399,7 +404,7 @@ button.nav-item {
   gap: var(--kb-space-3);
   flex-shrink: 0;
   padding: 0 var(--kb-gutter);
-  height: 40px;
+  height: var(--kb-h-bar);
   border-bottom: 1px solid var(--kb-border-subtle);
   background: color-mix(in srgb, var(--kb-bg-surface) 60%, transparent);
   backdrop-filter: blur(12px);
@@ -435,7 +440,7 @@ button.nav-item {
   gap: var(--kb-space-2);
   flex-shrink: 0;
   padding: 0 var(--kb-gutter);
-  height: 38px;
+  height: var(--kb-h-bar);
   border-bottom: 1px solid var(--kb-border-subtle);
 }
 
@@ -517,7 +522,7 @@ button.nav-item {
    (4 / 6 / 10px) gives 28 / 32 / 40px rows, ROW_HEIGHT in the shell's display.ts. */
 .kb-table td {
   padding: var(--kb-row-padding, 6px var(--kb-gutter));
-  line-height: 20px;
+  line-height: var(--kb-line-row);
   white-space: nowrap;
   overflow: hidden;
 }
@@ -845,7 +850,9 @@ button.nav-item {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 8px 12px;
+  flex-shrink: 0;
+  height: var(--kb-h-tabs);
+  padding: 0 12px;
   border-bottom: 1px solid var(--kb-border-subtle);
 }
 
@@ -1669,7 +1676,8 @@ tr.row-clickable:active {
   display: flex;
   align-items: center;
   gap: 2px;
-  padding: 5px 8px;
+  height: var(--kb-h-tabs);
+  padding: 0 8px;
   border-bottom: 1px solid var(--kb-border-subtle);
   flex-shrink: 0;
   background: color-mix(in srgb, var(--kb-bg-inset) 40%, transparent);
