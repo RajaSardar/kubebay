@@ -108,12 +108,13 @@ export function WorkloadActionDialog({
           ) : (
             <span className="muted small">Its pods are replaced one by one, following its rollout strategy.</span>
           )}
-          {(action === "restart" || Number(replicas) === 0) && (
+          {(action === "restart" || Number(replicas) === 0 || (typeof current === "number" && Number(replicas) < current)) && (
             <BlastRadiusPreview
               cluster={cluster}
               kind={KIND[slug] ?? ""}
               obj={obj}
-              action={action === "restart" ? "restart" : "scale-zero"}
+              action={action === "restart" ? "restart" : Number(replicas) === 0 ? "scale-zero" : "scale-down"}
+              toReplicas={Number(replicas)}
             />
           )}
           {rejection && <PolicyRejectionCard rejection={rejection} />}

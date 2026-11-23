@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeBlastRadius, type BlastStreams } from "../blastRadius";
+import { computeBlastRadius, computeBulkBlastRadius, type BlastStreams } from "../blastRadius";
 
 type O = Record<string, unknown>;
 
@@ -233,5 +233,147 @@ describe("computeBlastRadius: unknown streams and production", () => {
     const r = computeBlastRadius({ action: "delete", kind: "Pod", obj: p, streams: full({ services: [svc("web", { app: "web" })] }) });
     expect(item(r, "pods")).toMatchObject({ count: 1 });
     expect(item(r, "services")).toBeUndefined();
+  });
+});
+
+const ready = (p: O, ok = true): O => ({ ...p, status: { conditions: [{ type: "Ready", status: ok ? "True" : "False" }] } });
+const pdbMin = (name: string, labels: Record<string, string>, minAvailable: number | string): O => ({
+  metadata: { name, namespace: "shop" },
+  spec: { selector: { matchLabels: labels }, minAvailable },
+  status: { disruptionsAllowed: 0 },
+});
+const webPods = (n: number) =>
+  Array.from({ length: n }, (_, i) => {
+    const p = pod(`web-${i}`, { owner: rsRef("web-rs") });
+    return ready({ ...p, metadata: { ...(p.metadata as O), creationTimestamp: `2026-01-0${i + 1}T00:00:00Z` } });
+  });
+const deployN = (replicas: number) => ({ ...deploy(), spec: { ...(deploy().spec as O), replicas } });
+
+describe("computeBlastRadius: scale down to a non-zero count", () => {
+  it("counts the pods that go (current minus target) and says the controller picks them", () => {
+    const r = computeBlastRadius({ action: "scale-down", kind: "Deployment", obj: deployN(5), toReplicas: 2, streams: full({ pods: webPods(5) }) });
+    expect(item(r, "pods")).toMatchObject({ count: 3 });
+    expect(item(r, "pods")!.note).toMatch(/controller/i);
+    expect(r.summary).toMatch(/3 pods/);
+  });
+
+  it("prefers not-ready pods as the ones that go", () => {
+    const pods = webPods(4);
+    pods[0] = ready(pods[0]!, false);
+    const r = computeBlastRadius({ action: "scale-down", kind: "Deployment", obj: deployN(4), toReplicas: 3, streams: full({ pods }) });
+    expect(item(r, "pods")).toMatchObject({ count: 1, examples: ["web-0"] });
+  });
+
+  it("otherwise the newest pods go first", () => {
+    const r = computeBlastRadius({ action: "scale-down", kind: "Deployment", obj: deployN(4), toReplicas: 3, streams: full({ pods: webPods(4) }) });
+    expect(item(r, "pods")).toMatchObject({ count: 1, examples: ["web-3"] });
+  });
+
+  it("a StatefulSet loses its highest ordinals exactly", () => {
+    const owner = { kind: "StatefulSet", name: "db", uid: "u-db" };
+    const pods = [0, 1, 2, 3].map((i) => ready(pod(`db-${i}`, { owner, labels: { app: "db" } })));
+    const sts = { kind: "StatefulSet", metadata: { name: "db", namespace: "shop" }, spec: { replicas: 4, selector: { matchLabels: { app: "db" } } } };
+    const r = computeBlastRadius({ action: "scale-down", kind: "StatefulSet", obj: sts, toReplicas: 2, streams: full({ pods }) });
+    expect(item(r, "pods")).toMatchObject({ count: 2, examples: ["db-2", "db-3"] });
+  });
+
+  it("flags a PDB whose minAvailable the new count would breach", () => {
+    const r = computeBlastRadius({
+      action: "scale-down",
+      kind: "Deployment",
+      obj: deployN(5),
+      toReplicas: 2,
+      streams: full({ pods: webPods(5), pdbs: [pdbMin("web-pdb", { app: "web" }, 3)] }),
+    });
+    expect(item(r, "pdbs")).toMatchObject({ count: 1, examples: ["web-pdb"], tone: "warn" });
+    expect(item(r, "pdbs")!.note).toMatch(/minAvailable/);
+    expect(item(r, "pdbs")!.note).toMatch(/2 healthy.*needs 3/);
+  });
+
+  it("does not flag a PDB the new count still satisfies", () => {
+    const r = computeBlastRadius({
+      action: "scale-down",
+      kind: "Deployment",
+      obj: deployN(5),
+      toReplicas: 2,
+      streams: full({ pods: webPods(5), pdbs: [pdbMin("web-pdb", { app: "web" }, 2)] }),
+    });
+    expect(item(r, "pdbs")!.tone).toBeUndefined();
+  });
+
+  it("warns that an HPA would fight the change, and names its minReplicas when the target is below it", () => {
+    const h = { ...hpa("web-hpa", "web"), spec: { scaleTargetRef: { kind: "Deployment", name: "web" }, minReplicas: 3, maxReplicas: 10 } };
+    const r = computeBlastRadius({ action: "scale-down", kind: "Deployment", obj: deployN(5), toReplicas: 2, streams: full({ pods: webPods(5), hpas: [h] }) });
+    expect(item(r, "hpas")).toMatchObject({ count: 1, examples: ["web-hpa"], tone: "warn" });
+    expect(item(r, "hpas")!.note).toMatch(/minReplicas 3/);
+  });
+
+  it("lists Services whose ready endpoints drop, with before and after", () => {
+    const r = computeBlastRadius({
+      action: "scale-down",
+      kind: "Deployment",
+      obj: deployN(5),
+      toReplicas: 2,
+      streams: full({ pods: webPods(5), services: [svc("web", { app: "web" })] }),
+    });
+    expect(item(r, "services")).toBeUndefined();
+    expect(item(r, "svc-fewer")).toMatchObject({ count: 1, examples: ["web (5 → 2 ready)"] });
+  });
+
+  it("is empty when the count does not go down", () => {
+    const r = computeBlastRadius({ action: "scale-down", kind: "Deployment", obj: deployN(2), toReplicas: 3, streams: full({ pods: webPods(2) }) });
+    expect(r.items).toEqual([]);
+    expect(r.summary).toBe("");
+  });
+
+  it("says unknown when the pods cannot be read", () => {
+    const r = computeBlastRadius({ action: "scale-down", kind: "Deployment", obj: deployN(5), toReplicas: 2, streams: full({ pods: null }) });
+    expect(item(r, "pods")).toMatchObject({ count: null });
+  });
+});
+
+describe("computeBulkBlastRadius", () => {
+  const apiPods = [pod("api-1", { owner: rsRef("api-rs"), labels: { app: "api" } })];
+  const streams = () =>
+    full({
+      pods: [...webPods(2), ...apiPods],
+      replicasets: [rs("web-rs", "web"), rs("api-rs", "api")],
+      services: [svc("web", { app: "web" }), svc("api", { app: "api" })],
+    });
+
+  it("adds up the pods and ReplicaSets of every selected object and says how many were selected", () => {
+    const r = computeBulkBlastRadius({ action: "delete", kind: "Deployment", objs: [deploy(), deploy("api", { app: "api" })], streams: streams() });
+    expect(item(r, "replicasets")).toMatchObject({ count: 2 });
+    expect(item(r, "pods")).toMatchObject({ count: 3, examples: ["api-1", "web-0", "web-1"] });
+    expect(item(r, "services")).toMatchObject({ count: 2 });
+    expect(r.notes.join(" ")).toMatch(/2 selected/);
+  });
+
+  it("caps the examples at five with a total", () => {
+    const pods = Array.from({ length: 12 }, (_, i) => pod(`p-${String(i).padStart(2, "0")}`));
+    const r = computeBulkBlastRadius({ action: "delete", kind: "Pod", objs: pods, streams: full({ pods }) });
+    expect(item(r, "pods")).toMatchObject({ count: 12, more: 7 });
+    expect(item(r, "pods")!.examples).toHaveLength(5);
+  });
+
+  it("sees a Service lose all endpoints only when the selection removes all of its pods together", () => {
+    const pods = [pod("a", { labels: { app: "web" } }), pod("b", { labels: { app: "web" } })];
+    const one = computeBulkBlastRadius({ action: "delete", kind: "Pod", objs: [pods[0]!], streams: full({ pods, services: [svc("web", { app: "web" })] }) });
+    expect(item(one, "services")).toBeUndefined();
+    const both = computeBulkBlastRadius({ action: "delete", kind: "Pod", objs: pods, streams: full({ pods, services: [svc("web", { app: "web" })] }) });
+    expect(item(both, "services")).toMatchObject({ count: 1 });
+  });
+
+  it("counts an object selected twice once", () => {
+    const p = pod("x");
+    const r = computeBulkBlastRadius({ action: "delete", kind: "Pod", objs: [p, p], streams: full({ pods: [p] }) });
+    expect(item(r, "pods")!.count).toBe(1);
+  });
+
+  it("prefixes names with the namespace when the selection spans namespaces", () => {
+    const a = pod("x", { ns: "a" });
+    const b = pod("x", { ns: "b" });
+    const r = computeBulkBlastRadius({ action: "delete", kind: "Pod", objs: [a, b], streams: full({ pods: [a, b] }) });
+    expect(item(r, "pods")).toMatchObject({ count: 2, examples: ["a/x", "b/x"] });
   });
 });

@@ -72,3 +72,52 @@ describe("BlastRadiusPreview", () => {
     expect(screen.getByText(/No new pods are scheduled/)).toBeInTheDocument();
   });
 });
+
+const readyPod = (name: string, ns = "shop", rsName = "web-rs") => ({
+  metadata: { name, namespace: ns, labels, ownerReferences: [{ kind: "ReplicaSet", name: rsName }] },
+  spec: { nodeName: "n1" },
+  status: { conditions: [{ type: "Ready", status: "True" }] },
+});
+
+describe("BlastRadiusPreview: scale down", () => {
+  it("shows the pods that go and the Service left with fewer ready endpoints", () => {
+    byGvr["v1/pods"] = { rows: [readyPod("web-1"), readyPod("web-2"), readyPod("web-3")] };
+    const obj = { ...deploy, spec: { ...deploy.spec, replicas: 3 } };
+    render(<BlastRadiusPreview cluster="kind-shop" kind="Deployment" obj={obj} action="scale-down" toReplicas={1} />);
+    expect(screen.getByText(/2 pods/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /What this affects/ }));
+    expect(screen.getByText(/Service with fewer ready endpoints/)).toBeInTheDocument();
+    expect(screen.getByText("web (3 → 1 ready)")).toBeInTheDocument();
+  });
+
+  it("reads the ReplicaSets and HPAs it needs for a scale-down", () => {
+    const obj = { ...deploy, spec: { ...deploy.spec, replicas: 3 } };
+    render(<BlastRadiusPreview cluster="kind-shop" kind="Deployment" obj={obj} action="scale-down" toReplicas={1} />);
+    const enabled = (gvr: string) =>
+      vi.mocked(useResourceStream).mock.calls.some((c) => c[1] === gvr && (c[2] as { enabled?: boolean }).enabled);
+    expect(enabled("apps/v1/replicasets")).toBe(true);
+    expect(enabled("autoscaling/v2/horizontalpodautoscalers")).toBe(true);
+  });
+});
+
+describe("BlastRadiusPreview: bulk", () => {
+  it("adds up every selected object and says how many were selected", () => {
+    const api = { ...deploy, metadata: { name: "api", namespace: "shop" } };
+    byGvr["v1/pods"] = { rows: [readyPod("web-1"), readyPod("api-1", "shop", "api-rs")] };
+    byGvr["apps/v1/replicasets"] = {
+      rows: [...rs, { metadata: { name: "api-rs", namespace: "shop", ownerReferences: [{ kind: "Deployment", name: "api" }] } }],
+    };
+    render(<BlastRadiusPreview cluster="kind-shop" kind="Deployment" objs={[deploy, api]} action="delete" />);
+    expect(screen.getByText(/2 replicasets, 2 pods/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /What this affects/ }));
+    expect(screen.getByText(/2 selected/)).toBeInTheDocument();
+    expect(screen.getByText("api-1, web-1")).toBeInTheDocument();
+  });
+
+  it("opens its streams on every namespace in the selection", () => {
+    const other = { ...deploy, metadata: { name: "web", namespace: "data" } };
+    render(<BlastRadiusPreview cluster="kind-shop" kind="Deployment" objs={[deploy, other]} action="delete" />);
+    const podCall = vi.mocked(useResourceStream).mock.calls.find((c) => c[1] === "v1/pods")!;
+    expect((podCall[2] as { ns?: string[] }).ns).toEqual(["data", "shop"]);
+  });
+});

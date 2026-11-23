@@ -75,6 +75,23 @@ describe("ActionsBar — replicas stepper (backlog #5)", () => {
   });
 });
 
+describe("ActionsBar — blast-radius preview on a scale down", () => {
+  it("shows What this affects only while the count is below the current one", () => {
+    render(<ActionsBar {...props} currentReplicas={3} />);
+    expect(screen.queryByRole("button", { name: /What this affects/ })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Decrease replicas" }));
+    expect(screen.getByRole("button", { name: /What this affects/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Increase replicas" }));
+    expect(screen.queryByRole("button", { name: /What this affects/ })).toBeNull();
+  });
+
+  it("shows it for a scale to zero too", () => {
+    render(<ActionsBar {...props} currentReplicas={1} />);
+    fireEvent.click(screen.getByRole("button", { name: "Decrease replicas" }));
+    expect(screen.getByRole("button", { name: /What this affects/ })).toBeInTheDocument();
+  });
+});
+
 describe("ActionsBar — replicas follows live value (regression)", () => {
   it("shows the real count when currentReplicas arrives after mount", () => {
     const { rerender } = render(<ActionsBar {...props} />);
