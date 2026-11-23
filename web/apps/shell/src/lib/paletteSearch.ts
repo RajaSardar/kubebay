@@ -109,7 +109,7 @@ function cmp(a: string, b: string): number {
 }
 
 // Best score first, then the shorter name, then alphabetical; a plain listing is alphabetical.
-function hitOrder(listing: boolean): (a: SearchHit, b: SearchHit) => number {
+export function hitOrder(listing: boolean): (a: SearchHit, b: SearchHit) => number {
   return (a, b) =>
     listing
       ? cmp(a.obj.name, b.obj.name) || cmp(a.obj.ns, b.obj.ns) || cmp(a.obj.cluster, b.obj.cluster)

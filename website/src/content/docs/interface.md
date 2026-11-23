@@ -57,7 +57,7 @@ Objects come in groups, one per kind, with how many matched. Pick one to open th
 - **Matches are ranked**: an exact name first, then names that start with what you typed, then words inside a name, then anywhere in the name, then the namespace.
 - **With nothing typed**, the palette lists what you opened last under **Recent**.
 
-When you have more than one cluster connected, **This cluster** and **All clusters** at the top choose where to search. It starts on the current cluster. A result from another cluster names it, and opening it switches to that cluster.
+When you have more than one cluster connected, **This cluster** and **All clusters** at the top choose where to search. It starts on the current cluster. A result from another cluster names it, and opening it switches to that cluster. The palette searches only connected clusters. With more than one cluster in your kubeconfig, **Search all clusters for "…"** below the results opens [Search all clusters](/docs/search/), which can also search the clusters you haven't connected.
 
 **What is searched, and what you have to name.** The first seven kinds come from what Kubebay already holds, so they answer at once. The others are followed by the engine, as your account, the first time you search a cluster, so their results fill in over a few seconds and the palette says **Still loading** until they have. Kinds your account may not list are skipped, and named. After about five minutes without a search Kubebay stops following them.
 

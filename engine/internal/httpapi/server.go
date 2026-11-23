@@ -53,6 +53,8 @@ type Deps struct {
 	Extensions *ExtensionsAPI
 	// Fleet is the cached cluster summary tier; nil gets the defaults.
 	Fleet *fleet.Summarizer
+	// ColdSearch searches clusters that are not connected; nil gets the defaults.
+	ColdSearch *fleet.Searcher
 }
 
 func (d Deps) authEnabled() bool { return d.Auth != nil && d.Auth.Enabled() }
@@ -137,6 +139,11 @@ func Router(d Deps, token string) http.Handler {
 			fleetSum = fleet.New(fleet.Options{})
 		}
 		r.Post("/api/clusters/summary", fleetSummaryHandler(d.Clusters, fleetSum))
+		coldSearch := d.ColdSearch
+		if coldSearch == nil {
+			coldSearch = fleet.NewSearcher(fleet.Options{})
+		}
+		r.Post("/api/search/clusters", coldSearchHandler(d.Clusters, coldSearch))
 		r.Post("/api/clusters/{id}/connect", connectClusterHandler(d.Clusters))
 		r.Post("/api/clusters/{id}/disconnect", disconnectClusterHandler(d.Clusters, d.authEnabled()))
 		r.Get("/ws", func(w http.ResponseWriter, req *http.Request) {

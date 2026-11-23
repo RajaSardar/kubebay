@@ -55,6 +55,7 @@ const ArgoCD = lazy(() => import("./pages/ArgoCD"));
 const TerminalPage = lazy(() => import("./pages/TerminalPage"));
 const CreateResource = lazy(() => import("./pages/CreateResource"));
 const AuditLog = lazy(() => import("./pages/AuditLog"));
+const Search = lazy(() => import("./pages/Search"));
 const RightSizing = lazy(() => import("./pages/RightSizing"));
 const CostWaste = lazy(() => import("./pages/CostWaste"));
 const Karpenter = lazy(() => import("./pages/Karpenter"));
@@ -244,6 +245,7 @@ const TOOLS = [
   { to: "/keda", label: "KEDA", icon: <IconLayers /> },
   { to: "/upgrade-readiness", label: "Upgrade Readiness", icon: <IconShield /> },
   { to: "/best-practices", label: "Best practices", icon: <IconShield /> },
+  { to: "/search", label: "Search all clusters", icon: <IconSearch /> },
   { to: "/audit", label: "Audit Log", icon: <IconTimeline /> },
   { to: "/timeline", label: "Timeline", icon: <IconTimeline /> },
   { to: "/topology", label: "Topology", icon: <IconTopology /> },
@@ -730,6 +732,7 @@ function AppInner() {
               <Route path="/network-policy" element={<NetworkPolicy />} />
               <Route path="/terminal" element={<TerminalPage />} />
               <Route path="/create-resource" element={<CreateResource />} />
+              <Route path="/search" element={<Search />} />
               <Route path="/audit" element={<AuditLog />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="*" element={<NotFound />} />

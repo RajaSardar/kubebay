@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { searchApi, type SearchResponse } from "./api";
+import { searchApi, type SearchLimits, type SearchResponse } from "./api";
 import { mergeGroups, parseQuery, type SearchGroup } from "./paletteSearch";
 
 export interface RemoteState {
@@ -33,7 +33,7 @@ const union = <T,>(lists: T[][], key: (t: T) => string): T[] => {
   return out;
 };
 
-function combine(answers: { cluster: string; res: SearchResponse }[], listing: boolean): RemoteState {
+function combine(answers: { cluster: string; res: SearchResponse }[], listing: boolean, limits?: SearchLimits): RemoteState {
   const groups: SearchGroup[] = answers.flatMap(({ cluster, res }) =>
     res.groups.map((g) => ({
       slug: g.slug,
@@ -48,7 +48,7 @@ function combine(answers: { cluster: string; res: SearchResponse }[], listing: b
   );
   const all = answers.map((a) => a.res);
   return {
-    groups: mergeGroups(groups, [], { listing }),
+    groups: mergeGroups(groups, [], { listing, ...limits }),
     filter: all.find((r) => r.filter)?.filter ?? "",
     pending: union(all.map((r) => r.pending), (s) => s),
     onDemand: union(all.map((r) => r.onDemand), (s) => s),
@@ -65,7 +65,7 @@ function combine(answers: { cluster: string; res: SearchResponse }[], listing: b
  * resources...). Idle unless the palette is open and the text asks for
  * something the palette can't answer itself.
  */
-export function usePaletteRemote(open: boolean, clusters: string[], q: string): RemoteState {
+export function usePaletteRemote(open: boolean, clusters: string[], q: string, limits?: SearchLimits): RemoteState {
   const [state, setState] = useState<RemoteState>(EMPTY);
   const key = clusters.join("\u0000");
 
@@ -84,9 +84,9 @@ export function usePaletteRemote(open: boolean, clusters: string[], q: string): 
     const run = async () => {
       setState((s) => ({ ...s, loading: true }));
       try {
-        const answers = await Promise.all(clusters.map(async (cluster) => ({ cluster, res: await searchApi.search(cluster, q, ctrl.signal) })));
+        const answers = await Promise.all(clusters.map(async (cluster) => ({ cluster, res: await searchApi.search(cluster, q, ctrl.signal, limits) })));
         if (ctrl.signal.aborted) return;
-        setState(combine(answers, listing));
+        setState(combine(answers, listing, limits));
         if (answers.some((a) => a.res.pending.length > 0) && polls++ < MAX_POLLS) timer = setTimeout(run, POLL_MS);
       } catch (e) {
         if (ctrl.signal.aborted) return;
@@ -98,7 +98,7 @@ export function usePaletteRemote(open: boolean, clusters: string[], q: string): 
       ctrl.abort();
       if (timer) clearTimeout(timer);
     };
-  }, [open, key, q]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, key, q, limits?.perGroup, limits?.maxGroups]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return state;
 }

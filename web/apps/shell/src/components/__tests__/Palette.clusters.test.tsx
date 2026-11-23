@@ -132,3 +132,17 @@ describe("Palette: switch cluster", () => {
     expect(screen.queryByText("Switch cluster")).toBeNull();
   });
 });
+
+describe("Palette: search all clusters", () => {
+  it("offers to search every cluster for what was typed, on its own page", async () => {
+    await renderPalette();
+    type("checkout api");
+    fireEvent.click(await screen.findByRole("button", { name: "Search all clusters for “checkout api”" }));
+    expect(screen.getByTestId("at").textContent).toBe("/search?q=checkout+api");
+  });
+
+  it("doesn't offer it with nothing typed", async () => {
+    await renderPalette();
+    expect(screen.queryByRole("button", { name: /^Search all clusters for/ })).toBeNull();
+  });
+});
