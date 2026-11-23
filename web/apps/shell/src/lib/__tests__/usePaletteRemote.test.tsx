@@ -93,6 +93,15 @@ describe("usePaletteRemote", () => {
     expect(g.hits.map((h) => h.obj.cluster).sort()).toEqual(["prod", "stage"]);
   });
 
+  it("asks for and keeps more hits per kind when a page wants a longer list than the palette", async () => {
+    const names = Array.from({ length: 30 }, (_, i) => `api-${i}`);
+    vi.mocked(searchApi.search).mockResolvedValue(reply({ groups: services(names) }));
+    const { result } = renderHook(() => usePaletteRemote(true, ["prod"], "api", { perGroup: 50, maxGroups: 20 }));
+    await settle();
+    expect(vi.mocked(searchApi.search).mock.calls[0]![3]).toEqual({ perGroup: 50, maxGroups: 20 });
+    expect(result.current.groups[0]!.hits).toHaveLength(30);
+  });
+
   it("does not ask for a kind the palette searches from memory", async () => {
     renderHook(() => usePaletteRemote(true, ["prod"], "deploy api"));
     renderHook(() => usePaletteRemote(true, ["prod"], "pod:web"));

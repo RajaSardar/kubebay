@@ -340,15 +340,73 @@ export interface SearchResponse {
   denied: { label: string; reason: string }[];
 }
 
+/** How many hits per kind, and how many kinds, a search returns (the engine caps them at 50 and 20). */
+export interface SearchLimits {
+  perGroup?: number;
+  maxGroups?: number;
+}
+
 /** Find objects by name across the kinds the app does not hold in memory. */
 export const searchApi = {
-  search: async (cluster: string, q: string, signal?: AbortSignal): Promise<SearchResponse> => {
+  search: async (cluster: string, q: string, signal?: AbortSignal, limits?: SearchLimits): Promise<SearchResponse> => {
     const params = new URLSearchParams({ cluster, q });
+    if (limits?.perGroup) params.set("perGroup", String(limits.perGroup));
+    if (limits?.maxGroups) params.set("maxGroups", String(limits.maxGroups));
     const res = await fetch(`/api/search?${params}`, { signal, headers: { "X-Kubebay-Token": getToken() } });
     if (!res.ok) throw new Error(`${res.status} ${(await res.text()).trim() || res.statusText}`);
     return (await res.json()) as SearchResponse;
   },
+  /**
+   * Searches clusters that aren't connected, by name or kind and name, without
+   * connecting them. The engine never waits on a cluster: a slow one comes back
+   * pending, and the caller asks again.
+   */
+  clusters: async (ids: string[], q: string, signal?: AbortSignal): Promise<ColdSearchResponse> => {
+    const res = await fetch("/api/search/clusters", {
+      method: "POST",
+      signal,
+      headers: { "Content-Type": "application/json", "X-Kubebay-Token": getToken() },
+      body: JSON.stringify({ ids, q }),
+    });
+    if (!res.ok) throw new Error(`${res.status} ${(await res.text()).trim() || res.statusText}`);
+    return (await res.json()) as ColdSearchResponse;
+  },
 };
+
+/** One object found in a cluster that isn't connected. */
+export interface ColdHit {
+  cluster: string;
+  slug: string;
+  /** The kind's plural label, e.g. "Deployments". */
+  kind: string;
+  ns: string;
+  name: string;
+  score: number;
+}
+
+/** How the search of one disconnected cluster went. */
+export interface ColdClusterSearch {
+  id: string;
+  /** Still listing: more may appear when asked again. */
+  pending?: boolean;
+  error?: string;
+  denied: { label: string; reason: string }[];
+  /** Kinds too large to search in full. */
+  truncated: string[];
+  hits: number;
+  checkedAt?: string;
+}
+
+/** The engine's answer to a search of disconnected clusters. */
+export interface ColdSearchResponse {
+  hits: ColdHit[];
+  total: number;
+  capped: boolean;
+  kinds: string[];
+  /** Why nothing was searched, e.g. the query named a custom resource. */
+  unsupported?: string;
+  clusters: ColdClusterSearch[];
+}
 
 /** Short-lived network diagnostic pod (roadmap Tier 2 #23); delete it with api.deleteResource when done. */
 export const netdiagApi = {

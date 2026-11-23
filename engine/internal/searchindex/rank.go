@@ -110,6 +110,13 @@ func scoreAll(e *entry, terms []string, kindHit []bool) int {
 	return (2*sum + len(terms)) / (2 * len(terms))
 }
 
+// ScoreName ranks an object held outside an index, by its namespace and name,
+// exactly as the index ranks one (no kind words): the cross-cluster search of
+// disconnected clusters (fleet.Searcher) uses it. 0 is no match.
+func ScoreName(ns, name string, terms []string) int {
+	return scoreAll(newEntry(ns, name), terms, nil)
+}
+
 // The order ties between groups break in: the kinds the app follows come first.
 var kindOrder = map[string]int{"pods": 0, "deployments": 1, "statefulsets": 2, "daemonsets": 3, "jobs": 4, "nodes": 5, "namespaces": 6}
 

@@ -162,6 +162,12 @@ export const PAGE_HELP: Record<string, PageHelpEntry> = {
     how: "Read from the API server's discovery data, against Kubernetes' deprecation guide.",
     docs: "upgrade-readiness",
   },
+  "/search": {
+    name: "Search all clusters",
+    what: "Find objects by name, or a kind and a name, in every cluster at once, and open one in its cluster.",
+    how: "Connected clusters are searched as you type. Others only if you ask: Kubebay lists their names as you, without connecting them.",
+    docs: "search",
+  },
   "/audit": {
     name: "Audit Log",
     what: "Every change you made through Kubebay, and every call an AI assistant made.",

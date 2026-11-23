@@ -258,6 +258,7 @@ type Entry =
   | { kind: "dockEdit"; obj: SearchObject; gvr: string }
   | { kind: "recent"; recent: Recent }
   | { kind: "more"; group: SearchGroup; to: string }
+  | { kind: "searchAll"; q: string; to: string }
   | { kind: "cluster"; choice: ClusterChoice };
 
 interface Section {
@@ -388,6 +389,12 @@ export function Palette({
       }
     }
     const dockSection: Section[] = dockEntries.length ? [{ key: "dockEdit", title: "Edit in dock", entries: dockEntries }] : [];
+    // With more than one cluster, the Search all clusters page also finds what's in the ones not connected.
+    const typed = q.trim();
+    const searchAllSection: Section[] =
+      typed && (clusterList.data?.length ?? 0) > 1
+        ? [{ key: "searchAll", title: "Every cluster", entries: [{ kind: "searchAll", q: typed, to: `/search?${new URLSearchParams({ q: typed })}` }] }]
+        : [];
     const clusterSection: Section[] = clusterRows.length
       ? [{ key: "clusters", title: "Switch cluster", entries: clusterRows.map((choice) => ({ kind: "cluster", choice })) }]
       : [];
@@ -400,8 +407,8 @@ export function Palette({
     // so does an empty box: the pages list is long enough to push them off screen.
     if (clusterMatch.intent) return [...clusterSection, ...navSection, ...objectSections, ...dockSection];
     if (!q.trim()) return [...clusterSection, ...favSection, ...recentSection, ...navSection];
-    return [...navSection, ...objectSections, ...dockSection, ...clusterSection];
-  }, [filteredNav, groups, clusterRows, clusterMatch.intent, recents, favObjects, q, termText]);
+    return [...navSection, ...objectSections, ...dockSection, ...searchAllSection, ...clusterSection];
+  }, [filteredNav, groups, clusterRows, clusterMatch.intent, recents, favObjects, q, termText, clusterList.data]);
   const flatEntries = useMemo(() => sections.flatMap((s) => s.entries), [sections]);
 
   const notes = useMemo(() => {
@@ -525,6 +532,18 @@ export function Palette({
         return (
           <PaletteRow key={`more:${e.group.slug}`} active={i === idx} onHover={() => setIdx(i)} onClick={() => go(e.to)}>
             <span>{`Show all ${e.group.total} ${e.group.label}`}</span>
+          </PaletteRow>
+        );
+      case "searchAll":
+        return (
+          <PaletteRow
+            key="searchAll"
+            label={`Search all clusters for “${e.q}”`}
+            active={i === idx}
+            onHover={() => setIdx(i)}
+            onClick={() => go(e.to)}
+          >
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{`Search all clusters for “${e.q}”`}</span>
           </PaletteRow>
         );
       case "cluster":

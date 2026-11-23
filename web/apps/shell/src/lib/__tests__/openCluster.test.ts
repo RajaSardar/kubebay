@@ -8,7 +8,7 @@ vi.mock("../api", async (orig) => {
 });
 
 import { connectCluster } from "../clusterConnections";
-import { openCluster } from "../openCluster";
+import { openCluster, openObjectInCluster } from "../openCluster";
 import { useClusterStore } from "../cluster-store";
 import { useClusterMeta } from "../cluster-meta-store";
 
@@ -35,5 +35,29 @@ describe("openCluster", () => {
     const navigate = vi.fn();
     openCluster("a b/c", new QueryClient(), navigate);
     expect(navigate).toHaveBeenCalledWith({ pathname: "/", search: "cluster=a%20b%2Fc" });
+  });
+});
+
+describe("openObjectInCluster", () => {
+  beforeEach(() => {
+    vi.mocked(connectCluster).mockClear();
+    useClusterStore.setState({ active: "prod" });
+    useClusterMeta.setState({ meta: {} });
+  });
+
+  it("opens a search result's cluster the way the Clusters page does, then its drawer", () => {
+    const qc = new QueryClient();
+    const navigate = vi.fn();
+    openObjectInCluster({ cluster: "stage", slug: "deployments", ns: "shop", name: "api" }, qc, navigate);
+    expect(connectCluster).toHaveBeenCalledWith("stage");
+    expect(useClusterStore.getState().active).toBe("stage");
+    expect(useClusterMeta.getState().meta["stage"]?.lastUsed).toBeGreaterThan(0);
+    expect(navigate).toHaveBeenCalledWith("/detail/deployments/shop/api");
+  });
+
+  it("opens a pod in the Pods list with its drawer", () => {
+    const navigate = vi.fn();
+    openObjectInCluster({ cluster: "prod", slug: "pods", ns: "shop", name: "web-1" }, new QueryClient(), navigate);
+    expect(navigate).toHaveBeenCalledWith("/workloads?pod=shop%2Fweb-1");
   });
 });

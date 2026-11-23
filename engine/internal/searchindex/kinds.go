@@ -301,6 +301,16 @@ func LocalKinds() []Kind {
 	}
 }
 
+// KindBySlug is a local or built-in kind with a resource path to list.
+func KindBySlug(slug string) (Kind, bool) {
+	for _, k := range append(LocalKinds(), BuiltinKinds()...) {
+		if k.Slug == slug && k.GVR != "" {
+			return k, true
+		}
+	}
+	return Kind{}, false
+}
+
 // Reserved are the kind words and resource paths already taken, by the local
 // kinds and the built-in ones, so a custom resource neither steals a word from
 // core nor is followed twice.

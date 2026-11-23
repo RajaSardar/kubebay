@@ -105,3 +105,45 @@ func groupSlugs(gs []Group) []string {
 	}
 	return out
 }
+
+// ScoreName is the ranker for objects held outside an index (the cross-cluster
+// search of disconnected clusters): the same scores as an indexed object.
+func TestScoreNameMatchesTheIndexRanker(t *testing.T) {
+	cases := []struct {
+		ns, name string
+		terms    []string
+		want     int
+	}{
+		{"shop", "api", []string{"api"}, 100},
+		{"shop", "api-gateway", []string{"api"}, 90},
+		{"shop", "web-api", []string{"api"}, 70},
+		{"shop", "web", []string{"shop"}, 35},
+		{"shop", "web", []string{"shop/web"}, 85},
+		{"shop", "web", []string{"nothing"}, 0},
+		{"shop", "api-gateway", []string{"api", "gate"}, 80},
+		{"shop", "anything", nil, 1},
+	}
+	for _, c := range cases {
+		if want := scoreAll(newEntry(c.ns, c.name), c.terms, nil); want != c.want {
+			t.Fatalf("test case wrong: %v scores %d in the index", c, want)
+		}
+		if got := ScoreName(c.ns, c.name, c.terms); got != c.want {
+			t.Errorf("ScoreName(%q, %q, %v) = %d, want %d", c.ns, c.name, c.terms, got, c.want)
+		}
+	}
+}
+
+func TestKindBySlugFindsLocalAndBuiltinKinds(t *testing.T) {
+	if k, ok := KindBySlug("deployments"); !ok || k.GVR != "apps/v1/deployments" {
+		t.Errorf("deployments: %+v %v", k, ok)
+	}
+	if k, ok := KindBySlug("services"); !ok || k.GVR != "v1/services" {
+		t.Errorf("services: %+v %v", k, ok)
+	}
+	if _, ok := KindBySlug("crds"); ok {
+		t.Error("crds has no GVR to list")
+	}
+	if _, ok := KindBySlug("nope"); ok {
+		t.Error("unknown slug found")
+	}
+}
