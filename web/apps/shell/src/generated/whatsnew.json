@@ -3,6 +3,11 @@
     {
       "version": "unreleased",
       "date": "",
+      "sections": []
+    },
+    {
+      "version": "0.8.1",
+      "date": "2026-11-24",
       "sections": [
         {
           "heading": "Added",
@@ -14,31 +19,7 @@
             {
               "title": "An Install section in the README",
               "summary": "For macOS, Linux, Windows, Docker, Helm and building from source."
-            }
-          ]
-        },
-        {
-          "heading": "Fixed",
-          "items": [
-            {
-              "title": "Linux install instructions that didn't work",
-              "summary": "(backlog 58)."
             },
-            {
-              "title": "The release's Homebrew tap update",
-              "summary": "Wrote formula URLs without the tag's v (releases/download/0.8.0/…) and sha256 \"LINUX_PLACEHOLDER\" for Linux, and failed every release with a 403 because GITHUB_TOKEN can't push to the tap repository."
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "version": "0.8.1",
-      "date": "2026-11-24",
-      "sections": [
-        {
-          "heading": "Added",
-          "items": [
             {
               "title": "Add sidecar",
               "summary": "(backlog 56)."
@@ -96,6 +77,14 @@
         {
           "heading": "Fixed",
           "items": [
+            {
+              "title": "Linux install instructions that didn't work",
+              "summary": "(backlog 58)."
+            },
+            {
+              "title": "The release's Homebrew tap update",
+              "summary": "Wrote formula URLs without the tag's v (releases/download/0.8.0/…) and sha256 \"LINUX_PLACEHOLDER\" for Linux, and failed every release with a 403 because GITHUB_TOKEN can't push to the tap repository."
+            },
             {
               "title": "Cmd/Ctrl+K opens the command palette from inside a YAML editor",
               "summary": "(backlog 53)."
