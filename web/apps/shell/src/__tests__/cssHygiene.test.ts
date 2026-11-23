@@ -128,11 +128,43 @@ describe("type, radius and motion scales", () => {
     expect(offenders).toEqual([]);
   });
 
-  it.each(Object.entries(sheets))("%s radii come from --kb-radius-*", (_, css) => {
+  // Radius by role: anything that tiles the window is square, anything you
+  // press or read as a chip has 2px, anything that floats over the page has
+  // 6px. A circle is 50%. Never a size picked per rule.
+  const ROLE_RADIUS = /^(var\(--kb-radius-(tile|control|float)\)|50%|0|inherit)$/;
+
+  it("declares the role radii", () => {
+    expect(rootToken("--kb-radius-tile")).toBe("0");
+    expect(rootToken("--kb-radius-control")).toBe("2px");
+    expect(rootToken("--kb-radius-float")).toBe("6px");
+  });
+
+  it.each(Object.entries(sheets))("%s radii are role tokens", (_, css) => {
     const offenders = declarations(css, /^border(-[a-z]+)*-radius$/)
-      .filter(({ value }) => value.split(/\s+/).some((v) => !/^(var\(--kb-radius[\w-]*\)|50%|0|inherit)$/.test(v)))
+      .filter(({ value }) => value.split(/\s+/).some((v) => !ROLE_RADIUS.test(v)))
       .map(({ sel, value }) => `${sel} { border-radius: ${value} }`);
     expect(offenders).toEqual([]);
+  });
+
+  it("inline radii in TSX are role tokens", () => {
+    const offenders: string[] = [];
+    for (const f of [...shellFiles, ...uiFiles].filter((f) => f.endsWith(".tsx"))) {
+      for (const m of read(f).matchAll(/borderRadius\s*:\s*([^,}\n]+)/g)) {
+        const v = m[1]!.trim().replace(/^["']|["']$/g, "");
+        if (!ROLE_RADIUS.test(v)) offenders.push(`${relative(root, f)}: borderRadius: ${m[1]!.trim()}`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it("dots are circles and pills are 2px chips", () => {
+    const radius = (sel: string) =>
+      declarations(stylesCss, /^border-radius$/).filter((d) => d.sel === sel).map((d) => d.value);
+    expect(radius(".kb-dot")).toEqual(["50%"]);
+    expect(radius(".live-pill::before")).toEqual(["50%"]);
+    for (const pill of [".status-ok", ".status-err", ".status-warn", ".status-pending", ".ns-pill", ".live-pill", ".kb-badge"]) {
+      expect({ pill, r: radius(pill) }).toEqual({ pill, r: ["var(--kb-radius-control)"] });
+    }
   });
 
   it.each(Object.entries(sheets))("%s UI transitions use --kb-dur-* (only long loops are literal)", (_, css) => {
@@ -161,6 +193,94 @@ describe("type, radius and motion scales", () => {
       }
     }
     expect(offenders).toEqual([]);
+  });
+});
+
+describe("no resting shadows", () => {
+  // Things at rest sit flat on their ground; only things that float over the
+  // page (menus, dialogs, the drawer, the palette) cast a shadow.
+  it("no stylesheet uses a resting shadow, and no theme declares one", () => {
+    expect([...Object.values(sheets), tokensCss].filter((css) => /--kb-shadow-rest\b/.test(css))).toEqual([]);
+  });
+
+  it("cards and buttons at rest have no box-shadow (only the selection bar)", () => {
+    const offenders = declarations(stylesCss, /^box-shadow$/)
+      .filter(({ sel }) => /^\.kb-(card|btn)[\w-]*(\.[\w-]+)*$/.test(sel))
+      .filter(({ value }) => value !== "none" && value !== "inset 3px 0 0 var(--kb-accent)")
+      .map(({ sel, value }) => `${sel} { box-shadow: ${value} }`);
+    expect(offenders).toEqual([]);
+  });
+});
+
+describe("the frame is opaque chrome", () => {
+  // The sidebar, rail and status bar are one opaque shade, --kb-bg-chrome. No
+  // translucency, no blur and no background glow; the brand gradient survives
+  // as a 1px rule on top of the status bar.
+  const decl = (css: string, sel: string, prop: string) =>
+    declarations(css, new RegExp(`^${prop}$`)).filter((d) => d.sel === sel).map((d) => d.value);
+
+  it.each([".sidebar", ".cluster-strip", ".statusbar", ".catalog-statusbar"])("%s is opaque chrome", (sel) => {
+    expect(decl(appCss, sel, "background")).toEqual(["var(--kb-bg-chrome)"]);
+  });
+
+  it("the page header is opaque", () => {
+    expect(decl(stylesCss, ".page-header", "background")).toEqual(["var(--kb-bg-surface)"]);
+  });
+
+  it("nothing in the frame is blurred or translucent", () => {
+    const blur = [...declarations(appCss, /^(-webkit-)?backdrop-filter$/), ...declarations(stylesCss, /^(-webkit-)?backdrop-filter$/)]
+      .filter(({ sel }) => /^\.(sidebar|cluster-strip|statusbar|catalog-statusbar|page-header)$/.test(sel))
+      .map(({ sel }) => sel);
+    expect(blur).toEqual([]);
+    for (const t of ["--kb-material", "--kb-material-blur", "--kb-bg-sidebar", "--kb-glow-a", "--kb-glow-b"]) {
+      expect({ t, used: [tokensCss, appCss, stylesCss].some((css) => new RegExp(`${t}\\b`).test(css)) }).toEqual({ t, used: false });
+    }
+  });
+
+  it("there is no background glow", () => {
+    expect(appCss).not.toMatch(/body::before/);
+  });
+
+  it("the status bar's top rule is the 1px brand gradient", () => {
+    const bg = decl(appCss, ".statusbar::before", "background");
+    expect(bg).toEqual(["linear-gradient(90deg, var(--kb-brand-cyan), var(--kb-brand-green))"]);
+    expect(decl(appCss, ".statusbar::before", "height")).toEqual(["1px"]);
+  });
+
+  it("the sidebar has no side padding, so nav items run edge to edge", () => {
+    expect(decl(appCss, ".sidebar", "padding")).toEqual(["0 0 8px"]);
+    // The nav items' own side padding is the sidebar gutter, and indentation is a variable, not a margin.
+    expect(decl(stylesCss, ".nav-item", "margin")).toEqual([]);
+    expect(decl(stylesCss, ".nav-item.active", "font-weight")).toEqual(["500"]);
+  });
+});
+
+describe("the drawer is flush with a chrome head", () => {
+  // The drawer runs from the top of the window down to the status bar and the
+  // right edge. A hairline and its edge shadow mark where it starts, so a click
+  // to its left still reads as "outside". Its head and tab strip are chrome.
+  const decl = (sel: string, prop: string) =>
+    declarations(stylesCss, new RegExp(`^${prop}$`)).filter((d) => d.sel === sel).map((d) => d.value);
+
+  it("stops at the status bar and keeps a hairline on its leading edge", () => {
+    expect(decl(".drawer", "top")).toEqual(["0"]);
+    expect(decl(".drawer", "right")).toEqual(["0"]);
+    expect(decl(".drawer", "bottom")).toEqual(["var(--kb-h-status)"]);
+    expect(decl(".drawer", "border-left")).toEqual(["1px solid var(--kb-separator)"]);
+    expect(decl(".drawer", "box-shadow")).toEqual(["var(--kb-shadow-lift)"]);
+  });
+
+  it("its head and tab strip are chrome bands with a separator under them", () => {
+    expect(decl(".drawer-head", "background")).toEqual(["var(--kb-bg-chrome)"]);
+    expect(decl(".drawer-head", "min-height")).toEqual(["var(--kb-h-bar)"]);
+    expect(decl(".drawer-head", "border-bottom")).toEqual(["1px solid var(--kb-separator)"]);
+    expect(decl(".drawer-pane-tabs", "background")).toEqual(["var(--kb-bg-chrome)"]);
+    expect(decl(".drawer-pane-tabs", "border-bottom")).toEqual(["1px solid var(--kb-separator)"]);
+  });
+
+  it("section titles in a drawer are chrome bands", () => {
+    const title = declarations(appCss, /^background$/).filter((d) => d.sel === ".pod-section-title").map((d) => d.value);
+    expect(title).toEqual(["var(--kb-bg-chrome)"]);
   });
 });
 
@@ -227,9 +347,8 @@ describe("overlays and buttons go through @kubebay/ui", () => {
       .filter(({ value }) => value === "fixed")
       .map(({ sel }) => sel)
       .sort();
-    // The page backdrop, the new-resource button and the icon picker's
-    // placement (a Modal className).
-    expect(fixed).toEqual(["body::before", ".icon-picker", ".resource-fab"].sort());
+    // The new-resource button and the icon picker's placement (a Modal className).
+    expect(fixed).toEqual([".icon-picker", ".resource-fab"].sort());
   });
 
   // Raw <button>s still in the shell, per file. The count may only go down:

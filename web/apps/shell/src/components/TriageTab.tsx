@@ -8,7 +8,7 @@ const preStyle = {
   overflowWrap: "anywhere" as const,
   background: "var(--kb-bg-inset)",
   padding: 8,
-  borderRadius: "var(--kb-radius-xs)",
+  borderRadius: "var(--kb-radius-control)",
   margin: 0,
   maxHeight: 260,
   overflow: "auto",

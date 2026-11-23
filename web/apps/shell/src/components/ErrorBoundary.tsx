@@ -38,7 +38,7 @@ export class ErrorBoundary extends Component<Props, State> {
       <Row align="center" justify="center" className="page">
         <EmptyState style={{ maxWidth: 600 }}>
           <p>⚠️ Something went wrong rendering this view</p>
-          <p className="muted small mono" style={{ wordBreak: "break-word", marginTop: 8, padding: "8px 12px", backgroundColor: "var(--kb-bg-inset)", borderRadius: "var(--kb-radius-xs)" }}>
+          <p className="muted small mono" style={{ wordBreak: "break-word", marginTop: 8, padding: "8px 12px", backgroundColor: "var(--kb-bg-inset)", borderRadius: "var(--kb-radius-control)" }}>
             {error.message || "Unknown error"}
           </p>
           {error.stack && (

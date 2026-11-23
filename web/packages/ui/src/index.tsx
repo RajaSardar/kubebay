@@ -93,8 +93,8 @@ export function Avatar({ name, size = 28 }: { name: string; size?: number }) {
   );
 }
 
-export function Skeleton({ w = 120, h = 12, r }: { w?: number | string; h?: number; r?: number }) {
-  return <span className="kb-skeleton" style={{ width: w, height: h, borderRadius: r }} />;
+export function Skeleton({ w = 120, h = 12 }: { w?: number | string; h?: number }) {
+  return <span className="kb-skeleton" style={{ width: w, height: h }} />;
 }
 
 export interface ArmedButtonProps {

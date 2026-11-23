@@ -1,4 +1,4 @@
-import { Badge, Row, Stack, StatusDot } from "@kubebay/ui";
+import { Badge, Property, PropertyList, Row, Stack, StatusDot } from "@kubebay/ui";
 import { ConditionsTable } from "./ConditionsTable";
 
 function rec(v: unknown): Record<string, unknown> {
@@ -18,16 +18,6 @@ function Section({ title, children }: { title: string; children: React.ReactNode
     <div className="pod-section">
       <div className="pod-section-title">{title}</div>
       {children}
-    </div>
-  );
-}
-
-function KV({ k, v }: { k: string; v: React.ReactNode }) {
-  if (v === null || v === undefined || v === "") return null;
-  return (
-    <div className="pod-kv">
-      <span className="muted small">{k}</span>
-      <span className="small">{v}</span>
     </div>
   );
 }
@@ -86,21 +76,25 @@ export function NodeSummary({
       </Row>
 
       <Section title="Info">
-        <KV k="OS" v={data.os} />
-        <KV k="Architecture" v={data.arch} />
-        <KV k="Kernel" v={<span className="mono small">{data.kernel}</span>} />
-        <KV k="Container Runtime" v={<span className="mono small">{data.runtime}</span>} />
-        <KV k="Kubelet" v={<span className="mono small">{data.kubelet}</span>} />
-        <KV k="Pod CIDR" v={<span className="mono small">{data.podCIDR}</span>} />
-        {data.providerID && <KV k="Provider ID" v={<span className="mono small">{data.providerID}</span>} />}
-        {data.zone && <KV k="Zone" v={data.zone} />}
-        {data.region && <KV k="Region" v={data.region} />}
+        <PropertyList>
+        <Property label="OS">{data.os}</Property>
+        <Property label="Architecture">{data.arch}</Property>
+        <Property label="Kernel"><span className="mono small">{data.kernel}</span></Property>
+        <Property label="Container Runtime"><span className="mono small">{data.runtime}</span></Property>
+        <Property label="Kubelet"><span className="mono small">{data.kubelet}</span></Property>
+        <Property label="Pod CIDR"><span className="mono small">{data.podCIDR}</span></Property>
+        {data.providerID && <Property label="Provider ID"><span className="mono small">{data.providerID}</span></Property>}
+        {data.zone && <Property label="Zone">{data.zone}</Property>}
+        {data.region && <Property label="Region">{data.region}</Property>}
+        </PropertyList>
       </Section>
 
       <Section title="Capacity / Allocatable">
-        <KV k="CPU" v={<span className="mono small">{str(data.capacity.cpu)} / {str(data.allocatable.cpu)}</span>} />
-        <KV k="Memory" v={<span className="mono small">{fmtBytes(str(data.capacity.memory))} / {fmtBytes(str(data.allocatable.memory))}</span>} />
-        <KV k="Pods" v={<span className="mono small">{str(data.capacity.pods)} / {str(data.allocatable.pods)}</span>} />
+        <PropertyList>
+        <Property label="CPU"><span className="mono small">{str(data.capacity.cpu)} / {str(data.allocatable.cpu)}</span></Property>
+        <Property label="Memory"><span className="mono small">{fmtBytes(str(data.capacity.memory))} / {fmtBytes(str(data.allocatable.memory))}</span></Property>
+        <Property label="Pods"><span className="mono small">{str(data.capacity.pods)} / {str(data.allocatable.pods)}</span></Property>
+        </PropertyList>
       </Section>
 
       <Section title={`Conditions (${data.conditions.length})`}>

@@ -28,7 +28,7 @@ function Progress({ r }: { r: RolloutRow }) {
     <div
       role="img"
       aria-label={`${r.updated} of ${r.desired} updated`}
-      style={{ height: 6, borderRadius: "var(--kb-radius-xs)", background: "var(--kb-bg-inset)", overflow: "hidden" }}
+      style={{ height: 6, borderRadius: "var(--kb-radius-control)", background: "var(--kb-bg-inset)", overflow: "hidden" }}
     >
       <div style={{ height: "100%", width: `${pct}%`, background: r.stalled ? "var(--kb-status-err)" : "var(--kb-status-pending)" }} />
     </div>

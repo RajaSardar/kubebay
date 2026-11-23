@@ -79,7 +79,7 @@ export function McpProposals() {
           style={{
             fontSize: "var(--kb-text-xs)",
             background: "var(--kb-bg-inset)",
-            borderRadius: "var(--kb-radius-xs)",
+            borderRadius: "var(--kb-radius-control)",
             padding: 8,
             margin: 0,
             maxHeight: 320,

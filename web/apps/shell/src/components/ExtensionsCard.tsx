@@ -68,7 +68,7 @@ export function ExtensionsCard() {
             {!f.exists ? (
               <Stack gap={1}>
                 <div className="small">No extensions file yet. Create it with entries like these:</div>
-                <pre className="mono small" style={{ margin: 0, padding: 8, background: "var(--kb-bg-inset)", borderRadius: "var(--kb-radius-xs)", overflow: "auto" }}>
+                <pre className="mono small" style={{ margin: 0, padding: 8, background: "var(--kb-bg-inset)", borderRadius: "var(--kb-radius-control)", overflow: "auto" }}>
                   {STARTER}
                 </pre>
               </Stack>

@@ -394,7 +394,7 @@ function ClusterStrip({ sidebar }: { sidebar: SidebarState }) {
               {isSwitching ? (
                 <Spinner label={`Switching to ${c.id}…`} size={18} className="cluster-strip-spinner" />
               ) : imageUrl ? (
-                <img src={imageUrl} alt={label} style={{ width: "100%", height: "100%", objectFit: "contain", borderRadius: "var(--kb-radius)" }} />
+                <img src={imageUrl} alt={label} style={{ width: "100%", height: "100%", objectFit: "contain", borderRadius: "var(--kb-radius-control)" }} />
               ) : label}
               {/* Status dot */}
               <span style={{
@@ -405,7 +405,7 @@ function ClusterStrip({ sidebar }: { sidebar: SidebarState }) {
                 height: 9,
                 borderRadius: "50%",
                 background: c.status === "reachable" ? "var(--kb-status-ok)" : broken ? "var(--kb-fg-subtle)" : "var(--kb-status-err)",
-                border: "2px solid var(--kb-bg-sidebar)",
+                border: "2px solid var(--kb-bg-chrome)",
               }} />
             </button>
           </div>

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { Row, Stack, StatusDot } from "@kubebay/ui";
+import { Property, PropertyList, Row, Stack, StatusDot } from "@kubebay/ui";
 import { auditObjectHref } from "../lib/auditLinks";
 import { claimDeviceClasses, claimState } from "../lib/dra";
 
@@ -18,15 +18,6 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-function KV({ k, v }: { k: string; v: ReactNode }) {
-  return (
-    <div className="pod-kv">
-      <span className="muted small">{k}</span>
-      <span className="small">{v}</span>
-    </div>
-  );
-}
-
 /** A DRA ResourceClaim: what it asks for, the devices it was given, and who holds it. */
 export function ResourceClaimSummary({ obj }: { obj: Obj }) {
   const state = claimState(obj);
@@ -38,16 +29,15 @@ export function ResourceClaimSummary({ obj }: { obj: Obj }) {
   return (
     <div className="pod-summary" style={{ padding: 14 }}>
       <Section title="Claim">
-        <KV
-          k="State"
-          v={
+        <PropertyList>
+        <Property label="State">
             <Row gap={2} align="center">
               <StatusDot status={state.dot} />
               <span>{state.v}</span>
             </Row>
-          }
-        />
-        <KV k="Device class" v={claimDeviceClasses(obj.spec)} />
+          </Property>
+        <Property label="Device class">{claimDeviceClasses(obj.spec)}</Property>
+        </PropertyList>
       </Section>
 
       <Section title={`Allocated devices (${results.length})`}>

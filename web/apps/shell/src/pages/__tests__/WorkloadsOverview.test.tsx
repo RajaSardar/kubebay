@@ -87,4 +87,17 @@ describe("WorkloadsOverview", () => {
     expect((secretCall?.[2] as { mode?: string } | undefined)?.mode).toBe("metadata");
     expect(screen.getByText("Ingress & Gateway routing")).toBeInTheDocument();
   });
+
+  it("lays the kind cards out in a Grid whose gap is the only separator", () => {
+    renderPage();
+    const card = screen
+      .getAllByRole("link", { name: /Deployments/ })
+      .map((l) => l.closest<HTMLElement>(".kb-card"))
+      .find(Boolean)!;
+    expect(card).not.toBeNull();
+    const grid = card.parentElement!;
+    expect(grid).toHaveClass("kb-grid", "kb-gap-2");
+    // Spacing comes from the grid's gap, not from margins on the cards.
+    for (const c of grid.querySelectorAll<HTMLElement>(":scope > .kb-card")) expect(c.style.margin).toBe("");
+  });
 });

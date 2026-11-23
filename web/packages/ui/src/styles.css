@@ -6,7 +6,7 @@
   font-size: var(--kb-text-md);
   font-weight: 500;
   padding: 6px 13px;
-  border-radius: var(--kb-radius-sm);
+  border-radius: var(--kb-radius-control);
   cursor: pointer;
   border: 1px solid transparent;
   transition:
@@ -44,7 +44,6 @@
 .kb-btn-primary {
   background: var(--kb-accent);
   color: var(--kb-accent-fg);
-  box-shadow: var(--kb-shadow-rest), var(--kb-highlight-inset);
 }
 
 .kb-btn-primary:hover:not([disabled]) {
@@ -62,16 +61,15 @@
   color: var(--kb-fg-default);
 }
 
+/* A card is a block: a square of surface, told apart from the ground by
+   shade alone. --kb-card-edge is transparent, except in the HC themes, where
+   surface is no step from canvas and the edge is the strong border. */
 .kb-card {
   background: var(--kb-bg-surface);
-  border: 1px solid var(--kb-border-subtle);
-  border-radius: var(--kb-radius);
+  border: 1px solid var(--kb-card-edge);
+  border-radius: var(--kb-radius-tile);
   padding: var(--kb-space-4);
-  box-shadow: var(--kb-shadow-rest), var(--kb-highlight-inset);
-  transition:
-    border-color var(--kb-dur) var(--kb-ease),
-    box-shadow var(--kb-dur) var(--kb-ease),
-    transform var(--kb-dur) var(--kb-ease);
+  transition: background-image var(--kb-dur) var(--kb-ease);
 }
 
 .kb-card-selected {
@@ -79,16 +77,15 @@
   box-shadow: inset 3px 0 0 var(--kb-accent);
 }
 
+/* Hover shades the block, as it shades a table row; it doesn't lift. */
 .kb-card-interactive:hover {
-  border-color: var(--kb-border-strong);
-  box-shadow: var(--kb-shadow-lift), var(--kb-highlight-inset);
-  transform: translateY(-1px);
+  background-image: linear-gradient(var(--kb-bg-hover), var(--kb-bg-hover));
 }
 
 .kb-dot {
   width: 8px;
   height: 8px;
-  border-radius: var(--kb-radius-pill);
+  border-radius: 50%;
   display: inline-block;
   flex-shrink: 0;
 }
@@ -112,7 +109,7 @@
   font-size: var(--kb-text-xs);
   line-height: 1;
   padding: 4px 8px;
-  border-radius: var(--kb-radius-xs);
+  border-radius: var(--kb-radius-control);
   background: var(--kb-bg-inset);
   color: var(--kb-fg-muted);
   border: 1px solid var(--kb-border-subtle);
@@ -127,7 +124,7 @@
   font-family: var(--kb-font-mono);
   font-size: var(--kb-text-xs);
   font-weight: 600;
-  border-radius: var(--kb-radius-xs);
+  border-radius: var(--kb-radius-control);
   background: var(--kb-bg-inset);
   color: var(--kb-fg-muted);
   border: 1px solid var(--kb-border-subtle);
@@ -172,7 +169,7 @@
   color: var(--kb-fg-muted);
   background: transparent;
   border: 1px solid transparent;
-  border-radius: var(--kb-radius-sm);
+  border-radius: var(--kb-radius-control);
   cursor: pointer;
   transition:
     background var(--kb-dur-fast) var(--kb-ease),
@@ -211,7 +208,7 @@
   padding: 2px;
   background: var(--kb-bg-inset);
   border: 1px solid var(--kb-border-control);
-  border-radius: var(--kb-radius-sm);
+  border-radius: var(--kb-radius-control);
 }
 
 .kb-segment {
@@ -222,7 +219,7 @@
   color: var(--kb-fg-muted);
   background: transparent;
   border: 1px solid transparent;
-  border-radius: var(--kb-radius-xs);
+  border-radius: var(--kb-radius-control);
   cursor: pointer;
   white-space: nowrap;
   transition:
@@ -271,7 +268,7 @@
   display: inline-block;
   vertical-align: middle;
   overflow: hidden;
-  border-radius: var(--kb-radius-sm);
+  border-radius: var(--kb-radius-control);
   /* A tint of the text colour reads on every ground; kb-bg-inset vanished on
      dark surfaces. */
   background: color-mix(in srgb, var(--kb-fg-default) 14%, transparent);
@@ -310,7 +307,7 @@ kbd {
   font-size: var(--kb-text-2xs);
   line-height: 1;
   padding: 3px 5px;
-  border-radius: var(--kb-radius-xs);
+  border-radius: var(--kb-radius-control);
   border: 1px solid var(--kb-border-strong);
   border-bottom-width: 2px;
   background: var(--kb-bg-inset);
@@ -318,6 +315,8 @@ kbd {
 }
 
 .nav {
+  /* Rows are full-bleed: side padding is the gutter, nesting adds --kb-nav-indent. */
+  --kb-nav-indent: 0px;
   display: flex;
   flex-direction: column;
   gap: 1px;
@@ -331,7 +330,7 @@ kbd {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--kb-fg-subtle);
-  padding: 16px 10px 6px;
+  padding: 16px var(--kb-gutter) 6px;
 }
 
 .nav-item {
@@ -343,8 +342,8 @@ kbd {
   text-decoration: none;
   font-size: var(--kb-text-md);
   font-weight: 500;
-  padding: 6px 10px;
-  border-radius: var(--kb-radius);
+  padding: 6px var(--kb-gutter) 6px calc(var(--kb-gutter) + var(--kb-nav-indent));
+  border-radius: var(--kb-radius-tile);
   transition:
     background var(--kb-dur-fast) var(--kb-ease),
     color var(--kb-dur-fast) var(--kb-ease);
@@ -378,7 +377,7 @@ button.nav-item {
 .nav-item.active {
   background: color-mix(in srgb, var(--kb-accent-subtle) 60%, transparent);
   color: var(--kb-accent);
-  font-weight: 600;
+  font-weight: 500;
   box-shadow: inset 3px 0 0 var(--kb-accent);
 }
 
@@ -393,7 +392,7 @@ button.nav-item {
   font-family: var(--kb-font-mono);
   color: var(--kb-fg-subtle);
   border: 1px solid var(--kb-border-subtle);
-  border-radius: var(--kb-radius-xs);
+  border-radius: var(--kb-radius-control);
   padding: 1px 4px;
 }
 
@@ -405,10 +404,8 @@ button.nav-item {
   flex-shrink: 0;
   padding: 0 var(--kb-gutter);
   height: var(--kb-h-bar);
-  border-bottom: 1px solid var(--kb-border-subtle);
-  background: color-mix(in srgb, var(--kb-bg-surface) 60%, transparent);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--kb-separator);
+  background: var(--kb-bg-surface);
 }
 
 /* Pages disagree on whether the title is an h1 or an h2; the title is the same
@@ -452,7 +449,7 @@ button.nav-item {
   color: var(--kb-fg-default);
   background: var(--kb-bg-inset);
   border: 1px solid var(--kb-border-control);
-  border-radius: var(--kb-radius-sm);
+  border-radius: var(--kb-radius-control);
   padding: 4px 9px;
   height: 26px;
   outline: none;
@@ -770,7 +767,7 @@ button.nav-item {
   padding: var(--kb-space-2);
   background: var(--kb-bg-raised);
   border: 1px solid var(--kb-border-subtle);
-  border-radius: var(--kb-radius);
+  border-radius: var(--kb-radius-float);
   box-shadow: var(--kb-shadow-lift);
 }
 
@@ -863,7 +860,7 @@ button.nav-item {
   color: var(--kb-fg-muted);
   background: transparent;
   border: none;
-  border-radius: var(--kb-radius-sm);
+  border-radius: var(--kb-radius-tile);
   padding: 7px 14px;
   cursor: pointer;
   transition:
@@ -892,14 +889,14 @@ button.nav-item {
   align-items: center;
   gap: 9px;
   width: 100%;
-  padding: 7px 10px;
+  padding: 7px var(--kb-gutter) 7px calc(var(--kb-gutter) + var(--kb-nav-indent));
   font: inherit;
   font-size: var(--kb-text-sm);
   font-weight: 600;
   color: var(--kb-fg-muted);
   background: transparent;
   border: none;
-  border-radius: var(--kb-radius-sm);
+  border-radius: var(--kb-radius-tile);
   cursor: pointer;
   transition:
     background var(--kb-dur-fast) var(--kb-ease),
@@ -939,7 +936,7 @@ button.nav-item {
   display: none;
   flex-direction: column;
   gap: 1px;
-  padding-left: 22px;
+  --kb-nav-indent: 22px;
 }
 
 .nav-group.open .nav-group-items {
@@ -949,13 +946,13 @@ button.nav-item {
 .nav-item.sub {
   font-weight: 450;
   font-size: var(--kb-text-sm);
-  padding: 4px 10px;
+  padding: 4px var(--kb-gutter) 4px calc(var(--kb-gutter) + var(--kb-nav-indent));
 }
 
 .nav-item.sub.active {
   background: var(--kb-accent-subtle);
   color: var(--kb-accent);
-  font-weight: 550;
+  font-weight: 500;
 }
 
 .nav-item.sub.active .nav-icon {
@@ -981,14 +978,14 @@ button.nav-item {
   align-items: center;
   gap: 9px;
   width: 100%;
-  padding: 5px 10px;
+  padding: 5px var(--kb-gutter) 5px calc(var(--kb-gutter) + var(--kb-nav-indent));
   font: inherit;
   font-size: var(--kb-text-sm);
   font-weight: 500;
   color: var(--kb-fg-muted);
   background: transparent;
   border: none;
-  border-radius: var(--kb-radius-sm);
+  border-radius: var(--kb-radius-tile);
   cursor: pointer;
   transition:
     background var(--kb-dur-fast) var(--kb-ease),
@@ -1019,7 +1016,7 @@ button.nav-item {
   display: none;
   flex-direction: column;
   gap: 1px;
-  padding-left: 14px;
+  --kb-nav-indent: 36px;
 }
 
 .nav-subgroup.open .nav-subgroup-items {
@@ -1048,7 +1045,7 @@ button.nav-item {
   width: min(520px, 92vw);
   background: var(--kb-bg-raised);
   border: 1px solid var(--kb-border-strong);
-  border-radius: var(--kb-radius-lg);
+  border-radius: var(--kb-radius-float);
   box-shadow: var(--kb-shadow-lift), var(--kb-highlight-inset);
   overflow: hidden;
   animation: palette-box-in var(--kb-dur-slow) var(--kb-ease-out) both;
@@ -1091,7 +1088,7 @@ button.nav-item {
   color: var(--kb-fg-default);
   background: transparent;
   border: none;
-  border-radius: var(--kb-radius);
+  border-radius: var(--kb-radius-control);
   padding: 9px 11px;
   cursor: pointer;
 }
@@ -1181,7 +1178,7 @@ button.nav-item {
   color: var(--kb-fg-subtle);
   background: var(--kb-bg-inset);
   border: 1px solid var(--kb-border-subtle);
-  border-radius: var(--kb-radius-xs);
+  border-radius: var(--kb-radius-control);
   padding: 1px 5px;
   white-space: nowrap;
   flex-shrink: 0;
@@ -1223,7 +1220,7 @@ button.nav-item {
   background: var(--kb-accent-subtle);
   color: var(--kb-accent);
   padding: 1px 4px;
-  border-radius: var(--kb-radius-xs);
+  border-radius: var(--kb-radius-control);
 }
 
 /* ──── Context menu ──── */
@@ -1233,7 +1230,7 @@ button.nav-item {
   min-width: 180px;
   background: var(--kb-bg-raised);
   border: 1px solid var(--kb-border-strong);
-  border-radius: var(--kb-radius);
+  border-radius: var(--kb-radius-float);
   box-shadow: var(--kb-shadow-lift);
   padding: 4px;
   animation: ctx-appear var(--kb-dur-fast) var(--kb-ease);
@@ -1255,7 +1252,7 @@ button.nav-item {
   background: transparent;
   border: none;
   padding: 6px 10px;
-  border-radius: var(--kb-radius-xs);
+  border-radius: var(--kb-radius-control);
   cursor: pointer;
   text-align: left;
 }
@@ -1308,7 +1305,7 @@ button.nav-item {
   align-items: center;
   gap: 4px;
   padding: 1px 8px;
-  border-radius: var(--kb-radius-pill);
+  border-radius: var(--kb-radius-control);
   font-size: var(--kb-text-xs);
   line-height: 16px;
   font-weight: 500;
@@ -1323,7 +1320,7 @@ button.nav-item {
   align-items: center;
   gap: 4px;
   padding: 1px 8px;
-  border-radius: var(--kb-radius-pill);
+  border-radius: var(--kb-radius-control);
   font-size: var(--kb-text-xs);
   line-height: 16px;
   font-weight: 500;
@@ -1338,7 +1335,7 @@ button.nav-item {
   align-items: center;
   gap: 4px;
   padding: 1px 8px;
-  border-radius: var(--kb-radius-pill);
+  border-radius: var(--kb-radius-control);
   font-size: var(--kb-text-xs);
   line-height: 16px;
   font-weight: 500;
@@ -1353,7 +1350,7 @@ button.nav-item {
   align-items: center;
   gap: 4px;
   padding: 1px 8px;
-  border-radius: var(--kb-radius-pill);
+  border-radius: var(--kb-radius-control);
   font-size: var(--kb-text-xs);
   line-height: 16px;
   font-weight: 500;
@@ -1368,7 +1365,7 @@ button.nav-item {
   align-items: center;
   gap: 4px;
   padding: 1px 8px;
-  border-radius: var(--kb-radius-pill);
+  border-radius: var(--kb-radius-control);
   font-size: var(--kb-text-xs);
   line-height: 16px;
   font-weight: 500;
@@ -1383,7 +1380,7 @@ button.nav-item {
   align-items: center;
   gap: 4px;
   padding: 1px 8px;
-  border-radius: var(--kb-radius-pill);
+  border-radius: var(--kb-radius-control);
   font-size: var(--kb-text-xs);
   line-height: 16px;
   font-weight: 500;
@@ -1400,7 +1397,7 @@ button.nav-item {
   align-items: center;
   gap: 4px;
   padding: 1px 8px;
-  border-radius: var(--kb-radius-pill);
+  border-radius: var(--kb-radius-control);
   font-size: var(--kb-text-xs);
   line-height: 16px;
   font-weight: 500;
@@ -1427,7 +1424,7 @@ button.nav-item {
 .ns-pill {
   display: inline-block;
   padding: 0 6px;
-  border-radius: var(--kb-radius-pill);
+  border-radius: var(--kb-radius-control);
   background: var(--kb-accent-subtle);
   color: var(--kb-accent);
   font-size: var(--kb-text-xs);
@@ -1455,7 +1452,7 @@ button.nav-item {
   display: inline-block;
   width: 8px;
   height: 8px;
-  border-radius: var(--kb-radius-2xs);
+  border-radius: var(--kb-radius-control);
   flex-shrink: 0;
 }
 
@@ -1562,7 +1559,7 @@ button.nav-item {
   color: var(--kb-fg-default);
   background: var(--kb-bg-raised);
   border: 1px solid var(--kb-border-strong);
-  border-radius: var(--kb-radius);
+  border-radius: var(--kb-radius-float);
   box-shadow: var(--kb-shadow-menu);
 }
 
@@ -1590,14 +1587,14 @@ button.nav-item {
   border: 1px solid color-mix(in srgb, var(--kb-status-ok) 35%, transparent);
   background: color-mix(in srgb, var(--kb-status-ok) 8%, transparent);
   padding: 3px 9px;
-  border-radius: var(--kb-radius-pill);
+  border-radius: var(--kb-radius-control);
 }
 
 .live-pill::before {
   content: "";
   width: 6px;
   height: 6px;
-  border-radius: var(--kb-radius-pill);
+  border-radius: 50%;
   background: currentColor;
   flex-shrink: 0;
   /* Three pulses, then still: the word "live" says the rest. */
@@ -1612,13 +1609,13 @@ button.nav-item {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  border-radius: var(--kb-radius-sm);
+  border-radius: var(--kb-radius-tile);
   padding: var(--kb-space-6) var(--kb-space-5);
   text-align: center;
   background: var(--kb-bg-surface);
   min-height: 200px;
   margin-bottom: var(--kb-space-3);
-  border: 1px dashed var(--kb-border-strong);
+  border: 1px solid var(--kb-card-edge);
 }
 
 .inline-banner {
@@ -1630,8 +1627,10 @@ button.nav-item {
   padding: var(--kb-space-2) var(--kb-space-3);
   background: var(--kb-status-err-subtle);
   color: var(--kb-status-err-fg);
-  border: 1px solid color-mix(in srgb, var(--kb-status-err) 35%, transparent);
-  border-radius: var(--kb-radius);
+  /* A square block with a 3px status bar on its leading edge. */
+  border: 0;
+  border-left: 3px solid var(--kb-status-err);
+  border-radius: var(--kb-radius-tile);
   margin: 0 var(--kb-gutter) var(--kb-space-3);
   font-size: var(--kb-text-md);
 }
@@ -1639,13 +1638,13 @@ button.nav-item {
 .inline-banner.ok {
   background: var(--kb-status-ok-subtle);
   color: var(--kb-status-ok-fg);
-  border-color: color-mix(in srgb, var(--kb-status-ok) 35%, transparent);
+  border-left-color: var(--kb-status-ok);
 }
 
 .inline-banner.warn {
   background: var(--kb-status-warn-subtle);
   color: var(--kb-status-warn-fg);
-  border-color: color-mix(in srgb, var(--kb-status-warn) 35%, transparent);
+  border-left-color: var(--kb-status-warn);
 }
 
 .inline-banner-actions {
@@ -1678,9 +1677,9 @@ tr.row-clickable:active {
   gap: 2px;
   height: var(--kb-h-tabs);
   padding: 0 8px;
-  border-bottom: 1px solid var(--kb-border-subtle);
+  border-bottom: 1px solid var(--kb-separator);
   flex-shrink: 0;
-  background: color-mix(in srgb, var(--kb-bg-inset) 40%, transparent);
+  background: var(--kb-bg-chrome);
 }
 
 /* A page-level empty state sits on the page gutter. */
@@ -1848,14 +1847,16 @@ tr.row-clickable:active {
   background: var(--kb-accent);
 }
 
+/* Flush: from the top of the window to the status bar, against the right
+   edge. A hairline and the edge shadow mark where it starts. */
 .drawer {
   position: fixed;
   top: 0;
   right: 0;
-  bottom: 0;
+  bottom: var(--kb-h-status);
   width: min(820px, 75vw);
   background: var(--kb-bg-surface);
-  border-left: 1px solid var(--kb-border-strong);
+  border-left: 1px solid var(--kb-separator);
   box-shadow: var(--kb-shadow-lift);
   display: flex;
   flex-direction: column;
@@ -1884,8 +1885,10 @@ tr.row-clickable:active {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--kb-border-subtle);
+  min-height: var(--kb-h-bar);
+  padding: 6px var(--kb-gutter);
+  background: var(--kb-bg-chrome);
+  border-bottom: 1px solid var(--kb-separator);
 }
 
 .drawer-title {
@@ -1947,7 +1950,7 @@ tr.row-clickable:active {
   z-index: calc(var(--kb-z-modal) + 1);
   background: var(--kb-bg-surface);
   border: 1px solid var(--kb-border-subtle);
-  border-radius: var(--kb-radius);
+  border-radius: var(--kb-radius-float);
   box-shadow: var(--kb-shadow-menu);
   outline: none;
 }
@@ -1995,6 +1998,11 @@ tr.row-clickable:active {
   display: flex;
 }
 
+/* Columns of blocks (cards); the gap is the only separator between them. */
+.kb-grid {
+  display: grid;
+}
+
 .kb-stack {
   display: flex;
   flex-direction: column;
@@ -2029,7 +2037,7 @@ tr.row-clickable:active {
   background: var(--kb-bg-surface);
   color: var(--kb-fg-default);
   border: 1px solid var(--kb-border-strong);
-  border-radius: var(--kb-radius);
+  border-radius: var(--kb-radius-tile);
   padding: 11px 13px;
   cursor: pointer;
   font: inherit;
@@ -2037,18 +2045,17 @@ tr.row-clickable:active {
   text-align: left;
   transition:
     border-color var(--kb-dur-fast) var(--kb-ease),
-    box-shadow var(--kb-dur-fast) var(--kb-ease),
-    transform var(--kb-dur-fast) var(--kb-ease);
+    box-shadow var(--kb-dur-fast) var(--kb-ease);
 }
 
+/* Shade, don't lift: the same hover as a Card or a table row. */
 .kb-choice-card:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--kb-shadow-lift);
+  background-image: linear-gradient(var(--kb-bg-hover), var(--kb-bg-hover));
 }
 
 .kb-choice-card.active {
   border-color: var(--kb-accent);
-  box-shadow: 0 0 0 1px var(--kb-accent), var(--kb-shadow-rest);
+  box-shadow: 0 0 0 1px var(--kb-accent);
 }
 
 /* After .active, so keyboard focus on the chosen theme still shows its ring. */
@@ -2064,6 +2071,42 @@ tr.row-clickable:active {
   z-index: var(--kb-z-sticky);
 }
 
+/* ── PropertyList: label/value rows on a two-column grid ── */
+.kb-props {
+  display: grid;
+  grid-template-columns: minmax(30%, max-content) minmax(0, 1fr);
+  margin: 0;
+  font-size: var(--kb-text-sm);
+}
+
+/* The row wrapper only groups a dt with its dd; the grid places the cells. */
+.kb-prop {
+  display: contents;
+}
+
+.kb-prop > dt,
+.kb-prop > dd {
+  margin: 0;
+  padding: 6px 0;
+  line-height: var(--kb-line-row);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.kb-prop > dt {
+  padding-right: var(--kb-space-3);
+  color: var(--kb-fg-muted);
+}
+
+.kb-prop > dd {
+  color: var(--kb-fg-default);
+}
+
+.kb-prop:not(:last-child) > dt,
+.kb-prop:not(:last-child) > dd {
+  border-bottom: 1px solid var(--kb-separator);
+}
+
 /* ── CollapsibleSection ─────────────────────────────────────────────────── */
 .kb-collapsible {
   margin-bottom: var(--kb-space-3);
@@ -2073,7 +2116,7 @@ tr.row-clickable:active {
   margin-bottom: var(--kb-space-2);
   background: var(--kb-bg-inset);
   border: 1px solid var(--kb-border-subtle);
-  border-radius: var(--kb-radius);
+  border-radius: var(--kb-radius-tile);
 }
 
 .kb-collapsible-title {
@@ -2093,7 +2136,7 @@ tr.row-clickable:active {
   color: var(--kb-fg-default);
   background: transparent;
   border: none;
-  border-radius: var(--kb-radius);
+  border-radius: var(--kb-radius-tile);
   cursor: pointer;
   text-align: left;
 }

@@ -40,6 +40,8 @@ const PATTERNS: [string, RegExp][] = [
   ["DisclosureButton (hand-written nav group toggle)", /<button[^>]*className="nav-(sub)?group-title"/],
   ["ChoiceCard (hand-written theme card)", /\btheme-card\b/],
   ["Button (list-footer button used as a page action)", /className="ns-clear"/],
+  ["PropertyList (hand-built label/value rows)", /\bpod-kv\b/],
+  ["Grid (hand-built card grid)", /\bcluster-grid\b/],
 ];
 
 // Files allowed a specific exception, with the reason.

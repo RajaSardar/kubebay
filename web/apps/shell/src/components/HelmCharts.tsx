@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
 import Editor, { DiffEditor } from "../lib/monaco";
-import { ArmedButton, Avatar, Badge, Button, Card, Drawer, EmptyState, InlineBanner, Row, Select, Skeleton, SkeletonLines, Stack, Tabs, TextField } from "@kubebay/ui";
+import { ArmedButton, Avatar, Badge, Button, Card, Drawer, EmptyState, Grid, InlineBanner, Row, Select, Skeleton, SkeletonLines, Stack, Tabs, TextField } from "@kubebay/ui";
 import { helmApi, helmMarketApi, settingsApi, type HelmChartDetail, type HelmChartEntry, type HelmRelease } from "../lib/api";
 import { helmReleasesQuery } from "../lib/helmReleases";
 import { compareVersions, indexUpdatedLabel, installedAs, isWebUrl, matchesChart, releaseNameFor, versionInIndex } from "../lib/helmStore";
@@ -774,7 +774,7 @@ export function ChartsTab({ cluster }: { cluster: string }) {
         </InlineBanner>
       )}
 
-      <div className="cluster-grid">
+      <Grid>
         {filtered.map(({ chart: c, repoName }) => (
           <Card key={`${repoName}/${c.name}`} interactive className="fleet-card">
             <div style={{ cursor: "pointer" }} onClick={() => setInstalling({ chart: c, repoName })}>
@@ -807,7 +807,7 @@ export function ChartsTab({ cluster }: { cluster: string }) {
               </div>
             </Card>
           ))}
-      </div>
+      </Grid>
 
       {installing && (
         // Keyed by chart: the release name, version and values it seeds belong

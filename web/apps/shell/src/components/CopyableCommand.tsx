@@ -24,7 +24,7 @@ export function CopyableCommand({ command, label }: { command: string; label?: s
           overflowWrap: "anywhere",
           background: "var(--kb-bg-inset)",
           padding: "8px 72px 8px 8px",
-          borderRadius: "var(--kb-radius-xs)",
+          borderRadius: "var(--kb-radius-control)",
           margin: 0,
           cursor: "pointer",
           userSelect: "all",
