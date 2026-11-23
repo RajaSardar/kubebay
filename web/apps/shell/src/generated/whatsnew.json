@@ -26,6 +26,38 @@
             {
               "title": "Fixed band heights",
               "summary": "Page headers and toolbars are both 40px (toolbars were 38px), tab strips are 36px (the page tab strip was about 50px), and the status bar is 24px (it was about 29px)."
+            },
+            {
+              "title": "Corners by role",
+              "summary": "Anything that tiles the window (the sidebar and its items, tab strips, tables, cards, banners, empty states, the theme cards in Settings) is square."
+            },
+            {
+              "title": "No resting shadows",
+              "summary": "Cards, primary buttons, the selected theme card and Topology's canvas and cards no longer cast a shadow or carry an inset highlight; only things that float over the page do."
+            },
+            {
+              "title": "An opaque frame",
+              "summary": "The cluster rail, the sidebar, the status bar and the cluster list's status bar are now one solid shade per theme, a new --kb-bg-chrome token declared in all 12 themes."
+            },
+            {
+              "title": "Full-width sidebar items",
+              "summary": "Sidebar items, group titles and section labels run the full width of the sidebar instead of sitting in rounded chips 8px in from its edges, and nested items are indented by their padding."
+            },
+            {
+              "title": "A flush drawer",
+              "summary": "A drawer now stops at the top of the status bar instead of covering it, and its left edge is the separator line."
+            },
+            {
+              "title": "Label and value rows in two columns",
+              "summary": "The facts in a drawer's Summary (a pod, node, Service or ResourceClaim, any object's Info and annotations, and a Helm release's Release section) are now a description list: labels in a column at least 30% wide, values beside them, a thin…"
+            },
+            {
+              "title": "Cards as blocks",
+              "summary": "Cards no longer have an outline, and an interactive card no longer lifts by 1px and casts a shadow on hover; it shades, like a table row."
+            },
+            {
+              "title": "Square banners and empty states",
+              "summary": "A banner has a 3px bar in its status colour down its left edge instead of a tinted outline all round."
             }
           ]
         },
