@@ -51,12 +51,13 @@ func (s *SettingsManager) discover(ctx context.Context, cluster string, refresh 
 	}, refresh)
 }
 
-// promBase resolves where to send a query for a cluster. A manual URL wins and
+// promBase resolves where to send a query for a cluster. A manual URL wins (for
+// a signed-in OIDC user only when the operator opened it to everyone) and
 // returns a nil client (the caller applies the SSRF-guarded Outbound client).
 // Otherwise the pinned or discovered Service is reached through the API
 // server's service proxy with the caller's identity. "" means none.
 func (s *SettingsManager) promBase(ctx context.Context, set *AppSettings, cluster string) (string, *http.Client) {
-	if u := set.PrometheusURLFor(cluster); u != "" {
+	if u := s.directPromURLForRequest(ctx, set, cluster); u != "" {
 		return u, nil
 	}
 	if s.mgr == nil {
@@ -75,7 +76,7 @@ func (s *SettingsManager) promBase(ctx context.Context, set *AppSettings, cluste
 
 // autoTarget is the pinned target, else the best discovered candidate.
 func (s *SettingsManager) autoTarget(ctx context.Context, set *AppSettings, cluster string) (prometheus.Candidate, bool) {
-	if t := set.PrometheusTargets[cluster]; t != "" {
+	if t := s.promTargetsInForce(set)[cluster]; t != "" {
 		if c, err := prometheus.ParseTarget(t); err == nil {
 			return c, true
 		}
@@ -125,7 +126,7 @@ func (s *SettingsManager) HandlePromStatus(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	out := promStatusBody{Source: "none", Candidates: []prometheus.Candidate{}}
-	if u := set.PrometheusURLFor(cluster); u != "" {
+	if u := s.directPromURLForRequest(r.Context(), set, cluster); u != "" {
 		out.Source, out.Target = "manual", u
 		writeJSON(w, out)
 		return
@@ -134,7 +135,7 @@ func (s *SettingsManager) HandlePromStatus(w http.ResponseWriter, r *http.Reques
 	if res.Candidates != nil {
 		out.Candidates = res.Candidates
 	}
-	if t := set.PrometheusTargets[cluster]; t != "" {
+	if t := s.promTargetsInForce(set)[cluster]; t != "" {
 		if c, err := prometheus.ParseTarget(t); err == nil {
 			out.Source, out.Target, out.Chosen = "auto", c.Target(), true
 		}
@@ -166,6 +167,9 @@ func (s *SettingsManager) setPromTarget(cluster, target string) error {
 // HandlePromTarget (POST /api/prom/target {cluster, target}) pins one
 // auto-detected Service for a cluster; an empty target goes back to auto.
 func (s *SettingsManager) HandlePromTarget(w http.ResponseWriter, r *http.Request) {
+	if s.refuseIfLocked(w) {
+		return
+	}
 	var body struct {
 		Cluster string `json:"cluster"`
 		Target  string `json:"target"`

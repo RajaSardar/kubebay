@@ -27,6 +27,8 @@ One score, **Good**, **Fair** or **Poor**, from three parts:
 
 Each workload's request, its observed p95 usage, how much is wasted, and the window it was measured over. It uses the same recommender as [Right-sizing](/docs/right-sizing/), but read-only. To change requests, use Right-sizing.
 
+With OIDC sign-in, the list only has workloads in namespaces where you may list pods, because the engine measures usage under its own identity.
+
 ## GPUs
 
 Shown only on clusters with GPU nodes.

@@ -17,6 +17,20 @@ impersonation:
   users: []
   groups: []
 
+# Settings that apply to every user. In a cluster the app's Settings page can't
+# change them, because one person would be choosing for everyone.
+# Image of the privileged node-shell pod; empty = registry.k8s.io/e2e-test-images/busybox:1.29-2.
+nodeShellImage: ""
+# Default image of a debug container; empty = busybox:1.36.
+debugImage: ""
+prometheus:
+  # Prometheus the engine queries directly for graphs and right-sizing. Empty =
+  # each user's queries go through the API server's service proxy as that user.
+  url: ""
+  # With OIDC, let every signed-in user send raw PromQL to `url`. It answers for
+  # every namespace whatever their RBAC, so it's off unless you turn it on.
+  allUsers: false
+
 ingress:
   enabled: false
   className: nginx

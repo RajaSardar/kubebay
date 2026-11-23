@@ -52,6 +52,8 @@ func main() {
 	oidcRedirect := flag.String("oidc-redirect-url", os.Getenv("KUBEBAY_OIDC_REDIRECT"), "OAuth2 redirect URL")
 	warmClusters := flag.String("warm-clusters", os.Getenv("KUBEBAY_WARM_CLUSTERS"), "most connected clusters kept streaming; the least recently viewed unpinned one sleeps past it (default 5, 0 = no limit; KUBEBAY_WARM_CLUSTERS)")
 	warmIdle := flag.String("warm-idle", os.Getenv("KUBEBAY_WARM_IDLE"), "a connected cluster nobody viewed for this long sleeps, e.g. 30m (default 30m, 0 = never; KUBEBAY_WARM_IDLE)")
+	promURL := flag.String("prometheus-url", os.Getenv("KUBEBAY_PROMETHEUS_URL"), "Prometheus to query directly for every cluster; the only one a shared engine (in a cluster or with OIDC) uses (KUBEBAY_PROMETHEUS_URL)")
+	promAllUsers := flag.Bool("prometheus-all-users", os.Getenv("KUBEBAY_PROMETHEUS_ALL_USERS") == "true", "let every OIDC user send raw PromQL to --prometheus-url, which answers for every namespace whatever their RBAC (KUBEBAY_PROMETHEUS_ALL_USERS=true)")
 	localShell := flag.Bool("local-shell", false, "serve a shell on this machine (requires a binary built with -tags localshell, a loopback --addr, no --in-cluster and no OIDC)")
 	flag.Parse()
 
@@ -127,18 +129,16 @@ func main() {
 	settingsMgr.LocalShell = localShellStatus
 	settingsMgr.AuditFeedDisabled = httpapi.AuditFeedBlockReason(*inCluster, auth.Enabled())
 	settingsMgr.WarmPolicyDisabled = httpapi.WarmPolicyBlockReason(*inCluster, auth.Enabled())
+	// One engine serving many people: what the node shell and debug containers
+	// run, and which Prometheus is queried, come from the operator only.
+	settingsMgr.SharedLocked = httpapi.SharedSettingsBlockReason(*inCluster, auth.Enabled())
+	settingsMgr.Operator = httpapi.OperatorSettings{PrometheusURL: *promURL, PrometheusAllUsers: *promAllUsers}
 	// A policy saved in Settings wins over the flag and env defaults.
 	settingsMgr.ApplyStoredWarmPolicy()
 	// Tier A (Prometheus) is a no-op until a cluster actually has one
 	// configured — this just wires up how to ask, per-cluster, same as
 	// promquery.go's own handlers.
-	wasteSampler.SetPrometheusResolver(func(cluster string) string {
-		set, err := settingsMgr.Load()
-		if err != nil {
-			return ""
-		}
-		return set.PrometheusURLFor(cluster)
-	})
+	wasteSampler.SetPrometheusResolver(settingsMgr.SamplerPrometheusURL)
 	// Poll workloads only on clusters the user connected to or enrolled in
 	// usage history, never on every context that answers /version.
 	wasteSampler.SetGate(func(id string) bool { return mgr.IsConnected(id) || settingsMgr.HistoryEnabled(id) })

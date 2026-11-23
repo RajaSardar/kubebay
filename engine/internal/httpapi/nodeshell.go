@@ -35,11 +35,13 @@ type NodeShellManager struct {
 // that have no settings.json, then the default.  Private-registry-only and
 // air-gapped clusters cannot pull from registry.k8s.io at all, which left
 // node-shell permanently broken there with no way out.
+//
+// A shared engine (in a cluster or with OIDC) never reads the saved setting:
+// the pod is privileged on the host, so one user must not choose the image
+// another user's node shell runs (see SettingsManager.NodeShellImage).
 func (n *NodeShellManager) image() string {
 	if n.Settings != nil {
-		if set, err := n.Settings.Load(); err == nil && set.NodeShellImage != "" {
-			return set.NodeShellImage
-		}
+		return n.Settings.NodeShellImage()
 	}
 	if env := strings.TrimSpace(os.Getenv("KUBEBAY_NODE_SHELL_IMAGE")); env != "" {
 		return env

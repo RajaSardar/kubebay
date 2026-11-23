@@ -71,6 +71,15 @@
           ]
         },
         {
+          "heading": "Security",
+          "items": [
+            {
+              "title": "A shared engine no longer goes past each user's RBAC",
+              "summary": "(internal security review)."
+            }
+          ]
+        },
+        {
           "heading": "Changed",
           "items": [
             {

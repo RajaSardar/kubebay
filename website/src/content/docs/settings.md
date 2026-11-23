@@ -28,6 +28,10 @@ Kubebay reads Prometheus for a pod's [graphs](/docs/pods/#graphs), right-sizing 
 
 Kubebay refuses a Prometheus URL that points at a cloud metadata or link-local address (such as `http://169.254.169.254`), at an address that isn't `http` or `https`, or that carries a user name and password, and the setting isn't saved. That keeps the engine from being aimed at a cloud node's credentials. A local address such as `http://localhost:9090` is fine on your own machine. When Kubebay runs in a cluster, loopback is refused too, since it's the engine's own pod.
 
+## When Kubebay runs in a cluster
+
+One engine serves everyone in a cluster, or with OIDC sign-in, so the settings on this page that apply to every user are read-only: the Prometheus URLs and the pinned Prometheus Service, kubeconfig sources, the node shell image and the debug image. **Save** says why. The page shows the values the operator set, through the Helm chart's values or the engine's environment. See [Install in a cluster](/docs/install/#in-a-cluster).
+
 ## Kubeconfig sources
 
 Kubeconfig files are added and removed on the Clusters page, next to the clusters they bring in. **Manage kubeconfig files** takes you there. See [Connect your clusters](/docs/connect-clusters/#adding-kubeconfig-files).

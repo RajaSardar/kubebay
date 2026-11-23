@@ -19,9 +19,15 @@ The desktop app is started by your OS, not a shell, so it reads a short list of 
 
 ## In a cluster
 
-With the Helm chart and OIDC, users sign in with your identity provider. The engine then acts **as that user**, through Kubernetes impersonation, so the cluster's own RBAC decides what each person can see and do. Kubebay never grants more than RBAC does.
+With the Helm chart and OIDC, users sign in with your identity provider. The engine then acts **as that user**, through Kubernetes impersonation, so the cluster's own RBAC decides what each person can see and do. Kubebay never grants more than RBAC does. That includes what the engine collects or reaches under its own identity:
+
+- **Workload usage on [Cost / Waste](/docs/cost-waste/#workload-usage-vs-requests).** The usage sampler runs as the engine's ServiceAccount, so each person only sees the workloads in namespaces where they may list pods. Kubebay asks the API server, as that person, before it shows a namespace. If it can't get an answer, it shows nothing.
+- **Prometheus.** By default, your queries go through the API server's service proxy, as you, so RBAC on the Prometheus Service decides. If the operator sets a Prometheus URL for the engine, that URL answers for every namespace, whatever RBAC says. So signed-in users can only query it once the operator turns on `prometheus.allUsers`.
+- **Settings that apply to everyone are read-only.** One engine serves every user, so the node shell image, the debug image, the Prometheus URL and pinned Prometheus Service, and the kubeconfig sources can't be changed from Settings. Otherwise one person could choose the image of the privileged pod that another person's [node shell](/docs/nodes/#node-shell) runs with their own credentials. The operator sets them in the chart's values. See [Install in a cluster](/docs/install/#in-a-cluster).
 
 Features that only make sense on your own machine are off in a cluster: the local terminal, extensions, AI assistants (MCP), AI triage and usage history.
+
+**Known limitation:** the engine's [Audit Log](/docs/audit-log/) and settings are written to a 64Mi `emptyDir`, so they're lost when the pod restarts or moves, and the chart has no option for a persistent volume yet. If you need a lasting record, rely on the cluster's API server audit log. Every change Kubebay makes there carries the signed-in user's name, because the engine impersonates them.
 
 ## Secrets
 
@@ -38,7 +44,7 @@ Features that only make sense on your own machine are off in a cluster: the loca
 | Kubernetes API calls | Your clusters | While you use them |
 | An update check | GitHub releases | Desktop app only: 30 s after launch, then daily. Turn it off in Settings |
 | Image signature lookups | Each image's registry, and Sigstore | Only when you run a signature check |
-| Prometheus queries | Your Prometheus | When you set a URL |
+| Prometheus queries | Your Prometheus | When you set a URL, or one is detected |
 | Triage evidence | The endpoint you set | Only when you click Send |
 | Cloud cluster listings | Your `aws`, `gcloud` or `az` CLI | Only when you click Find |
 
