@@ -64,6 +64,22 @@ export interface ClusterInfo {
   namespace?: string;
 }
 
+/** One cluster's fleet-tier summary (docs/MANY_CLUSTERS.md 6.6): no streams, cached 60 s by the engine. */
+export interface FleetSummary {
+  id: string;
+  status?: "reachable" | "unreachable" | "misconfigured";
+  version?: string;
+  /** Absent when they could not be read (unreachable, or nodes forbidden). */
+  nodes?: number;
+  readyNodes?: number;
+  /** The cluster has more nodes than the summary counts (5000). */
+  nodesTruncated?: boolean;
+  error?: string;
+  checkedAt?: string;
+  /** The engine is fetching it; the other fields, if any, are the previous result. */
+  pending?: boolean;
+}
+
 async function get<T>(path: string): Promise<T> {
   const res = await fetch(path, {
     headers: { "X-Kubebay-Token": getToken() },
@@ -144,6 +160,8 @@ export const api = {
   connectCluster: (id: string) => send<ClusterInfo>("POST", `/api/clusters/${encodeURIComponent(id)}/connect`),
   /** Tell the engine which clusters it must never put to sleep (the active one and pins). */
   protectClusters: (ids: string[]) => send<{ ok: boolean }>("PUT", "/api/clusters/protected", { ids }),
+  /** Fleet summaries for these clusters, without connecting them; missing ones come back pending. */
+  fleetSummary: (ids: string[]) => send<{ summaries: FleetSummary[] }>("POST", "/api/clusters/summary", { ids }),
   /** Stop a cluster's informers, streams and port-forwards. */
   disconnectCluster: (id: string) => send<{ ok: boolean }>("POST", `/api/clusters/${encodeURIComponent(id)}/disconnect`),
   podMetrics: (cluster: string, ns = "*") =>

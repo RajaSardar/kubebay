@@ -17,11 +17,17 @@ Each row is one context:
 - **Session**: **Active** for the cluster you're looking at, **Connected** for one that's streaming in the background.
 - **API**: whether the engine can reach the API server. It shows **Reachable**, **Degraded**, **Unreachable** or **Config error**. Hover over it to see the error and when it was last checked. Connected clusters are checked every 30 seconds; the others are checked when you open this page, at most every 5 minutes each, so with a very large kubeconfig a cluster you have not connected to may show **Checking** for a moment. With more than 100 clusters the table shows only the rows on screen as you scroll.
 - **Version**: the Kubernetes version.
-- **Pods** and **Nodes**: counts for connected clusters. The pod bar shows healthy, pending and failing pods.
+- **Pods** and **Nodes**: counts for connected clusters. The pod bar shows healthy, pending and failing pods. With the [fleet summary](#fleet-summary) on, **Nodes** also shows ready nodes for clusters that aren't connected.
 - **CPU · 7 days**: hourly peaks over the last week, from [usage history](/docs/settings/#usage-history).
 - **Requests**: how much of the nodes' allocatable CPU and memory the pods request.
 
 Drag the right edge of a column header to resize it, as in the Pods table. The Name column starts wide enough to show a full cluster name.
+
+### Fleet summary
+
+For a quick look across many clusters without connecting to them, click **Show fleet summary** beside the search. For each cluster on screen that isn't connected, the engine reads its version and its nodes. The **Nodes** column then shows ready nodes over total (`3/3`), in a warning pill when any node is not ready. **Version** fills in for clusters that hadn't been checked yet. The line under the page title adds a summary, such as **Summary · 2 nodes not ready in 1 cluster · 1 unreachable**. Hover over a count to see when it was checked.
+
+The summary doesn't open any streams and doesn't count against the warm-cluster limit. Each summary is kept for 60 seconds. The engine checks at most 10 clusters at a time and at most 200 per request, and gives up on a cluster after 12 seconds. Clusters are checked as they scroll into view. If you aren't allowed to list nodes, the count shows **—** and hovering explains why. Kubebay remembers whether the summary is on. Click **Hide fleet summary** to turn it off.
 
 Search by name, context or server to narrow a long list. Click a row to connect and open the cluster's [Overview](/docs/workloads-overview/). A row with a config error opens its error instead.
 

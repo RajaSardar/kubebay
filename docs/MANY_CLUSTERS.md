@@ -1,6 +1,6 @@
 # Many clusters: 50, 100, 1000 in one Kubebay
 
-> Backlog item 37. Researched 2026-11-18 against `main` at v0.7.6. Read-only research: nothing here is built.
+> Backlog item 37. Researched 2026-11-18 against `main` at v0.7.6. Originally read-only research; build progress is tracked in 7.1.
 >
 > Labels: **read** = taken from the code (file named); **estimated** = arithmetic from assumptions stated here; **not measured** = no benchmark was run for this note; **unverified** = a claim about the world outside this repo.
 
@@ -87,6 +87,12 @@ Why not "cache the last 4-5 opened" alone: it bounds memory but not the health l
 | 2. Warm LRU | N-cluster LRU, pin exemption, setting, reconnect affordance (items 2, 7). | M |
 | 3. Idle and storm control | Idle and hidden-window cooling, LIST semaphore, wake jitter (items 3, 4). | M |
 | 4. Fleet summary | On-demand summary tier and grouping for huge kubeconfigs (items 6, 9). | M |
+
+### 7.1 Progress
+
+- **Phase 4, summary tier (item 6): built 2026-11-23.** `engine/internal/fleet` answers `POST /api/clusters/summary {ids}` with one `/version` call and a paged `nodes` LIST per cluster (500 per page, at most 5000 nodes counted). It gives reachability, version, node count and ready nodes. It never connects the cluster, starts no informer and opens no watch, so it doesn't touch the warm cap. Its bounds: a 60 s cache per (identity, cluster), at most 10 fetches at once (the probe batch), 200 ids per request, and a 12 s hard cap per cluster. A cluster whose exec plugin hangs frees its concurrency slot at the cap but stays in flight until the plugin returns, so it never stacks a second fetch. The request never blocks: missing or stale entries come back `pending` with the last result, and the picker polls every 3 s only while something is pending (otherwise every 60 s). The picker asks only when the user turns on **Show fleet summary**, and only for the rows on screen that aren't connected and aren't misconfigured. That keeps item 5's "no exec plugin for a cluster not on screen" rule. Pod and problem counts were left out on purpose: a pod LIST is the expensive call the tier exists to avoid.
+- **Phase 4, grouping for huge kubeconfigs (item 9): not built.**
+- Not measured: the summary's cost against real large clusters. Its node LIST is a full object list. If node payloads turn out to matter, the next step is the Table format (`as=Table`), which carries only the Ready column.
 
 ## 8. Acceptance checks (measurable)
 

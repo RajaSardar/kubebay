@@ -1,7 +1,8 @@
 import { useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, historyApi, type ClusterHistorySummary, type ClusterInfo } from "../lib/api";
+import { api, historyApi, type ClusterHistorySummary, type ClusterInfo, type FleetSummary } from "../lib/api";
+import { fleetNodes, fleetRollup, summaryTargets } from "../lib/fleetSummary";
 import { useColumnWidths } from "../lib/useColumnWidths";
 import { headroom, lastOpenedLabel, sparkline } from "../lib/clusterUsage";
 import { useDisconnectCluster } from "../lib/useDisconnectCluster";
@@ -70,6 +71,29 @@ const API_STATUS: Record<ClusterInfo["status"], { label: string; tone: StatusTon
   misconfigured: { label: "Config error", tone: "err" },
   checking: { label: "Checking…", tone: "pending" },
 };
+
+/** Where the picker remembers that the fleet summary is on. */
+const FLEET_SUMMARY_KEY = "kubebay.fleetSummary";
+
+/** Nodes ready over total for a cluster that is not connected, from the fleet summary. */
+function FleetNodesCell({ summary }: { summary?: FleetSummary }) {
+  const n = fleetNodes(summary);
+  if (!n) return <span className="cell-secondary">—</span>;
+  if ("pending" in n) return <Skeleton w={20} />;
+  const title = [n.title, checkedAgo(summary?.checkedAt)].filter(Boolean).join(" · ");
+  if (n.tone === "warn") {
+    return (
+      <span title={title}>
+        <StatusPill tone="warn">{n.text}</StatusPill>
+      </span>
+    );
+  }
+  return (
+    <span className="mono cell-secondary" title={title}>
+      {n.text}
+    </span>
+  );
+}
 
 /** A sleeping cluster is neutral, not a problem: the grey terminated tone. */
 const SLEEPING_TONE: StatusTone = "terminated";
@@ -231,6 +255,14 @@ export default function ClusterPicker() {
   const [showHidden, setShowHidden] = useState(false);
   const [actionError, setActionError] = useState("");
   const [promFor, setPromFor] = useState<string | null>(null);
+  const [fleetOn, setFleetOn] = useState(() => localStorage.getItem(FLEET_SUMMARY_KEY) === "1");
+  function toggleFleet() {
+    setFleetOn((on) => {
+      if (on) localStorage.removeItem(FLEET_SUMMARY_KEY);
+      else localStorage.setItem(FLEET_SUMMARY_KEY, "1");
+      return !on;
+    });
+  }
   const [sp, setSp] = useSearchParams();
   const kubeconfigOpen = sp.get("kubeconfig") === "1";
   function setKubeconfigOpen(open: boolean) {
@@ -255,6 +287,19 @@ export default function ClusterPicker() {
   const virtual = useTableVirtualizer({ count: windowed ? sorted.length : 0, estimate: ROW_HEIGHT[density], scrollRef, headerRef: headRef });
   const visible = windowed ? virtual.items.map((v) => sorted[v.index]!) : sorted;
   const connected = list.filter(isConnected);
+  // The fleet summary tier: one cheap call per shown, not-connected cluster,
+  // cached by the engine. Polls fast only while the engine is still fetching.
+  const fleetIds = fleetOn ? summaryTargets(visible, isConnected) : [];
+  const fleet = useQuery({
+    queryKey: ["fleet-summary", fleetIds.join("\u0000")],
+    queryFn: () => api.fleetSummary(fleetIds),
+    enabled: fleetIds.length > 0,
+    placeholderData: (prev) => prev,
+    refetchInterval: (q) => (q.state.data?.summaries.some((x) => x.pending) ? 3_000 : 60_000),
+    retry: false,
+  });
+  const fleetById = useMemo(() => new Map((fleetOn ? (fleet.data?.summaries ?? []) : []).map((x) => [x.id, x])), [fleetOn, fleet.data]);
+  const fleetLine = fleetOn ? fleetRollup([...fleetById.values()]) : "";
   const count = (s: ClusterInfo["status"]) => list.filter((c) => c.status === s).length;
   const summary = [
     `${connected.length} connected`,
@@ -312,7 +357,7 @@ export default function ClusterPicker() {
               />
             </div>
           </Row>
-          {clusters.isSuccess && list.length > 0 && <div className="muted small">{summary}</div>}
+          {clusters.isSuccess && list.length > 0 && <div className="muted small">{[summary, fleetLine].filter(Boolean).join(" · ")}</div>}
         </div>
 
         <div className="toolbar">
@@ -323,6 +368,9 @@ export default function ClusterPicker() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
+          <Button variant="ghost" onClick={toggleFleet}>
+            {fleetOn ? "Hide fleet summary" : "Show fleet summary"}
+          </Button>
         </div>
 
         {clusters.isError && (
@@ -384,6 +432,8 @@ export default function ClusterPicker() {
                       const name = clusterDisplayName(c.id, c.context, m.alias);
                       const recorded = usage.data?.clusters?.[c.id];
                       const opened = lastOpenedLabel(m.lastUsed);
+                      const fs = conn ? undefined : fleetById.get(c.id);
+                      const version = c.version || fs?.version;
                       const rows = [
                         <TableRow key={c.id} clickable onClick={() => open(c)} title={c.context}>
                           <td className="td-name">
@@ -457,11 +507,17 @@ export default function ClusterPicker() {
                           <td title={[c.error, checkedAgo(c.checkedAt)].filter(Boolean).join(" · ") || undefined}>
                             <StatusPill tone={st.tone}>{st.label}</StatusPill>
                           </td>
-                          <td className="mono cell-secondary">{c.version ? `${c.version}${unreachable ? " (stale)" : ""}` : "–"}</td>
+                          <td className="mono cell-secondary">{version ? `${version}${unreachable ? " (stale)" : ""}` : "–"}</td>
                           <td>
                             {sum ? sum.synced ? <PodHealthBar summary={sum} /> : <Skeleton w={60} /> : <span className="cell-secondary">—</span>}
                           </td>
-                          <td className="mono cell-secondary">{sum ? sum.synced ? sum.nodes : <Skeleton w={20} /> : "—"}</td>
+                          {sum ? (
+                            <td className="mono cell-secondary">{sum.synced ? sum.nodes : <Skeleton w={20} />}</td>
+                          ) : (
+                            <td>
+                              <FleetNodesCell summary={fs} />
+                            </td>
+                          )}
                           <td>{recorded ? <UsageSparkline summary={recorded} /> : <span className="cell-secondary">—</span>}</td>
                           <td>{recorded ? <HeadroomBar summary={recorded} /> : <span className="cell-secondary">—</span>}</td>
                           <td className="col-row-menu" onClick={(e) => e.stopPropagation()}>
