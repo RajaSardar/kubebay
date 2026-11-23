@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Badge, Row, Stack } from "@kubebay/ui";
+import { Badge, Property, PropertyList, Row, Stack } from "@kubebay/ui";
 
 function rec(v: unknown): Record<string, unknown> {
   return (v ?? {}) as Record<string, unknown>;
@@ -18,16 +18,6 @@ function Section({ title, children }: { title: string; children: React.ReactNode
     <div className="pod-section">
       <div className="pod-section-title">{title}</div>
       {children}
-    </div>
-  );
-}
-
-function KV({ k, v }: { k: string; v: React.ReactNode }) {
-  if (v === null || v === undefined || v === "") return null;
-  return (
-    <div className="pod-kv">
-      <span className="muted small">{k}</span>
-      <span className="small">{v}</span>
     </div>
   );
 }
@@ -101,11 +91,13 @@ export function ServiceSummary({ obj }: { obj: Record<string, unknown> }) {
       </Section>
 
       <Section title="Traffic">
-        <KV k="Internal Traffic Policy" v={data.internalTrafficPolicy} />
-        {data.externalTrafficPolicy && <KV k="External Traffic Policy" v={data.externalTrafficPolicy} />}
-        {data.clusterIPs.length > 1 && <KV k="Cluster IPs" v={<span className="mono small">{data.clusterIPs.join(", ")}</span>} />}
-        {data.externalIPs.length > 0 && <KV k="External IPs" v={<span className="mono small">{data.externalIPs.join(", ")}</span>} />}
-        {data.lbIngress.length > 0 && <KV k="Load Balancer" v={<span className="mono small">{data.lbIngress.join(", ")}</span>} />}
+        <PropertyList>
+        <Property label="Internal Traffic Policy">{data.internalTrafficPolicy}</Property>
+        {data.externalTrafficPolicy && <Property label="External Traffic Policy">{data.externalTrafficPolicy}</Property>}
+        {data.clusterIPs.length > 1 && <Property label="Cluster IPs"><span className="mono small">{data.clusterIPs.join(", ")}</span></Property>}
+        {data.externalIPs.length > 0 && <Property label="External IPs"><span className="mono small">{data.externalIPs.join(", ")}</span></Property>}
+        {data.lbIngress.length > 0 && <Property label="Load Balancer"><span className="mono small">{data.lbIngress.join(", ")}</span></Property>}
+        </PropertyList>
       </Section>
 
       {Object.keys(data.labels).length > 0 && (

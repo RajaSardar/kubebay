@@ -43,3 +43,37 @@ export const Stack = forwardRef<HTMLElement, FlexProps>(function Stack(props, re
 export function Corner({ children }: { children: React.ReactNode }) {
   return <div className="kb-corner">{children}</div>;
 }
+
+export interface PropertyListProps extends HTMLAttributes<HTMLDListElement> {
+  /** Set every label and value in monospace (annotations, labels). */
+  mono?: boolean;
+}
+
+/**
+ * Label/value rows, such as a drawer's Metadata: a description list, so a
+ * screen reader announces each label with its value. Two columns, a hairline
+ * between rows. Children are `Property`s.
+ */
+export function PropertyList({ mono, className, ...rest }: PropertyListProps) {
+  const cls = ["kb-props", mono && "mono", className].filter(Boolean).join(" ");
+  return <dl className={cls} {...rest} />;
+}
+
+export interface PropertyProps {
+  label: React.ReactNode;
+  /** The value. Nothing, null or "" leaves the row out; 0 is shown. */
+  children?: React.ReactNode;
+  /** Set the value in monospace. */
+  mono?: boolean;
+}
+
+/** One row of a `PropertyList`. */
+export function Property({ label, children, mono }: PropertyProps) {
+  if (children === null || children === undefined || children === "" || children === false) return null;
+  return (
+    <div className="kb-prop">
+      <dt>{label}</dt>
+      <dd className={mono ? "mono" : undefined}>{children}</dd>
+    </div>
+  );
+}

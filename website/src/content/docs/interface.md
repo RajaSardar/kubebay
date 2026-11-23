@@ -27,6 +27,8 @@ The frame around the page, meaning the cluster rail, the sidebar and the status 
 
 Sidebar items fill the sidebar's full width. The page you're on is shaded edge to edge, with a bar in the accent colour at its left edge.
 
+A drawer runs from the top of the window down to the status bar, against the right edge, with a thin line and a shadow where it starts. Its header, with the object's name and its buttons, and its tab strip are in the frame's shade. In **Summary**, each section title is a band in the same shade, and the facts under it are two columns, label then value, with a thin line between rows. Rows with no value are left out.
+
 ## Several windows
 
 In the desktop app, **File > New Window** (<kbd>⌘</kbd> <kbd>N</kbd>, <kbd>Ctrl</kbd> <kbd>N</kbd> on Windows and Linux) opens another window on the same Kubebay engine. Use it to look at two clusters side by side. On a Mac, right-click the Kubebay icon in the Dock and choose **New Window** for the same thing. Clicking the Dock icon when every window is closed also opens one.

@@ -692,23 +692,17 @@ h2 {
   margin-bottom: 16px;
 }
 
+/* A drawer section title is a chrome band above its rows. */
 .pod-section-title {
   font-size: var(--kb-text-xs);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
+  line-height: var(--kb-line-row);
   color: var(--kb-fg-subtle);
-  margin-bottom: 8px;
-  padding-bottom: 4px;
-  border-bottom: 1px solid var(--kb-border-subtle);
-}
-
-.pod-kv {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 3px 0;
+  background: var(--kb-bg-chrome);
+  margin-bottom: 4px;
+  padding: 6px 8px;
 }
 
 .rollout-bar {
@@ -751,11 +745,6 @@ h2 {
 
 .rollout-dot.old {
   background: var(--kb-status-warn);
-}
-
-.pod-kv > span:first-child {
-  flex-shrink: 0;
-  min-width: 100px;
 }
 
 .pod-conditions {

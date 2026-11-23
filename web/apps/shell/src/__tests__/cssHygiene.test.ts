@@ -255,6 +255,35 @@ describe("the frame is opaque chrome", () => {
   });
 });
 
+describe("the drawer is flush with a chrome head", () => {
+  // The drawer runs from the top of the window down to the status bar and the
+  // right edge. A hairline and its edge shadow mark where it starts, so a click
+  // to its left still reads as "outside". Its head and tab strip are chrome.
+  const decl = (sel: string, prop: string) =>
+    declarations(stylesCss, new RegExp(`^${prop}$`)).filter((d) => d.sel === sel).map((d) => d.value);
+
+  it("stops at the status bar and keeps a hairline on its leading edge", () => {
+    expect(decl(".drawer", "top")).toEqual(["0"]);
+    expect(decl(".drawer", "right")).toEqual(["0"]);
+    expect(decl(".drawer", "bottom")).toEqual(["var(--kb-h-status)"]);
+    expect(decl(".drawer", "border-left")).toEqual(["1px solid var(--kb-separator)"]);
+    expect(decl(".drawer", "box-shadow")).toEqual(["var(--kb-shadow-lift)"]);
+  });
+
+  it("its head and tab strip are chrome bands with a separator under them", () => {
+    expect(decl(".drawer-head", "background")).toEqual(["var(--kb-bg-chrome)"]);
+    expect(decl(".drawer-head", "min-height")).toEqual(["var(--kb-h-bar)"]);
+    expect(decl(".drawer-head", "border-bottom")).toEqual(["1px solid var(--kb-separator)"]);
+    expect(decl(".drawer-pane-tabs", "background")).toEqual(["var(--kb-bg-chrome)"]);
+    expect(decl(".drawer-pane-tabs", "border-bottom")).toEqual(["1px solid var(--kb-separator)"]);
+  });
+
+  it("section titles in a drawer are chrome bands", () => {
+    const title = declarations(appCss, /^background$/).filter((d) => d.sel === ".pod-section-title").map((d) => d.value);
+    expect(title).toEqual(["var(--kb-bg-chrome)"]);
+  });
+});
+
 describe("no dead styles or pages", () => {
   // Classes put together at runtime, e.g. `events-${type.toLowerCase()}`.
   const DYNAMIC = [/^events-(normal|warning)$/];

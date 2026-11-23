@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Badge, CellLink, DataTable, InlineBanner, SkeletonLines, Stack, StatusPill } from "@kubebay/ui";
+import { Badge, CellLink, DataTable, InlineBanner, Property, PropertyList, SkeletonLines, Stack, StatusPill } from "@kubebay/ui";
 import { helmApi, type HelmRelease, type ReleaseHook, type ReleaseResource } from "../lib/api";
 import { groupResources, resourceHref, stuckFor } from "../lib/helmDetails";
 import { joinReleaseResources, liveSummary, podsNeededIn, releaseStreams, resourceKey, streamPicker, type LiveStatus, type LiveStreamSpec } from "../lib/helmLive";
@@ -37,15 +37,6 @@ function ObjectLink({ to, children }: { to: string; children: ReactNode }) {
     >
       {children}
     </CellLink>
-  );
-}
-
-function Fact({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="pod-kv">
-      <span className="muted small">{label}</span>
-      <span className="small">{children}</span>
-    </div>
   );
 }
 
@@ -214,14 +205,16 @@ export function ReleaseOverview({ cluster, rel }: { cluster: string; rel: HelmRe
       {q.isError && <InlineBanner flush>{q.error instanceof Error ? q.error.message : String(q.error)}</InlineBanner>}
 
       <Section title="Release">
-        <Fact label="Chart">{`${rel.chart} ${rel.chartVersion}`.trim() || "–"}</Fact>
-        <Fact label="App version">{rel.appVersion || "–"}</Fact>
-        <Fact label="Revision">{rel.revision}</Fact>
-        <Fact label="Status">{rel.status}</Fact>
-        <Fact label="Updated">{ago(rel.updated) || "–"}</Fact>
-        {rel.description && <Fact label="Last change">{rel.description}</Fact>}
-        {rel.applyMethod && <Fact label="Applied with">{APPLY_LABEL[rel.applyMethod] ?? rel.applyMethod}</Fact>}
-        {live.statuses.size > 0 && <Fact label="Objects">{liveSummary([...live.statuses.values()])}</Fact>}
+        <PropertyList>
+        <Property label="Chart">{`${rel.chart} ${rel.chartVersion}`.trim() || "–"}</Property>
+        <Property label="App version">{rel.appVersion || "–"}</Property>
+        <Property label="Revision">{rel.revision}</Property>
+        <Property label="Status">{rel.status}</Property>
+        <Property label="Updated">{ago(rel.updated) || "–"}</Property>
+        {rel.description && <Property label="Last change">{rel.description}</Property>}
+        {rel.applyMethod && <Property label="Applied with">{APPLY_LABEL[rel.applyMethod] ?? rel.applyMethod}</Property>}
+        {live.statuses.size > 0 && <Property label="Objects">{liveSummary([...live.statuses.values()])}</Property>}
+        </PropertyList>
       </Section>
       {live.taps}
 

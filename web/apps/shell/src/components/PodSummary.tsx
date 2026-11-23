@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Badge, Row, Stack, StatusDot } from "@kubebay/ui";
+import { Badge, Property, PropertyList, Row, Stack, StatusDot } from "@kubebay/ui";
 import { ResourceLink } from "./ResourceLink";
 import { useOwnerChain } from "../lib/useOwnerChain";
 import { PodEnvValue } from "./PodEnvValue";
@@ -23,16 +23,6 @@ function Section({ title, children }: { title: string; children: React.ReactNode
     <div className="pod-section">
       <div className="pod-section-title">{title}</div>
       {children}
-    </div>
-  );
-}
-
-function KV({ k, v }: { k: string; v: React.ReactNode }) {
-  if (v === null || v === undefined || v === "") return null;
-  return (
-    <div className="pod-kv">
-      <span className="muted small">{k}</span>
-      <span className="small">{v}</span>
     </div>
   );
 }
@@ -190,10 +180,9 @@ export function PodSummary({
       </div>
 
       <Section title="Metadata">
+        <PropertyList>
         {ownerChain.length > 0 && (
-          <KV
-            k="Owned by"
-            v={
+          <Property label="Owned by">
               <Row gap={1} wrap align="center">
                 {ownerChain.map((o, i) => (
                   <Row key={i} gap={1} align="center">
@@ -204,25 +193,22 @@ export function PodSummary({
                   </Row>
                 ))}
               </Row>
-            }
-          />
+            </Property>
         )}
-        <KV k="Node" v={data.nodeName ? <ResourceLink kind="nodes" name={data.nodeName}><span className="mono">{data.nodeName}</span></ResourceLink> : null} />
-        <KV
-          k="Service Account"
-          v={
+        <Property label="Node">{data.nodeName ? <ResourceLink kind="nodes" name={data.nodeName}><span className="mono">{data.nodeName}</span></ResourceLink> : null}</Property>
+        <Property label="Service Account">
             <ResourceLink kind="serviceaccounts" ns={data.namespace} name={data.sa}>
               <span className="mono">{data.sa}</span>
             </ResourceLink>
-          }
-        />
-        <KV k={data.podIPs.length > 1 ? "Pod IPs" : "Pod IP"} v={data.podIPs.length > 0 ? <IPs ips={data.podIPs} /> : null} />
-        <KV k={data.hostIPs.length > 1 ? "Host IPs" : "Host IP"} v={data.hostIPs.length > 0 ? <IPs ips={data.hostIPs} /> : null} />
-        <KV k="Scheduler" v={<span className="mono">{data.scheduler}</span>} />
-        <KV k="Restart Policy" v={data.restartPolicy} />
-        <KV k="DNS Policy" v={data.dnsPolicy} />
-        <KV k="Priority" v={String(data.priority)} />
-        <KV k="UID" v={<span className="mono subtle" style={{ fontSize: "var(--kb-text-2xs)" }}>{data.uid}</span>} />
+          </Property>
+        <Property label={data.podIPs.length > 1 ? "Pod IPs" : "Pod IP"}>{data.podIPs.length > 0 ? <IPs ips={data.podIPs} /> : null}</Property>
+        <Property label={data.hostIPs.length > 1 ? "Host IPs" : "Host IP"}>{data.hostIPs.length > 0 ? <IPs ips={data.hostIPs} /> : null}</Property>
+        <Property label="Scheduler"><span className="mono">{data.scheduler}</span></Property>
+        <Property label="Restart Policy">{data.restartPolicy}</Property>
+        <Property label="DNS Policy">{data.dnsPolicy}</Property>
+        <Property label="Priority">{String(data.priority)}</Property>
+        <Property label="UID"><span className="mono subtle" style={{ fontSize: "var(--kb-text-2xs)" }}>{data.uid}</span></Property>
+        </PropertyList>
       </Section>
 
       <Section title={`Conditions (${data.conditions.length})`}>
@@ -251,23 +237,19 @@ export function PodSummary({
             {c.restarts > 0 && <Badge tone="err">{c.restarts} restarts</Badge>}
             {c.stateReason && <Badge tone={c.stateType === "running" ? "ok" : "err"}>{c.stateReason || c.stateType}</Badge>}
           </Row>
-          <KV k="Image" v={<span className="mono small">{c.image}</span>} />
+          <PropertyList>
+          <Property label="Image"><span className="mono small">{c.image}</span></Property>
           {c.lastState && (
-            <KV
-              k="Last State"
-              v={
+            <Property label="Last State">
                 <span className="mono small">
                   {c.lastState.reason}
                   {c.lastState.exitCode !== null && ` (exit code: ${c.lastState.exitCode})`}
                   {c.lastState.ranFor && ` · ran for ${c.lastState.ranFor}`}
                 </span>
-              }
-            />
+              </Property>
           )}
           {c.ports.length > 0 && (
-            <KV
-              k="Ports"
-              v={
+            <Property label="Ports">
                 <Stack gap={1}>
                   {c.ports.map((p, i) => (
                     <Row align="center" gap={2} as="span" key={i}>
@@ -279,28 +261,22 @@ export function PodSummary({
                     </Row>
                   ))}
                 </Stack>
-              }
-            />
+              </Property>
           )}
           {(Object.keys(c.requests).length > 0 || Object.keys(c.limits).length > 0) && (
-            <KV
-              k="Resources"
-              v={
+            <Property label="Resources">
                 <span className="mono small">
                   {Object.entries(c.requests).map(([k, v]) => `${k}=${v}`).join(" ")}
                   {Object.keys(c.limits).length > 0 && " | "}
                   {Object.entries(c.limits).map(([k, v]) => `lim:${k}=${v}`).join(" ")}
                 </span>
-              }
-            />
+              </Property>
           )}
-          <KV k="Liveness" v={<Probe probe={c.liveness} />} />
-          <KV k="Readiness" v={<Probe probe={c.readiness} />} />
-          <KV k="Startup" v={<Probe probe={c.startup} />} />
+          <Property label="Liveness"><Probe probe={c.liveness} /></Property>
+          <Property label="Readiness"><Probe probe={c.readiness} /></Property>
+          <Property label="Startup"><Probe probe={c.startup} /></Property>
           {c.env.length > 0 && (
-            <KV
-              k={`Environment (${c.env.length})`}
-              v={
+            <Property label={`Environment (${c.env.length})`}>
                 <div className="pod-env-list">
                   {c.env.slice(0, 20).map((e, i) => {
                     const name = str(e.name);
@@ -319,13 +295,10 @@ export function PodSummary({
                   })}
                   {c.env.length > 20 && <span className="muted small">+{c.env.length - 20} more</span>}
                 </div>
-              }
-            />
+              </Property>
           )}
           {c.mounts.length > 0 && (
-            <KV
-              k={`Mounts (${c.mounts.length})`}
-              v={
+            <Property label={`Mounts (${c.mounts.length})`}>
                 <Stack>
                   {c.mounts.map((m, i) => (
                     <span key={i} className="mono small">
@@ -334,9 +307,9 @@ export function PodSummary({
                     </span>
                   ))}
                 </Stack>
-              }
-            />
+              </Property>
           )}
+          </PropertyList>
         </Section>
       ))}
 

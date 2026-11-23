@@ -26,7 +26,7 @@ describe("ResourceClaimSummary", () => {
   it("shows what the claim asks for, what it got, and who holds it", () => {
     view(allocated);
     expect(screen.getByText("allocated,reserved")).toBeTruthy();
-    expect(screen.getByText("gpu.example.com", { selector: ".pod-kv *" })).toBeTruthy();
+    expect(screen.getByText("gpu.example.com", { selector: "dd" })).toBeTruthy();
     // Each allocated device: the request it answers, the driver, pool/device.
     expect(screen.getByText("kubebay-dra-worker/gpu-3")).toBeTruthy();
     expect(screen.getByText(/gpu\.example\.com · request gpu/)).toBeTruthy();

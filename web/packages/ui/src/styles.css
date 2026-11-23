@@ -1676,9 +1676,9 @@ tr.row-clickable:active {
   gap: 2px;
   height: var(--kb-h-tabs);
   padding: 0 8px;
-  border-bottom: 1px solid var(--kb-border-subtle);
+  border-bottom: 1px solid var(--kb-separator);
   flex-shrink: 0;
-  background: color-mix(in srgb, var(--kb-bg-inset) 40%, transparent);
+  background: var(--kb-bg-chrome);
 }
 
 /* A page-level empty state sits on the page gutter. */
@@ -1846,14 +1846,16 @@ tr.row-clickable:active {
   background: var(--kb-accent);
 }
 
+/* Flush: from the top of the window to the status bar, against the right
+   edge. A hairline and the edge shadow mark where it starts. */
 .drawer {
   position: fixed;
   top: 0;
   right: 0;
-  bottom: 0;
+  bottom: var(--kb-h-status);
   width: min(820px, 75vw);
   background: var(--kb-bg-surface);
-  border-left: 1px solid var(--kb-border-strong);
+  border-left: 1px solid var(--kb-separator);
   box-shadow: var(--kb-shadow-lift);
   display: flex;
   flex-direction: column;
@@ -1882,8 +1884,10 @@ tr.row-clickable:active {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--kb-border-subtle);
+  min-height: var(--kb-h-bar);
+  padding: 6px var(--kb-gutter);
+  background: var(--kb-bg-chrome);
+  border-bottom: 1px solid var(--kb-separator);
 }
 
 .drawer-title {
@@ -2060,6 +2064,42 @@ tr.row-clickable:active {
   right: var(--kb-space-4);
   bottom: 40px;
   z-index: var(--kb-z-sticky);
+}
+
+/* ── PropertyList: label/value rows on a two-column grid ── */
+.kb-props {
+  display: grid;
+  grid-template-columns: minmax(30%, max-content) minmax(0, 1fr);
+  margin: 0;
+  font-size: var(--kb-text-sm);
+}
+
+/* The row wrapper only groups a dt with its dd; the grid places the cells. */
+.kb-prop {
+  display: contents;
+}
+
+.kb-prop > dt,
+.kb-prop > dd {
+  margin: 0;
+  padding: 6px 0;
+  line-height: var(--kb-line-row);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.kb-prop > dt {
+  padding-right: var(--kb-space-3);
+  color: var(--kb-fg-muted);
+}
+
+.kb-prop > dd {
+  color: var(--kb-fg-default);
+}
+
+.kb-prop:not(:last-child) > dt,
+.kb-prop:not(:last-child) > dd {
+  border-bottom: 1px solid var(--kb-separator);
 }
 
 /* ── CollapsibleSection ─────────────────────────────────────────────────── */

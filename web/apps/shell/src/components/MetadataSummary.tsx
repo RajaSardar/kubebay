@@ -1,4 +1,4 @@
-import { Badge, Row, Stack } from "@kubebay/ui";
+import { Badge, Property, PropertyList, Row, Stack } from "@kubebay/ui";
 import { ConditionsTable, type Condition } from "./ConditionsTable";
 import { ageOf, fmtAge } from "../lib/resources";
 import { ownerOf, ownerLabel } from "../lib/gitops";
@@ -23,16 +23,6 @@ function Section({ title, children }: { title: string; children: React.ReactNode
     <div className="pod-section">
       <div className="pod-section-title">{title}</div>
       {children}
-    </div>
-  );
-}
-
-function KV({ k, v }: { k: string; v: React.ReactNode }) {
-  if (v === null || v === undefined || v === "") return null;
-  return (
-    <div className="pod-kv">
-      <span className="muted small">{k}</span>
-      <span className="small">{v}</span>
     </div>
   );
 }
@@ -99,8 +89,10 @@ export function MetadataSummary({
   return (
     <div className="pod-summary" style={{ padding: 14, overflowY: "auto", flex: 1 }}>
       <Section title="Info">
-        <KV k="Created" v={meta.creationTimestamp ? `${fmtAge(ageOf(obj))} ago` : "–"} />
-        {gitopsOwner && <KV k="Managed by" v={<Badge>{ownerLabel(gitopsOwner)}</Badge>} />}
+        <PropertyList>
+        <Property label="Created">{meta.creationTimestamp ? `${fmtAge(ageOf(obj))} ago` : "–"}</Property>
+        {gitopsOwner && <Property label="Managed by"><Badge>{ownerLabel(gitopsOwner)}</Badge></Property>}
+        </PropertyList>
       </Section>
 
       {/* Owner chain — clickable links with multi-level tracing when cluster is available */}
@@ -132,20 +124,19 @@ export function MetadataSummary({
 
       <Section title={`Annotations (${Object.keys(annotations).length})`}>
         {Object.keys(annotations).length > 0 ? (
-          <Stack gap={1}>
+          <PropertyList mono aria-label="Annotations">
             {Object.entries(annotations).map(([k, v]) => {
               const value = str(v);
               const truncated = value.length > MAX_ANNOTATION_LEN;
               return (
-                <div key={k} className="pod-kv" style={{ alignItems: "flex-start" }}>
-                  <span className="muted small mono">{k}</span>
-                  <span className="small mono" title={truncated ? value : undefined}>
+                <Property key={k} label={k}>
+                  <span title={truncated ? value : undefined}>
                     {truncated ? `${value.slice(0, MAX_ANNOTATION_LEN)}…` : value}
                   </span>
-                </div>
+                </Property>
               );
             })}
-          </Stack>
+          </PropertyList>
         ) : (
           <span className="muted small">No annotations</span>
         )}
