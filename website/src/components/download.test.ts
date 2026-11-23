@@ -8,7 +8,7 @@ import { resolve } from "node:path";
 // release publishes under a fixed name.
 
 const src = readFileSync(resolve(__dirname, "Download.astro"), "utf8");
-const FIXED_NAME_ASSETS = new Set(["install-mac.sh"]);
+const FIXED_NAME_ASSETS = new Set(["install-mac.sh", "install.sh"]);
 
 describe("the Download section", () => {
   it("links straight to release files only when their names never change", () => {
@@ -32,5 +32,14 @@ describe("the Download section", () => {
     // The engine-only tarball comes for arm64; the desktop app doesn't.
     expect(linux).not.toMatch(/Architectures?:[^<]*ARM64/i);
     expect(linux).toMatch(/x86_64\. Preview/);
+  });
+
+  it("gives Linux a one-line install for the desktop app and for the engine", () => {
+    const linux = src.slice(src.indexOf('id="tab-linux"'), src.indexOf('id="tab-helm"'));
+    expect(linux).toContain("releases/latest/download/install.sh | sh -s -- --desktop");
+    expect(linux).toMatch(/releases\/latest\/download\/install\.sh \| sh"/);
+    // A .deb installed with dpkg -i is left without WebKitGTK; apt installs it.
+    expect(linux).toContain("sudo apt install ./Kubebay_");
+    expect(linux).not.toMatch(/dpkg -i/);
   });
 });

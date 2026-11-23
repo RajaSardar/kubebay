@@ -21,48 +21,78 @@ A free, **local-first Kubernetes IDE** with its source in the open — cleaner t
 
 ---
 
-## Download
+## Install
 
-**[→ Latest release](https://github.com/RajaSardar/kubebay/releases/latest)**
+Every download is on the **[latest release](https://github.com/RajaSardar/kubebay/releases/latest)**. Kubebay comes as a desktop app, as the engine on its own (one binary that serves the same app to your browser), and as a Helm chart for a cluster. The [install guide](https://kubebay.sardar.dev/docs/install/) has every option.
 
-### Desktop app (v0.4.0+)
+### macOS
 
-Native macOS app — arm64 universal build:
+The desktop app, a universal build for Apple Silicon and Intel:
 
-**One-line installer (macOS):**
 ```bash
-brew install rajasardar/tap/kubebay
+curl -fsSL https://github.com/RajaSardar/kubebay/releases/latest/download/install-mac.sh | bash
 ```
 
-Or download directly from [Latest Release](https://github.com/RajaSardar/kubebay/releases/latest) and extract to `/Applications`.
+The script checks the `.dmg` against the release's SHA-256 (and its cosign signature when `cosign` is installed) before it installs. Or download `Kubebay_<version>_universal.dmg` and drag Kubebay to Applications. If macOS says **"Kubebay" Not Opened**, use **System Settings → Privacy & Security → Open Anyway**, or run `xattr -dr com.apple.quarantine /Applications/Kubebay.app`.
 
-> **Gatekeeper quarantine:** If you see "Kubebay Not Opened", run:
-> ```bash
-> xattr -dr com.apple.quarantine /Applications/Kubebay.app
-> ```
-> Or: **System Settings → Privacy & Security → Open Anyway**.
+Homebrew installs the engine, not the desktop app: `brew install rajasardar/tap/kubebay`, and `brew services start rajasardar/tap/kubebay` runs it in the background.
 
-### Windows and Linux (Preview)
+### Linux (Ubuntu, Debian and others)
 
-Each release also has a Windows installer (`Kubebay_<version>_x64-setup.exe`) and Linux packages (`.deb`, `.AppImage`), x86_64 only. They're **Preview**. CI builds the desktop app on Windows and Linux on every change, launches it, and fails unless the engine starts and the UI paints ([KB-14](docs/BACKLOG.md)). No release has been tested by hand on either yet. The label comes off after one has.
+The desktop app, x86_64:
 
-### CLI engine (all platforms, v0.4.0+)
-
-Headless engine — serves the web UI, you bring the browser. Download from [Latest Release](https://github.com/RajaSardar/kubebay/releases/latest).
-
-### Homebrew (macOS)
-
-Install the desktop app:
 ```bash
-brew install rajasardar/tap/kubebay
-# Launch from Applications or Spotlight, or run: open -a Kubebay
+curl -fsSL https://github.com/RajaSardar/kubebay/releases/latest/download/install.sh | sh -s -- --desktop
 ```
 
-Or run the CLI engine as a background service:
+Where `apt` exists it installs the `.deb` with apt, which brings in WebKitGTK; elsewhere it installs the AppImage. The engine on its own, for x86_64 and ARM64 (servers, Raspberry Pi, Graviton):
+
 ```bash
-brew services start rajasardar/tap/kubebay
-# UI at http://127.0.0.1:9898
+curl -fsSL https://github.com/RajaSardar/kubebay/releases/latest/download/install.sh | sh
 ```
+
+The script checks every download against the release's SHA-256 before it installs, and works with `wget -qO- <URL> | sh` too. By hand, install the `.deb` with apt (`dpkg` alone leaves its dependencies missing):
+
+```bash
+sudo apt install ./Kubebay_<version>_amd64.deb
+```
+
+The AppImage needs FUSE 2: `sudo apt install libfuse2t64` on Ubuntu 24.04 (`libfuse2` on 22.04). There's no ARM64 desktop app; use the engine.
+
+### Windows
+
+Download and run `Kubebay_<version>_x64-setup.exe`, for x86_64. The engine is `kubebay-windows-amd64.tar.gz`.
+
+> The Windows and Linux desktop apps are **Preview**. CI builds them on every change, launches them, and fails unless the engine starts and the UI paints ([KB-14](docs/BACKLOG.md)). No release has been tested by hand on either yet. The label comes off after one has.
+
+### Docker
+
+```bash
+docker run -d --name kubebay -p 9898:9898 \
+  -v ~/.kube:/home/nonroot/.kube:ro ghcr.io/rajasardar/kubebay:latest
+```
+
+The token is in `docker logs kubebay`.
+
+### In a cluster (Helm)
+
+```bash
+git clone https://github.com/RajaSardar/kubebay
+helm install kubebay ./kubebay/charts/kubebay --namespace kubebay --create-namespace
+```
+
+The chart's values cover ingress, OIDC sign-in, TLS and resources. See [In a cluster](https://kubebay.sardar.dev/docs/install/#in-a-cluster).
+
+### Build from source
+
+You need Go 1.26 or later and Node 20 or later (`corepack enable pnpm`):
+
+```bash
+git clone https://github.com/RajaSardar/kubebay && cd kubebay
+make run    # builds the app and the engine, serves http://127.0.0.1:9898
+```
+
+The desktop app also needs Rust, and on Linux the WebKitGTK headers (`sudo apt install libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf`); then `make desktop`. [CONTRIBUTING.md](CONTRIBUTING.md) has the rest.
 
 ---
 
@@ -71,8 +101,7 @@ brew services start rajasardar/tap/kubebay
 **1. Run the engine**
 
 ```bash
-# After extracting the archive:
-./kubebay
+kubebay    # or ./kubebay in the extracted archive
 ```
 
 The engine prints its address and where it wrote this session's token:

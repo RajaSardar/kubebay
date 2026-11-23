@@ -111,6 +111,41 @@ const releasesUrl = "https://github.com/RajaSardar/kubebay/releases/latest";
 
       <!-- Linux -->
       <div class="tab-panel" id="tab-linux" role="tabpanel" hidden>
+        <div class="install-method install-method--primary">
+          <div class="install-method__label">Desktop app, one-liner (Ubuntu, Debian and others)</div>
+          <div class="code-block">
+            <pre><code><span class="code-cmd">curl</span> <span class="code-flag">-fsSL</span> https://github.com/RajaSardar/kubebay/releases/latest/download/install.sh <span class="code-pipe">|</span> <span class="code-cmd">sh</span> <span class="code-flag">-s -- --desktop</span></code></pre>
+            <button class="code-block__copy" aria-label="Copy command" data-copy="curl -fsSL https://github.com/RajaSardar/kubebay/releases/latest/download/install.sh | sh -s -- --desktop">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              <span>Copy</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="install-method install-method--secondary">
+          <div class="install-method__label">Engine only, in your browser (x86_64 and ARM64, servers too)</div>
+          <div class="code-block">
+            <pre><code><span class="code-cmd">curl</span> <span class="code-flag">-fsSL</span> https://github.com/RajaSardar/kubebay/releases/latest/download/install.sh <span class="code-pipe">|</span> <span class="code-cmd">sh</span></code></pre>
+            <button class="code-block__copy" aria-label="Copy command" data-copy="curl -fsSL https://github.com/RajaSardar/kubebay/releases/latest/download/install.sh | sh">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              <span>Copy</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="install-divider"><span>or</span></div>
+
+        <div class="install-method install-method--secondary">
+          <div class="install-method__label">The .deb by hand: install it with apt, which also installs WebKitGTK</div>
+          <div class="code-block">
+            <pre><code><span class="code-cmd">sudo</span> apt install ./Kubebay_&lt;version&gt;_amd64.deb</code></pre>
+            <button class="code-block__copy" aria-label="Copy command" data-copy="sudo apt install ./Kubebay_&lt;version&gt;_amd64.deb">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              <span>Copy</span>
+            </button>
+          </div>
+        </div>
+
         <div class="install-alts">
           <a class="install-btn" href={releasesUrl} target="_blank" rel="noopener noreferrer">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -120,7 +155,7 @@ const releasesUrl = "https://github.com/RajaSardar/kubebay/releases/latest";
 
         <p class="install-note">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          x86_64. Preview: CI launches the Linux app on every change, but no release has been tested by hand on Linux yet. The headless engine also comes for ARM64.
+          x86_64. Preview: CI launches the Linux app on every change, and the .deb installs and starts in Ubuntu 22.04 and 24.04 containers, but no release has been tested by hand on a Linux desktop yet. The engine also comes for ARM64.
         </p>
       </div>
 

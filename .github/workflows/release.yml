@@ -348,8 +348,10 @@ jobs:
         with:
           merge-multiple: true
           path: dist
-      - name: Add install script to release
-        run: cp scripts/install-mac.sh dist/install-mac.sh
+      - name: Add install scripts to release
+        run: |
+          cp scripts/install-mac.sh dist/install-mac.sh
+          cp scripts/install.sh dist/install.sh
       # KB-04: the manifest the desktop app's updater reads, from the bundles
       # the build signed. No signatures (no updater key): no manifest.
       - name: Updater manifest
@@ -414,34 +416,51 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Update homebrew tap
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # GITHUB_TOKEN can't push to another repository (v0.8.0: 403). Set
+          # HOMEBREW_TAP_TOKEN to a token with contents:write on RajaSardar/homebrew-tap.
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           TAG: ${{ github.ref_name }}
         run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::warning::No HOMEBREW_TAP_TOKEN secret: the Homebrew tap was not updated for $TAG"
+            exit 0
+          fi
           VERSION="${TAG#v}"
           gh repo clone RajaSardar/homebrew-tap tap || { echo "tap missing; create RajaSardar/homebrew-tap"; exit 1; }
           cd tap
-          ARM=$(curl -sL "https://github.com/RajaSardar/kubebay/releases/download/$TAG/kubebay-darwin-arm64.tar.gz.sha256" | awk '{print $1}')
-          AMD=$(curl -sL "https://github.com/RajaSardar/kubebay/releases/download/$TAG/kubebay-darwin-amd64.tar.gz.sha256" | awk '{print $1}')
+          sum() { curl -fsSL "https://github.com/RajaSardar/kubebay/releases/download/$TAG/kubebay-$1.tar.gz.sha256" | awk '{print $1}'; }
+          DARWIN_ARM=$(sum darwin-arm64)
+          DARWIN_AMD=$(sum darwin-amd64)
+          LINUX_ARM=$(sum linux-arm64)
+          LINUX_AMD=$(sum linux-amd64)
+          # curl writes nothing for a missing asset; don't publish a formula without them.
+          for v in "$DARWIN_ARM" "$DARWIN_AMD" "$LINUX_ARM" "$LINUX_AMD"; do
+            [ "${#v}" = 64 ] || { echo "::error::a checksum for $TAG is missing"; exit 1; }
+          done
           mkdir -p Formula
           cat > Formula/kubebay.rb <<RUBY
           class Kubebay < Formula
             desc "Local-first Kubernetes IDE — engine + web UI in one binary"
             homepage "https://github.com/RajaSardar/kubebay"
             version "$VERSION"
+            license "FSL-1.1-MIT"
 
             on_macos do
               if Hardware::CPU.arm?
-                url "https://github.com/RajaSardar/kubebay/releases/download/#{version}/kubebay-darwin-arm64.tar.gz"
-                sha256 "$ARM"
+                url "https://github.com/RajaSardar/kubebay/releases/download/v#{version}/kubebay-darwin-arm64.tar.gz"
+                sha256 "$DARWIN_ARM"
               else
-                url "https://github.com/RajaSardar/kubebay/releases/download/#{version}/kubebay-darwin-amd64.tar.gz"
-                sha256 "$AMD"
+                url "https://github.com/RajaSardar/kubebay/releases/download/v#{version}/kubebay-darwin-amd64.tar.gz"
+                sha256 "$DARWIN_AMD"
               end
             end
             on_linux do
-              if Hardware::CPU.arm? || Hardware::CPU.intel?
-                url "https://github.com/RajaSardar/kubebay/releases/download/#{version}/kubebay-linux-#{Hardware::CPU.arm? ? "arm64" : "amd64"}.tar.gz"
-                sha256 "LINUX_PLACEHOLDER"
+              if Hardware::CPU.arm?
+                url "https://github.com/RajaSardar/kubebay/releases/download/v#{version}/kubebay-linux-arm64.tar.gz"
+                sha256 "$LINUX_ARM"
+              else
+                url "https://github.com/RajaSardar/kubebay/releases/download/v#{version}/kubebay-linux-amd64.tar.gz"
+                sha256 "$LINUX_AMD"
               end
             end
 
@@ -450,7 +469,7 @@ jobs:
             end
 
             service do
-              run [bin/"kubebay", "--addr", "127.0.0.1:9898", "--no-open"]
+              run [opt_bin/"kubebay", "--addr", "127.0.0.1:9898", "--no-open"]
               keep_alive true
             end
 
