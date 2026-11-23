@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { installedAs, isWebUrl, matchesChart, releaseNameFor } from "../helmStore";
+import { compareVersions, indexUpdatedLabel, installedAs, isWebUrl, matchesChart, releaseNameFor, versionInIndex } from "../helmStore";
 import type { HelmChartEntry, HelmRelease } from "../api";
 
 const chart = (over: Partial<HelmChartEntry> = {}): HelmChartEntry => ({
@@ -58,5 +58,46 @@ describe("releaseNameFor", () => {
   it("is a chart's name made safe for a release name", () => {
     expect(releaseNameFor("My_Chart.v2")).toBe("my-chart-v2");
     expect(releaseNameFor("redis")).toBe("redis");
+  });
+});
+
+describe("versionInIndex", () => {
+  const versions = [{ version: "2.0.0" }, { version: "1.0.0" }];
+  it("is true when the release's chart version is one this repository's index lists", () => {
+    expect(versionInIndex(rel("cache", "shop", "redis"), versions)).toBe(true);
+  });
+  it("is false when it is not, so the release came from elsewhere or was pruned", () => {
+    expect(versionInIndex({ ...rel("cache", "shop", "redis"), chartVersion: "0.5.0" }, versions)).toBe(false);
+  });
+});
+
+describe("compareVersions", () => {
+  const versions = [{ version: "3.0.0" }, { version: "2.0.0" }, { version: "1.0.0" }];
+  it("compares the installed version with the newest when the chart runs", () => {
+    expect(compareVersions(versions, [{ ...rel("a", "b", "redis"), chartVersion: "1.0.0" }])).toEqual({ from: "1.0.0", to: "3.0.0" });
+  });
+  it("compares the two newest versions otherwise", () => {
+    expect(compareVersions(versions, [])).toEqual({ from: "2.0.0", to: "3.0.0" });
+    expect(compareVersions(versions, [{ ...rel("a", "b", "redis"), chartVersion: "3.0.0" }])).toEqual({ from: "2.0.0", to: "3.0.0" });
+    expect(compareVersions(versions, [{ ...rel("a", "b", "redis"), chartVersion: "9.9.9" }])).toEqual({ from: "2.0.0", to: "3.0.0" });
+  });
+  it("has nothing to compare with one version", () => {
+    expect(compareVersions([{ version: "1.0.0" }], [])).toBeNull();
+    expect(compareVersions([], [])).toBeNull();
+  });
+});
+
+describe("indexUpdatedLabel", () => {
+  const now = Date.parse("2026-11-23T12:00:00Z");
+  it("says how long ago the index was fetched", () => {
+    expect(indexUpdatedLabel("2026-11-23T11:55:00Z", now)).toBe("Index updated 5m ago");
+    expect(indexUpdatedLabel("2026-11-20T12:00:00Z", now)).toBe("Index updated 3d ago");
+  });
+  it("says when an index was never fetched", () => {
+    expect(indexUpdatedLabel(undefined, now)).toBe("Index never fetched");
+    expect(indexUpdatedLabel("not a time", now)).toBe("Index never fetched");
+  });
+  it("never shows a negative age for a clock a little ahead", () => {
+    expect(indexUpdatedLabel("2026-11-23T12:00:30Z", now)).toBe("Index updated 0s ago");
   });
 });

@@ -69,12 +69,13 @@ Deferred, with the reason:
 |---|---|
 | Artifact Hub search | A third-party call from the engine; breaks air-gapped; ratings are not security signals. Revisit as opt-in. |
 | ~~Add repository form~~ | Built (2026-11-19): audited, with a trust note in the form; credentials are stored in the user's repo file as `helm repo add` does and never returned. Remove repository added too. |
-| ~~README as rendered Markdown~~ | Built (2026-11-19) with an in-repo renderer that creates React elements (no HTML string, no new dependency); raw HTML dropped, images as alt text, links http/https/mailto only. Tables not rendered. |
+| ~~README as rendered Markdown~~ | Built (2026-11-19) with an in-repo renderer that creates React elements (no HTML string, no new dependency); raw HTML dropped, images as alt text, links http/https/mailto only. GFM pipe tables built (2026-11-23) as the design system's `DataTable`, with column alignment and wrapping cells. |
 | Icons | Loading arbitrary image hosts; breaks air-gapped. Cards use a letter avatar (2026-11-19). A real icon would need an engine proxy through the guarded transport with a size and type limit. |
 | Provenance (`.prov`) badge | Needs keyring handling; not a first-slice need. |
 | OCI registries, charts in repos not in the Helm config | Different fetch path to guard. |
-| Values diff between versions, "what changed in this upgrade" | Needs the chart's values for two versions. The rendered diff covers the on-call need. |
-| Installed match by repo, not just chart name | Release records keep the chart name, not the repo. Two repos with the same chart name both show Installed. |
+| ~~Values diff between versions~~ | Built (2026-11-23): **Compare versions** tab, two versions' default `values.yaml` in the upgrade preview's diff editor, each fetched through `GET /api/helm/chart-values` (the guarded `locateChart` path). "What changed in this upgrade" beyond values stays the rendered diff. |
+| Installed match by repo, not just chart name | Can't be done exactly: a release stores its chart's `Chart.yaml` (name, version, home, sources, maintainers, annotations), the templates and values, but nothing that names the repo or the archive's URL or digest. Two repos with the same chart name both show Installed. The one cheap signal is the version (2026-11-23): on a chart's About tab, a release whose chart version is not in this repo's index is marked as such. A version both repos carry still matches both; matching on `home`/`sources` was rejected as a guess that forks share. |
+| ~~Per-repo refresh~~ | Built (2026-11-23): `POST /api/helm/repos/update?repo=name` refreshes one repo with the same URL guard and index validation; `GET /api/helm/repos` carries `updated` (the cached index's mtime). |
 | Categories, ratings, curated featured charts | Content curation, not engine work. |
 
 ## 3. What was built
@@ -82,3 +83,8 @@ Deferred, with the reason:
 - Engine: `GET /api/helm/chart?repo&name&version`; `locateChart` (guarded index-named archive fetch, used by chart detail, chart values and install/upgrade); keywords and deprecation in `GET /api/helm/charts`; masked manifests in install, upgrade and preview responses. Tests: `helm_chart_test.go`, `helm_preview_test.go`.
 - Shell: the chart drawer with Install, README and About tabs, versions picker, Installed badge and filters, Preview with diff. Tests in `components/__tests__/HelmCharts.*.test.tsx` and `lib/__tests__/helmStore.test.ts`.
 - Docs: the Helm page of the manual, the Helm help entry, CHANGELOG, BACKLOG #11 (left open).
+
+Follow-ups (2026-11-23):
+- README tables: GFM pipe tables in `components/Markdown.tsx`, rendered as `DataTable` (new `Column.align` and `DataTable textWrap` in `@kubebay/ui`). Tests: `Markdown.test.tsx`, `uiTableAndFeedback.test.tsx`.
+- Per-repo **Refresh** and "Index updated … ago". Engine tests: `helm_repo_refresh_test.go` (only the named repo is fetched, unknown repo 404, link-local refused, an invalid index never replaces the cached one, `updated` in the repo list).
+- **Compare versions** tab and the "version not in this repo's index" mark. Tests: `HelmCharts.followups.test.tsx`, `lib/__tests__/helmStore.test.ts`.

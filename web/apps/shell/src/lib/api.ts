@@ -626,6 +626,8 @@ export const crdApi = {
 export interface HelmRepo {
   name: string;
   url: string;
+  /** When the repository's index was last fetched (RFC 3339); absent when never. */
+  updated?: string;
 }
 
 export interface HelmChartEntry {
@@ -662,6 +664,9 @@ export const helmMarketApi = {
   removeRepo: (name: string) => send<{ ok: boolean }>("POST", "/api/helm/repos/remove", { name }),
   updateRepos: (cluster: string) =>
     send<Record<string, string>>("POST", `/api/helm/repos/update?cluster=${encodeURIComponent(cluster)}`, {}),
+  /** Re-fetch one repository's index only. */
+  updateRepo: (cluster: string, repo: string) =>
+    send<Record<string, string>>("POST", `/api/helm/repos/update?${new URLSearchParams({ cluster, repo })}`, {}),
   charts: (cluster: string, repo: string) =>
     get<HelmChartEntry[]>(`/api/helm/charts?cluster=${encodeURIComponent(cluster)}&repo=${encodeURIComponent(repo)}`),
   chart: (cluster: string, repo: string, name: string, version?: string) => {

@@ -1,16 +1,100 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
 import Editor, { DiffEditor } from "../lib/monaco";
-import { ArmedButton, Avatar, Badge, Button, Card, Drawer, EmptyState, InlineBanner, Row, Select, Skeleton, Stack, Tabs, TextField } from "@kubebay/ui";
+import { ArmedButton, Avatar, Badge, Button, Card, Drawer, EmptyState, InlineBanner, Row, Select, Skeleton, SkeletonLines, Stack, Tabs, TextField } from "@kubebay/ui";
 import { helmApi, helmMarketApi, type HelmChartDetail, type HelmChartEntry, type HelmRelease } from "../lib/api";
 import { helmReleasesQuery } from "../lib/helmReleases";
-import { installedAs, isWebUrl, matchesChart, releaseNameFor } from "../lib/helmStore";
+import { compareVersions, indexUpdatedLabel, installedAs, isWebUrl, matchesChart, releaseNameFor, versionInIndex } from "../lib/helmStore";
 import { useMonacoTheme } from "../lib/theme";
 import { Markdown } from "./Markdown";
 
 const ALL_REPOS = "__all__";
 
-type DrawerTab = "about" | "readme" | "values" | "preview";
+type DrawerTab = "about" | "readme" | "values" | "compare" | "preview";
+
+const editorOptions = {
+  minimap: { enabled: false },
+  fontSize: 12,
+  fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace',
+  automaticLayout: true,
+  tabSize: 2,
+} as const;
+
+/**
+ * Two versions' default values.yaml side by side. Each comes from the engine's
+ * chart-values endpoint, which fetches the archive through the guarded path.
+ */
+function ValuesCompare({
+  cluster,
+  repoName,
+  chartName,
+  detail,
+  installed,
+}: {
+  cluster: string;
+  repoName: string;
+  chartName: string;
+  detail: HelmChartDetail;
+  installed: HelmRelease[];
+}) {
+  const monacoTheme = useMonacoTheme();
+  const start = compareVersions(detail.versions, installed);
+  const [fromEdit, setFrom] = useState<string | null>(null);
+  const [toEdit, setTo] = useState<string | null>(null);
+  const from = fromEdit ?? start?.from ?? "";
+  const to = toEdit ?? start?.to ?? "";
+  const ref = `${repoName}/${chartName}`;
+  // Two queries, not useQueries: picking one version on both sides is allowed.
+  const valuesOf = (v: string) => ({
+    queryKey: ["chart-defaults", cluster, repoName, chartName, v],
+    queryFn: () => helmMarketApi.chartValuesText(cluster, ref, v),
+    enabled: !!start && !!v,
+    staleTime: 60_000,
+    retry: false as const,
+  });
+  const fromQ = useQuery(valuesOf(from));
+  const toQ = useQuery(valuesOf(to));
+
+  if (!start) return <p className="muted small">This chart has only one version in {repoName}, so there is nothing to compare.</p>;
+
+  const picker = (label: string, value: string, set: (v: string) => void) => (
+    <Select aria-label={label} value={value} onChange={(e) => set(e.target.value)} style={{ maxWidth: 160 }}>
+      {detail.versions.map((v) => (
+        <option key={v.version} value={v.version}>
+          {v.version}
+          {installed.some((r) => r.chartVersion === v.version) ? " (installed)" : ""}
+        </option>
+      ))}
+    </Select>
+  );
+  const failed = fromQ.error ?? toQ.error;
+
+  return (
+    <Stack gap={2}>
+      <Row gap={2} align="center" wrap>
+        {picker("From version", from, setFrom)}
+        <span className="muted small">→</span>
+        {picker("To version", to, setTo)}
+        <span className="muted small">Default values.yaml of each version; your edits on the Values tab are not part of it.</span>
+      </Row>
+      {failed ? (
+        <InlineBanner flush>{failed instanceof Error ? failed.message : String(failed)}</InlineBanner>
+      ) : fromQ.data === undefined || toQ.data === undefined ? (
+        <SkeletonLines lines={6} label="Loading default values…" />
+      ) : (
+        <div className="yaml-editor" style={{ height: "calc(100vh - 400px)" }}>
+          <DiffEditor
+            original={fromQ.data}
+            modified={toQ.data}
+            language="yaml"
+            theme={monacoTheme}
+            options={{ ...editorOptions, readOnly: true, renderSideBySide: true }}
+          />
+        </div>
+      )}
+    </Stack>
+  );
+}
 
 function ChartAbout({ detail, installed }: { detail: HelmChartDetail; installed: HelmRelease[] }) {
   // A link a chart's repo supplied is only a link when it is a web address.
@@ -37,6 +121,12 @@ function ChartAbout({ detail, installed }: { detail: HelmChartDetail; installed:
           {installed.map((r) => (
             <div key={`${r.namespace}/${r.name}`} className="small mono">
               {r.name} in {r.namespace} · chart {r.chartVersion} · {r.status}
+              {!versionInIndex(r, detail.versions) && (
+                <span className="muted" title="A release records its chart's name and version, not the repository it came from.">
+                  {" "}
+                  · version not in {detail.repo}'s index
+                </span>
+              )}
             </div>
           ))}
         </div>
@@ -186,15 +276,9 @@ function ChartDrawer({
     }
   }
 
-  const editorOptions = {
-    minimap: { enabled: false },
-    fontSize: 12,
-    fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace',
-    automaticLayout: true,
-    tabSize: 2,
-  } as const;
-
-  const tabs: readonly DrawerTab[] = preview ? ["about", "readme", "values", "preview"] : ["about", "readme", "values"];
+  const tabs: readonly DrawerTab[] = preview
+    ? ["about", "readme", "values", "compare", "preview"]
+    : ["about", "readme", "values", "compare"];
 
   return (
     <Drawer
@@ -275,7 +359,7 @@ function ChartDrawer({
       <Tabs
         tabs={tabs}
         active={tab}
-        labels={{ about: "About", readme: "README", values: "Values", preview: existing ? "Changes" : "Preview" }}
+        labels={{ about: "About", readme: "README", values: "Values", compare: "Compare versions", preview: existing ? "Changes" : "Preview" }}
         onChange={setTab}
       />
 
@@ -294,6 +378,15 @@ function ChartDrawer({
           {!detail && detailQ.isLoading && <Skeleton w={260} h={12} />}
           {detail && !detail.readme && <p className="muted small">This chart ships no README.</p>}
           {detail?.readme && <Markdown source={detail.readme} />}
+        </div>
+      )}
+
+      {tab === "compare" && (
+        <div style={{ padding: "10px 14px" }}>
+          {!detail && detailQ.isLoading && <SkeletonLines lines={3} label="Loading versions…" />}
+          {detail && (
+            <ValuesCompare cluster={cluster} repoName={repoName} chartName={chart.name} detail={detail} installed={installed} />
+          )}
         </div>
       )}
 
@@ -355,6 +448,7 @@ export function ChartsTab({ cluster }: { cluster: string }) {
   const [installedOnly, setInstalledOnly] = useState(false);
   const [hideDeprecated, setHideDeprecated] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [updateMsg, setUpdateMsg] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [repoForm, setRepoForm] = useState({ name: "", url: "", username: "", password: "" });
@@ -365,6 +459,7 @@ export function ChartsTab({ cluster }: { cluster: string }) {
   const repoList = repos.data ?? [];
   const isAll = repoSel === ALL_REPOS;
   const effectiveRepo = isAll ? "" : repoSel || repoList[0]?.name || "";
+  const selectedRepo = repoList.find((r) => r.name === effectiveRepo);
 
   // Single-repo query — disabled when "All repos" is active.
   const singleCharts = useQuery({
@@ -450,6 +545,25 @@ export function ChartsTab({ cluster }: { cluster: string }) {
     }
   }
 
+  async function refreshRepo(name: string) {
+    setRefreshing(true);
+    setUpdateMsg("");
+    try {
+      const res = await helmMarketApi.updateRepo(cluster, name);
+      const msg = res[name] ?? "ok";
+      setUpdateMsg(msg === "ok" ? `${name} index updated.` : `${name}: ${msg}`);
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["helm-repos"] }),
+        qc.invalidateQueries({ queryKey: ["helm-charts", cluster, name] }),
+        qc.invalidateQueries({ queryKey: ["chart-detail", cluster, name] }),
+      ]);
+    } catch (e) {
+      setUpdateMsg(String(e instanceof Error ? e.message : e));
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
   async function updateIndexes() {
     setUpdating(true);
     setUpdateMsg("");
@@ -527,6 +641,21 @@ export function ChartsTab({ cluster }: { cluster: string }) {
         <Button variant="ghost" onClick={() => setAddOpen((o) => !o)}>
           Add repository
         </Button>
+        {!isAll && effectiveRepo && (
+          <>
+            <Button
+              variant="ghost"
+              disabled={refreshing || updating}
+              title={`Re-fetch the index of ${effectiveRepo} only`}
+              onClick={() => void refreshRepo(effectiveRepo)}
+            >
+              {refreshing ? "Refreshing…" : "Refresh"}
+            </Button>
+            <span className="muted small" title={selectedRepo?.updated}>
+              {indexUpdatedLabel(selectedRepo?.updated)}
+            </span>
+          </>
+        )}
         {!isAll && effectiveRepo && (
           <ArmedButton
             label="Remove repository"

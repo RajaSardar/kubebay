@@ -256,6 +256,27 @@ describe("DataTable", () => {
     rerender(<DataTable columns={columns} rows={[{ name: "a", phase: "Running", age: "1m" }]} rowKey={(p) => p.name} />);
     expect(screen.getByRole("table").querySelector("caption")).toBeNull();
   });
+
+  it("aligns a column's header and cells as the column asks", () => {
+    const aligned: Column<Pod>[] = [
+      { key: "name", header: "Name", render: (p) => p.name },
+      { key: "phase", header: "Status", align: "center", render: (p) => p.phase },
+      { key: "age", header: "Age", align: "right", render: (p) => p.age },
+    ];
+    render(<DataTable columns={aligned} rows={pods} rowKey={(p) => p.name} />);
+    expect(screen.getByRole("columnheader", { name: "Name" }).style.textAlign).toBe("");
+    expect(screen.getByRole("columnheader", { name: "Status" }).style.textAlign).toBe("center");
+    expect(screen.getByRole("columnheader", { name: "Age" }).style.textAlign).toBe("right");
+    expect(screen.getByText("2h").style.textAlign).toBe("right");
+    expect(screen.getByText("Running").style.textAlign).toBe("center");
+  });
+
+  it("wraps cell text instead of cutting it short when asked (prose tables)", () => {
+    const { rerender } = render(<DataTable columns={columns} rows={pods} rowKey={(p) => p.name} />);
+    expect(screen.getByRole("table")).not.toHaveClass("kb-table-text-wrap");
+    rerender(<DataTable columns={columns} rows={pods} rowKey={(p) => p.name} textWrap />);
+    expect(screen.getByRole("table")).toHaveClass("kb-table", "kb-table-text-wrap");
+  });
 });
 
 describe("KubebayMark", () => {

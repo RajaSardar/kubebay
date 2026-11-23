@@ -8,6 +8,10 @@
           "heading": "Added",
           "items": [
             {
+              "title": "Helm store: README tables, per-repo Refresh, Compare versions",
+              "summary": "(backlog 11 follow-up)."
+            },
+            {
               "title": "Best practices: framework scores and Fix",
               "summary": "(backlog 36 follow-up)."
             },
