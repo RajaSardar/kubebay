@@ -85,6 +85,7 @@ export function usePaletteItems(): PaletteItem[] {
       { label: "Helm releases", to: "/helm" },
       { label: "RBAC explorer", to: "/rbac" },
       { label: "Vulnerabilities — every CVE Trivy-Operator found", to: "/vulnerabilities" },
+      { label: "Issues — what is wrong in this cluster, ranked", to: "/issues" },
       { label: "Event Timeline", to: "/timeline" },
       { label: "Topology", to: "/topology" },
       { label: "Settings", to: "/settings" },

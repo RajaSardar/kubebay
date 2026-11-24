@@ -8,6 +8,10 @@
           "heading": "Added",
           "items": [
             {
+              "title": "Issues queue",
+              "summary": "(backlog 76)."
+            },
+            {
               "title": "All of a workload's logs in one view",
               "summary": "(backlog 59)."
             },
