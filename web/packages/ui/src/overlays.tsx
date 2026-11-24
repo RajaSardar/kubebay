@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useId, useMemo, useRef, useState,
 import { createPortal } from "react-dom";
 import { IconButton } from "./shell";
 import { IconInfo } from "./icons";
+import { ResizeHandle, useStoredWidth } from "./resize";
 
 // Keys typed here belong to the control, not the panel: Escape in a field
 // clears or cancels it, and in the terminal or YAML editor it is the user's
@@ -84,7 +85,14 @@ export interface DrawerProps {
   children?: ReactNode;
 }
 
-/** The side panel for one resource: a head (status, title, actions) over its content. */
+/** The drawer's narrowest width, and the share of the window it may take at most. */
+const DRAWER_MIN_W = 360;
+const DRAWER_MAX_SHARE = 0.9;
+/** Its width until you drag it: 820px, or three quarters of a narrow window (the old `min(820px, 75vw)`). */
+const DRAWER_DEFAULT_W = 820;
+const DRAWER_DEFAULT_SHARE = 0.75;
+
+/** The side panel for one resource: a head (status, title, actions) over its content. Drag its left edge to resize it. */
 export function Drawer({ title, subtitle, subtitleMono = true, leading, actions, onClose, copyName, nameExtra, embedded, children }: DrawerProps) {
   const [copied, setCopied] = useState(false);
   useEffect(() => {
@@ -104,6 +112,10 @@ export function Drawer({ title, subtitle, subtitleMono = true, leading, actions,
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
   const inset = useContext(DrawerInsetContext);
+  const vw = typeof window === "undefined" ? 1280 : window.innerWidth;
+  const maxW = Math.max(DRAWER_MIN_W, Math.floor(vw * DRAWER_MAX_SHARE));
+  const defaultW = Math.max(DRAWER_MIN_W, Math.min(DRAWER_DEFAULT_W, Math.round(vw * DRAWER_DEFAULT_SHARE)));
+  const size = useStoredWidth("kb.drawer.width", { min: DRAWER_MIN_W, max: maxW, defaultValue: defaultW });
   const insetRef = useRef(inset);
   insetRef.current = inset;
 
@@ -139,12 +151,25 @@ export function Drawer({ title, subtitle, subtitleMono = true, leading, actions,
       aria-modal={embedded ? undefined : false}
       aria-labelledby={titleId}
       tabIndex={-1}
-      style={!embedded && inset.bottom > 0 ? { bottom: inset.bottom } : undefined}
+      style={embedded ? undefined : { width: size.width, ...(inset.bottom > 0 ? { bottom: inset.bottom } : null) }}
       onKeyDown={onKeyDown}
       onMouseDownCapture={(e) => {
         pressedInside.current = e.nativeEvent;
       }}
     >
+      {!embedded && (
+        <ResizeHandle
+          className="drawer-resize"
+          label="Resize the panel"
+          grow="left"
+          value={size.width}
+          min={DRAWER_MIN_W}
+          max={maxW}
+          defaultValue={defaultW}
+          onChange={size.setWidth}
+          onReset={size.reset}
+        />
+      )}
       <div className="drawer-head">
         {leading}
         <div className="drawer-title">

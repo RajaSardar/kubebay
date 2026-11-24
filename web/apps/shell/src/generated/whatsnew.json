@@ -5,6 +5,15 @@
       "date": "",
       "sections": [
         {
+          "heading": "Added",
+          "items": [
+            {
+              "title": "Resizable sidebar and drawer",
+              "summary": "(backlog 68)."
+            }
+          ]
+        },
+        {
           "heading": "Fixed",
           "items": [
             {

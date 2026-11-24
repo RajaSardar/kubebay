@@ -85,6 +85,14 @@ body {
   display: none;
 }
 
+/* The nav's draggable right edge: over the sidebar's grid area, straddling its border. */
+.sidebar-resize {
+  grid-area: sidebar;
+  justify-self: end;
+  margin-right: calc(var(--kb-space-1) * -1);
+  z-index: var(--kb-z-sticky);
+}
+
 /* The rail's "Show sidebar" button sits at its foot while the nav is hidden. */
 .cluster-strip-foot {
   margin-top: auto;

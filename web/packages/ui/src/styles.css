@@ -1846,6 +1846,45 @@ tr.row-clickable:active {
   }
 }
 
+/* ── Resize handle: the draggable edge of a panel beside the page ── */
+.kb-resize-handle {
+  position: relative;
+  width: var(--kb-space-2);
+  cursor: col-resize;
+  touch-action: none;
+  user-select: none;
+  outline: none;
+}
+
+.kb-resize-handle::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(50% - 1px);
+  width: 2px;
+  background: transparent;
+  transition: background var(--kb-dur);
+}
+
+.kb-resize-handle:hover::after,
+.kb-resize-handle:active::after {
+  background: var(--kb-border-strong);
+}
+
+.kb-resize-handle:focus-visible::after {
+  background: var(--kb-accent);
+}
+
+/* On the drawer's left edge, straddling the hairline. */
+.drawer > .drawer-resize {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--kb-space-1) * -1);
+  z-index: 1;
+}
+
 /* ── Drawer: the side panel for one resource ── */
 /* ── Splitter: the top edge of a panel docked under the page ── */
 .kb-splitter {
@@ -1888,6 +1927,8 @@ tr.row-clickable:active {
   right: 0;
   bottom: var(--kb-h-status);
   width: min(820px, 75vw);
+  /* Overridden inline once it is dragged; never wider than the window beside the rail. */
+  max-width: calc(100vw - var(--kb-rail-w));
   background: var(--kb-bg-surface);
   border-left: 1px solid var(--kb-separator);
   box-shadow: var(--kb-shadow-lift);

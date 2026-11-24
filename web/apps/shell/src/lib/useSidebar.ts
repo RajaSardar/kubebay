@@ -1,7 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useStoredWidth } from "@kubebay/ui";
 import { TYPING } from "./tableUx";
 
 const KEY = "kb.sidebar.hidden";
+
+/** The nav's width in px: the --kb-sidebar-w token until you drag its edge (a test keeps the two equal). */
+export const SIDEBAR_DEFAULT_W = 210;
+export const SIDEBAR_MIN_W = 160;
+export const SIDEBAR_MAX_W = 420;
+/** Dragging the edge below this collapses the nav instead of squeezing it. */
+export const SIDEBAR_COLLAPSE_BELOW = 100;
 
 function load(): boolean {
   try {
@@ -14,11 +22,17 @@ function load(): boolean {
 /**
  * Whether the left nav is hidden, remembered across launches. ⌘B / Ctrl+B
  * toggles it (as in VS Code), except while typing in a field, the terminal or
- * an editor. After a toggle, focus moves to the button that is now visible:
+ * an editor. Its width is dragged at its right edge (`SidebarResizer`) and kept too, under
+ * kb.sidebar.width. After a toggle, focus moves to the button that is now visible:
  * the rail's "Show sidebar", or the nav's own "Hide sidebar".
  */
 export function useSidebar() {
   const [hidden, setHidden] = useState(load);
+  const { width, setWidth, reset: resetWidth } = useStoredWidth("kb.sidebar.width", {
+    min: SIDEBAR_MIN_W,
+    max: SIDEBAR_MAX_W,
+    defaultValue: SIDEBAR_DEFAULT_W,
+  });
   const hideRef = useRef<HTMLButtonElement>(null);
   const showRef = useRef<HTMLButtonElement>(null);
   const moveFocus = useRef(false);
@@ -55,7 +69,7 @@ export function useSidebar() {
     return () => window.removeEventListener("keydown", onKey);
   }, [set]);
 
-  return { hidden, hide, show, hideRef, showRef };
+  return { hidden, hide, show, hideRef, showRef, width, setWidth, resetWidth };
 }
 
 export type SidebarState = ReturnType<typeof useSidebar>;

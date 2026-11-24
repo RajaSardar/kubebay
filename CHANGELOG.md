@@ -6,6 +6,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ## [Unreleased]
 
+### Added
+- **Resizable sidebar and drawer** (backlog 68). Drag the sidebar's right edge, or a drawer's left edge, to widen or narrow it. Both edges are keyboard separators: <kbd>←</kbd>/<kbd>→</kbd> move 16 pixels (<kbd>Shift</kbd> 64), <kbd>Home</kbd>/<kbd>End</kbd> go to the limits, a double-click restores the default (210 pixels for the sidebar through `--kb-sidebar-w`, 820 pixels or three quarters of a narrow window for the drawer). The sidebar runs 160 to 420 pixels and collapses when dragged well past the narrow end; the drawer runs 360 pixels to 90% of the window. Widths are saved in this browser (`kb.sidebar.width`, `kb.drawer.width`) and read when a window starts, like the other layout settings, so another open window doesn't move under you. The in-drawer split divider is unchanged. New in `@kubebay/ui`: `ResizeHandle` and `useStoredWidth`.
+
 ### Fixed
 - **Resource tables always have a sideways scrollbar** (backlog 67). The operating system's own scrollbar is 4px thin and, on macOS, hidden until you scroll, so a wide Pods table (for example after a filter left a few rows) looked as if it would not scroll sideways. Every table now has a bar under its viewport, drawn by Kubebay: it stays at the bottom however far down the rows go, shows only when the table is wider than the window, and takes a drag, a click to page, and <kbd>←</kbd>/<kbd>→</kbd>/<kbd>Home</kbd>/<kbd>End</kbd> when focused.
 
