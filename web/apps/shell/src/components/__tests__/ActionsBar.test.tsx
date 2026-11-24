@@ -9,7 +9,7 @@ vi.mock("../../lib/useResourceStream", () => ({
 }));
 vi.mock("../../lib/api", async () => {
   const actual = await vi.importActual<typeof import("../../lib/api")>("../../lib/api");
-  return { ...actual, api: { ...actual.api, scale: vi.fn() } };
+  return { ...actual, api: { ...actual.api, scale: vi.fn(), restart: vi.fn().mockResolvedValue({ ok: true }) } };
 });
 
 const props = { slug: "deployments" as const, cluster: "kind-test", ns: "default", name: "example" };
@@ -149,6 +149,8 @@ describe("ActionsBar — Argo Rollouts (backlog #33)", () => {
     const applyYaml = vi.spyOn(api, "applyYaml").mockResolvedValue(undefined as never);
     render(<ActionsBar slug="rollouts" cluster="kind-test" ns="default" name="web" currentReplicas={2} />);
     fireEvent.click(screen.getByRole("button", { name: "Restart" }));
+    expect(applyYaml).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Confirm restart?" }));
     await waitFor(() => expect(applyYaml).toHaveBeenCalledTimes(1));
     const req = applyYaml.mock.calls[0]![0] as { gvr: string; mode: string; action: string; yaml: string };
     expect(req).toMatchObject({ gvr: "argoproj.io/v1alpha1/rollouts", mode: "merge", action: "rollout-restart" });
@@ -246,5 +248,16 @@ describe("ActionsBar — Apply scale is highlighted while there is something to 
     expect(screen.queryByRole("button", { name: /What this affects/ })).toBeNull();
     fireEvent.change(screen.getByRole("spinbutton", { name: "Replicas" }), { target: { value: "0" } });
     expect(screen.getByRole("button", { name: /What this affects/ })).toBeInTheDocument();
+  });
+});
+
+describe("ActionsBar: Restart asks once more", () => {
+  it.each(["deployments", "statefulsets", "daemonsets"] as const)("%s: the first click only arms, the second restarts", async (slug) => {
+    vi.mocked(api.restart).mockClear();
+    render(<ActionsBar slug={slug} cluster="kind-test" ns="default" name="web" />);
+    fireEvent.click(screen.getByRole("button", { name: "Restart" }));
+    expect(api.restart).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Confirm restart?" }));
+    await waitFor(() => expect(api.restart).toHaveBeenCalledTimes(1));
   });
 });

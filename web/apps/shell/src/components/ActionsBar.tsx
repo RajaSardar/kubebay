@@ -4,6 +4,7 @@ import { actionApi, api } from "../lib/api";
 import { ownerLabel, ownerWarning, type GitOpsOwner } from "../lib/gitops";
 import { PolicyRejectionError, type PolicyRejectionDetail } from "../lib/policyRejection";
 import { availableRolloutActions, rolloutActionRequests, type RolloutAction } from "../lib/rollouts";
+import { RESTART_CONFIRM_LABEL } from "../lib/restartConfirm";
 import { sidecarSlug } from "../lib/addSidecar";
 import { AddSidecarDialog } from "./AddSidecarDialog";
 import { BlastRadiusPreview } from "./BlastRadiusPreview";
@@ -112,10 +113,11 @@ export function ActionsBar({
         </>
       )}
       {showRestart && (
-        <Button
-          variant="ghost"
-          disabled={busy}
-          onClick={() =>
+        <ArmedButton
+          label="Restart"
+          confirmLabel={RESTART_CONFIRM_LABEL}
+          busy={busy}
+          onGo={() =>
             void run(async () => {
               // An Argo Rollout restarts through spec.restartAt, which its controller honours;
               // the pod-template annotation the other kinds use would not be the Rollout's own restart.
@@ -124,9 +126,7 @@ export function ActionsBar({
               return "Rollout restart triggered.";
             })
           }
-        >
-          Restart
-        </Button>
+        />
       )}
       {sidecarSlug(slug) && obj && (
         <Button variant="ghost" disabled={busy} onClick={() => setAddingSidecar(true)}>

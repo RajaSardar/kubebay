@@ -30,7 +30,7 @@ Each Rollout offers the actions that make sense for its state. They go through t
 | **Resume** | in place of Pause when `spec.paused` is true | `spec.paused: false` | The spec half of Promote. It leaves a step's own pause in place, so it undoes a Pause without also passing a pause step; use Promote for that. Not tested against a live cluster. |
 | **Abort** | not aborted, not Healthy | `status.abort: true` on the status subresource | Follows `kubectl argo rollouts abort`. Not tested against a live cluster. |
 | **Retry** | aborted | `status.abort: false` on the status subresource | Follows `kubectl argo rollouts retry rollout`. Not tested against a live cluster. |
-| **Restart** | always | `spec.restartAt` set to now | Documented Rollout field. Not tested against a live cluster. |
+| **Restart** | always (after a second click: **Confirm restart?**) | `spec.restartAt` set to now | Documented Rollout field. Not tested against a live cluster. |
 
 The Rollout CRD has a status subresource since Argo Rollouts v1.0, and the API server ignores `status` fields sent to the Rollout itself, so Kubebay writes them to the status subresource. On an older install without one, the API server answers Not Found and Kubebay writes them to the Rollout itself, as the kubectl plugin does. The audit entry says `subresource=status` when the status subresource took the patch.
 

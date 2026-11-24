@@ -132,6 +132,25 @@ describe("RolloutsDashboard", () => {
     expect(vi.mocked(api.applyYaml).mock.calls[0]![0].action).toBe("rollout-abort");
   });
 
+  it("Restart asks once more, then (on a production-looking cluster) the production prompt", async () => {
+    ui("prod-eu-1");
+    fireEvent.click(screen.getByRole("button", { name: "Restart" }));
+    expect(api.applyYaml).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Confirm restart?" }));
+    expect(api.applyYaml).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: /Apply to/ }));
+    await waitFor(() => expect(api.applyYaml).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(api.applyYaml).mock.calls[0]![0].action).toBe("rollout-restart");
+  });
+
+  it("Restart on a normal cluster needs the second click and nothing more", async () => {
+    ui();
+    fireEvent.click(screen.getByRole("button", { name: "Restart" }));
+    expect(api.applyYaml).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Confirm restart?" }));
+    await waitFor(() => expect(api.applyYaml).toHaveBeenCalledTimes(1));
+  });
+
   it("shows an empty state with no Rollouts", () => {
     render(
       <MemoryRouter>

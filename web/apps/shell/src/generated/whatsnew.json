@@ -26,6 +26,15 @@
           ]
         },
         {
+          "heading": "Changed",
+          "items": [
+            {
+              "title": "Restart asks once more",
+              "summary": "(backlog 71)."
+            }
+          ]
+        },
+        {
           "heading": "Fixed",
           "items": [
             {

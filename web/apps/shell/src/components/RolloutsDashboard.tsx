@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
-import { Badge, Button, Card, EmptyState, InlineBanner, Row, Stack, StatusPill } from "@kubebay/ui";
+import { ArmedButton, Badge, Button, Card, EmptyState, InlineBanner, Row, Stack, StatusPill } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { ResourceLink } from "./ResourceLink";
 import { ProdApplyModal } from "./ProdApplyModal";
 import { useClusterLooksProduction } from "../lib/useClusterLooksProduction";
 import { extSlug } from "../lib/resources";
+import { RESTART_CONFIRM_LABEL } from "../lib/restartConfirm";
 import {
   ROLLOUT_ACTION_LABELS,
   availableRolloutActions,
@@ -105,9 +106,19 @@ export function RolloutsDashboard({
             {d.strategy !== "unknown" && <Badge>{d.strategy === "blueGreen" ? "blueGreen" : "canary"}</Badge>}
             {rolloutGvr &&
               availableRolloutActions(ro).map((a) => (
-                <Button key={a} variant="ghost" disabled={busy} onClick={() => request(d.ns, d.name, a)}>
-                  {ROLLOUT_ACTION_LABELS[a]}
-                </Button>
+                a === "restart" ? (
+                  <ArmedButton
+                    key={a}
+                    label={ROLLOUT_ACTION_LABELS[a]}
+                    confirmLabel={RESTART_CONFIRM_LABEL}
+                    busy={busy}
+                    onGo={() => request(d.ns, d.name, a)}
+                  />
+                ) : (
+                  <Button key={a} variant="ghost" disabled={busy} onClick={() => request(d.ns, d.name, a)}>
+                    {ROLLOUT_ACTION_LABELS[a]}
+                  </Button>
+                )
               ))}
           </Row>
 

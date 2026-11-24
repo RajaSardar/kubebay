@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button, InlineBanner, Modal, Row, Stack } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { ownerLabel, ownerOf, ownerWarning } from "../lib/gitops";
+import { RESTART_CONFIRM_LABEL } from "../lib/restartConfirm";
 import { PolicyRejectionError, type PolicyRejectionDetail } from "../lib/policyRejection";
 import { BlastRadiusPreview } from "./BlastRadiusPreview";
 import { ReplicaStepper } from "./ReplicaStepper";
@@ -50,6 +51,8 @@ export function WorkloadActionDialog({
   const owner = ownerOf(obj);
   const [replicas, setReplicas] = useState(currentText !== "" ? currentText : "0");
   const [busy, setBusy] = useState(false);
+  // Restart asks twice: the form's first submit only arms the button.
+  const [armed, setArmed] = useState(false);
   const [err, setErr] = useState("");
   const [rejection, setRejection] = useState<PolicyRejectionDetail | null>(null);
 
@@ -59,6 +62,10 @@ export function WorkloadActionDialog({
 
   async function go() {
     if (!canApply || busy) return;
+    if (action === "restart" && !armed) {
+      setArmed(true);
+      return;
+    }
     setBusy(true);
     setErr("");
     setRejection(null);
@@ -105,8 +112,8 @@ export function WorkloadActionDialog({
             <Button type="button" variant="ghost" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" variant="primary" disabled={!canApply || busy} autoFocus={action === "restart"}>
-              {action === "scale" ? "Scale" : "Restart"}
+            <Button type="submit" variant={armed ? "danger" : "primary"} disabled={!canApply || busy} autoFocus={action === "restart"}>
+              {action === "scale" ? "Scale" : armed ? RESTART_CONFIRM_LABEL : "Restart"}
             </Button>
           </Row>
         </Stack>
