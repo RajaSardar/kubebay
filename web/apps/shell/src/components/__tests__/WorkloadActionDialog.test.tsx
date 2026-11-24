@@ -109,6 +109,8 @@ describe("WorkloadActionDialog — restart", () => {
     expect(screen.getByRole("heading", { name: "Restart web?" })).toBeInTheDocument();
     expect(api.restart).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Restart" }));
+    expect(api.restart).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Confirm restart?" }));
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     expect(api.restart).toHaveBeenCalledWith({ cluster: "kind-shop", gvr: "apps/v1/statefulsets", ns: "shop", name: "web", gitopsOwner: undefined });
   });
@@ -118,6 +120,7 @@ describe("WorkloadActionDialog — restart", () => {
     const onClose = vi.fn();
     render(<WorkloadActionDialog action="restart" slug="deployments" cluster="kind-shop" obj={deploy(3)} onClose={onClose} />);
     fireEvent.click(screen.getByRole("button", { name: "Restart" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm restart?" }));
     expect(await screen.findByText(/forbidden: cannot patch/)).toBeInTheDocument();
     expect(onClose).not.toHaveBeenCalled();
   });

@@ -4,6 +4,7 @@ import { actionApi, api } from "../lib/api";
 import { ownerLabel, ownerWarning, type GitOpsOwner } from "../lib/gitops";
 import { PolicyRejectionError, type PolicyRejectionDetail } from "../lib/policyRejection";
 import { availableRolloutActions, rolloutActionRequests, type RolloutAction } from "../lib/rollouts";
+import { RESTART_CONFIRM_LABEL } from "../lib/restartConfirm";
 import { sidecarSlug } from "../lib/addSidecar";
 import { AddSidecarDialog } from "./AddSidecarDialog";
 import { BlastRadiusPreview } from "./BlastRadiusPreview";
@@ -54,8 +55,11 @@ export function ActionsBar({
   currentReplicas,
   rollout,
   obj,
+  gvr,
 }: {
   slug: Slug;
+  /** A Rollout's own resource path (its CRD's version), when the caller knows it; else v1alpha1. */
+  gvr?: string;
   cluster: string;
   ns: string;
   name: string;
@@ -76,12 +80,13 @@ export function ActionsBar({
   const scaleTarget = useMemo(() => ({ metadata: { name, namespace: ns }, spec: { replicas: currentReplicas } }), [name, ns, currentReplicas]);
 
   const showScale = slug === "deployments" || slug === "statefulsets" || slug === "rollouts";
-  // Promote, Abort and Retry live on the Rollouts dashboard; the drawer adds the step controls.
+  // The same Rollout actions as the Rollouts page, the ones that fit its state (Restart has its own button).
+  const rolloutGvr = gvr ?? GVR.rollouts!;
   const drawerRolloutActions: RolloutAction[] =
-    slug === "rollouts" && rollout ? availableRolloutActions(rollout).filter((a) => a === "pause" || a === "resume" || a === "skip-step") : [];
+    slug === "rollouts" && rollout ? availableRolloutActions(rollout).filter((a) => a !== "restart") : [];
   const runRolloutAction = (action: RolloutAction, done: string) =>
     void run(async () => {
-      for (const req of rolloutActionRequests({ cluster, gvr: GVR.rollouts!, ns, name }, action, rollout ?? {})) await api.applyYaml(req);
+      for (const req of rolloutActionRequests({ cluster, gvr: rolloutGvr, ns, name }, action, rollout ?? {})) await api.applyYaml(req);
       return done;
     });
   const showRestart = slug === "deployments" || slug === "statefulsets" || slug === "daemonsets" || slug === "rollouts";
@@ -102,7 +107,7 @@ export function ActionsBar({
             disabled={busy || replicas === (currentReplicas ?? -1)}
             onClick={() =>
               void run(async () => {
-                await api.scale({ cluster, gvr: GVR[slug]!, ns, name, replicas, gitopsOwner: ownerDetail });
+                await api.scale({ cluster, gvr: slug === "rollouts" ? rolloutGvr : GVR[slug]!, ns, name, replicas, gitopsOwner: ownerDetail });
                 return `Scaled to ${replicas}.`;
               })
             }
@@ -112,26 +117,39 @@ export function ActionsBar({
         </>
       )}
       {showRestart && (
-        <Button
-          variant="ghost"
-          disabled={busy}
-          onClick={() =>
+        <ArmedButton
+          label="Restart"
+          confirmLabel={RESTART_CONFIRM_LABEL}
+          busy={busy}
+          onGo={() =>
             void run(async () => {
               // An Argo Rollout restarts through spec.restartAt, which its controller honours;
               // the pod-template annotation the other kinds use would not be the Rollout's own restart.
-              if (slug === "rollouts") for (const req of rolloutActionRequests({ cluster, gvr: GVR[slug]!, ns, name }, "restart", {})) await api.applyYaml(req);
+              if (slug === "rollouts") for (const req of rolloutActionRequests({ cluster, gvr: rolloutGvr, ns, name }, "restart", {})) await api.applyYaml(req);
               else await api.restart({ cluster, gvr: GVR[slug]!, ns, name, gitopsOwner: ownerDetail });
               return "Rollout restart triggered.";
             })
           }
-        >
-          Restart
-        </Button>
+        />
       )}
       {sidecarSlug(slug) && obj && (
         <Button variant="ghost" disabled={busy} onClick={() => setAddingSidecar(true)}>
           Add sidecar
         </Button>
+      )}
+      {drawerRolloutActions.includes("promote") && (
+        <Button variant="ghost" disabled={busy} onClick={() => runRolloutAction("promote", "Rollout promoted.")}>
+          Promote
+        </Button>
+      )}
+      {drawerRolloutActions.includes("promote-full") && (
+        <ArmedButton
+          label="Promote fully"
+          confirmLabel="Confirm promote fully?"
+          variant="primary"
+          busy={busy}
+          onGo={() => runRolloutAction("promote-full", "Rollout promoted fully.")}
+        />
       )}
       {drawerRolloutActions.includes("pause") && (
         <Button variant="ghost" disabled={busy} onClick={() => runRolloutAction("pause", "Rollout paused.")}>
@@ -151,6 +169,14 @@ export function ActionsBar({
           busy={busy}
           onGo={() => runRolloutAction("skip-step", "Moved to the next step.")}
         />
+      )}
+      {drawerRolloutActions.includes("abort") && (
+        <ArmedButton label="Abort" confirmLabel="Confirm abort?" busy={busy} onGo={() => runRolloutAction("abort", "Rollout aborted.")} />
+      )}
+      {drawerRolloutActions.includes("retry") && (
+        <Button variant="ghost" disabled={busy} onClick={() => runRolloutAction("retry", "Rollout retried.")}>
+          Retry
+        </Button>
       )}
       {slug === "cronjobs" && (
         <Button

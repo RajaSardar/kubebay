@@ -29,6 +29,9 @@ import { drawerChord } from "../lib/drawerKeys";
 // ── Tab types per resource kind ──────────────────────────────────────────────
 type NodeTab = "summary" | "shell" | "yaml";
 type SvcTab = "summary" | "yaml";
+/** An Argo Rollout, at whichever version its CRD serves. */
+const isArgoRollout = (gvr: string) => /^argoproj\.io\/[^/]+\/rollouts$/.test(gvr);
+
 type GenTab = "summary" | "rollout" | "timeline" | "autoscaling" | "policy" | "vulnerabilities" | "signatures" | "yaml" | "events";
 
 // KEDA ScaledObjects, HPAs, and VPAs can all target these kinds — every
@@ -520,14 +523,15 @@ export default function GenericDrawer({
       )}
 
       {/* ── Actions bar ── */}
-      {(["deployments", "statefulsets", "daemonsets", "cronjobs", "nodes"].includes(def.slug) || def.gvr === "argoproj.io/v1alpha1/rollouts") && (
+      {(["deployments", "statefulsets", "daemonsets", "cronjobs", "nodes"].includes(def.slug) || isArgoRollout(def.gvr)) && (
         <ActionsBar
-          slug={(def.gvr === "argoproj.io/v1alpha1/rollouts" ? "rollouts" : def.slug) as "deployments"}
+          slug={(isArgoRollout(def.gvr) ? "rollouts" : def.slug) as "deployments"}
+          gvr={isArgoRollout(def.gvr) ? def.gvr : undefined}
           cluster={cluster}
           ns={ns}
           name={name}
           gitopsOwner={ownerOf(obj)}
-          rollout={def.gvr === "argoproj.io/v1alpha1/rollouts" && obj && typeof obj === "object" ? (obj as Record<string, unknown>) : undefined}
+          rollout={isArgoRollout(def.gvr) && obj && typeof obj === "object" ? (obj as Record<string, unknown>) : undefined}
           obj={obj && typeof obj === "object" ? (obj as Record<string, unknown>) : undefined}
           currentReplicas={obj && typeof (obj as Record<string, unknown>).spec === "object"
             ? Number(((obj as Record<string, unknown>).spec as Record<string, unknown>)?.replicas) || 0
