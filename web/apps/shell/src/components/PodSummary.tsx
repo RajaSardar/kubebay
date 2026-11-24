@@ -7,6 +7,8 @@ import { PodContainerPortForward } from "./PodContainerPortForward";
 import { describeVolume } from "../lib/podVolumes";
 import { describeLastState } from "../lib/podContainerState";
 import { podResourceClaims } from "../lib/dra";
+import { envFromSources, podConfigRefs, type ConfigRef } from "../lib/podRefs";
+import { labelPairs } from "../lib/labelChips";
 import { ExplainPod, type ExplainTab } from "./ExplainPod";
 
 function rec(v: unknown): Record<string, unknown> {
@@ -24,6 +26,23 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       <div className="pod-section-title">{title}</div>
       {children}
     </div>
+  );
+}
+
+function RefList({ kind, slug, ns, refs }: { kind: string; slug: string; ns: string; refs: ConfigRef[] }) {
+  return (
+    <Section title={`${kind} (${refs.length})`}>
+      <Stack gap={1}>
+        {refs.map((r) => (
+          <Row gap={2} align="center" wrap key={r.name}>
+            <ResourceLink kind={slug} ns={ns} name={r.name}>
+              <span className="mono small">{r.name}</span>
+            </ResourceLink>
+            <span className="muted small">{r.uses.join(", ")}</span>
+          </Row>
+        ))}
+      </Stack>
+    </Section>
   );
 }
 
@@ -113,6 +132,7 @@ export function PodSummary({
       const requests = rec(resources.requests);
       const limits = rec(resources.limits);
       const env = arr(c.env);
+      const envFrom = envFromSources(c);
       const ports = arr(c.ports);
       const mounts = arr(c.volumeMounts);
       const liveness = rec(c.livenessProbe);
@@ -129,6 +149,7 @@ export function PodSummary({
         requests,
         limits,
         env,
+        envFrom,
         rawContainer: { resources: { requests: requests as Record<string, string>, limits: limits as Record<string, string> } },
         lastState: describeLastState(rec(cst?.lastState)),
         ports,
@@ -158,6 +179,8 @@ export function PodSummary({
       conditions,
       volumes,
       containerDetails,
+      labels: labelPairs(rec(meta.labels) as Record<string, string>),
+      refs: podConfigRefs(obj),
       deletionTimestamp: meta.deletionTimestamp ? str(meta.deletionTimestamp) : "",
     };
   }, [obj]);
@@ -210,6 +233,16 @@ export function PodSummary({
         <Property label="UID"><span className="mono subtle" style={{ fontSize: "var(--kb-text-2xs)" }}>{data.uid}</span></Property>
         </PropertyList>
       </Section>
+
+      {data.labels.length > 0 && (
+        <Section title={`Labels (${data.labels.length})`}>
+          <Row gap={1} wrap>
+            {data.labels.map((l) => (
+              <Badge key={l}>{l}</Badge>
+            ))}
+          </Row>
+        </Section>
+      )}
 
       <Section title={`Conditions (${data.conditions.length})`}>
         <div className="pod-conditions">
@@ -278,7 +311,7 @@ export function PodSummary({
           {c.env.length > 0 && (
             <Property label={`Environment (${c.env.length})`}>
                 <div className="pod-env-list">
-                  {c.env.slice(0, 20).map((e, i) => {
+                  {c.env.map((e, i) => {
                     const name = str(e.name);
                     return (
                       <div key={i} className="pod-env-item">
@@ -293,9 +326,24 @@ export function PodSummary({
                       </div>
                     );
                   })}
-                  {c.env.length > 20 && <span className="muted small">+{c.env.length - 20} more</span>}
                 </div>
               </Property>
+          )}
+          {c.envFrom.length > 0 && (
+            <Property label={`Environment from (${c.envFrom.length})`}>
+              <Stack gap={1}>
+                {c.envFrom.map((e, i) => (
+                  <Row gap={2} align="center" wrap key={i}>
+                    <Badge>{e.kind}</Badge>
+                    <ResourceLink kind={e.kind === "Secret" ? "secrets" : "configmaps"} ns={data.namespace} name={e.name}>
+                      <span className="mono small">{e.name}</span>
+                    </ResourceLink>
+                    {e.prefix && <span className="mono small">{e.prefix}</span>}
+                    {e.optional && <span className="muted small">optional</span>}
+                  </Row>
+                ))}
+              </Stack>
+            </Property>
           )}
           {c.mounts.length > 0 && (
             <Property label={`Mounts (${c.mounts.length})`}>
@@ -332,6 +380,9 @@ export function PodSummary({
           </Stack>
         </Section>
       )}
+
+      {data.refs.secrets.length > 0 && <RefList kind="Secrets" slug="secrets" ns={data.namespace} refs={data.refs.secrets} />}
+      {data.refs.configMaps.length > 0 && <RefList kind="ConfigMaps" slug="configmaps" ns={data.namespace} refs={data.refs.configMaps} />}
 
       {data.volumes.length > 0 && (
         <Section title={`Volumes (${data.volumes.length})`}>
