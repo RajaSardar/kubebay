@@ -8,7 +8,7 @@ const node = (name: string, kubelet: string, proxy?: string) => ({
 
 describe("versionSkewFindings", () => {
   it("is quiet when everything is within policy", () => {
-    expect(versionSkewFindings("v1.30.2", [node("a", "v1.30.2", "v1.30.2"), node("b", "v1.28.0", "v1.28.0")])).toEqual([]);
+    expect(versionSkewFindings("v1.30.2", [node("a", "v1.30.2", "v1.30.2"), node("b", "v1.30.0", "v1.28.0")])).toEqual([]);
   });
   it("flags a kubelet more than 3 minors older than the API server", () => {
     const f = versionSkewFindings("v1.31.0", [node("old", "v1.27.4")]);
