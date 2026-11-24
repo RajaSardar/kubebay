@@ -210,3 +210,37 @@ describe("api.getYamlText", () => {
     expect((e as Error).message).toMatch(/connection refused/);
   });
 });
+
+describe("auth proxy mode (backlog 81)", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("reports the proxy mode from /api/auth-mode", async () => {
+    const { authMode } = await import("../api");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(200, { mode: "proxy" })));
+    expect(await authMode()).toBe("proxy");
+  });
+
+  it("a 401 in proxy mode says the proxy did not authenticate, and does not bounce to a login page", async () => {
+    const { authMode } = await import("../api");
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(200, { mode: "proxy" }))
+      .mockResolvedValueOnce(jsonResponse(401, { error: "the auth proxy did not authenticate this request", proxy: true }));
+    vi.stubGlobal("fetch", fetchMock);
+    await authMode();
+    const assign = vi.fn();
+    vi.stubGlobal("location", { set href(v: string) { assign(v); } });
+    await expect(api.clusters()).rejects.toThrow(/auth proxy did not authenticate/i);
+    expect(assign).not.toHaveBeenCalled();
+  });
+
+  it("proxyIdentity returns the user, or null when the proxy did not authenticate", async () => {
+    const { proxyIdentity } = await import("../api");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(jsonResponse(200, { authenticated: true, user: "alice@example.com", groups: [] })));
+    expect(await proxyIdentity()).toEqual({ user: "alice@example.com" });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(jsonResponse(401, { error: "x" })));
+    expect(await proxyIdentity()).toBeNull();
+  });
+});

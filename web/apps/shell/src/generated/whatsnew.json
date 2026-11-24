@@ -8,6 +8,10 @@
           "heading": "Added",
           "items": [
             {
+              "title": "Auth-proxy sign-in for the in-cluster install",
+              "summary": "(backlog 81)."
+            },
+            {
               "title": "Durable in-cluster audit log",
               "summary": "(backlog 79)."
             },

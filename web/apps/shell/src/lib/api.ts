@@ -30,14 +30,29 @@ export function setToken(token: string): void {
   sessionToken = token;
 }
 
-export type AuthMode = "oidc" | "token" | "open";
+/** "proxy": an authenticating reverse proxy in front of the engine signs people in. */
+export type AuthMode = "oidc" | "token" | "open" | "proxy";
+
+export const PROXY_REFUSED_MESSAGE =
+  "Your auth proxy did not authenticate this request. Open Kubebay through the proxy's address, or ask your administrator to check the proxy's trusted address range.";
+
+let knownMode: AuthMode | undefined;
 
 /** How this engine wants to be authenticated. Public: it names no secret. */
 export async function authMode(): Promise<AuthMode> {
   const res = await fetch("/api/auth-mode");
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
   const body = (await res.json()) as { mode?: AuthMode };
-  return body.mode ?? "token";
+  knownMode = body.mode ?? "token";
+  return knownMode;
+}
+
+/** Who the auth proxy says this is, or null when the proxy did not authenticate the request. */
+export async function proxyIdentity(): Promise<{ user: string } | null> {
+  const res = await fetch("/api/auth/me");
+  if (!res.ok) return null;
+  const body = (await res.json()) as { authenticated?: boolean; user?: string };
+  return body.authenticated && body.user ? { user: body.user } : null;
 }
 
 /** Verifies a pasted token against the engine before the app starts using it. */
@@ -84,6 +99,10 @@ async function get<T>(path: string): Promise<T> {
   const res = await fetch(path, {
     headers: { "X-Kubebay-Token": getToken() },
   });
+  if (res.status === 401 && knownMode === "proxy") {
+    // There is no login page to send them to: the proxy owns sign-in.
+    throw new Error(PROXY_REFUSED_MESSAGE);
+  }
   if (res.status === 401 && !getToken()) {
     window.location.href = "/api/auth/login";
     throw new Error("login required");
