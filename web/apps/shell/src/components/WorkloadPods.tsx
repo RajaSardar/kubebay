@@ -4,6 +4,7 @@ import { Button, DataTable, StatusPill } from "@kubebay/ui";
 import { useResourceStream } from "../lib/useResourceStream";
 import { podTone } from "../lib/pods";
 import { workloadLabelSelector, workloadPods } from "../lib/workloadPods";
+import { PodName } from "./PodName";
 import { LiveAge } from "./LiveAge";
 
 const INITIAL = 50;
@@ -39,7 +40,7 @@ export function WorkloadPods({ cluster, obj: given, kind }: { cluster: string; o
         onRowClick={(r) => navigate(`/detail/pods/${r.namespace || "_"}/${r.name}`)}
         empty={<span className="muted small">No pods: this workload has none running right now.</span>}
         columns={[
-          { key: "name", header: "Name", className: "mono td-name", title: (r) => r.name, render: (r) => r.name },
+          { key: "name", header: "Name", className: "mono td-name", title: (r) => r.name, render: (r) => <PodName name={r.name} /> },
           { key: "ready", header: "Ready", className: "mono small", render: (r) => r.ready },
           {
             key: "status",

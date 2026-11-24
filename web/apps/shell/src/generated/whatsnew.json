@@ -8,6 +8,10 @@
           "heading": "Added",
           "items": [
             {
+              "title": "Finding the exact pod",
+              "summary": "(backlog 61)."
+            },
+            {
               "title": "Pod logs: warnings and errors only",
               "summary": "(backlog 60)."
             },

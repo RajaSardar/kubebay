@@ -2288,3 +2288,9 @@ h2 {
 .markdown blockquote { padding-left: 12px; border-left: 3px solid var(--kb-border-subtle); color: var(--kb-fg-muted); }
 .markdown hr { border: 0; border-top: 1px solid var(--kb-border-subtle); margin: 14px 0; }
 .markdown a { color: var(--kb-accent); }
+
+/* Backlog 61: the generated end of a pod name, so similar names can be told apart. */
+.pod-suffix {
+  color: var(--kb-fg-default);
+  font-weight: 700;
+}

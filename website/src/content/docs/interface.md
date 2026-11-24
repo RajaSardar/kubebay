@@ -108,6 +108,7 @@ Every resource table has a filter box. Press <kbd>/</kbd> to jump to it, and <kb
 | `name:api` | rows whose name contains `api` |
 | `status:running` | a column's value. Any column with a filter key works, such as `node:` |
 | `label:app=web` | rows with label `app` set to `web`. `label:app` matches any value, and `l:` is short for `label:` |
+| `"web-7d9f8c6b5d-x2k4q"` or `=web-7d9f8c6b5d-x2k4q` | rows whose whole name is exactly that (ignoring case), not a name that merely contains it. Quote a phrase to keep its spaces. Useful for telling `web-1` from `web-12`, or one generated pod name from its neighbours |
 | `-word`, `-ns:kube-system` | rows that **don't** match |
 
 Matching ignores case, except label keys and values, which Kubernetes compares exactly. A `key:value` the table doesn't know, such as `system:node`, is matched as plain text.
