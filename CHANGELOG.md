@@ -6,6 +6,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ## [Unreleased]
 
+### Fixed
+- **Resource tables always have a sideways scrollbar** (backlog 67). The operating system's own scrollbar is 4px thin and, on macOS, hidden until you scroll, so a wide Pods table (for example after a filter left a few rows) looked as if it would not scroll sideways. Every table now has a bar under its viewport, drawn by Kubebay: it stays at the bottom however far down the rows go, shows only when the table is wider than the window, and takes a drag, a click to page, and <kbd>←</kbd>/<kbd>→</kbd>/<kbd>Home</kbd>/<kbd>End</kbd> when focused.
+
 ## [0.8.2] - 2026-11-24
 
 v0.8.1 was tagged but never published (its macOS build ran out of memory), so everything it held ships here.

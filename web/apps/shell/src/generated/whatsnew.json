@@ -3,7 +3,17 @@
     {
       "version": "unreleased",
       "date": "",
-      "sections": []
+      "sections": [
+        {
+          "heading": "Fixed",
+          "items": [
+            {
+              "title": "Resource tables always have a sideways scrollbar",
+              "summary": "(backlog 67)."
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.8.2",

@@ -490,6 +490,39 @@ button.nav-item {
   min-height: 0;
 }
 
+/* TableWrap's frame: the scrolling viewport above, its sideways scrollbar pinned below it. The bar is
+   drawn here rather than left to the OS (macOS hides its own), and sits outside the scroller, so it
+   stays at the foot of the viewport however far down the rows go. */
+.table-frame {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.kb-hscroll {
+  flex-shrink: 0;
+  height: var(--kb-space-3);
+  background: var(--kb-bg-inset);
+  border-top: 1px solid var(--kb-border-subtle);
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.kb-hscroll-thumb {
+  height: 100%;
+  background: var(--kb-border-strong);
+  border-radius: var(--kb-radius-control);
+  cursor: grab;
+  touch-action: none;
+}
+
+.kb-hscroll-thumb:hover,
+.kb-hscroll:focus-visible .kb-hscroll-thumb {
+  background: var(--kb-fg-subtle);
+}
+
 .kb-table {
   width: 100%;
   border-collapse: collapse;

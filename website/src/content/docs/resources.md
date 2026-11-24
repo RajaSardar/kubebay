@@ -25,6 +25,8 @@ Every kind in the sidebar groups opens the same kind of table: Deployments, Conf
 
 Each kind shows the columns that matter for it, such as Ready and Up-to-date for Deployments, or Type and Cluster IP for Services. Custom resources add the printer columns their CRD declares. The **Columns** button shows, hides and reorders them.
 
+A table wider than the window scrolls sideways, with the **Name** column staying in place. A scrollbar sits under the table, outside the rows, so it stays at the bottom of the table however far down you are and whether you've just filtered the list or not. It appears only when there is more to the right. Drag its thumb, click the bar to move a page at a time, or focus it and press <kbd>←</kbd>, <kbd>→</kbd>, <kbd>Home</kbd> or <kbd>End</kbd>.
+
 **Managed by** names the Argo CD Application or Flux Kustomization or HelmRelease that deploys the object, and links to it on the [Argo CD](/docs/argocd/) or [Flux](/docs/flux/) page.
 
 ## Row actions
