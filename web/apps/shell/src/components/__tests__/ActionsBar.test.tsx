@@ -261,3 +261,71 @@ describe("ActionsBar: Restart asks once more", () => {
     await waitFor(() => expect(api.restart).toHaveBeenCalledTimes(1));
   });
 });
+
+describe("ActionsBar: every Rollout action, in the drawer (backlog 72)", () => {
+  const ro = (status: Record<string, unknown>) => ({
+    apiVersion: "argoproj.io/v1alpha1",
+    kind: "Rollout",
+    metadata: { name: "web", namespace: "default" },
+    spec: { strategy: { canary: { steps: [{ setWeight: 20 }, { pause: {} }, { setWeight: 50 }] } } },
+    status,
+  });
+  const sent = (spy: { mock: { calls: unknown[][] } }) =>
+    spy.mock.calls.map((c) => c[0] as { action: string; gvr: string; yaml: string; subresource?: string });
+
+  it("offers Promote, Promote fully, Skip step, Pause, Abort and Restart on a progressing Rollout", () => {
+    render(<ActionsBar slug="rollouts" cluster="kind-test" ns="default" name="web" rollout={ro({ phase: "Progressing", currentStepIndex: 0 })} />);
+    for (const n of ["Promote", "Promote fully", "Skip step", "Pause", "Abort", "Restart"]) {
+      expect(screen.getByRole("button", { name: n })).toBeInTheDocument();
+    }
+    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+  });
+
+  it("Promote clears the pause conditions then spec.paused", async () => {
+    const applyYaml = vi.spyOn(api, "applyYaml").mockResolvedValue(undefined as never);
+    render(<ActionsBar slug="rollouts" cluster="kind-test" ns="default" name="web" rollout={ro({ phase: "Paused", currentStepIndex: 1, pauseConditions: [{}] })} />);
+    fireEvent.click(screen.getByRole("button", { name: "Promote" }));
+    await waitFor(() => expect(applyYaml).toHaveBeenCalledTimes(2));
+    expect(sent(applyYaml).map((r) => r.action)).toEqual(["rollout-promote", "rollout-promote"]);
+    applyYaml.mockRestore();
+  });
+
+  it("Promote fully and Abort ask for a second click", async () => {
+    const applyYaml = vi.spyOn(api, "applyYaml").mockResolvedValue(undefined as never);
+    render(<ActionsBar slug="rollouts" cluster="kind-test" ns="default" name="web" rollout={ro({ phase: "Progressing", currentStepIndex: 0 })} />);
+    fireEvent.click(screen.getByRole("button", { name: "Promote fully" }));
+    expect(applyYaml).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: /confirm promote fully/i }));
+    await waitFor(() => expect(applyYaml).toHaveBeenCalledTimes(2));
+    expect(sent(applyYaml)[0]!.action).toBe("rollout-promote-full");
+    applyYaml.mockClear();
+    fireEvent.click(screen.getByRole("button", { name: "Abort" }));
+    expect(applyYaml).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: /confirm abort/i }));
+    await waitFor(() => expect(applyYaml).toHaveBeenCalledTimes(1));
+    expect(sent(applyYaml)[0]).toMatchObject({ action: "rollout-abort", subresource: "status" });
+    expect(JSON.parse(sent(applyYaml)[0]!.yaml).status).toEqual({ abort: true });
+    applyYaml.mockRestore();
+  });
+
+  it("an aborted Rollout offers Retry, which sets status.abort to false", async () => {
+    const applyYaml = vi.spyOn(api, "applyYaml").mockResolvedValue(undefined as never);
+    render(<ActionsBar slug="rollouts" cluster="kind-test" ns="default" name="web" rollout={ro({ phase: "Degraded", abort: true })} />);
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await waitFor(() => expect(applyYaml).toHaveBeenCalledTimes(1));
+    expect(JSON.parse(sent(applyYaml)[0]!.yaml).status).toEqual({ abort: false });
+    expect(screen.getByRole("button", { name: "Restart" })).toBeInTheDocument();
+    applyYaml.mockRestore();
+  });
+
+  it("acts on the Rollout's own resource path when given one, whatever its served version", async () => {
+    const applyYaml = vi.spyOn(api, "applyYaml").mockResolvedValue(undefined as never);
+    render(
+      <ActionsBar slug="rollouts" gvr="argoproj.io/v1beta1/rollouts" cluster="kind-test" ns="default" name="web" rollout={ro({ phase: "Progressing", currentStepIndex: 0 })} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Pause" }));
+    await waitFor(() => expect(applyYaml).toHaveBeenCalledTimes(1));
+    expect(sent(applyYaml)[0]!.gvr).toBe("argoproj.io/v1beta1/rollouts");
+    applyYaml.mockRestore();
+  });
+});

@@ -38,6 +38,10 @@
           "heading": "Fixed",
           "items": [
             {
+              "title": "Rollouts missing from the Rollouts page, and no Rollout actions in Custom Resources",
+              "summary": "(backlog 72)."
+            },
+            {
               "title": "NodePort Services showed as ClusterIP with no ports",
               "summary": "(backlog 66)."
             },

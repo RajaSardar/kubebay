@@ -19,7 +19,7 @@ appRoutes: ["/rollouts"]
 
 ## Actions
 
-Each Rollout offers the actions that make sense for its state. They go through the same path as an edit in the YAML tab: a JSON merge patch with your own permissions, written to the [audit log](/docs/audit-log/). On a cluster whose name looks like production, Kubebay asks first.
+Each Rollout offers the actions that make sense for its state. They go through the same path as an edit in the YAML tab: a JSON merge patch with your own permissions, written to the [audit log](/docs/audit-log/). On a cluster whose name looks like production, Kubebay asks first on this page.
 
 | Action | Shown | Patch | Confidence |
 | --- | --- | --- | --- |
@@ -34,7 +34,9 @@ Each Rollout offers the actions that make sense for its state. They go through t
 
 The Rollout CRD has a status subresource since Argo Rollouts v1.0, and the API server ignores `status` fields sent to the Rollout itself, so Kubebay writes them to the status subresource. On an older install without one, the API server answers Not Found and Kubebay writes them to the Rollout itself, as the kubectl plugin does. The audit entry says `subresource=status` when the status subresource took the patch.
 
-A Rollout's drawer has **Pause**, **Resume** and **Skip step** too, beside **Restart**. **Skip step** there asks for a second click.
+A Rollout's drawer, whether you open it from this page or from **Custom Resources → Rollouts**, has the same actions, again only those that fit its state: **Promote**, **Promote fully**, **Skip step**, **Pause** or **Resume**, **Abort**, **Retry** and **Restart**. In the drawer **Promote fully**, **Skip step**, **Abort** and **Restart** ask for a second click (the button turns into **Confirm …?**).
+
+The page has the namespace filter like the other lists, and only lists the namespaces you chose. If your identity may not list Rollouts, the page says so and gives the API server's reason, and when only some of the chosen namespaces are refused a banner names them. The count beside the title shows once the list has loaded.
 
 ## Not here yet
 

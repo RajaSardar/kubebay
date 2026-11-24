@@ -3,15 +3,21 @@ import { useQuery } from "@tanstack/react-query";
 import { EmptyState, PageHeader } from "@kubebay/ui";
 import { PageHelp } from "../components/PageHelp";
 import { PageLoader } from "../components/PageLoader";
+import { NamespaceFilter } from "../components/NamespaceFilter";
+import { ForbiddenState, NamespacesDeniedBanner } from "../components/ForbiddenState";
 import { RolloutsDashboard } from "../components/RolloutsDashboard";
 import { crdApi } from "../lib/api";
 import { useResourceStream } from "../lib/useResourceStream";
 import { useCluster } from "../lib/useCluster";
+import { useSelectedNamespaces } from "../lib/namespace-store";
 import { detectRollouts } from "../lib/rollouts";
 
 /** Argo Rollouts dashboard: every Rollout with its progress, revisions and AnalysisRuns. Shown only where the Rollout CRD exists. */
 export default function Rollouts() {
   const { cluster } = useCluster();
+  // The same namespace filter as every list: a Rollout outside it is not "missing".
+  const nsFilter = useSelectedNamespaces(cluster || undefined);
+  const ns = nsFilter.length > 0 ? nsFilter : undefined;
 
   const crds = useQuery({
     queryKey: ["crds", cluster],
@@ -24,15 +30,26 @@ export default function Rollouts() {
 
   const rollouts = useResourceStream(detection.rolloutGvr ? cluster : undefined, detection.rolloutGvr ?? "", {
     mode: "full",
+    ns,
     enabled: !!detection.rolloutGvr,
   });
-  const replicaSets = useResourceStream(cluster || undefined, "apps/v1/replicasets", { mode: "full", enabled: !!detection.rolloutGvr });
+  const replicaSets = useResourceStream(cluster || undefined, "apps/v1/replicasets", { mode: "full", ns, enabled: !!detection.rolloutGvr });
   const analysisRuns = useResourceStream(detection.analysisRunGvr ? cluster : undefined, detection.analysisRunGvr ?? "", {
     mode: "full",
+    ns,
     enabled: !!detection.analysisRunGvr,
   });
 
-  const header = <PageHeader help={<PageHelp route="/rollouts" />} level={2} title="Rollouts" count={detection.installed ? `· ${rollouts.rows.length}` : undefined} />;
+  // A count before the first sync is a partial one, so it waits for the list.
+  const header = (
+    <PageHeader
+      help={<PageHelp route="/rollouts" />}
+      level={2}
+      title="Rollouts"
+      count={detection.installed && rollouts.synced ? `· ${rollouts.rows.length}` : undefined}
+      actions={detection.installed ? <NamespaceFilter cluster={cluster} /> : undefined}
+    />
+  );
 
   if (!cluster) {
     return (
@@ -67,10 +84,22 @@ export default function Rollouts() {
     );
   }
 
+  if (rollouts.forbidden && rollouts.rows.length === 0) {
+    return (
+      <div className="page">
+        {header}
+        <div className="page-body">
+          <ForbiddenState denied={[{ what: "Rollouts", reason: rollouts.forbidden }]} />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="page">
       {header}
       <div className="page-body">
+        {rollouts.denied && rollouts.denied.length > 0 && <NamespacesDeniedBanner noun="Rollouts" namespaces={ns} denied={rollouts.denied} flush />}
         <RolloutsDashboard
           cluster={cluster}
           rolloutGvr={detection.rolloutGvr}
