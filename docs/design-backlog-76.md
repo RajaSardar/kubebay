@@ -147,3 +147,134 @@ issues go to the owning page (`/best-practices`, `/upgrade-readiness`, `/rbac`,
 - New detectors or changing existing detector thresholds.
 - Multi-cluster merged view (the queue is per cluster; fleet rollup is later).
 - Auto-remediation or any mutation from the queue.
+
+## Challenge round
+
+Checked against the code in `web/apps/shell/src/lib` and `App.tsx`. Each
+objection ends with a decision. These decisions replace the original text
+wherever they differ.
+
+### 1. "No API calls" is false for two detectors
+- `lib/pressure.ts` is not a node-condition detector. `aggregatePressure` joins
+  `PodUsage` (metrics from an engine call) with requests. Using it would add a
+  call and make "node-condition" depend on metrics-server.
+- The `rbac` query (`["rbac", cluster]` in `pages/Rbac.tsx`) is an engine-side
+  cluster scan. It is only cached if the user has already visited /rbac, so
+  `/issues` would show "not checked" for most people, or trigger a heavy fetch.
+- Decision: drop `lib/pressure.ts` from the node detector. Node issues come
+  from the nodes stream only: the Ready condition, plus MemoryPressure,
+  DiskPressure, PIDPressure and NetworkUnavailable (medium), with
+  `lastTransitionTime` as `since`. Drop `rbac-risk` from v1 and list it under
+  Out of scope. Best-practice already covers the worst RBAC-adjacent checks.
+  Reword the guarantee to "no new endpoints and no new mutations". `upgrade-readiness`
+  may use the existing `["apis"]` and version queries with their existing
+  keys, because both are cheap and read-only. If the data is absent and the
+  fetch fails, the detector is "not checked".
+
+### 2. cert-expiry is not derivable from the best-practice check
+The `cert-expiry` check returns offender names only, with fixed severity
+"High". It cannot tell expired from near-expiry, and the plan's own filter
+(best-practice "Critical only") would exclude it. The plan listed both and
+contradicted itself.
+- Decision: extract a pure `certificateState(cert, now)` into
+  `lib/certExpiry.ts` returning `expired | expiring | not-ready | ok`. The
+  best-practice check calls it (a refactor covered by its existing test, which
+  stays green), and the Issues adapter uses it directly. Severity: expired or
+  not Ready critical, within 14 days high. The `cert-expiry` check id is
+  excluded from the generic best-practice adapter to avoid duplicates.
+
+### 3. Best-practice exceptions must be honoured
+`lib/bestPracticesExceptions.ts` stores per-cluster, per-browser waivers
+(`applyExceptions`). The plan would resurface findings the user has
+deliberately accepted, which makes the queue noisy and untrusted.
+- Decision: the best-practice adapter runs `applyExceptions` with
+  `loadExceptions(cluster)` first and drops waived checks and namespaces. Test:
+  a waived namespace yields no issue. Waivers are local, so the shared-engine
+  per-user rule holds.
+
+### 4. Ranking mixes incomparable "blast" numbers
+Blast for a netpol gap is the namespace pod count, and for a crashing workload
+it is its broken pods. Within one severity, a 500-pod namespace with no policy
+would outrank an actively failing workload. Posture issues also have no `since`,
+and "older first" is undefined for them.
+- Decision: rank by severity, then `tier` (0 = something is failing now:
+  pod-problem, node-condition, service-no-ready, cert-expiry; 1 = latent risk or
+  hygiene: spof, netpol-gap, best-practice, upgrade-readiness), then `blast`,
+  then age (a missing `since` sorts last), then `id`. Tier is derived from the
+  detector in one table in `issues.ts` and is tested. Blast for netpol-gap is
+  capped at 1 (the namespace is one item). It is not the pod count.
+
+### 5. Scope trap: nine adapters in one commit
+The posture detectors need 10 or more extra full streams (pods, deployments,
+statefulsets, pdbs, netpols, namespaces, services, pvcs, nodes, certificates,
+hpas) and are the bulk of the risk and review.
+- Decision: ship in two vertical slices, each with tests, docs and a commit.
+  Slice 1: the page, route, help, docs, `useIssues`, and the "failing now" tier
+  (pod-problem, node-condition, service-no-ready, cert-expiry). Slice 2: the
+  latent-risk tier (spof, netpol-gap, best-practice Critical,
+  upgrade-readiness). `IssueDetector` lists all of them from the start, so slice
+  2 only adds adapters. The page works with "not checked" for tier 1 meanwhile.
+
+### 6. Compute and memoise per detector
+A single `computeIssues` would re-run every detector on each pod stream tick.
+- Decision: expose `detectors: Record<IssueDetector, (input) => Issue[]>`.
+  `computeIssues` is the composition (each call wrapped in try/catch, which
+  gives the "detector throws" failure mode a unit test). `useIssues` memoises
+  each detector on only its own streams' `rows`, so a pod tick does not
+  recompute spof or best-practice.
+
+### 7. Investigate target for workload-level pod issues
+`findAttention` groups by owner, so the issue is "Deployment/ns/web" but the
+evidence is pods. `targetFor` for a Deployment opens the detail drawer without
+the failing pod.
+- Decision: pod-problem issues keep the workload as kind and name, and carry
+  `evidence: { open: "object", slug: "pods", ns, name: row.pods[0] }` (the worst
+  pod, most restarts first, from `AttentionRow.pods`). Investigate opens the
+  pod through `targetFor`. The drawer from the workload row is a secondary
+  action that is not in this item. A node-owned reason (`row.node`) is included
+  in the summary and not a separate issue. Kind to slug uses the existing
+  resource registry. Do not hand-write a map. The implementer must confirm
+  which helper this repo has (see `lib/objectPath.ts` callers) and reuse it.
+
+### 8. Page-level Investigate must not need page changes
+"Open the page that holds the evidence" implies a deep link (`?check=...`) that
+`BestPractices.tsx` may not read.
+- Decision: v1 route targets carry only a path, with an optional `search` limited
+  to params the target page already reads (verified in the test by importing
+  the page's param name, or omitted). No page edits in this item. If a page
+  lacks the param, the Investigate link opens the page unfiltered. Say so in
+  the docs.
+
+### 9. Namespace-restricted users
+Pages scope streams with `opts.ns` for users with only namespace-level RBAC.
+The plan opens cluster-wide streams, so a restricted user would see every
+detector "not checked" and no issues.
+- Decision: `useIssues` takes the same allowed-namespace scoping the other
+  pages use for the same streams (find it via `useResourceStream` callers in
+  `WorkloadsOverview.tsx`). The hook test covers a scoped call. Forbidden
+  remains "not checked", never "all clear".
+
+### 10. Test plan gaps
+- The scale test needs a warm-up run and a ratio check (4,000 vs 2,000 pods)
+  rather than only an absolute budget, or it joins the known timing flakes.
+- Add a test that `Issue.summary` is passed through verbatim and rendered as
+  text (a name like `<img onerror>` stays literal).
+- Add a test that two clusters never share state: `useIssues` on a cluster
+  switch drops the previous issues in the same render, not after the new
+  streams sync.
+- Add a regression test that `certificateState` refactoring leaves the
+  best-practice `cert-expiry` result unchanged.
+
+### Final decisions (summary)
+1. Streams only. No `pressure.ts`, no RBAC, no new endpoints. Upgrade uses the
+   existing cached queries.
+2. New `lib/certExpiry.ts`, shared with best-practice.
+3. Honour best-practice exceptions.
+4. Rank by severity, tier, blast (netpol capped at 1), age (missing last), id.
+5. Two slices: "failing now" first, then "latent risk".
+6. Per-detector functions and memoisation, with try/catch isolation.
+7. Pod issues investigate the worst pod, not the workload.
+8. Route targets are path-only unless the page already reads the param.
+9. Namespace scoping matches existing pages.
+10. Extra tests: scale ratio, text-only rendering, cluster-switch reset, cert
+    refactor regression.
