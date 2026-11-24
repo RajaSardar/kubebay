@@ -265,6 +265,7 @@ export default function Workloads() {
         titleCount="· Pods"
         help={<PageHelp route="/workloads" />}
         label="Pods"
+        gvr="v1/pods"
         rows={pods}
         objects={rows as Record<string, unknown>[]}
         synced={synced}

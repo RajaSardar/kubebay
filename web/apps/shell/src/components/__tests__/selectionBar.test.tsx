@@ -2,6 +2,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { SelectionBar, VisuallyHidden } from "@kubebay/ui";
 import { ResourceListView } from "../ResourceListView";
+import { useCompare } from "../../lib/compare-store";
 
 // #26: bulk actions live in a bar under the table that says exactly what is
 // selected, including rows the filter hides (docs/TABLE_FOLLOWUPS.md).
@@ -18,7 +19,7 @@ const jobs: Job[] = [
   ...Array.from({ length: 6 }, (_, i) => ({ ns: "batch", name: `run-${i}` })),
 ];
 
-function renderJobs(onDelete = vi.fn(() => Promise.resolve())) {
+function renderJobs(onDelete = vi.fn(() => Promise.resolve()), gvr: string | undefined = "batch/v1/jobs") {
   render(
     <ResourceListView<Job>
       title="Jobs"
@@ -29,6 +30,8 @@ function renderJobs(onDelete = vi.fn(() => Promise.resolve())) {
       busy={false}
       live
       cluster="kind-test"
+      gvr={gvr || undefined}
+      kind="Job"
       nsFiltered={false}
       nameOf={(j) => j.name}
       nsOf={(j) => j.ns}
@@ -89,6 +92,27 @@ describe("selection bar", () => {
     fireEvent.click(within(bar()).getByRole("button", { name: "Deselect hidden" }));
     expect(within(bar()).getByText("1 selected")).toBeInTheDocument();
     expect(within(bar()).queryByText(/hidden by filter/)).toBeNull();
+  });
+
+  it("offers Compare only when exactly two rows are selected, and opens them in the compare dialog", () => {
+    renderJobs();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select web" }));
+    expect(within(bar()).queryByRole("button", { name: "Compare" })).toBeNull();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select etl" }));
+    fireEvent.click(within(bar()).getByRole("button", { name: "Compare" }));
+    const { open, left, right } = useCompare.getState();
+    expect(open).toBe(true);
+    expect([left?.ns + "/" + left?.name, right?.ns + "/" + right?.name].sort()).toEqual(["data/etl", "shop/web"]);
+    expect(left).toMatchObject({ cluster: "kind-test", gvr: "batch/v1/jobs", kind: "Job" });
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select api" }));
+    expect(within(bar()).queryByRole("button", { name: "Compare" })).toBeNull();
+  });
+
+  it("has no Compare when the page gives no gvr", () => {
+    renderJobs(undefined, "");
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select web" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select etl" }));
+    expect(within(bar()).queryByRole("button", { name: "Compare" })).toBeNull();
   });
 
   it("clears on Escape and from its Clear button", () => {

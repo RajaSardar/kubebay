@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
+import { useCompare } from "../lib/compare-store";
 import { Badge, Button, Drawer, IconButton, InlineBanner, SkeletonLines, StatusDot, Tabs, TextField } from "@kubebay/ui";
 import { api, nodeApi } from "../lib/api";
 import { ExecTerm } from "./heavy";
@@ -479,6 +480,14 @@ export default function GenericDrawer({
                   <rect x="8" y="1" width="5" height="12" rx="1.5" stroke="currentColor" strokeWidth="1.4" fill="none" />
                 </svg>
               </IconButton>
+              <Button
+                variant="ghost"
+                onClick={() =>
+                  useCompare.getState().show({ cluster, gvr: def.gvr, ns: def.scoped ? "" : ns, name, kind: (typeof obj?.kind === "string" && obj.kind) || def.kind })
+                }
+              >
+                Compare with…
+              </Button>
               <Button variant="danger-ghost" onClick={() => setConfirming(true)}>
                 Delete
               </Button>

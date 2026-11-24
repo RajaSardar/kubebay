@@ -1,4 +1,5 @@
 import { ObjectStarButton } from "../components/Favorites";
+import { useCompare } from "../lib/compare-store";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Badge, Button, InlineBanner, Modal, Row, Stack, Select, Spinner, StatusDot, Tabs, TextField, Drawer } from "@kubebay/ui";
 import { api } from "../lib/api";
@@ -174,6 +175,12 @@ export default function PodPanel({ pod, onClose: onCloseNow, onDeleted }: { pod:
         <>
           {status === "closed" && <Badge tone="err">ended</Badge>}
           {error && <span className="error-text small">{error}</span>}
+          <Button
+            variant="ghost"
+            onClick={() => useCompare.getState().show({ cluster: pod.cluster, gvr: "v1/pods", ns: pod.namespace, name: pod.pod, kind: "Pod" })}
+          >
+            Compare with…
+          </Button>
           <Button variant="danger-ghost" onClick={() => setConfirmingDelete(true)}>
             Delete
           </Button>

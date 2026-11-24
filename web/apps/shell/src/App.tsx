@@ -67,6 +67,7 @@ const ArgoWorkflows = lazy(() => import("./pages/ArgoWorkflows"));
 const ArgoEvents = lazy(() => import("./pages/ArgoEvents"));
 const BestPractices = lazy(() => import("./pages/BestPractices"));
 import { Palette } from "./components/Palette";
+import { CompareHost } from "./components/CompareDialog";
 import { discoveryApi } from "./lib/api";
 import { KNOWN_GVRS, extSlug } from "./lib/resources";
 import { FavoritesNav } from "./components/Favorites";
@@ -701,6 +702,7 @@ function AppInner() {
         <Sidebar onOpenPalette={() => setPaletteOpen(true)} sidebar={sidebar} />
         <SidebarResizer sidebar={sidebar} />
         <Palette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+        <CompareHost />
         <McpProposals />
 
         <main className="content">
