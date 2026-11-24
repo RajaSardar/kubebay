@@ -92,7 +92,7 @@ func main() {
 		mgr.StartIdleSweeper(sweepCtx)
 	}
 
-	auditLog, err := audit.New(log)
+	auditLog, err := audit.NewWithOptions(log, audit.OptionsFromEnv(os.Getenv, *inCluster))
 	if err != nil {
 		log.Error("audit log init failed", "err", err)
 		os.Exit(1)
