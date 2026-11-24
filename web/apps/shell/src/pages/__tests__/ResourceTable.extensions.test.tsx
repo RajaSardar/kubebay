@@ -24,7 +24,7 @@ vi.mock("../../lib/useResourceStream", async () => {
     ...actual,
     useResourceStream: (_c: string, gvr: string, opts?: { mode?: string }) => {
       streamCalls.push({ gvr, mode: opts?.mode });
-      const rows = gvr === "v1/services" ? services : gvr === "v1/secrets" ? [{ metadata: { name: "db", namespace: "shop", creationTimestamp: now } }] : [];
+      const rows = gvr === "v1/services" ? services : gvr === "v1/secrets" ? [{ metadata: { name: "db", namespace: "shop", creationTimestamp: now } }] : gvr === "v1/configmaps" ? [{ metadata: { name: "cfg", namespace: "shop", creationTimestamp: now }, data: { setting: "on" } }] : [];
       return { rows, synced: true, connected: true };
     },
   };
@@ -88,18 +88,17 @@ describe("extensions on resource tables", () => {
   });
 
   it("loads whole objects only when a column reads beyond metadata", async () => {
-    file.columns = [{ resource: "services", header: "Team", jsonPath: ".metadata.labels.team" }];
-    const first = renderTable();
+    // ConfigMaps stay metadata-only (Services stream in full for their own columns).
+    file.columns = [{ resource: "configmaps", header: "Team", jsonPath: ".metadata.labels.team" }];
+    const first = renderTable("configmaps");
     await screen.findByRole("columnheader", { name: "Team" });
-    expect(lastStream("v1/services")?.mode).toBe("metadata");
+    expect(lastStream("v1/configmaps")?.mode).toBe("metadata");
     first.unmount();
 
-    file.columns = [{ resource: "services", header: "Exposed as", jsonPath: ".spec.type" }];
-    renderTable();
-    await screen.findByRole("columnheader", { name: "Exposed as" });
-    expect(lastStream("v1/services")?.mode).toBe("full");
-    // The built-in Type column and the extension column both show it.
-    expect(screen.getAllByText("LoadBalancer")).toHaveLength(2);
+    file.columns = [{ resource: "configmaps", header: "Setting", jsonPath: ".data.setting" }];
+    renderTable("configmaps");
+    await screen.findByRole("columnheader", { name: "Setting" });
+    expect(lastStream("v1/configmaps")?.mode).toBe("full");
   });
 
   it("never loads Secret data for a column", async () => {

@@ -27,7 +27,7 @@ Every resource has **Summary**, **YAML** and **Events**. Workloads get more.
 | YAML | all | The live object, editable |
 | Events | all | Its recent events |
 
-Services have **Summary** (ports, selector, traffic) and **YAML**. Nodes have their own tabs: see [Nodes](/docs/nodes/). Pods have their own drawer: see [Pods](/docs/pods/).
+Services have **Summary** (ports, selector, **Endpoints**, traffic) and **YAML**. **Endpoints** lists the addresses from the Service's EndpointSlices with Ready or Not ready, the ports they serve, the node, and the target Pod as a link to its drawer; with none it says no ready Pod matches the selector. It isn't shown for an ExternalName Service. Nodes have their own tabs: see [Nodes](/docs/nodes/). Pods have their own drawer: see [Pods](/docs/pods/).
 
 ## Actions
 

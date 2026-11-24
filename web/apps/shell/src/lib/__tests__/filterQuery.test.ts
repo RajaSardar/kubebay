@@ -1,6 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { matchesQuery, parseQuery, type QueryRow } from "../filterQuery";
 
+describe("type: filter on Services (backlog 66)", () => {
+  it("finds NodePort Services with type:NodePort and excludes them with -type:nodeport", () => {
+    const q = parseQuery("type:NodePort", ["type", "port"]);
+    const node = { text: ["web", "NodePort"], fields: { type: "NodePort", port: "80:30080/TCP" } };
+    const clusterIp = { text: ["db", "ClusterIP"], fields: { type: "ClusterIP", port: "5432/TCP" } };
+    expect(matchesQuery(node, q)).toBe(true);
+    expect(matchesQuery(clusterIp, q)).toBe(false);
+    expect(matchesQuery(node, parseQuery("-type:nodeport", ["type", "port"]))).toBe(false);
+  });
+});
+
 // #25: the filter field understands `key:value` (docs/TABLE_FOLLOWUPS.md).
 
 const pod: QueryRow = {

@@ -13,6 +13,9 @@ import { useNodeExtras } from "../lib/useNodeExtras";
 import { evalPrinterPath } from "../lib/printerPath";
 import { claimDeviceClasses, claimDevices, claimState, claimUsers, classDriver, sliceNodes } from "../lib/dra";
 import { ownerOf, ownerLabel, ownerPath } from "../lib/gitops";
+import { endpointCountsByService } from "../lib/serviceEndpoints";
+import { LabelChips } from "../components/LabelChips";
+import { labelPairs } from "../lib/labelChips";
 import { ownerCellOf } from "../lib/ownerColumn";
 import { OwnerCellLink } from "../components/OwnerCellLink";
 import { templateKindFor } from "../lib/resourceTemplates";
@@ -76,7 +79,12 @@ function workloadCells(o: Row): Record<string, Cell> {
 
 export function extraColumns(
   slug: string,
-  ctx?: { nodeUsage?: Map<string, { cpuMillis: number; memBytes: number }>; podsPerNode?: Map<string, number> },
+  ctx?: {
+    nodeUsage?: Map<string, { cpuMillis: number; memBytes: number }>;
+    podsPerNode?: Map<string, number>;
+    /** Ready and total endpoint addresses per `namespace/service`, from the EndpointSlices. */
+    endpointCounts?: Map<string, { ready: number; total: number }>;
+  },
 ): Record<string, (o: Row) => Cell> {
   if (slug === "nodes") {
     const usage = ctx?.nodeUsage;
@@ -253,6 +261,16 @@ export function extraColumns(
       return {
         Type: (o) => ({ v: str(rec(o.spec).type) || "ClusterIP" }),
         "Cluster IP": (o) => ({ v: str(rec(o.spec).clusterIP) || "–" }),
+        // Ready/total addresses behind the Service (backlog 64); red when a selector matches nothing.
+        Endpoints: (o) => {
+          const counts = ctx?.endpointCounts;
+          if (!counts || str(rec(o.spec).type) === "ExternalName") return { v: "–" };
+          const meta = rec(o.metadata);
+          const c = counts.get(`${str(meta.namespace)}/${str(meta.name)}`) ?? { ready: 0, total: 0 };
+          const hasSelector = Object.keys(rec(rec(o.spec).selector)).length > 0;
+          const dot: Cell["dot"] = c.total === 0 ? (hasSelector ? "err" : "warn") : c.ready === c.total ? "ok" : "warn";
+          return { v: `${c.ready}/${c.total}`, dot };
+        },
         "External IP": (o) => {
           const type = str(rec(o.spec).type);
           if (type === "ExternalName") return { v: str(rec(o.spec).externalName) || "–" };
@@ -376,6 +394,16 @@ export default function ResourceTable() {
     ns: def && !def.scoped && nsFilter.length > 0 ? nsFilter : undefined,
   });
 
+  const sliceStream = useResourceStream(effectiveCluster || undefined, "discovery.k8s.io/v1/endpointslices", {
+    mode: "full",
+    ns: def && nsFilter.length > 0 ? nsFilter : undefined,
+    enabled: def?.slug === "services",
+  });
+  const endpointCounts = useMemo(
+    () => (def?.slug === "services" && sliceStream.synced ? endpointCountsByService(sliceStream.rows) : undefined),
+    [def?.slug, sliceStream.synced, sliceStream.rows],
+  );
+
   const { nodeUsage, podsPerNode } = useNodeExtras(effectiveCluster, def?.slug === "nodes");
 
   // Fetch CRD metadata (printer columns) for ext-- resources
@@ -397,7 +425,7 @@ export default function ResourceTable() {
   // The kind's columns, then CRD printer columns, then Owner. The filter
   // matches, and headers sort by, every one of them.
   const columns = useMemo<ListColumn<Row>[]>(() => {
-    const extra = def ? extraColumns(def.slug, { nodeUsage, podsPerNode }) : {};
+    const extra = def ? extraColumns(def.slug, { nodeUsage, podsPerNode, endpointCounts }) : {};
     return [
       ...Object.entries(extra).map(([col, cellOf]): ListColumn<Row> => ({
         id: col,
@@ -459,6 +487,17 @@ export default function ResourceTable() {
             } satisfies ListColumn<Row>,
           ]),
       {
+        // Every kind's labels, hidden until chosen; `label:app=web` filters on the same data.
+        id: "Labels",
+        header: "Labels",
+        width: 260,
+        defaultHidden: true,
+        cell: (o) => <LabelChips labels={labelsOf(o)} />,
+        sortValue: (o) => labelPairs(labelsOf(o)).join(","),
+        filterText: (o) => labelPairs(labelsOf(o)).join(" "),
+        filterKey: "labels",
+      },
+      {
         // "Managed by", not "Owner": this is the GitOps app (Argo CD / Flux), not
         // Kubernetes ownerReferences. The id stays Owner so saved sorts keep working.
         id: "Owner",
@@ -484,7 +523,7 @@ export default function ResourceTable() {
         filterKey: "owner",
       },
     ];
-  }, [def, nodeUsage, podsPerNode, printerColumns, ext.columns, navigate]);
+  }, [def, nodeUsage, podsPerNode, endpointCounts, printerColumns, ext.columns, navigate]);
 
   const onOpen = useCallback((r: Row) => setSelected({ ns: nsOf(r), name: nameOf(r) }), []);
 

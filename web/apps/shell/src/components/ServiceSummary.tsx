@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { Badge, Property, PropertyList, Row, Stack } from "@kubebay/ui";
+import { ServiceEndpoints } from "./ServiceEndpoints";
 
 function rec(v: unknown): Record<string, unknown> {
   return (v ?? {}) as Record<string, unknown>;
@@ -22,7 +23,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-export function ServiceSummary({ obj }: { obj: Record<string, unknown> }) {
+export function ServiceSummary({ obj, cluster }: { obj: Record<string, unknown>; cluster?: string }) {
   const data = useMemo(() => {
     const spec = rec(obj.spec);
     const status = rec(obj.status);
@@ -32,6 +33,8 @@ export function ServiceSummary({ obj }: { obj: Record<string, unknown> }) {
     const externalIPs = arr(spec.externalIPs);
     const lbIngress = arr(rec(status.loadBalancer).ingress);
     return {
+      name: str(meta.name),
+      namespace: str(meta.namespace),
       type: str(spec.type) || "ClusterIP",
       clusterIP: str(spec.clusterIP),
       clusterIPs: arr(spec.clusterIPs).map(str).filter(Boolean),
@@ -89,6 +92,10 @@ export function ServiceSummary({ obj }: { obj: Record<string, unknown> }) {
           <span className="muted small">No selector (manual endpoints)</span>
         )}
       </Section>
+
+      {cluster && data.type !== "ExternalName" && (
+        <ServiceEndpoints cluster={cluster} namespace={data.namespace} name={data.name} />
+      )}
 
       <Section title="Traffic">
         <PropertyList>

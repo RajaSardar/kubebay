@@ -20,6 +20,8 @@ import { useExtensions } from "../lib/useExtensions";
 import { contextOf } from "../lib/localshell";
 import { useFavoriteObjects } from "../components/Favorites";
 import { OwnerCellLink } from "../components/OwnerCellLink";
+import { LabelChips } from "../components/LabelChips";
+import { labelPairs } from "../lib/labelChips";
 import { ownerCellOf, replicaSetOwners, type OwnerCell } from "../lib/ownerColumn";
 
 const PODS_DEF = { resource: "pods", group: "", kind: "Pod" };
@@ -86,6 +88,17 @@ function podColumns(usage: Usage, ownerOf: (p: PodRow) => OwnerCell): ListColumn
       sortValue: (p) => ownerOf(p).text,
       filterText: (p) => ownerOf(p).text,
       filterKey: "controller",
+    },
+    {
+      // Hidden until chosen in the column chooser; `label:app=web` filters on the same labels.
+      id: "Labels",
+      header: "Labels",
+      width: 260,
+      defaultHidden: true,
+      cell: (p) => <LabelChips labels={p.labels} />,
+      sortValue: (p) => labelPairs(p.labels).join(","),
+      filterText: (p) => labelPairs(p.labels).join(" "),
+      filterKey: "labels",
     },
     {
       id: "Restarts",
