@@ -71,53 +71,15 @@ the drawer placement.
 ## Public API and types
 
 ```ts
-export type StepKind = "setWeight" | "pause" | "analysis" | "experiment" | "setCanaryScale" | "setHeaderRoute" | "other";
-export type StepState = "done" | "current" | "pending";
-
-export interface ReleaseStep {
-  index: number;          // 0-based
-  kind: StepKind;
-  label: string;          // "Set weight 20%", "Pause 5m", "Pause until promoted"
-  state: StepState;
-  paused: boolean;        // current step and a pause condition is active
-  pauseReason?: string;
-}
-
-export interface ReleaseReplicaSet {
-  name: string;
-  revision: string;
-  images: string[];
-  role: "stable" | "canary" | "active" | "preview" | "previous";
-  ready: number;
-  desired: number;
-  weight: number | null;  // traffic %, canary only; null when unknown
-}
-
-export interface ReleaseService { role: "active" | "preview" | "stable" | "canary"; name: string; selectsRevision?: string }
-
-export interface ReleaseMetric {
-  name: string; phase: string; tone: StatusTone;
-  summary: string;        // "8 ok, 1 failed, 0 inconclusive"
-  lastValue?: string;     // from latest measurement, truncated
-  failure?: string;       // message of the failing metric/measurement
-}
-export interface ReleaseAnalysis { name: string; phase: string; tone: StatusTone; message: string; metrics: ReleaseMetric[]; revision?: string }
-
-export interface ReleaseCondition { type: string; status: string; reason: string; message: string; tone: StatusTone }
-
-export interface ReleaseView {
-  strategy: "canary" | "blueGreen" | "unknown";
-  phase: string; tone: StatusTone; message: string;
-  steps: ReleaseStep[];            // empty for blueGreen
-  replicaSets: ReleaseReplicaSet[];
-  services: ReleaseService[];
-  analyses: ReleaseAnalysis[];
-  conditions: ReleaseCondition[];
-  haltReason: string | null;       // abort or pause explanation, one sentence
-  actions: RolloutAction[];        // from availableRolloutActions, unchanged
-}
-
-export function buildReleaseView(ro: Obj, replicaSets: Obj[], analysisRuns: Obj[], services: Obj[]): ReleaseView;
+type StepState = "done" | "current" | "pending";
+interface ReleaseStep { index: number; kind: string; label: string; state: StepState; paused: boolean; pauseReason?: string }
+interface ReleaseReplicaSet { name: string; revision: string; images: string[]; role: "stable"|"canary"|"active"|"preview"|"previous"; ready: number; desired: number; weight: number | null }
+interface ReleaseService { role: "active"|"preview"|"stable"|"canary"; name: string; selectsRevision?: string }
+interface ReleaseMetric { name: string; phase: string; tone: StatusTone; summary: string; lastValue?: string; failure?: string }
+interface ReleaseAnalysis { name: string; phase: string; tone: StatusTone; message: string; metrics: ReleaseMetric[] }
+interface ReleaseCondition { type: string; status: string; reason: string; message: string; tone: StatusTone }
+interface ReleaseView { strategy; phase; tone; message; steps; replicaSets; services; analyses; conditions; haltReason: string | null; actions: RolloutAction[] }
+function buildReleaseView(ro: Obj, replicaSets: Obj[], analysisRuns: Obj[], services: Obj[]): ReleaseView;
 ```
 
 Actions are not reimplemented: the component calls `availableRolloutActions`
@@ -177,15 +139,12 @@ mock harness for a screenshot into `/tmp/kubebay-work/`.
   falls back to its kind.
 - Experiment, header-route and traffic-router specifics: shown as generic
   steps, never interpreted.
-- Large AnalysisRun history: show the latest N per Rollout (N=5), newest first.
 
 ## Out of scope
 
 - Bundling, spawning, proxying or detecting the upstream dashboard or plugin.
 - Creating or editing Rollouts, AnalysisTemplates or Experiments.
 - Live metric graphing or querying metric providers (Prometheus, Datadog).
-- Showing AnalysisTemplate args or credentials.
-- Cross-cluster rollout views.
 - Any live-cluster verification in this lane: actions and field shapes follow
   the CRD and the existing tests, and the docs will say they were not run
   against a live cluster.
