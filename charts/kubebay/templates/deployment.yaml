@@ -1,3 +1,7 @@
+{{- $volMiB := include "kubebay.auditVolumeMiB" . | int }}
+{{- if and (not .Values.auditLog.persistence.existingClaim) (gt (mul 2 (int .Values.auditLog.maxSizeMiB)) $volMiB) }}
+{{- fail (printf "auditLog.maxSizeMiB (%d) is kept twice (audit.log and audit.log.1), which does not fit in %dMi: raise auditLog.persistence.size or lower maxSizeMiB. Without persistence the audit file shares the 64Mi /tmp volume." (int .Values.auditLog.maxSizeMiB) $volMiB) }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -14,6 +18,10 @@ spec:
       serviceAccountName: {{ include "kubebay.name" . }}
       securityContext:
         runAsNonRoot: true
+        {{- if .Values.auditLog.persistence.enabled }}
+        # The engine runs as the image's nonroot user; the claim must be writable by it.
+        fsGroup: 65532
+        {{- end }}
         seccompProfile:
           type: RuntimeDefault
       containers:
@@ -32,6 +40,16 @@ spec:
               value: /tmp
             - name: XDG_CONFIG_HOME
               value: /tmp/.config
+            # Every audit entry is also printed to stdout as one JSON line, for a log collector.
+            # The file is capped: audit.log rotates to audit.log.1 at this size.
+            - name: KUBEBAY_AUDIT_STDOUT
+              value: {{ .Values.auditLog.stdout | quote }}
+            - name: KUBEBAY_AUDIT_MAX_BYTES
+              value: {{ mul .Values.auditLog.maxSizeMiB 1048576 | quote }}
+            {{- if .Values.auditLog.persistence.enabled }}
+            - name: KUBEBAY_AUDIT_DIR
+              value: /var/lib/kubebay/audit
+            {{- end }}
             # Settings that apply to every user are read-only in the app here;
             # the operator sets them through these values.
             {{- with .Values.nodeShellImage }}
@@ -72,6 +90,10 @@ spec:
           volumeMounts:
             - name: tmp
               mountPath: /tmp
+            {{- if .Values.auditLog.persistence.enabled }}
+            - name: audit
+              mountPath: /var/lib/kubebay/audit
+            {{- end }}
           readinessProbe:
             httpGet: { path: /api/healthz, port: 8080 }
           livenessProbe:
@@ -82,6 +104,11 @@ spec:
         - name: tmp
           emptyDir:
             sizeLimit: 64Mi
+        {{- if .Values.auditLog.persistence.enabled }}
+        - name: audit
+          persistentVolumeClaim:
+            claimName: {{ .Values.auditLog.persistence.existingClaim | default (printf "%s-audit" (include "kubebay.name" .)) }}
+        {{- end }}
 {{- if .Values.oidc.issuerUrl }}
 ---
 apiVersion: v1

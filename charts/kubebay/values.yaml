@@ -36,6 +36,23 @@ prometheus:
   # every namespace whatever their RBAC, so it's off unless you turn it on.
   allUsers: false
 
+# The audit log of every change made through Kubebay.
+auditLog:
+  # Print every entry to stdout as one JSON line (time, user, action, gvr, cluster,
+  # namespace, name, result), so a log collector keeps a copy outside the pod.
+  stdout: true
+  # The file rotates at this size (audit.log -> audit.log.1), so it takes at most twice
+  # this on disk. Without persistence it shares the 64Mi /tmp volume with settings.
+  maxSizeMiB: 16
+  # Keep the file on a PersistentVolumeClaim so it survives a restart or reschedule.
+  # The claim is ReadWriteOnce: with replicaCount above 1 use a storage class that allows it.
+  persistence:
+    enabled: false
+    size: 1Gi
+    storageClass: ""
+    # Use a claim you made yourself; none is created, and size is not checked.
+    existingClaim: ""
+
 ingress:
   enabled: false
   className: nginx

@@ -1,0 +1,15 @@
+{{- if and .Values.auditLog.persistence.enabled (not .Values.auditLog.persistence.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "kubebay.name" . }}-audit
+  labels: { app: kubebay }
+spec:
+  accessModes: ["ReadWriteOnce"]
+  {{- with .Values.auditLog.persistence.storageClass }}
+  storageClassName: {{ . | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.auditLog.persistence.size }}
+{{- end }}
