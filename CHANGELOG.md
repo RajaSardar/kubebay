@@ -6,6 +6,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ## [Unreleased]
 
+- **Fixed: NodePort Services showed as ClusterIP with no ports** (backlog 66). Services, Endpoints and Ingresses were streamed as metadata only, which strips `spec`, so the Services list's Type, Cluster IP and Port columns (and `type:NodePort` in the filter) had nothing to read, Endpoints counted 0 and Ingresses had no Class or Hosts. They now stream in full. Not run against a live cluster.
+
 ## [0.8.2] - 2026-11-24
 
 v0.8.1 was tagged but never published (its macOS build ran out of memory), so everything it held ships here.

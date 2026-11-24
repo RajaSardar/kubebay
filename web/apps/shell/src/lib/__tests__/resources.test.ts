@@ -23,6 +23,14 @@ describe("DEFS.endpointslices", () => {
   });
 });
 
+describe("kinds whose columns read spec or subsets", () => {
+  it("stream in full mode: a metadata-mode payload strips spec, so a NodePort Service showed as ClusterIP with no ports (backlog 66)", () => {
+    for (const slug of ["services", "endpoints", "ingresses"]) {
+      expect(DEFS[slug]?.mode, slug).toBe("full");
+    }
+  });
+});
+
 describe("lookupDef", () => {
   const sp = new URLSearchParams();
 
