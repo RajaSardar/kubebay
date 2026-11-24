@@ -879,3 +879,71 @@
   --kb-chart-4: #89dceb;
   --kb-chart-5: #7d7ee8;
 }
+
+/* ── Blossom (light — soft pink canvas, rose accent) ─────────────────────────
+   A light theme: a blush canvas with white-pink cards, plum text and a deep
+   rose accent. Every text and accent pair is held to 4.5:1 by themeContrast. */
+:root[data-theme="blossom"] {
+  color-scheme: light;
+
+  --kb-bg-canvas:  #fdeff4;
+  --kb-bg-surface: #fffbfd;
+  --kb-bg-raised:  #ffffff;
+  --kb-bg-overlay: #ffffff;
+  --kb-bg-inset:   #f9e3ec;
+  --kb-bg-chrome:  #f7dde8;
+  --kb-separator:  var(--kb-border-subtle);
+  --kb-card-edge:  transparent;
+  --kb-bg-hover:   rgba(168, 31, 102, 0.06);
+
+
+  --kb-fg-default: #3b1a2c;
+  --kb-fg-muted:   #764659;
+  --kb-fg-subtle:  #84536a;
+
+  --kb-accent:        #a81f66;
+  --kb-accent-hover:  #891a52;
+  --kb-accent-subtle: rgba(168, 31, 102, 0.08);
+  --kb-row-changed: rgba(92, 32, 64, 0.10); /* a row whose shown data just changed (#24) */
+  --kb-accent-fg:     #ffffff;
+  --kb-on-danger: #ffffff;
+
+  --kb-status-ok:         #17703e;
+  --kb-status-warn:       #8f5200;
+  --kb-status-err:        #c2190f;
+  --kb-status-pending:    #3347b8;
+  --kb-status-info:       #3347b8;
+  --kb-status-terminated: #9a8591;
+
+  --kb-status-ok-subtle:      color-mix(in srgb, #17703e 8%, transparent);
+  --kb-status-ok-fg:          #136536;
+  --kb-status-warn-subtle:    color-mix(in srgb, #8f5200 8%, transparent);
+  --kb-status-warn-fg:        #804a00;
+  --kb-status-err-subtle:     color-mix(in srgb, #c2190f 8%, transparent);
+  --kb-status-err-fg:         #ae160d;
+  --kb-status-pending-subtle: color-mix(in srgb, #3347b8 8%, transparent);
+  --kb-status-pending-fg:     #2d409f;
+  --kb-status-done:         #6b2fb8;
+  --kb-status-done-subtle:  color-mix(in srgb, #6b2fb8 12%, transparent);
+  --kb-status-done-fg:      #6b2fb8;
+
+  --kb-border-subtle: rgba(92, 32, 64, 0.12);
+  --kb-border-strong: rgba(92, 32, 64, 0.22);
+  --kb-border-control: rgba(92, 32, 64, 0.62);
+  --kb-highlight-inset: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+
+  --kb-shadow-lift: 0 10px 30px -10px rgba(140, 30, 80, 0.22), 0 2px 6px rgba(140, 30, 80, 0.08);
+  --kb-shadow-menu: 0 8px 32px rgba(140, 30, 80, 0.16), 0 0 0 0.5px rgba(140, 30, 80, 0.10);
+
+  --kb-focus-ring: 0 0 0 2px #a81f66;
+  --kb-selection:  rgba(168, 31, 102, 0.16);
+
+  --kb-theme-color: #fdeff4;
+
+  /* Chart series: 3:1 on every ground, hues at least 20° apart */
+  --kb-chart-1: #a81f66;
+  --kb-chart-2: #17703e;
+  --kb-chart-3: #a15c00;
+  --kb-chart-4: #6b2fb8;
+  --kb-chart-5: #0c7285;
+}

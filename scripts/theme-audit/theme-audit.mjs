@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// 12-theme accessibility audit of the running app.
+// 13-theme accessibility audit of the running app.
 //
 // Starts the built engine (engine/bin/kubebay, from `make build`) against an
 // offline kubeconfig, then in every theme renders the token gate, the cluster
@@ -26,7 +26,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, "../..");
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE ? pathToFileURL(process.env.PLAYWRIGHT_MODULE).href : "playwright");
 
-const THEMES = ["dawn", "dusk", "dawn-hc", "dusk-hc", "vscode-dark", "vscode-light", "one-dark", "dracula", "nord", "github-dark", "github-light", "catppuccin"];
+const THEMES = ["dawn", "dusk", "dawn-hc", "dusk-hc", "vscode-dark", "vscode-light", "one-dark", "dracula", "nord", "github-dark", "github-light", "catppuccin", "blossom"];
 const HC = new Set(["dawn-hc", "dusk-hc"]);
 const PORT = 9899;
 const shotsIdx = process.argv.indexOf("--shots");

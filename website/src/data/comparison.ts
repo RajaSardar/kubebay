@@ -388,7 +388,7 @@ export const standoutRows: StandoutRow[] = [
     group: "undocumented",
     kubebay: {
       kind: "yes",
-      label: "12 themes; two high-contrast at 7:1, the rest at 4.5:1",
+      label: "13 themes; two high-contrast at 7:1, the rest at 4.5:1",
       source: kbDoc("settings", "Contrast is held by tests: themeContrast.test.ts in the shell."),
     },
     lens: {

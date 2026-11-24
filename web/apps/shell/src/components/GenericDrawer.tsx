@@ -15,6 +15,7 @@ import { NamespaceSummary } from "./NamespaceSummary";
 import { MetadataSummary } from "./MetadataSummary";
 import { ResourceClaimSummary } from "./ResourceClaimSummary";
 import { RolloutProgress } from "./RolloutProgress";
+import { WorkloadPods } from "./WorkloadPods";
 import { RolloutLine } from "./RolloutLine";
 import { AutoscalingTab } from "./AutoscalingTab";
 import { PolicyFindingsTab } from "./PolicyFindingsTab";
@@ -40,6 +41,8 @@ const AUTOSCALABLE_SLUGS = new Set(["deployments", "statefulsets"]);
 // The right-sizing recommender (VPA + Kubebay's own) only covers these three
 // kinds — see lib/rightsizing.ts's SUPPORTED_KINDS.
 const RIGHTSIZABLE_SLUGS = new Set(["deployments", "statefulsets", "daemonsets"]);
+// Workloads whose Summary ends with a table of their pods.
+const POD_OWNER_SLUGS = new Set(["deployments", "statefulsets", "daemonsets", "jobs"]);
 
 // ── Split-pane drag handle ────────────────────────────────────────────────────
 function SplitDivider({
@@ -171,6 +174,7 @@ function PaneContent({
         )}
         {def.slug === "resourceclaims" && obj && <ResourceClaimSummary obj={obj} />}
         <MetadataSummary obj={obj} cluster={cluster} ns={ns} />
+        {POD_OWNER_SLUGS.has(def.slug) && obj && <WorkloadPods cluster={cluster} obj={obj} kind={def.kind} />}
       </div>
     );
   }

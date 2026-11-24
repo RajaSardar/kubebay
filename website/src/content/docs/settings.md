@@ -10,10 +10,11 @@ appRoutes: ["/settings"]
 
 ## Display
 
-- **Theme**: 12 themes in three groups, plus **System**.
+- **Theme**: 13 themes in four groups, plus **System**.
   - Apple: **Dawn** (light, the default), **Dusk** (dark), **System** (follows your OS), and the high-contrast **Dusk HC** and **Dawn HC**.
   - VSCode: **VS Dark+** and **VS Light+**.
   - Community favourites: **One Dark**, **Dracula**, **Nord**, **GitHub Dark**, **GitHub Light** and **Catppuccin** (Mocha).
+  - Soft and light: **Blossom**, a light theme with a blush-pink page, white-pink cards and a deep rose accent.
 
   **Reset to system** goes back to following your OS. Every theme meets WCAG contrast for text: 4.5:1, and 7:1 in the high-contrast themes. That holds on the page and on the frame around it (the cluster rail, sidebar and status bar), which every theme draws in its own solid shade.
 - **Font size**: S (13px), M (14px), L (15px) or XL (16px). Every size of text in the app follows it. No text is smaller than 11px at any setting, and names, IPs and other monospace text in tables are never smaller than 12px.

@@ -6,6 +6,7 @@ describe("monacoThemeFor", () => {
   it.each([
     ["dawn", "vs"],
     ["github-light", "vs"],
+    ["blossom", "vs"],
     ["dusk", "vs-dark"],
     ["nord", "vs-dark"],
     ["dusk-hc", "hc-black"],
