@@ -157,6 +157,8 @@ func (c *Channels) HandleGetYAML(w http.ResponseWriter, r *http.Request) {
 	if isSecret(doc) {
 		if q.Get("reveal") == "true" {
 			c.auditSecretReveal(r, cluster, ns, name)
+		} else if q.Get("mask") == "sizes" {
+			maskSecretSizes(doc) // for Compare: lengths, never values
 		} else {
 			maskSecret(doc)
 		}

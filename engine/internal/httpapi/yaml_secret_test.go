@@ -160,3 +160,37 @@ func TestApplyYAMLAllowsEditingAMaskedSecretsLabelsWithoutWritingThePlaceholder(
 		t.Errorf("the placeholder must never be written: %s", got.action.GetPatch())
 	}
 }
+
+// Compare shows how big each value is, never the value: mask=sizes swaps each
+// one for its decoded length, so two Secrets can be told apart by shape.
+func TestGetYAMLMaskSizesShowsLengthsNotValues(t *testing.T) {
+	c, _ := editChannels(t, liveSecret())
+	for _, format := range []string{"", "&format=json"} {
+		body := getSecret(t, c, "&mask=sizes"+format).Body.String()
+		if strings.Contains(body, secretB64) || strings.Contains(body, "YWRtaW4=") || strings.Contains(body, "hunter2") {
+			t.Errorf("format %q leaks a Secret value:\n%s", format, body)
+		}
+		if !strings.Contains(body, "7 bytes") || !strings.Contains(body, "5 bytes") {
+			t.Errorf("format %q should show decoded sizes (7 and 5):\n%s", format, body)
+		}
+		if !strings.Contains(body, "team") {
+			t.Errorf("format %q lost the other annotations:\n%s", format, body)
+		}
+	}
+}
+
+// mask=sizes is not a way around reveal: it never returns a value, and a
+// request that asks for both still gets no values without the audit entry.
+func TestGetYAMLMaskSizesIsNotAReveal(t *testing.T) {
+	c, _ := editChannels(t, liveSecret())
+	body := getSecret(t, c, "&mask=sizes").Body.String()
+	entries, _ := c.Audit.Tail(10)
+	for _, e := range entries {
+		if e.Action == "secret-reveal" {
+			t.Errorf("mask=sizes must not audit a reveal, it reveals nothing: %+v", e)
+		}
+	}
+	if strings.Contains(body, secretB64) {
+		t.Fatal("leak")
+	}
+}
