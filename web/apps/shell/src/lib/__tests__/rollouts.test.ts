@@ -241,3 +241,22 @@ describe("rolloutActionRequests", () => {
     expect(y).toMatchObject({ apiVersion: "argoproj.io/v1alpha1", kind: "Rollout", metadata: { name: "web", namespace: NS } });
   });
 });
+
+describe("ownership", () => {
+  it("matches by UID first, so a same-named Rollout elsewhere does not claim the ReplicaSet", () => {
+    const mine = rollout();
+    const other = rollout({ metadata: { name: "web", namespace: "other", uid: "u2" } });
+    const owned = {
+      metadata: { name: "web-aaa", namespace: NS, labels: { "rollouts-pod-template-hash": "aaa" }, ownerReferences: [{ kind: "Rollout", name: "web", uid: "u1" }] },
+      spec: { template: { spec: { containers: [{ image: "web:1" }] } } },
+    };
+    const sets = [owned];
+    const withStable = (ro: Record<string, unknown>) => ({ ...ro, status: { ...(ro.status as object), stableRS: "aaa" } });
+    expect(describeRollout(withStable(mine), sets, []).stable?.name).toBe("web-aaa");
+    expect(describeRollout(withStable(other), sets, []).stable).toBeNull();
+  });
+  it("does not match a same-name owner reference with a different UID", () => {
+    const runs = [{ metadata: { name: "r1", namespace: NS, ownerReferences: [{ kind: "Rollout", name: "web", uid: "zzz" }] }, status: { phase: "Running" } }];
+    expect(describeRollout(rollout(), [], runs).analysisRuns).toEqual([]);
+  });
+});
