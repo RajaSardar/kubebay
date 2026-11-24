@@ -159,4 +159,19 @@ describe("RolloutsDashboard", () => {
     );
     expect(screen.getByText(/No Rollouts found/)).toBeTruthy();
   });
+
+  it("expands a Release view with steps and replica sets, closed by default", () => {
+    ui();
+    expect(screen.queryByLabelText("Release")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Release/ }));
+    expect(screen.getByLabelText("Release steps")).toBeTruthy();
+    expect(screen.getByText("Set weight 20%")).toBeTruthy();
+  });
+
+  it("still asks for confirmation before Restart with the Release view open", () => {
+    ui();
+    fireEvent.click(screen.getByRole("button", { name: /Release/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Restart" }));
+    expect(api.applyYaml).not.toHaveBeenCalled();
+  });
 });

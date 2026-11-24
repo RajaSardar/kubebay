@@ -27,19 +27,19 @@ describe("steps", () => {
     const v = buildReleaseView(canary(), SETS, [], []);
     expect(v.steps.map((s) => s.state)).toEqual(["done", "current", "pending", "pending", "pending"]);
     expect(v.steps.map((s) => s.kind)).toEqual(["setWeight", "pause", "setWeight", "pause", "analysis"]);
-    expect(v.steps[0].label).toBe("Set weight 20%");
-    expect(v.steps[1].label).toBe("Pause");
-    expect(v.steps[3].label).toBe("Pause 1m");
+    expect(v.steps[0]!.label).toBe("Set weight 20%");
+    expect(v.steps[1]!.label).toBe("Pause");
+    expect(v.steps[3]!.label).toBe("Pause 1m");
   });
   it("flags the current pause step as paused with its reason", () => {
     const v = buildReleaseView(canary({ phase: "Paused", pauseConditions: [{ reason: "CanaryPauseStep" }] }), SETS, [], []);
-    expect(v.steps[1]).toMatchObject({ paused: true, pauseReason: "CanaryPauseStep" });
-    expect(v.steps[0].paused).toBe(false);
+    expect(v.steps[1]!).toMatchObject({ paused: true, pauseReason: "CanaryPauseStep" });
+    expect(v.steps[0]!.paused).toBe(false);
     expect(v.haltReason).toContain("CanaryPauseStep");
   });
   it("treats a missing index as step 0", () => {
     const v = buildReleaseView(canary({ currentStepIndex: undefined }), SETS, [], []);
-    expect(v.steps[0].state).toBe("current");
+    expect(v.steps[0]!.state).toBe("current");
   });
   it("marks every step done when the index equals the step count", () => {
     const v = buildReleaseView(canary({ currentStepIndex: 5 }), SETS, [], []);
@@ -47,7 +47,7 @@ describe("steps", () => {
   });
   it("shows an abort on the current step only when the index is in range", () => {
     const a = buildReleaseView(canary({ abort: true, message: "RolloutAborted: metric failed" }), SETS, [], []);
-    expect(a.steps[1]).toMatchObject({ state: "current", note: "aborted" });
+    expect(a.steps[1]!).toMatchObject({ state: "current", note: "aborted" });
     const b = buildReleaseView(canary({ abort: true, currentStepIndex: 9 }), SETS, [], []);
     expect(b.steps.some((s) => s.state === "current")).toBe(false);
     expect(a.haltReason).toMatch(/^Aborted/);
@@ -83,13 +83,13 @@ describe("replica sets", () => {
   });
   it("uses the reported traffic weights as live", () => {
     const v = buildReleaseView(canary({ canary: { weights: { canary: { weight: 20 }, stable: { weight: 80 } } } }), SETS, [], []);
-    expect(v.replicaSets[0]).toMatchObject({ weight: 80, weightKind: "live" });
-    expect(v.replicaSets[1]).toMatchObject({ weight: 20, weightKind: "live" });
+    expect(v.replicaSets[0]!).toMatchObject({ weight: 80, weightKind: "live" });
+    expect(v.replicaSets[1]!).toMatchObject({ weight: 20, weightKind: "live" });
   });
   it("falls back to the step's setWeight as a target, never live", () => {
     const v = buildReleaseView(canary(), SETS, [], []);
-    expect(v.replicaSets[1]).toMatchObject({ weight: 20, weightKind: "target" });
-    expect(v.replicaSets[0]).toMatchObject({ weight: 80, weightKind: "target" });
+    expect(v.replicaSets[1]!).toMatchObject({ weight: 20, weightKind: "target" });
+    expect(v.replicaSets[0]!).toMatchObject({ weight: 80, weightKind: "target" });
   });
   it("shows no weights for blueGreen", () => {
     const ro = { metadata: { name: "web", namespace: NS, uid: "u1" }, spec: { strategy: { blueGreen: {} } }, status: { blueGreen: { activeSelector: "aaa", previewSelector: "bbb" } } };
@@ -120,13 +120,13 @@ describe("analysis runs", () => {
       ],
       [],
     );
-    const a = v.analyses[0];
+    const a = v.analyses[0]!;
     expect(a).toMatchObject({ name: "web-bbb-1", phase: "Failed", tone: "err" });
-    expect(a.metrics[0]).toMatchObject({ name: "success-rate", phase: "Failed", tone: "err", lastValue: "[0.80]" });
-    expect(a.metrics[0].summary).toBe("1 successful, 2 failed");
-    expect(a.metrics[0].failure?.length).toBeLessThanOrEqual(200);
-    expect(a.metrics[1]).toMatchObject({ tone: "ok", lastValue: "12" });
-    expect(a.metrics[1].failure).toBeUndefined();
+    expect(a.metrics[0]!).toMatchObject({ name: "success-rate", phase: "Failed", tone: "err", lastValue: "[0.80]" });
+    expect(a.metrics[0]!.summary).toBe("1 successful, 2 failed");
+    expect(a.metrics[0]!.failure?.length).toBeLessThanOrEqual(200);
+    expect(a.metrics[1]!).toMatchObject({ tone: "ok", lastValue: "12" });
+    expect(a.metrics[1]!.failure).toBeUndefined();
     expect(v.haltReason ?? "").toBe("");
   });
   it("names the failed analysis in the abort reason", () => {
@@ -173,7 +173,7 @@ describe("services", () => {
   });
   it("marks a missing Service", () => {
     const v = buildReleaseView(bg(), SETS, [], [svc("web-active", "aaa")]);
-    expect(v.services[1]).toMatchObject({ role: "preview", name: "web-preview", found: false });
+    expect(v.services[1]!).toMatchObject({ role: "preview", name: "web-preview", found: false });
   });
   it("shows names only, found unknown, when Services are not readable", () => {
     const v = buildReleaseView(bg(), SETS, [], null);
@@ -187,7 +187,7 @@ describe("services", () => {
   it("ignores Services in other namespaces", () => {
     const other = { metadata: { name: "web-active", namespace: "other" }, spec: {} };
     const v = buildReleaseView(bg(), SETS, [], [other]);
-    expect(v.services[0].found).toBe(false);
+    expect(v.services[0]!.found).toBe(false);
   });
 });
 
