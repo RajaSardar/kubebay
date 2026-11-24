@@ -8,6 +8,10 @@
           "heading": "Added",
           "items": [
             {
+              "title": "Pod logs: warnings and errors only",
+              "summary": "(backlog 60)."
+            },
+            {
               "title": "Blossom theme",
               "summary": "(backlog 74)."
             },

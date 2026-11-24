@@ -40,6 +40,7 @@ Logs stream as the container writes them.
 - **tail** sets how many earlier lines to load.
 - **follow** keeps the newest line in view.
 - **previous** shows the run before the last restart, which is where a crash's cause usually is.
+- **warnings and errors only** shows only lines whose level reads as warning or error: `level=warn`, `WARN`, `WARNING`, `ERROR`, `ERR`, `FATAL` or `PANIC` as a word, a JSON `level`, `severity` or `lvl` field, a klog `W`/`E`/`F` prefix, or logfmt. A line in a format Kubebay cannot read is hidden while this is on, and the count of hidden lines is shown beside it as **N lines hidden**.
 - **Filter lines…** narrows what's shown, and **Download** saves the lines as a `.log` file.
 - Lines are coloured by their level: errors red, warnings amber, success green, debug and trace dimmed. Kubebay reads the level from the line itself:
   - a JSON field such as `"level":"error"`, including pino's numeric levels;

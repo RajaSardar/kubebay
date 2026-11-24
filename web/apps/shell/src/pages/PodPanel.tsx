@@ -3,7 +3,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Badge, Button, InlineBanner, Modal, Row, Stack, Select, Spinner, StatusDot, Tabs, TextField, Drawer } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { usePodLogs, type PodLogsSpec } from "../lib/usePodLogs";
-import { ansiSegments, logLevel, stripAnsi, type LogLevel, type LogTone } from "../lib/logLevels";
+import { filterLogLines } from "../lib/logFilter";
+import { ansiSegments, logLevel, type LogLevel, type LogTone } from "../lib/logLevels";
 import { ExecTerm, YamlTab } from "../components/heavy";
 import { useDiscardGuard } from "../components/DiscardGuard";
 import { forceDeleteEffect, forceDeleteLabel } from "../lib/podDelete";
@@ -98,6 +99,7 @@ export default function PodPanel({ pod, onClose: onCloseNow, onDeleted }: { pod:
   const [follow, setFollow] = useState(true);
   const [previous, setPrevious] = useState(false);
   const [filter, setFilter] = useState("");
+  const [problemsOnly, setProblemsOnly] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleteErr, setDeleteErr] = useState("");
   const [deleting, setDeleting] = useState(false);
@@ -127,7 +129,7 @@ export default function PodPanel({ pod, onClose: onCloseNow, onDeleted }: { pod:
   }, [lines, follow, tab]);
 
   // Filter on the text you see, not on an app's escape codes.
-  const shown = filter ? lines.filter((l) => stripAnsi(l).includes(filter)) : lines;
+  const { shown, hidden } = useMemo(() => filterLogLines(lines, { text: filter, problemsOnly }), [lines, filter, problemsOnly]);
 
   function download() {
     const blob = new Blob([lines.join("\n") + "\n"], { type: "text/plain" });
@@ -305,6 +307,10 @@ export default function PodPanel({ pod, onClose: onCloseNow, onDeleted }: { pod:
               <input type="checkbox" checked={previous} onChange={(e) => setPrevious(e.target.checked)} />
               previous
             </label>
+            <label className="ctl">
+              <input type="checkbox" checked={problemsOnly} onChange={(e) => setProblemsOnly(e.target.checked)} />
+              warnings and errors only
+            </label>
             <TextField
               placeholder="Filter lines…"
               value={filter}
@@ -312,6 +318,7 @@ export default function PodPanel({ pod, onClose: onCloseNow, onDeleted }: { pod:
               spellCheck={false}
             />
             <Badge>{shown.length}</Badge>
+            {problemsOnly && hidden > 0 && <span className="muted small">{hidden} {hidden === 1 ? "line" : "lines"} hidden</span>}
             <Button variant="ghost" onClick={download}>
               Download
             </Button>
