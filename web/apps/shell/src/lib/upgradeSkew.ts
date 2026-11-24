@@ -14,6 +14,8 @@ const rec = (v: unknown): Obj => (v && typeof v === "object" && !Array.isArray(v
 const str = (v: unknown): string => (typeof v === "string" ? v : "");
 
 export const MAX_MINORS_OLDER = 3;
+/** Before 1.28 the window was two minors. */
+const maxOlder = (apiMinor: number) => (apiMinor >= 28 ? MAX_MINORS_OLDER : 2);
 
 export type SkewKind = "kubelet-too-old" | "kubelet-newer" | "kube-proxy-too-old" | "kube-proxy-newer" | "mixed-minors";
 
@@ -32,15 +34,11 @@ function minorOf(v: string): number | undefined {
   return m ? parseInt(m[1]!, 10) : undefined;
 }
 
-export function versionSkewFindings(serverVersion: string, nodes: Obj[], targetVersion?: string): SkewFinding[] {
-  const serverMinor = minorOf(serverVersion);
-  if (serverMinor === undefined) return [];
-  const targetMinor = targetVersion ? minorOf(targetVersion) : undefined;
-  const refMinor = targetMinor ?? serverMinor;
-  const afterTarget = targetMinor !== undefined && targetMinor !== serverMinor;
+function checkAgainst(refMinor: number, afterTarget: boolean, nodes: Obj[]): { findings: SkewFinding[]; kubeletMinors: Map<number, string[]> } {
   const refLabel = afterTarget ? `the target 1.${refMinor}` : `the API server's 1.${refMinor}`;
   const out: SkewFinding[] = [];
   const kubeletMinors = new Map<number, string[]>();
+  const limit = maxOlder(refMinor);
 
   for (const n of nodes) {
     const name = str(rec(n.metadata).name);
@@ -50,7 +48,7 @@ export function versionSkewFindings(serverVersion: string, nodes: Obj[], targetV
       const minor = minorOf(version);
       if (minor === undefined) continue;
       if (component === "kubelet") kubeletMinors.set(minor, [...(kubeletMinors.get(minor) ?? []), name]);
-      const prefix = component === "kubelet" ? "kubelet" : "kube-proxy";
+      const prefix = component;
       if (minor > refMinor) {
         out.push({
           kind: component === "kubelet" ? "kubelet-newer" : "kube-proxy-newer",
@@ -60,16 +58,33 @@ export function versionSkewFindings(serverVersion: string, nodes: Obj[], targetV
           detail: `${name} runs ${prefix} ${version}, newer than ${refLabel}.`,
           why: `${prefix} must never be newer than the API server; upgrade the control plane first, or do not upgrade this node ahead of it.`,
         });
-      } else if (refMinor - minor > MAX_MINORS_OLDER) {
+      } else if (refMinor - minor > limit) {
         out.push({
           kind: component === "kubelet" ? "kubelet-too-old" : "kube-proxy-too-old",
           node: name,
           component,
           afterTarget,
           detail: `${name} runs ${prefix} ${version}, ${refMinor - minor} minor versions behind ${refLabel}.`,
-          why: `Kubernetes supports ${prefix} at most ${MAX_MINORS_OLDER} minor versions older than the API server; beyond that the node may stop registering or running pods correctly. Upgrade or replace the node first.`,
+          why: `Kubernetes supports ${prefix} at most ${limit} minor versions older than the API server; beyond that the node may stop registering or running pods correctly. Upgrade or replace the node first.`,
         });
       }
+    }
+  }
+  return { findings: out, kubeletMinors };
+}
+
+export function versionSkewFindings(serverVersion: string, nodes: Obj[], targetVersion?: string): SkewFinding[] {
+  const serverMinor = minorOf(serverVersion);
+  if (serverMinor === undefined) return [];
+  const targetMinor = targetVersion ? minorOf(targetVersion) : undefined;
+  // Problems that exist today are reported as such; the target adds only what would newly appear.
+  const now = checkAgainst(serverMinor, false, nodes);
+  const out = [...now.findings];
+  const kubeletMinors = now.kubeletMinors;
+  if (targetMinor !== undefined && targetMinor !== serverMinor) {
+    const seen = new Set(out.map((f) => `${f.node}/${f.component}/${f.kind}`));
+    for (const f of checkAgainst(targetMinor, true, nodes).findings) {
+      if (!seen.has(`${f.node}/${f.component}/${f.kind}`)) out.push(f);
     }
   }
 

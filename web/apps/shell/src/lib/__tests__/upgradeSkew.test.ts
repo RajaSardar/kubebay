@@ -37,4 +37,13 @@ describe("versionSkewFindings", () => {
     expect(versionSkewFindings("garbage", [node("a", "v1.30.0")])).toEqual([]);
     expect(versionSkewFindings("v1.30.0", [{ metadata: { name: "x" } }, node("b", "")])).toEqual([]);
   });
+  it("still reports problems that exist today when a target is set", () => {
+    const f = versionSkewFindings("v1.31.0", [node("old", "v1.26.0"), node("new", "v1.32.0")], "v1.32.0");
+    expect(f.find((x) => x.node === "old")).toMatchObject({ kind: "kubelet-too-old", afterTarget: false });
+    expect(f.find((x) => x.node === "new")).toMatchObject({ kind: "kubelet-newer", afterTarget: false });
+  });
+  it("keeps the two-minor window before Kubernetes 1.28", () => {
+    expect(versionSkewFindings("v1.27.0", [node("a", "v1.24.0")]).map((f) => f.kind)).toEqual(["kubelet-too-old"]);
+    expect(versionSkewFindings("v1.28.0", [node("a", "v1.25.0")])).toEqual([]);
+  });
 });

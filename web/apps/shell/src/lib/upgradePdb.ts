@@ -51,7 +51,8 @@ export function pdbDrainBlockers(pdbs: Obj[], pods: Obj[]): PdbDrainFinding[] {
     const name = str(meta.name);
     const ns = str(meta.namespace);
     const selector = spec.selector as LabelSelector | undefined;
-    if (!name || !selector || (!selector.matchLabels && !selector.matchExpressions)) continue;
+    // A missing selector matches nothing; an empty one ({}) matches every pod in the namespace.
+    if (!name || !selector || typeof selector !== "object") continue;
 
     const matched = running.filter(
       (p) => str(rec(p.metadata).namespace) === ns && matchesSelector((rec(p.metadata).labels ?? {}) as Record<string, string>, selector),
@@ -76,6 +77,8 @@ export function pdbDrainBlockers(pdbs: Obj[], pods: Obj[]): PdbDrainFinding[] {
       if (w) seen.set(`${w.kind}/${w.name}`, w);
     }
     const single = matched.length === 1;
+    const st = rec(pdb.status);
+    const unhealthy = typeof st.currentHealthy === "number" && typeof st.desiredHealthy === "number" && st.currentHealthy < st.desiredHealthy;
     out.push({
       ns,
       name,
@@ -83,7 +86,9 @@ export function pdbDrainBlockers(pdbs: Obj[], pods: Obj[]): PdbDrainFinding[] {
       nodes,
       workloads: [...seen.values()],
       podCount: matched.length,
-      detail: single
+      detail: unhealthy
+        ? `Only ${st.currentHealthy as number} of the ${st.desiredHealthy as number} pods it needs are healthy right now, so it allows 0 disruptions. Some pods are not healthy; fixing them may clear this without changing the budget.`
+        : single
         ? "Its one running pod can't be evicted without breaking the budget, so draining its node never finishes."
         : `It allows 0 voluntary disruptions across ${matched.length} running pods, so draining ${nodes.length === 1 ? "that node" : "these nodes"} waits forever.`,
       suggestion: single

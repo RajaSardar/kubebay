@@ -65,4 +65,14 @@ describe("pdbDrainBlockers", () => {
   it("tolerates a PDB with no selector or missing fields", () => {
     expect(pdbDrainBlockers([{ metadata: { name: "x", namespace: "a" } }, {}], [web("w1", "n1")])).toEqual([]);
   });
+  it("treats an empty selector as matching every pod in the namespace", () => {
+    const p = { metadata: { name: "all", namespace: "a" }, spec: { selector: {}, maxUnavailable: 0 } };
+    const f = pdbDrainBlockers([p], [web("w1", "n1"), web("w2", "n2")]);
+    expect(f).toHaveLength(1);
+    expect(f[0]!.nodes).toEqual(["n1", "n2"]);
+  });
+  it("says so when the budget is at zero because pods are not healthy", () => {
+    const f = pdbDrainBlockers([pdb({ minAvailable: 2 }, { disruptionsAllowed: 0, currentHealthy: 1, desiredHealthy: 2 })], [web("w1", "n1"), web("w2", "n2")]);
+    expect(f[0]!.detail).toMatch(/not healthy|unhealthy/i);
+  });
 });
