@@ -78,6 +78,16 @@
 73. embed the Argo Rollouts dashboard (what `kubectl argo rollouts dashboard` serves) inside Kubebay
 74. add a beautifully designed pink theme for girls and women (a 13th theme, with all the theme tests and contrast rules)
 75. Deployments and StatefulSets: show all of the workload's pods in the lower part of its window
+76. Issues queue with Investigate: one ranked list across kinds, built on the existing detectors (pods, workloads, nodes, services, RBAC, upgrade readiness), each issue with an Investigate button that opens the right drawer and evidence
+77. Read-only mode for the MCP server (an owner switch), and measure our own MCP tools against the public SREGym benchmark on kind; add new tools only where the benchmark shows a gap
+78. AI investigations through Claude Code only, with built-in tools off, the read-only MCP mount, and fixes only as a diff you approve
+79. durable in-cluster audit log: JSON lines on stdout plus an optional PVC (today it is on a 64Mi emptyDir and lost on restart); export to OTLP, syslog or S3 stays a later, separate item
+80. Upgrade impact v2: PodDisruptionBudget drain blockers, version skew between control plane and nodes, and admission webhook failure policy
+81. auth-proxy header sign-in for the in-cluster install (trusted-source rule, security review first)
+82. desktop change timeline: events and changes in a local SQLite file with a retention setting, field manager shown, and gaps in coverage labelled
+83. Compare two resources side by side, including across clusters
+84. GitOps actions: Flux reconcile, suspend and resume, and Argo CD rollback, through the blast-radius preview and confirmation
+85. desktop notifications for new Issues (after the Issues queue)
 ---
 
 ## Status of the open items (2026-11-23)
