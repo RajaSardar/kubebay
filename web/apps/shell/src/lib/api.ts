@@ -213,6 +213,13 @@ export const api = {
   ): Promise<Record<string, unknown>> => {
     return JSON.parse(await fetchObject(cluster, gvr, ns, name, "json")) as Record<string, unknown>;
   },
+  /**
+   * The object as JSON for Compare. A Secret's values come back as their sizes
+   * ("<7 bytes>"), never the values, and nothing is audited as a reveal.
+   */
+  getObjectForCompare: async (cluster: string, gvr: string, ns: string, name: string): Promise<Record<string, unknown>> => {
+    return JSON.parse(await fetchObject(cluster, gvr, ns, name, "json", false, true)) as Record<string, unknown>;
+  },
   applyYaml: applyYamlRequest,
   createResource: (b: { cluster: string; yaml: string; dryRun: boolean }) =>
     send<{ applied: number; total: number; dryRun: boolean }>("POST", "/api/yaml/create", b),
@@ -285,8 +292,10 @@ async function fetchObject(
   name: string,
   format: "yaml" | "json",
   reveal?: boolean,
+  maskSizes?: boolean,
 ): Promise<string> {
   const q = new URLSearchParams({ cluster, gvr, ns, name });
+  if (maskSizes) q.set("mask", "sizes");
   if (format === "json") q.set("format", "json");
   if (reveal) q.set("reveal", "true");
   const ctrl = new AbortController();

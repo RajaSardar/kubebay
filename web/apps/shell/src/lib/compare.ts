@@ -15,6 +15,8 @@ export interface CompareRef {
   kind?: string;
 }
 
+import { lookupDef } from "./resources";
+
 type Obj = Record<string, unknown>;
 
 const NOISY_METADATA = ["managedFields", "resourceVersion", "uid", "generation", "creationTimestamp", "selfLink"];
@@ -199,4 +201,17 @@ export function compareErrorMessage(e: unknown, r: CompareRef): string {
     return `You are not allowed to read ${refLabel(r)}. Your own access on that cluster decides this. ${text.replace(/^get:\s*/, "")}`.trim();
   }
   return `Could not read ${refLabel(r)}: ${text.replace(/^get:\s*/, "")}`;
+}
+
+/** A search hit (palette index or engine) as a ref; null when its kind is unknown. */
+export function refFromObject(o: { cluster: string; slug: string; ns: string; name: string; clusterScoped?: boolean }): CompareRef | null {
+  const def = lookupDef(o.slug, new URLSearchParams(o.clusterScoped ? "scoped=0" : ""));
+  if (!def) return null;
+  return { cluster: o.cluster, gvr: def.gvr, ns: o.ns, name: o.name, kind: def.kind };
+}
+
+/** A table's row key ("ns/name", "/name" for a cluster-scoped object) as a ref. */
+export function refFromRowKey(key: string, cluster: string, gvr: string, kind?: string): CompareRef {
+  const i = key.indexOf("/");
+  return { cluster, gvr, ns: key.slice(0, i), name: key.slice(i + 1), ...(kind ? { kind } : {}) };
 }

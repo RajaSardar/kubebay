@@ -44,8 +44,8 @@ export const PAGE_HELP: Record<string, PageHelpEntry> = {
   },
   "/r/:kind": {
     name: "this table",
-    what: "A live table of one kind of Kubernetes resource, with row actions, bulk delete and a create button.",
-    how: "Kubebay watches the kind through the API server, so rows change as the cluster does; filter with words or key:value.",
+    what: "A live table of one kind of Kubernetes resource, with row actions, bulk delete, compare and a create button.",
+    how: "Kubebay watches the kind through the API server, so rows change as the cluster does; filter with words or key:value. Tick two rows to compare them.",
     docs: "resources",
   },
   "/network-policy": {

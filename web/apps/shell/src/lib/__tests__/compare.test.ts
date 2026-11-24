@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compareErrorMessage, normalizeObject, refLabel, sameRef, toYaml, unifiedDiff } from "../compare";
+import { compareErrorMessage, refFromObject, refFromRowKey, normalizeObject, refLabel, sameRef, toYaml, unifiedDiff } from "../compare";
 
 const deploy = {
   apiVersion: "apps/v1",
@@ -100,5 +100,35 @@ describe("refs and errors", () => {
   it("says not found and unreachable", () => {
     expect(compareErrorMessage(Object.assign(new Error("x"), { name: "ObjectNotFoundError" }), r)).toMatch(/not found/i);
     expect(compareErrorMessage(new Error("get: dial tcp: i/o timeout"), r)).toContain("Could not read");
+  });
+});
+
+describe("making refs", () => {
+  it("resolves a built-in kind's search hit to its gvr", () => {
+    expect(refFromObject({ cluster: "dev", slug: "deployments", ns: "shop", name: "api" })).toEqual({
+      cluster: "dev",
+      gvr: "apps/v1/deployments",
+      ns: "shop",
+      name: "api",
+      kind: "Deployment",
+    });
+  });
+  it("resolves a custom resource hit by its ext-- slug, and cluster-scoped ones have no namespace", () => {
+    const r = refFromObject({ cluster: "dev", slug: "ext--karpenter.sh--v1--nodepools", ns: "", name: "np", clusterScoped: true });
+    expect(r?.gvr).toBe("karpenter.sh/v1/nodepools");
+    expect(r?.ns).toBe("");
+  });
+  it("gives null for a kind it cannot resolve", () => {
+    expect(refFromObject({ cluster: "dev", slug: "nope", ns: "", name: "x" })).toBeNull();
+  });
+  it("splits a table row key into a ref", () => {
+    expect(refFromRowKey("shop/api", "dev", "apps/v1/deployments", "Deployment")).toEqual({
+      cluster: "dev",
+      gvr: "apps/v1/deployments",
+      ns: "shop",
+      name: "api",
+      kind: "Deployment",
+    });
+    expect(refFromRowKey("/node-1", "dev", "v1/nodes").ns).toBe("");
   });
 });
