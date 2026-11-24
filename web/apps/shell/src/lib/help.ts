@@ -158,8 +158,8 @@ export const PAGE_HELP: Record<string, PageHelpEntry> = {
   },
   "/upgrade-readiness": {
     name: "Upgrade Readiness",
-    what: "API versions your cluster still serves that the next Kubernetes releases remove.",
-    how: "Read from the API server's discovery data, against Kubernetes' deprecation guide.",
+    what: "What an upgrade would hit: removed API versions, PDBs that block drains, version skew, risky webhooks.",
+    how: "API versions from discovery; the rest from PDBs, pods, nodes and webhooks, read as you.",
     docs: "upgrade-readiness",
   },
   "/search": {

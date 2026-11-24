@@ -8,6 +8,10 @@
           "heading": "Added",
           "items": [
             {
+              "title": "Upgrade impact",
+              "summary": "(backlog 80)."
+            },
+            {
               "title": "Release view for Argo Rollouts",
               "summary": "(backlog 73)."
             },
