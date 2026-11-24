@@ -1,3 +1,4 @@
+import { certificateState } from "./certExpiry";
 import { matchesSelector, type LabelSelector } from "./labelSelector";
 
 type Obj = Record<string, unknown>;
@@ -652,7 +653,7 @@ function extraChecks(input: BestPracticesInput, workloads: Workload[] | undefine
   }
 
   const certBase = mk("cert-expiry", "Platform", "Certificates not near expiry", "An expired certificate takes a service offline for every client at once.");
-  const soon = (input.now ?? Date.now()) + 14 * 86_400_000;
+  const certNow = input.now ?? Date.now();
   const certs: Raw = !input.certificates
     ? UNKNOWN(certBase, "cert-manager Certificates")
     : input.certificates.length === 0
@@ -660,12 +661,7 @@ function extraChecks(input: BestPracticesInput, workloads: Workload[] | undefine
       : listResult(
           certBase,
           input.certificates
-            .filter((c) => {
-              const st = rec(c.status);
-              const exp = Date.parse(str(st.notAfter));
-              const ready = arr(st.conditions).some((x) => str(rec(x).type) === "Ready" && str(rec(x).status) === "True");
-              return !ready || (!Number.isNaN(exp) && exp < soon);
-            })
+            .filter((c) => certificateState(c, certNow) !== "ok")
             .map(objName),
           "Certificates expiring within 14 days or not Ready",
           "No Certificate expires within 14 days.",
