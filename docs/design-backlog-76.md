@@ -1,9 +1,5 @@
 # Design: Issues queue with Investigate (backlog 76)
-
-Status: design only. No implementation yet.
-
 ## Goal
-
 One ranked list of what is wrong in the connected cluster, across kinds, so a
 user sees "what do I look at first" without visiting six pages. Each issue has a
 severity, kind/namespace/name, a one-line plain explanation, an age, and an
@@ -14,9 +10,7 @@ blast radius, then age. Filter by severity, kind and namespace. Per cluster.
 The queue invents nothing: every issue carries the id of the detector that
 raised it and the detector's own text. It adds no API calls; it reads the
 streams and caches the existing pages already open.
-
 ## Data sources (existing detectors, reused as-is)
-
 | Detector id      | Module                          | Input streams (already used elsewhere)            |
 |------------------|---------------------------------|---------------------------------------------------|
 | pod-problem      | lib/attention.ts findAttention (uses podReason; ExplainPod text for detail via lib/explainPod.ts) | pods, deployments, statefulsets, daemonsets, nodes |
@@ -37,9 +31,7 @@ Streams are opened through `useResourceStream` with the same arguments and
 `mode` the existing pages use so the shared stream cache (lib/streamCache.ts)
 is hit. Optional streams (services, endpointslices, pdbs, netpols, certs) are
 `enabled` only while /issues is mounted.
-
 ## Module layout
-
 - `web/apps/shell/src/lib/issues.ts` (pure, no React, no fetch): types,
   adapters from each detector's output to `Issue`, `rankIssues`,
   `filterIssues`, `summarizeIssues`, `issueTarget`.
@@ -54,9 +46,7 @@ is hit. Optional streams (services, endpointslices, pdbs, netpols, certs) are
   an entry in the palette's page list, an entry in `lib/help.ts` (170-char limit),
   docs page `website/src/content/docs/issues.md` with `appRoutes: ["/issues"]`,
   CHANGELOG [Unreleased] under Added, then `node scripts/whatsnew-gen.mjs`.
-
 ## Public API and types
-
 ```ts
 export type IssueSeverity = "critical" | "high" | "medium" | "low";
 export type IssueDetector =
@@ -113,9 +103,7 @@ Investigate target: object issues go through `targetFor()` in lib/objectPath.ts
 (pods open `/workloads?pod=ns/name`, others `/detail/<slug>/<ns>/<name>`); page
 issues go to the owning page (`/best-practices`, `/upgrade-readiness`, `/rbac`,
 `/network-policy`) so the evidence is visible there.
-
 ## Security considerations
-
 - Reads only what the user's own RBAC already streams. A forbidden stream marks
   its detectors "not checked"; the queue never shows data for it.
 - No new endpoints, no extra API calls, no mutations, so no audit path change.
@@ -126,9 +114,7 @@ issues go to the owning page (`/best-practices`, `/upgrade-readiness`, `/rbac`,
 - RBAC findings come from the existing per-user cached query, not a new call.
 - Summaries are plain text rendered as text (no HTML), since object names and
   event messages are user-controlled.
-
 ## Test plan (TDD, tests first)
-
 - `lib/__tests__/issues.test.ts`: one adapter test per detector (fixture in,
   exact Issue out, including detector id and evidence target); severity mapping
   table; ranking (severity, blast, age, id tie-break, stability); filters
@@ -146,10 +132,7 @@ issues go to the owning page (`/best-practices`, `/upgrade-readiness`, `/rbac`,
   Investigate navigates to the expected path, empty state, not-checked banner.
 - Guard tests stay green: shellAdoption, themeTokens, themeContrast, cssHygiene,
   help.test (route entry, 170 chars), website docs.test (appRoutes), palette test.
-- Headless Playwright mock harness screenshot into /tmp/kubebay-work/ only.
-
 ## Failure modes
-
 - Stream still loading: show issues found so far with a "Still checking N
   sources" line; never "All clear" until every enabled detector is synced.
 - Forbidden or CRD not served: listed under "Not checked" with the reason.
@@ -157,16 +140,10 @@ issues go to the owning page (`/best-practices`, `/upgrade-readiness`, `/rbac`,
   (virtualised `DataTable`), full count still shown.
 - Detector throws: caught per detector, that detector goes to "not checked",
   the rest still render.
-- Cluster switch mid-render: results keyed by cluster, stale ones dropped.
-- Object disappears before click: Investigate lands on the normal not-found
-  state of the drawer/route.
-
 ## Out of scope
-
 - Desktop notifications, alerting, or any background polling (later item;
   `useIssues` is the reuse point).
 - Muting, acknowledging, assignment, or persistence of issues.
 - New detectors or changing existing detector thresholds.
 - Multi-cluster merged view (the queue is per cluster; fleet rollup is later).
 - Auto-remediation or any mutation from the queue.
-- Metrics-based issues (needs Prometheus), vulnerability and image findings.
