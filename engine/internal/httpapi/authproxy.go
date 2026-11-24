@@ -3,6 +3,7 @@ package httpapi
 import (
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/RajaSardar/kubebay/engine/internal/clusters"
 )
@@ -38,6 +39,15 @@ func ProxyGate(src identitySource, log *slog.Logger) func(http.Handler) http.Han
 				_, _ = w.Write([]byte(`{"error":"the auth proxy did not authenticate this request","proxy":true}`))
 				return
 			}
+			if crossSiteMutation(r) {
+				// The proxy adds this user's identity to whatever their browser
+				// sends, so a page on another site could act as them. The
+				// browser says where the request came from.
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusForbidden)
+				_, _ = w.Write([]byte(`{"error":"cross-site request refused"}`))
+				return
+			}
 			r = r.WithContext(WithIdentity(r.Context(), ident))
 			src.Scrub(r.Header)
 			next.ServeHTTP(w, r)
@@ -53,4 +63,19 @@ func HandleMeFromContext(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, map[string]any{"authenticated": true, "user": ident.Name, "groups": ident.Groups})
+}
+
+// crossSiteMutation reports a state-changing request, or a WebSocket upgrade,
+// the browser marked as coming from another origin or site. Requests without
+// the header (scripts, older browsers) pass; plain reads always pass.
+func crossSiteMutation(r *http.Request) bool {
+	switch r.Header.Get("Sec-Fetch-Site") {
+	case "", "same-origin", "none":
+		return false
+	}
+	switch r.Method {
+	case http.MethodGet, http.MethodHead, http.MethodOptions:
+		return strings.EqualFold(r.Header.Get("Upgrade"), "websocket")
+	}
+	return true
 }

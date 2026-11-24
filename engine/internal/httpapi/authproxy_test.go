@@ -253,3 +253,45 @@ func TestEveryBlockReasonLocksWhenIdentityIsShared(t *testing.T) {
 		}
 	}
 }
+
+// The proxy attaches the user's identity to every request their browser makes,
+// including one an attacker's page triggers. The browser's own Sec-Fetch-Site
+// header tells a cross-site request apart, whatever Host the proxy forwards.
+func TestProxyGateRefusesCrossSiteMutationsAndUpgrades(t *testing.T) {
+	var reached bool
+	h := ProxyGate(proxyVerifier(t), quietLog())(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { reached = true }))
+	cases := []struct {
+		method, site, upgrade string
+		want                  int
+	}{
+		{"POST", "cross-site", "", 403},
+		{"DELETE", "same-site", "", 403},
+		{"PUT", "cross-site", "", 403},
+		{"GET", "cross-site", "websocket", 403},
+		{"POST", "same-origin", "", 200},
+		{"POST", "", "", 200},
+		{"POST", "none", "", 200},
+		{"GET", "cross-site", "", 200}, // a plain read is not a mutation
+		{"GET", "same-origin", "websocket", 200},
+	}
+	for _, c := range cases {
+		reached = false
+		r := proxyReq(c.method, "/api/clusters", proxyPeer, "alice")
+		if c.site != "" {
+			r.Header.Set("Sec-Fetch-Site", c.site)
+		}
+		if c.upgrade != "" {
+			r.Header.Set("Upgrade", c.upgrade)
+		}
+		rec := serve(h, r)
+		if rec.Code != c.want || reached != (c.want == 200) {
+			t.Errorf("%s site=%q upgrade=%q: got %d reached=%v, want %d", c.method, c.site, c.upgrade, rec.Code, reached, c.want)
+		}
+	}
+	// An untrusted peer is still a 401, not a 403 that hints it was recognised.
+	r := proxyReq("POST", "/api/clusters", untrustedPeer, "alice")
+	r.Header.Set("Sec-Fetch-Site", "cross-site")
+	if rec := serve(h, r); rec.Code != 401 {
+		t.Errorf("untrusted cross-site: %d", rec.Code)
+	}
+}
