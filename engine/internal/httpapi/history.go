@@ -47,7 +47,7 @@ func clusterParam(w http.ResponseWriter, r *http.Request) (string, bool) {
 func HistoryBlockReason(inCluster, oidcEnabled bool) string {
 	switch {
 	case oidcEnabled:
-		return "Usage history is not recorded when OIDC is configured: it is collected with the engine's own access, not each user's."
+		return "Usage history is not recorded when OIDC or an auth proxy is configured: it is collected with the engine's own access, not each user's."
 	case inCluster:
 		return "Usage history is not recorded for in-cluster deployments: it is collected with the engine's own access, not each user's."
 	}

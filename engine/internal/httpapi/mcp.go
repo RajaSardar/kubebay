@@ -33,7 +33,7 @@ type MCPSettings struct {
 func MCPBlockReason(inCluster, oidcEnabled, loopbackOnly bool) string {
 	switch {
 	case oidcEnabled:
-		return "the MCP server is off when OIDC is configured: one engine serves several people, and a token would see what the engine sees"
+		return "the MCP server is off when OIDC or an auth proxy is configured: one engine serves several people, and a token would see what the engine sees"
 	case inCluster:
 		return "the MCP server is off in in-cluster mode"
 	case !loopbackOnly:

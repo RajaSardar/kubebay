@@ -56,7 +56,7 @@ func Allowed(enabled, inCluster, oidcEnabled bool, addr string) error {
 		return fmt.Errorf("%w: --in-cluster means the engine is not on the user's machine", ErrDisabled)
 	}
 	if oidcEnabled {
-		return fmt.Errorf("%w: OIDC is configured, and a local shell would run as the engine's identity for every logged-in user", ErrDisabled)
+		return fmt.Errorf("%w: OIDC or an auth proxy is configured, and a local shell would run as the engine's identity for every logged-in user", ErrDisabled)
 	}
 	return loopbackOnly(addr)
 }

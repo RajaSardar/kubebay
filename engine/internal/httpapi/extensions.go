@@ -24,7 +24,7 @@ type ExtensionsAPI struct {
 func ExtensionsBlockReason(inCluster, oidcEnabled bool) string {
 	switch {
 	case oidcEnabled:
-		return "extensions come from a file on the engine's machine, so they're off when OIDC is configured"
+		return "extensions come from a file on the engine's machine, so they're off when OIDC or an auth proxy is configured"
 	case inCluster:
 		return "extensions come from a file on the engine's machine, so they're off in in-cluster mode"
 	}

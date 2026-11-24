@@ -38,7 +38,7 @@ type TriageSettings struct {
 func TriageBlockReason(inCluster, oidcEnabled bool) string {
 	switch {
 	case oidcEnabled:
-		return "incident triage is off when OIDC is configured: one engine serves several people"
+		return "incident triage is off when OIDC or an auth proxy is configured: one engine serves several people"
 	case inCluster:
 		return "incident triage is off in in-cluster mode"
 	}

@@ -43,6 +43,9 @@ type Deps struct {
 	Triage    *TriageAPI
 	Settings  *SettingsManager
 	Auth      *Authenticator
+	// Proxy takes identity from an authenticating reverse proxy's headers
+	// (backlog 81); nil or disabled leaves OIDC / the launch token in charge.
+	Proxy     identitySource
 	Audit     *audit.Logger
 	Waste     wasteSnapshotter
 	History   *HistoryAPI
@@ -58,6 +61,12 @@ type Deps struct {
 }
 
 func (d Deps) authEnabled() bool { return d.Auth != nil && d.Auth.Enabled() }
+
+func (d Deps) proxyEnabled() bool { return d.Proxy != nil && d.Proxy.Enabled() }
+
+// sharedIdentity is true when one engine serves several signed-in people,
+// whether OIDC or an auth proxy tells it who they are.
+func (d Deps) sharedIdentity() bool { return d.authEnabled() || d.proxyEnabled() }
 
 func NewChannels(mgr *clusters.Manager, auditLog *audit.Logger) *Channels {
 	return &Channels{Clusters: mgr, Audit: auditLog}
@@ -85,6 +94,8 @@ func Router(d Deps, token string) http.Handler {
 	r.Get("/api/auth-mode", func(w http.ResponseWriter, _ *http.Request) {
 		mode := "open"
 		switch {
+		case d.proxyEnabled():
+			mode = "proxy"
 		case d.authEnabled():
 			mode = "oidc"
 		case token != "":
@@ -109,6 +120,17 @@ func Router(d Deps, token string) http.Handler {
 		})
 	}
 
+	if d.proxyEnabled() {
+		// The proxy owns sign-in and sign-out; the engine only says who the
+		// proxy says this is. Refused (401) before it gets here without one.
+		r.With(ProxyGate(d.Proxy, d.Log)).Get("/api/auth/me", func(w http.ResponseWriter, req *http.Request) {
+			HandleMeFromContext(w, req)
+		})
+		// No login or logout of our own: anything else under /api/auth is a
+		// 401 for an unauthenticated peer and a plain 404 for the proxy.
+		r.With(ProxyGate(d.Proxy, d.Log)).HandleFunc("/api/auth/*", http.NotFound)
+	}
+
 	// MCP sits beside the token group, not in it: requireToken also accepts
 	// the UI's launch token and OIDC cookies, and everything when no token is
 	// set. /mcp takes only its own Bearer token (MCPAPI.Endpoint).
@@ -118,6 +140,10 @@ func Router(d Deps, token string) http.Handler {
 
 	writes := &writeTracker{}
 	r.Group(func(r chi.Router) {
+		if d.proxyEnabled() {
+			// First, so the launch token never counts as a credential here.
+			r.Use(ProxyGate(d.Proxy, d.Log))
+		}
 		r.Use(requireToken(token, d.Auth))
 		r.Use(writes.middleware)
 		r.Get("/api/version", func(w http.ResponseWriter, _ *http.Request) {
@@ -133,7 +159,7 @@ func Router(d Deps, token string) http.Handler {
 			d.Clusters.RequestReachability()
 			writeJSON(w, d.Clusters.List())
 		})
-		r.Put("/api/clusters/protected", protectClustersHandler(d.Clusters, d.authEnabled()))
+		r.Put("/api/clusters/protected", protectClustersHandler(d.Clusters, d.sharedIdentity()))
 		fleetSum := d.Fleet
 		if fleetSum == nil {
 			fleetSum = fleet.New(fleet.Options{})
@@ -145,7 +171,7 @@ func Router(d Deps, token string) http.Handler {
 		}
 		r.Post("/api/search/clusters", coldSearchHandler(d.Clusters, coldSearch))
 		r.Post("/api/clusters/{id}/connect", connectClusterHandler(d.Clusters))
-		r.Post("/api/clusters/{id}/disconnect", disconnectClusterHandler(d.Clusters, d.authEnabled()))
+		r.Post("/api/clusters/{id}/disconnect", disconnectClusterHandler(d.Clusters, d.sharedIdentity()))
 		r.Get("/ws", func(w http.ResponseWriter, req *http.Request) {
 			d.Hub.Handle(w, req, poolSource{reg: d.Pools, mgr: d.Clusters}, wsSubprotocolFromContext(req.Context()))
 		})
@@ -684,6 +710,11 @@ func RequireLoopbackHost(next http.Handler) http.Handler {
 func requireToken(token string, auth *Authenticator) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if IdentityFromContext(r.Context()) != nil {
+				// A verified auth-proxy request; its identity is already in context.
+				next.ServeHTTP(w, r)
+				return
+			}
 			if auth != nil && auth.Enabled() && auth.sessionFrom(r) != nil {
 				next.ServeHTTP(w, r)
 				return
