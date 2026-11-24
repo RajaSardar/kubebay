@@ -400,6 +400,31 @@ export function countBySeverity(issues: Issue[]): Record<IssueSeverity, number> 
   return counts;
 }
 
+export type DetectorOutcome = { issues: Issue[] } | { reason: NotCheckedReason };
+
+/** Runs one detector in isolation: a throw becomes "not checked (error)". */
+export function runDetector(id: IssueDetector, cluster: string, input: IssueInputs, now: number, fn: DetectorFn = detectors[id]): DetectorOutcome {
+  try {
+    const r = fn(cluster, input, now);
+    return typeof r === "string" ? { reason: r } : { issues: r };
+  } catch {
+    return { reason: "error" };
+  }
+}
+
+/** Joins per-detector outcomes into the ranked result the page shows. */
+export function assembleIssues(outcomes: Partial<Record<IssueDetector, DetectorOutcome>>): IssuesResult {
+  const issues: Issue[] = [];
+  const notChecked: IssuesResult["notChecked"] = [];
+  for (const id of Object.keys(detectors) as IssueDetector[]) {
+    const o = outcomes[id] ?? { reason: "loading" as const };
+    if ("issues" in o) issues.push(...o.issues);
+    else notChecked.push({ detector: id, reason: o.reason });
+  }
+  const ranked = rankIssues(issues);
+  return { issues: ranked, notChecked, counts: countBySeverity(ranked) };
+}
+
 /**
  * Runs every detector, each isolated: one that throws is reported as not
  * checked and the rest still count. A detector that cannot read its sources
@@ -407,18 +432,7 @@ export function countBySeverity(issues: Issue[]): Record<IssueSeverity, number> 
  */
 export function computeIssues(cluster: string, input: IssueInputs, override: Partial<Record<IssueDetector, DetectorFn>> = {}): IssuesResult {
   const now = input.now ?? Date.now();
-  const all: Record<IssueDetector, DetectorFn> = { ...detectors, ...override } as Record<IssueDetector, DetectorFn>;
-  const issues: Issue[] = [];
-  const notChecked: IssuesResult["notChecked"] = [];
-  for (const id of Object.keys(all) as IssueDetector[]) {
-    try {
-      const r = all[id](cluster, input, now);
-      if (typeof r === "string") notChecked.push({ detector: id, reason: r });
-      else issues.push(...r);
-    } catch {
-      notChecked.push({ detector: id, reason: "error" });
-    }
-  }
-  const ranked = rankIssues(issues);
-  return { issues: ranked, notChecked, counts: countBySeverity(ranked) };
+  const outcomes: Partial<Record<IssueDetector, DetectorOutcome>> = {};
+  for (const id of Object.keys(detectors) as IssueDetector[]) outcomes[id] = runDetector(id, cluster, input, now, override[id] ?? detectors[id]);
+  return assembleIssues(outcomes);
 }
