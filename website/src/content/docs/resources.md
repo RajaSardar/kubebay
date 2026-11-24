@@ -23,7 +23,7 @@ Every kind in the sidebar groups opens the same kind of table: Deployments, Conf
 
 ## Columns
 
-Each kind shows the columns that matter for it, such as Ready and Up-to-date for Deployments, or Type, Cluster IP, External IP and Port for Services. A Service's **Port** column reads `port:nodePort/protocol`, so a NodePort Service shows `80:30080/TCP`, and `type:NodePort` in the filter lists them. Custom resources add the printer columns their CRD declares. The **Columns** button shows, hides and reorders them.
+Each kind shows the columns that matter for it, such as Ready and Up-to-date for Deployments, or Type, Cluster IP, External IP and Port for Services. A Service's **Port** column reads `port:nodePort/protocol`, so a NodePort Service shows `80:30080/TCP`, and `type:NodePort` in the filter lists them. Custom resources add the printer columns their CRD declares. The **Columns** button shows, hides and reorders them. Every kind also has a **Labels** column, hidden until you tick it there.
 
 **Managed by** names the Argo CD Application or Flux Kustomization or HelmRelease that deploys the object, and links to it on the [Argo CD](/docs/argocd/) or [Flux](/docs/flux/) page.
 

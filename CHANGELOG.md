@@ -6,6 +6,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ## [Unreleased]
 
+- **Labels column** (backlog 65). Pods and every other resource list have a **Labels** column in the column chooser, hidden by default: the first three labels as chips, +N for the rest, the full list in the tooltip. It sorts, and filters as `labels:tier=front`; `label:app=web` already filtered on labels and still does.
+
 - **Fixed: NodePort Services showed as ClusterIP with no ports** (backlog 66). Services, Endpoints and Ingresses were streamed as metadata only, which strips `spec`, so the Services list's Type, Cluster IP and Port columns (and `type:NodePort` in the filter) had nothing to read, Endpoints counted 0 and Ingresses had no Class or Hosts. They now stream in full. Not run against a live cluster.
 
 ## [0.8.2] - 2026-11-24

@@ -13,6 +13,8 @@ import { useNodeExtras } from "../lib/useNodeExtras";
 import { evalPrinterPath } from "../lib/printerPath";
 import { claimDeviceClasses, claimDevices, claimState, claimUsers, classDriver, sliceNodes } from "../lib/dra";
 import { ownerOf, ownerLabel, ownerPath } from "../lib/gitops";
+import { LabelChips } from "../components/LabelChips";
+import { labelPairs } from "../lib/labelChips";
 import { ownerCellOf } from "../lib/ownerColumn";
 import { OwnerCellLink } from "../components/OwnerCellLink";
 import { templateKindFor } from "../lib/resourceTemplates";
@@ -458,6 +460,17 @@ export default function ResourceTable() {
               filterKey: "controller",
             } satisfies ListColumn<Row>,
           ]),
+      {
+        // Every kind's labels, hidden until chosen; `label:app=web` filters on the same data.
+        id: "Labels",
+        header: "Labels",
+        width: 260,
+        defaultHidden: true,
+        cell: (o) => <LabelChips labels={labelsOf(o)} />,
+        sortValue: (o) => labelPairs(labelsOf(o)).join(","),
+        filterText: (o) => labelPairs(labelsOf(o)).join(" "),
+        filterKey: "labels",
+      },
       {
         // "Managed by", not "Owner": this is the GitOps app (Argo CD / Flux), not
         // Kubernetes ownerReferences. The id stays Owner so saved sorts keep working.
