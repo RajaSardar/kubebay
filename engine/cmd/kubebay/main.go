@@ -56,6 +56,7 @@ func main() {
 	promAllUsers := flag.Bool("prometheus-all-users", os.Getenv("KUBEBAY_PROMETHEUS_ALL_USERS") == "true", "let every OIDC user send raw PromQL to --prometheus-url, which answers for every namespace whatever their RBAC (KUBEBAY_PROMETHEUS_ALL_USERS=true)")
 	helmRepos := flag.String("helm-repos", os.Getenv("KUBEBAY_HELM_REPOS"), "Helm repositories to configure at startup, as name=url,name=url; the only way to change them on a shared engine (in a cluster or with OIDC) (KUBEBAY_HELM_REPOS)")
 	localShell := flag.Bool("local-shell", false, "serve a shell on this machine (requires a binary built with -tags localshell, a loopback --addr, no --in-cluster and no OIDC)")
+	auditStdout := flag.Bool("audit-stdout", false, "also print every audit entry to stdout as a JSON line (default on with --in-cluster, off otherwise; KUBEBAY_AUDIT_STDOUT)")
 	flag.Parse()
 
 	if *showVersion {
@@ -92,7 +93,13 @@ func main() {
 		mgr.StartIdleSweeper(sweepCtx)
 	}
 
-	auditLog, err := audit.NewWithOptions(log, audit.OptionsFromEnv(os.Getenv, *inCluster))
+	auditOpts := audit.OptionsFromEnv(os.Getenv, *inCluster)
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == "audit-stdout" {
+			auditOpts.Stdout = *auditStdout
+		}
+	})
+	auditLog, err := audit.NewWithOptions(log, auditOpts)
 	if err != nil {
 		log.Error("audit log init failed", "err", err)
 		os.Exit(1)

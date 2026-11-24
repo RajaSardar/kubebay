@@ -29,6 +29,15 @@ With OIDC sign-in, the Audit Log only shows your own entries. Kubebay has no adm
 
 The log is a file on your machine: `audit.log` in Kubebay's folder in your user config directory (`~/Library/Application Support/kubebay` on macOS, `~/.config/kubebay` on Linux, `%AppData%\kubebay` on Windows). It's never sent anywhere.
 
-When Kubebay runs in a cluster from the Helm chart, the log is on a 64Mi `emptyDir` in the engine's pod, so it's lost whenever the pod restarts or moves. The chart has no persistent volume option yet. The cluster's API server audit log keeps its own record of each change, under the signed-in user Kubebay impersonated.
+## In a cluster
+
+When Kubebay runs in a cluster from the Helm chart, the file is on the pod's 64Mi `emptyDir` unless you turn on a volume, so by default it's lost whenever the pod restarts or moves. Two options keep it:
+
+- **Stdout lines.** On by default in a cluster (`auditLog.stdout`, or `--audit-stdout` / `KUBEBAY_AUDIT_STDOUT=true` elsewhere; off on the desktop), every entry is also printed to the engine's output as one JSON object per line, for your log collector to keep: `type` (always `audit`), `time`, `user`, `action`, `gvr`, `cluster`, `namespace`, `name`, `result` (`ok`, or `rejected` when an admission webhook denied the change), and `detail`, `source` and `userAgent` when there are any. Secret values are never in an entry. Anyone who can read the engine pod's logs can read every user's lines, so treat that access like access to the whole log. Kubebay doesn't ship the lines anywhere itself; sending them to OTLP, syslog or S3 isn't built.
+- **A volume.** Set `auditLog.persistence.enabled: true` and the chart creates a PersistentVolumeClaim (`size`, default 1Gi, and `storageClass`), or mounts one you made (`existingClaim`), at `/var/lib/kubebay/audit`. The claim is ReadWriteOnce.
+
+The file can't fill its volume: at `auditLog.maxSizeMiB` (default 16) `audit.log` becomes `audit.log.1`, replacing the one before, so the two take at most twice that. The Audit Log page reads both files, and the chart refuses to render if twice the cap doesn't fit the volume. Set `KUBEBAY_AUDIT_MAX_BYTES` to cap the file outside the chart; by default there's no cap.
+
+The cluster's API server audit log keeps its own record of each change, under the signed-in user Kubebay impersonated.
 
 This is Kubebay's own record of what you did with it. Your cluster's API server audit log is a different thing: to read security events from that, see [Audit-log security events](/docs/rbac/#audit-log-security-events).

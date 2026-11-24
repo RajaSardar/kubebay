@@ -171,7 +171,15 @@ Leave `prometheus.url` empty and each user's queries go to an auto-detected Prom
 
 With OIDC, [Cost / Waste](/docs/cost-waste/#workload-usage-vs-requests) shows each person only the workloads in namespaces where they may list pods. See [Security and privacy](/docs/security/#in-a-cluster).
 
-The audit log and settings live on a 64Mi `emptyDir`, so a pod restart loses them. The chart has no persistent volume option yet.
+Settings live on a 64Mi `emptyDir`, so a pod restart loses them. The [audit log](/docs/audit-log/#in-a-cluster) is printed to the engine's output as JSON lines (`auditLog.stdout`, on by default) and can be kept on a volume:
+
+| Value | What it does |
+|---|---|
+| `auditLog.stdout` | Print every audit entry as one JSON line (`KUBEBAY_AUDIT_STDOUT`) |
+| `auditLog.maxSizeMiB` | Rotate the file at this size, default 16; it takes at most twice that |
+| `auditLog.persistence.enabled` | Keep the file on a PersistentVolumeClaim (ReadWriteOnce) mounted at `/var/lib/kubebay/audit` |
+| `auditLog.persistence.size`, `storageClass` | The claim to create, default 1Gi |
+| `auditLog.persistence.existingClaim` | Use a claim you made; none is created |
 
 ## Verify a download
 

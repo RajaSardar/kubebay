@@ -29,7 +29,7 @@ With the Helm chart and OIDC, users sign in with your identity provider. The eng
 
 Features that only make sense on your own machine are off in a cluster: the local terminal, extensions, AI assistants (MCP), AI triage and usage history. Usage history is also off when OIDC is configured on an engine that doesn't run in a cluster.
 
-**Known limitation:** the engine's [Audit Log](/docs/audit-log/) and settings are written to a 64Mi `emptyDir`, so they're lost when the pod restarts or moves, and the chart has no option for a persistent volume yet. If you need a lasting record, rely on the cluster's API server audit log. Every change Kubebay makes there carries the signed-in user's name, because the engine impersonates them.
+**Durable audit log:** the engine's settings are written to a 64Mi `emptyDir` and are lost when the pod restarts or moves. The [Audit Log](/docs/audit-log/#in-a-cluster) is also printed to the engine's output as JSON lines, one per change, so a log collector can keep it, and `auditLog.persistence.enabled` keeps the file on a PersistentVolumeClaim. Anyone who can read the engine pod's logs can read every user's lines. The cluster's API server audit log is the other record: every change Kubebay makes there carries the signed-in user's name, because the engine impersonates them.
 
 ## Secrets
 
