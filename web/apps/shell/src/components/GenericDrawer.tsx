@@ -121,7 +121,7 @@ function PaneContent({
   }
   if (isService && svcTab === "summary") {
     if (objLoading) return <SkeletonLines lines={6} label="Loading details…" />;
-    if (obj) return <ServiceSummary obj={obj} />;
+    if (obj) return <ServiceSummary obj={obj} cluster={cluster} />;
     return <div className="muted small" style={{ padding: 14 }}>Could not load service data.</div>;
   }
   if (isNode && nodeTab === "summary") {

@@ -6,6 +6,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ## [Unreleased]
 
+- **Service endpoints** (backlog 64). The Services list has an **Endpoints** column, ready over total addresses from the EndpointSlices (`2/3`, red `0/0` when a selector matches nothing, a dash for ExternalName), and the Service drawer's Summary an **Endpoints** section: each address with Ready or Not ready, the ports, the node, and the target Pod as a link to its drawer. Not run against a live cluster.
+
 - **Labels column** (backlog 65). Pods and every other resource list have a **Labels** column in the column chooser, hidden by default: the first three labels as chips, +N for the rest, the full list in the tooltip. It sorts, and filters as `labels:tier=front`; `label:app=web` already filtered on labels and still does.
 
 - **Fixed: NodePort Services showed as ClusterIP with no ports** (backlog 66). Services, Endpoints and Ingresses were streamed as metadata only, which strips `spec`, so the Services list's Type, Cluster IP and Port columns (and `type:NodePort` in the filter) had nothing to read, Endpoints counted 0 and Ingresses had no Class or Hosts. They now stream in full. Not run against a live cluster.

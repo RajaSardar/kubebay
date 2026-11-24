@@ -239,3 +239,24 @@ describe("extraColumns('nodes') – Karpenter columns", () => {
     expect(CapacityType!({ metadata: { labels: {} } }).v).toBe("–");
   });
 });
+
+describe("extraColumns('services') - Endpoints (backlog 64)", () => {
+  const counts = new Map([
+    ["shop/web", { ready: 2, total: 3 }],
+    ["shop/down", { ready: 0, total: 0 }],
+  ]);
+  const { Endpoints } = extraColumns("services", { endpointCounts: counts });
+  const svc = (name: string, spec: Record<string, unknown> = { selector: { app: name } }) => ({ metadata: { name, namespace: "shop" }, spec });
+
+  it("shows ready/total from the Service's EndpointSlices", () => {
+    expect(Endpoints!(svc("web"))).toMatchObject({ v: "2/3", dot: "warn" });
+  });
+  it("is red with 0/0 when a selector Service has no endpoints", () => {
+    expect(Endpoints!(svc("down"))).toMatchObject({ v: "0/0", dot: "err" });
+    expect(Endpoints!(svc("never-seen"))).toMatchObject({ v: "0/0", dot: "err" });
+  });
+  it("is a dash for ExternalName and while the slices have not loaded", () => {
+    expect(Endpoints!(svc("ext", { type: "ExternalName" })).v).toBe("–");
+    expect(extraColumns("services").Endpoints!(svc("web")).v).toBe("–");
+  });
+});
