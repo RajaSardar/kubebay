@@ -6,6 +6,7 @@
   {{- if .Values.auditLog.persistence.existingClaim -}}0
   {{- else -}}
     {{- $s := .Values.auditLog.persistence.size | toString -}}
+    {{- if not (regexMatch "^[0-9]+(Mi|Gi|Ti)$" $s) }}{{ fail "auditLog.persistence.size must be a whole number ending in Mi, Gi or Ti (for example 1Gi)" }}{{ end -}}
     {{- if hasSuffix "Ti" $s -}}{{ mul (trimSuffix "Ti" $s | int) 1048576 }}
     {{- else if hasSuffix "Gi" $s -}}{{ mul (trimSuffix "Gi" $s | int) 1024 }}
     {{- else if hasSuffix "Mi" $s -}}{{ trimSuffix "Mi" $s | int }}

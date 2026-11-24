@@ -63,6 +63,13 @@ test("a cap that cannot fit twice in the claim is refused", opts, () => {
   );
 });
 
+test("a cap of zero or less, or a size that is not whole Mi/Gi/Ti, is refused", opts, () => {
+  const fails = (...sets) => assert.throws(() => render(...sets), (e) => /maxSizeMiB|persistence.size/.test(String(e.stderr || e.message)));
+  fails("auditLog.maxSizeMiB=0");
+  fails("auditLog.maxSizeMiB=-5");
+  fails("auditLog.persistence.enabled=true", "auditLog.persistence.size=1.5Gi");
+});
+
 test("values.yaml documents the options", () => {
   const v = readFileSync(`${chart}/values.yaml`, "utf8");
   for (const k of ["auditLog:", "persistence:", "existingClaim", "storageClass", "maxSizeMiB"]) assert.ok(v.includes(k), k);

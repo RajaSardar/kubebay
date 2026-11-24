@@ -1,3 +1,6 @@
+{{- if lt (int .Values.auditLog.maxSizeMiB) 1 }}
+{{- fail "auditLog.maxSizeMiB must be at least 1: without a cap the audit file can fill its volume" }}
+{{- end }}
 {{- $volMiB := include "kubebay.auditVolumeMiB" . | int }}
 {{- if and (not .Values.auditLog.persistence.existingClaim) (gt (mul 2 (int .Values.auditLog.maxSizeMiB)) $volMiB) }}
 {{- fail (printf "auditLog.maxSizeMiB (%d) is kept twice (audit.log and audit.log.1), which does not fit in %dMi: raise auditLog.persistence.size or lower maxSizeMiB. Without persistence the audit file shares the 64Mi /tmp volume." (int .Values.auditLog.maxSizeMiB) $volMiB) }}
