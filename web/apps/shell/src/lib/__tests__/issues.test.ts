@@ -128,7 +128,7 @@ describe("node-condition detector", () => {
     expect(nodes.every((n) => n.severity === "medium")).toBe(true);
   });
   it("a healthy node raises nothing, and a node with no conditions is not invented as down", () => {
-    expect(detectors["node-condition"]!("c1", { ...base, nodes: [node("ok"), { metadata: { name: "bare" } }] }, NOW)).toEqual([]);
+    expect(detectors["node-condition"]("c1", { ...base, nodes: [node("ok"), { metadata: { name: "bare" } }] }, NOW)).toEqual([]);
   });
 });
 
@@ -272,5 +272,87 @@ describe("counts and provenance", () => {
     const evil = "<img src=x onerror=alert(1)>";
     const r = computeIssues("c1", { ...base, certificates: [{ ...cert("x", new Date(NOW - 1000).toISOString()), metadata: { name: evil, namespace: "shop" } }] });
     expect(r.issues[0]!.name).toBe(evil);
+  });
+});
+
+// ---- Slice 2: latent risk ----
+
+const emptyBp = { deployments: [], statefulsets: [], pdbs: [], networkPolicies: [], namespaces: [], ingressClasses: [], apiGroups: [] as string[] };
+const privDep = (ns = "shop", name = "priv"): Obj => ({
+  metadata: { namespace: ns, name },
+  spec: { replicas: 1, template: { metadata: { labels: { app: name } }, spec: { containers: [{ name: "c", image: "nginx:1.25", securityContext: { privileged: true } }] } } },
+});
+
+describe("spof detector", () => {
+  it("a single replica with no PDB is medium and opens the workload", () => {
+    const d = { ...deploy("solo", 1, 1), spec: { replicas: 1, selector: { matchLabels: { app: "solo" } }, template: { metadata: { labels: { app: "solo" } } } } };
+    const r = computeIssues("c1", { ...base, deployments: [d], pdbs: [], pods: [] });
+    const i = r.issues.find((x) => x.detector === "spof")!;
+    expect(i).toMatchObject({ kind: "Deployment", name: "solo", code: "no-pdb", severity: "medium" });
+    expect(i.evidence).toEqual({ open: "object", slug: "deployments", ns: "shop", name: "solo" });
+    expect(i.summary).toContain("solo");
+  });
+});
+
+describe("netpol-gap detector", () => {
+  const p = pod({ name: "a" });
+  it("no policy in the namespace is medium and points at the Network policy page", () => {
+    const r = computeIssues("c1", { ...base, pods: [p, pod({ name: "b" })], networkPolicies: [] });
+    const i = r.issues.find((x) => x.detector === "netpol-gap")!;
+    expect(i).toMatchObject({ namespace: "shop", code: "no-policy-in-namespace", severity: "medium", blast: 1 });
+    expect(i.summary).toContain("2 pods");
+    expect(i.evidence).toEqual({ open: "route", path: "/network-policy" });
+  });
+  it("a namespace with policies that skip the pods is low", () => {
+    const np = { metadata: { namespace: "shop", name: "np" }, spec: { podSelector: { matchLabels: { app: "other" } } } };
+    const r = computeIssues("c1", { ...base, pods: [p], networkPolicies: [np] });
+    expect(r.issues.find((x) => x.detector === "netpol-gap")).toMatchObject({ code: "not-selected-by-any-policy", severity: "low" });
+  });
+});
+
+describe("best-practice detector", () => {
+  it("raises only failing Critical checks, never cert-expiry, and one issue per check", () => {
+    const r = computeIssues("c1", { ...base, bestPractices: { ...emptyBp, deployments: [privDep()] } });
+    const bp = r.issues.filter((x) => x.detector === "best-practice");
+    expect(bp.length).toBeGreaterThan(0);
+    expect(bp.every((i) => i.severity === "critical")).toBe(true);
+    expect(bp.some((i) => i.code === "cert-expiry")).toBe(false);
+    expect(bp[0]!.evidence).toEqual({ open: "route", path: "/best-practices" });
+    expect(new Set(bp.map((i) => i.id)).size).toBe(bp.length);
+  });
+  it("honours waivers", () => {
+    const first = computeIssues("c1", { ...base, bestPractices: { ...emptyBp, deployments: [privDep()] } }).issues.find((x) => x.detector === "best-practice")!;
+    const waived = computeIssues("c1", {
+      ...base,
+      bestPractices: { ...emptyBp, deployments: [privDep()] },
+      exceptions: [{ checkId: first.code, namespace: "shop", reason: "ok", createdAt: 0 }],
+    });
+    expect(waived.issues.find((x) => x.id === first.id)).toBeUndefined();
+    const whole = computeIssues("c1", { ...base, bestPractices: { ...emptyBp, deployments: [privDep()] }, exceptions: [{ checkId: first.code, reason: "ok", createdAt: 0 }] });
+    expect(whole.issues.find((x) => x.id === first.id)).toBeUndefined();
+  });
+});
+
+describe("upgrade-readiness detector", () => {
+  it("a removal within one minor (or past) is high, two away is medium", () => {
+    const r = computeIssues("c1", { ...base, upgrade: { serverVersion: "v1.27.3", served: ["policy/v1beta1", "flowcontrol.apiserver.k8s.io/v1beta1"] } });
+    const up = Object.fromEntries(r.issues.filter((x) => x.detector === "upgrade-readiness").map((i) => [i.name, i]));
+    expect(up["PodDisruptionBudget policy/v1beta1"]).toMatchObject({ severity: "high", kind: "API", namespace: "" });
+    expect(up["PodDisruptionBudget policy/v1beta1"]!.summary).toContain("policy/v1");
+    expect(up["FlowSchema flowcontrol.apiserver.k8s.io/v1beta1"]!.severity).toBe("medium");
+    expect(up["PodDisruptionBudget policy/v1beta1"]!.evidence).toEqual({ open: "route", path: "/upgrade-readiness" });
+  });
+  it("is not checked until the version and the served APIs are known", () => {
+    const r = computeIssues("c1", { ...base, upgrade: { serverVersion: "v1.24.3" } });
+    expect(r.notChecked.find((n) => n.detector === "upgrade-readiness")!.reason).toBe("loading");
+  });
+});
+
+describe("slice 2 sources", () => {
+  it("every detector is not checked, not clean, when its sources are missing", () => {
+    const r = computeIssues("c1", { now: NOW });
+    expect(r.notChecked.map((n) => n.detector).sort()).toEqual(
+      ["best-practice", "cert-expiry", "netpol-gap", "node-condition", "pod-problem", "service-no-ready", "spof", "upgrade-readiness"],
+    );
   });
 });

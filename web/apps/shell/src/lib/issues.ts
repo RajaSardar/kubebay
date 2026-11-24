@@ -3,6 +3,11 @@ import { certificateState } from "./certExpiry";
 import { slugForKind, extSlug } from "./resources";
 import { findServiceSelectorMismatches } from "./serviceSelectorMismatch";
 import { targetFor } from "./objectPath";
+import { computeSpofFindings } from "./spof";
+import { findNetworkPolicyCoverageGaps } from "./networkPolicyCoverage";
+import { computeBestPractices, type BestPracticesInput } from "./bestPractices";
+import { applyExceptions, type BpException } from "./bestPracticesExceptions";
+import { computeUpgradeReadiness } from "./upgradeReadiness";
 
 /**
  * The Issues queue (backlog 76): one ranked list of what is wrong in a
@@ -103,6 +108,14 @@ export interface IssueInputs {
   services?: Source;
   endpointSlices?: Source;
   certificates?: Source;
+  pdbs?: Source;
+  networkPolicies?: Source;
+  /** The inputs the Best practices page computes its checks from. */
+  bestPractices?: BestPracticesInput | UnavailableReason;
+  /** The user's waivers for this cluster (local to this browser). */
+  exceptions?: BpException[];
+  /** The server version and the API group/versions it serves; both needed. */
+  upgrade?: { serverVersion?: string; served?: string[] } | UnavailableReason;
   /** Epoch ms; defaults to now. */
   now?: number;
 }
@@ -118,7 +131,7 @@ export interface IssuesResult {
 export type DetectorResult = Issue[] | UnavailableReason;
 export type DetectorFn = (cluster: string, input: IssueInputs, now: number) => DetectorResult;
 
-type SourceName = Exclude<keyof IssueInputs, "now">;
+type SourceName = "pods" | "deployments" | "statefulsets" | "daemonsets" | "nodes" | "services" | "endpointSlices" | "certificates" | "pdbs" | "networkPolicies";
 
 /** The rows of every named source, or the first reason one of them is unavailable. */
 function need<K extends SourceName>(input: IssueInputs, names: K[]): Record<K, Obj[]> | UnavailableReason {
@@ -252,7 +265,94 @@ function certExpiry(cluster: string, input: IssueInputs, now: number): DetectorR
   return out;
 }
 
-export const detectors: Partial<Record<IssueDetector, DetectorFn>> = {
+function spof(cluster: string, input: IssueInputs): DetectorResult {
+  const s = need(input, ["deployments", "statefulsets", "pdbs", "pods", "services", "endpointSlices"]);
+  if (typeof s === "string") return s;
+  return computeSpofFindings({ deployments: s.deployments, statefulSets: s.statefulsets, pdbs: s.pdbs, pods: s.pods, services: s.services, endpointSlices: s.endpointSlices }).map((f) =>
+    issue(cluster, {
+      detector: "spof",
+      code: f.kind,
+      severity: "medium",
+      kind: f.workloadKind,
+      namespace: f.ns,
+      name: f.name,
+      summary: f.detail,
+      blast: 1,
+      evidence: evidenceFor(f.workloadKind, f.ns, f.name),
+    }),
+  );
+}
+
+function netpolGaps(cluster: string, input: IssueInputs): DetectorResult {
+  const s = need(input, ["pods", "networkPolicies"]);
+  if (typeof s === "string") return s;
+  return findNetworkPolicyCoverageGaps(s.pods, s.networkPolicies).map((g) =>
+    issue(cluster, {
+      detector: "netpol-gap",
+      code: g.reason,
+      severity: g.reason === "no-policy-in-namespace" ? "medium" : "low",
+      kind: "Pods",
+      namespace: g.namespace,
+      name: `app=${g.appLabel}`,
+      summary:
+        g.reason === "no-policy-in-namespace"
+          ? `${g.podCount} ${g.podCount === 1 ? "pod" : "pods"}, and no NetworkPolicy in this namespace`
+          : `${g.podCount} ${g.podCount === 1 ? "pod" : "pods"} not selected by any NetworkPolicy`,
+      // One group is one item; pod counts of different groups are not comparable with other detectors' blast.
+      blast: 1,
+      evidence: { open: "route", path: "/network-policy" },
+    }),
+  );
+}
+
+function bestPractice(cluster: string, input: IssueInputs): DetectorResult {
+  const bp = input.bestPractices;
+  if (bp === undefined) return "loading";
+  if (typeof bp === "string") return bp;
+  // The cert-expiry check is covered by the Certificates detector, which knows expired from expiring.
+  const checks = applyExceptions(computeBestPractices(bp), input.exceptions ?? []);
+  return checks
+    .filter((c) => c.status === "fail" && c.severity === "Critical" && c.id !== "cert-expiry")
+    .map((c) =>
+      issue(cluster, {
+        detector: "best-practice",
+        code: c.id,
+        severity: "critical",
+        kind: "Best practice",
+        namespace: c.namespaces?.length === 1 ? c.namespaces[0]! : "",
+        name: c.title,
+        summary: c.detail,
+        blast: Math.max(1, c.allOffenders?.length ?? c.offenders?.length ?? 1),
+        evidence: { open: "route", path: "/best-practices" },
+      }),
+    );
+}
+
+function upgradeReadiness(cluster: string, input: IssueInputs): DetectorResult {
+  const u = input.upgrade;
+  if (u === undefined) return "loading";
+  if (typeof u === "string") return u;
+  if (!u.serverVersion || !u.served) return "loading";
+  return computeUpgradeReadiness(u.serverVersion, u.served).map((f) =>
+    issue(cluster, {
+      detector: "upgrade-readiness",
+      code: `removed-in-1.${f.removedInMinor}`,
+      severity: f.minorsAway <= 1 ? "high" : "medium",
+      kind: "API",
+      namespace: "",
+      name: `${f.kind} ${f.apiVersion}`,
+      summary: `${f.apiVersion} is removed in Kubernetes 1.${f.removedInMinor}${f.minorsAway > 0 ? ` (${f.minorsAway} ${f.minorsAway === 1 ? "minor" : "minors"} away)` : ""}; use ${f.replacementVersion}`,
+      blast: 1,
+      evidence: { open: "route", path: "/upgrade-readiness" },
+    }),
+  );
+}
+
+export const detectors: Record<IssueDetector, DetectorFn> = {
+  spof,
+  "netpol-gap": netpolGaps,
+  "best-practice": bestPractice,
+  "upgrade-readiness": upgradeReadiness,
   "pod-problem": podProblems,
   "node-condition": nodeConditions,
   "service-no-ready": serviceNoReady,
@@ -307,12 +407,12 @@ export function countBySeverity(issues: Issue[]): Record<IssueSeverity, number> 
  */
 export function computeIssues(cluster: string, input: IssueInputs, override: Partial<Record<IssueDetector, DetectorFn>> = {}): IssuesResult {
   const now = input.now ?? Date.now();
-  const all = { ...detectors, ...override };
+  const all: Record<IssueDetector, DetectorFn> = { ...detectors, ...override } as Record<IssueDetector, DetectorFn>;
   const issues: Issue[] = [];
   const notChecked: IssuesResult["notChecked"] = [];
   for (const id of Object.keys(all) as IssueDetector[]) {
     try {
-      const r = all[id]!(cluster, input, now);
+      const r = all[id](cluster, input, now);
       if (typeof r === "string") notChecked.push({ detector: id, reason: r });
       else issues.push(...r);
     } catch {
