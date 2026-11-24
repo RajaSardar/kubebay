@@ -89,4 +89,13 @@ describe("useMergedPodLogs", () => {
     expect(result.current.errors).toEqual({ a: "forbidden: pods/log" });
     expect(result.current.lines.map((l) => l.text)).toEqual(["still here"]);
   });
+
+  it("keeps its streams and lines when the same pods merely arrive in another order", () => {
+    const { result, rerender } = renderHook(({ pods }) => useMergedPodLogs(spec(pods)), { initialProps: { pods: ["a", "b"] } });
+    send("a", "one\n");
+    rerender({ pods: ["b", "a"] });
+    expect(opened).toHaveLength(2);
+    expect(closed).toHaveLength(0);
+    expect(result.current.lines.map((l) => l.text)).toEqual(["one"]);
+  });
 });

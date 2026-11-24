@@ -25,7 +25,7 @@ export interface MergedLogsSpec {
 }
 
 function specKey(s: MergedLogsSpec): string {
-  return [s.cluster, s.namespace, s.pods.map((p) => `${p.pod}/${p.container ?? ""}`).join(","), s.tail, s.follow ? 1 : 0, s.previous ? 1 : 0].join("|");
+  return [s.cluster, s.namespace, s.pods.map((p) => `${p.pod}/${p.container ?? ""}`).sort().join(","), s.tail, s.follow ? 1 : 0, s.previous ? 1 : 0].join("|");
 }
 
 export function useMergedPodLogs(spec: MergedLogsSpec | null) {
