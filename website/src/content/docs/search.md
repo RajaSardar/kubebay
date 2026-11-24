@@ -6,7 +6,7 @@ order: 3
 appRoutes: ["/search"]
 ---
 
-**Search all clusters** in the sidebar's Tools finds objects by name in every cluster in your kubeconfig, and lists each one with its **Cluster**, **Kind**, **Namespace** and **Name**. Click a result to open its cluster and the object's drawer (a pod opens in the Pods list). In the [command palette](/docs/interface/#the-command-palette), **Search all clusters for "…"** opens this page with what you typed.
+**Search all clusters** in the sidebar's Tools finds objects by name in every cluster in your kubeconfig, and lists each one with its **Cluster**, **Kind**, **Namespace** and **Name**. Click a result to open its cluster and the object's drawer (a pod opens in the Pods list). The [command palette](/docs/interface/#the-command-palette) searches connected clusters only; open this page from the sidebar to go further.
 
 Type the way you would in the palette: a name or part of one (`checkout`), or a kind and a name (`deploy api`, `svc:web`, `pod checkout`). A kind on its own followed by a space (`ing `) lists that kind's objects alphabetically. What you type is kept in the address, so you can bookmark or share a search.
 

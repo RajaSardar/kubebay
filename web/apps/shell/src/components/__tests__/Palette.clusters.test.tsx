@@ -133,16 +133,13 @@ describe("Palette: switch cluster", () => {
   });
 });
 
-describe("Palette: search all clusters", () => {
-  it("offers to search every cluster for what was typed, on its own page", async () => {
+describe("Palette: no search-all-clusters entry", () => {
+  it("does not offer a Search all clusters row (the page stays in the sidebar)", async () => {
     await renderPalette();
     type("checkout api");
-    fireEvent.click(await screen.findByRole("button", { name: "Search all clusters for “checkout api”" }));
-    expect(screen.getByTestId("at").textContent).toBe("/search?q=checkout+api");
-  });
-
-  it("doesn't offer it with nothing typed", async () => {
-    await renderPalette();
+    await screen.findByText("Navigate").catch(() => {});
+    await waitFor(() => expect(api.clusters).toHaveBeenCalled());
     expect(screen.queryByRole("button", { name: /^Search all clusters for/ })).toBeNull();
+    expect(screen.queryByText("Every cluster")).toBeNull();
   });
 });

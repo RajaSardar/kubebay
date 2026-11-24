@@ -554,3 +554,24 @@ func TestCRDDefinitionsOpenTheirObjects(t *testing.T) {
 		t.Errorf("a cluster-scoped CRD must say so: %+v", w)
 	}
 }
+
+func TestAwaitKindPrefixOnlyWaitsForAColonWordWhileTheCatalogueLoads(t *testing.T) {
+	ix := New(nil, nil, DefaultLimits)
+	defer ix.Close()
+	ix.SetCatalog(true, "")
+	took := func(q string) time.Duration {
+		start := time.Now()
+		ix.AwaitKindPrefix(q, 300*time.Millisecond)
+		return time.Since(start)
+	}
+	if d := took("api server"); d > 100*time.Millisecond {
+		t.Errorf("a plain query must not wait, took %v", d)
+	}
+	if d := took("rollouts: api"); d < 250*time.Millisecond {
+		t.Errorf("a kind prefix must wait for the catalogue, took %v", d)
+	}
+	go func() { time.Sleep(50 * time.Millisecond); ix.SetCatalog(false, "") }()
+	if d := took("rollouts: api"); d > 200*time.Millisecond {
+		t.Errorf("must return once the catalogue is loaded, took %v", d)
+	}
+}

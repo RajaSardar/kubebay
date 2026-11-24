@@ -77,6 +77,9 @@ export function usePaletteRemote(open: boolean, clusters: string[], q: string, l
       return;
     }
     const listing = parsed.terms.length === 0;
+    // Busy from the first keystroke: the kind is loaded on demand, and a "no
+    // matches" before the engine has even been asked would be wrong.
+    setState((s) => (s.loading ? s : { ...s, loading: true }));
     const ctrl = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;
     let polls = 0;

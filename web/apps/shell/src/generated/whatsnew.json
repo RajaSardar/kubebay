@@ -29,6 +29,10 @@
           "heading": "Fixed",
           "items": [
             {
+              "title": "⌘K rollouts: no longer says it has not loaded yet",
+              "summary": "(backlog 70)."
+            },
+            {
               "title": "NodePort Services showed as ClusterIP with no ports",
               "summary": "(backlog 66)."
             },
