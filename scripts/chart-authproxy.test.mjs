@@ -39,8 +39,8 @@ test("enabled: flags render as env and the impersonation role appears", opts, ()
 
 test("impersonation allow-lists apply to the proxy mode too", opts, () => {
   const y = render(...proxy, "impersonation.groups={dev,ops}", "impersonation.users={alice}");
-  assert.match(y, /resourceNames:\n\s+- dev\n\s+- ops/);
-  assert.match(y, /resourceNames:\n\s+- alice/);
+  assert.match(y, /resourceNames: *\n\s+- dev\n\s+- ops/);
+  assert.match(y, /resourceNames: *\n\s+- alice/);
 });
 
 test("the shared secret is a mounted Secret file, never a value in the manifest", opts, () => {
