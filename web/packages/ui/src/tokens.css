@@ -108,6 +108,14 @@
   --kb-accent:        #32ade6;
   --kb-accent-hover:  #5bbef0;
   --kb-accent-subtle: rgba(50, 173, 230, 0.14);
+
+  /* Namespace tints: six hues, text stays --kb-fg-default (contrast-tested) */
+  --kb-ns-1: color-mix(in srgb, #3b82f6 24%, transparent);
+  --kb-ns-2: color-mix(in srgb, #14b8a6 24%, transparent);
+  --kb-ns-3: color-mix(in srgb, #84cc16 24%, transparent);
+  --kb-ns-4: color-mix(in srgb, #f59e0b 24%, transparent);
+  --kb-ns-5: color-mix(in srgb, #f43f5e 24%, transparent);
+  --kb-ns-6: color-mix(in srgb, #8b5cf6 24%, transparent);
   --kb-row-changed: rgba(255, 255, 255, 0.08); /* a row whose shown data just changed (#24) */
   --kb-accent-fg:     #0f0f10;
   --kb-on-danger: #0f0f10;
@@ -176,6 +184,14 @@
   --kb-accent:        #005dba;
   --kb-accent-hover:  #0050a1;
   --kb-accent-subtle: rgba(0, 93, 186, 0.08);
+
+  /* Namespace tints: six hues, text stays --kb-fg-default (contrast-tested) */
+  --kb-ns-1: color-mix(in srgb, #3b82f6 22%, transparent);
+  --kb-ns-2: color-mix(in srgb, #14b8a6 22%, transparent);
+  --kb-ns-3: color-mix(in srgb, #84cc16 22%, transparent);
+  --kb-ns-4: color-mix(in srgb, #f59e0b 22%, transparent);
+  --kb-ns-5: color-mix(in srgb, #f43f5e 22%, transparent);
+  --kb-ns-6: color-mix(in srgb, #8b5cf6 22%, transparent);
   --kb-row-changed: rgba(0, 0, 0, 0.10); /* a row whose shown data just changed (#24) */
   --kb-accent-fg:     #ffffff;
   --kb-on-danger: #ffffff;
@@ -242,6 +258,14 @@
   --kb-accent:        #40c8e0;
   --kb-accent-hover:  #65d4e8;
   --kb-accent-subtle: rgba(64, 200, 224, 0.18);
+
+  /* Namespace tints: six hues, text stays --kb-fg-default (contrast-tested) */
+  --kb-ns-1: color-mix(in srgb, #3b82f6 14%, transparent);
+  --kb-ns-2: color-mix(in srgb, #14b8a6 14%, transparent);
+  --kb-ns-3: color-mix(in srgb, #84cc16 14%, transparent);
+  --kb-ns-4: color-mix(in srgb, #f59e0b 14%, transparent);
+  --kb-ns-5: color-mix(in srgb, #f43f5e 14%, transparent);
+  --kb-ns-6: color-mix(in srgb, #8b5cf6 14%, transparent);
   --kb-row-changed: rgba(255, 255, 255, 0.10); /* a row whose shown data just changed (#24) */
   --kb-accent-fg:     #000000;
   --kb-on-danger: #000000;
@@ -308,6 +332,14 @@
   --kb-accent:        #004e9b;
   --kb-accent-hover:  #003f7c;
   --kb-accent-subtle: rgba(0, 78, 155, 0.10);
+
+  /* Namespace tints: six hues, text stays --kb-fg-default (contrast-tested) */
+  --kb-ns-1: color-mix(in srgb, #3b82f6 14%, transparent);
+  --kb-ns-2: color-mix(in srgb, #14b8a6 14%, transparent);
+  --kb-ns-3: color-mix(in srgb, #84cc16 14%, transparent);
+  --kb-ns-4: color-mix(in srgb, #f59e0b 14%, transparent);
+  --kb-ns-5: color-mix(in srgb, #f43f5e 14%, transparent);
+  --kb-ns-6: color-mix(in srgb, #8b5cf6 14%, transparent);
   --kb-row-changed: rgba(0, 0, 0, 0.08); /* a row whose shown data just changed (#24) */
   --kb-accent-fg:     #ffffff;
   --kb-on-danger: #ffffff;
@@ -374,6 +406,14 @@
   --kb-accent:        #31a6ff;
   --kb-accent-hover:  #1a8fe3;
   --kb-accent-subtle: rgba(49, 166, 255, 0.09);
+
+  /* Namespace tints: six hues, text stays --kb-fg-default (contrast-tested) */
+  --kb-ns-1: color-mix(in srgb, #3b82f6 24%, transparent);
+  --kb-ns-2: color-mix(in srgb, #14b8a6 24%, transparent);
+  --kb-ns-3: color-mix(in srgb, #84cc16 24%, transparent);
+  --kb-ns-4: color-mix(in srgb, #f59e0b 24%, transparent);
+  --kb-ns-5: color-mix(in srgb, #f43f5e 24%, transparent);
+  --kb-ns-6: color-mix(in srgb, #8b5cf6 24%, transparent);
   --kb-row-changed: rgba(204, 204, 204, 0.09); /* a row whose shown data just changed (#24) */
   --kb-accent-fg:     #141414;
   --kb-on-danger: #000000;
@@ -440,6 +480,14 @@
   --kb-accent:        #0063b1;
   --kb-accent-hover:  #00518f;
   --kb-accent-subtle: rgba(0, 99, 177, 0.08);
+
+  /* Namespace tints: six hues, text stays --kb-fg-default (contrast-tested) */
+  --kb-ns-1: color-mix(in srgb, #3b82f6 22%, transparent);
+  --kb-ns-2: color-mix(in srgb, #14b8a6 22%, transparent);
+  --kb-ns-3: color-mix(in srgb, #84cc16 22%, transparent);
+  --kb-ns-4: color-mix(in srgb, #f59e0b 22%, transparent);
+  --kb-ns-5: color-mix(in srgb, #f43f5e 22%, transparent);
+  --kb-ns-6: color-mix(in srgb, #8b5cf6 22%, transparent);
   --kb-row-changed: rgba(31, 31, 31, 0.12); /* a row whose shown data just changed (#24) */
   --kb-accent-fg:     #ffffff;
   --kb-on-danger: #ffffff;
@@ -506,6 +554,14 @@
   --kb-accent:        #61afef;
   --kb-accent-hover:  #82bfff;
   --kb-accent-subtle: rgba(97, 175, 239, 0.08);
+
+  /* Namespace tints: six hues, text stays --kb-fg-default (contrast-tested) */
+  --kb-ns-1: color-mix(in srgb, #3b82f6 12%, transparent);
+  --kb-ns-2: color-mix(in srgb, #14b8a6 12%, transparent);
+  --kb-ns-3: color-mix(in srgb, #84cc16 12%, transparent);
+  --kb-ns-4: color-mix(in srgb, #f59e0b 12%, transparent);
+  --kb-ns-5: color-mix(in srgb, #f43f5e 12%, transparent);
+  --kb-ns-6: color-mix(in srgb, #8b5cf6 12%, transparent);
   --kb-row-changed: rgba(171, 178, 191, 0.08); /* a row whose shown data just changed (#24) */
   --kb-accent-fg:     #1b1f27;
   --kb-on-danger: #000000;
@@ -572,6 +628,14 @@
   --kb-accent:        #bd93f9;
   --kb-accent-hover:  #caa7ff;
   --kb-accent-subtle: rgba(189, 147, 249, 0.11);
+
+  /* Namespace tints: six hues, text stays --kb-fg-default (contrast-tested) */
+  --kb-ns-1: color-mix(in srgb, #3b82f6 24%, transparent);
+  --kb-ns-2: color-mix(in srgb, #14b8a6 24%, transparent);
+  --kb-ns-3: color-mix(in srgb, #84cc16 24%, transparent);
+  --kb-ns-4: color-mix(in srgb, #f59e0b 24%, transparent);
+  --kb-ns-5: color-mix(in srgb, #f43f5e 24%, transparent);
+  --kb-ns-6: color-mix(in srgb, #8b5cf6 24%, transparent);
   --kb-row-changed: rgba(248, 248, 242, 0.08); /* a row whose shown data just changed (#24) */
   --kb-accent-fg:     #21222c;
   --kb-on-danger: #000000;
@@ -638,6 +702,14 @@
   --kb-accent:        #aed4de;
   --kb-accent-hover:  #a2d1e0;
   --kb-accent-subtle: rgba(174, 212, 222, 0.08);
+
+  /* Namespace tints: six hues, text stays --kb-fg-default (contrast-tested) */
+  --kb-ns-1: color-mix(in srgb, #3b82f6 24%, transparent);
+  --kb-ns-2: color-mix(in srgb, #14b8a6 24%, transparent);
+  --kb-ns-3: color-mix(in srgb, #84cc16 24%, transparent);
+  --kb-ns-4: color-mix(in srgb, #f59e0b 24%, transparent);
+  --kb-ns-5: color-mix(in srgb, #f43f5e 24%, transparent);
+  --kb-ns-6: color-mix(in srgb, #8b5cf6 24%, transparent);
   --kb-row-changed: rgba(236, 239, 244, 0.09); /* a row whose shown data just changed (#24) */
   --kb-accent-fg:     #2e3440;
   --kb-on-danger: #000000;
@@ -704,6 +776,14 @@
   --kb-accent:        #58a6ff;
   --kb-accent-hover:  #79b8ff;
   --kb-accent-subtle: rgba(88, 166, 255, 0.14);
+
+  /* Namespace tints: six hues, text stays --kb-fg-default (contrast-tested) */
+  --kb-ns-1: color-mix(in srgb, #3b82f6 24%, transparent);
+  --kb-ns-2: color-mix(in srgb, #14b8a6 24%, transparent);
+  --kb-ns-3: color-mix(in srgb, #84cc16 24%, transparent);
+  --kb-ns-4: color-mix(in srgb, #f59e0b 24%, transparent);
+  --kb-ns-5: color-mix(in srgb, #f43f5e 24%, transparent);
+  --kb-ns-6: color-mix(in srgb, #8b5cf6 24%, transparent);
   --kb-row-changed: rgba(230, 237, 243, 0.09); /* a row whose shown data just changed (#24) */
   --kb-accent-fg:     #0d1117;
   --kb-on-danger: #000000;
@@ -770,6 +850,14 @@
   --kb-accent:        #0964d0;
   --kb-accent-hover:  #054ba4;
   --kb-accent-subtle: rgba(9, 100, 208, 0.08);
+
+  /* Namespace tints: six hues, text stays --kb-fg-default (contrast-tested) */
+  --kb-ns-1: color-mix(in srgb, #3b82f6 22%, transparent);
+  --kb-ns-2: color-mix(in srgb, #14b8a6 22%, transparent);
+  --kb-ns-3: color-mix(in srgb, #84cc16 22%, transparent);
+  --kb-ns-4: color-mix(in srgb, #f59e0b 22%, transparent);
+  --kb-ns-5: color-mix(in srgb, #f43f5e 22%, transparent);
+  --kb-ns-6: color-mix(in srgb, #8b5cf6 22%, transparent);
   --kb-row-changed: rgba(31, 35, 40, 0.08); /* a row whose shown data just changed (#24) */
   --kb-accent-fg:     #ffffff;
   --kb-on-danger: #ffffff;
@@ -836,6 +924,14 @@
   --kb-accent:        #cba6f7;
   --kb-accent-hover:  #d9bcff;
   --kb-accent-subtle: rgba(203, 166, 247, 0.15);
+
+  /* Namespace tints: six hues, text stays --kb-fg-default (contrast-tested) */
+  --kb-ns-1: color-mix(in srgb, #3b82f6 24%, transparent);
+  --kb-ns-2: color-mix(in srgb, #14b8a6 24%, transparent);
+  --kb-ns-3: color-mix(in srgb, #84cc16 24%, transparent);
+  --kb-ns-4: color-mix(in srgb, #f59e0b 24%, transparent);
+  --kb-ns-5: color-mix(in srgb, #f43f5e 24%, transparent);
+  --kb-ns-6: color-mix(in srgb, #8b5cf6 24%, transparent);
   --kb-row-changed: rgba(205, 214, 244, 0.10); /* a row whose shown data just changed (#24) */
   --kb-accent-fg:     #1e1e2e;
   --kb-on-danger: #000000;
@@ -904,6 +1000,13 @@
   --kb-accent:        #a81f66;
   --kb-accent-hover:  #891a52;
   --kb-accent-subtle: rgba(168, 31, 102, 0.08);
+  /* Namespace tints: six hues, text stays --kb-fg-default (contrast-tested) */
+  --kb-ns-1: color-mix(in srgb, #3b82f6 22%, transparent);
+  --kb-ns-2: color-mix(in srgb, #14b8a6 22%, transparent);
+  --kb-ns-3: color-mix(in srgb, #84cc16 22%, transparent);
+  --kb-ns-4: color-mix(in srgb, #f59e0b 22%, transparent);
+  --kb-ns-5: color-mix(in srgb, #f43f5e 22%, transparent);
+  --kb-ns-6: color-mix(in srgb, #8b5cf6 22%, transparent);
   --kb-row-changed: rgba(92, 32, 64, 0.10); /* a row whose shown data just changed (#24) */
   --kb-accent-fg:     #ffffff;
   --kb-on-danger: #ffffff;

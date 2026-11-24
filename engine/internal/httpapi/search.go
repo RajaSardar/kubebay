@@ -166,6 +166,7 @@ func (a *SearchAPI) HandleSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ix := a.entryFor(r.Context(), cluster, pool)
+	ix.AwaitKindPrefix(text, 3*time.Second)
 	res := ix.Search(text, searchindex.SearchOptions{
 		PerGroup:  intParam(r, "perGroup", 0, 0, 50),
 		MaxGroups: intParam(r, "maxGroups", 0, 0, 20),

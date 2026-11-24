@@ -49,6 +49,20 @@ describe("NamespaceFilter", () => {
     expect(screen.getAllByRole("option").slice(1).map((o) => o.textContent)).toEqual(["a", "b"]);
   });
 
+  it("colours each namespace, in the menu and on the button, and keeps every name as text (backlog 63)", () => {
+    stream.rows = [ns("shop"), ns("payments")];
+    useNamespaceStore.getState().setNamespaces("prod", ["shop"]);
+    renderFilter("prod");
+    const trigger = screen.getByRole("button", { name: /shop/ });
+    expect(trigger.querySelector("[data-ns-tone]")).toHaveTextContent("shop");
+    fireEvent.click(trigger);
+    for (const name of ["shop", "payments"]) {
+      const opt = screen.getByRole("option", { name: new RegExp(name) });
+      expect(opt.querySelector("[data-ns-tone]")).not.toBeNull();
+      expect(opt).toHaveTextContent(name);
+    }
+  });
+
   // A remembered selection can name a namespace deleted since: it stays,
   // marked, so it can be unticked instead of filtering lists to nothing unseen.
   it("keeps a selected namespace the cluster no longer has, so it can be unticked", () => {

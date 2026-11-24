@@ -805,17 +805,11 @@ h2 {
   color: var(--kb-fg-subtle);
 }
 
-.ns-chip {
+/* The tinted squares of the selected namespaces, beside the "N namespaces" label. */
+.ns-swatches {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  font-size: var(--kb-text-xs);
-  font-family: var(--kb-font-mono);
-  background: var(--kb-accent-subtle);
-  color: var(--kb-fg-default);
-  border: 1px solid color-mix(in srgb, var(--kb-accent) 30%, transparent);
-  border-radius: var(--kb-radius-control);
-  padding: 1px 5px;
+  margin-left: 6px;
 }
 
 .ns-dropdown {

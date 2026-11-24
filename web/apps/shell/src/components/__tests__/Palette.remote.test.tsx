@@ -174,6 +174,29 @@ describe("Palette: kinds the app does not hold in memory", () => {
   });
 });
 
+describe("Palette: a kind-prefixed search loads that kind on demand", () => {
+  it("shows a loading state, not 'No matches.', while the kind is still listing, then the results", async () => {
+    const slug = "ext--argoproj.io--v1alpha1--rollouts";
+    vi.mocked(searchApi.search)
+      .mockResolvedValueOnce(reply({ filter: slug, pending: ["Rollouts"] }))
+      .mockResolvedValue(reply({ filter: slug, groups: [group(slug, "Rollouts", [["shop", "storefront"]])] }));
+    renderPalette();
+    type("rollouts: store");
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(/loading rollouts/i));
+    expect(screen.queryByText("No matches.")).toBeNull();
+    expect(await screen.findByRole("button", { name: /^storefront in shop/ }, { timeout: 4000 })).toBeInTheDocument();
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("shows the loading state from the first keystroke, before the engine has answered", async () => {
+    vi.mocked(searchApi.search).mockReturnValue(new Promise(() => {}));
+    renderPalette();
+    type("rollouts: store");
+    expect(screen.getByRole("status")).toHaveTextContent(/loading/i);
+    expect(screen.queryByText("No matches.")).toBeNull();
+  });
+});
+
 describe("Palette: saying what it could not search", () => {
   it("says which kinds are still listing", async () => {
     vi.mocked(searchApi.search).mockResolvedValue(reply({ pending: ["Ingresses", "Custom resources"] }));

@@ -64,20 +64,20 @@
 59. show all logs of all pods of a StatefulSet or Deployment together, in one view
 60. Pod logs: a checkbox that shows only warning and error lines, not everything
 61. a way to find the exact pod name: several pods have similar names with a suffix added at the end, so offer exact-match search, copy of the full name and highlighting of the suffix
-62. the pod window cannot show pod labels, Secrets and env (environment variables); make all three visible
-63. use a different background colour for each selected namespace
-64. Services: endpoints are not visible
-65. Pods: labels are not visible
-66. Services: NodePort Services still do not show in the Services section
-67. Pods list: after a search the list does not scroll sideways; add a small horizontal scrollbar at the bottom for better UX
-68. the left sidebar and the right-hand Pods/Deployments/StatefulSets/Services window should be resizable (expand and collapse) by dragging
-69. Scale (replicas): when + or − changes the number, highlight the Apply scale button so it is clear there is something to apply; add a faster way to change large numbers (type a number, or larger steps), as only + and − exist now
-70. Cmd+K: searching `rollouts: <name>` sometimes says it has not loaded yet; load rollouts at that moment and show them. Also hide or disable "search all clusters" in the Cmd+K palette
-71. everywhere there is a Restart button, add one more confirmation step before restarting
-72. Rollouts: the Rollouts tool does not list all rollouts. In both Custom Resources > Rollouts and the sidebar's Rollouts, offer Promote, Promote full, Pause, Abort, Retry and Restart
+~~62. the pod window cannot show pod labels, Secrets and env (environment variables); make all three visible~~ ✅ Done (unreleased, built after v0.8.2)
+~~63. use a different background colour for each selected namespace~~ ✅ Done (unreleased, built after v0.8.2)
+~~64. Services: endpoints are not visible~~ ✅ Done (unreleased, built after v0.8.2)
+~~65. Pods: labels are not visible~~ ✅ Done (unreleased, built after v0.8.2)
+~~66. Services: NodePort Services still do not show in the Services section~~ ✅ Done (unreleased, built after v0.8.2)
+~~67. Pods list: after a search the list does not scroll sideways; add a small horizontal scrollbar at the bottom for better UX~~ ✅ Done (unreleased, built after v0.8.2)
+~~68. the left sidebar and the right-hand Pods/Deployments/StatefulSets/Services window should be resizable (expand and collapse) by dragging~~ ✅ Done (unreleased, built after v0.8.2)
+~~69. Scale (replicas): when + or − changes the number, highlight the Apply scale button so it is clear there is something to apply; add a faster way to change large numbers (type a number, or larger steps), as only + and − exist now~~ ✅ Done (unreleased, built after v0.8.2)
+~~70. Cmd+K: searching `rollouts: <name>` sometimes says it has not loaded yet; load rollouts at that moment and show them. Also hide or disable "search all clusters" in the Cmd+K palette~~ ✅ Done (unreleased, built after v0.8.2)
+~~71. everywhere there is a Restart button, add one more confirmation step before restarting~~ ✅ Done (unreleased, built after v0.8.2)
+~~72. Rollouts: the Rollouts tool does not list all rollouts. In both Custom Resources > Rollouts and the sidebar's Rollouts, offer Promote, Promote full, Pause, Abort, Retry and Restart~~ ✅ Done (unreleased, built after v0.8.2)
 73. embed the Argo Rollouts dashboard (what `kubectl argo rollouts dashboard` serves) inside Kubebay
-74. add a beautifully designed pink theme for girls and women (a 13th theme, with all the theme tests and contrast rules)
-75. Deployments and StatefulSets: show all of the workload's pods in the lower part of its window
+~~74. add a beautifully designed pink theme for girls and women (a 13th theme, with all the theme tests and contrast rules)~~ ✅ Done (unreleased, built after v0.8.2)
+~~75. Deployments and StatefulSets: show all of the workload's pods in the lower part of its window~~ ✅ Done (unreleased, built after v0.8.2)
 76. Issues queue with Investigate: one ranked list across kinds, built on the existing detectors (pods, workloads, nodes, services, RBAC, upgrade readiness), each issue with an Investigate button that opens the right drawer and evidence
 77. Read-only mode for the MCP server (an owner switch), and measure our own MCP tools against the public SREGym benchmark on kind; add new tools only where the benchmark shows a gap
 78. AI investigations through Claude Code only, with built-in tools off, the read-only MCP mount, and fixes only as a diff you approve

@@ -128,6 +128,16 @@ describe.each(NATIVE)("$id theme contrast", ({ id, text }) => {
     expect(failures).toEqual([]);
   });
 
+  it("namespace tints keep their text readable on every ground and on a selected row (backlog 63)", () => {
+    const row = over(c("kb-accent-subtle"), c("kb-bg-surface"));
+    for (let n = 1; n <= 6; n++) {
+      const tint = c(`kb-ns-${n}`);
+      for (const g of grounds) check("kb-fg-default", over(tint, c(g)), `kb-ns-${n} on ${g}`, text);
+      check("kb-fg-default", over(tint, row), `kb-ns-${n} on a selected row`, text);
+    }
+    expect(failures).toEqual([]);
+  });
+
   it("a row that just changed is visibly tinted and keeps its text readable", () => {
     const row = over(c("kb-row-changed"), c("kb-bg-surface"));
     check("kb-fg-default", row, "changed row", text);

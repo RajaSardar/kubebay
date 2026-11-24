@@ -54,6 +54,8 @@ On clusters managed by Rancher, namespaces are grouped by Rancher project.
 
 The namespaces you have ticked are listed first, right after **All namespaces**, so they are easy to untick. On a cluster with Rancher projects they form a **Selected** group above the project groups. Search still narrows the list.
 
+Each namespace has a colour: a small square beside its name in the menu, and a tinted background on its name in the filter button (one selected) or beside "N namespaces" (several), and on the **Namespace** cell in tables. There are six soft tints, picked from the namespace's name, so `shop` is the same colour on every page, cluster and theme. The colour only helps you tell namespaces apart; the name is always written out, and the tints meet the same contrast limits as the text in every theme.
+
 ## The command palette
 
 Press <kbd>⌘</kbd> <kbd>K</kbd> (<kbd>Ctrl</kbd> <kbd>K</kbd>) anywhere to open the palette, including while the cursor is in a YAML editor, then type to search:
@@ -71,9 +73,9 @@ Objects come in groups, one per kind, with how many matched. Pick one to open th
 - **Matches are ranked**: an exact name first, then names that start with what you typed, then words inside a name, then anywhere in the name, then the namespace.
 - **With nothing typed**, the palette lists what you opened last under **Recent**.
 
-When you have more than one cluster connected, **This cluster** and **All clusters** at the top choose where to search. It starts on the current cluster. A result from another cluster names it, and opening it switches to that cluster. The palette searches only connected clusters. With more than one cluster in your kubeconfig, **Search all clusters for "…"** below the results opens [Search all clusters](/docs/search/), which can also search the clusters you haven't connected.
+When you have more than one cluster connected, **This cluster** and **All clusters** at the top choose where to search. It starts on the current cluster. A result from another cluster names it, and opening it switches to that cluster. The palette searches only connected clusters. To also search the clusters you haven't connected, open [Search all clusters](/docs/search/) from the sidebar's Tools.
 
-**What is searched, and what you have to name.** The first seven kinds come from what Kubebay already holds, so they answer at once. The others are followed by the engine, as your account, the first time you search a cluster, so their results fill in over a few seconds and the palette says **Still loading** until they have. Kinds your account may not list are skipped, and named. After about five minutes without a search Kubebay stops following them.
+**What is searched, and what you have to name.** The first seven kinds come from what Kubebay already holds, so they answer at once. The others are followed by the engine, as your account, the first time you search a cluster, so their results fill in over a few seconds and the palette says **Still loading** (or **Loading results…**, never **No matches.**) until they have. Naming a kind with a colon, such as `rollouts: storefront`, starts that kind the moment you type it, even if the cluster's custom resources are still being discovered, and the results appear as soon as it has listed. Kinds your account may not list are skipped, and named. After about five minutes without a search Kubebay stops following them.
 
 Some kinds are only searched when you name them: Events, Leases, Endpoints, EndpointSlices, ControllerRevisions, report objects such as Vulnerability Reports, and custom resources from groups Kubebay doesn't know. They are large or change constantly, so following them in advance would cost more than it's worth. Name one and it is followed for as long as you keep searching: `events crashloop`, `endpoints api`, `certificate web`. When there are such kinds, the palette lists them under your results.
 

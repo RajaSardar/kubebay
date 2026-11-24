@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/RajaSardar/kubebay/engine/internal/stream"
 )
@@ -125,6 +126,34 @@ func (ix *Index) SetCatalog(loading bool, errText string) {
 	ix.mu.Lock()
 	defer ix.mu.Unlock()
 	ix.catalogLoading, ix.catalogErr = loading, errText
+}
+
+// AwaitKindPrefix holds a "kind: words" query for up to max while the custom
+// resource catalogue loads, when the word before the colon is not a kind yet.
+// Custom resources only get their words once discovered, so without the wait
+// "rollouts: api" typed right after connecting names no kind and finds nothing.
+// It returns as soon as the catalogue is done, or at once for anything else.
+func (ix *Index) AwaitKindPrefix(raw string, max time.Duration) {
+	first, _, _ := strings.Cut(strings.ToLower(strings.TrimSpace(raw)), " ")
+	word, _, hasColon := strings.Cut(first, ":")
+	if !hasColon || word == "" {
+		return
+	}
+	deadline := time.Now().Add(max)
+	for time.Now().Before(deadline) {
+		ix.mu.RLock()
+		_, known := ix.aliases[word]
+		loading := ix.catalogLoading
+		ix.mu.RUnlock()
+		if known || !loading {
+			return
+		}
+		select {
+		case <-ix.ctx.Done():
+			return
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
 }
 
 // SetEntries replaces the entries of a synthetic kind, one whose objects come

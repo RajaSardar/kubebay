@@ -56,6 +56,7 @@ type sFakeBackend struct {
 	connectErr error
 	crds       []searchindex.CRD
 	crdErr     error
+	crdDelay   time.Duration
 }
 
 func (b *sFakeBackend) Connect(string) error { return b.connectErr }
@@ -65,6 +66,7 @@ func (b *sFakeBackend) Pool(context.Context, string) (SearchPool, error) {
 	return b.pool, nil
 }
 func (b *sFakeBackend) ListCRDs(context.Context, string) ([]searchindex.CRD, error) {
+	time.Sleep(b.crdDelay)
 	return b.crds, b.crdErr
 }
 func (b *sFakeBackend) swapPool(p *sFakePool) { b.mu.Lock(); b.pool = p; b.mu.Unlock() }
@@ -227,6 +229,26 @@ func TestCustomResourcesAreDiscoveredInTheBackgroundAndSearchable(t *testing.T) 
 	_, r := doSearch(t, a, "cluster=c1&q=crd+rollouts")
 	if g := group(r, "crds"); g == nil || g.Hits[0].Name != "rollouts.argoproj.io" {
 		t.Errorf("the CRD itself should be searchable: %+v", r.Groups)
+	}
+}
+
+// Backlog 70: a kind-prefixed search ("rollouts: api") typed before the custom
+// resource catalogue has loaded must still reach that kind in the same request,
+// not answer "nothing" and make the user type again.
+func TestAKindPrefixedSearchWaitsForTheCatalogueAndStartsThatKindAtOnce(t *testing.T) {
+	pool := newSPool()
+	be := &sFakeBackend{pool: pool, crdDelay: 150 * time.Millisecond, crds: []searchindex.CRD{
+		{Name: "rollouts.argoproj.io", Group: "argoproj.io", Version: "v1alpha1", Plural: "rollouts", Singular: "rollout", Kind: "Rollout", Namespaced: true},
+	}}
+	a := NewSearchAPI(be)
+	defer a.Close()
+	_, r := doSearch(t, a, "cluster=c1&q=rollouts:+api")
+	if r.Filter != "ext--argoproj.io--v1alpha1--rollouts" {
+		t.Fatalf("Filter = %q; the first request must already resolve the kind once the catalogue loads", r.Filter)
+	}
+	waitFor(t, "the kind started by the request that named it", func() bool { return pool.sub("argoproj.io/v1alpha1/rollouts") != nil })
+	if len(r.Pending) == 0 {
+		t.Errorf("Pending = %v; the kind is still listing and the answer must say so", r.Pending)
 	}
 }
 

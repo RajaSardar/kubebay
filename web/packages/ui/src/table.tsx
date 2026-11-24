@@ -266,11 +266,31 @@ export const TableRow = forwardRef<HTMLTableRowElement, TableRowProps>(function 
   );
 });
 
+/** How many namespace tints the themes define (`--kb-ns-1` to `--kb-ns-6`). */
+export const NS_TONES = 6;
+
+/**
+ * A namespace's tint, 1 to NS_TONES: a hash of its name, so the same namespace
+ * is the same colour in the filter, the tables and the drawers, on any machine.
+ * Colour only helps tell names apart; the name is always shown as text.
+ */
+export function nsTone(name: string): number {
+  let h = 5381;
+  for (let i = 0; i < name.length; i++) h = (Math.imul(h, 33) + name.charCodeAt(i)) >>> 0;
+  return (h % NS_TONES) + 1;
+}
+
+/** A small tinted square before a namespace name. Decoration: the name beside it carries the meaning. */
+export function NsSwatch({ name }: { name: string }) {
+  return <span className="ns-swatch" aria-hidden="true" data-ns-tone={nsTone(name)} />;
+}
+
 /** The namespace chip in a table cell; with onClick it is a button (Enter or Space work too). */
 export function NsPill({ children, onClick, title }: { children: ReactNode; onClick?: () => void; title?: string }) {
   return (
     <span
       className="cell-link ns-pill"
+      data-ns-tone={typeof children === "string" && children ? nsTone(children) : undefined}
       title={title}
       role={onClick ? "button" : undefined}
       tabIndex={onClick ? 0 : undefined}

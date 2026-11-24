@@ -258,7 +258,6 @@ type Entry =
   | { kind: "dockEdit"; obj: SearchObject; gvr: string }
   | { kind: "recent"; recent: Recent }
   | { kind: "more"; group: SearchGroup; to: string }
-  | { kind: "searchAll"; q: string; to: string }
   | { kind: "cluster"; choice: ClusterChoice };
 
 interface Section {
@@ -336,6 +335,7 @@ export function Palette({
     return mergeGroups(local, remote.groups, { listing: parseQuery(q).terms.length === 0 });
   }, [localGroups, remote.groups, remote.filter, q]);
   const showCluster = scope === "all" && several;
+  const remoteBusy = remote.loading || remote.pending.length > 0;
   const loading = open && clusters.some((c) => !isClusterSynced(c));
 
   // Entries that start with what was typed come first, then ones with a word
@@ -389,12 +389,6 @@ export function Palette({
       }
     }
     const dockSection: Section[] = dockEntries.length ? [{ key: "dockEdit", title: "Edit in dock", entries: dockEntries }] : [];
-    // With more than one cluster, the Search all clusters page also finds what's in the ones not connected.
-    const typed = q.trim();
-    const searchAllSection: Section[] =
-      typed && (clusterList.data?.length ?? 0) > 1
-        ? [{ key: "searchAll", title: "Every cluster", entries: [{ kind: "searchAll", q: typed, to: `/search?${new URLSearchParams({ q: typed })}` }] }]
-        : [];
     const clusterSection: Section[] = clusterRows.length
       ? [{ key: "clusters", title: "Switch cluster", entries: clusterRows.map((choice) => ({ kind: "cluster", choice })) }]
       : [];
@@ -407,14 +401,16 @@ export function Palette({
     // so does an empty box: the pages list is long enough to push them off screen.
     if (clusterMatch.intent) return [...clusterSection, ...navSection, ...objectSections, ...dockSection];
     if (!q.trim()) return [...clusterSection, ...favSection, ...recentSection, ...navSection];
-    return [...navSection, ...objectSections, ...dockSection, ...searchAllSection, ...clusterSection];
-  }, [filteredNav, groups, clusterRows, clusterMatch.intent, recents, favObjects, q, termText, clusterList.data]);
+    return [...navSection, ...objectSections, ...dockSection, ...clusterSection];
+  }, [filteredNav, groups, clusterRows, clusterMatch.intent, recents, favObjects, q, termText]);
   const flatEntries = useMemo(() => sections.flatMap((s) => s.entries), [sections]);
 
   const notes = useMemo(() => {
-    const out: { key: string; text: string; title?: string }[] = [];
+    const out: { key: string; text: string; title?: string; status?: boolean }[] = [];
     if (loading) out.push({ key: "local", text: "Still loading this cluster, so results may be incomplete." });
-    if (remote.pending.length > 0) out.push({ key: "pending", text: `Still loading ${remote.pending.join(", ")}. More may appear.` });
+    // A kind named in the query is started the moment it is typed: say it is on its way.
+    if (remote.pending.length > 0) out.push({ key: "pending", status: true, text: `Still loading ${remote.pending.join(", ")}. More may appear.` });
+    else if (remote.loading) out.push({ key: "searching", status: true, text: "Loading results…" });
     if (remote.denied.length > 0) {
       // The reason is text, not a tooltip: "can't list" with no why is not something to act on.
       const why = remote.denied.map((d) => d.reason.slice(0, 160)).join(" · ");
@@ -534,18 +530,6 @@ export function Palette({
             <span>{`Show all ${e.group.total} ${e.group.label}`}</span>
           </PaletteRow>
         );
-      case "searchAll":
-        return (
-          <PaletteRow
-            key="searchAll"
-            label={`Search all clusters for “${e.q}”`}
-            active={i === idx}
-            onHover={() => setIdx(i)}
-            onClick={() => go(e.to)}
-          >
-            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{`Search all clusters for “${e.q}”`}</span>
-          </PaletteRow>
-        );
       case "cluster":
         return (
           <PaletteRow
@@ -621,13 +605,13 @@ export function Palette({
           {/* Say what was not searched, so a short list is never mistaken for the whole cluster */}
           {q.trim() !== "" &&
             notes.map((n) => (
-              <div key={n.key} className="muted small" style={{ padding: "6px 14px" }} title={n.title}>
+              <div key={n.key} className="muted small" style={{ padding: "6px 14px" }} title={n.title} {...(n.status ? { role: "status" } : {})}>
                 {n.text}
               </div>
             ))}
 
           {/* Empty state */}
-          {q.trim() !== "" && flatEntries.length === 0 && <div className="muted small" style={{ padding: "10px 14px" }}>No matches.</div>}
+          {q.trim() !== "" && flatEntries.length === 0 && !remoteBusy && <div className="muted small" style={{ padding: "10px 14px" }}>No matches.</div>}
         </div>
 
         {/* Outside the scrolling list, so it is always in view */}

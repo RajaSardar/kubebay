@@ -661,6 +661,31 @@ button.nav-item {
   background: var(--kb-bg-surface);
 }
 
+/* A tinted pill keeps its namespace colour there: the tint over the surface. */
+.kb-table tbody tr.selected .ns-pill[data-ns-tone="1"] {
+  background: linear-gradient(var(--kb-ns-1), var(--kb-ns-1)), var(--kb-bg-surface);
+}
+
+.kb-table tbody tr.selected .ns-pill[data-ns-tone="2"] {
+  background: linear-gradient(var(--kb-ns-2), var(--kb-ns-2)), var(--kb-bg-surface);
+}
+
+.kb-table tbody tr.selected .ns-pill[data-ns-tone="3"] {
+  background: linear-gradient(var(--kb-ns-3), var(--kb-ns-3)), var(--kb-bg-surface);
+}
+
+.kb-table tbody tr.selected .ns-pill[data-ns-tone="4"] {
+  background: linear-gradient(var(--kb-ns-4), var(--kb-ns-4)), var(--kb-bg-surface);
+}
+
+.kb-table tbody tr.selected .ns-pill[data-ns-tone="5"] {
+  background: linear-gradient(var(--kb-ns-5), var(--kb-ns-5)), var(--kb-bg-surface);
+}
+
+.kb-table tbody tr.selected .ns-pill[data-ns-tone="6"] {
+  background: linear-gradient(var(--kb-ns-6), var(--kb-ns-6)), var(--kb-bg-surface);
+}
+
 /* Hover is a shade only. The accent bar marks the selected row and the keyboard cursor row, so a
    resting pointer never looks like a selection. */
 .kb-table tbody tr:hover {
@@ -1468,7 +1493,58 @@ button.nav-item {
   text-decoration: none;
 }
 
-.ns-pill:hover {
+/* A tinted pill: one of six namespace tints (--kb-ns-N). Its text is
+   --kb-fg-default, contrast-tested on every tint over every ground and on a
+   selected row; hover shows as a ring, so the fill never changes under the text. */
+.ns-pill[data-ns-tone] {
+  color: var(--kb-fg-default);
+}
+
+.ns-pill[data-ns-tone="1"],
+.ns-swatch[data-ns-tone="1"] {
+  background: var(--kb-ns-1);
+}
+
+.ns-pill[data-ns-tone="2"],
+.ns-swatch[data-ns-tone="2"] {
+  background: var(--kb-ns-2);
+}
+
+.ns-pill[data-ns-tone="3"],
+.ns-swatch[data-ns-tone="3"] {
+  background: var(--kb-ns-3);
+}
+
+.ns-pill[data-ns-tone="4"],
+.ns-swatch[data-ns-tone="4"] {
+  background: var(--kb-ns-4);
+}
+
+.ns-pill[data-ns-tone="5"],
+.ns-swatch[data-ns-tone="5"] {
+  background: var(--kb-ns-5);
+}
+
+.ns-pill[data-ns-tone="6"],
+.ns-swatch[data-ns-tone="6"] {
+  background: var(--kb-ns-6);
+}
+
+.ns-pill[data-ns-tone]:hover {
+  box-shadow: inset 0 0 0 1px var(--kb-border-strong);
+}
+
+.ns-swatch {
+  display: inline-block;
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: var(--kb-radius-control);
+  box-shadow: inset 0 0 0 1px var(--kb-border-strong);
+  margin-right: 6px;
+}
+
+.ns-pill:not([data-ns-tone]):hover {
   background: color-mix(in srgb, var(--kb-accent-subtle) 180%, transparent);
   text-decoration: none;
 }
