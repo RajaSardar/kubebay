@@ -40,7 +40,7 @@ export function WorkloadPods({ cluster, obj: given, kind }: { cluster: string; o
         onRowClick={(r) => navigate(`/detail/pods/${r.namespace || "_"}/${r.name}`)}
         empty={<span className="muted small">No pods: this workload has none running right now.</span>}
         columns={[
-          { key: "name", header: "Name", className: "mono td-name", title: (r) => r.name, render: (r) => <PodName name={r.name} /> },
+          { key: "name", header: "Name", className: "mono td-name", title: (r) => r.name, render: (r) => <span><PodName name={r.name} /></span> },
           { key: "ready", header: "Ready", className: "mono small", render: (r) => r.ready },
           {
             key: "status",

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import GenericDrawer from "../GenericDrawer";
@@ -22,6 +22,12 @@ vi.mock("../RolloutLine", () => ({ RolloutLine: () => null }));
 vi.mock("../WorkloadPods", () => ({
   WorkloadPods: (p: { cluster: string; kind?: string; obj: { metadata: { name: string } } }) => (
     <div>pods of {p.cluster}/{p.obj.metadata.name} as {p.kind}</div>
+  ),
+}));
+
+vi.mock("../WorkloadLogs", () => ({
+  WorkloadLogs: (p: { cluster: string; kind?: string; obj: { metadata: { name: string } } }) => (
+    <div>logs of {p.cluster}/{p.obj.metadata.name} as {p.kind}</div>
   ),
 }));
 
@@ -53,5 +59,18 @@ describe("GenericDrawer pods", () => {
     renderDrawer("configmaps");
     await screen.findAllByText(/web/);
     expect(screen.queryByText(/pods of/)).not.toBeInTheDocument();
+  });
+
+  // Backlog 59: all the pods' logs in one view.
+  it("has a Logs tab on workloads that own pods, showing every pod's logs together", async () => {
+    renderDrawer("deployments");
+    fireEvent.click(await screen.findByRole("tab", { name: "Logs" }));
+    expect(await screen.findByText("logs of c1/web as Deployment")).toBeInTheDocument();
+  });
+
+  it("has no Logs tab on kinds without pods", async () => {
+    renderDrawer("configmaps");
+    await screen.findAllByText(/web/);
+    expect(screen.queryByRole("tab", { name: "Logs" })).not.toBeInTheDocument();
   });
 });

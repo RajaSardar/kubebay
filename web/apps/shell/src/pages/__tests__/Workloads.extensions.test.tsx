@@ -1,4 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { podNameText } from "../../testing/podName";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
@@ -78,7 +79,7 @@ describe("extensions on the Pods table", () => {
   it("offers the row action with the pod's own values", async () => {
     renderPods();
     await screen.findByRole("columnheader", { name: "Host IP" });
-    const tr = screen.getByText("api-1").closest("tr")!;
+    const tr = screen.getByText(podNameText("api-1")).closest("tr")!;
     fireEvent.click(within(tr).getByRole("button", { name: "Actions for api-1" }));
     fireEvent.click(await screen.findByRole("menuitem", { name: "Tail with stern" }));
     const state = JSON.parse((await screen.findByTestId("terminal-state")).textContent ?? "null");

@@ -16,6 +16,7 @@ import { MetadataSummary } from "./MetadataSummary";
 import { ResourceClaimSummary } from "./ResourceClaimSummary";
 import { RolloutProgress } from "./RolloutProgress";
 import { WorkloadPods } from "./WorkloadPods";
+import { WorkloadLogs } from "./WorkloadLogs";
 import { RolloutLine } from "./RolloutLine";
 import { AutoscalingTab } from "./AutoscalingTab";
 import { PolicyFindingsTab } from "./PolicyFindingsTab";
@@ -33,7 +34,7 @@ type SvcTab = "summary" | "yaml";
 /** An Argo Rollout, at whichever version its CRD serves. */
 const isArgoRollout = (gvr: string) => /^argoproj\.io\/[^/]+\/rollouts$/.test(gvr);
 
-type GenTab = "summary" | "rollout" | "timeline" | "autoscaling" | "policy" | "vulnerabilities" | "signatures" | "yaml" | "events";
+type GenTab = "summary" | "rollout" | "timeline" | "autoscaling" | "policy" | "vulnerabilities" | "signatures" | "yaml" | "events" | "logs";
 
 // KEDA ScaledObjects, HPAs, and VPAs can all target these kinds — every
 // other generic kind (ConfigMap, Secret, …) has nothing to autoscale.
@@ -177,6 +178,10 @@ function PaneContent({
         {POD_OWNER_SLUGS.has(def.slug) && obj && <WorkloadPods cluster={cluster} obj={obj} kind={def.kind} />}
       </div>
     );
+  }
+  if (!isNode && !isService && genTab === "logs") {
+    if (objLoading) return <SkeletonLines lines={6} label="Loading details…" />;
+    return obj ? <WorkloadLogs cluster={cluster} obj={obj} kind={def.kind} /> : null;
   }
   if (!isNode && !isService && genTab === "rollout") {
     if (objLoading) return <SkeletonLines lines={6} label="Loading details…" />;
@@ -422,6 +427,7 @@ export default function GenericDrawer({
     signatures: "Signatures",
     yaml: "YAML",
     events: "Events",
+    logs: "Logs",
   };
   // Rollout progress for the kinds that roll out revisions (old-vs-new
   // ReplicaSets, or pods per ControllerRevision); Autoscaling only for kinds an HPA/VPA/ScaledObject can
@@ -433,6 +439,8 @@ export default function GenericDrawer({
   // Every other generic kind keeps the plain three tabs.
   const genTabs: GenTab[] = [
     "summary",
+    // Backlog 59: every pod's logs in one view.
+    ...(POD_OWNER_SLUGS.has(def.slug) ? (["logs"] as const) : []),
     ...(RIGHTSIZABLE_SLUGS.has(def.slug) ? (["rollout"] as const) : []),
     // Resource Timeline (roadmap Tier 2 #18): the pod-owning workload kinds.
     ...(RIGHTSIZABLE_SLUGS.has(def.slug) ? (["timeline"] as const) : []),

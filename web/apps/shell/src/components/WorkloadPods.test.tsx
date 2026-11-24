@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { podNameText } from "../testing/podName";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { WorkloadPods } from "./WorkloadPods";
@@ -48,10 +49,10 @@ describe("WorkloadPods", () => {
     byGvr["v1/pods"] = [mk("db-0"), mk("db-1")];
     draw();
     expect(screen.getByText("Pods (2)")).toBeInTheDocument();
-    expect(screen.getByText("db-0")).toBeInTheDocument();
+    expect(screen.getByText(podNameText("db-0"))).toBeInTheDocument();
     expect(screen.getAllByText("node-a")).toHaveLength(2);
     expect(screen.getAllByText("1/1")).toHaveLength(2);
-    fireEvent.click(screen.getByText("db-1"));
+    fireEvent.click(screen.getByText(podNameText("db-1")));
     expect(navigateMock).toHaveBeenCalledWith("/detail/pods/shop/db-1");
     const call = calls.find((c) => c.gvr === "v1/pods")!;
     expect(call.opts).toMatchObject({ ns: ["shop"], labelSelector: "app=db", mode: "full" });
@@ -67,9 +68,9 @@ describe("WorkloadPods", () => {
     byGvr["v1/pods"] = Array.from({ length: 120 }, (_, i) => mk(`db-${String(i).padStart(3, "0")}`));
     draw();
     expect(screen.getByText("Pods (120)")).toBeInTheDocument();
-    expect(screen.queryByText("db-060")).not.toBeInTheDocument();
+    expect(screen.queryByText(podNameText("db-060"))).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Show all 120 pods" }));
-    expect(screen.getByText("db-060")).toBeInTheDocument();
+    expect(screen.getByText(podNameText("db-060"))).toBeInTheDocument();
   });
 
   it("reads ReplicaSets for a Deployment", () => {

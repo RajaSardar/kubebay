@@ -1,4 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { podNameText } from "../../testing/podName";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
@@ -56,7 +57,7 @@ describe("Pods: Labels column", () => {
     fireEvent.click(screen.getByRole("button", { name: "Columns" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Labels" }));
     expect(screen.getByRole("columnheader", { name: /Labels/ })).toBeInTheDocument();
-    const row = screen.getByText("web-1").closest("tr")!;
+    const row = screen.getByText(podNameText("web-1")).closest("tr")!;
     expect(row).toHaveTextContent("app=web");
     expect(row).toHaveTextContent("tier=front");
   });
@@ -64,7 +65,7 @@ describe("Pods: Labels column", () => {
   it("filters on the labels column text", () => {
     renderPods();
     fireEvent.change(screen.getByRole("textbox", { name: /^Filter/ }), { target: { value: "labels:tier=front" } });
-    expect(screen.queryByText("db-0")).toBeNull();
-    expect(screen.getByText("web-1")).toBeInTheDocument();
+    expect(screen.queryByText(podNameText("db-0"))).toBeNull();
+    expect(screen.getByText(podNameText("web-1"))).toBeInTheDocument();
   });
 });

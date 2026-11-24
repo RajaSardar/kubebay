@@ -4,7 +4,7 @@ import { Badge, Button, InlineBanner, Modal, Row, Stack, Select, Spinner, Status
 import { api } from "../lib/api";
 import { usePodLogs, type PodLogsSpec } from "../lib/usePodLogs";
 import { filterLogLines } from "../lib/logFilter";
-import { ansiSegments, logLevel, type LogLevel, type LogTone } from "../lib/logLevels";
+import { LogLine } from "../components/LogLine";
 import { ExecTerm, YamlTab } from "../components/heavy";
 import { useDiscardGuard } from "../components/DiscardGuard";
 import { forceDeleteEffect, forceDeleteLabel } from "../lib/podDelete";
@@ -30,37 +30,6 @@ export interface SelectedPod {
 }
 
 const TAILS = [200, 2000, 10000];
-
-// Backlog #22: a log line's class from its level (lib/logLevels).
-const LEVEL_CLASS: Record<LogLevel, string> = { error: "err", warn: "warn", success: "ok", info: "info", debug: "debug", "": "" };
-const ANSI_CLASS: Record<LogTone, string> = {
-  err: "log-ansi-err",
-  warn: "log-ansi-warn",
-  ok: "log-ansi-ok",
-  info: "log-ansi-info",
-  muted: "log-ansi-muted",
-};
-
-/** A log line, coloured by its level, with an app's own ANSI colours as theme tones. */
-function LogLine({ line }: { line: string }) {
-  const level = LEVEL_CLASS[logLevel(line)];
-  const segments = ansiSegments(line);
-  return (
-    <div className={level ? `log-line ${level}` : "log-line"}>
-      {segments
-        ? segments.map((seg, i) =>
-            seg.tone || seg.bold ? (
-              <span key={i} className={[seg.tone && ANSI_CLASS[seg.tone], seg.bold && "log-ansi-bold"].filter(Boolean).join(" ")}>
-                {seg.text}
-              </span>
-            ) : (
-              seg.text
-            ),
-          )
-        : line}
-    </div>
-  );
-}
 
 const POD_TABS = ["summary", "logs", "triage", "shell", "graphs", "size", "vulnerabilities", "signatures", "events", "yaml"] as const;
 type PodTab = (typeof POD_TABS)[number];

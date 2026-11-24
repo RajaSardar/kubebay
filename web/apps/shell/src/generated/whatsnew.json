@@ -8,6 +8,10 @@
           "heading": "Added",
           "items": [
             {
+              "title": "All of a workload's logs in one view",
+              "summary": "(backlog 59)."
+            },
+            {
               "title": "Finding the exact pod",
               "summary": "(backlog 61)."
             },

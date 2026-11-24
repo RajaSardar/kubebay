@@ -2294,3 +2294,16 @@ h2 {
   color: var(--kb-fg-default);
   font-weight: 700;
 }
+
+/* Backlog 59: a workload's merged logs fill the drawer. */
+.workload-logs {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.log-pod {
+  margin-right: 6px;
+  user-select: none;
+}

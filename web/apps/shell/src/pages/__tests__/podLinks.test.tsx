@@ -1,4 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { podNameText } from "../../testing/podName";
 import { render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
@@ -62,8 +63,8 @@ describe("links into Pods", () => {
   it("?q= opens the list already filtered", () => {
     renderAt("/workloads?q=status%3ACrashLoopBackOff");
     expect(screen.getByRole("textbox", { name: "Filter pods" })).toHaveValue("status:CrashLoopBackOff");
-    expect(screen.getByText("api-1")).toBeInTheDocument();
-    expect(screen.queryByText("web-1")).not.toBeInTheDocument();
+    expect(screen.getByText(podNameText("api-1"))).toBeInTheDocument();
+    expect(screen.queryByText(podNameText("web-1"))).not.toBeInTheDocument();
   });
 
   it("?pod=ns/name&tab=logs opens that pod's drawer on its logs", () => {
