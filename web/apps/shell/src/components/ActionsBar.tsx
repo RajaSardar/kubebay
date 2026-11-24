@@ -7,6 +7,7 @@ import { availableRolloutActions, rolloutActionRequests, type RolloutAction } fr
 import { sidecarSlug } from "../lib/addSidecar";
 import { AddSidecarDialog } from "./AddSidecarDialog";
 import { BlastRadiusPreview } from "./BlastRadiusPreview";
+import { ReplicaStepper } from "./ReplicaStepper";
 import { PolicyRejectionCard } from "./PolicyRejectionCard";
 
 type Slug = "deployments" | "statefulsets" | "daemonsets" | "cronjobs" | "nodes" | "rollouts";
@@ -70,7 +71,6 @@ export function ActionsBar({
   // null = untouched → follow the live spec.replicas (the object may load after mount)
   const [edited, setEdited] = useState<number | null>(null);
   const replicas = edited ?? currentReplicas ?? 0;
-  const setReplicas = (fn: (r: number) => number) => setEdited(fn(replicas));
   const ownerDetail = gitopsOwner ? ownerLabel(gitopsOwner) : undefined;
   // What a scale down is measured against: the live count the stepper started from.
   const scaleTarget = useMemo(() => ({ metadata: { name, namespace: ns }, spec: { replicas: currentReplicas } }), [name, ns, currentReplicas]);
@@ -96,27 +96,9 @@ export function ActionsBar({
       <Row align="center" gap={2} wrap>
       {showScale && (
         <>
+          <ReplicaStepper value={replicas} current={currentReplicas} onChange={setEdited} disabled={busy} />
           <Button
-            type="button"
-            variant="ghost"
-            aria-label="Decrease replicas"
-            disabled={busy || replicas <= 0}
-            onClick={() => setReplicas((r) => Math.max(0, r - 1))}
-          >
-            −
-          </Button>
-          <span style={{ minWidth: 28, textAlign: "center" }} className="mono">{replicas}</span>
-          <Button
-            type="button"
-            variant="ghost"
-            aria-label="Increase replicas"
-            disabled={busy}
-            onClick={() => setReplicas((r) => r + 1)}
-          >
-            +
-          </Button>
-          <Button
-            variant="ghost"
+            variant={replicas !== (currentReplicas ?? -1) ? "primary" : "ghost"}
             disabled={busy || replicas === (currentReplicas ?? -1)}
             onClick={() =>
               void run(async () => {

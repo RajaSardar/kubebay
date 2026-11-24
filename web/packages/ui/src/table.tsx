@@ -1,7 +1,9 @@
 import {
   forwardRef,
+  useCallback,
   useEffect,
   useRef,
+  useState,
   type CSSProperties,
   type HTMLAttributes,
   type KeyboardEvent,
@@ -10,6 +12,7 @@ import {
   type TableHTMLAttributes,
 } from "react";
 import { Skeleton } from "./index";
+import { HScrollBar } from "./hscrollbar";
 import { Spinner } from "./spinner";
 
 // ── Feedback ──────────────────────────────────────────────────────────────────
@@ -90,10 +93,23 @@ export const TableWrap = forwardRef<HTMLDivElement, TableWrapProps>(function Tab
   { className, busy, children, ...props },
   ref,
 ) {
+  // The scroller is state as well as the caller's ref: the scrollbar under it re-renders when it mounts.
+  const [scroller, setScroller] = useState<HTMLDivElement | null>(null);
+  const setRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      setScroller(el);
+      if (typeof ref === "function") ref(el);
+      else if (ref) ref.current = el;
+    },
+    [ref],
+  );
   return (
-    <div ref={ref} className={`table-wrap${className ? " " + className : ""}`} aria-busy={busy || undefined} {...props}>
-      {busy && <div className="kb-table-progress" aria-hidden="true" />}
-      {children}
+    <div className="table-frame">
+      <div ref={setRef} className={`table-wrap${className ? " " + className : ""}`} aria-busy={busy || undefined} {...props}>
+        {busy && <div className="kb-table-progress" aria-hidden="true" />}
+        {children}
+      </div>
+      <HScrollBar target={scroller} label="Scroll the table sideways" />
     </div>
   );
 });

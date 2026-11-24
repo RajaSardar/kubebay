@@ -86,6 +86,7 @@ import { useNamespaceFallback } from "./lib/namespaceAccess";
 import { useDisconnectCluster } from "./lib/useDisconnectCluster";
 import { useRemoteDisconnects } from "./lib/useRemoteDisconnects";
 import { useSidebar, type SidebarState } from "./lib/useSidebar";
+import { SidebarResizer } from "./components/SidebarResizer";
 import { HideSidebarButton, ShowSidebarButton } from "./components/SidebarToggle";
 import { McpChip } from "./components/McpChip";
 import { UpdateBanner } from "./components/UpdateBanner";
@@ -689,10 +690,16 @@ function AppInner() {
       <DrawerInset bottom={dockInset} keepOpenIn={dockRef}>
       <div
         className={sidebar.hidden ? "app sidebar-hidden" : "app"}
-        style={dockInset ? ({ "--kb-dock-inset": `${dockInset}px` } as CSSProperties) : undefined}
+        style={
+          {
+            "--kb-sidebar-w": `${sidebar.width}px`,
+            ...(dockInset ? { "--kb-dock-inset": `${dockInset}px` } : null),
+          } as CSSProperties
+        }
       >
         <ClusterStrip sidebar={sidebar} />
         <Sidebar onOpenPalette={() => setPaletteOpen(true)} sidebar={sidebar} />
+        <SidebarResizer sidebar={sidebar} />
         <Palette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
         <McpProposals />
 

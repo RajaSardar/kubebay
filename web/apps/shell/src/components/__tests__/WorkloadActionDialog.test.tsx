@@ -35,20 +35,20 @@ describe("WorkloadActionDialog — scale stepper (backlog #5)", () => {
     render(<WorkloadActionDialog action="scale" slug="deployments" cluster="kind-shop" obj={deploy(3)} onClose={() => {}} />);
     expect(screen.getByRole("button", { name: "Decrease replicas" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Increase replicas" })).toBeInTheDocument();
-    expect(screen.getByText("3")).toBeInTheDocument();
+    expect(screen.getByRole("spinbutton", { name: "Replicas" })).toHaveValue(3);
   });
 
   it("+ increments the count and enables Scale", () => {
     render(<WorkloadActionDialog action="scale" slug="deployments" cluster="kind-shop" obj={deploy(3)} onClose={() => {}} />);
     fireEvent.click(screen.getByRole("button", { name: "Increase replicas" }));
-    expect(screen.getByText("4")).toBeInTheDocument();
+    expect(screen.getByRole("spinbutton", { name: "Replicas" })).toHaveValue(4);
     expect(screen.getByRole("button", { name: "Scale" })).not.toBeDisabled();
   });
 
   it("− decrements the count and enables Scale", () => {
     render(<WorkloadActionDialog action="scale" slug="deployments" cluster="kind-shop" obj={deploy(3)} onClose={() => {}} />);
     fireEvent.click(screen.getByRole("button", { name: "Decrease replicas" }));
-    expect(screen.getByText("2")).toBeInTheDocument();
+    expect(screen.getByRole("spinbutton", { name: "Replicas" })).toHaveValue(2);
     expect(screen.getByRole("button", { name: "Scale" })).not.toBeDisabled();
   });
 
@@ -152,5 +152,23 @@ describe("WorkloadActionDialog: blast-radius preview", () => {
     fireEvent.click(screen.getByRole("button", { name: "Increase replicas" }));
     fireEvent.click(screen.getByRole("button", { name: "Increase replicas" }));
     expect(screen.queryByRole("button", { name: /What this affects/ })).not.toBeInTheDocument();
+  });
+});
+
+describe("WorkloadActionDialog — scale stepper (backlog #69)", () => {
+  const dlg = () => render(<WorkloadActionDialog action="scale" slug="deployments" cluster="kind-shop" obj={deploy(3)} onClose={() => {}} />);
+  it("shows an Unsaved hint while the count differs and takes a typed number", async () => {
+    vi.mocked(api.scale).mockResolvedValueOnce({ ok: true });
+    dlg();
+    expect(screen.queryByText("Unsaved")).toBeNull();
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Replicas" }), { target: { value: "40" } });
+    expect(screen.getByText("Unsaved")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Scale" }));
+    await waitFor(() => expect(api.scale).toHaveBeenCalledWith(expect.objectContaining({ replicas: 40 })));
+  });
+  it("still previews a scale down to zero", () => {
+    dlg();
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Replicas" }), { target: { value: "0" } });
+    expect(screen.getByRole("button", { name: /What this affects/ })).toBeInTheDocument();
   });
 });

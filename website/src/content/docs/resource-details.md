@@ -8,6 +8,8 @@ appRoutes: ["/detail/:kind/:ns/:name"]
 
 Click a row in any [resource table](/docs/resources/) to open its drawer. Every kind opens in this drawer on the right, as pods do, and a shared link to a resource opens the same drawer over its list. A drawer closes with <kbd>Esc</kbd>, the **×**, or a click anywhere outside it.
 
+Drag the drawer's left edge to make it wider or narrower (at least 360 pixels, at most 90% of the window). The edge works from the keyboard too: <kbd>Tab</kbd> to it, then <kbd>←</kbd> widens and <kbd>→</kbd> narrows by 16 pixels (<kbd>Shift</kbd> for 64), <kbd>Home</kbd> and <kbd>End</kbd> go to the narrowest and widest, and a double-click puts it back to 820 pixels (or three quarters of a narrow window). Every kind of drawer shares the one width, which is remembered and is read when a window opens, so another window that is already open doesn't change under you. The full-page view of a resource has no edge to drag.
+
 - **Copy name**, a large button right after the title, copies the resource's name (without its namespace) to the clipboard and shows **Copied** for a moment.
 - **Split view** (<kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>S</kbd>) shows two tabs side by side, such as Events beside YAML. Drag the divider to resize them. Kubebay remembers the split for each kind.
 
@@ -33,7 +35,7 @@ Services have **Summary** (ports, selector, **Endpoints**, traffic) and **YAML**
 
 Above the tabs:
 
-- **Deployments and StatefulSets**: set the replicas with **−** and **+**, then **Apply scale**. **Restart** rolls the pods.
+- **Deployments and StatefulSets**: set the replicas with **−** and **+**, then **Apply scale**. For a big change, type the count into the number box, press the **−10**, **−5**, **+5** or **+10** buttons, or hold <kbd>Shift</kbd> while you click **−** or **+** (or press <kbd>Shift</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd> in the box) to move by 10. The count never goes below 0. While it differs from the current count an **Unsaved** badge shows and **Apply scale** turns solid; set it back and both go. The **Scale** button in a table row's menu has the same controls. **Restart** rolls the pods.
 - **Argo Rollouts**: the same **−**, **+** and **Apply scale** set a Rollout's replicas, and **Restart** replaces its pods following its strategy by setting `spec.restartAt` (the same as Restart on the Rollouts page). **Pause** sets `spec.paused`, **Resume** (shown instead of Pause when you paused it) clears it, and **Skip step** moves a canary to its next step through the status subresource, after a second click. They show only when the Rollout is progressing or paused; see [Argo Rollouts](/docs/argo-rollouts/#actions) for what each sends.
 - **DaemonSets**: **Restart**.
 - **Owner column**: ReplicaSets show **Owner** (the Deployment, or a custom controller such as an Argo `Rollout`, that controls them; — for a bare one). Every other list can show it from the column chooser (hidden by default; Events have none), which is how a Job shows its CronJob. It is the Kubernetes controller, not the GitOps app (that is **Managed by**). Each owner links to its drawer, and the filter takes `controller:deployment`.

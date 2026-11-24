@@ -4,6 +4,7 @@ import { api } from "../lib/api";
 import { ownerLabel, ownerOf, ownerWarning } from "../lib/gitops";
 import { PolicyRejectionError, type PolicyRejectionDetail } from "../lib/policyRejection";
 import { BlastRadiusPreview } from "./BlastRadiusPreview";
+import { ReplicaStepper } from "./ReplicaStepper";
 import { PolicyRejectionCard } from "./PolicyRejectionCard";
 
 const KIND: Record<string, string> = { deployments: "Deployment", statefulsets: "StatefulSet", daemonsets: "DaemonSet" };
@@ -85,26 +86,7 @@ export function WorkloadActionDialog({
         <Stack gap={3}>
           {owner && <InlineBanner flush>{ownerWarning(owner)}</InlineBanner>}
           {action === "scale" ? (
-            <Row align="center" gap={2}>
-              <Button
-                type="button"
-                variant="ghost"
-                aria-label="Decrease replicas"
-                disabled={Number(replicas) <= 0}
-                onClick={() => setReplicas((r) => String(Math.max(0, Number(r) - 1)))}
-              >
-                −
-              </Button>
-              <span style={{ minWidth: 32, textAlign: "center" }} className="mono">{replicas}</span>
-              <Button
-                type="button"
-                variant="ghost"
-                aria-label="Increase replicas"
-                onClick={() => setReplicas((r) => String(Number(r) + 1))}
-              >
-                +
-              </Button>
-            </Row>
+            <ReplicaStepper value={Number(replicas)} current={currentText !== "" ? Number(currentText) : 0} onChange={(n) => setReplicas(String(n))} disabled={busy} />
           ) : (
             <span className="muted small">Its pods are replaced one by one, following its rollout strategy.</span>
           )}

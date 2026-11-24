@@ -139,6 +139,8 @@ export function ArmedButton({
 
 export * from "./shell";
 export * from "./table";
+export * from "./hscrollbar";
+export * from "./resize";
 export * from "./brand";
 export * from "./overlays";
 export * from "./layout";

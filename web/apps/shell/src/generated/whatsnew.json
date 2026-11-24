@@ -3,7 +3,30 @@
     {
       "version": "unreleased",
       "date": "",
-      "sections": []
+      "sections": [
+        {
+          "heading": "Added",
+          "items": [
+            {
+              "title": "Resizable sidebar and drawer",
+              "summary": "(backlog 68)."
+            }
+          ]
+        },
+        {
+          "heading": "Fixed",
+          "items": [
+            {
+              "title": "Scale shows there is something to apply and moves faster",
+              "summary": "(backlog 69)."
+            },
+            {
+              "title": "Resource tables always have a sideways scrollbar",
+              "summary": "(backlog 67)."
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.8.2",

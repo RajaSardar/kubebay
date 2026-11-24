@@ -42,10 +42,10 @@ describe("TableWrap busy", () => {
     const { container, rerender } = render(<TableWrap busy><table /></TableWrap>);
     const bar = container.querySelector(".kb-table-progress");
     expect(bar).not.toBeNull();
-    expect(container.firstElementChild).toHaveAttribute("aria-busy", "true");
+    expect(container.querySelector(".table-wrap")).toHaveAttribute("aria-busy", "true");
     rerender(<TableWrap><table /></TableWrap>);
     expect(container.querySelector(".kb-table-progress")).toBeNull();
-    expect(container.firstElementChild).not.toHaveAttribute("aria-busy");
+    expect(container.querySelector(".table-wrap")).not.toHaveAttribute("aria-busy");
   });
 });
 

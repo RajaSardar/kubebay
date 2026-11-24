@@ -19,6 +19,8 @@ The sidebar starts with **Clusters**, which goes back to the [cluster list](/doc
 
 Press <kbd>⌘</kbd> <kbd>B</kbd> (<kbd>Ctrl</kbd> <kbd>B</kbd> on Windows and Linux) to hide the sidebar and get the width back. Press it again, or click the button on the cluster rail, to bring it back.
 
+Drag the sidebar's right edge to make it wider or narrower, between 160 and 420 pixels. Drag it well past the narrow end and it collapses, as <kbd>⌘</kbd> <kbd>B</kbd> does. With the edge focused (<kbd>Tab</kbd> to it), <kbd>←</kbd> and <kbd>→</kbd> move it 16 pixels, <kbd>Shift</kbd> with an arrow 64, and <kbd>Home</kbd> and <kbd>End</kbd> go to the narrowest and widest. Double-click the edge to put it back to 210 pixels. The width is remembered, and is read when a window opens: resizing it in one window doesn't move the sidebar in another window that is already open.
+
 ## How the window is laid out
 
 Everything that tiles the window has square corners: the sidebar and its items, tab strips, tables, the drawer, cards, banners and empty states. Things you press or read as a chip, such as buttons, fields, status pills, namespace pills and badges, have 2px corners. Menus, dialogs, the command palette and the ⓘ panels float over the page, so they keep 6px corners and a shadow. Nothing else casts a shadow. Status dots stay round.
