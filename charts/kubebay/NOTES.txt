@@ -6,8 +6,12 @@ engine's own identity — for evaluation only, do not expose publicly.
 With OIDC (set oidc.* values): every user logs in via your IdP and all
 API traffic impersonates them — cluster RBAC decides everything.
 
+With authProxy.enabled: the engine takes the user from your proxy's headers, only from
+peers inside authProxy.trustedCIDRs. Add a NetworkPolicy so nothing but the proxy can
+reach it, and set the secret header if the CIDRs are wider than the proxy itself.
+
 The chart installs a ClusterRole that lets the engine impersonate users and groups,
-only when OIDC is set (it never impersonates service accounts). That is a powerful
+only when OIDC or authProxy is set (it never impersonates service accounts). That is a powerful
 permission: it can act as any user or group it names, system:masters included. List
 the groups your IdP issues in `impersonation.groups` to narrow it.
 

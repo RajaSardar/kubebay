@@ -75,6 +75,34 @@ spec:
             - name: KUBEBAY_PROMETHEUS_ALL_USERS
               value: "true"
             {{- end }}
+            {{- if .Values.authProxy.enabled }}
+            # Sign-in comes from the authenticating proxy in front of the engine. The
+            # engine honours these headers only from a peer inside trustedCIDRs.
+            - name: KUBEBAY_AUTH_PROXY_USER_HEADER
+              value: {{ .Values.authProxy.userHeader | quote }}
+            {{- with .Values.authProxy.groupsHeader }}
+            - name: KUBEBAY_AUTH_PROXY_GROUPS_HEADER
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.authProxy.trustedCIDRs }}
+            - name: KUBEBAY_AUTH_PROXY_TRUSTED_CIDRS
+              value: {{ join "," . | quote }}
+            {{- end }}
+            {{- if .Values.authProxy.allowAnyPeer }}
+            - name: KUBEBAY_AUTH_PROXY_ALLOW_ANY_PEER
+              value: "true"
+            {{- end }}
+            {{- if .Values.authProxy.allowSystemIdentities }}
+            - name: KUBEBAY_AUTH_PROXY_ALLOW_SYSTEM_IDENTITIES
+              value: "true"
+            {{- end }}
+            {{- if .Values.authProxy.secret.existingSecret }}
+            - name: KUBEBAY_AUTH_PROXY_SECRET_HEADER
+              value: {{ .Values.authProxy.secret.header | quote }}
+            - name: KUBEBAY_AUTH_PROXY_SECRET_FILE
+              value: /etc/kubebay/auth-proxy/secret
+            {{- end }}
+            {{- end }}
             {{- if .Values.oidc.issuerUrl }}
             - name: KUBEBAY_OIDC_ISSUER
               value: {{ .Values.oidc.issuerUrl | quote }}
@@ -93,6 +121,11 @@ spec:
           volumeMounts:
             - name: tmp
               mountPath: /tmp
+            {{- if and .Values.authProxy.enabled .Values.authProxy.secret.existingSecret }}
+            - name: auth-proxy-secret
+              mountPath: /etc/kubebay/auth-proxy
+              readOnly: true
+            {{- end }}
             {{- if .Values.auditLog.persistence.enabled }}
             - name: audit
               mountPath: /var/lib/kubebay/audit
@@ -107,6 +140,14 @@ spec:
         - name: tmp
           emptyDir:
             sizeLimit: 64Mi
+        {{- if and .Values.authProxy.enabled .Values.authProxy.secret.existingSecret }}
+        - name: auth-proxy-secret
+          secret:
+            secretName: {{ .Values.authProxy.secret.existingSecret }}
+            items:
+              - key: {{ .Values.authProxy.secret.key }}
+                path: secret
+        {{- end }}
         {{- if .Values.auditLog.persistence.enabled }}
         - name: audit
           persistentVolumeClaim:

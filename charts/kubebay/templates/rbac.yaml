@@ -1,5 +1,5 @@
-{{- if .Values.oidc.issuerUrl }}
-# With OIDC on, the engine acts as the signed-in user: it sends that user's name and
+{{- if include "kubebay.sharedIdentity" . }}
+# With OIDC or an auth proxy on, the engine acts as the signed-in user: it sends that user's name and
 # groups as impersonation headers, so cluster RBAC decides what they may do. It never
 # impersonates a service account, so the role covers users and groups only.
 #

@@ -11,8 +11,31 @@ oidc:
   clientSecret: ""
   redirectUrl: ""
 
-# Who the engine may impersonate once OIDC is on. Empty means any user or group, which
-# includes system:masters; list the groups (and users) your IdP issues to narrow it.
+# Sign in through an authenticating reverse proxy (oauth2-proxy, an ingress with
+# auth, a corporate gateway) instead of OIDC. Never together with oidc.*.
+# The engine reads the identity headers only from a peer whose address is inside
+# trustedCIDRs, and refuses everyone else with a 401. Every other pod inside those
+# ranges could forge an identity, so keep them to the proxy's own addresses and
+# add a NetworkPolicy that lets only the proxy reach the engine.
+authProxy:
+  enabled: false
+  userHeader: X-Auth-Request-Email
+  groupsHeader: X-Auth-Request-Groups
+  # Required, e.g. ["10.42.1.0/24"]: the addresses the proxy connects to the engine from.
+  trustedCIDRs: []
+  # Acknowledges the risk of trusting every peer (an empty or 0.0.0.0/0 range).
+  allowAnyPeer: false
+  # Lets the proxy name system: users and system:masters. Off.
+  allowSystemIdentities: false
+  # A header the proxy must send with a shared secret, read from an existing
+  # Secret (never a value here). Required if trustedCIDRs is wider than a /24.
+  secret:
+    header: ""
+    existingSecret: ""
+    key: secret
+
+# Who the engine may impersonate once OIDC or authProxy is on. Empty means any user or group, which
+# includes system:masters; list the groups (and users) your IdP or proxy issues to narrow it.
 impersonation:
   users: []
   groups: []
