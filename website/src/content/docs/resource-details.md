@@ -66,6 +66,22 @@ Deleting several selected rows at once (**Delete N selected** in a resource tabl
 
 Changes are recorded in the [Audit Log](/docs/audit-log/).
 
+## Compare two resources
+
+Compare shows two objects as a side-by-side diff of their YAML, in an editor you can scroll and search. They can be of any kind and on any connected cluster, so you can set a Deployment in `dev` against the same one in `prod`. Three ways to start:
+
+- Tick exactly two rows in a resource table. **Compare** appears in the selection bar (with any other number of rows it is not shown).
+- Open an object and choose **Compare with…** in its drawer header (Pods have it too). That object is the left side. Pick the right side in the dialog: choose a **cluster** from the connected ones, then search by name, or by kind and name as in the command palette (`deploy api`).
+- Open the command palette and type `compare`, then choose **Compare resources…** and pick both sides in the dialog.
+
+**Hide noise** is on at first. It leaves out what differs between any two objects without meaning anything: `metadata.managedFields`, `resourceVersion`, `uid`, `generation`, `creationTimestamp`, `status` and the `kubectl.kubernetes.io/last-applied-configuration` annotation. Turn it off to compare the whole object. Keys are sorted, so the same object always reads the same.
+
+**Swap sides** exchanges left and right. **Copy diff** copies the difference as unified diff text (three lines of context) for a ticket or a chat; it is disabled when there is nothing to copy. When the two sides are equal the dialog says **No differences**.
+
+**Secrets.** Secret values are never fetched for a comparison. A Secret is compared by its keys and the size of each value (`<7 bytes>`), so two Secrets with the same keys and sizes but different values look the same. Nothing is recorded as a reveal, because nothing is revealed. To see a value use the Secret's own **Show**, which is audited.
+
+**Your access.** Each side is read from its own cluster with your own permissions, the same read the YAML tab makes. If you may not read one side the dialog says so, for example "You are not allowed to read prod: shop/api", with the API server's reason, and shows no diff; a side that has been deleted says it was not found, and an unreachable cluster says the object could not be read. The other side is still read. Compare only reads: it changes nothing and writes nothing to the Audit Log.
+
 ## YAML
 
 The YAML tab is an editor for the live object.
