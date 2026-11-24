@@ -3,16 +3,16 @@ import type { CRDEntry } from "./api";
 
 type Obj = Record<string, unknown>;
 
-function rec(v: unknown): Obj {
+export function rec(v: unknown): Obj {
   return (v ?? {}) as Obj;
 }
-function str(v: unknown): string {
+export function str(v: unknown): string {
   return typeof v === "string" ? v : "";
 }
-function arr(v: unknown): unknown[] {
+export function arr(v: unknown): unknown[] {
   return Array.isArray(v) ? v : [];
 }
-function num(v: unknown, fallback = 0): number {
+export function num(v: unknown, fallback = 0): number {
   return typeof v === "number" && Number.isFinite(v) ? v : fallback;
 }
 
