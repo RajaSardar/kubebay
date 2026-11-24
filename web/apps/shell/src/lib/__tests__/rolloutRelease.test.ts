@@ -91,6 +91,16 @@ describe("replica sets", () => {
     expect(v.replicaSets[1]!).toMatchObject({ weight: 20, weightKind: "target" });
     expect(v.replicaSets[0]!).toMatchObject({ weight: 80, weightKind: "target" });
   });
+  it("puts all traffic on the stable ReplicaSet once the rollout has completed", () => {
+    const sets = [rs("web-bbb", "bbb", "2", "web:2", 4, 4)];
+    const v = buildReleaseView(canary({ currentStepIndex: 5, stableRS: "bbb", currentPodHash: "bbb" }), sets, [], []);
+    expect(v.replicaSets[0]!).toMatchObject({ role: "stable", weight: 100 });
+  });
+  it("targets no canary traffic after an abort", () => {
+    const v = buildReleaseView(canary({ abort: true, currentStepIndex: 2 }), SETS, [], []);
+    expect(v.replicaSets.find((r) => r.role === "stable")!.weight).toBe(100);
+    expect(v.replicaSets.find((r) => r.role === "canary")!.weight).toBe(0);
+  });
   it("shows no weights for blueGreen", () => {
     const ro = { metadata: { name: "web", namespace: NS, uid: "u1" }, spec: { strategy: { blueGreen: {} } }, status: { blueGreen: { activeSelector: "aaa", previewSelector: "bbb" } } };
     const v = buildReleaseView(ro, SETS, [], []);

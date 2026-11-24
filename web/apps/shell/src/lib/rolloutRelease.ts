@@ -149,7 +149,9 @@ function buildReplicaSets(ro: Obj, sets: Obj[]): ReleaseReplicaSet[] {
     } else {
       const steps = arr(rec(rec(rec(ro.spec).strategy).canary).steps);
       const idx = num(status.currentStepIndex, 0);
-      if (steps.length > 0 && idx >= steps.length) canaryWeight = 100;
+      // Fully promoted (stable is the current template) or aborted: traffic is on stable.
+      if (status.abort === true || (stable && stable === current)) canaryWeight = 0;
+      else if (steps.length > 0 && idx >= steps.length) canaryWeight = 100;
       else {
         canaryWeight = 0;
         for (let i = 0; i <= Math.min(idx, steps.length - 1); i++) {
