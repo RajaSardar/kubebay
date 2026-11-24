@@ -8,6 +8,18 @@
           "heading": "Added",
           "items": [
             {
+              "title": "Pod drawer: labels, env sources and Secret/ConfigMap references",
+              "summary": "(backlog 62)."
+            },
+            {
+              "title": "Service endpoints",
+              "summary": "(backlog 64)."
+            },
+            {
+              "title": "Labels column",
+              "summary": "(backlog 65)."
+            },
+            {
               "title": "Resizable sidebar and drawer",
               "summary": "(backlog 68)."
             }
@@ -16,6 +28,10 @@
         {
           "heading": "Fixed",
           "items": [
+            {
+              "title": "NodePort Services showed as ClusterIP with no ports",
+              "summary": "(backlog 66)."
+            },
             {
               "title": "Scale shows there is something to apply and moves faster",
               "summary": "(backlog 69)."
