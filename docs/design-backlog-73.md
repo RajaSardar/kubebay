@@ -148,3 +148,38 @@ mock harness for a screenshot into `/tmp/kubebay-work/`.
 - Any live-cluster verification in this lane: actions and field shapes follow
   the CRD and the existing tests, and the docs will say they were not run
   against a live cluster.
+
+## Challenge round
+
+Checked against `lib/rollouts.ts`, `components/RolloutsDashboard.tsx`, `pages/Rollouts.tsx` and the existing desktop detection. Each point states the objection and the final decision.
+
+1. **Ownership: the plan says UID match, the existing helper matches kind and name.** `ownedBy` in `rollouts.ts` compares `ownerReferences[].kind/name` only. A Rollout deleted and recreated under the same name would adopt stale ReplicaSets and AnalysisRuns that are still being garbage collected. Decision: `buildReleaseView` matches on `metadata.uid` when both the Rollout and the ownerReference carry one, and falls back to kind and name only when a UID is absent (fixtures, partial objects). Export one shared `ownedBy` from `rollouts.ts` with that behaviour, so `describeRollout` and the release view cannot disagree. Add a regression test with a same-name, different-UID ReplicaSet.
+
+2. **"The component calls the existing confirm and audit flow" is not true: that flow is inline state in `RolloutsDashboard`.** `run`, `request`, `busy`, `error` and `confirming` live inside the dashboard component, and the production-cluster confirmation is `useClusterLooksProduction` there. A second component cannot call it. Decision: extract a `useRolloutActions(cluster, rolloutGvr)` hook (returns `run`, `request`, `busy`, `error`, `confirming`, `confirm`, `cancel`) first, as a behaviour-preserving refactor covered by the existing `RolloutsDashboard.test.tsx`, then use it from both the dashboard row and the release view. Restart keeps `ArmedButton` and `RESTART_CONFIRM_LABEL`; `restartGuard` stays unmodified. No new mutation path and no Go change, so audit is untouched (the apply endpoint already records user and gvr). Scope trap avoided: do not rewrite the action code in the new component.
+
+3. **Services stream does not exist on the Rollouts page, and the drawer has no streams at all.** `pages/Rollouts.tsx` streams Rollouts, ReplicaSets and AnalysisRuns only. The generic drawer for the `ext--` kind has no stream props. "Reuse the existing Services stream" would mean a new subscription. Decision: the view takes `services` as an optional input. The Rollouts page adds one Services stream scoped to the user's selected namespaces, through the same stream hook and RBAC path as the other three (a forbidden result yields the "not available to you" note). Services appear only for blueGreen, where the active and preview names are known; for canary the stable and canary Service names are shown as names without a selector lookup. The drawer reuses the page's already-loaded rows by rendering the release view from the Rollouts page expand row, not by adding streams to the drawer.
+
+4. **Drawer placement is underspecified and risky.** Wiring a "Release" tab into the generic drawer's extension branch would touch shared drawer code for one CRD. Decision: primary placement is an expandable row on `RolloutsDashboard` (data is already there). The drawer gets a Release section only if the drawer already receives sibling rows; otherwise it links back to the Rollouts page row. Docs say exactly where the view lives. This shrinks the first slice and keeps drawer tests untouched.
+
+5. **Desktop detection helper is not a single obvious thing.** `lib/nativeWindow.ts`, `lib/updates.ts` and `lib/smoke.ts` each check for Tauri. Decision: reuse whichever one `updates.ts` exports for "running in the desktop app" (confirm by reading it during implementation) and import it; do not add a fourth check. The hint test mocks that one function.
+
+6. **Security refinements.** (a) Measurements: render only `name`, `phase`, counts, `message` and the last measurement's `value`, each truncated to 200 characters, as text nodes. Do not render `metadata`, `args`, `provider` specs or `secretKeyRef`, and do not iterate unknown keys generically. (b) Argo hint card: the command is a fixed constant, but the Rollout name and namespace must not be interpolated into it (shell-injection through a hostile resource name when copied). The card shows `kubectl argo rollouts dashboard` only. (c) The "abort reason" must come from `status.message` and `pauseConditions[].reason`, which any controller can write; treat as untrusted text, truncated, never HTML. (d) Statement "A stream the user cannot read yields an empty section" requires distinguishing forbidden from loading, so the model input carries a per-source `{rows, forbidden}` state, not bare arrays.
+
+7. **Step state is wrong for edge cases in the plan.** `currentStepIndex` equal to the step count means the canary finished its steps, so all steps are `done` and none `current`. A `setWeight`, `pause` or `analysis` step can also be skipped by "Skip step", which only increments the index, so earlier steps are `done` regardless of how they ended. Aborted rollouts reset `currentStepIndex` on the controller side in some versions; the model must still show the abort and not invent a current step. Decision: add these three cases to the test plan. When `status.abort` is true, mark the step at the index `current` with an "aborted" note only if the index is in range.
+
+8. **Weight fallback is a guess.** "Falling back to the last `setWeight`" can show a weight the traffic router is not applying (no router configured means weights follow replica ratios). Decision: prefer `status.canary.weights`; else, for the no-router case, show the last `setWeight` at or before the current step and label it "target", not "live". Never show a weight for blueGreen. Test both labels.
+
+9. **Testability.** The plan's component test for "hint card only on desktop" needs the desktop helper injected; the Playwright screenshot is not a test. Decision: the screenshot is evidence only; the guard and unit tests above are the gate. `ReleaseView` fixtures are built from small hand-written Rollout, ReplicaSet and AnalysisRun objects in a `fixtures` section of the test file (no live cluster), and the docs and CHANGELOG say plainly that field shapes follow the CRD and were not verified on a live cluster.
+
+10. **Scope trap: the Public API type list is too large for a first slice.** Decision on slicing, in order, each its own commit with tests first: (1) shared `ownedBy` plus `useRolloutActions` extraction (no visible change); (2) `rolloutRelease.ts` steps, ReplicaSets, conditions and halt reason; (3) AnalysisRun metrics; (4) blueGreen Services with the stream; (5) component and expandable row; (6) desktop hint, docs, CHANGELOG, `whatsnew-gen`. `ReleaseService.selectsRevision` is dropped from v1: deriving it needs the Service selector matched against the `rollouts-pod-template-hash` label, which is reliable only for blueGreen; keep it only there and omit otherwise.
+
+### Final decisions (summary)
+
+- UID-first ownership via one shared helper, with a same-name regression test.
+- Extract `useRolloutActions` from `RolloutsDashboard` before building anything new; no new mutation path, no Go change.
+- Services are an optional, RBAC-scoped stream added on the Rollouts page, blueGreen only for selector lookup.
+- Primary placement is the expandable row; the drawer is secondary and only if it needs no new streams.
+- Reuse the single existing desktop check; the hint is a constant string with no interpolation.
+- Strict field allowlist and truncation for AnalysisRun and status text; forbidden is distinct from loading.
+- Edge-case step states and the "target versus live" weight label are in the test plan.
+- Six small commits in the order above.
