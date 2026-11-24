@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNamespaceStore, useSelectedNamespaces } from "../lib/namespace-store";
 import { useClusterMeta } from "../lib/cluster-meta-store";
 import { isNamespaceName, useNamespaceAccess } from "../lib/namespaceAccess";
-import { IconButton, InlineBanner, Row, Stack, TextField } from "@kubebay/ui";
+import { IconButton, InlineBanner, NsPill, NsSwatch, Row, Stack, TextField } from "@kubebay/ui";
 import { groupByProject, rancherProject } from "../lib/rancher";
 
 const SELECTED = "\u0000selected";
@@ -158,9 +158,16 @@ export function NamespaceFilter({ cluster }: { cluster: string | undefined }) {
             {label}
           </span>
         ) : selected.length === 1 ? (
-          <span className="ns-chip">{label}</span>
+          <NsPill>{label ?? ""}</NsPill>
         ) : (
           <span>{label}</span>
+        )}
+        {selected.length > 1 && (
+          <span className="ns-swatches" aria-hidden="true">
+            {selected.slice(0, 4).map((n) => (
+              <NsSwatch key={n} name={n} />
+            ))}
+          </span>
         )}
         <span className="ns-chevron" aria-hidden>
           ▾
@@ -243,6 +250,7 @@ export function NamespaceFilter({ cluster }: { cluster: string | undefined }) {
                     <span className={`ns-checkbox${isSelected ? " checked" : ""}`}>
                       {isSelected ? "✓" : ""}
                     </span>
+                    <NsSwatch name={ns} />
                     {ns}
                     {missing.has(ns) && <span className="muted small">not on this cluster</span>}
                   </button>

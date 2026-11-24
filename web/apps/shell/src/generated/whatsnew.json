@@ -8,6 +8,10 @@
           "heading": "Added",
           "items": [
             {
+              "title": "A colour for each namespace",
+              "summary": "(backlog 63)."
+            },
+            {
               "title": "Pod drawer: labels, env sources and Secret/ConfigMap references",
               "summary": "(backlog 62)."
             },

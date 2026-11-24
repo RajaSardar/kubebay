@@ -54,6 +54,8 @@ On clusters managed by Rancher, namespaces are grouped by Rancher project.
 
 The namespaces you have ticked are listed first, right after **All namespaces**, so they are easy to untick. On a cluster with Rancher projects they form a **Selected** group above the project groups. Search still narrows the list.
 
+Each namespace has a colour: a small square beside its name in the menu, and a tinted background on its name in the filter button (one selected) or beside "N namespaces" (several), and on the **Namespace** cell in tables. There are six soft tints, picked from the namespace's name, so `shop` is the same colour on every page, cluster and theme. The colour only helps you tell namespaces apart; the name is always written out, and the tints meet the same contrast limits as the text in every theme.
+
 ## The command palette
 
 Press <kbd>⌘</kbd> <kbd>K</kbd> (<kbd>Ctrl</kbd> <kbd>K</kbd>) anywhere to open the palette, including while the cursor is in a YAML editor, then type to search:
