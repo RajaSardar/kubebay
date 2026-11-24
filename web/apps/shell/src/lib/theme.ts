@@ -6,7 +6,7 @@ export type ThemeName =
   | "vscode-dark" | "vscode-light"
   | "one-dark" | "dracula" | "nord"
   | "github-dark" | "github-light"
-  | "catppuccin";
+  | "catppuccin" | "blossom";
 
 interface ThemeState {
   theme: ThemeName;

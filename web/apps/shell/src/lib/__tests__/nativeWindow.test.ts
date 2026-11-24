@@ -66,6 +66,7 @@ describe("theme changes reach the desktop window", () => {
   it.each([
     ["dracula", "dark"],
     ["github-light", "light"],
+    ["blossom", "light"],
     ["system", "system"],
   ] as const)("choosing %s sends appearance %s with the theme colour", (theme, appearance) => {
     const invoke = stubTauri();

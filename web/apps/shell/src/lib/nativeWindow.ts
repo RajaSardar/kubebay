@@ -1,7 +1,7 @@
 import type { ThemeName } from "./theme";
 
 /** Themes drawn on a light ground; every other theme is dark. */
-export const LIGHT_THEMES: ReadonlySet<ThemeName> = new Set<ThemeName>(["dawn", "dawn-hc", "vscode-light", "github-light"]);
+export const LIGHT_THEMES: ReadonlySet<ThemeName> = new Set<ThemeName>(["dawn", "dawn-hc", "vscode-light", "github-light", "blossom"]);
 
 export type NativeAppearance = "dark" | "light" | "system";
 

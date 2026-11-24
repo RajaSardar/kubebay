@@ -33,6 +33,8 @@ const THEMES: { id: ThemeName; label: string; hint: string; swatch: [string, str
   { id: "github-dark", label: "GitHub Dark",  hint: "GitHub Dark",          swatch: ["#0d1117", "#161b22", "#58a6ff"] },
   { id: "github-light",label: "GitHub Light", hint: "GitHub Light",         swatch: ["#f6f8fa", "#ffffff", "#0964d0"] },
   { id: "catppuccin",  label: "Catppuccin",   hint: "Catppuccin Mocha",     swatch: ["#1e1e2e", "#181825", "#cba6f7"] },
+  // ── Soft and light ───────────────────────────────────────────────────
+  { id: "blossom",     label: "Blossom",      hint: "Light · soft pink",    swatch: ["#fdeff4", "#fffbfd", "#a81f66"] },
 ];
 
 /**
