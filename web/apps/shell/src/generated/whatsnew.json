@@ -8,6 +8,10 @@
           "heading": "Added",
           "items": [
             {
+              "title": "A workload's pods in its drawer",
+              "summary": "(backlog 75)."
+            },
+            {
               "title": "Pod drawer: labels, env sources and Secret/ConfigMap references",
               "summary": "(backlog 62)."
             },

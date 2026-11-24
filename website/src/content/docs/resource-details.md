@@ -19,7 +19,7 @@ Every resource has **Summary**, **YAML** and **Events**. Workloads get more.
 
 | Tab | For | Shows |
 |---|---|---|
-| Summary | all | Created, labels, annotations, conditions, and **Owned by**: every owner up the chain, each a link |
+| Summary | all | Created, labels, annotations, conditions, and **Owned by**: every owner up the chain, each a link. Deployments, StatefulSets, DaemonSets and Jobs end with **Pods**: every pod they own, with Name, Ready, Status, Restarts, Node and Age |
 | Rollout | Deployments, StatefulSets, DaemonSets | Ready replicas per revision, new against old, so a stuck rollout shows which ReplicaSet it's stuck on |
 | Timeline | Deployments, StatefulSets, DaemonSets | Events, rollout revisions (with image and change-cause), condition changes, container terminations and the changes you made through Kubebay (its audit log) on one timeline. The **All**, **Events**, **Audit** and **Rollouts** buttons filter it, the time column shows how long ago with the exact time on hover, and each object name opens that object. The audit entries match by cluster, namespace, name and kind (older entries, which have no kind, by name only), and name who made the change when they signed in through OIDC |
 | Autoscaling | Deployments, StatefulSets | Every HPA, VPA and KEDA ScaledObject that targets it, with min, max and current. **New ScaledObject** creates one. See [KEDA](/docs/keda/) |
@@ -30,6 +30,8 @@ Every resource has **Summary**, **YAML** and **Events**. Workloads get more.
 | Events | all | Its recent events |
 
 Services have **Summary** (ports, selector, **Endpoints**, traffic) and **YAML**. **Endpoints** lists the addresses from the Service's EndpointSlices with Ready or Not ready, the ports they serve, the node, and the target Pod as a link to its drawer; with none it says no ready Pod matches the selector. It isn't shown for an ExternalName Service. Nodes have their own tabs: see [Nodes](/docs/nodes/). Pods have their own drawer: see [Pods](/docs/pods/).
+
+**Pods** at the bottom of a workload's Summary lists the pods it owns through its controllers: a Deployment's through its ReplicaSets (old and new during a rollout), a StatefulSet's, DaemonSet's or Job's directly. Click a row to open that pod's drawer. It updates live, so a restarting or replaced pod changes in place. It shows the first 50 pods and a **Show all N pods** button for the rest, and says so when the workload has none.
 
 ## Actions
 
