@@ -155,6 +155,9 @@ func (r *Recorder) Observe(cluster string, ob Observed) {
 
 	var c Change
 	if kind == "Event" && ob.Resource == "events" || kind == "Event" && str(subject, "reason") != "" {
+		if ob.MetadataOnly {
+			return // a metadata watch carries no reason or message
+		}
 		if !r.eventChange(&c, ob, subject) {
 			return
 		}

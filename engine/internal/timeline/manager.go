@@ -197,6 +197,10 @@ func (m *Manager) Retention() int { m.mu.RLock(); defer m.mu.RUnlock(); return m
 // Store is the open store, or nil while off or unavailable.
 func (m *Manager) Store() Store { m.mu.RLock(); defer m.mu.RUnlock(); return m.store }
 
+// Active reports whether anything is recording, so a caller can skip the work
+// of describing an event nobody will keep.
+func (m *Manager) Active() bool { m.mu.RLock(); defer m.mu.RUnlock(); return m.rec != nil }
+
 func (m *Manager) Observe(cluster string, ob Observed) {
 	m.mu.RLock()
 	r := m.rec

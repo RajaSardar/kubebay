@@ -352,3 +352,13 @@ func TestRecorderCloseWritesWhatIsBuffered(t *testing.T) {
 		t.Errorf("rows after close: %d (the held merge row must be written too)", got)
 	}
 }
+
+func TestRecorderSkipsEventsSeenOnlyThroughAMetadataWatch(t *testing.T) {
+	r, st, _ := newRec(t, Options{})
+	r.Observe("c1", Observed{Resource: "events", ObjKind: "PartialObjectMetadata", Op: OpAdd, MetadataOnly: true,
+		New: map[string]any{"metadata": map[string]any{"name": "e", "namespace": "ns", "uid": "ue", "resourceVersion": "1"}}})
+	_ = r.Flush()
+	if got := rowsOf(t, st); len(got) != 0 {
+		t.Errorf("an event row with no reason or message was recorded: %+v", got)
+	}
+}

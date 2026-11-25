@@ -194,3 +194,30 @@ func TestSQLiteQueryLatencyAt100kRows(t *testing.T) {
 		t.Errorf("facets took %v", d)
 	}
 }
+
+func TestSQLiteFacetsFollowPruneAndClear(t *testing.T) {
+	s := openTemp(t)
+	defer s.Close()
+	_ = s.Append([]Change{
+		{Cluster: "c1", TS: t0, Kind: "Pod", Namespace: "old", Name: "a", Op: OpUpdate, FieldManager: "gone-mgr"},
+		{Cluster: "c1", TS: t0.Add(48 * time.Hour), Kind: "Node", Namespace: "new", Name: "b", Op: OpUpdate, FieldManager: "kept-mgr"},
+		{Cluster: "c2", TS: t0.Add(48 * time.Hour), Kind: "Job", Namespace: "other", Name: "c", Op: OpUpdate, FieldManager: "kubectl"},
+	})
+	if f, _ := s.Facets("c1"); len(f.Kinds) != 2 || len(f.Managers) != 2 || len(f.Namespaces) != 2 {
+		t.Fatalf("%+v", f)
+	}
+	if _, err := s.Prune(t0.Add(24 * time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	f, _ := s.Facets("c1")
+	if len(f.Kinds) != 1 || f.Kinds[0] != "Node" || f.Managers[0] != "kept-mgr" || f.Namespaces[0] != "new" {
+		t.Errorf("pruned values still offered: %+v", f)
+	}
+	_ = s.Clear("c2")
+	if f, _ := s.Facets("c2"); len(f.Kinds) != 0 {
+		t.Errorf("cleared cluster still has facets: %+v", f)
+	}
+	if f, _ := s.Facets("c1"); len(f.Kinds) != 1 {
+		t.Errorf("another cluster's facets were cleared: %+v", f)
+	}
+}

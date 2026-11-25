@@ -49,6 +49,12 @@ CREATE TABLE coverage (
 );
 CREATE INDEX coverage_end ON coverage (end_ts);
 CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+CREATE TABLE facets (
+  cluster TEXT NOT NULL,
+  col     TEXT NOT NULL,
+  value   TEXT NOT NULL,
+  PRIMARY KEY (cluster, col, value)
+) WITHOUT ROWID;
 `}
 
 type SQLiteOptions struct {
@@ -212,7 +218,27 @@ func (s *SQLiteStore) Append(rows []Change) error {
 		return err
 	}
 	defer stmt.Close()
+	// The filter lists are kept beside the rows: a DISTINCT over 100k rows
+	// took most of a second.
+	fstmt, err := tx.Prepare("INSERT OR IGNORE INTO facets (cluster, col, value) VALUES (?,?,?)")
+	if err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+	defer fstmt.Close()
+	seen := map[[3]string]bool{}
 	for _, r := range rows {
+		for col, v := range map[string]string{"kind": r.Kind, "namespace": r.Namespace, "field_manager": r.FieldManager} {
+			k := [3]string{r.Cluster, col, v}
+			if v == "" || seen[k] {
+				continue
+			}
+			seen[k] = true
+			if _, err := fstmt.Exec(r.Cluster, col, v); err != nil {
+				_ = tx.Rollback()
+				return err
+			}
+		}
 		d := detail{Group: r.Group, Version: r.Version, Resource: r.Resource, UID: r.UID, Fields: r.Fields, More: r.MoreFields,
 			MetadataOnly: r.MetadataOnly, AfterGap: r.AfterGap, Merged: r.Merged, Reason: r.Reason, Type: r.Type,
 			Message: r.Message, InvKind: r.InvolvedKind, InvName: r.InvolvedName}
@@ -266,6 +292,7 @@ func (s *SQLiteStore) enforceCapLocked() error {
 		}
 		_, _ = s.db.Exec("PRAGMA incremental_vacuum")
 	}
+	s.rebuildFacetsLocked()
 	_, _ = s.db.Exec("PRAGMA wal_checkpoint(TRUNCATE)")
 	return nil
 }
@@ -384,7 +411,7 @@ func (s *SQLiteStore) Spans(cluster, kind string, from, to time.Time) ([]Span, e
 func (s *SQLiteStore) Facets(cluster string) (Facets, error) {
 	f := Facets{Kinds: []string{}, Namespaces: []string{}, Managers: []string{}}
 	for col, dst := range map[string]*[]string{"kind": &f.Kinds, "namespace": &f.Namespaces, "field_manager": &f.Managers} {
-		rows, err := s.db.Query("SELECT DISTINCT "+col+" FROM changes WHERE cluster = ? AND "+col+" != '' ORDER BY "+col+" LIMIT 500", cluster)
+		rows, err := s.db.Query("SELECT value FROM facets WHERE cluster = ? AND col = ? ORDER BY value LIMIT 500", cluster, col)
 		if err != nil {
 			return Facets{}, err
 		}
@@ -401,6 +428,15 @@ func (s *SQLiteStore) Facets(cluster string) (Facets, error) {
 	return f, nil
 }
 
+// rebuildFacetsLocked recomputes the filter lists from the rows left, after
+// rows were deleted. It scans, so it runs only when something was removed.
+func (s *SQLiteStore) rebuildFacetsLocked() {
+	_, _ = s.db.Exec("DELETE FROM facets")
+	for _, col := range []string{"kind", "namespace", "field_manager"} {
+		_, _ = s.db.Exec("INSERT INTO facets (cluster, col, value) SELECT DISTINCT cluster, '" + col + "', " + col + " FROM changes WHERE " + col + " != ''")
+	}
+}
+
 func (s *SQLiteStore) Prune(before time.Time) (int64, error) {
 	s.wmu.Lock()
 	defer s.wmu.Unlock()
@@ -414,6 +450,7 @@ func (s *SQLiteStore) Prune(before time.Time) (int64, error) {
 		total += n
 	}
 	if total > 0 {
+		s.rebuildFacetsLocked()
 		_, _ = s.db.Exec("PRAGMA incremental_vacuum")
 		_, _ = s.db.Exec("PRAGMA wal_checkpoint(TRUNCATE)")
 	}
@@ -431,7 +468,7 @@ func (s *SQLiteStore) Stats() (Stats, error) {
 func (s *SQLiteStore) Clear(cluster string) error {
 	s.wmu.Lock()
 	defer s.wmu.Unlock()
-	for _, t := range []string{"changes", "coverage"} {
+	for _, t := range []string{"changes", "coverage", "facets"} {
 		var err error
 		if cluster == "" {
 			_, err = s.db.Exec("DELETE FROM " + t)

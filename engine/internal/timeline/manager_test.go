@@ -35,6 +35,9 @@ func TestManagerOffRecordsNothingAndOpensNothing(t *testing.T) {
 	}
 	m.Observe("c1", upd(deploy("1", 1, "k", "2026-03-01T10:00:00Z"), deploy("2", 2, "k", "2026-03-01T10:01:00Z")))
 	m.WatchStart("c1", "Deployment", "")
+	if m.Active() {
+		t.Error("active while off")
+	}
 	if len(*made) != 0 || m.Store() != nil || m.Status().Enabled {
 		t.Errorf("off but opened: %d stores", len(*made))
 	}

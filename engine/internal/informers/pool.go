@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/RajaSardar/kubebay/engine/internal/timeline"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -63,6 +64,9 @@ type Pool struct {
 	entries map[poolKey]*entry
 	closed  bool
 	done    chan struct{}
+	// obs sees every whole-kind event (see Observer). Guarded by mu.
+	obs        Observer
+	obsCluster string
 }
 
 type Subscription struct {
@@ -409,10 +413,17 @@ func (p *Pool) entryFor(key poolKey) (*entry, error) {
 			// a map a second time, at the sync's peak, for nothing.
 			if !isInInitialList {
 				e.emit(stream.OpAdd, obj)
+				p.observe(e, timeline.OpAdd, nil, obj)
 			}
 		},
-		UpdateFunc: func(_, newObj any) { e.emit(stream.OpModify, newObj) },
-		DeleteFunc: func(obj any) { e.emit(stream.OpDelete, obj) },
+		UpdateFunc: func(oldObj, newObj any) {
+			e.emit(stream.OpModify, newObj)
+			p.observe(e, timeline.OpUpdate, oldObj, newObj)
+		},
+		DeleteFunc: func(obj any) {
+			e.emit(stream.OpDelete, obj)
+			p.observe(e, timeline.OpDelete, obj, nil)
+		},
 	})
 	p.entries[key] = e
 	go func() {
@@ -436,6 +447,7 @@ func (p *Pool) entryFor(key poolKey) (*entry, error) {
 		if !ok {
 			return
 		}
+		go p.watchSpan(e)
 		for _, s := range subs {
 			e.deliverSnapshot(s)
 		}
