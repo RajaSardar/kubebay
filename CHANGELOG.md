@@ -6,6 +6,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ## [Unreleased]
 
+### Added
+
+- The Rollouts page has a filter box like every other list: plain words, `phase:`, `ns:`, `strategy:`, `image:`, `revision:`, a quoted exact name and `-` negation, a "N of M" count, `/` to focus it, and a separate "No Rollouts match this filter" message. Tested with component tests only, not against a live cluster.
+
 ## [0.8.4] - 2026-11-25
 
 v0.8.1 and v0.8.3 were tagged but never published (a macOS build ran out of memory, then a Windows build and a Linux test run failed), so everything since v0.8.0 ships here.

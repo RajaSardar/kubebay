@@ -3,7 +3,17 @@
     {
       "version": "unreleased",
       "date": "",
-      "sections": []
+      "sections": [
+        {
+          "heading": "Added",
+          "items": [
+            {
+              "title": "The Rollouts page has a filter box like every other list: plain words, phase:, ns:, strategy:, image:, revision:, a quoted exact name and - negation, a \"N of M\" count, / to focus it, and a separate \"No Rollouts match this filter\" message",
+              "summary": ""
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.8.4",

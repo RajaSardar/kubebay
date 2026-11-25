@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import Rollouts from "../Rollouts";
@@ -85,5 +85,60 @@ describe("Rollouts page", () => {
     expect(await screen.findByText("web")).toBeInTheDocument();
     expect(document.querySelector(".page-header-count")?.textContent ?? "").toBe("");
     expect(screen.queryByText(/No Rollouts found/)).toBeNull();
+  });
+
+  describe("search", () => {
+    const two = () => {
+      stream.rollouts = {
+        rows: [
+          { metadata: { name: "web", namespace: "shop" }, spec: { strategy: { canary: {} } }, status: { phase: "Healthy" } },
+          { metadata: { name: "api", namespace: "infra" }, spec: { strategy: { blueGreen: {} } }, status: { phase: "Degraded" } },
+        ],
+        synced: true,
+        connected: true,
+      };
+    };
+    const type = (v: string) => fireEvent.change(screen.getByLabelText("Filter rollouts"), { target: { value: v } });
+
+    it("has a filter box that narrows by text and shows N of M", async () => {
+      two();
+      renderPage();
+      const box = await screen.findByPlaceholderText(/Filter rollouts/);
+      expect(box).toBeInTheDocument();
+      type("web");
+      expect(screen.getByText("web")).toBeInTheDocument();
+      expect(screen.queryByText("api")).toBeNull();
+      expect(screen.getByText("1 of 2")).toBeInTheDocument();
+    });
+
+    it("understands key:value, ns:, quoted-exact and negation", async () => {
+      two();
+      renderPage();
+      await screen.findByText("web");
+      type("phase:degraded");
+      expect(screen.queryByText("web")).toBeNull();
+      expect(screen.getByText("api")).toBeInTheDocument();
+      type("ns:shop");
+      expect(screen.getByText("web")).toBeInTheDocument();
+      expect(screen.queryByText("api")).toBeNull();
+      type('"we"');
+      expect(screen.queryByText("web")).toBeNull();
+      type("-api");
+      expect(screen.getByText("web")).toBeInTheDocument();
+      expect(screen.queryByText("api")).toBeNull();
+      type("bluegreen");
+      expect(screen.getByText("api")).toBeInTheDocument();
+    });
+
+    it("says no Rollouts match, distinct from none found, and / focuses the box", async () => {
+      two();
+      renderPage();
+      await screen.findByText("web");
+      fireEvent.keyDown(document.body, { key: "/" });
+      expect(screen.getByLabelText("Filter rollouts")).toHaveFocus();
+      type("zzz");
+      expect(screen.getByText(/No Rollouts match/)).toBeInTheDocument();
+      expect(screen.queryByText(/No Rollouts found/)).toBeNull();
+    });
   });
 });

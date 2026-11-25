@@ -8,6 +8,10 @@ appRoutes: ["/rollouts"]
 
 **Rollouts** in the sidebar's Tools is a dashboard of the cluster's [Argo Rollouts](https://argo-rollouts.readthedocs.io/). It appears only on a cluster that serves the `rollouts.argoproj.io` CRD. Kubebay reads the `Rollout` objects, their ReplicaSets and their `AnalysisRun` objects through the Kubernetes API with your kubeconfig. If you open the page by address on a cluster without Argo Rollouts, it says so.
 
+## Searching
+
+Above the cards, the **Filter rollouts** box narrows the list as you type; press `/` anywhere on the page to jump to it and Escape to clear it. Plain words match the name, namespace, strategy, phase, container images and revision names or numbers, and every word must match. `phase:degraded`, `ns:shop`, `name:`, `strategy:bluegreen`, `image:` and `revision:` match one field. `"web"` or `=web` matches the whole name, and a leading `-` excludes (`-phase:healthy`). A badge beside the box reads "3 of 12" when the filter hides some. If nothing matches, the page says **No Rollouts match this filter**, which is different from "No Rollouts found on this cluster". This has been checked with component tests, not against a live cluster.
+
 ## What each Rollout shows
 
 - The name, which opens the Rollout's detail, the namespace, a **phase** pill (Healthy, Progressing, Paused, Degraded or Aborted) and the strategy, **canary** or **blueGreen**.
