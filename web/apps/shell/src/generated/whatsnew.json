@@ -27,15 +27,14 @@
             {
               "title": "Blossom Night",
               "summary": ", a dark theme paired with Blossom: a plum-tinted page, rose-white text and a soft pink accent (Settings, Theme; 14 themes now)."
-            }
-          ]
-        },
-        {
-          "heading": "Changed",
-          "items": [
+            },
             {
               "title": "Blossom's error and warning colours",
               "summary": "Moved away from the pink accent (--kb-status-err to #ae1c06, --kb-status-warn to #8a5600, with matching subtle and foreground tones), so an error is never mistaken for the accent."
+            },
+            {
+              "title": "Scale: a better replica count control",
+              "summary": "(backlog 89)."
             }
           ]
         }

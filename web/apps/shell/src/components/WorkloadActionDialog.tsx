@@ -5,7 +5,7 @@ import { ownerLabel, ownerOf, ownerWarning } from "../lib/gitops";
 import { RESTART_CONFIRM_LABEL } from "../lib/restartConfirm";
 import { PolicyRejectionError, type PolicyRejectionDetail } from "../lib/policyRejection";
 import { BlastRadiusPreview } from "./BlastRadiusPreview";
-import { ReplicaStepper } from "./ReplicaStepper";
+import { ReplicaControl } from "./ReplicaControl";
 import { PolicyRejectionCard } from "./PolicyRejectionCard";
 
 const KIND: Record<string, string> = { deployments: "Deployment", statefulsets: "StatefulSet", daemonsets: "DaemonSet" };
@@ -93,7 +93,7 @@ export function WorkloadActionDialog({
         <Stack gap={3}>
           {owner && <InlineBanner flush>{ownerWarning(owner)}</InlineBanner>}
           {action === "scale" ? (
-            <ReplicaStepper value={Number(replicas)} current={currentText !== "" ? Number(currentText) : 0} onChange={(n) => setReplicas(String(n))} disabled={busy} />
+            <ReplicaControl inline statefulSet={slug === "statefulsets"} value={Number(replicas)} current={currentText !== "" ? Number(currentText) : 0} onChange={(n) => setReplicas(String(n))} disabled={busy} />
           ) : (
             <span className="muted small">Its pods are replaced one by one, following its rollout strategy.</span>
           )}

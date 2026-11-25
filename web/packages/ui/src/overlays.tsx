@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from "react";
+import { createContext, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { IconButton } from "./shell";
 import { IconInfo } from "./icons";
@@ -352,6 +352,138 @@ export function HelpTip({ label, children, align = "start" }: HelpTipProps) {
       </IconButton>
       {open && (
         <div id={panelId} className={`kb-helptip-panel${align === "end" ? " end" : ""}`} role="dialog" aria-modal={false} aria-label={label}>
+          {children}
+        </div>
+      )}
+    </span>
+  );
+}
+
+// ── Popover ───────────────────────────────────────────────────────────────────
+
+export interface PopoverProps {
+  /** The panel's accessible name: "Scale replicas". */
+  label: string;
+  /** What the button shows. It is the button's name unless `triggerLabel` is given. */
+  trigger: ReactNode;
+  /** The button's accessible name, when its text alone is not enough. */
+  triggerLabel?: string;
+  /** What the panel holds: fields, chips, a slider. */
+  children: ReactNode;
+  /** Which edge of the button the panel lines up with before it flips to fit. */
+  align?: "start" | "end";
+  /** Tells the caller when it opens or closes; the panel's contents stay the caller's. */
+  onOpenChange?: (open: boolean) => void;
+  /** Dims the button; the panel stays closed. */
+  disabled?: boolean;
+  className?: string;
+}
+
+/**
+ * A button that opens a panel of controls beside it (the Scale control's slider and
+ * chips). Built like `HelpTip`, inline and not in a portal, so a `Drawer` around it
+ * sees a press in the panel as its own and the panel scrolls with the page. It opens
+ * with focus on its first field, closes on Escape (the first press never reaches the
+ * Drawer) or a press elsewhere, and hands focus back to the button after Escape. It
+ * flips to the other side or upward when it would run out of its container. Closing it
+ * keeps whatever the caller holds; the panel owns no state.
+ */
+export function Popover({ label, trigger, triggerLabel, children, align = "start", onOpenChange, disabled, className }: PopoverProps) {
+  const [open, setOpen] = useState(false);
+  const [flipped, setFlipped] = useState(false); // opposite side to `align`
+  const [up, setUp] = useState(false);
+  const ref = useRef<HTMLSpanElement>(null);
+  const button = useRef<HTMLButtonElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
+  const panelId = useId();
+  const notify = useRef(onOpenChange);
+  notify.current = onOpenChange;
+  const change = (next: boolean) => {
+    setOpen(next);
+    notify.current?.(next);
+  };
+  const close = (returnFocus: boolean) => {
+    const hadFocus = ref.current?.contains(document.activeElement);
+    change(false);
+    if (returnFocus || hadFocus) button.current?.focus();
+  };
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setFlipped(false);
+      setUp(false);
+      return;
+    }
+    const el = panel.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const host = ref.current?.closest(".drawer") as HTMLElement | null;
+    const bounds = host ? host.getBoundingClientRect() : { left: 0, right: window.innerWidth };
+    setFlipped(align === "end" ? r.left < bounds.left : r.right > bounds.right);
+    const b = button.current?.getBoundingClientRect();
+    setUp(r.bottom > window.innerHeight && !!b && b.top - r.height > 0);
+  }, [open, align]);
+
+  useEffect(() => {
+    if (!open) return;
+    panel.current?.querySelector<HTMLElement>("input:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex='-1'])")?.focus();
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPress = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) close(false);
+    };
+    // The wrapper's own handler takes Escape from inside; this one is for focus left on the page.
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key === "Escape" && !e.defaultPrevented) close(false);
+    };
+    document.addEventListener("mousedown", onPress);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onPress);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const atEnd = (align === "end") !== flipped;
+  return (
+    <span
+      ref={ref}
+      className={`kb-popover${className ? " " + className : ""}`}
+      onKeyDown={(e) => {
+        if (!open || e.key !== "Escape") return;
+        // The first Escape closes the panel; the Drawer around it keeps its place.
+        e.preventDefault();
+        e.stopPropagation();
+        close(true);
+      }}
+    >
+      <button
+        ref={button}
+        type="button"
+        className="kb-btn kb-btn-ghost kb-popover-btn"
+        aria-label={triggerLabel}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-controls={open ? panelId : undefined}
+        disabled={disabled}
+        onClick={() => change(!open)}
+      >
+        {trigger}
+        <span className="kb-popover-caret" aria-hidden>
+          ▾
+        </span>
+      </button>
+      {open && (
+        <div
+          ref={panel}
+          id={panelId}
+          className={`kb-popover-panel${atEnd ? " end" : ""}${up ? " up" : ""}`}
+          role="dialog"
+          aria-modal={false}
+          aria-label={label}
+        >
           {children}
         </div>
       )}

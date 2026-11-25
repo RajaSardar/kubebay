@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { ArmedButton, Badge, Button, InlineBanner, Row } from "@kubebay/ui";
 import { actionApi, api } from "../lib/api";
 import { ownerLabel, ownerWarning, type GitOpsOwner } from "../lib/gitops";
@@ -8,7 +8,7 @@ import { RESTART_CONFIRM_LABEL } from "../lib/restartConfirm";
 import { sidecarSlug } from "../lib/addSidecar";
 import { AddSidecarDialog } from "./AddSidecarDialog";
 import { BlastRadiusPreview } from "./BlastRadiusPreview";
-import { ReplicaStepper } from "./ReplicaStepper";
+import { ReplicaControl } from "./ReplicaControl";
 import { PolicyRejectionCard } from "./PolicyRejectionCard";
 
 type Slug = "deployments" | "statefulsets" | "daemonsets" | "cronjobs" | "nodes" | "rollouts";
@@ -74,6 +74,7 @@ export function ActionsBar({
   const [addingSidecar, setAddingSidecar] = useState(false);
   // null = untouched → follow the live spec.replicas (the object may load after mount)
   const [edited, setEdited] = useState<number | null>(null);
+  const applyRef = useRef<HTMLButtonElement>(null);
   const replicas = edited ?? currentReplicas ?? 0;
   const ownerDetail = gitopsOwner ? ownerLabel(gitopsOwner) : undefined;
   // What a scale down is measured against: the live count the stepper started from.
@@ -101,8 +102,9 @@ export function ActionsBar({
       <Row align="center" gap={2} wrap>
       {showScale && (
         <>
-          <ReplicaStepper value={replicas} current={currentReplicas} onChange={setEdited} disabled={busy} />
+          <ReplicaControl value={replicas} current={currentReplicas} onChange={setEdited} disabled={busy} statefulSet={slug === "statefulsets"} onEnter={() => applyRef.current?.focus()} />
           <Button
+            ref={applyRef}
             variant={replicas !== (currentReplicas ?? -1) ? "primary" : "ghost"}
             disabled={busy || replicas === (currentReplicas ?? -1)}
             onClick={() =>
