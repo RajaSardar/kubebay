@@ -1,7 +1,9 @@
 import { useMemo, useState } from "react";
-import { ArmedButton, Badge, Button, Card, EmptyState, InlineBanner, Row, Stack, StatusPill } from "@kubebay/ui";
+import { ArmedButton, Badge, Button, Card, CollapsibleSection, EmptyState, InlineBanner, Row, Stack, StatusPill } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { ResourceLink } from "./ResourceLink";
+import { RolloutRelease } from "./RolloutRelease";
+import { buildReleaseView } from "../lib/rolloutRelease";
 import { ProdApplyModal } from "./ProdApplyModal";
 import { useClusterLooksProduction } from "../lib/useClusterLooksProduction";
 import { extSlug } from "../lib/resources";
@@ -40,16 +42,20 @@ export function RolloutsDashboard({
   rollouts,
   replicaSets,
   analysisRuns,
+  services = null,
 }: {
   cluster: string;
   rolloutGvr?: string;
   rollouts: Record<string, unknown>[];
   replicaSets: Record<string, unknown>[];
   analysisRuns: Record<string, unknown>[];
+  /** The namespace's Services, or null when the user cannot read them (the Release view then shows names only). */
+  services?: Record<string, unknown>[] | null;
 }) {
   const prod = useClusterLooksProduction(cluster);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [open, setOpen] = useState<Record<string, boolean>>({});
   const [confirming, setConfirming] = useState<{ ns: string; name: string; action: RolloutAction } | null>(null);
 
   const rows = useMemo(
@@ -158,6 +164,16 @@ export function RolloutsDashboard({
               ))}
             </Row>
           )}
+          <div style={{ marginTop: 8 }}>
+            <CollapsibleSection
+              level="sub"
+              title="Release"
+              open={!!open[`${d.ns}/${d.name}`]}
+              onToggle={() => setOpen((o) => ({ ...o, [`${d.ns}/${d.name}`]: !o[`${d.ns}/${d.name}`] }))}
+            >
+              <RolloutRelease view={buildReleaseView(ro, replicaSets, analysisRuns, services)} />
+            </CollapsibleSection>
+          </div>
         </Card>
       ))}
 

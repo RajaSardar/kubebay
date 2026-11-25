@@ -17,6 +17,23 @@ appRoutes: ["/rollouts"]
 - When it is paused, **Paused:** and the reason or message, such as `CanaryPauseStep`.
 - Each AnalysisRun the Rollout owns, with its phase.
 
+## The Release view
+
+Each Rollout's card ends with a **Release** row. Click it to open a view of how the release is going, built from what the page already reads (the Rollout, its ReplicaSets and AnalysisRuns) plus the namespace's Services:
+
+- The **phase**, the strategy and the controller's message, and in bold why it is halted: **Paused:** with the pause reasons (and "paused by a user" for **Pause**), or **Aborted:** with the abort message and the failed AnalysisRun, if there is one.
+- For a canary, every **step** with its state (done, current or pending), the current one marked **paused** at a pause step and **aborted** after an abort. Once the index passes the last step every step shows done.
+- The **ReplicaSets** the Rollout owns, matched by owner UID: role (stable, canary, or active and preview for a blueGreen; older revisions as previous), name, revision, images, ready over desired pods and, for a canary, the traffic weight. A weight is labelled **live** when the controller reports it in `status.canary.weights` and **target** when Kubebay only knows the step's `setWeight` (with no traffic router the real split follows the pod counts). A blueGreen shows no weights.
+- The **Services**: the active and preview Services of a blueGreen, with the revision each one selects when its selector carries the `rollouts-pod-template-hash` label, and the stable and canary Services of a canary. A Service that is not in the namespace says **not found**. If you may not list Services, the view says they are not available to you and shows the names only.
+- Each **AnalysisRun**, newest first, with its phase and, per metric, the phase, the counts of successful, failed, inconclusive and errored measurements, the last measurement's value and, for a failed, errored or inconclusive metric, the failure message.
+- The Rollout's **conditions**.
+
+This is read-only, and the actions stay in the card's header above it. The view reads only a fixed set of fields. AnalysisRun arguments, provider settings and secret references are never shown. Text that controllers and metric providers write (messages and measurement values) is cut to 200 characters and shown as plain text. Field shapes follow the Rollout, ReplicaSet, AnalysisRun and Service resources and were checked against hand-written examples, not against a live cluster. The Rollout's drawer does not have the Release view yet: it has no ReplicaSet or AnalysisRun streams of its own.
+
+## Argo's own dashboard
+
+Kubebay does not embed or start Argo's `kubectl argo rollouts dashboard`. Shipping that binary would mean one more program to build, sign and update, it would use your kubeconfig rather than Kubebay's per-user permissions, and it would not work when Kubebay runs inside a cluster. The Release view covers the same questions natively. In the desktop app only, a note at the top of this page shows the command `kubectl argo rollouts dashboard` with a **Copy** button for people who want the upstream UI as well. It runs nothing, does not check whether the plugin is installed, and the command never includes a Rollout's name or namespace.
+
 ## Actions
 
 Each Rollout offers the actions that make sense for its state. They go through the same path as an edit in the YAML tab: a JSON merge patch with your own permissions, written to the [audit log](/docs/audit-log/). On a cluster whose name looks like production, Kubebay asks first on this page.

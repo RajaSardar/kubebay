@@ -216,8 +216,8 @@ export interface ModalProps {
   backdrop?: "dim" | "clear";
   /** "center" places it as a small card near the top-centre of the window (a confirm or a one-field form). Otherwise `className` places it. */
   placement?: "center";
-  /** "wide": a centred card with room for a form of file paths (560px instead of 360px). */
-  size?: "wide";
+  /** "wide": a centred card with room for a form of file paths (560px instead of 360px). "full": nearly the whole window, for an editor or a diff. */
+  size?: "wide" | "full";
   /** A visible heading, which then names the dialog, with a Close button beside it. */
   title?: ReactNode;
   children: ReactNode;

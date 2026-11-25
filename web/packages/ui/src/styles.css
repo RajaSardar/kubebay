@@ -2122,6 +2122,13 @@ tr.row-clickable:active {
   width: min(560px, calc(100vw - 2 * var(--kb-space-4)));
 }
 
+/* Nearly the whole window, for a dialog that holds an editor (the compare view). */
+.kb-modal.center.full {
+  top: 4%;
+  width: min(1280px, calc(100vw - 2 * var(--kb-space-4)));
+  max-height: 92vh;
+}
+
 /* A titled dialog: its heading, with Close at the end of the row. */
 .kb-modal-head {
   display: flex;

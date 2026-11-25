@@ -3,16 +3,16 @@ import type { CRDEntry } from "./api";
 
 type Obj = Record<string, unknown>;
 
-function rec(v: unknown): Obj {
+export function rec(v: unknown): Obj {
   return (v ?? {}) as Obj;
 }
-function str(v: unknown): string {
+export function str(v: unknown): string {
   return typeof v === "string" ? v : "";
 }
-function arr(v: unknown): unknown[] {
+export function arr(v: unknown): unknown[] {
   return Array.isArray(v) ? v : [];
 }
-function num(v: unknown, fallback = 0): number {
+export function num(v: unknown, fallback = 0): number {
   return typeof v === "number" && Number.isFinite(v) ? v : fallback;
 }
 
@@ -90,8 +90,24 @@ export function canaryWeights(ro: Obj): { canary: number; stable: number } | nul
   return { canary: weight, stable: 100 - weight };
 }
 
-function ownedBy(o: Obj, rolloutName: string): boolean {
-  return arr(rec(o.metadata).ownerReferences).some((r) => str(rec(r).kind) === "Rollout" && str(rec(r).name) === rolloutName);
+/**
+ * Whether o is owned by the Rollout ro. Matches the owner reference's UID when
+ * both sides carry one (a same-named Rollout in another namespace, or a
+ * recreated one, never claims it); otherwise falls back to kind and name, and
+ * to the namespace when both objects have one.
+ */
+export function ownedByRollout(o: Obj, ro: Obj): boolean {
+  const rm = rec(ro.metadata);
+  const uid = str(rm.uid);
+  const ns = str(rm.namespace);
+  const ons = str(rec(o.metadata).namespace);
+  return arr(rec(o.metadata).ownerReferences).some((r) => {
+    if (str(rec(r).kind) !== "Rollout") return false;
+    const ruid = str(rec(r).uid);
+    if (uid && ruid) return uid === ruid;
+    if (ns && ons && ns !== ons) return false;
+    return str(rec(r).name) === str(rm.name);
+  });
 }
 
 export interface RolloutRevision {
@@ -140,7 +156,7 @@ export function describeRollout(ro: Obj, replicaSets: Obj[], analysisRuns: Obj[]
   const status = rec(ro.status);
   const name = str(meta.name);
   const strategy = rolloutStrategy(ro);
-  const sets = replicaSets.filter((r) => ownedBy(r, name));
+  const sets = replicaSets.filter((r) => ownedByRollout(r, ro));
 
   const steps = arr(rec(rec(spec.strategy).canary).steps);
   const step = strategy === "canary" && steps.length > 0 ? { current: Math.min(num(status.currentStepIndex, 0) + 1, steps.length), total: steps.length } : null;
@@ -179,7 +195,7 @@ export function describeRollout(ro: Obj, replicaSets: Obj[], analysisRuns: Obj[]
     pauseMessage: paused ? (phaseWord === "paused" && message ? message : pauseReasons[0] ?? "") : "",
     aborted: status.abort === true,
     analysisRuns: analysisRuns
-      .filter((a) => ownedBy(a, name))
+      .filter((a) => ownedByRollout(a, ro))
       .map((a) => {
         const p = str(rec(a.status).phase) || "Pending";
         return { name: str(rec(a.metadata).name), phase: p, tone: rolloutTone(p) };

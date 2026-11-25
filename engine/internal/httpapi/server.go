@@ -611,7 +611,7 @@ func Router(d Deps, token string) http.Handler {
 		r.Put("/api/security/audit-source", d.Settings.HandleSetAuditSource)
 
 		r.Get("/api/argocd/apps", argoCDAppsHandler(d.Metrics))
-		r.Post("/api/argocd/sync", argoCDSyncHandler(d.Metrics))
+		r.Post("/api/argocd/sync", argoCDSyncHandler(d.Metrics, d.Audit))
 
 		r.Get("/api/waste/workloads", wasteWorkloadsHandler(d.Waste, podListAccessFor(d.Clusters)))
 

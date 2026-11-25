@@ -32,3 +32,7 @@ Every search runs as you: with [OIDC sign-in](/docs/security/) it lists as your 
 ## How many results
 
 The page lists the best 200 matches across all clusters, best first: an exact name, then names that start with what you typed, then names with a word that does, then the rest. When there are more, it says **Showing the first 200 of N**. Add words to narrow it down.
+
+## Compare
+
+Typing `compare` offers **Compare resources…**, which opens the compare dialog with both sides empty. See [Compare two resources](/docs/resource-details/#compare-two-resources).

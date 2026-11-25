@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
+import { useCompare } from "../lib/compare-store";
 import { Badge, Button, Drawer, IconButton, InlineBanner, SkeletonLines, StatusDot, Tabs, TextField } from "@kubebay/ui";
 import { api, nodeApi } from "../lib/api";
 import { ExecTerm } from "./heavy";
@@ -9,6 +10,8 @@ import { ObjectStarButton } from "./Favorites";
 import { WarningSparkline } from "./WarningSparkline";
 import { WorkloadHealthChip } from "./WorkloadHealthChip";
 import { ActionsBar } from "./ActionsBar";
+import { GitOpsActionsBar } from "./GitOpsActionsBar";
+import { isGitOpsKind } from "../lib/gitopsActions";
 import { NodeSummary } from "./NodeSummary";
 import { ServiceSummary } from "./ServiceSummary";
 import { NamespaceSummary } from "./NamespaceSummary";
@@ -487,6 +490,14 @@ export default function GenericDrawer({
                   <rect x="8" y="1" width="5" height="12" rx="1.5" stroke="currentColor" strokeWidth="1.4" fill="none" />
                 </svg>
               </IconButton>
+              <Button
+                variant="ghost"
+                onClick={() =>
+                  useCompare.getState().show({ cluster, gvr: def.gvr, ns: def.scoped ? "" : ns, name, kind: (typeof obj?.kind === "string" && obj.kind) || def.kind })
+                }
+              >
+                Compare with…
+              </Button>
               <Button variant="danger-ghost" onClick={() => setConfirming(true)}>
                 Delete
               </Button>
@@ -549,6 +560,13 @@ export default function GenericDrawer({
             ? Number(((obj as Record<string, unknown>).spec as Record<string, unknown>)?.replicas) || 0
             : undefined}
         />
+      )}
+
+      {/* ── GitOps actions: Flux reconcile/suspend/resume, Argo CD rollback ── */}
+      {obj && typeof obj === "object" && isGitOpsKind(def.gvr) && (
+        <div style={{ padding: "8px 14px 0" }}>
+          <GitOpsActionsBar cluster={cluster} gvr={def.gvr} ns={ns} name={name} obj={obj as Record<string, unknown>} />
+        </div>
       )}
 
       {discardModal}

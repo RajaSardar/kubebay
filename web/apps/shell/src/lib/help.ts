@@ -44,8 +44,8 @@ export const PAGE_HELP: Record<string, PageHelpEntry> = {
   },
   "/r/:kind": {
     name: "this table",
-    what: "A live table of one kind of Kubernetes resource, with row actions, bulk delete and a create button.",
-    how: "Kubebay watches the kind through the API server, so rows change as the cluster does; filter with words or key:value.",
+    what: "A live table of one kind of Kubernetes resource, with row actions, bulk delete, compare and a create button.",
+    how: "Kubebay watches the kind through the API server, so rows change as the cluster does; filter with words or key:value. Tick two rows to compare them.",
     docs: "resources",
   },
   "/network-policy": {
@@ -87,13 +87,13 @@ export const PAGE_HELP: Record<string, PageHelpEntry> = {
   "/argocd": {
     name: "Argo CD",
     what: "Your Argo CD Applications' sync status, health and drift, resource by resource.",
-    how: "Read from the Application objects through the Kubernetes API, so it needs no Argo CD login.",
+    how: "Read from the Application objects through the Kubernetes API, no Argo CD login. Hard Sync and Rollback act with your own permissions.",
     docs: "argocd",
   },
   "/flux": {
     name: "Flux",
     what: "Flux Kustomizations and HelmReleases: whether each is Ready, what it manages, and drift Flux corrected.",
-    how: "Read from Flux's own objects and events; Flux fixes drift as it reconciles, so there's no diff view.",
+    how: "Read from Flux's objects and events. Reconcile, Suspend and Resume act with your own permissions; Flux fixes drift itself, so no diff.",
     docs: "flux",
   },
   "/argo-workflows": {
@@ -164,8 +164,8 @@ export const PAGE_HELP: Record<string, PageHelpEntry> = {
   },
   "/upgrade-readiness": {
     name: "Upgrade Readiness",
-    what: "API versions your cluster still serves that the next Kubernetes releases remove.",
-    how: "Read from the API server's discovery data, against Kubernetes' deprecation guide.",
+    what: "What an upgrade would hit: removed API versions, PDBs that block drains, version skew, risky webhooks.",
+    how: "API versions from discovery; the rest from PDBs, pods, nodes and webhooks, read as you.",
     docs: "upgrade-readiness",
   },
   "/search": {

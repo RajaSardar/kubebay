@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import GenericDrawer from "../GenericDrawer";
@@ -45,5 +45,22 @@ describe("GenericDrawer warnings", () => {
     await screen.findAllByText(/web/);
     expect(screen.queryByText(/warnings of/)).not.toBeInTheDocument();
     expect(screen.queryByText(/7 days of/)).not.toBeInTheDocument();
+  });
+});
+
+describe("GenericDrawer: Compare with…", () => {
+  it("opens the compare dialog with this object as the left side; a cluster-scoped kind has no namespace", async () => {
+    const { useCompare } = await import("../../lib/compare-store");
+    renderDrawer("deployments");
+    fireEvent.click(await screen.findByRole("button", { name: "Compare with…" }));
+    expect(useCompare.getState()).toMatchObject({
+      open: true,
+      left: { cluster: "c1", gvr: "apps/v1/deployments", ns: "shop", name: "web", kind: "Deployment" },
+      right: null,
+    });
+    useCompare.getState().close();
+    renderDrawer("nodes");
+    fireEvent.click((await screen.findAllByRole("button", { name: "Compare with…" })).at(-1)!);
+    expect(useCompare.getState().left).toMatchObject({ gvr: "v1/nodes", ns: "" });
   });
 });

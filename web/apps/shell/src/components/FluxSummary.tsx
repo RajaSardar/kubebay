@@ -1,5 +1,6 @@
 import { Badge, Card, EmptyState, InlineBanner, Row, Stack } from "@kubebay/ui";
 import type { FluxObjectStatus } from "../lib/flux";
+import { GitOpsActionsBar } from "./GitOpsActionsBar";
 
 /**
  * Flux's own honestly-labelled section (backlog #12) — kept separate from
@@ -10,7 +11,7 @@ import type { FluxObjectStatus } from "../lib/flux";
  * whether a drift-detection event fired (drift that already happened and
  * was already corrected by the time this renders).
  */
-export function FluxSummary({ items, highlight }: { items: FluxObjectStatus[]; highlight?: string | null }) {
+export function FluxSummary({ items, highlight, cluster }: { items: FluxObjectStatus[]; highlight?: string | null; cluster?: string }) {
   if (items.length === 0) {
     return (
       <EmptyState>
@@ -36,6 +37,11 @@ export function FluxSummary({ items, highlight }: { items: FluxObjectStatus[]; h
               {it.ready === null && <Badge>Unknown</Badge>}
             </span>
           </Row>
+          {cluster && it.gvr && (
+            <div style={{ marginTop: 6 }}>
+              <GitOpsActionsBar cluster={cluster} gvr={it.gvr} ns={it.ns} name={it.name} obj={it.obj} />
+            </div>
+          )}
           {it.readyMessage && <div className="small" style={{ marginTop: 6 }}>{it.readyMessage}</div>}
           <div className="muted small" style={{ marginTop: 6 }}>
             manages {it.managedResourceCount} resource{it.managedResourceCount === 1 ? "" : "s"}

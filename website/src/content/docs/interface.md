@@ -115,7 +115,7 @@ Matching ignores case, except label keys and values, which Kubernetes compares e
 
 Click a column header to sort by it. The **Columns** button shows, hides and reorders columns; Name always stays first. Drag a header's edge to resize it. Kubebay remembers your columns and sort for each kind.
 
-Tick rows to select them, then delete them together. The whole cell around a checkbox ticks the row, not only the box, and clicking it doesn't open the row. The bar above the table says what the selection covers, including rows the filter hides, and **Deselect hidden** drops those. <kbd>Esc</kbd> clears the selection.
+Tick rows to select them, then delete them together. The whole cell around a checkbox ticks the row, not only the box, and clicking it doesn't open the row. The bar above the table says what the selection covers, including rows the filter hides, and **Deselect hidden** drops those. With exactly two rows ticked the bar also has **Compare**, which opens them side by side: see [Compare two resources](/docs/resource-details/#compare-two-resources). <kbd>Esc</kbd> clears the selection.
 
 ## Moving through a table with the keyboard
 

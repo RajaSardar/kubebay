@@ -16,6 +16,7 @@ import { usePaletteObjects } from "../lib/usePaletteObjects";
 import { readFavoriteObjects } from "./Favorites";
 import { targetFor } from "../lib/objectPath";
 import { useTerminalDock } from "../lib/terminalDock";
+import { useCompare } from "../lib/compare-store";
 import { pushRecent, readRecents, type Recent } from "../lib/paletteRecents";
 
 // ──── Nav items (static routes) ──────────────────────────────────────────────
@@ -259,7 +260,8 @@ type Entry =
   | { kind: "dockEdit"; obj: SearchObject; gvr: string }
   | { kind: "recent"; recent: Recent }
   | { kind: "more"; group: SearchGroup; to: string }
-  | { kind: "cluster"; choice: ClusterChoice };
+  | { kind: "cluster"; choice: ClusterChoice }
+  | { kind: "compare" };
 
 interface Section {
   key: string;
@@ -390,6 +392,9 @@ export function Palette({
       }
     }
     const dockSection: Section[] = dockEntries.length ? [{ key: "dockEdit", title: "Edit in dock", entries: dockEntries }] : [];
+    // Compare: one row, offered for the word. The objects are picked in the dialog.
+    const compareEntries: Entry[] = /\bcompar/i.test(q) ? [{ kind: "compare" }] : [];
+    const compareSection: Section[] = compareEntries.length ? [{ key: "compare", title: "Compare", entries: compareEntries }] : [];
     const clusterSection: Section[] = clusterRows.length
       ? [{ key: "clusters", title: "Switch cluster", entries: clusterRows.map((choice) => ({ kind: "cluster", choice })) }]
       : [];
@@ -400,9 +405,9 @@ export function Palette({
       !q.trim() && favObjects.length ? [{ key: "favorites", title: "Favorites", entries: favObjects.map((recent) => ({ kind: "recent", recent })) }] : [];
     // Asking for a cluster ("switch ...", "@...") puts the clusters first, and
     // so does an empty box: the pages list is long enough to push them off screen.
-    if (clusterMatch.intent) return [...clusterSection, ...navSection, ...objectSections, ...dockSection];
+    if (clusterMatch.intent) return [...clusterSection, ...navSection, ...objectSections, ...dockSection, ...compareSection];
     if (!q.trim()) return [...clusterSection, ...favSection, ...recentSection, ...navSection];
-    return [...navSection, ...objectSections, ...dockSection, ...clusterSection];
+    return [...navSection, ...objectSections, ...dockSection, ...compareSection, ...clusterSection];
   }, [filteredNav, groups, clusterRows, clusterMatch.intent, recents, favObjects, q, termText]);
   const flatEntries = useMemo(() => sections.flatMap((s) => s.entries), [sections]);
 
@@ -457,6 +462,11 @@ export function Palette({
     useTerminalDock.getState().openEditTab({ cluster: o.cluster, gvr, ns: o.ns, name: o.name });
   }
 
+  function startCompare() {
+    onClose();
+    useCompare.getState().show();
+  }
+
   function switchTo(c: ClusterChoice) {
     // A cluster whose kubeconfig is broken can't open: the Clusters page says why.
     if (!c.usable) return go("/clusters");
@@ -470,6 +480,7 @@ export function Palette({
     else if (entry.kind === "dockEdit") editInDock(entry.obj, entry.gvr);
     else if (entry.kind === "recent") openObject(entry.recent);
     else if (entry.kind === "cluster") switchTo(entry.choice);
+    else if (entry.kind === "compare") startCompare();
     else go(entry.to);
   }
 
@@ -529,6 +540,12 @@ export function Palette({
         return (
           <PaletteRow key={`more:${e.group.slug}`} active={i === idx} onHover={() => setIdx(i)} onClick={() => go(e.to)}>
             <span>{`Show all ${e.group.total} ${e.group.label}`}</span>
+          </PaletteRow>
+        );
+      case "compare":
+        return (
+          <PaletteRow key="compare" label="Compare resources…" active={i === idx} onHover={() => setIdx(i)} onClick={startCompare}>
+            <span>Compare resources…</span>
           </PaletteRow>
         );
       case "cluster":

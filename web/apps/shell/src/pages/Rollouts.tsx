@@ -5,6 +5,7 @@ import { PageHelp } from "../components/PageHelp";
 import { PageLoader } from "../components/PageLoader";
 import { NamespaceFilter } from "../components/NamespaceFilter";
 import { ForbiddenState, NamespacesDeniedBanner } from "../components/ForbiddenState";
+import { RolloutArgoHint } from "../components/RolloutArgoHint";
 import { RolloutsDashboard } from "../components/RolloutsDashboard";
 import { crdApi } from "../lib/api";
 import { useResourceStream } from "../lib/useResourceStream";
@@ -39,6 +40,8 @@ export default function Rollouts() {
     ns,
     enabled: !!detection.analysisRunGvr,
   });
+  // Services only name the active/preview or stable/canary Services; a user who cannot list them still gets the view, with names only.
+  const services = useResourceStream(cluster || undefined, "v1/services", { mode: "full", ns, enabled: !!detection.rolloutGvr });
 
   // A count before the first sync is a partial one, so it waits for the list.
   const header = (
@@ -100,12 +103,14 @@ export default function Rollouts() {
       {header}
       <div className="page-body">
         {rollouts.denied && rollouts.denied.length > 0 && <NamespacesDeniedBanner noun="Rollouts" namespaces={ns} denied={rollouts.denied} flush />}
+        <RolloutArgoHint />
         <RolloutsDashboard
           cluster={cluster}
           rolloutGvr={detection.rolloutGvr}
           rollouts={rollouts.rows}
           replicaSets={replicaSets.rows}
           analysisRuns={analysisRuns.rows}
+          services={services.forbidden ? null : services.rows}
         />
       </div>
     </div>

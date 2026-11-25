@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"encoding/base64"
 	"fmt"
 	"net/http"
 	"strings"
@@ -65,4 +66,25 @@ func editsMaskedSecretValue(doc map[string]interface{}, original string, changed
 		}
 	}
 	return false
+}
+
+// maskSecretSizes is maskSecret for a comparison: each value becomes "<N bytes>"
+// (its decoded length), so two Secrets can be told apart by their keys and the
+// shape of what they hold, and no value leaves the engine.
+func maskSecretSizes(doc map[string]interface{}) {
+	sizes := map[string]interface{}{}
+	if m, ok := doc["data"].(map[string]interface{}); ok {
+		for k, v := range m {
+			s, _ := v.(string)
+			n := len(s)
+			if b, err := base64.StdEncoding.DecodeString(s); err == nil {
+				n = len(b)
+			}
+			sizes[k] = fmt.Sprintf("<%d bytes>", n)
+		}
+	}
+	maskSecret(doc) // stringData and the last-applied copy
+	if _, ok := doc["data"].(map[string]interface{}); ok {
+		doc["data"] = sizes
+	}
 }

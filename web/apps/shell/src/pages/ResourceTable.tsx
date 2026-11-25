@@ -579,6 +579,7 @@ export default function ResourceTable() {
         onOpen={onOpen}
         toolbar={!def.scoped && <NamespaceFilter cluster={effectiveCluster || undefined} />}
         kind={def.kind}
+        gvr={def.gvr}
         onDelete={(t, gitopsOwner) =>
           api.deleteResource({ cluster: effectiveCluster, gvr: def.gvr, ns: t.ns, name: t.name, gitopsOwner })
         }

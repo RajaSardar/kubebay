@@ -40,6 +40,22 @@
               "summary": "(backlog 79)."
             },
             {
+              "title": "GitOps actions: Flux and Argo CD",
+              "summary": "(backlog 84)."
+            },
+            {
+              "title": "Compare two resources",
+              "summary": "(backlog 83)."
+            },
+            {
+              "title": "Upgrade impact",
+              "summary": "(backlog 80)."
+            },
+            {
+              "title": "Release view for Argo Rollouts",
+              "summary": "(backlog 73)."
+            },
+            {
               "title": "Blossom theme",
               "summary": "(backlog 74)."
             },
@@ -81,6 +97,14 @@
         {
           "heading": "Fixed",
           "items": [
+            {
+              "title": "Argo CD hard refresh is audited, and asks again on production",
+              "summary": "(backlog 84)."
+            },
+            {
+              "title": "A same-named Rollout no longer claims another's ReplicaSets and AnalysisRuns",
+              "summary": "(backlog 73)."
+            },
             {
               "title": "Rollouts missing from the Rollouts page, and no Rollout actions in Custom Resources",
               "summary": "(backlog 72)."

@@ -6,6 +6,8 @@ import type { NamespaceDenial } from "../lib/useResourceStream";
 
 import { useColumnWidths } from "../lib/useColumnWidths";
 import { useColumnPrefs } from "../lib/useColumnPrefs";
+import { useCompare } from "../lib/compare-store";
+import { refFromRowKey } from "../lib/compare";
 import { useRowSelection } from "../lib/useRowSelection";
 import { BlastRadiusPreview } from "./BlastRadiusPreview";
 import { useBulkDelete, type DeleteTarget } from "../lib/useBulkDelete";
@@ -53,6 +55,8 @@ export interface ResourceListViewProps<R> {
   objects: readonly Record<string, unknown>[];
   /** The Kubernetes kind (for example "Deployment"): lets a single delete show its blast-radius preview. */
   kind?: string;
+  /** The kind's group/version/resource: with it, exactly two selected rows can be compared. */
+  gvr?: string;
   synced: boolean;
   /** The API server's message when RBAC doesn't let this identity list the
    *  kind: said in place of a table that would never load. */
@@ -590,6 +594,17 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
               <Button variant="ghost" onClick={clearAll} title="Clear the selection (Esc)">
                 Clear
               </Button>
+              {p.gvr && selectedKeys.size === 2 && (
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    const [a, b] = [...selectedKeys].map((k) => refFromRowKey(k, p.cluster, p.gvr!, p.kind));
+                    useCompare.getState().show(a, b);
+                  }}
+                >
+                  Compare
+                </Button>
+              )}
               <Button
                 variant="danger"
                 onClick={() => {
