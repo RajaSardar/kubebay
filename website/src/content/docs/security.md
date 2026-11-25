@@ -54,7 +54,7 @@ The MCP endpoint, the local terminal, extensions, AI triage, the shared audit fe
 - An environment variable from a Secret stays masked until you click to show it, and every reveal is recorded in the [Audit Log](/docs/audit-log/).
 - A Secret opened in its drawer shows its keys with the values hidden, and so does its `last-applied-configuration` annotation, which would otherwise hold a second copy. **Reveal values** on the YAML tab loads them, and that is recorded in the Audit Log too. Until you reveal them, you can edit the Secret's labels and other fields, but not its values.
 - The [security checks](/docs/rbac/) that look for unused Secrets read only their names and metadata.
-- AI features never see Secrets. MCP doesn't list them, and triage masks credentials in the evidence before you send it.
+- AI features never see Secrets. MCP doesn't list them (this holds for [Investigate with AI](/docs/ai-assistants/) too, which reads through the same tools), and triage masks credentials in the evidence before you send it.
 
 ## What Kubebay sends, and where
 
@@ -66,6 +66,7 @@ The MCP endpoint, the local terminal, extensions, AI triage, the shared audit fe
 | Prometheus queries | Your Prometheus | When you set a URL, or one is detected |
 | Triage evidence | The endpoint you set | Only when you click Send |
 | Cloud cluster listings | Your `aws`, `gcloud` or `az` CLI | Only when you click Find |
+| Investigate with AI | Anthropic, sent by the Claude Code you installed, under your account | Only when you click it and have accepted its first-run notice. Kubebay sends nothing itself and keeps no key. Desktop only |
 
 There's no telemetry, no account and no licence server.
 

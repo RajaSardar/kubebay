@@ -40,6 +40,8 @@ type Deps struct {
 	NetDiag   *NetDiagManager
 	ImageSigs *ImageSignatureAPI
 	MCP       *MCPAPI
+	// AI serves /api/ai/* (backlog 78); nil = routes absent.
+	AI *AIAPI
 	Triage    *TriageAPI
 	Settings  *SettingsManager
 	Auth      *Authenticator
@@ -449,6 +451,9 @@ func Router(d Deps, token string) http.Handler {
 			r.Get("/api/mcp/proposals", d.MCP.HandleProposals)
 			r.Post("/api/mcp/proposals/{id}/approve", d.MCP.HandleApprove)
 			r.Post("/api/mcp/proposals/{id}/reject", d.MCP.HandleReject)
+		}
+		if d.AI != nil {
+			d.AI.Routes(r)
 		}
 		if d.Triage != nil {
 			r.Get("/api/triage", d.Triage.HandleGet)

@@ -6,6 +6,8 @@ import { ExecTerm } from "./heavy";
 import { useDiscardGuard } from "./DiscardGuard";
 import { DrawerYaml } from "./DrawerYaml";
 import { EventsDrawer } from "./EventsDrawer";
+import { InvestigateButton } from "./InvestigatePanel";
+import { requestFromObject } from "../lib/aiInvestigate";
 import { ObjectStarButton } from "./Favorites";
 import { WarningSparkline } from "./WarningSparkline";
 import { WorkloadHealthChip } from "./WorkloadHealthChip";
@@ -44,6 +46,8 @@ type GenTab = "summary" | "rollout" | "timeline" | "autoscaling" | "policy" | "v
 const AUTOSCALABLE_SLUGS = new Set(["deployments", "statefulsets"]);
 // The right-sizing recommender (VPA + Kubebay's own) only covers these three
 // kinds — see lib/rightsizing.ts's SUPPORTED_KINDS.
+// "Investigate with AI" (backlog 78) is offered on workloads, like pods.
+const WORKLOAD_SLUGS = new Set(["deployments", "statefulsets", "daemonsets", "jobs", "cronjobs", "replicasets"]);
 const RIGHTSIZABLE_SLUGS = new Set(["deployments", "statefulsets", "daemonsets"]);
 // Workloads whose Summary ends with a table of their pods.
 const POD_OWNER_SLUGS = new Set(["deployments", "statefulsets", "daemonsets", "jobs"]);
@@ -490,6 +494,12 @@ export default function GenericDrawer({
                   <rect x="8" y="1" width="5" height="12" rx="1.5" stroke="currentColor" strokeWidth="1.4" fill="none" />
                 </svg>
               </IconButton>
+              {WORKLOAD_SLUGS.has(def.slug) && (
+                <InvestigateButton
+                  request={requestFromObject({ cluster, namespace: ns, kind: def.kind, name })}
+                  onOpenObject={() => setGenTab("yaml")}
+                />
+              )}
               <Button
                 variant="ghost"
                 onClick={() =>

@@ -1,6 +1,6 @@
 ---
 title: AI assistants (MCP)
-description: Let Claude or another MCP client read the clusters you choose through Kubebay, and propose changes you approve one by one.
+description: Let Claude or another MCP client read the clusters you choose through Kubebay, propose changes you approve one by one, and investigate an issue with your own Claude Code.
 section: Integrations
 order: 7
 appRoutes: []
@@ -53,6 +53,22 @@ An operator can start the engine with `--mcp-read-only` (or `KUBEBAY_MCP_READ_ON
 ## Benchmark harness
 
 `scripts/mcp-bench` in the repository drives the server through ten fault scenarios on a dedicated kind cluster and records pass or fail and time per scenario in a JSON file. You give it a `--kubeconfig` that must be a file named `kind-*` (never the default `~/.kube/config`, nor a link to it) whose contexts are all `kind-*`. With `--engine <binary>` it starts the engine itself with only that kubeconfig and a temporary home; with `--url` it refuses to run unless every cluster the server lists is in that kubeconfig. Its `--read-only` check only lists the tools and never calls a write tool. Baseline numbers have not been measured yet, and the `--engine` path has not been run against a real engine.
+
+## Investigate with AI (Claude Code)
+
+**Investigate with AI** is a button on each row of the [Issues](/docs/issues/) page and in the pod drawer and the Deployment, StatefulSet, DaemonSet, Job, CronJob and ReplicaSet drawers. It hands that one problem to the Claude Code you installed yourself and shows what it says in a panel. It works with Claude Code only: Kubebay stores no API key, calls no other AI provider and runs no hosted service.
+
+**Before the first run.** Kubebay looks for the `claude` program on your `PATH` and in `~/.claude/local`, `~/.local/bin`, `/opt/homebrew/bin` and `/usr/local/bin`. If it isn't there, the panel tells you how to install Claude Code and nothing else happens. The first time, a notice says what is sent and you must accept it once. It says that Claude Code sends the issue's text and whatever the read-only tools return to Anthropic, under your own Claude account. Declining starts nothing. If the notice changes in substance you are asked again.
+
+**What a run can do.** Kubebay starts `claude` in print mode in a new empty temporary folder, with every built-in tool turned off (no shell, no file access, no web), your Claude Code settings and hooks ignored, and permission prompts answered with a refusal. Its only way to look at the cluster is Kubebay's own MCP read tools, over the issue's cluster and namespace and no other. It gets a token made for that one run, which only reads, expires with the time limit and is revoked when the run ends. That token works even if you have not turned MCP on above, but it never goes beyond the clusters and namespaces you chose there, if you chose any. Secrets are never available to it, as with any MCP client. The command line is built in one place and a test pins it, so a change that re-enabled a built-in tool fails the build.
+
+**What you see.** Only the assistant's text and the names of the tools it used, as plain text. A run stops at five minutes or 256 KiB of text, whichever comes first, and **Stop** ends it at once; closing the panel also stops it. Only one run goes at a time. Starting, ending and settings changes are written to the [Audit Log](/docs/audit-log/) as `ai-investigation` with your name, the cluster, the issue and how it ended, not the prompt or the answer.
+
+**Fixes.** The answer can describe a fix, and nothing applies it. Use **Open the object to review and apply a change**, which opens the object's YAML editor with its diff and, on a production-looking cluster, its confirmation, and the change is yours in the Audit Log. The model's output is never parsed into an action. Pod logs, events and names are written by other people, so the instructions Kubebay gives Claude Code say to treat them as untrusted and ignore any instruction found in them; the real protection is that the run cannot change anything.
+
+**Turning it off.** **Settings → AI investigations (Claude Code)** has **Allow Investigate with AI**, kept per user in `~/.kubebay/ai.json`. It is not available when the engine runs in a cluster or with OIDC or an auth proxy, because it would run a program on a server for someone else's request, and the card says why.
+
+**What was and wasn't tested.** The command line, the environment (your kubeconfig path, cloud credentials and Kubebay tokens are not passed on; your `CLAUDE_*` and `ANTHROPIC_*` variables, `PATH`, `HOME` and proxy settings are), the temporary folder, stop, time limit, size limit and leftover processes were tested against a fake `claude` script. The flags were checked against `claude --help` for version 2.1.286. No real model was called, so how Claude Code behaves with these flags against a real account, what its output looks like in practice, and its login with a scrubbed environment (cloud-provider logins such as Bedrock are not passed on) have not been verified.
 
 ## Where it's available
 

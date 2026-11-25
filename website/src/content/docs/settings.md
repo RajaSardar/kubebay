@@ -65,6 +65,10 @@ How many connected clusters keep streaming live, and for how long one you haven'
 
 Lets an AI assistant such as Claude read the clusters you choose. If the engine was started with `--mcp-read-only`, **Let assistants propose changes** is disabled with the reason. It is also disabled, unticked, on a shared engine (in a cluster, with OIDC or behind an auth proxy), where MCP is off and only the operator can change it. See [AI assistants](/docs/ai-assistants/#read-only-mode).
 
+## AI investigations (Claude Code)
+
+**Allow Investigate with AI** turns the button on Issues and in pod and workload drawers on or off for you. It shows where Claude Code was found, or how to install it, and is disabled with the reason when the engine runs in a cluster or with OIDC or an auth proxy. See [AI assistants](/docs/ai-assistants/#investigate-with-ai-claude-code).
+
 ## AI incident triage
 
 Adds a Triage tab to pods, which asks a model what's wrong. See [AI triage](/docs/ai-triage/).

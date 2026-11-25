@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Badge, Button, DataTable, EmptyState, InlineBanner, PageHeader, Row, Select, Stack, NsPill, type BadgeTone } from "@kubebay/ui";
 import { PageHelp } from "../components/PageHelp";
+import { InvestigateButton } from "../components/InvestigatePanel";
+import { requestFromIssue } from "../lib/aiInvestigate";
 import { useCluster } from "../lib/useCluster";
 import { useIssues } from "../lib/useIssues";
 import { fmtAge } from "../lib/resources";
@@ -137,11 +139,14 @@ export default function Issues() {
           {
             key: "investigate",
             header: "",
-            width: 110,
+            width: 270,
             render: (i) => (
-              <Button size="sm" aria-label={`Investigate ${i.kind} ${i.name}`} onClick={() => navigate(issueTarget(i))}>
-                Investigate
-              </Button>
+              <Row gap={1}>
+                <Button size="sm" aria-label={`Investigate ${i.kind} ${i.name}`} onClick={() => navigate(issueTarget(i))}>
+                  Investigate
+                </Button>
+                <InvestigateButton size="sm" request={requestFromIssue(i)} onOpenObject={() => navigate(issueTarget(i))} />
+              </Row>
             ),
           },
         ]}

@@ -130,4 +130,10 @@ describe("Issues page", () => {
     expect(screen.getByText(/Connect a cluster/)).toBeTruthy();
     activeCluster = "c1";
   });
+
+  it("offers Investigate with AI on every row, without running anything until it is clicked", () => {
+    ready();
+    renderPage();
+    expect(screen.getAllByRole("button", { name: "Investigate with AI" })).toHaveLength(issues.length);
+  });
 });
