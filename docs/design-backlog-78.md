@@ -147,3 +147,57 @@ write MCP tool, auto-applying fixes, multi-turn chat or session resume, storing 
 scheduled investigations, investigating multiple clusters in one run, a Claude Code installer or updater.
 Not verifiable in this lane: behaviour of the real model, and Claude Code's login flow, so the first
 implementation can only claim what the fake-script tests and `--help` show.
+
+## Challenge round
+
+Checked against `engine/internal/httpapi/mcp.go`, `engine/internal/mcp/kubetools` and `engine/internal/mcp/proposals`.
+
+### Objections
+
+1. Secrets are not masked, they are absent. The test plan says the MCP read tools "mask" Secrets and asks for a marker-string
+   regression. `kubetools` has no Secret kind at all, and `inspect` refuses Secrets and ConfigMap contents. The right test is
+   that a Secret `get`/`list` through the run token is refused, and that env values stay redacted. A "masked values" test would
+   pin behaviour that does not exist.
+2. A run token that ignores the user's MCP scope widens access. `MCPSettings.Clusters` already limits an assistant to chosen
+   clusters and namespaces. The design makes the run token "independent of the user's MCP switch" and binds it to a cluster
+   only, so it could read namespaces the user deliberately kept away from assistants. Not beyond their RBAC, but beyond a limit
+   they set for assistants.
+3. `AIBlockReason(inCluster, oidc, authProxy)` drops the loopback condition. `MCPBlockReason` includes `loopbackOnly`, and the
+   run token is accepted by `/mcp`, so a non-loopback listener must block AI too. The existing OIDC branch already covers the
+   auth proxy; a separate flag invites a drifting duplicate.
+4. The proposal step assumes model text becomes a YAML diff. The proposals store takes a patch body against a live object with a
+   `ResourceVersion`, and records `Source: "mcp"`. Parsing a fix out of free text is fragile and is a prompt-injection channel
+   into a write path. It also needs a store change (a source value), which the design does not list.
+5. The run token must be checked before the `enabled && token != ""` gate in `Endpoint()`. As written ("works with the user's MCP
+   switch off") the run token path cannot be a tweak to `tokenMatches`; it needs its own branch, or a request with the MCP switch
+   off would 403 first. Untested ordering is a bug magnet.
+6. The notice and `ai.noticeAccepted` need a home. Settings are shared-locked in-cluster, so the per-user flag must not sit in the
+   shared settings file; the design says "no shared file write" but names no store.
+7. The SSE and POST endpoints are on the UI's launch-token surface, which a malicious local web page could try to reach. The
+   design never states the Origin and launch-token checks for `/api/ai/*`, and starting a process is the most dangerous thing
+   behind them.
+8. `--tools ""`, `--setting-sources ""`, `--bare` and a turn limit are unverified spellings. The argv test pins whatever is
+   chosen, but pinning an unverified flag would make a typo pass its own test.
+
+### Final decisions
+
+1. Replace the masking test with: Secret kind refused through the run token (list, get and inspect), env values redacted, and a
+   guard test that no Secret kind exists in `kubetools`.
+2. The run token is bound to one cluster and to the issue's namespace, and its scope is the intersection of that with
+   `MCPSettings.Clusters` when the user has set one. The user's MCP on/off switch and Writes setting do not affect it, but the
+   user's namespace scope does. Cluster-scoped objects (nodes) require the cluster to be in scope. Test: a namespace outside the
+   scope is refused.
+3. `AIBlockReason(inCluster, oidc, loopbackOnly)`, composed by calling `MCPBlockReason`, so the two cannot drift. The auth proxy
+   is part of `oidc`.
+4. Proposals: v1 does not parse a fix from model text. "Propose this change" opens the existing manual propose flow with the
+   target object prefilled, so the human writes or pastes the patch and sees the live diff. Proposal `Source` becomes
+   `ai-investigation` through an explicit field set by the UI route, not by the model. Automatic extraction is deferred.
+5. `/mcp` order: Origin check, then run-token lookup (valid, unexpired, unrevoked) which skips the enabled gate, then the user
+   token path. Tests cover MCP off with a run token, an expired token, and a revoked token.
+6. The notice acceptance lives in a per-user file next to `~/.kubebay` state (not `SettingsManager`), and the endpoints refuse
+   before writing anything when `AIBlockReason` is set.
+7. All `/api/ai/*` routes use the existing launch-token middleware, reject any request with an `Origin` header not equal to the
+   engine's own, and the POST requires `Content-Type: application/json`. Tests: no token 401, foreign Origin 403.
+8. Flag spellings are verified against `claude --help` as the first implementation step, before the argv test is written. A
+   flag that `--help` does not list is not used. If an empty `--setting-sources` is not accepted, the run sets `HOME` to a
+   scratch dir only if login still works, otherwise this item is blocked and reported rather than weakened.
