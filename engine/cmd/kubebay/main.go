@@ -251,6 +251,9 @@ func main() {
 	searchAPI := httpapi.NewSearchAPI(httpapi.NewPoolSearchBackend(registry, mgr))
 	defer searchAPI.Close()
 
+	mcpAPI := newMCP(settingsMgr, mgr, registry, auditLog, *addr, *inCluster, sharedIdentity, resolveMCPReadOnly(*mcpReadOnly, os.Getenv("KUBEBAY_MCP_READ_ONLY")))
+	aiAPI := newAI(mcpAPI, auditLog, *addr, *inCluster, sharedIdentity)
+	defer aiAPI.Manager.Shutdown()
 	handler := httpapi.Router(httpapi.Deps{
 		Version:    version,
 		Log:        log,
@@ -268,7 +271,8 @@ func main() {
 		NodeShell:  nodeShell,
 		NetDiag:    &httpapi.NetDiagManager{Clusters: mgr, Audit: auditLog},
 		ImageSigs:  &httpapi.ImageSignatureAPI{Clusters: mgr, Checker: &sigcheck.Checker{}, TrustRoots: sigstoreTrustRoots()},
-		MCP:        newMCP(settingsMgr, mgr, registry, auditLog, *addr, *inCluster, sharedIdentity, resolveMCPReadOnly(*mcpReadOnly, os.Getenv("KUBEBAY_MCP_READ_ONLY"))),
+		MCP:        mcpAPI,
+		AI:         aiAPI,
 		Triage:     newTriage(settingsMgr, mgr, registry, auditLog, *inCluster, sharedIdentity),
 		Settings:   settingsMgr,
 		Extensions: newExtensions(settingsMgr, *inCluster, sharedIdentity),

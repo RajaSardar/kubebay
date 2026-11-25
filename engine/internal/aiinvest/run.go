@@ -115,6 +115,9 @@ func (i *Investigation) Stop() { i.stopOnce.Do(func() { close(i.stopCh) }) }
 type Manager struct {
 	// Claude is the absolute path of the claude executable; "" = not installed.
 	Claude string
+	// Locate, when set, finds claude on every use (so installing it later
+	// works without a restart); otherwise Claude is used.
+	Locate func() string
 	// MCPURL is Kubebay's own loopback MCP endpoint.
 	MCPURL string
 	// Allowed are the exact mcp__kubebay__<read tool> names.
@@ -147,6 +150,7 @@ func (m *Manager) record(e audit.Entry) {
 		e.Time = time.Now()
 		e.Action = "ai-investigation"
 		e.Source = "ai-investigation"
+		e.GVR = "ai/investigations"
 		m.Audit(e)
 	}
 }
@@ -169,10 +173,19 @@ func (m *Manager) Shutdown() {
 	m.wg.Wait()
 }
 
+// Find is the claude executable to use now, or "".
+func (m *Manager) Find() string {
+	if m.Locate != nil {
+		return m.Locate()
+	}
+	return m.Claude
+}
+
 // Start runs one investigation. Nothing is started, minted or written when
 // claude is missing or the user already has a run.
 func (m *Manager) Start(user string, req Request) (*Investigation, error) {
-	if m.Claude == "" {
+	claude := m.Find()
+	if claude == "" {
 		return nil, ErrNoClaude
 	}
 	if strings.TrimSpace(req.Cluster) == "" {
@@ -227,7 +240,7 @@ func (m *Manager) Start(user string, req Request) (*Investigation, error) {
 		var args []string
 		args, err = BuildArgs(Run{Prompt: BuildPrompt(req), MCPConfigPath: cfg, AllowedTools: m.Allowed})
 		if err == nil {
-			err = m.launch(inv, req, root, work, args, revoke)
+			err = m.launch(inv, req, claude, root, work, args, revoke)
 		}
 	}
 	if err != nil {
@@ -238,12 +251,12 @@ func (m *Manager) Start(user string, req Request) (*Investigation, error) {
 	return inv, nil
 }
 
-func (m *Manager) launch(inv *Investigation, req Request, root, work string, args []string, revoke func()) error {
+func (m *Manager) launch(inv *Investigation, req Request, claude, root, work string, args []string, revoke func()) error {
 	var parent []string
 	if m.Env != nil {
 		parent = m.Env()
 	}
-	cmd := exec.Command(m.Claude, args...)
+	cmd := exec.Command(claude, args...)
 	cmd.Dir = work
 	cmd.Env = ScrubEnv(parent)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}

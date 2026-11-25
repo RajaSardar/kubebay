@@ -63,6 +63,9 @@ type MCPAPI struct {
 	// (AI investigations, backlog 78): no write or proposal tool exists on
 	// it, and its scope is the one cluster (and namespace) of the run.
 	RunHandlerFor func(scope kubetools.Scope) http.Handler
+	// RunTools are the exact read-tool names (without the server prefix) a
+	// run may call; set with RunHandlerFor.
+	RunTools []string
 	// now is the clock; nil means time.Now.
 	now  func() time.Time
 	runs map[string]runGrant

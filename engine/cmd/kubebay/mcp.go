@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -44,6 +45,17 @@ func newMCP(sm *httpapi.SettingsManager, mgr *clusters.Manager, pools *informers
 	})
 	api.Handler = &mcp.Handler{Tools: reg, Name: "kubebay", Version: version, Instructions: mcpInstructions,
 		ReadOnlyInstructions: mcpReadOnlyInstructions, OnRefuse: mcpRefusalAudit(auditLog.Record)}
+	// The per-run mount (backlog 78): the same read tools, no write or
+	// proposal tool at all, over the one cluster and namespace of the run.
+	api.RunHandlerFor = func(scope kubetools.Scope) http.Handler {
+		runReg := mcp.NewRegistryGated(func() bool { return false })
+		kubetools.Register(runReg, kubetools.Deps{Source: src, Scope: func() kubetools.Scope { return scope }, Audit: auditLog.Record})
+		return &mcp.Handler{Tools: runReg, Name: "kubebay", Version: version, Instructions: mcpReadOnlyInstructions,
+			ReadOnlyInstructions: mcpReadOnlyInstructions, OnRefuse: mcpRefusalAudit(auditLog.Record)}
+	}
+	probe := mcp.NewRegistryGated(func() bool { return false })
+	kubetools.Register(probe, kubetools.Deps{Source: src, Scope: func() kubetools.Scope { return kubetools.Scope{} }})
+	api.RunTools = probe.ReadToolNames()
 	if exe, err := os.Executable(); err == nil {
 		api.BridgeCommand = []string{exe, "mcp-stdio"}
 	}
