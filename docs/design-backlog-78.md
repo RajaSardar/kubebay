@@ -1,7 +1,6 @@
 # Design: backlog 78, AI investigations through Claude Code only
 
-Status: design only, nothing implemented. Verified against `claude` 2.1.286 `--help` on this machine
-(no model was called).
+Status: design only. Checked against `claude` 2.1.286 `--help` (no model called).
 
 ## Goal
 
@@ -37,7 +36,7 @@ account, and the first-run notice says so.
     `Authorization: Bearer <run token>` header).
   - `prompt.go`: fixed system instruction and the issue-to-prompt builder.
   - `run.go`: `Manager` with `Start/Stop/Get`, process lifecycle, caps, scrubbed env, temp dir.
-  - `limits.go`: defaults (wall clock 5 min, output 256 KiB, 1 concurrent run per user).
+  - `limits.go`: wall clock 5 min, output 256 KiB, 1 concurrent run per user.
 - `engine/internal/httpapi/ai.go`: routes above, status, notice, per-user setting, shared lock.
   `httpapi.AIBlockReason(inCluster, oidc, authProxy)` follows `SharedSettingsBlockReason`.
 - `engine/internal/httpapi/mcp.go`: add run tokens (below).
@@ -46,8 +45,7 @@ account, and the first-run notice says so.
 - `web/apps/shell/src/components/InvestigatePanel.tsx`: panel from `@kubebay/ui` primitives only;
   drawer tab on pod/workload drawers, dock tab from the Issues page. Notice dialog, Stop button.
 - Settings page: "AI investigations" toggle (per user), shown locked with the reason on a shared engine.
-- Docs: `website/.../ai-assistants.md`, `security.md`; `help.ts` text for any new route (none planned: the
-  panel is a tab, not a page); CHANGELOG `[Unreleased]`; `node scripts/whatsnew-gen.mjs`.
+- Docs: `ai-assistants.md`, `security.md`, CHANGELOG, whatsnew-gen. No new route (a tab, not a page).
 
 ## argv and process model
 
