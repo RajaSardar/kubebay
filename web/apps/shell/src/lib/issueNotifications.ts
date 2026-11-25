@@ -100,11 +100,14 @@ export function createIssueNotifier(now: () => number) {
     const st = state.s;
     const ids = new Set(o.issues.map((i) => i.id));
     const fresh = o.issues.filter((i) => !st.known.has(i.id));
-    st.known = ids;
+    // A list that is still loading (a dropped connection returns an empty one)
+    // is not news: keep what was known so the refill is not mistaken for new issues.
+    st.known = o.loading ? new Set([...st.known, ...ids]) : ids;
     if (!st.baselined) {
       if (!o.loading) st.baselined = true;
       return [];
     }
+    if (o.loading) return [];
     for (const id of st.held.keys()) if (!ids.has(id)) st.held.delete(id);
 
     const t = now();
@@ -167,4 +170,28 @@ export function createIssueNotifier(now: () => number) {
 export function clickTarget(last: { at: number; issueId?: string } | null, nowMs: number): string | null {
   if (!last || nowMs - last.at > CLICK_WITHIN_MS) return null;
   return last.issueId ? `/issues?issue=${encodeURIComponent(last.issueId)}` : "/issues";
+}
+
+const CLAIM_KEY = "kb.issueNotifyClaims";
+
+/**
+ * Several windows of the desktop app share this storage and each runs a
+ * watcher; the first to claim a notification shows it, the others skip it. An
+ * issue is claimed for 6 hours, the "N new issues" summary for a minute.
+ */
+export function claimNotification(n: IssueNotification, nowMs: number): boolean {
+  const id = n.issueId ?? "\u0000summary";
+  const ttl = n.issueId ? DEDUPE_MS : WINDOW_MS;
+  try {
+    const all = (JSON.parse(localStorage.getItem(CLAIM_KEY) ?? "{}") ?? {}) as Record<string, number>;
+    const live: Record<string, number> = {};
+    for (const [k, at] of Object.entries(all)) if (typeof at === "number" && nowMs - at < (k === "\u0000summary" ? WINDOW_MS : DEDUPE_MS)) live[k] = at;
+    const prev = live[id];
+    if (prev !== undefined && nowMs - prev < ttl) return false;
+    live[id] = nowMs;
+    localStorage.setItem(CLAIM_KEY, JSON.stringify(live));
+  } catch {
+    /* storage unavailable: show it rather than lose it */
+  }
+  return true;
 }

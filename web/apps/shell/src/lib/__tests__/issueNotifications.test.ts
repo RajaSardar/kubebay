@@ -193,3 +193,26 @@ describe("clickTarget", () => {
     expect(clickTarget({ at: 1, issueId: "a|b c" }, 2)).toBe("/issues?issue=a%7Cb%20c");
   });
 });
+
+describe("reconnect", () => {
+  it("does not treat existing issues as new after the list empties while loading and refills", () => {
+    const { obs } = setup();
+    obs([issue("a")]);
+    obs([]);
+    obs([], { loading: true }); // connection drop: useIssues returns an empty, loading list
+    expect(obs([issue("a")], { loading: true })).toEqual([]);
+    expect(obs([issue("a")])).toEqual([]);
+  });
+});
+
+describe("claimNotification (two windows)", () => {
+  it("lets only the first window claim a notification", async () => {
+    const { claimNotification } = await import("../issueNotifications");
+    localStorage.clear();
+    const n = { title: "Critical issue", body: "Pod prod/a", issueId: "x" };
+    expect(claimNotification(n, 1000)).toBe(true);
+    expect(claimNotification(n, 1500)).toBe(false);
+    expect(claimNotification({ title: "2 new issues", body: "b" }, 1000)).toBe(true);
+    expect(claimNotification({ title: "2 new issues", body: "b" }, 2000)).toBe(false);
+  });
+});

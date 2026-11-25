@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { desktopNotify } from "../lib/desktopNotify";
-import { clickTarget, createIssueNotifier } from "../lib/issueNotifications";
+import { claimNotification, clickTarget, createIssueNotifier } from "../lib/issueNotifications";
 import { useIssues } from "../lib/useIssues";
 import { useNotifySettings } from "../lib/useNotifySettings";
 
@@ -14,6 +14,7 @@ function Watcher({ cluster }: { cluster: string }) {
 
   useEffect(() => {
     for (const n of notifier.observe({ cluster, issues, loading, focused: document.hasFocus(), settings })) {
+      if (!claimNotification(n, Date.now())) continue; // another window already showed it
       last.current = { at: Date.now(), issueId: n.issueId };
       void desktopNotify.send(n);
     }
