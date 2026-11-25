@@ -107,3 +107,8 @@ export function suggestLocalURL(c: PrometheusServiceCandidate): string {
 export function portForwardCommand(c: PrometheusServiceCandidate): string {
   return `kubectl -n ${c.namespace} port-forward svc/${c.name} ${localPortFor(c)}:${portOf(c)}`;
 }
+
+/** The engine's "namespace/service:port" form of a candidate, for pinning it with one click. */
+export function candidateTarget(c: PrometheusServiceCandidate): string {
+  return `${c.namespace}/${c.name}:${portOf(c)}`;
+}

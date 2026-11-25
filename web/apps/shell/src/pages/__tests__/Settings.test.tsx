@@ -73,6 +73,29 @@ describe("Settings: app-wide settings only", () => {
     expect(screen.getByRole("button", { name: "Change Prometheus for kind-test" })).toBeInTheDocument();
   });
 
+  it("explains a missing Prometheus and lets you test the connection", async () => {
+    vi.mocked(api.promApi.status).mockResolvedValue({
+      source: "none", target: "", chosen: false, candidates: [], scope: "namespaces", tried: ["monitoring"], forbidden: ["monitoring"],
+    });
+    vi.mocked(api.promApi.test).mockResolvedValue({
+      ok: false, source: "none", cause: "none", message: "No Prometheus was found for this cluster. Choose a Service or enter a URL.", checks: [],
+    });
+    const user = userEvent.setup();
+    renderSettings();
+    expect(await screen.findByText(/Prometheus: not found/)).toBeInTheDocument();
+    expect(screen.getByText(/Tried: monitoring/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Test connection" }));
+    expect(await screen.findByText(/No Prometheus was found for this cluster/)).toBeInTheDocument();
+    expect(api.promApi.test).toHaveBeenCalledWith("kind-test", undefined);
+  });
+
+  it("offers Test connection beside an auto-detected Prometheus, and explains the default URL", async () => {
+    vi.mocked(api.promApi.status).mockResolvedValue({ source: "auto", target: "monitoring/prometheus-server:80", chosen: false, candidates: [], defaultUrl: "http://localhost:9090" });
+    renderSettings();
+    expect(await screen.findByRole("button", { name: "Test connection" })).toBeInTheDocument();
+    expect(screen.getByText(/The default URL is used only when no Prometheus is found/)).toBeInTheDocument();
+  });
+
   it("sets the debug image used by Debug with ephemeral container, keeping other settings", async () => {
     const user = userEvent.setup();
     vi.mocked(api.settingsApi.get).mockResolvedValue({

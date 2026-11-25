@@ -6,6 +6,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ## [Unreleased]
 
+### Added
+- **Prometheus diagnostics** (backlog 88). When a pod's Graphs tab or Settings finds no Prometheus it now says `Prometheus: not found`, lists the namespaces tried and where listing Services was refused, and offers **Choose a Service**, **Enter URL** and **Test connection**. **Test connection** (`GET /api/prom/test`, read-only, reaches only what graphs already use or a Service through your own service-proxy access) runs `vector(1)` and `count(container_cpu_usage_seconds_total)` and shows each query's URL, HTTP status and series count, with a plain cause (forbidden `services/proxy` in a namespace, unreachable, 404, 503, or Prometheus not scraping cAdvisor). **Use this Service** in the Prometheus dialog pins a Service for one cluster. Discovery also knows VictoriaMetrics (`vmselect`, `vmsingle`), Mimir and Cortex query frontends and more monitoring namespaces. Tested with fake Prometheus and API servers, not a live cluster.
+
+### Changed
+- The default Prometheus URL in Settings is now only a fallback for clusters where no Prometheus Service is found; a URL set for one cluster still always wins. Before, any default URL (often a port-forward to one cluster) hid the Prometheus every other cluster has. An empty discovery result is rechecked after about 30 seconds instead of five minutes.
+
+### Fixed
+- Pod graphs showed nothing on clusters whose cAdvisor metrics use `pod_name` and `container_name`, or whose runtime leaves the `image` label empty: the queries now try the current labels without an image filter, then the older labels, then the pod total, and say when Prometheus returns no series instead of drawing empty charts. A refused `services/proxy` is reported as forbidden instead of "check the URL".
+
 ## [0.8.4] - 2026-11-25
 
 v0.8.1 and v0.8.3 were tagged but never published (a macOS build ran out of memory, then a Windows build and a Linux test run failed), so everything since v0.8.0 ships here.

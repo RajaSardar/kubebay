@@ -2,9 +2,10 @@ import { useEffect, useState, useMemo, type FormEvent } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Modal, Stack, Row, Button, TextField, ChoiceCard, NsPill, InlineBanner, Spinner } from "@kubebay/ui";
 import { useResourceStream } from "../lib/useResourceStream";
-import { findCandidatePrometheusServices, rankPrometheusServers, suggestLocalURL, portForwardCommand } from "../lib/prometheusServiceDiscovery";
+import { findCandidatePrometheusServices, rankPrometheusServers, suggestLocalURL, portForwardCommand, candidateTarget } from "../lib/prometheusServiceDiscovery";
 import * as api from "../lib/api";
 import { CopyableCommand } from "./CopyableCommand";
+import { PromTestPanel } from "./PromDiagnostics";
 
 interface ConfigurePrometheusModalProps {
   cluster: string;
@@ -157,10 +158,15 @@ export default function ConfigurePrometheusModal({ cluster, connected = true, on
             <Stack gap={2}>
               <strong className="small">Prometheus services in this cluster</strong>
               {candidates.map((candidate, idx) => (
-                <ChoiceCard key={candidate.address} selected={selectedIdx === idx} onClick={() => handleCandidateSelect(idx)}>
-                  <span>{candidate.name}</span>
-                  <NsPill>{candidate.namespace}</NsPill>
-                </ChoiceCard>
+                <Row key={candidate.address} gap={2} align="center">
+                  <ChoiceCard selected={selectedIdx === idx} onClick={() => handleCandidateSelect(idx)}>
+                    <span>{candidate.name}</span>
+                    <NsPill>{candidate.namespace}</NsPill>
+                  </ChoiceCard>
+                  <Button type="button" variant="ghost" disabled={pin.isPending} onClick={() => pin.mutate(candidateTarget(candidate))}>
+                    Use this Service
+                  </Button>
+                </Row>
               ))}
               <ChoiceCard selected={selectedIdx === "manual"} onClick={handleManualSelect}>
                 Manual
@@ -185,6 +191,13 @@ export default function ConfigurePrometheusModal({ cluster, connected = true, on
             <Stack gap={2}>
               <span className="muted small">Run this command to set up port forwarding:</span>
               <CopyableCommand command={portForwardCommand(selectedCandidate)} />
+            </Stack>
+          )}
+
+          {selectedCandidate && (
+            <Stack gap={2}>
+              <span className="muted small">Read through the cluster&apos;s API server with your own credentials, so no port-forward is needed:</span>
+              <PromTestPanel cluster={cluster} target={candidateTarget(selectedCandidate)} />
             </Stack>
           )}
 

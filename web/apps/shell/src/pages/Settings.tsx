@@ -5,6 +5,7 @@ import { Button, Card, CellLink, ChoiceCard, InlineBanner, PageHeader, Segmented
 import { PageHelp } from "../components/PageHelp";
 import { settingsApi, promApi } from "../lib/api";
 import ConfigurePrometheusModal from "../components/ConfigurePrometheusModal";
+import { PromNotFound, PromTestPanel } from "../components/PromDiagnostics";
 import { useCluster } from "../lib/useCluster";
 import { UsageHistoryCard } from "../components/UsageHistoryCard";
 import { ChangeTimelineCard } from "../components/ChangeTimelineCard";
@@ -79,7 +80,7 @@ function PrometheusSettings({ initial, initialPerCluster, cluster, locked }: { i
         The default for clusters without their own URL. Each cluster&apos;s own URL is set from its ⋮ menu on the Clusters page.
       </p>
       <p className="small muted">
-        With no URL set, Kubebay looks for a Prometheus in each cluster and reads it through the cluster&apos;s API server. A URL you set always wins.
+        With no URL set, Kubebay looks for a Prometheus in each cluster and reads it through the cluster&apos;s API server. A URL set for one cluster always wins. The default URL is used only when no Prometheus is found in that cluster.
       </p>
       {cluster && status.data?.source === "auto" && (
         <p className="small">
@@ -92,9 +93,19 @@ function PrometheusSettings({ initial, initialPerCluster, cluster, locked }: { i
       {cluster && status.data?.source === "manual" && (
         <p className="small muted">Using your own URL for {cluster}.</p>
       )}
-      {cluster && status.data?.source === "none" && (
-        <p className="small muted">No Prometheus was found in {cluster}. Set a URL below, or from its ⋮ menu on the Clusters page.</p>
+      {cluster && status.data?.source === "default" && (
+        <p className="small muted">No Prometheus was found in {cluster}, so the default URL is used.</p>
       )}
+      {cluster && status.data?.source === "none" && (
+        <PromNotFound
+          cluster={cluster}
+          status={status.data}
+          locked={locked}
+          onChoose={() => setChanging(true)}
+          onEnterUrl={() => setChanging(true)}
+        />
+      )}
+      {cluster && status.data && status.data.source !== "none" && <PromTestPanel cluster={cluster} />}
       {changing && cluster && (
         <ConfigurePrometheusModal
           cluster={cluster}
