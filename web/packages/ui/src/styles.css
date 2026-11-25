@@ -2328,3 +2328,121 @@ tr.row-clickable:active {
 .kb-collapsible-sub > .kb-collapsible-body {
   padding: 0 var(--kb-space-4) var(--kb-space-3);
 }
+
+/* ── Popover: a button that opens a panel of controls (like HelpTip, inline) ── */
+.kb-popover {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.kb-popover-btn[aria-expanded="true"] {
+  color: var(--kb-accent);
+  background: var(--kb-accent-subtle);
+}
+
+.kb-popover-caret {
+  margin-inline-start: var(--kb-space-1);
+  font-size: var(--kb-text-xs);
+}
+
+.kb-popover-panel {
+  position: absolute;
+  top: calc(100% + var(--kb-space-1));
+  left: 0;
+  z-index: var(--kb-z-popover);
+  display: flex;
+  flex-direction: column;
+  gap: var(--kb-space-3);
+  /* 280px, never wider than the screen less its gutters (the narrowest drawer is 360px). */
+  width: min(280px, calc(100vw - 2 * var(--kb-gutter)));
+  box-sizing: border-box;
+  padding: var(--kb-space-3);
+  font-family: var(--kb-font);
+  font-size: var(--kb-text-sm);
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: normal;
+  text-transform: none;
+  text-align: start;
+  white-space: normal;
+  color: var(--kb-fg-default);
+  background: var(--kb-bg-raised);
+  border: 1px solid var(--kb-border-strong);
+  border-radius: var(--kb-radius-float);
+  box-shadow: var(--kb-shadow-menu);
+}
+
+.kb-popover-panel.end {
+  left: auto;
+  right: 0;
+}
+
+.kb-popover-panel.up {
+  top: auto;
+  bottom: calc(100% + var(--kb-space-1));
+}
+
+/* ── Slider: a native range in the design system's colours ── */
+.kb-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  /* 44px tall hit area; the track drawn inside is 4px. */
+  height: 44px;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  touch-action: pan-y;
+}
+
+.kb-slider:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.kb-slider::-webkit-slider-runnable-track {
+  height: 4px;
+  background: var(--kb-border-control);
+  border-radius: var(--kb-radius-control);
+}
+
+.kb-slider::-moz-range-track {
+  height: 4px;
+  background: var(--kb-border-control);
+  border-radius: var(--kb-radius-control);
+}
+
+.kb-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: -8px;
+  background: var(--kb-accent);
+  border: 2px solid var(--kb-bg-raised);
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+
+.kb-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  background: var(--kb-accent);
+  border: 2px solid var(--kb-bg-raised);
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+
+.kb-slider:focus-visible {
+  outline: none;
+}
+
+.kb-slider:focus-visible::-webkit-slider-thumb {
+  box-shadow: var(--kb-focus-ring);
+}
+
+.kb-slider:focus-visible::-moz-range-thumb {
+  box-shadow: var(--kb-focus-ring);
+}

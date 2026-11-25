@@ -491,3 +491,52 @@ export function ContextMenu({
     document.body,
   );
 }
+
+// ── Slider ────────────────────────────────────────────────────────────────────
+
+export interface SliderProps {
+  /** The accessible name: "Replicas". */
+  label: string;
+  value: number;
+  min?: number;
+  max: number;
+  step?: number;
+  /** One call per real input event, with the new value. Never called on its own. */
+  onChange: (value: number) => void;
+  /** What a screen reader says for the value: "24 replicas, 6 more than now". */
+  valueText?: string;
+  /** For a scale that is not linear: arrow keys call this (Shift = big) instead of moving the
+   *  thumb by one position, so the caller can step by what the position stands for. */
+  onStep?: (direction: 1 | -1, big: boolean) => void;
+  disabled?: boolean;
+  className?: string;
+}
+
+/**
+ * A native `<input type="range">` in the design system's colours: keyboard, touch and screen
+ * readers come from the browser. A value past `max` is shown pinned at the end and written only
+ * when the person drags it, so a pinned thumb never rewrites the value behind it.
+ */
+export function Slider({ label, value, min = 0, max, step = 1, onChange, valueText, onStep, disabled, className }: SliderProps) {
+  return (
+    <input
+      type="range"
+      className={`kb-slider${className ? " " + className : ""}`}
+      aria-label={label}
+      aria-valuetext={valueText}
+      min={min}
+      max={max}
+      step={step}
+      value={Math.min(max, Math.max(min, value))}
+      disabled={disabled}
+      onChange={(e) => onChange(Number(e.target.value))}
+      onKeyDown={(e) => {
+        if (!onStep || e.altKey || e.ctrlKey || e.metaKey) return;
+        const dir = e.key === "ArrowRight" || e.key === "ArrowUp" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowDown" ? -1 : 0;
+        if (!dir) return;
+        e.preventDefault();
+        onStep(dir, e.shiftKey);
+      }}
+    />
+  );
+}
