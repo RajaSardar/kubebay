@@ -32,7 +32,7 @@ jobs:
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
       - run: cd web && pnpm install --frozen-lockfile && pnpm build
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: engine/go.mod
       - name: Build embedded engine binary
@@ -114,7 +114,7 @@ jobs:
       # The desktop app's engine carries the local shell (-tags localshell): the
       # app starts it with --local-shell for the terminal on your own machine.
       # The standalone engine and the container image never do.
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: engine/go.mod
       - name: Build engine sidecar (macOS universal)
