@@ -514,11 +514,6 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
         <ForbiddenState denied={[{ what: noun, reason: p.forbidden }]} />
       ) : shouldShowSkeleton(p.synced, all.length) ? (
         <SkeletonTable headers={headers} widths={widths} rows={10} leadingBlank label={`Loading ${noun}…`} />
-      ) : rows.length === 0 ? (
-        <EmptyState>
-          <p>No {noun} match.</p>
-          <p className="muted small">{filter || p.nsFiltered ? "Loosen the filters." : `Nothing in this ${p.scoped ? "cluster" : "namespace"} yet.`}</p>
-        </EmptyState>
       ) : (
         <TableWrap ref={scrollRef} busy={p.busy}>
           <Table pinLead>
@@ -582,6 +577,18 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
                 );
               })}
               <VirtualSpacer height={bottomSpace} colSpan={headers.length + 2} />
+              {rows.length === 0 && (
+                // The table stays mounted (header, scroller) so a sideways position survives a filter that
+                // matches nothing; the message is pinned to the left edge so it is on screen at any offset.
+                <tr>
+                  <td colSpan={headers.length + 2}>
+                    <EmptyState className="kb-empty-pinned">
+                      <p>No {noun} match.</p>
+                      <p className="muted small">{filter || p.nsFiltered ? "Loosen the filters." : `Nothing in this ${p.scoped ? "cluster" : "namespace"} yet.`}</p>
+                    </EmptyState>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </Table>
         </TableWrap>
