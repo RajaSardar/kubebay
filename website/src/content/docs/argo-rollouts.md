@@ -8,6 +8,10 @@ appRoutes: ["/rollouts"]
 
 **Rollouts** in the sidebar's Tools is a dashboard of the cluster's [Argo Rollouts](https://argo-rollouts.readthedocs.io/). It appears only on a cluster that serves the `rollouts.argoproj.io` CRD. Kubebay reads the `Rollout` objects, their ReplicaSets and their `AnalysisRun` objects through the Kubernetes API with your kubeconfig. If you open the page by address on a cluster without Argo Rollouts, it says so.
 
+## Searching
+
+Above the cards, the **Filter rollouts** box narrows the list as you type; press `/` anywhere on the page to jump to it and Escape to clear it. Plain words match the name, namespace, strategy, phase, container images and revision names or numbers, and every word must match. `phase:degraded`, `ns:shop`, `name:`, `strategy:bluegreen`, `image:` and `revision:` match one field, and `label:app=web` matches a label on the Rollout itself. `"web"` or `=web` matches the whole name, and a leading `-` excludes (`-phase:healthy`). A badge beside the box reads "3 of 12" when the filter hides some. If nothing matches, the page says **No Rollouts match this filter**, which is different from "No Rollouts found on this cluster". This has been checked with component tests, not against a live cluster.
+
 ## What each Rollout shows
 
 - The name, which opens the Rollout's detail, the namespace, a **phase** pill (Healthy, Progressing, Paused, Degraded or Aborted) and the strategy, **canary** or **blueGreen**.
@@ -32,7 +36,19 @@ This is read-only, and the actions stay in the card's header above it. The view 
 
 ## Argo's own dashboard
 
-Kubebay does not embed or start Argo's `kubectl argo rollouts dashboard`. Shipping that binary would mean one more program to build, sign and update, it would use your kubeconfig rather than Kubebay's per-user permissions, and it would not work when Kubebay runs inside a cluster. The Release view covers the same questions natively. In the desktop app only, a note at the top of this page shows the command `kubectl argo rollouts dashboard` with a **Copy** button for people who want the upstream UI as well. It runs nothing, does not check whether the plugin is installed, and the command never includes a Rollout's name or namespace.
+The **Argo dashboard** tab, next to **Rollouts** at the top of the page, shows the upstream `kubectl argo rollouts dashboard` inside Kubebay. Opening the tab starts it; leaving it stops it. Nothing runs until you open the tab.
+
+What it needs: the `kubectl-argo-rollouts` plugin, installed by you. Kubebay looks for it on your `PATH`, then in `/opt/homebrew/bin`, `/usr/local/bin`, `~/.krew/bin` and `~/go/bin`, and never downloads anything. If it is not found the tab explains how to install it (`brew install argoproj/tap/kubectl-argo-rollouts`, `kubectl krew install argo-rollouts`, or the releases page) and offers **Use the Rollouts view**, which is the built-in view above. The plugin must be recent enough to have `dashboard --root-path`; if not, the tab says to upgrade it.
+
+What runs: `kubectl-argo-rollouts dashboard` on your computer, as you, bound to `127.0.0.1` on a free random port, with `--kubeconfig` set to the one kubeconfig file that defines the selected cluster's context, `--context` set to that context, and `--namespace` set when exactly one namespace is selected in the namespace filter (otherwise the tool shows all namespaces). Change the namespace selection while the tab is open and the dashboard restarts for it. Its environment is only `HOME`, `PATH`, `LANG` and that `KUBECONFIG`: no Kubebay token and no other variables, so a kubeconfig that signs in through a plugin such as `aws` or `gke-gcloud-auth-plugin` still works when that plugin is on `PATH` and its credentials are under your home folder. If the context's cluster or user is defined in a different kubeconfig file than the context, the tool may not find them; its error is shown.
+
+How it is shown: Kubebay does not hand the page the raw port. The engine proxies the dashboard at a same-origin address with a random path token made for each run, and the page frames that address in a sandboxed frame that cannot reach Kubebay's own data. Fonts or scripts the dashboard loads from other hosts will not load. The tool's own buttons (promote, abort and the rest) act with your permissions but outside Kubebay's confirmation and [audit log](/docs/audit-log/); Kubebay records only that it started the dashboard (`rollouts-dashboard-start`, with the cluster and namespaces).
+
+How it stops: after you leave the tab or the page it keeps running for a minute, so coming back is instant, then stops. It also stops when the cluster is disconnected, when you quit Kubebay, and about three minutes after the page stops reporting that it is open (a closed or suspended window). At most one dashboard runs per cluster and three overall. If Kubebay is killed without quitting, the next start of the engine ends the dashboard it left behind. If the dashboard does not answer within 15 seconds, the tab shows why, with the tail of the tool's own error output, and **Try again**.
+
+Where it is not offered: only on the desktop app or an engine on your own machine. When Kubebay runs in a cluster, with OIDC sign-in or behind an auth proxy, the tab is hidden and the page says why, because the tool would run with the engine's identity instead of yours.
+
+What has not been checked: this was tested with a stand-in plugin script, not the real `kubectl-argo-rollouts`, and never against a cluster. That the real tool accepts `--root-path` and works inside the frame, and how it looks under the frame's content policy, is unverified. Windows builds compile but the dashboard has not been run there.
 
 ## Actions
 

@@ -17,6 +17,10 @@ The desktop app is started by your OS, not a shell, so it reads a short list of 
 - It listens on `127.0.0.1` by default, and rejects requests whose `Host` isn't a loopback address. A web page you visit can't reach it through DNS rebinding.
 - Every request needs this session's token. The token is written to a file only you can read (mode 0600) and is never logged. It changes each time the engine starts. The desktop app passes it to its own window, so you never see it.
 
+### The Argo dashboard
+
+The **Argo dashboard** tab on the [Rollouts](/docs/argo-rollouts/) page runs the upstream `kubectl-argo-rollouts dashboard`, which has no sign-in of its own. Kubebay binds it to `127.0.0.1` on a random port, gives it only your kubeconfig file for that cluster and a short environment, and reaches it through a same-origin proxy with a 256-bit path token made for each run. Requests to the proxy must come from a loopback host and from the page itself or its sandboxed frame; Kubebay's token, cookies and other headers are not forwarded, and the frame cannot read Kubebay's storage. The shell's content policy allows frames of its own origin only (`frame-src 'self'`); nothing may frame Kubebay itself. The proxy and the tab exist only on an engine on your own machine: in a cluster, with OIDC or an auth proxy, or on a listener that is not loopback, they are refused by the engine. As with running the tool by hand, another program running as you on the same computer can reach the dashboard's loopback port, and can read the token in the tool's command line. The dashboard's own actions are not confirmed or audited by Kubebay; only its start is.
+
 ## In a cluster
 
 With the Helm chart and OIDC, users sign in with your identity provider. The engine then acts **as that user**, through Kubernetes impersonation, so the cluster's own RBAC decides what each person can see and do. Kubebay never grants more than RBAC does. That includes what the engine collects or reaches under its own identity:

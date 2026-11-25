@@ -11,6 +11,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ### Fixed
 - **The drawer's title no longer overlaps the action buttons.** When the drawer body was tall (a Deployment with the scale row, the Pods table and a banner), the drawer's head shrank below its content, so the name and namespace were drawn over the row of buttons. The head now keeps its full height.
+### Added
+
+- **Argo dashboard tab on the Rollouts page** (backlog 87), desktop only. Opening it finds the `kubectl-argo-rollouts` plugin you installed (on `PATH`, `/opt/homebrew/bin`, `/usr/local/bin`, `~/.krew/bin`, `~/go/bin`; nothing is downloaded), starts `kubectl-argo-rollouts dashboard` on `127.0.0.1` on a random port with the selected cluster's one kubeconfig file and context (and `--namespace` when exactly one namespace is selected) and a scrubbed environment, waits up to 15 seconds for it to answer, and shows it in the page. It is reached through a same-origin proxy at `/api/rollouts-dashboard/<token>/` with a random 256-bit path token per run (the frame cannot send Kubebay's session header), in a sandboxed frame without `allow-same-origin`, with Kubebay's credentials stripped before the request goes upstream, Host and Origin checks, and no CORS beyond `Origin: null` under that path. It stops a minute after you leave the tab, after three minutes without a page heartbeat, when the cluster disconnects and when Kubebay quits, kills the tool's whole process group, ends dashboards a killed engine left behind at the next start, and is capped at one per cluster and three overall. If the plugin is missing the tab shows install commands and offers the built-in Release view; if it is too old to have `--root-path` the start fails with an upgrade message. The tab and the proxy are refused by the engine in cluster, OIDC, auth-proxy and non-loopback modes. Starting it is audited as `rollouts-dashboard-start`. Tested with a stand-in plugin script (argv, environment, lifecycle, caps, timeouts, orphans, proxy headers, streams and upgrades), a router test that pins the unauthenticated routes, and component tests. Not run with the real `kubectl-argo-rollouts` or against a cluster: that the real tool has `dashboard --root-path` and renders inside the frame is an assumption. Windows compiles but was not run.
+
+- The Rollouts page has a filter box like every other list: plain words, `phase:`, `ns:`, `strategy:`, `image:`, `revision:`, `label:`, a quoted exact name and `-` negation, a "N of M" count, `/` to focus it, and a separate "No Rollouts match this filter" message. Tested with component tests only, not against a live cluster.
+
+### Changed
+
+- The shell's content security policy now has `frame-src 'self'` instead of `'none'`, so the Rollouts page can frame the Argo dashboard from the engine's own origin. Every other directive is unchanged and nothing may frame the shell (`frame-ancestors 'none'`, `X-Frame-Options: DENY`). The note on the Rollouts page that only showed the command `kubectl argo rollouts dashboard` is gone: the tab replaces it.
 
 ## [0.8.4] - 2026-11-25
 

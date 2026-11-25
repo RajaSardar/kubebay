@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { RolloutRelease } from "./RolloutRelease";
 import { buildReleaseView } from "../lib/rolloutRelease";
@@ -49,25 +49,5 @@ describe("RolloutRelease", () => {
     render(<RolloutRelease view={view} />);
     expect(screen.getByText(/web-stable/)).toBeTruthy();
     expect(screen.getByText(/not found/i)).toBeTruthy();
-  });
-});
-
-const desktop = vi.hoisted(() => ({ on: false }));
-vi.mock("../lib/updates", async () => {
-  const actual = await vi.importActual<typeof import("../lib/updates")>("../lib/updates");
-  return { ...actual, updatesApi: { ...actual.updatesApi, available: () => desktop.on } };
-});
-
-describe("RolloutArgoHint", () => {
-  it("shows the fixed command only in the desktop app", async () => {
-    const { RolloutArgoHint } = await import("./RolloutArgoHint");
-    desktop.on = false;
-    const a = render(<RolloutArgoHint />);
-    expect(a.container.textContent).toBe("");
-    a.unmount();
-    desktop.on = true;
-    render(<RolloutArgoHint />);
-    expect(screen.getByText("kubectl argo rollouts dashboard")).toBeTruthy();
-    expect(screen.getByText(/does not check/i)).toBeTruthy();
   });
 });

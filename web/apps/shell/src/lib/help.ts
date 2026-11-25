@@ -153,7 +153,7 @@ export const PAGE_HELP: Record<string, PageHelpEntry> = {
   "/rollouts": {
     name: "Rollouts",
     what: "Argo Rollouts at a glance: phase, step, canary weight, revisions, AnalysisRuns, and Promote, Abort, Retry and Restart.",
-    how: "Read from Rollouts, their ReplicaSets and AnalysisRuns; actions patch the Rollout with your own permissions and are audited.",
+    how: "Read with your permissions; actions are audited. Desktop: an Argo dashboard tab runs your kubectl-argo-rollouts.",
     docs: "argo-rollouts",
   },
   "/issues": {

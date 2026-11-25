@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import Rollouts from "../Rollouts";
@@ -33,6 +33,20 @@ vi.mock("../../lib/useResourceStream", () => ({
   },
 }));
 
+const dash = vi.hoisted(() => ({ status: { state: "stopped" } as Record<string, unknown> }));
+vi.mock("../../lib/rolloutsDash", async (orig) => ({
+  ...(await orig<typeof import("../../lib/rolloutsDash")>()),
+  rolloutsDashApi: { status: vi.fn(async () => dash.status) },
+}));
+vi.mock("../../components/ArgoDashboard", () => ({
+  ArgoDashboard: (p: { cluster: string; namespaces?: string[]; onUseReleaseView: () => void }) => (
+    <div>
+      argo dashboard for {p.cluster} in {(p.namespaces ?? []).join(",") || "all"}
+      <button onClick={p.onUseReleaseView}>back</button>
+    </div>
+  ),
+}));
+
 const ro = (name: string, namespace: string) => ({ metadata: { name, namespace }, spec: {}, status: { phase: "Healthy" } });
 
 function renderPage() {
@@ -46,6 +60,7 @@ function renderPage() {
 }
 
 beforeEach(() => {
+  dash.status = { state: "stopped" };
   selected.ns = [];
   stream.calls = [];
   stream.rollouts = { rows: [], synced: true, connected: true };
@@ -85,5 +100,100 @@ describe("Rollouts page", () => {
     expect(await screen.findByText("web")).toBeInTheDocument();
     expect(document.querySelector(".page-header-count")?.textContent ?? "").toBe("");
     expect(screen.queryByText(/No Rollouts found/)).toBeNull();
+  });
+
+  describe("search", () => {
+    const two = () => {
+      stream.rollouts = {
+        rows: [
+          { metadata: { name: "web", namespace: "shop" }, spec: { strategy: { canary: {} } }, status: { phase: "Healthy" } },
+          { metadata: { name: "api", namespace: "infra" }, spec: { strategy: { blueGreen: {} } }, status: { phase: "Degraded" } },
+        ],
+        synced: true,
+        connected: true,
+      };
+    };
+    const type = (v: string) => fireEvent.change(screen.getByLabelText("Filter rollouts"), { target: { value: v } });
+
+    it("has a filter box that narrows by text and shows N of M", async () => {
+      two();
+      renderPage();
+      const box = await screen.findByPlaceholderText(/Filter rollouts/);
+      expect(box).toBeInTheDocument();
+      type("web");
+      expect(screen.getByText("web")).toBeInTheDocument();
+      expect(screen.queryByText("api")).toBeNull();
+      expect(screen.getByText("1 of 2")).toBeInTheDocument();
+    });
+
+    it("understands key:value, ns:, quoted-exact and negation", async () => {
+      two();
+      renderPage();
+      await screen.findByText("web");
+      type("phase:degraded");
+      expect(screen.queryByText("web")).toBeNull();
+      expect(screen.getByText("api")).toBeInTheDocument();
+      type("ns:shop");
+      expect(screen.getByText("web")).toBeInTheDocument();
+      expect(screen.queryByText("api")).toBeNull();
+      type('"we"');
+      expect(screen.queryByText("web")).toBeNull();
+      type("-api");
+      expect(screen.getByText("web")).toBeInTheDocument();
+      expect(screen.queryByText("api")).toBeNull();
+      type("bluegreen");
+      expect(screen.getByText("api")).toBeInTheDocument();
+    });
+
+    it("label:key=value matches the Rollout's own labels instead of hiding every row", async () => {
+      stream.rollouts = {
+        rows: [
+          { metadata: { name: "web", namespace: "shop", labels: { app: "web" } }, spec: { strategy: { canary: {} } }, status: { phase: "Healthy" } },
+          { metadata: { name: "api", namespace: "infra", labels: { app: "api" } }, spec: { strategy: { canary: {} } }, status: { phase: "Healthy" } },
+        ],
+        synced: true,
+        connected: true,
+      };
+      renderPage();
+      await screen.findByText("web");
+      type("label:app=api");
+      expect(screen.getByText("api")).toBeInTheDocument();
+      expect(screen.queryByText("web")).toBeNull();
+    });
+
+    it("says no Rollouts match, distinct from none found, and / focuses the box", async () => {
+      two();
+      renderPage();
+      await screen.findByText("web");
+      fireEvent.keyDown(document.body, { key: "/" });
+      expect(screen.getByLabelText("Filter rollouts")).toHaveFocus();
+      type("zzz");
+      expect(screen.getByText(/No Rollouts match/)).toBeInTheDocument();
+      expect(screen.queryByText(/No Rollouts found/)).toBeNull();
+    });
+  });
+
+  it("has an Argo dashboard tab that opens the dashboard for the selected namespaces, and a way back", async () => {
+    selected.ns = ["shop"];
+    stream.rollouts = { rows: [ro("web", "shop")], synced: true, connected: true };
+    renderPage();
+    fireEvent.click(await screen.findByRole("tab", { name: "Argo dashboard" }));
+    expect(await screen.findByText(/argo dashboard for c1 in shop/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "back" }));
+    expect(screen.queryByText(/argo dashboard for/)).not.toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Rollouts", selected: true })).toBeInTheDocument();
+  });
+
+  it("does not start anything until the Argo dashboard tab is opened", async () => {
+    renderPage();
+    await screen.findByRole("tab", { name: "Argo dashboard" });
+    expect(screen.queryByText(/argo dashboard for/)).not.toBeInTheDocument();
+  });
+
+  it("hides the tab on a shared engine and says why", async () => {
+    dash.status = { state: "unavailable", reason: "the Argo dashboard is off in in-cluster mode: it would run with the engine's identity" };
+    renderPage();
+    expect(await screen.findByText(/off in in-cluster mode/)).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Argo dashboard" })).not.toBeInTheDocument();
   });
 });

@@ -2307,3 +2307,14 @@ h2 {
   margin-right: 6px;
   user-select: none;
 }
+
+/* The Argo dashboard, framed on the Rollouts page (it is served by the engine's same-origin proxy). */
+.argo-frame {
+  display: block;
+  width: 100%;
+  height: calc(100vh - 220px);
+  min-height: 480px;
+  border: 1px solid var(--kb-border-subtle);
+  border-radius: var(--kb-radius-control);
+  background: var(--kb-bg-surface);
+}

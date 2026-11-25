@@ -25,3 +25,4 @@ memory.md
 # Anchored: a bare "kubebay" also matches the engine/cmd/kubebay/ package
 # directory, so every new source file added there is silently ignored.
 /kubebay
+/engine/cmd/kubebay/kubebay

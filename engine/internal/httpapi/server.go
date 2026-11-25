@@ -42,6 +42,8 @@ type Deps struct {
 	MCP       *MCPAPI
 	// AI serves /api/ai/* (backlog 78); nil = routes absent.
 	AI *AIAPI
+	// RolloutsDash serves /api/rollouts-dashboard (backlog 87); nil = routes absent.
+	RolloutsDash *RolloutsDashAPI
 	Triage    *TriageAPI
 	Settings  *SettingsManager
 	Auth      *Authenticator
@@ -140,6 +142,14 @@ func Router(d Deps, token string) http.Handler {
 	// set. /mcp takes only its own Bearer token (MCPAPI.Endpoint).
 	if d.MCP != nil {
 		r.Handle("/mcp", d.MCP.Endpoint())
+	}
+
+	// The Argo dashboard's iframe cannot send the session token; its per-run
+	// 256-bit path token is the credential. This is the only unauthenticated
+	// route besides /api/healthz and /api/auth-mode (pinned by a router test),
+	// and it is not mounted on a shared or non-loopback engine.
+	if d.RolloutsDash != nil {
+		d.RolloutsDash.ProxyRoute(r)
 	}
 
 	writes := &writeTracker{}
@@ -454,6 +464,9 @@ func Router(d Deps, token string) http.Handler {
 		}
 		if d.AI != nil {
 			d.AI.Routes(r)
+		}
+		if d.RolloutsDash != nil {
+			d.RolloutsDash.Routes(r)
 		}
 		if d.Triage != nil {
 			r.Get("/api/triage", d.Triage.HandleGet)

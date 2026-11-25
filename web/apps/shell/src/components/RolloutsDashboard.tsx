@@ -1,6 +1,8 @@
-import { useMemo, useState } from "react";
-import { ArmedButton, Badge, Button, Card, CollapsibleSection, EmptyState, InlineBanner, Row, Stack, StatusPill } from "@kubebay/ui";
+import { useMemo, useRef, useState } from "react";
+import { ArmedButton, Badge, Button, Card, CollapsibleSection, EmptyState, InlineBanner, Row, Stack, StatusPill, TextField } from "@kubebay/ui";
 import { api } from "../lib/api";
+import { matchesQuery, parseQuery } from "../lib/filterQuery";
+import { countLabel, useTableKeyboard } from "../lib/tableUx";
 import { ResourceLink } from "./ResourceLink";
 import { RolloutRelease } from "./RolloutRelease";
 import { buildReleaseView } from "../lib/rolloutRelease";
@@ -63,6 +65,29 @@ export function RolloutsDashboard({
     [rollouts, replicaSets, analysisRuns],
   );
 
+  const [filter, setFilter] = useState("");
+  const filterRef = useRef<HTMLInputElement>(null);
+  // Only "/" and Escape matter here: there is no row selection to move.
+  useTableKeyboard({ count: 0, onOpen: () => {}, onToggle: () => {}, filterRef, onClearFilter: () => setFilter("") });
+  const shown = useMemo(() => {
+    if (!filter.trim()) return rows;
+    const q = parseQuery(filter, ["phase", "strategy", "image", "revision"]);
+    return rows.filter(({ ro, d }) => {
+      const rawLabels = (ro.metadata as { labels?: Record<string, unknown> } | undefined)?.labels ?? {};
+      const labels = Object.fromEntries(Object.entries(rawLabels).filter(([, v]) => typeof v === "string")) as Record<string, string>;
+      const images = [d.stable, d.canary].flatMap((r) => r?.images ?? []);
+      const revisions = [d.stable, d.canary].flatMap((r) => (r ? [r.name, r.revision] : []));
+      return matchesQuery(
+        {
+          text: [d.name, d.ns, d.strategy, d.phase, ...images, ...revisions],
+          fields: { ns: d.ns, name: d.name, phase: d.phase, strategy: d.strategy, image: images.join(" "), revision: revisions.join(" ") },
+          labels,
+        },
+        q,
+      );
+    });
+  }, [rows, filter]);
+
   async function run(ns: string, name: string, action: RolloutAction) {
     if (!rolloutGvr) return;
     const ro = rollouts.find((r) => {
@@ -96,8 +121,25 @@ export function RolloutsDashboard({
 
   return (
     <Stack gap={2}>
+      <div className="toolbar">
+        <TextField
+          ref={filterRef}
+          placeholder="Filter rollouts…  /"
+          aria-label="Filter rollouts"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          spellCheck={false}
+          title="key:value with ns, name, phase, strategy, image, revision, label; a leading - excludes; quotes match the whole name"
+        />
+        <Badge title={shown.length === rows.length ? undefined : "Shown of total"}>{countLabel(shown.length, rows.length)}</Badge>
+      </div>
       {error && <InlineBanner flush>{error}</InlineBanner>}
-      {rows.map(({ ro, d }) => (
+      {shown.length === 0 && (
+        <EmptyState>
+          <p>No Rollouts match this filter.</p>
+        </EmptyState>
+      )}
+      {shown.map(({ ro, d }) => (
         <Card key={`${d.ns}/${d.name}`}>
           <Row align="center" gap={2} wrap>
             {rolloutGvr ? (
