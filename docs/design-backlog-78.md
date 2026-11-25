@@ -201,3 +201,12 @@ Checked against `engine/internal/httpapi/mcp.go`, `engine/internal/mcp/kubetools
 8. Flag spellings are verified against `claude --help` as the first implementation step, before the argv test is written. A
    flag that `--help` does not list is not used. If an empty `--setting-sources` is not accepted, the run sets `HOME` to a
    scratch dir only if login still works, otherwise this item is blocked and reported rather than weakened.
+
+## Implementation notes (deviations from the final decisions)
+
+- `--setting-sources ""` was not used: `--help` does not say what an empty value does. `--restricted`, which `--help`
+  documents as ignoring user, project and local settings, is used with `--strict-mcp-config` instead. `--permission-prompts none`
+  is added. No max-turns flag exists, so the wall clock and output caps bound a run. `--bare` is not used (it reads no OAuth login).
+- Decision 4 is implemented as "Open the object to review and apply a change" (the YAML editor with its diff). The proposals
+  store and its `Source` are untouched.
+- The per-run token mounts a separate read-only handler (`MCPAPI.RunHandlerFor`), so the user's MCP switch and Writes setting never matter.
