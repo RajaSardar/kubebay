@@ -805,6 +805,11 @@ export interface AppSettings {
   sharedLocked?: string;
   /** Why Helm repositories can't be added, repointed or removed here; absent on the desktop. */
   helmReposLocked?: string;
+  /** Why the MCP switch can't be changed here (a shared engine); absent on the desktop. */
+  mcpLocked?: string;
+  /** Assistants can't propose changes here: the operator's --mcp-read-only, or MCP isn't served. */
+  mcpReadOnly?: boolean;
+  mcpReadOnlyReason?: string;
 }
 
 export interface AwsProfile {

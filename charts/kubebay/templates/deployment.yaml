@@ -75,6 +75,10 @@ spec:
             - name: KUBEBAY_PROMETHEUS_ALL_USERS
               value: "true"
             {{- end }}
+            {{- if .Values.mcp.readOnly }}
+            - name: KUBEBAY_MCP_READ_ONLY
+              value: "true"
+            {{- end }}
             {{- if .Values.authProxy.enabled }}
             # Sign-in comes from the authenticating proxy in front of the engine. The
             # engine honours these headers only from a peer inside trustedCIDRs.

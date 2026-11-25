@@ -118,6 +118,15 @@ describe("McpSettingsCard", () => {
     expect(screen.queryByRole("button", { name: "Turn on" })).not.toBeInTheDocument();
   });
 
+  it("shows the propose-changes switch locked, with the reason, on a shared engine", async () => {
+    status = { ...off(), disabled: "the MCP server is off in in-cluster mode" };
+    renderCard();
+    const box = await screen.findByRole("checkbox", { name: "Let assistants propose changes" });
+    expect(box).toBeDisabled();
+    expect(box).not.toBeChecked();
+    expect(screen.getByText(/only the operator can change this/i)).toBeInTheDocument();
+  });
+
   it("shows the engine's refusal when a save fails", async () => {
     vi.mocked(mcpApi.save).mockRejectedValueOnce(new Error('namespace "Shop": a lowercase RFC 1123 label must consist of…'));
     renderCard();

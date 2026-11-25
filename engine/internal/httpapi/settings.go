@@ -118,6 +118,12 @@ type SettingsManager struct {
 	HelmReposLocked string
 	// Operator holds the flag/env settings a shared engine uses instead.
 	Operator OperatorSettings
+	// MCPLocked, when set, is why the MCP switch cannot be changed here (the
+	// MCP server is off on a shared engine; see MCPBlockReason).
+	MCPLocked string
+	// MCPReadOnlyReason, when set, is the operator's --mcp-read-only /
+	// KUBEBAY_MCP_READ_ONLY forcing assistants' write tools off. Fixed at startup.
+	MCPReadOnlyReason string
 
 	promOnce  sync.Once
 	promCache *prometheus.Cache
@@ -221,7 +227,7 @@ func (s *SettingsManager) HandleGet(w http.ResponseWriter, r *http.Request) {
 	}
 	if s.SharedLocked != "" {
 		// What is in force, set by the operator; nothing stored by a user.
-		writeJSON(w, map[string]any{
+		writeJSON(w, s.withMCPReport(map[string]any{
 			"prometheusUrl":         normalizePromURL(s.Operator.PrometheusURL),
 			"prometheusUrls":        map[string]string{},
 			"prometheusTargets":     map[string]string{},
@@ -236,10 +242,10 @@ func (s *SettingsManager) HandleGet(w http.ResponseWriter, r *http.Request) {
 			"localShell":            s.LocalShell,
 			"sharedLocked":          s.SharedLocked,
 			"helmReposLocked":       s.HelmReposLocked,
-		})
+		}))
 		return
 	}
-	writeJSON(w, map[string]any{
+	writeJSON(w, s.withMCPReport(map[string]any{
 		"prometheusUrl":         set.PrometheusURL,
 		"prometheusUrls":        set.PrometheusURLs,
 		"prometheusTargets":     set.PrometheusTargets,
@@ -252,7 +258,25 @@ func (s *SettingsManager) HandleGet(w http.ResponseWriter, r *http.Request) {
 		"debugImageDefault":     DefaultDebugImage,
 		"historyClusters":       set.HistoryClusters,
 		"localShell":            s.LocalShell,
-	})
+	}))
+}
+
+// withMCPReport adds who owns the MCP switch: mcpLocked when the MCP server is
+// off here (a shared engine), mcpReadOnly (+ reason) when assistants cannot
+// propose changes because the operator said so or the server is not served.
+func (s *SettingsManager) withMCPReport(m map[string]any) map[string]any {
+	reason := s.MCPReadOnlyReason
+	if s.MCPLocked != "" {
+		m["mcpLocked"] = s.MCPLocked
+		if reason == "" {
+			reason = s.MCPLocked
+		}
+	}
+	if reason != "" {
+		m["mcpReadOnly"] = true
+		m["mcpReadOnlyReason"] = reason
+	}
+	return m
 }
 
 func (s *SettingsManager) HandleSave(w http.ResponseWriter, r *http.Request) {

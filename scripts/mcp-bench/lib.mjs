@@ -1,8 +1,8 @@
 // Pure parts of the MCP benchmark harness: scenario loading, the run loop, the
 // result shape. No network and no cluster here; the client is injected.
-import { readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, readdirSync, realpathSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { join, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 
 const WRITE_TOOLS = ["propose_change", "get_proposal_status"];
 
@@ -41,11 +41,71 @@ export function assertKindClusters(clusters) {
   if (bad.length) throw new Error(`refusing to run: cluster(s) ${bad.map((c) => c.id).join(", ")} are not kind-* clusters; allow only the dedicated kind cluster for MCP`);
 }
 
-export function checkKubeconfigArg(path) {
+function realOrResolved(p) {
+  try {
+    return realpathSync(p);
+  } catch {
+    return resolve(p);
+  }
+}
+
+/**
+ * The kubeconfig is the one thing that decides which clusters a run can touch,
+ * so it must be an explicit file named kind-* (the allowlist), and never the
+ * default ~/.kube/config, whether named directly or through a symlink.
+ */
+export function checkKubeconfigArg(path, { home = homedir() } = {}) {
   if (!path) throw new Error("--kubeconfig is required: pass the dedicated kind cluster's kubeconfig");
-  const expanded = path.startsWith("~/") ? join(homedir(), path.slice(2)) : path;
-  if (resolve(expanded) === join(homedir(), ".kube", "config")) throw new Error("refusing the default kubeconfig (~/.kube/config); use a dedicated kind kubeconfig");
+  const expanded = path.startsWith("~/") ? join(home, path.slice(2)) : path;
+  const def = join(home, ".kube", "config");
+  if (resolve(expanded) === def || realOrResolved(expanded) === realOrResolved(def)) throw new Error("refusing the default kubeconfig (~/.kube/config); use a dedicated kind kubeconfig");
+  if (!/^kind-[^/]+$/.test(basename(resolve(expanded)))) throw new Error(`refusing ${path}: the kubeconfig file must be named kind-* (for example kind-bench.kubeconfig)`);
   return path;
+}
+
+/** Context names in a kubeconfig's YAML text; just enough parsing, no YAML library. */
+export function kubeconfigContexts(yaml) {
+  const out = [];
+  let inContexts = false;
+  for (const line of String(yaml).split("\n")) {
+    if (/^[A-Za-z]/.test(line)) inContexts = /^contexts:\s*$/.test(line);
+    else if (inContexts) {
+      const m = line.match(/^\s*(?:-\s+)?name:\s*["']?([^"'\s#]+)/);
+      if (m) out.push(m[1]);
+    }
+  }
+  return out;
+}
+
+export function assertKindContexts(contexts) {
+  if (!contexts || contexts.length === 0) throw new Error("the kubeconfig has no contexts");
+  const bad = contexts.filter((c) => !c.startsWith("kind-"));
+  if (bad.length) throw new Error(`refusing to run: kubeconfig context(s) ${bad.join(", ")} are not kind-* contexts`);
+}
+
+/** What the server lists must come from the kubeconfig the run was given. */
+export function assertClustersInKubeconfig(clusters, contexts) {
+  const stray = clusters.filter((c) => !contexts.includes(c.id));
+  if (stray.length) throw new Error(`refusing to run: the server lists ${stray.map((c) => c.id).join(", ")}, which is not in the given kubeconfig; point the engine at that kubeconfig or let the harness start it with --engine`);
+}
+
+/** How to start the engine the harness drives, with the given kubeconfig and nothing else. */
+export function engineLaunch({ engine, kubeconfig, port, home, readOnly = false }) {
+  const args = ["--kubeconfig", kubeconfig, "--addr", `127.0.0.1:${port}`, "--no-open"];
+  if (readOnly) args.push("--mcp-read-only");
+  return {
+    command: engine,
+    args,
+    // KUBEBAY_KUBECONFIG makes it the only kubeconfig the engine loads; HOME is a
+    // temporary directory so settings and the MCP connection file stay out of the real one.
+    env: { ...process.env, HOME: home, KUBECONFIG: kubeconfig, KUBEBAY_KUBECONFIG: kubeconfig },
+  };
+}
+
+/** Turns MCP on (reads only) for the given contexts in a throwaway home. */
+export function seedSettings(home, contexts) {
+  mkdirSync(join(home, ".kubebay"), { recursive: true });
+  writeFileSync(join(home, ".kubebay", "settings.json"), JSON.stringify({ mcp: { enabled: true, clusters: Object.fromEntries(contexts.map((c) => [c, []])) } }, null, 2));
 }
 
 function fill(value, ctx) {
@@ -89,7 +149,10 @@ export async function runScenario(client, scenario, ctx, { timeoutMs = 60000, no
   return { id: scenario.id, pass, durationMs: now() - start, toolCalls, error: redact(error, secrets) };
 }
 
-/** Checks against a server started read-only: the write tools are absent and refused. */
+/**
+ * Checks a server started read-only by listing its tools only. It never calls a
+ * write tool: against an engine that is not read-only that would propose a change.
+ */
 export async function runReadOnlyChecks(client, ctx, { now = Date.now, secrets = [] } = {}) {
   const results = [];
   const timed = async (id, fn) => {
@@ -110,12 +173,6 @@ export async function runReadOnlyChecks(client, ctx, { now = Date.now, secrets =
     const names = (await client.listTools()).map((t) => t.name);
     const leaked = names.filter((n) => WRITE_TOOLS.includes(n));
     return { pass: leaked.length === 0, error: leaked.length ? `write tools listed: ${leaked.join(", ")}` : "" };
-  });
-  await timed("readonly-propose-refused", async (count) => {
-    count();
-    const r = await client.callTool("propose_change", { cluster: ctx.cluster, kind: "deployments", namespace: ctx.namespace ?? "default", name: "x", patch: {}, reason: "bench" });
-    const refused = r.isError && /read-only/i.test(r.text);
-    return { pass: refused, error: refused ? "" : `propose_change was not refused: ${r.text}` };
   });
   return results;
 }

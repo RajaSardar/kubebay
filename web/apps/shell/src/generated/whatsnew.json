@@ -8,6 +8,10 @@
           "heading": "Added",
           "items": [
             {
+              "title": "MCP read-only, follow-up",
+              "summary": "(backlog 77b)."
+            },
+            {
               "title": "Issues queue",
               "summary": "(backlog 76)."
             },

@@ -191,6 +191,10 @@ func main() {
 	// run, and which Prometheus is queried, come from the operator only.
 	settingsMgr.SharedLocked = httpapi.SharedSettingsBlockReason(*inCluster, sharedIdentity)
 	settingsMgr.HelmReposLocked = helmMgr.ReposLocked
+	settingsMgr.MCPLocked = httpapi.MCPBlockReason(*inCluster, sharedIdentity, httpapi.IsLoopbackListenAddr(*addr))
+	if resolveMCPReadOnly(*mcpReadOnly, os.Getenv("KUBEBAY_MCP_READ_ONLY")) {
+		settingsMgr.MCPReadOnlyReason = mcpReadOnlyReason
+	}
 	settingsMgr.Operator = httpapi.OperatorSettings{PrometheusURL: *promURL, PrometheusAllUsers: *promAllUsers}
 	// A policy saved in Settings wins over the flag and env defaults.
 	settingsMgr.ApplyStoredWarmPolicy()

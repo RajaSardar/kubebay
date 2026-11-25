@@ -168,6 +168,7 @@ One engine serves everyone, so settings that apply to every user are read-only i
 | `debugImage` | `KUBEBAY_DEBUG_IMAGE` | The default image of a [debug container](/docs/pods/#terminal) |
 | `prometheus.url` | `KUBEBAY_PROMETHEUS_URL` | A Prometheus the engine queries directly, for graphs and right-sizing |
 | `prometheus.allUsers` | `KUBEBAY_PROMETHEUS_ALL_USERS` | With OIDC, let every signed-in user query `prometheus.url` |
+| `mcp.readOnly` | `KUBEBAY_MCP_READ_ONLY` | Default `false`. Keeps the MCP write tools off. MCP is not served in a cluster in any case, so this is a second lock, not a way to turn MCP on |
 | `helmRepos` | `KUBEBAY_HELM_REPOS` | The Helm repositories every user installs from, each a `name` and `url`. See [Helm](/docs/helm/#adding-and-removing-repositories) |
 
 Leave `prometheus.url` empty and each user's queries go to an auto-detected Prometheus through the API server's service proxy, as that user, so RBAC decides who may query it. A URL you set answers for every namespace whatever a user's RBAC says, so with OIDC users only get it once you set `prometheus.allUsers: true`. Until then their queries fall back to the service proxy. The Kubernetes Service list and the proxy both need RBAC: `list` on `services` and `get` on `services/proxy`.
