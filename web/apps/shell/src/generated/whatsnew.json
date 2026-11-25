@@ -8,6 +8,10 @@
           "heading": "Added",
           "items": [
             {
+              "title": "MCP read-only mode and a benchmark harness",
+              "summary": "(backlog 77)."
+            },
+            {
               "title": "Changes page: a local change timeline",
               "summary": "(backlog 82)."
             },

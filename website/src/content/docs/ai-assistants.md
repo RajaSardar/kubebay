@@ -46,6 +46,14 @@ Tick **Let assistants propose changes** to allow `propose_change` on workloads, 
 
 A proposal changes nothing. Kubebay shows it to you with the assistant's reason, in its own words, and the exact diff. **Approve and apply** applies exactly that diff, and only if the object hasn't changed since the proposal was made. **Reject** turns it down, and **Decide later** keeps it waiting. Turning this off, or turning MCP off, rejects whatever is waiting.
 
+## Read-only mode
+
+An operator can start the engine with `--mcp-read-only` (or `KUBEBAY_MCP_READ_ONLY=true`) to make the MCP server read-only whatever Settings says. Then `propose_change` and `get_proposal_status` are not listed to assistants, a call to either is refused with a message saying the MCP server is read-only (and recorded in the Audit Log as `mcp:refused:<tool>`), and the server's instructions tell the assistant it can only read. **Let assistants propose changes** shows unticked and disabled with the reason; the choice you saved is kept and applies again when the engine starts without the flag. The same hiding happens when the box is simply unticked. Every tool is classified as read or write in code, and a test fails if a new one isn't. This was tested with fakes and HTTP tests, not against a live cluster or a real assistant.
+
+## Benchmark harness
+
+`scripts/mcp-bench` in the repository drives the server through ten fault scenarios on a dedicated kind cluster and records pass or fail and time per scenario in a JSON file. Baseline numbers have not been measured yet.
+
 ## Where it's available
 
 MCP is part of Kubebay on your own machine, with the engine listening on a loopback address. It isn't available when the engine runs in a cluster or with OIDC sign-in, and the card says why.
