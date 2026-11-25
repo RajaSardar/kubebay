@@ -216,3 +216,81 @@ func TestCacheNegativeResultIsShortLivedAndQuiet(t *testing.T) {
 		t.Fatalf("negative result should expire quickly: %d", calls)
 	}
 }
+
+func TestRankKnowsOtherMetricsBackends(t *testing.T) {
+	got := Rank([]corev1.Service{
+		*svc("victoria-metrics", "vmselect-vmcluster", nil, port("http", 8481)),
+		*svc("victoria-metrics", "vmsingle-main", map[string]string{"app.kubernetes.io/name": "vmsingle"}, port("http", 8429)),
+		*svc("mimir", "mimir-query-frontend", nil, port("http-metrics", 8080)),
+		*svc("openshift-monitoring", "prometheus-k8s", nil, port("web", 9091), port("tenancy", 9092)),
+		*svc("monitoring", "vmagent-main", nil, port("http", 8429)),
+		*svc("mimir", "mimir-distributor", nil, port("http-metrics", 8080)),
+		*svc("monitoring", "grafana-agent", nil, port("http", 12345)),
+	})
+	have := map[string]bool{}
+	for _, c := range got {
+		have[c.Namespace+"/"+c.Name] = true
+	}
+	for _, want := range []string{"victoria-metrics/vmselect-vmcluster", "victoria-metrics/vmsingle-main", "mimir/mimir-query-frontend", "openshift-monitoring/prometheus-k8s"} {
+		if !have[want] {
+			t.Errorf("%s not offered: %v", want, have)
+		}
+	}
+	for _, not := range []string{"monitoring/vmagent-main", "mimir/mimir-distributor", "monitoring/grafana-agent"} {
+		if have[not] {
+			t.Errorf("%s is not a query endpoint but was offered", not)
+		}
+	}
+}
+
+func TestDiscoverReportSaysWhatWasTriedAndForbidden(t *testing.T) {
+	cs := fake.NewSimpleClientset(svc("monitoring", "prometheus-server", nil, port("http", 80)))
+	cs.PrependReactor("list", "services", func(a k8stesting.Action) (bool, runtime.Object, error) {
+		switch a.GetNamespace() {
+		case "":
+			return true, nil, apierrors.NewForbidden(schema.GroupResource{Resource: "services"}, "", errors.New("no"))
+		case "prometheus":
+			return true, nil, apierrors.NewForbidden(schema.GroupResource{Resource: "services"}, "", errors.New("no"))
+		}
+		return false, nil, nil
+	})
+	res, err := DiscoverReport(context.Background(), cs)
+	if err != nil || len(res.Candidates) != 1 {
+		t.Fatalf("got %+v, %v", res, err)
+	}
+	if res.Scope != "namespaces" || len(res.Tried) < 8 {
+		t.Fatalf("scope %q tried %v", res.Scope, res.Tried)
+	}
+	if len(res.Forbidden) != 1 || res.Forbidden[0] != "prometheus" {
+		t.Fatalf("forbidden %v", res.Forbidden)
+	}
+	all, err := DiscoverReport(context.Background(), fake.NewSimpleClientset())
+	if err != nil || all.Scope != "cluster" || len(all.Candidates) != 0 {
+		t.Fatalf("cluster-wide report %+v, %v", all, err)
+	}
+}
+
+func TestCacheKeepsTheReport(t *testing.T) {
+	c := NewCache(time.Minute, time.Second)
+	r := c.GetReport(context.Background(), "k", func(context.Context) (Result, error) {
+		return Result{Scope: "namespaces", Tried: []string{"a"}, Forbidden: []string{"a"}}, nil
+	}, false)
+	r2 := c.GetReport(context.Background(), "k", func(context.Context) (Result, error) { t.Fatal("reloaded"); return Result{}, nil }, false)
+	if r.Scope != "namespaces" || len(r2.Tried) != 1 || len(r2.Forbidden) != 1 {
+		t.Fatalf("%+v %+v", r, r2)
+	}
+}
+
+func TestAnEmptyDiscoveryIsRecheckedSoonerThanASuccessfulOne(t *testing.T) {
+	var calls int32
+	load := func(context.Context) ([]Candidate, error) { atomic.AddInt32(&calls, 1); return nil, nil }
+	now := time.Now()
+	c := NewCache(5*time.Minute, 10*time.Second)
+	c.now = func() time.Time { return now }
+	c.Get(context.Background(), "k", load, false)
+	now = now.Add(11 * time.Second)
+	c.Get(context.Background(), "k", load, false)
+	if calls != 2 {
+		t.Fatalf("an empty result must expire on the short TTL, loaded %d times", calls)
+	}
+}

@@ -45,7 +45,20 @@ func (c Candidate) ProxyPath() string {
 	if c.Scheme == "https" {
 		name = "https:" + name
 	}
-	return "/api/v1/namespaces/" + c.Namespace + "/services/" + name + "/proxy"
+	return "/api/v1/namespaces/" + c.Namespace + "/services/" + name + "/proxy" + queryPrefix(c.Name)
+}
+
+// queryPrefix is where a backend serves the Prometheus HTTP API when it is not
+// at the root: VictoriaMetrics' cluster read path and Mimir/Cortex's /prometheus.
+func queryPrefix(name string) string {
+	n := strings.ToLower(name)
+	switch {
+	case strings.Contains(n, "vmselect"):
+		return "/select/0/prometheus"
+	case (strings.HasPrefix(n, "mimir") || strings.HasPrefix(n, "cortex")) && strings.Contains(n, "query-frontend"):
+		return "/prometheus"
+	}
+	return ""
 }
 
 // ParseTarget is the inverse of Target.
@@ -90,11 +103,32 @@ var knownNames = map[string]int{
 	"thanos-query":                          60,
 	"thanos-query-frontend":                 55,
 	"prometheus-operated":                   40,
+	"vmsingle":                              60,
+	"victoria-metrics-single-server":        60,
+}
+
+// backendScore recognises query endpoints whose names carry a release prefix.
+func backendScore(s *corev1.Service) int {
+	n := strings.ToLower(s.Name)
+	switch {
+	case strings.Contains(n, "vmselect"), strings.Contains(n, "vmsingle"):
+		return 60
+	case (strings.HasPrefix(n, "mimir") || strings.HasPrefix(n, "cortex")) && strings.Contains(n, "query-frontend"):
+		return 55
+	case s.Namespace == "gmp-system" && n == "frontend":
+		return 50
+	}
+	switch s.Labels["app.kubernetes.io/name"] {
+	case "vmsingle", "vmselect":
+		return 60
+	}
+	return 0
 }
 
 var goodNamespaces = map[string]bool{
 	"monitoring": true, "prometheus": true, "observability": true, "lens-metrics": true,
 	"kube-prometheus": true, "openshift-monitoring": true, "kube-system": true,
+	"victoria-metrics": true, "mimir": true, "gmp-system": true, "cattle-monitoring-system": true,
 }
 
 var preferredPorts = []string{"web", "http-web", "http", "prometheus", "http-prometheus", "web-http", "https", "https-web"}
@@ -175,6 +209,9 @@ func Rank(services []corev1.Service) []Candidate {
 		if ls := labelScore(s.Labels); ls > score {
 			score = ls
 		}
+		if bs := backendScore(s); bs > score {
+			score = bs
+		}
 		if score == 0 && strings.Contains(s.Name, "prometheus") {
 			score = 30
 		}
@@ -204,25 +241,39 @@ func Rank(services []corev1.Service) []Candidate {
 	return out
 }
 
-var wellKnownNamespaces = []string{"monitoring", "prometheus", "observability", "lens-metrics", "kube-prometheus", "openshift-monitoring", "kube-system", "default"}
+var wellKnownNamespaces = []string{"monitoring", "prometheus", "observability", "lens-metrics", "kube-prometheus", "openshift-monitoring", "kube-system", "default",
+	"victoria-metrics", "mimir", "gmp-system", "cattle-monitoring-system", "monitoring-system", "kubesphere-monitoring-system"}
 
-// Discover lists Services across the cluster and ranks them. When the identity
-// may not list cluster-wide it falls back to the usual monitoring namespaces.
-// An error means nothing could be listed at all; no match is (nil, nil).
+// Discover lists Services across the cluster and ranks them. See DiscoverReport.
 func Discover(ctx context.Context, cs kubernetes.Interface) ([]Candidate, error) {
+	res, err := DiscoverReport(ctx, cs)
+	return res.Candidates, err
+}
+
+// DiscoverReport is Discover that also says how far it looked: Scope is
+// "cluster" when every Service could be listed, "namespaces" when the identity
+// could only list the usual monitoring namespaces (Tried), and Forbidden holds
+// the ones it was refused. An error means nothing could be listed at all; no
+// match is an empty result and nil.
+func DiscoverReport(ctx context.Context, cs kubernetes.Interface) (Result, error) {
 	list, err := cs.CoreV1().Services("").List(ctx, metav1.ListOptions{})
 	if err == nil {
-		return Rank(list.Items), nil
+		return Result{Candidates: Rank(list.Items), Scope: "cluster"}, nil
 	}
 	if !apierrors.IsForbidden(err) && !apierrors.IsUnauthorized(err) {
-		return nil, err
+		return Result{}, err
 	}
+	res := Result{Scope: "namespaces"}
 	var all []corev1.Service
 	var firstErr error
 	listed := false
 	for _, ns := range wellKnownNamespaces {
+		res.Tried = append(res.Tried, ns)
 		l, e := cs.CoreV1().Services(ns).List(ctx, metav1.ListOptions{})
 		if e != nil {
+			if apierrors.IsForbidden(e) || apierrors.IsUnauthorized(e) {
+				res.Forbidden = append(res.Forbidden, ns)
+			}
 			if firstErr == nil {
 				firstErr = e
 			}
@@ -235,15 +286,21 @@ func Discover(ctx context.Context, cs kubernetes.Interface) ([]Candidate, error)
 		if firstErr == nil {
 			firstErr = errors.New("no namespace could be listed")
 		}
-		return nil, firstErr
+		return res, firstErr
 	}
-	return Rank(all), nil
+	res.Candidates = Rank(all)
+	return res, nil
 }
 
 // Result is one cached discovery outcome. Err is informational only.
 type Result struct {
 	Candidates []Candidate
 	Err        string
+	// Scope is "cluster" or "namespaces"; Tried and Forbidden name the
+	// namespaces looked at and refused when only some could be listed.
+	Scope     string
+	Tried     []string
+	Forbidden []string
 }
 
 type entry struct {
@@ -270,6 +327,14 @@ func NewCache(ttl, negTTL time.Duration) *Cache {
 // set. Concurrent callers share one load. The load is detached from ctx so one
 // cancelled request does not poison the cache for the next.
 func (c *Cache) Get(ctx context.Context, key string, load func(context.Context) ([]Candidate, error), refresh bool) Result {
+	return c.GetReport(ctx, key, func(lctx context.Context) (Result, error) {
+		cands, err := load(lctx)
+		return Result{Candidates: cands}, err
+	}, refresh)
+}
+
+// GetReport is Get for a loader that returns the whole Result.
+func (c *Cache) GetReport(ctx context.Context, key string, load func(context.Context) (Result, error), refresh bool) Result {
 	for {
 		c.mu.Lock()
 		e := c.m[key]
@@ -290,7 +355,7 @@ func (c *Cache) Get(ctx context.Context, key string, load func(context.Context) 
 		}
 		if e.ok && !refresh {
 			ttl := c.ttl
-			if e.res.Err != "" {
+			if e.res.Err != "" || len(e.res.Candidates) == 0 {
 				ttl = c.negTTL
 			}
 			if c.now().Sub(e.at) < ttl {
@@ -304,11 +369,10 @@ func (c *Cache) Get(ctx context.Context, key string, load func(context.Context) 
 		c.mu.Unlock()
 
 		lctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		cands, err := load(lctx)
+		res, err := load(lctx)
 		cancel()
-		res := Result{Candidates: cands}
 		if err != nil {
-			res = Result{Err: err.Error()}
+			res.Err = err.Error()
 		}
 		c.mu.Lock()
 		e.res, e.at, e.ok, e.loading = res, c.now(), true, nil
