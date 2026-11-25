@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -63,10 +64,12 @@ func (s *SettingsManager) promDirect(ctx context.Context, set *AppSettings, clus
 	if u := set.PrometheusURLs[cluster]; u != "" {
 		return u, false
 	}
-	if set.PrometheusURL != "" {
-		return set.PrometheusURL, true
+	// The operator's URL is deployment configuration: it outranks both the
+	// stored default and anything detected.
+	if u := normalizePromURL(s.Operator.PrometheusURL); u != "" {
+		return u, false
 	}
-	return normalizePromURL(s.Operator.PrometheusURL), false
+	return set.PrometheusURL, set.PrometheusURL != ""
 }
 
 // promPlan is where a cluster's queries go and why.
@@ -163,7 +166,7 @@ func (s *SettingsManager) HandlePromStatus(w http.ResponseWriter, r *http.Reques
 	}
 	out := promStatusBody{Source: "none", Candidates: []prometheus.Candidate{}}
 	if u, fallback := s.promDirect(r.Context(), set, cluster); u != "" && !fallback {
-		out.Source, out.Target = "manual", u
+		out.Source, out.Target = "manual", redactURL(u)
 		writeJSON(w, out)
 		return
 	}
@@ -181,9 +184,9 @@ func (s *SettingsManager) HandlePromStatus(w http.ResponseWriter, r *http.Reques
 		out.Source, out.Target = "auto", res.Candidates[0].Target()
 	}
 	if u, fallback := s.promDirect(r.Context(), set, cluster); u != "" && fallback {
-		out.DefaultURL = u
+		out.DefaultURL = redactURL(u)
 		if out.Source == "none" {
-			out.Source, out.Target = "default", u
+			out.Source, out.Target = "default", redactURL(u)
 		}
 	}
 	writeJSON(w, out)
@@ -235,4 +238,12 @@ func (s *SettingsManager) HandlePromTarget(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	writeJSON(w, map[string]any{"ok": true})
+}
+
+// redactURL hides a password embedded in a URL, for anything shown on screen.
+func redactURL(raw string) string {
+	if u, err := url.Parse(raw); err == nil {
+		return u.Redacted()
+	}
+	return raw
 }

@@ -13,6 +13,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 - The default Prometheus URL in Settings is now only a fallback for clusters where no Prometheus Service is found; a URL set for one cluster still always wins. Before, any default URL (often a port-forward to one cluster) hid the Prometheus every other cluster has. An empty discovery result is rechecked after about 30 seconds instead of five minutes.
 
 ### Fixed
+- Prometheus: a URL set by the operator (the engine's environment) now wins over a stored default URL and over auto-detection, as documented. The connection test and status no longer show a password embedded in a URL. A pinned or tested Service target must be a valid `namespace/service:port` name. On a shared engine the pod Graphs tab no longer offers **Choose a Service** and **Enter URL**, which it would refuse. Covered by tests with fake servers only, not run against a real cluster.
 - Pod graphs showed nothing on clusters whose cAdvisor metrics use `pod_name` and `container_name`, or whose runtime leaves the `image` label empty: the queries now try the current labels without an image filter, then the older labels, then the pod total, and say when Prometheus returns no series instead of drawing empty charts. A refused `services/proxy` is reported as forbidden instead of "check the URL".
 
 ## [0.8.4] - 2026-11-25

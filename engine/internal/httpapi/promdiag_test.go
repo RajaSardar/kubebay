@@ -184,3 +184,37 @@ func TestQueryPrefixForBackendsThatServePrometheusBelowTheRoot(t *testing.T) {
 		t.Fatalf("%v", p)
 	}
 }
+
+// An operator-set URL is deployment configuration: neither a stored default
+// nor an auto-detected Service may sit in front of it.
+func TestOperatorURLBeatsDefaultAndAutoDetection(t *testing.T) {
+	f := newFakeAPIServer(t)
+	sm := settingsForFake(t, f)
+	prom := okProm()
+	defer prom.Close()
+	sm.Operator.PrometheusURL = prom.URL
+	save(t, sm, `{"prometheusUrl":"http://127.0.0.1:1"}`)
+	rec := httptest.NewRecorder()
+	sm.HandlePromQuery(rec, httptest.NewRequest(http.MethodGet, "/api/prom/query?cluster=dev&query=up", nil))
+	if rec.Code != http.StatusOK || len(f.proxied()) != 0 {
+		t.Fatalf("operator URL not used: %d proxied=%v", rec.Code, f.proxied())
+	}
+	if st := getDiag(t, sm); st.Source != "manual" || st.Target != prom.URL {
+		t.Fatalf("status %+v", st)
+	}
+}
+
+// The test report is shown on screen: credentials in a URL must not be echoed.
+func TestPromTestDoesNotEchoURLCredentials(t *testing.T) {
+	f := newFakeAPIServer(t)
+	sm := settingsForFake(t, f)
+	prom := okProm()
+	defer prom.Close()
+	u := strings.Replace(prom.URL, "http://", "http://bob:s3cretpw@", 1)
+	sm.Operator.PrometheusURL = u
+	rec := httptest.NewRecorder()
+	sm.HandlePromTest(rec, httptest.NewRequest(http.MethodGet, "/api/prom/test?cluster=dev", nil))
+	if rec.Code != http.StatusOK || strings.Contains(rec.Body.String(), "s3cretpw") {
+		t.Fatalf("%d leaked credentials: %s", rec.Code, rec.Body)
+	}
+}

@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -62,6 +63,10 @@ func queryPrefix(name string) string {
 }
 
 // ParseTarget is the inverse of Target.
+// k8sName is a Kubernetes namespace or Service name. Anything else (a "?", "#",
+// "%" or space) would change which API-server path the proxied request hits.
+var k8sName = regexp.MustCompile(`^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$`)
+
 func ParseTarget(s string) (Candidate, error) {
 	c := Candidate{Scheme: "http"}
 	rest := strings.TrimSpace(s)
@@ -75,7 +80,7 @@ func ParseTarget(s string) (Candidate, error) {
 		return Candidate{}, fmt.Errorf("target %q must look like namespace/service:port", s)
 	}
 	c.Namespace, c.Name = rest[:slash], rest[slash+1:colon]
-	if strings.Contains(c.Name, "/") {
+	if strings.Contains(c.Name, "/") || !k8sName.MatchString(c.Namespace) || !k8sName.MatchString(c.Name) {
 		return Candidate{}, fmt.Errorf("target %q must look like namespace/service:port", s)
 	}
 	p, err := strconv.Atoi(rest[colon+1:])

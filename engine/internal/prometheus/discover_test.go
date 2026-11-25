@@ -294,3 +294,14 @@ func TestAnEmptyDiscoveryIsRecheckedSoonerThanASuccessfulOne(t *testing.T) {
 		t.Fatalf("an empty result must expire on the short TTL, loaded %d times", calls)
 	}
 }
+
+func TestParseTargetRejectsPathAndQueryCharacters(t *testing.T) {
+	for _, bad := range []string{"ns/svc?x=1:80", "ns#/svc:80", "../x/svc:80", "ns/svc%2f..:80", "ns/Svc Name:80", "ns/..:80"} {
+		if _, err := ParseTarget(bad); err == nil {
+			t.Errorf("%q should be rejected", bad)
+		}
+	}
+	if _, err := ParseTarget("https:monitoring/kube-prometheus-stack-prometheus:9090"); err != nil {
+		t.Fatal(err)
+	}
+}

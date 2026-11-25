@@ -151,6 +151,20 @@ describe("PodGraphs with Prometheus configuration", () => {
     await waitFor(() => expect(screen.getByText(/Prometheus: not found/i)).toBeTruthy());
   });
 
+  it("offers no Choose or Enter URL on a shared engine, where the operator sets Prometheus", async () => {
+    vi.mocked(api.settingsApi.get).mockResolvedValue({ prometheusUrl: "", prometheusUrls: {}, extraKubeconfigs: [], sharedLocked: "in-cluster" });
+    vi.mocked(api.promApi.status).mockResolvedValue({ source: "none", target: "", chosen: false, candidates: [] });
+    vi.mocked(api.promApi.queryRange).mockResolvedValue({ data: { result: [] } });
+    render(
+      <QueryClientProvider client={qc}>
+        <PodGraphs cluster="kind-test" namespace="default" pod="test-pod" />
+      </QueryClientProvider>,
+    );
+    await waitFor(() => expect(screen.getByText(/Prometheus: not found/i)).toBeTruthy());
+    expect(screen.queryByRole("button", { name: "Choose a Service" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Enter URL" })).toBeNull();
+  });
+
   const autoStatus = { source: "auto" as const, target: "monitoring/prometheus-server:80", chosen: false, candidates: [] };
   function renderAuto() {
     vi.mocked(api.settingsApi.get).mockResolvedValue({ prometheusUrl: "", prometheusUrls: {}, extraKubeconfigs: [] });

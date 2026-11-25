@@ -152,6 +152,7 @@ export function PodGraphs({
           <PromNotFound
             cluster={cluster}
             status={status.data}
+            locked={!!settings.data?.sharedLocked}
             onChoose={() => setShowConfigModal(true)}
             onEnterUrl={() => setShowConfigModal(true)}
           />

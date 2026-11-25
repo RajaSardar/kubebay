@@ -75,7 +75,7 @@ func (s *SettingsManager) HandlePromTest(w http.ResponseWriter, r *http.Request)
 	if plan.cand != nil {
 		out.Target = plan.cand.Target()
 	} else {
-		out.Target = plan.base
+		out.Target = redactURL(plan.base)
 	}
 	client := plan.client
 	if client == nil {
@@ -99,7 +99,7 @@ func (s *SettingsManager) runPromCheck(ctx context.Context, client *http.Client,
 		chk.Error = err.Error()
 		return chk
 	}
-	chk.URL = target
+	chk.URL = redactURL(target)
 	if plan.cand != nil { // show the path on the API server, not its address
 		if i := strings.Index(target, "/api/v1/namespaces/"); i >= 0 {
 			chk.URL = target[i:]
