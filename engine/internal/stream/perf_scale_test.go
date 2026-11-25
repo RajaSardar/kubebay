@@ -366,3 +366,18 @@ func TestSnapshotFrameFitsThePooledBuffer(t *testing.T) {
 		t.Errorf("a %d-pod frame is %d B: a buffer grown to hold it (up to 2x) may pass maxPooledFrame %d and not be reused", itemsPerFrame, size, maxPooledFrame)
 	}
 }
+
+// A 2,000-pod snapshot sent to one subscription, frame by frame as the hub
+// sends it. Each subscription's snapshot is encoded on its own: they are
+// taken at different times, and sharing them would mean holding encoded
+// bytes for every cached object.
+func BenchmarkEncodeSnapshot2000Pods(b *testing.B) {
+	snap := OpsSnapshot(podOps(2000))
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for ops := range snap.Frames(itemsPerFrame) {
+			_ = withEncodedData(&DataFrame{Type: TypeItems, ID: "sub", Ops: ops}, func([]byte) error { return nil })
+		}
+	}
+}
