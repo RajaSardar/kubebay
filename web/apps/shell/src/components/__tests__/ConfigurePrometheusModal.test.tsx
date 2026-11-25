@@ -440,4 +440,19 @@ describe("ConfigurePrometheusModal", () => {
     expect(await screen.findByText(/Using your own URL/)).toBeTruthy();
     expect(screen.getByLabelText("URL")).toBeTruthy();
   });
+
+  it("offers a one-click Use this Service that pins the Service for the cluster", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.promApi.setTarget).mockResolvedValue(undefined);
+    vi.mocked(api.promApi.status).mockResolvedValue({ source: "none", target: "", chosen: false, candidates: [] });
+    const services = [
+      { metadata: { name: "my-prom", namespace: "obs", labels: { app: "prometheus" } }, spec: { ports: [{ name: "web", port: 9090 }] } },
+    ];
+    vi.mocked(useResourceStream).mockReturnValue({ rows: services, synced: true, connected: true });
+    const onSaved = vi.fn();
+    renderModal(vi.fn(), onSaved);
+    await user.click(await screen.findByRole("button", { name: "Use this Service" }));
+    await waitFor(() => expect(api.promApi.setTarget).toHaveBeenCalledWith("kind-test", "obs/my-prom:9090"));
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+  });
 });

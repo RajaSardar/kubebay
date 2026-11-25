@@ -66,7 +66,7 @@ A shell in the container: pick the container and the shell (**auto**, `bash`, `s
 
 ### Graphs
 
-CPU and memory per container over the last **15m** or **24h**, from Prometheus. If Prometheus runs in the cluster, Kubebay finds it by itself and reads it through the cluster's API server, so the graphs just work. The tab says `Auto-detected: monitoring/prometheus-server:80`, and **Change** picks another service or switches to your own URL. Only when nothing is found, and no URL is set, does the tab say so and link to [Settings](/docs/settings/#prometheus). A URL you set always wins, and if that Prometheus is unreachable Kubebay shows the `kubectl port-forward` command to reach it.
+CPU and memory per container over the last **15m** or **24h**, from Prometheus. If Prometheus runs in the cluster, Kubebay finds it by itself and reads it through the cluster's API server, so the graphs just work. The tab says `Auto-detected: monitoring/prometheus-server:80`, and **Change** picks another service or switches to your own URL. When nothing is found the tab says `Prometheus: not found`, lists where it looked and where you may not list Services, and offers **Choose a Service**, **Enter URL** and **Test connection**. If Prometheus answers but has no series for the pod, it says that instead of drawing empty charts. A URL set for this cluster always wins; the default URL from [Settings](/docs/settings/#prometheus) is used only when no Prometheus is found. If a Prometheus is unreachable Kubebay shows the `kubectl port-forward` command to reach it. See [Why can't I see metrics in pods?](/docs/troubleshooting/#why-cant-i-see-metrics-in-pods).
 
 ### Size
 

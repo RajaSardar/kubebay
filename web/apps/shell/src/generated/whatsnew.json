@@ -43,6 +43,37 @@
               "summary": ""
             }
           ]
+        },
+        {
+          "heading": "Added",
+          "items": [
+            {
+              "title": "Prometheus diagnostics",
+              "summary": "(backlog 88)."
+            }
+          ]
+        },
+        {
+          "heading": "Changed",
+          "items": [
+            {
+              "title": "The default Prometheus URL in Settings is now only a fallback for clusters where no Prometheus Service is found; a URL set for one cluster still always wins",
+              "summary": ""
+            }
+          ]
+        },
+        {
+          "heading": "Fixed",
+          "items": [
+            {
+              "title": "Prometheus: a URL set by the operator (the engine's environment) now wins over a stored default URL and over auto-detection, as documented",
+              "summary": ""
+            },
+            {
+              "title": "Pod graphs showed nothing on clusters whose cAdvisor metrics use pod_name and container_name, or whose runtime leaves the image label empty: the queries now try the current labels without an image filter, then the older labels, then the pod…",
+              "summary": ""
+            }
+          ]
         }
       ]
     },

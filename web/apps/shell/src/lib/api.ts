@@ -1229,14 +1229,54 @@ export interface PromCandidate {
 
 /** Which Prometheus the graphs use: your URL, an auto-detected Service, or none. */
 export interface PromStatus {
-  source: "manual" | "auto" | "none";
+  /** "default" is the Settings default URL, used only when nothing is detected in the cluster. */
+  source: "manual" | "default" | "auto" | "none";
   target: string;
   /** True when the user picked the target instead of taking the best guess. */
   chosen: boolean;
   candidates: PromCandidate[];
+  /** How far discovery looked: every Service ("cluster") or only the usual monitoring namespaces. */
+  scope?: "cluster" | "namespaces";
+  tried?: string[];
+  /** Namespaces whose Services you are not allowed to list. */
+  forbidden?: string[];
+  error?: string;
+  defaultUrl?: string;
+}
+
+/** A Prometheus range-query answer. */
+export interface PromMatrix {
+  data: { result: { metric: Record<string, string>; values: [number, string][] }[] };
+}
+
+/** One query the connection test ran, with what came back. */
+export interface PromTestCheck {
+  query: string;
+  url: string;
+  httpStatus: number;
+  series: number;
+  error?: string;
+}
+
+export interface PromTestResult {
+  ok: boolean;
+  source: PromStatus["source"];
+  target?: string;
+  /** "", or why it failed: none, unreachable, forbidden, not-found, unavailable, bad-response, no-container-metrics. */
+  cause?: string;
+  message: string;
+  checks: PromTestCheck[];
 }
 
 export const promApi = {
+  /** Runs two read-only queries against what the graphs use (or `target`) and says exactly what happened. */
+  test: async (cluster: string, target?: string): Promise<PromTestResult> => {
+    const q = new URLSearchParams({ cluster });
+    if (target) q.set("target", target);
+    const res = await fetch(`/api/prom/test?${q}`, { headers: { "X-Kubebay-Token": getToken() } });
+    if (!res.ok) throw new Error((await res.text()) || `${res.status} ${res.statusText}`);
+    return (await res.json()) as PromTestResult;
+  },
   /** What Prometheus this cluster uses. Never throws: failing to ask reads as "none". */
   status: async (cluster: string, refresh = false): Promise<PromStatus> => {
     const q = new URLSearchParams({ cluster });
@@ -1276,7 +1316,7 @@ export const promApi = {
     const json = (await res.json()) as { data?: { result?: { metric: Record<string, string>; value: [number, string] }[] } };
     return json.data?.result ?? [];
   },
-  queryRange: async (params: { cluster: string; query: string; startMs: number; endMs: number; stepSec: number }): Promise<{ data: { result: { metric: Record<string, string>; values: [number, string][] }[] } }> => {
+  queryRange: async (params: { cluster: string; query: string; startMs: number; endMs: number; stepSec: number }): Promise<PromMatrix> => {
     const q = new URLSearchParams({
       cluster: params.cluster,
       query: params.query,
@@ -1297,6 +1337,9 @@ export const promApi = {
         const e = new Error(json.hint || "prometheus-unreachable");
         (e as { cause?: { hint?: string } }).cause = { hint: json.hint };
         throw e;
+      }
+      if (res.status === 401 || res.status === 403) {
+        throw new Error("Forbidden: you may not read this Prometheus through the cluster's API server (services/proxy). Test the connection for details.");
       }
       throw new Error(text || `${res.status} ${res.statusText}`);
     }
