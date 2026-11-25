@@ -119,3 +119,12 @@ func TestAddPanicsWithoutAccess(t *testing.T) {
 	}()
 	NewRegistry().Add(Tool{Name: "x"})
 }
+
+func TestReadToolNamesListsOnlyReadTools(t *testing.T) {
+	var w atomic.Bool
+	h, _, _ := gatedServer(t, &w)
+	got := h.Tools.ReadToolNames()
+	if len(got) != 1 || got[0] != "peek" {
+		t.Fatalf("ReadToolNames = %v, want only the read tool", got)
+	}
+}

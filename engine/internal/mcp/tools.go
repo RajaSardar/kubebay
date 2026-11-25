@@ -133,6 +133,21 @@ func (r *Registry) Get(name string) (Tool, bool) {
 	return t, ok
 }
 
+// ReadToolNames lists the registered read tools, sorted: the exact set a
+// read-only consumer (an AI investigation) may be allowed to call.
+func (r *Registry) ReadToolNames() []string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	var out []string
+	for _, t := range r.tools {
+		if t.Access == AccessRead {
+			out = append(out, t.Name)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
 func (r *Registry) list() []toolDescriptor {
 	r.mu.RLock()
 	defer r.mu.RUnlock()

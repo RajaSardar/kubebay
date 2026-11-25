@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"k8s.io/apimachinery/pkg/util/validation"
@@ -58,6 +59,13 @@ type MCPAPI struct {
 	BridgeCommand []string
 	// Proposals holds assistants' proposed changes awaiting a decision.
 	Proposals *proposals.Store
+	// RunHandlerFor builds the read-only MCP handler a per-run token reaches
+	// (AI investigations, backlog 78): no write or proposal tool exists on
+	// it, and its scope is the one cluster (and namespace) of the run.
+	RunHandlerFor func(scope kubetools.Scope) http.Handler
+	// now is the clock; nil means time.Now.
+	now  func() time.Time
+	runs map[string]runGrant
 
 	mu sync.RWMutex
 	// readOnlyReason, when set, is the operator's flag or env forcing writes off.
@@ -178,12 +186,121 @@ func (a *MCPAPI) revokeToken() {
 	}
 }
 
+func (a *MCPAPI) clock() time.Time {
+	if a.now != nil {
+		return a.now()
+	}
+	return time.Now()
+}
+
+// runGrant is one live per-run token.
+type runGrant struct {
+	expires time.Time
+	handler http.Handler
+}
+
+// MintRunToken makes a short-lived token for one AI investigation run
+// (backlog 78). It is separate from the user's long-lived MCP token, held in
+// memory only, bound to ONE cluster (and the issue's namespace), always
+// read-only, and works whether or not the user switched MCP on. The scope is
+// the intersection with the clusters and namespaces the user limited
+// assistants to, when they set any: a limit they chose is never widened.
+// The returned func revokes it; call it when the run ends.
+func (a *MCPAPI) MintRunToken(cluster, namespace string, ttl time.Duration) (string, func(), error) {
+	if a.Disabled != "" {
+		return "", nil, fmt.Errorf("AI investigations are off here: %s", a.Disabled)
+	}
+	if a.RunHandlerFor == nil {
+		return "", nil, fmt.Errorf("the read-only MCP mount is not available")
+	}
+	if strings.TrimSpace(cluster) == "" {
+		return "", nil, fmt.Errorf("a cluster is required")
+	}
+	a.mu.RLock()
+	limit := a.conf.Clusters
+	a.mu.RUnlock()
+	var nss []string
+	if len(limit) > 0 {
+		allowed, ok := limit[cluster]
+		if !ok {
+			return "", nil, fmt.Errorf("cluster %q is outside the clusters you allowed assistants to read (Settings → MCP)", cluster)
+		}
+		switch {
+		case namespace != "" && len(allowed) > 0:
+			found := false
+			for _, n := range allowed {
+				found = found || n == namespace
+			}
+			if !found {
+				return "", nil, fmt.Errorf("namespace %q is outside the namespaces you allowed assistants to read (Settings → MCP)", namespace)
+			}
+			nss = []string{namespace}
+		case namespace != "":
+			nss = []string{namespace}
+		default:
+			nss = append([]string(nil), allowed...)
+		}
+	} else if namespace != "" {
+		nss = []string{namespace}
+	}
+	h := a.RunHandlerFor(kubetools.Scope{Clusters: map[string][]string{cluster: nss}})
+	if h == nil {
+		return "", nil, fmt.Errorf("the read-only MCP mount is not available")
+	}
+	tok, err := NewToken()
+	if err != nil {
+		return "", nil, err
+	}
+	a.mu.Lock()
+	if a.runs == nil {
+		a.runs = map[string]runGrant{}
+	}
+	a.runs[tok] = runGrant{expires: a.clock().Add(ttl), handler: h}
+	a.mu.Unlock()
+	return tok, func() {
+		a.mu.Lock()
+		delete(a.runs, tok)
+		a.mu.Unlock()
+	}, nil
+}
+
+// runHandler returns the handler for a live run token, or nil.
+func (a *MCPAPI) runHandler(bearer string) http.Handler {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	for tok, g := range a.runs {
+		if tokenMatches(bearer, tok) {
+			if a.clock().After(g.expires) {
+				return nil
+			}
+			return g.handler
+		}
+	}
+	return nil
+}
+
 // Endpoint is /mcp: refused unless MCP is on, the request carries no
 // browser Origin, and it presents the MCP token as a Bearer token. The UI's
 // launch token and OIDC cookies are never accepted here.
 func (a *MCPAPI) Endpoint() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if a.Disabled != "" || a.Handler == nil {
+		if a.Disabled != "" {
+			http.NotFound(w, r)
+			return
+		}
+		// A per-run token is looked up first: it works with the user's MCP
+		// switch off, and is checked before that gate on purpose.
+		if auth := r.Header.Get("Authorization"); strings.HasPrefix(auth, "Bearer ") {
+			if h := a.runHandler(strings.TrimPrefix(auth, "Bearer ")); h != nil {
+				if r.Header.Get("Origin") != "" {
+					http.Error(w, "browser origins are not allowed", http.StatusForbidden)
+					return
+				}
+				h.ServeHTTP(w, r)
+				return
+			}
+		}
+		if a.Handler == nil {
 			http.NotFound(w, r)
 			return
 		}

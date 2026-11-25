@@ -202,3 +202,13 @@ func TestEveryCallIsAudited(t *testing.T) {
 }
 
 func lookup(r *mcp.Registry, name string) (mcp.Tool, bool) { return r.Get(name) }
+
+// Guard (backlog 78): the AI investigation run token reaches these tools, so
+// no kind may ever expose Secret values.
+func TestNoKindCanReachSecrets(t *testing.T) {
+	for name, def := range kinds {
+		if strings.Contains(strings.ToLower(name), "secret") || strings.HasSuffix(def.gvr, "/secrets") {
+			t.Errorf("kind %q exposes Secrets", name)
+		}
+	}
+}
