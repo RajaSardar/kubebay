@@ -156,12 +156,15 @@ function evidenceFor(kind: string, ns: string, name: string, fallback = "/worklo
   return slug ? { open: "object", slug, ns, name } : { open: "route", path: fallback };
 }
 
+/** Only these keep a service up; a lone pod or a Job with nothing ready is not an outage. */
+const CONTROLLERS = new Set(["Deployment", "StatefulSet", "DaemonSet"]);
+
 function podProblems(cluster: string, input: IssueInputs, now: number): DetectorResult {
   const s = need(input, ["pods", "deployments", "statefulsets", "daemonsets", "nodes"]);
   if (typeof s === "string") return s;
   const rows = findAttention({ pods: s.pods, deployments: s.deployments, statefulSets: s.statefulsets, daemonSets: s.daemonsets, nodes: s.nodes, now });
   return rows.map((r) => {
-    const wholeDown = r.severity === "err" && r.desired > 0 && r.ready === 0;
+    const wholeDown = r.severity === "err" && r.desired > 0 && r.ready === 0 && CONTROLLERS.has(r.kind);
     const worst = r.pods[0];
     let evidence: IssueEvidence;
     if (worst) {
@@ -235,6 +238,7 @@ function serviceNoReady(cluster: string, input: IssueInputs): DetectorResult {
 }
 
 const CERT_SLUG = extSlug("cert-manager.io/v1/certificates");
+const CERT_ISSUE_GRACE_MS = 10 * 60_000;
 const day = (t: number) => new Date(t).toISOString().slice(0, 10);
 
 function certExpiry(cluster: string, input: IssueInputs, now: number): DetectorResult {
@@ -258,8 +262,13 @@ function certExpiry(cluster: string, input: IssueInputs, now: number): DetectorR
       blast: 1,
       evidence: { open: "object", slug: CERT_SLUG, ns, name } as IssueEvidence,
     };
+    // A certificate still being issued is normal for a few minutes.
+    if (state === "not-ready") {
+      const since = ts(ready?.lastTransitionTime) ?? ts(meta.creationTimestamp);
+      if (since !== undefined && now - since < CERT_ISSUE_GRACE_MS) continue;
+    }
     if (state === "expired") out.push(issue(cluster, { ...p, code: "CertificateExpired", severity: "critical", summary: `Expired on ${day(exp!)}`, since: exp }));
-    else if (state === "not-ready") out.push(issue(cluster, { ...p, code: "CertificateNotReady", severity: "critical", summary: `Not Ready${str(ready?.message) ? `: ${str(ready?.message)}` : ""}`, since: ts(ready?.lastTransitionTime) }));
+    else if (state === "not-ready") out.push(issue(cluster, { ...p, code: "CertificateNotReady", severity: "high", summary: `Not Ready${str(ready?.message) ? `: ${str(ready?.message)}` : ""}`, since: ts(ready?.lastTransitionTime) }));
     else out.push(issue(cluster, { ...p, code: "CertificateExpiring", severity: "high", summary: `Expires on ${day(exp!)}` }));
   }
   return out;

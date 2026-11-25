@@ -85,6 +85,14 @@ export function useIssues(cluster: string | undefined): IssuesResult & { loading
   const lastGood = useRef(new Map<string, DetectorOutcome>());
   useEffect(() => lastGood.current.clear(), [c]);
 
+  // Grace periods and expiry dates pass with no row changing; re-judge once a minute.
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setTick((n) => n + 1), 60_000);
+    return () => clearInterval(t);
+  }, []);
+
+  const failed: DetectorOutcome = { reason: "error" };
   const now = () => Date.now();
   function run(id: IssueDetector, input: IssueInputs): DetectorOutcome {
     const o = runDetector(id, c ?? "", { ...input, now: now() }, now());
@@ -98,7 +106,7 @@ export function useIssues(cluster: string | undefined): IssuesResult & { loading
   /* eslint-disable react-hooks/exhaustive-deps */
   const podProblem = useMemo(
     () => run("pod-problem", { pods: source(pods), deployments: source(deployments), statefulsets: source(statefulsets), daemonsets: source(daemonsets), nodes: source(nodes) }),
-    [live, c, pods.rows, pods.synced, pods.forbidden, deployments.rows, deployments.synced, deployments.forbidden, statefulsets.rows, statefulsets.synced, statefulsets.forbidden, daemonsets.rows, daemonsets.synced, daemonsets.forbidden, nodes.rows, nodes.synced, nodes.forbidden],
+    [live, c, pods.rows, pods.synced, pods.forbidden, deployments.rows, deployments.synced, deployments.forbidden, statefulsets.rows, statefulsets.synced, statefulsets.forbidden, daemonsets.rows, daemonsets.synced, daemonsets.forbidden, nodes.rows, nodes.synced, nodes.forbidden, tick],
   );
   const nodeCondition = useMemo(() => run("node-condition", { nodes: source(nodes) }), [live, c, nodes.rows, nodes.synced, nodes.forbidden]);
   const serviceNoReady = useMemo(
@@ -106,9 +114,10 @@ export function useIssues(cluster: string | undefined): IssuesResult & { loading
     [live, c, services.rows, services.synced, services.forbidden, pods.rows, pods.synced, pods.forbidden, slices.rows, slices.synced, slices.forbidden],
   );
   const certExpiry = useMemo(() => {
+    if (apisQ.isError) return failed;
     const certificates: Source = !groups ? "loading" : hasCerts ? source(certs) : "not-served";
     return run("cert-expiry", { certificates });
-  }, [live, c, groups, hasCerts, certs.rows, certs.synced, certs.forbidden]);
+  }, [live, c, groups, hasCerts, certs.rows, certs.synced, certs.forbidden, apisQ.isError, tick]);
   const spof = useMemo(
     () => run("spof", { deployments: source(deployments), statefulsets: source(statefulsets), pdbs: source(pdbs), pods: source(pods), services: source(services), endpointSlices: source(slices) }),
     [live, c, deployments.rows, deployments.synced, deployments.forbidden, statefulsets.rows, statefulsets.synced, statefulsets.forbidden, pdbs.rows, pdbs.synced, pdbs.forbidden, pods.rows, pods.synced, pods.forbidden, services.rows, services.synced, services.forbidden, slices.rows, slices.synced, slices.forbidden],
@@ -116,6 +125,7 @@ export function useIssues(cluster: string | undefined): IssuesResult & { loading
   const netpolGap = useMemo(() => run("netpol-gap", { pods: source(pods), networkPolicies: source(netpols) }), [live, c, pods.rows, pods.synced, pods.forbidden, netpols.rows, netpols.synced, netpols.forbidden]);
   const exceptions = useMemo<BpException[]>(() => (c ? loadExceptions(c) : []), [c]);
   const bestPractice = useMemo(() => {
+    if (apisQ.isError) return failed;
     const dep = rowsOf(deployments);
     const core = [dep, rowsOf(statefulsets), rowsOf(pdbs), rowsOf(netpols), rowsOf(namespaces), rowsOf(ingressClasses)];
     let bp: BestPracticesInput | UnavailableReason;
@@ -143,7 +153,7 @@ export function useIssues(cluster: string | undefined): IssuesResult & { loading
     }
     return run("best-practice", { bestPractices: bp, exceptions });
   }, [
-    live, c, groups, hasCerts, hasVelero, exceptions,
+    live, c, groups, hasCerts, hasVelero, exceptions, apisQ.isError, tick,
     deployments.rows, deployments.synced, deployments.forbidden, statefulsets.rows, statefulsets.synced, statefulsets.forbidden, pdbs.rows, pdbs.synced, pdbs.forbidden,
     netpols.rows, netpols.synced, netpols.forbidden, namespaces.rows, namespaces.synced, namespaces.forbidden, ingressClasses.rows, ingressClasses.synced, ingressClasses.forbidden,
     services.rows, services.synced, services.forbidden, pvcs.rows, pvcs.synced, pvcs.forbidden, nodes.rows, nodes.synced, nodes.forbidden, hpas.rows, hpas.synced, hpas.forbidden,
@@ -151,8 +161,8 @@ export function useIssues(cluster: string | undefined): IssuesResult & { loading
     certs.rows, certs.synced, certs.forbidden, velero.rows, velero.synced, velero.forbidden,
   ]);
   const upgrade = useMemo(
-    () => run("upgrade-readiness", { upgrade: { serverVersion, served: apiVersionsQ.data } }),
-    [live, c, serverVersion, apiVersionsQ.data],
+    () => (apiVersionsQ.isError || clustersQ.isError ? failed : run("upgrade-readiness", { upgrade: { serverVersion, served: apiVersionsQ.data } })),
+    [live, c, serverVersion, apiVersionsQ.data, apiVersionsQ.isError, clustersQ.isError],
   );
   /* eslint-enable react-hooks/exhaustive-deps */
 

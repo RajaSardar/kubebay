@@ -146,7 +146,7 @@ describe("service-no-ready detector", () => {
 });
 
 describe("cert-expiry detector", () => {
-  it("expired and not-ready are critical, expiring is high, fine raises nothing", () => {
+  it("expired is critical, not-ready and expiring are high, fine raises nothing", () => {
     const certificates = [
       cert("old", new Date(NOW - 86_400_000).toISOString()),
       cert("broken", new Date(NOW + 90 * 86_400_000).toISOString(), false),
@@ -156,7 +156,7 @@ describe("cert-expiry detector", () => {
     const issues = computeIssues("c1", { ...base, certificates }).issues.filter((x) => x.detector === "cert-expiry");
     const by = Object.fromEntries(issues.map((i) => [i.name, i]));
     expect(by.old).toMatchObject({ severity: "critical", code: "CertificateExpired" });
-    expect(by.broken).toMatchObject({ severity: "critical", code: "CertificateNotReady" });
+    expect(by.broken).toMatchObject({ severity: "high", code: "CertificateNotReady" });
     expect(by.soon).toMatchObject({ severity: "high", code: "CertificateExpiring" });
     expect(by.fine).toBeUndefined();
     expect(by.old!.evidence).toEqual({ open: "object", slug: "cert-manager.io--v1--certificates", ns: "shop", name: "old" });

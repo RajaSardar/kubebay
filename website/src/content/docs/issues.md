@@ -16,10 +16,10 @@ An issue is never made up. Each one is raised by a check that already exists in 
 
 | Raised by | What it reports | Severity |
 |---|---|---|
-| Needs attention | A workload with pods that crash, can't pull their image, can't be scheduled, or aren't ready (the same rule as the [Overview](/docs/workloads-overview/)'s Needs attention). It investigates the pod with the most restarts. | Critical when none of the workload's pods is ready, high for other failures, medium for warnings such as an eviction or a pod stuck pending |
+| Needs attention | A workload with pods that crash, can't pull their image, can't be scheduled, or aren't ready (the same rule as the [Overview](/docs/workloads-overview/)'s Needs attention). It investigates the pod with the most restarts. | Critical when none of a Deployment, StatefulSet or DaemonSet's pods is ready, high for other failures, medium for warnings such as an eviction or a pod stuck pending |
 | Node conditions | A node that is not Ready, or reports memory, disk, process or network pressure. | Critical for not Ready, medium for pressure |
 | Service health | A Service whose selector matches no pods, or whose pods are all not ready. | High when no pod is ready, medium when the selector matches nothing |
-| Certificates | A cert-manager Certificate that has expired, is not Ready, or expires within 14 days. Only when cert-manager is installed. | Critical for expired or not Ready, high for expiring |
+| Certificates | A cert-manager Certificate that has expired, is not Ready, or expires within 14 days. A Certificate still being issued (not Ready for under 10 minutes) is left out. Only when cert-manager is installed. | Critical for expired, high for not Ready or expiring |
 | SPOF Radar | A single replica with no PodDisruptionBudget, replicas all on one node, or a Service with one ready backend. | Medium |
 | Network policy coverage | A group of pods that no NetworkPolicy selects. | Medium when the namespace has no policy at all, low otherwise |
 | Best practices | A failed check of Critical severity. A check you have set aside with an exception on the [Best practices](/docs/best-practices/) page is left out. Certificates are covered by the row above. | Critical |
