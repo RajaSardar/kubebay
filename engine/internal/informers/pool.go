@@ -496,6 +496,11 @@ func trimManagedFields(obj any) (any, error) {
 		for i := range o.ManagedFields {
 			o.ManagedFields[i].FieldsV1 = nil
 		}
+		// Stored as the map every op, snapshot and timeline observation
+		// reads, made once here rather than on each of them.
+		if m := metadataMap(o); m != nil {
+			return &unstructured.Unstructured{Object: m}, nil
+		}
 	}
 	return obj, nil
 }

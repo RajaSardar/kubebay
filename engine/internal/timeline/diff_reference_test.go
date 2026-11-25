@@ -120,7 +120,9 @@ var mutations = []func(p map[string]any){
 	func(p map[string]any) {
 		p["status"].(map[string]any)["conditions"].([]any)[0].(map[string]any)["lastProbeTime"] = "2026-11-01T11:00:00Z"
 	},
-	func(p map[string]any) { p["status"].(map[string]any)["conditions"].([]any)[0].(map[string]any)["status"] = "False" },
+	func(p map[string]any) {
+		p["status"].(map[string]any)["conditions"].([]any)[0].(map[string]any)["status"] = "False"
+	},
 	func(p map[string]any) {
 		e := p["spec"].(map[string]any)["containers"].([]any)[0].(map[string]any)["env"].([]any)
 		e[3].(map[string]any)["value"] = "changed"
