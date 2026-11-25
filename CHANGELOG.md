@@ -9,6 +9,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 ### Added
 - **Refresh everything: ⌘R / Ctrl+R**, and a **Refresh** button at the top of the sidebar. Every query refetches and every live stream re-subscribes, without reloading the window. Live tables keep their rows until the fresh list has synced (no skeleton flash), unsaved YAML stays, a 1-second cooldown stops a held key from flooding the cluster, and Ctrl+R in a terminal stays the shell's history search. Cost: one refetch of the queries on screen (inactive ones are only marked stale) and one re-list per open stream; it holds no extra memory.
 
+### Fixed
+- **The engine no longer burns CPU on garbage collection on big clusters.** It set a fixed 512 MiB soft memory limit for the Go GC whenever `GOMEMLIMIT` was unset; once a large cluster's caches pushed the live heap past it (680 MB seen), the GC ran back to back (135 to 254% CPU, mostly GC workers). In a synthetic test with a 560 MiB live heap and 25 to 100 MB/s of garbage, GC used 5.8 cores with the limit and 0.0 to 0.3 cores without it (93 GC cycles in 6 s against 0 to 1). The default limit is gone; `GOMEMLIMIT` is still honoured.
+- A token-gated heap profile at `/api/debug/pprof/heap` (also `allocs` and `goroutine`), so a large live heap can be broken down.
+
 ## [0.8.7] - 2026-11-25
 
 ### Fixed
