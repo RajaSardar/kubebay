@@ -38,6 +38,11 @@ export interface FluxObjectStatus {
   name: string;
   ns: string;
   ready: boolean | null;
+  /** spec.suspend: the controller is not reconciling it. */
+  suspended: boolean;
+  /** Set by the page: the GVR and live object, so the actions can act on it. */
+  gvr?: string;
+  obj?: Record<string, unknown>;
   readyMessage: string;
   managedResourceCount: number;
   driftEventCount: number;
@@ -82,6 +87,7 @@ export function summarizeFluxObject(
     kind,
     name,
     ns,
+    suspended: rec(obj.spec).suspend === true,
     ready: ready ? ready.status === "True" : null,
     readyMessage: ready?.message ?? "",
     managedResourceCount: arr(rec(rec(obj.status).inventory).entries).length,

@@ -36,10 +36,10 @@ export default function Flux() {
   const events = useResourceStream(effectiveCluster || undefined, "v1/events", { mode: "full", enabled: detection.installed });
 
   const items = useMemo(() => {
-    const k = kustomizations.rows.map((o) => summarizeFluxObject(o, "Kustomization", events.rows));
-    const h = helmReleases.rows.map((o) => summarizeFluxObject(o, "HelmRelease", events.rows));
+    const k = kustomizations.rows.map((o) => ({ ...summarizeFluxObject(o, "Kustomization", events.rows), gvr: detection.kustomizationGvr, obj: o }));
+    const h = helmReleases.rows.map((o) => ({ ...summarizeFluxObject(o, "HelmRelease", events.rows), gvr: detection.helmReleaseGvr, obj: o }));
     return [...k, ...h];
-  }, [kustomizations.rows, helmReleases.rows, events.rows]);
+  }, [kustomizations.rows, helmReleases.rows, events.rows, detection.kustomizationGvr, detection.helmReleaseGvr]);
 
   if (!effectiveCluster) {
     return (
@@ -85,7 +85,7 @@ export default function Flux() {
           diff view like Argo CD's — it's the Ready condition, what each object currently manages, and whether
           drift was detected (and already fixed) recently.
         </div>
-        <FluxSummary items={items} highlight={sp.get("name")} />
+        <FluxSummary items={items} highlight={sp.get("name")} cluster={effectiveCluster} />
       </div>
     </div>
   );

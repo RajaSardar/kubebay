@@ -8,6 +8,10 @@
           "heading": "Added",
           "items": [
             {
+              "title": "GitOps actions: Flux and Argo CD",
+              "summary": "(backlog 84)."
+            },
+            {
               "title": "Compare two resources",
               "summary": "(backlog 83)."
             },
@@ -61,6 +65,10 @@
         {
           "heading": "Fixed",
           "items": [
+            {
+              "title": "Argo CD hard refresh is audited, and asks again on production",
+              "summary": "(backlog 84)."
+            },
             {
               "title": "A same-named Rollout no longer claims another's ReplicaSets and AnalysisRuns",
               "summary": "(backlog 73)."

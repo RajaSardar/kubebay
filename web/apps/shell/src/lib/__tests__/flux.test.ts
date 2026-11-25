@@ -93,3 +93,10 @@ describe("summarizeFluxObject", () => {
     expect(s.driftEventCount).toBe(0);
   });
 });
+
+describe("summarizeFluxObject suspended state", () => {
+  it("reports spec.suspend", () => {
+    expect(summarizeFluxObject(fluxObj({ spec: { suspend: true } }), "Kustomization", []).suspended).toBe(true);
+    expect(summarizeFluxObject(fluxObj(), "Kustomization", []).suspended).toBe(false);
+  });
+});

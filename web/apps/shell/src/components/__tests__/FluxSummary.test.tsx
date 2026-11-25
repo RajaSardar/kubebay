@@ -9,6 +9,7 @@ function status(overrides: Partial<FluxObjectStatus> = {}): FluxObjectStatus {
     name: "apps",
     ns: "flux-system",
     ready: true,
+    suspended: false,
     readyMessage: "Applied revision: main@sha1:abc123",
     managedResourceCount: 12,
     driftEventCount: 0,
@@ -43,5 +44,14 @@ describe("FluxSummary", () => {
   it("surfaces a drift-detected count when present", () => {
     render(<FluxSummary items={[status({ driftEventCount: 3 })]} />);
     expect(screen.getByText(/drift detected.*3/i)).toBeTruthy();
+  });
+});
+
+describe("FluxSummary actions", () => {
+  it("shows a Suspended pill and Resume for a suspended object when it can act", () => {
+    const obj = { metadata: { name: "apps", namespace: "flux-system" }, spec: { suspend: true } };
+    render(<FluxSummary cluster="kind-test" items={[status({ suspended: true, gvr: "kustomize.toolkit.fluxcd.io/v1/kustomizations", obj })]} />);
+    expect(screen.getByText("Suspended")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Resume" })).toBeTruthy();
   });
 });

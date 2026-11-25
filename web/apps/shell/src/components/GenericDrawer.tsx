@@ -10,6 +10,7 @@ import { ObjectStarButton } from "./Favorites";
 import { WarningSparkline } from "./WarningSparkline";
 import { WorkloadHealthChip } from "./WorkloadHealthChip";
 import { ActionsBar } from "./ActionsBar";
+import { GitOpsActionsBar } from "./GitOpsActionsBar";
 import { NodeSummary } from "./NodeSummary";
 import { ServiceSummary } from "./ServiceSummary";
 import { NamespaceSummary } from "./NamespaceSummary";
@@ -550,6 +551,13 @@ export default function GenericDrawer({
             ? Number(((obj as Record<string, unknown>).spec as Record<string, unknown>)?.replicas) || 0
             : undefined}
         />
+      )}
+
+      {/* ── GitOps actions: Flux reconcile/suspend/resume, Argo CD rollback ── */}
+      {obj && typeof obj === "object" && (
+        <div style={{ padding: "8px 14px 0" }}>
+          <GitOpsActionsBar cluster={cluster} gvr={def.gvr} ns={ns} name={name} obj={obj as Record<string, unknown>} />
+        </div>
       )}
 
       {discardModal}

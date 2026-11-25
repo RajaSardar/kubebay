@@ -87,13 +87,13 @@ export const PAGE_HELP: Record<string, PageHelpEntry> = {
   "/argocd": {
     name: "Argo CD",
     what: "Your Argo CD Applications' sync status, health and drift, resource by resource.",
-    how: "Read from the Application objects through the Kubernetes API, so it needs no Argo CD login.",
+    how: "Read from the Application objects through the Kubernetes API, no Argo CD login. Hard Sync and Rollback act with your own permissions.",
     docs: "argocd",
   },
   "/flux": {
     name: "Flux",
     what: "Flux Kustomizations and HelmReleases: whether each is Ready, what it manages, and drift Flux corrected.",
-    how: "Read from Flux's own objects and events; Flux fixes drift as it reconciles, so there's no diff view.",
+    how: "Read from Flux's objects and events. Reconcile, Suspend and Resume act with your own permissions; Flux fixes drift itself, so no diff.",
     docs: "flux",
   },
   "/argo-workflows": {

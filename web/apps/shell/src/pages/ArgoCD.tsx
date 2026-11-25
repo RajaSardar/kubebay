@@ -7,6 +7,10 @@ import { argoCDApi, type ArgoCDApp } from "../lib/api";
 import { useCluster } from "../lib/useCluster";
 import { ArgoDriftList } from "../components/ArgoDriftList";
 import { driftCount } from "../lib/argoDrift";
+import { GitOpsActionsBar } from "../components/GitOpsActionsBar";
+import { ProdApplyModal } from "../components/ProdApplyModal";
+import { ARGO_APPLICATIONS_GVR } from "../lib/gitopsActions";
+import { useClusterLooksProduction } from "../lib/useClusterLooksProduction";
 
 // ── Status badge helpers ──────────────────────────────────────────────────────
 
@@ -33,6 +37,8 @@ function SyncButton({ cluster, app }: { cluster: string; app: ArgoCDApp }) {
   const qc = useQueryClient();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const prod = useClusterLooksProduction(cluster);
+  const [confirmingProd, setConfirmingProd] = useState(false);
 
   async function handleSync() {
     setBusy(true);
@@ -56,8 +62,20 @@ function SyncButton({ cluster, app }: { cluster: string; app: ArgoCDApp }) {
         label="Hard Sync"
         confirmLabel="Confirm hard sync?"
         busy={busy}
-        onGo={() => void handleSync()}
+        onGo={() => (prod.production ? setConfirmingProd(true) : void handleSync())}
       />
+      <GitOpsActionsBar cluster={cluster} gvr={ARGO_APPLICATIONS_GVR} ns={app.namespace} name={app.name} />
+      {confirmingProd && (
+        <ProdApplyModal
+          context={prod.context}
+          target={`a hard refresh of ${app.name}`}
+          onCancel={() => setConfirmingProd(false)}
+          onConfirm={() => {
+            setConfirmingProd(false);
+            void handleSync();
+          }}
+        />
+      )}
       {err && (
         <span style={{ color: "var(--kb-status-err)", fontSize: "var(--kb-text-xs)" }} title={err}>
           failed
@@ -163,7 +181,7 @@ export default function ArgoCD() {
                   <th style={{ width: 120 }}>Drift</th>
                   <th style={{ width: 110 }}>Health</th>
                   <th style={{ width: 150 }}>Last sync</th>
-                  <th style={{ width: 110 }}>Actions</th>
+                  <th style={{ width: 260 }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
