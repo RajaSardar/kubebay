@@ -183,3 +183,5 @@ Checked against `lib/rollouts.ts`, `components/RolloutsDashboard.tsx`, `pages/Ro
 - Strict field allowlist and truncation for AnalysisRun and status text; forbidden is distinct from loading.
 - Edge-case step states and the "target versus live" weight label are in the test plan.
 - Six small commits in the order above.
+
+Note: the decision above not to embed or start the upstream dashboard was superseded by backlog 87 (`design-backlog-87.md`): the Rollouts page now has an Argo dashboard tab on the desktop. The Release view stays.

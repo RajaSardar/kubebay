@@ -12,7 +12,7 @@ Recorded actions include:
 
 - changes: apply, create, delete, scale, restart, resize, cordon, drain;
 - Helm installs, upgrades, rollbacks and uninstalls;
-- sessions: a container shell, the local terminal, a port-forward, a network diagnostic pod;
+- sessions: a container shell, the local terminal, a port-forward, a network diagnostic pod, and starting the Argo dashboard from the Rollouts page (`rollouts-dashboard-start`; what you do inside that dashboard is not recorded);
 - revealing a Secret's value, or all of a Secret's values with **Reveal values** on its YAML tab;
 - changing how long the [change timeline](/docs/changes/) is kept, and clearing it (`timeline-retention`, `timeline-clear`);
 - a change an admission policy rejected, marked as rejected;
