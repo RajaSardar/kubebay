@@ -71,9 +71,16 @@ export function McpSettingsCard() {
           Every call is written to the audit log.
         </div>
         {st.disabled ? (
+          <Stack gap={2}>
           <InlineBanner tone="warn" flush>
             MCP isn&apos;t available here: {st.disabled}.
           </InlineBanner>
+          <label className="ctl">
+            <input type="checkbox" aria-label="Let assistants propose changes" checked={false} disabled readOnly />
+            <span className="small strong">Let assistants propose changes</span>
+          </label>
+          <div className="muted small">Off, and only the operator can change this: on a shared engine the MCP server is not served, so assistants have no tools at all.</div>
+          </Stack>
         ) : (
           <>
             <Stack gap={2}>
