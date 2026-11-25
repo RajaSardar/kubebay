@@ -113,3 +113,101 @@ In the Scale dialog the same body renders inline (no popover) above the blast-ra
    WorkloadActionDialog; HPA lookup from the loaded HPA list, no new request.
 4. Docs page, ⓘ help entry, CHANGELOG with the measured drag cost (expect under one frame, 16ms).
 5. Build, ship and screenshot the Mac app per the repo rules.
+
+## Challenge round
+
+Verdict: (e) stands as the direction, with the objections below folded in. Where this section
+contradicts the text above, this section wins.
+
+### Objections
+
+1. **The draft ownership contradicts itself.** "Draft lives in the panel" conflicts with "Unsaved"
+   on the trigger and "Apply scale" on the row: both read the draft while the panel is closed or
+   unmounted. Decision: the draft stays where it is today (`edited` state in ActionsBar,
+   `replicas` string in WorkloadActionDialog). The panel is a controlled view of it. Closing the
+   popover (Escape, outside press) never discards the draft; only "Reset to N" does.
+2. **Drawer interplay is the real risk, and the doc missed it.** `Drawer` closes on a mousedown
+   on the page behind it and on Escape (`overlays.tsx`, `onPress`, `KEEPS_ESCAPE`). A portal
+   popover would be "outside the panel" for the DOM check. React events do bubble through
+   portals, so `onMouseDownCapture` marks presses, but Escape must be handled too: the popover
+   closes on Escape and calls `preventDefault()` + `stopPropagation()` so the first Escape closes
+   the popover, not the drawer. Decision: no body portal inside the drawer. Build `Popover` on the
+   `HelpTip` pattern (inline, absolutely positioned, `aria-expanded`, document-level mousedown and
+   Escape, focus returns to the trigger) with a flip to open upward or leftward when it would clip
+   the drawer edge. Regression tests: Escape closes only the popover; a press inside it does not
+   close the drawer; a press behind the drawer closes both.
+3. **Do not hand-roll `role="slider"`.** The doc builds a custom ARIA slider with pointer capture
+   and rAF coalescing: more code, more bugs, and dragging jank risk. Decision: `Slider` wraps a
+   native `<input type="range" min=0 max=1000 step=1>` whose value is the *position*; the pure
+   mapping converts to a replica count. Native gives keyboard, touch, `touch-action`, and screen
+   reader support, and the browser coalesces input events. Set `aria-valuetext` ("24 replicas, 6
+   more than now") on it. PageUp/PageDown and Home/End are native, so drop the bespoke key table.
+   The thumb is styled in `styles.css` from `--kb-*` tokens only, with a 44px hit area.
+4. **Piecewise-linear mapping must be exact at the seam and stable under keyboard.** Arrow keys on
+   a position-based range move a fixed position step, which on the log-ish band skips replica
+   values. Decision: keep step=1 on position, resolution 1000, but on `keydown` ArrowLeft/Right
+   handle the step ourselves (replica ±1, Shift ±10) and `preventDefault`. Test that every integer
+   in 0..max is reachable by keyboard and that `replicaFromPosition(positionFromReplica(n)) === n`
+   for all n in 0..max (not a sample), including max = 10,000.
+5. **Slider max when the draft exceeds it.** "Thumb pins right" is fine, but the pinned thumb lies
+   about the value if the user then nudges the slider by 1 pixel: it would snap the draft down to
+   max. Decision: the slider only emits a change on a real `input` event; a pinned thumb that is
+   not touched never writes. Test it.
+6. **Cramped drawer.** The panel is fixed at 280px, but the drawer's minimum width
+   (`DRAWER_MIN_W`) may be near that. Decision: panel width `min(280px, 100% of the drawer - 16px)`,
+   chips wrap (not scroll), and a test at the drawer's minimum width.
+7. **Duplicate Apply.** Two Apply buttons (row and panel) double the surface for the confirm and
+   busy states. Decision: one Apply on the row only. The panel holds the draft controls, "Reset to
+   N", and a hint "Press Apply scale to save". Enter in the number input moves focus to the row's
+   Apply rather than firing it, so a stray Enter cannot scale a workload.
+8. **Blast radius in the drawer.** The doc says one-line summary in the panel; the drawer today has
+   no preview at all, so this is new behaviour with new copy. Keep it, but it must be the same
+   `computeBlastRadius` output as the dialog, with a test that both render the same text for the
+   same input, and it must not be computed per pixel: compute from the draft in `useMemo`.
+9. **HPA lookup is unverified.** "From the loaded HPA list, no new request" is an assumption: no
+   shell code reads a loaded HPA list for the drawer. Decision: HPA note is a stretch slice. Slice 3
+   ships without it unless an existing store already holds HPAs. If it needs a request, it is lazy,
+   fires on popover open (not on drawer open), is never blocking, and shows nothing on failure (no
+   error string in the First Rule sense).
+10. **Presets.** "Half" and "2×" and "Current" next to fixed 0,1,2,3,5,10 produce duplicates (current
+    = 2, or 2× = 10). Decision: build the chip list as a pure function that dedupes and sorts
+    ascending, always including Current, and caps at 8 chips; test duplicates and current = 0.
+11. **Scale to 0 must not be one click away.** A "0" chip next to the slider makes it a one-tap
+    draft. It is still only a draft and the existing guard applies, so keep it, but the danger tone
+    must not rely on colour alone (label "0 (stop)"), and contrast-tested via the existing guard.
+12. **Test plan gap: measure, do not assert.** "Under 16ms drag cost" is not testable in jsdom. Decision:
+    unit-test that a drag emits one `onChange` per input event and that the table/drawer body does
+    not re-render (render counter on a sibling), and verify the frame cost once by hand in the Mac
+    app (Performance trace) and record it in the CHANGELOG. Do not claim a number that was not measured.
+
+### FINAL decision
+
+Ship (e), as a popover on the `HelpTip` pattern (inline, not a body portal), containing: number
+input, native-range `Slider` over a non-linear mapping, deduped preset chips, and a live label with
+blast-radius summary. Draft stays in the parent; one Apply on the row; HPA note only if data already
+exists. The dialog renders the same body inline. Remove `ReplicaStepper` entirely once both call
+sites move (keep `clampReplicas`, moved to `lib/replicaScale.ts`).
+
+### Build scope (tests first, in this order; each slice commits green)
+
+1. `web/apps/shell/src/lib/replicaScale.ts` + `lib/__tests__/replicaScale.test.ts`: `sliderMax`,
+   `positionFromReplica`, `replicaFromPosition`, `presetChips`, `clampReplicas`. Exhaustive
+   round-trip, monotonic, 0 / 1 / 10 / 11 / 10,000 cases, chip dedupe.
+2. `web/packages/ui/src/overlays.tsx`: `Popover` (trigger render prop or `label` + `children`,
+   `align`, flip, Escape with stopPropagation, outside press, focus return, `aria-expanded` and
+   `aria-controls`). Tests: Escape, outside press, focus return, Escape does not close an enclosing
+   Drawer, press inside does not close it.
+3. `web/packages/ui/src/` `Slider` (native range, `value`, `min`, `max`, `onChange`, `valueText`,
+   `label`, `disabled`) + token styling in `styles.css`, and a section in `docs/DESIGN_SYSTEM.md`.
+   Tests: aria, keyboard, no write without input, disabled. Guards `shellAdoption`, `themeTokens`,
+   `themeContrast` green with a new `--kb-*` token only if needed (all 12 themes).
+4. `web/apps/shell/src/components/ReplicaControl.tsx` + test (body, trigger text "Scale: 18 → 24",
+   Unsaved, Reset, chips, blast-radius line, no layout change: fixed trigger width via `min-width`,
+   `inline` mode for the dialog). Wire into `ActionsBar.tsx` and `WorkloadActionDialog.tsx`; delete
+   `ReplicaStepper.tsx` and update its tests. Existing confirmation, `restartGuard`, audit and
+   GitOps warning tests must pass unchanged.
+5. Docs: the Workloads docs page in `website/src/content/docs/`, the ⓘ entry in `lib/help.ts`,
+   CHANGELOG, backlog item 89 marked done; run `cd website && npm test && npm run build`.
+6. Vitest + `go test ./...`, `make build`, Mac app ship and screenshot per CLAUDE.md.
+
+Out of scope: HPA editing, a request for HPAs on drawer open, applying on release, any server change.
