@@ -103,6 +103,7 @@ func managerFor(t *testing.T, server string) *clusters.Manager {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(mgr.Close)
 	return mgr
 }
 

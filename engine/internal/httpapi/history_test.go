@@ -38,6 +38,7 @@ func settingsWithManager(t *testing.T) *SettingsManager {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(mgr.Close)
 	return NewSettingsManager(mgr)
 }
 

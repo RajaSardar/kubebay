@@ -98,6 +98,7 @@ func TestWatcherReloadsAnExplicitKubeconfig(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(m.Close)
 	writeKubeconfig(t, path, strings.Replace(connectKubeconfig, "- name: mid", "- name: added\n  context: {cluster: c, user: u}\n- name: mid", 1))
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {

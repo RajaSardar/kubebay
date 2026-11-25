@@ -24,6 +24,7 @@ func TestNewCredentialsRetireTheClustersPools(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(mgr.Close)
 	reg := informers.NewPoolRegistry(mgr)
 	TeardownOnDisconnect(mgr, reg, nil)
 	pool, err := reg.For(context.Background(), "dev")

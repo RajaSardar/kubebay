@@ -42,6 +42,7 @@ func buildTestServer(t *testing.T) (*httptest.Server, *clusters.Manager) {
 	if err != nil {
 		t.Fatalf("manager: %v", err)
 	}
+	t.Cleanup(mgr.Close)
 	registry := informers.NewPoolRegistry(mgr)
 	auditLog, err := audit.New(log)
 	if err != nil {

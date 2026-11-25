@@ -37,6 +37,7 @@ func TestPortForwardImpersonatesTheRequestIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(mgr.Close)
 	pf := NewPFManager(mgr)
 	ctx := clusters.WithIdentity(context.Background(), &clusters.Identity{Name: "alice", Groups: []string{"dev"}})
 	go func() { _, _ = pf.Start(ctx, "dev", "default", "web", 80, 0) }()

@@ -30,6 +30,7 @@ func TestDrainStopsWhenItCannotBuildAClient(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(mgr.Close)
 	if _, err := mgr.RestConfigWithIdentity("dev", clusters.IdentityFromContext(context.Background())); err != nil {
 		t.Fatalf("the kubeconfig should load; only building a client from it should fail: %v", err)
 	}

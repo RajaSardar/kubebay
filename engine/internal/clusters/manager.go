@@ -98,6 +98,12 @@ type Manager struct {
 	// kick asks the health loop to probe now (after a load) instead of
 	// waiting out its interval.
 	kick chan struct{}
+
+	// stop ends the file watcher and the health loop; loopsDone closes once both
+	// have returned. Close is how a Manager gives its inotify instance back.
+	stop      chan struct{}
+	closeOnce sync.Once
+	loopsDone chan struct{}
 	// wantAll is set when a client asked for reachability of the clusters
 	// that are not connected (the picker was opened). It stays set until no
 	// cluster is stale, so a long kubeconfig drains in batches.
@@ -154,6 +160,8 @@ func newManager(log *slog.Logger, kubeconfigPath string, loops bool) (*Manager, 
 		sleeping:   map[string]bool{},
 		now:        time.Now,
 		kick:       make(chan struct{}, 1),
+		stop:       make(chan struct{}),
+		loopsDone:  make(chan struct{}),
 	}
 	w, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -180,10 +188,27 @@ func newManager(log *slog.Logger, kubeconfigPath string, loops bool) (*Manager, 
 		return nil, err
 	}
 	if loops {
-		go m.watchFiles()
-		go m.healthLoop()
+		var wg sync.WaitGroup
+		wg.Add(2)
+		go func() { defer wg.Done(); m.watchFiles() }()
+		go func() { defer wg.Done(); m.healthLoop() }()
+		go func() { wg.Wait(); close(m.loopsDone) }()
+	} else {
+		close(m.loopsDone)
 	}
 	return m, nil
+}
+
+// Close stops the file watcher and the health loop and releases the watcher's
+// file descriptor. It is safe to call more than once. Connected clusters keep
+// whatever streams they hold; closing those is the caller's business.
+func (m *Manager) Close() {
+	m.closeOnce.Do(func() {
+		close(m.stop)
+		if m.watcher != nil {
+			_ = m.watcher.Close()
+		}
+	})
 }
 
 // ActiveKubeconfigs returns the resolved list of kubeconfig file paths that are
@@ -508,6 +533,8 @@ func (m *Manager) watchFiles() {
 	debounce.Stop()
 	for {
 		select {
+		case <-m.stop:
+			return
 		case ev, ok := <-m.watcher.Events:
 			if !ok {
 				return
@@ -659,6 +686,8 @@ func (m *Manager) healthLoop() {
 		select {
 		case <-time.After(wait):
 		case <-m.kick:
+		case <-m.stop:
+			return
 		}
 	}
 }

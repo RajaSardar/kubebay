@@ -94,6 +94,7 @@ func settingsForFake(t *testing.T, f *fakeAPIServer) *SettingsManager {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(mgr.Close)
 	return NewSettingsManager(mgr)
 }
 

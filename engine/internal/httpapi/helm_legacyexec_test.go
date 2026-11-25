@@ -42,6 +42,7 @@ current-context: legacy
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(mgr.Close)
 	ac, err := NewHelm(mgr, nil).actionCfg(context.Background(), "legacy", "default")
 	if err != nil {
 		t.Fatal(err)
@@ -81,6 +82,7 @@ current-context: dev
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(mgr.Close)
 	ac, err := NewHelm(mgr, nil).actionCfg(context.Background(), "dev", "team-a")
 	if err != nil {
 		t.Fatal(err)

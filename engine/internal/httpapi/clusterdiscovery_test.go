@@ -58,6 +58,7 @@ func unpinnedDiscoveryAPI(t *testing.T) (*DiscoveryAPI, *SettingsManager, string
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(mgr.Close)
 	sm := NewSettingsManager(mgr)
 	return &DiscoveryAPI{Settings: sm, Clusters: mgr, Run: fakeEKS}, sm, kc
 }

@@ -46,6 +46,7 @@ func tokenManager(t *testing.T) (*clusters.Manager, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(mgr.Close)
 	return mgr, kc
 }
 

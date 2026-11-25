@@ -34,6 +34,7 @@ func TestLiveTriagePreviewAssemblesCoreDNSEvidence(t *testing.T) {
 	if err != nil {
 		t.Fatalf("manager: %v", err)
 	}
+	t.Cleanup(mgr.Close)
 	pools := informers.NewPoolRegistry(mgr)
 	auditLog, err := audit.New(log)
 	if err != nil {
