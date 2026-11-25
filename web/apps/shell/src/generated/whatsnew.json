@@ -19,6 +19,40 @@
           ]
         },
         {
+          "heading": "Fixed",
+          "items": [
+            {
+              "title": "Sideways scrolling in tables",
+              "summary": "(backlog 90)."
+            },
+            {
+              "title": "A filter that matches nothing no longer throws away the table: the headers and your sideways position stay, and the message sits at the left edge",
+              "summary": ""
+            }
+          ]
+        },
+        {
+          "heading": "Changed (smoother scrolling, backlog 90)",
+          "items": [
+            {
+              "title": "Fewer re-renders and no forced layouts while scrolling a table",
+              "summary": ""
+            },
+            {
+              "title": "The pod and workload Logs views draw only the lines on screen once a log passes 300 lines",
+              "summary": ""
+            },
+            {
+              "title": "The Network Policy matrix's sticky headers no longer use a blur behind them, which repainted on every scroll tick",
+              "summary": ""
+            },
+            {
+              "title": "Not changed: hover transitions on rows, the 4 px native scrollbar and the unminified web build, which the diagnosis listed as small or load-time items and which were not measured to matter for scrolling",
+              "summary": ""
+            }
+          ]
+        },
+        {
           "heading": "Changed",
           "items": [
             {

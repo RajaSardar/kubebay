@@ -160,6 +160,19 @@ describe("ResourceListView", () => {
     expect(screen.getByText("Loosen the filters.")).toBeInTheDocument();
   });
 
+  it("keeps the same scroller and the column headers while nothing matches, so the sideways position survives", () => {
+    renderView();
+    const input = screen.getByRole("textbox", { name: "Filter jobs" });
+    const scroller = document.querySelector(".table-wrap");
+    expect(scroller).not.toBeNull();
+    fireEvent.change(input, { target: { value: "nope" } });
+    expect(screen.getByText("No jobs match.")).toBeInTheDocument();
+    expect(document.querySelector(".table-wrap")).toBe(scroller);
+    expect(screen.getByRole("columnheader", { name: "Failed" })).toBeInTheDocument();
+    fireEvent.change(input, { target: { value: "" } });
+    expect(document.querySelector(".table-wrap")).toBe(scroller);
+  });
+
   it("leaves out the Namespace column for cluster-scoped kinds", () => {
     renderView({ scoped: true });
     expect(screen.queryByRole("columnheader", { name: "Namespace" })).toBeNull();

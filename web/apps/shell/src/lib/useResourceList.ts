@@ -41,12 +41,28 @@ export function useResourceList<R>(o: ResourceListOptions<R>) {
   const filterRef = useRef<HTMLInputElement | null>(null);
   const sort = useSortPref(o.sortKey);
 
+  // Where each row stood last time. A stream flush changes a few rows, so handing the sort the rows in
+  // their previous order makes it a near-linear pass (TimSort finds the long runs) instead of N log N
+  // comparisons of the arrival order.
+  const prevOrder = useRef<Map<string, number>>(new Map());
+
   const shown = useMemo(() => {
-    const out = !filter.trim()
+    let out = !filter.trim()
       ? [...rows]
       : match
         ? rows.filter((r) => match(r, filter))
         : rows.filter((r) => matchesFilter(filterFields(r), filter));
+    const prev = prevOrder.current;
+    if (prev.size > 0 && out.length > 1) {
+      const slots: (R | undefined)[] = new Array(prev.size);
+      const fresh: R[] = [];
+      for (const r of out) {
+        const at = prev.get(keyOf(r));
+        if (at === undefined || slots[at] !== undefined) fresh.push(r);
+        else slots[at] = r;
+      }
+      out = (slots.filter((r) => r !== undefined) as R[]).concat(fresh);
+    }
     if (sort.col && (!sortable || sortable(sort.col))) {
       const col = sort.col;
       // Each row's sort value is read once, not once per comparison: a column's
@@ -59,8 +75,9 @@ export function useResourceList<R>(o: ResourceListOptions<R>) {
     } else {
       out.sort(defaultSort);
     }
+    prevOrder.current = new Map(out.map((r, i) => [keyOf(r), i]));
     return out;
-  }, [rows, filter, filterFields, match, sortable, sort.col, sort.asc, sortValue, defaultSort]);
+  }, [rows, filter, filterFields, match, sortable, sort.col, sort.asc, sortValue, defaultSort, keyOf]);
 
   const allKeys = useMemo(() => shown.map(keyOf), [shown, keyOf]);
 

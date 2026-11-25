@@ -255,6 +255,17 @@ describe("the frame is opaque chrome", () => {
   });
 });
 
+describe("sticky headers in a scroller are not blurred", () => {
+  // A backdrop-filter behind a sticky header repaints (and re-blurs) on every scroll tick. The
+  // matrix headers sit on an opaque surface already, so the blur bought nothing (backlog 90).
+  it("the Network Policy matrix's sticky corner and headers have no backdrop-filter", () => {
+    const blur = declarations(appCss, /^(-webkit-)?backdrop-filter$/)
+      .filter(({ sel }) => /^\.np-(corner|col-header|row-header)$/.test(sel))
+      .map(({ sel }) => sel);
+    expect(blur).toEqual([]);
+  });
+});
+
 describe("the drawer is flush with a chrome head", () => {
   // The drawer runs from the top of the window down to the status bar and the
   // right edge. A hairline and its edge shadow mark where it starts, so a click

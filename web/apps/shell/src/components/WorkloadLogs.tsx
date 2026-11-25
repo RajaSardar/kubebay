@@ -1,12 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { Badge, Button, NsPill, Row, Select, Spinner, TextField } from "@kubebay/ui";
 import { useResourceStream } from "../lib/useResourceStream";
 import { filterLogItems } from "../lib/logFilter";
 import { splitPodName } from "../lib/podName";
-import { useMergedPodLogs } from "../lib/useMergedPodLogs";
+import { useMergedPodLogs, type MergedLine } from "../lib/useMergedPodLogs";
 import { workloadLabelSelector, workloadPods } from "../lib/workloadPods";
 import { logPodMatches, pickLogPods } from "../lib/workloadLogs";
 import { LogLine } from "./LogLine";
+import { LogList } from "./LogList";
 import { PodName } from "./PodName";
 
 const TAILS = [100, 500, 2000];
@@ -17,6 +18,20 @@ function tag(name: string): string {
   // An ordinal alone ("1") says little; the whole name is short anyway.
   return suffix && !/^-\d+$/.test(suffix) ? suffix.slice(1) : name;
 }
+
+type Item = MergedLine;
+// Stable, so the memoised lines in LogList are not re-drawn by a batch of new ones.
+const itemKey = (l: Item) => l.id;
+const renderItem = (l: Item) => (
+  <LogLine
+    line={l.text}
+    prefix={
+      <span className="log-pod" title={l.pod}>
+        <NsPill>{tag(l.pod)}</NsPill>{" "}
+      </span>
+    }
+  />
+);
 
 /**
  * Backlog 59: the logs of all of a workload's pods in one view. Each line
@@ -56,11 +71,6 @@ export function WorkloadLogs({ cluster, obj: given, kind }: { cluster: string; o
   const { lines, errors } = useMergedPodLogs(spec);
 
   const { shown, hidden } = useMemo(() => filterLogItems(lines, (l) => l.text, { text, problemsOnly }), [lines, text, problemsOnly]);
-
-  const viewRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (follow && viewRef.current) viewRef.current.scrollTop = viewRef.current.scrollHeight;
-  }, [shown, follow]);
 
   const matching = all.filter((p) => logPodMatches(p.name, podFilter)).length;
   const errorNotes = Object.entries(errors);
@@ -116,7 +126,7 @@ export function WorkloadLogs({ cluster, obj: given, kind }: { cluster: string; o
       {errorNotes.map(([pod, msg]) => (
         <div key={pod} className="error-text small" style={{ padding: "0 14px" }}>{`${pod}: ${msg}`}</div>
       ))}
-      <div className="log-view" ref={viewRef}>
+      <LogList items={shown} render={renderItem} keyOf={itemKey} follow={follow}>
         {shown.length === 0 && (
           <div className="muted small" style={{ padding: 8 }}>
             {spec ? (
@@ -129,18 +139,7 @@ export function WorkloadLogs({ cluster, obj: given, kind }: { cluster: string; o
             )}
           </div>
         )}
-        {shown.map((l) => (
-          <LogLine
-            key={l.id}
-            line={l.text}
-            prefix={
-              <span className="log-pod" title={l.pod}>
-                <NsPill>{tag(l.pod)}</NsPill>{" "}
-              </span>
-            }
-          />
-        ))}
-      </div>
+      </LogList>
     </div>
   );
 }

@@ -488,6 +488,8 @@ button.nav-item {
   overflow: auto;
   background: var(--kb-bg-surface);
   min-height: 0;
+  /* Reaching an edge never chains to the window (WKWebView bounce): CSS, not a wheel listener. */
+  overscroll-behavior: none;
 }
 
 /* TableWrap's frame: the scrolling viewport above, its sideways scrollbar pinned below it. The bar is
@@ -1725,6 +1727,21 @@ button.nav-item {
   min-height: 200px;
   margin-bottom: var(--kb-space-3);
   border: 1px solid var(--kb-card-edge);
+}
+
+/* The no-match message inside a still-mounted table: pinned to the left edge, so it is on screen
+   however far the table has been scrolled sideways. */
+.kb-table td:has(> .kb-empty-pinned) {
+  overflow: visible; /* a clipping cell would be the sticky box's scroller, and pin nothing */
+  white-space: normal;
+  padding: 0;
+}
+.empty-state.kb-empty-pinned {
+  position: sticky;
+  left: 0;
+  flex: none;
+  width: min(32rem, 100%);
+  margin: var(--kb-space-4) 0;
 }
 
 .inline-banner {

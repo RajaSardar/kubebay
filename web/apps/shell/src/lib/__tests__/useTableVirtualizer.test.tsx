@@ -35,6 +35,40 @@ describe("useTableVirtualizer", () => {
     expect(scrollTo).toHaveBeenLastCalledWith(expect.objectContaining({ top: 337 }));
   });
 
+  it("measures the header once, not after every render (a forced layout per scroll tick)", () => {
+    const scroller = document.createElement("div");
+    const head = document.createElement("thead");
+    const rect = vi.spyOn(head, "getBoundingClientRect").mockReturnValue({ height: 34 } as DOMRect);
+    Object.defineProperty(scroller, "scrollHeight", { configurable: true, value: 34 + 100 * 43 });
+    document.body.appendChild(scroller);
+    const hook = renderHook(
+      ({ count }) => useTableVirtualizer({ count, estimate: 43, scrollRef: { current: scroller }, headerRef: { current: head } }),
+      { initialProps: { count: 100 } },
+    );
+    const first = rect.mock.calls.length;
+    for (let i = 0; i < 20; i++) hook.rerender({ count: 100 + i });
+    expect(rect.mock.calls.length).toBe(first);
+    expect(first).toBeLessThanOrEqual(2);
+  });
+
+  it("takes the rendered row height (CSS height plus the hairline) for every row, measuring once", () => {
+    const scroller = document.createElement("div");
+    scroller.innerHTML = `<table><tbody><tr data-index="0"></tr><tr data-index="1"></tr></tbody></table>`;
+    const row = scroller.querySelectorAll("tr")[1]!;
+    const rect = vi.spyOn(row, "getBoundingClientRect").mockReturnValue({ height: 33 } as DOMRect);
+    const head = document.createElement("thead");
+    vi.spyOn(head, "getBoundingClientRect").mockReturnValue({ height: 34 } as DOMRect);
+    Object.defineProperty(scroller, "scrollHeight", { configurable: true, value: 1000 });
+    document.body.appendChild(scroller);
+    const hook = renderHook(
+      ({ count }) => useTableVirtualizer({ count, estimate: 32, scrollRef: { current: scroller }, headerRef: { current: head } }),
+      { initialProps: { count: 100 } },
+    );
+    expect(hook.result.current.virtualizer.getTotalSize()).toBe(34 + 100 * 33);
+    for (let i = 0; i < 10; i++) hook.rerender({ count: 100 + i });
+    expect(rect.mock.calls.length).toBe(1);
+  });
+
   it("puts no phantom space above the first row", () => {
     const { hook } = setup(100);
     expect(hook.result.current.topSpace).toBe(0);
