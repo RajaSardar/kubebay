@@ -136,6 +136,32 @@ fn smoke_ready() {
     std::process::exit(0);
 }
 
+/// Backlog 85: asks the OS for permission to show notifications (macOS shows
+/// its prompt the first time) and reports "granted" or "denied". The page is
+/// served by the engine and may call only this and `notify_issue`, never the
+/// notification plugin's own commands.
+#[tauri::command]
+fn request_notification_permission(app: tauri::AppHandle) -> Result<String, String> {
+    use tauri_plugin_notification::{NotificationExt, PermissionState};
+    let state = app.notification().request_permission().map_err(|e| e.to_string())?;
+    Ok(if state == PermissionState::Granted { "granted" } else { "denied" }.to_string())
+}
+
+/// Backlog 85: shows one OS notification for a new Issue. The title and body
+/// are the short text the web app builds (severity, kind, namespace/name); they
+/// are cut to a fixed length here so nothing long can be put on screen.
+#[tauri::command]
+fn notify_issue(app: tauri::AppHandle, title: String, body: String) -> Result<(), String> {
+    use tauri_plugin_notification::NotificationExt;
+    let cut = |s: String| s.chars().take(160).collect::<String>();
+    app.notification()
+        .builder()
+        .title(cut(title))
+        .body(cut(body))
+        .show()
+        .map_err(|e| e.to_string())
+}
+
 /// KB-04: where the updater is, for the page's banner and Settings card.
 #[tauri::command]
 fn update_status(app: tauri::AppHandle, updates: tauri::State<'_, updater::Updates>) -> updater::StatusView {
@@ -456,7 +482,9 @@ fn main() {
     // KB-04: only a build that carries the updater's public key (release.yml
     // adds it) loads the updater; anything else never checks.
     let can_update = updater::build_has_key(context.config()) && !smoke::is_on();
-    let mut builder = tauri::Builder::default().plugin(tauri_plugin_shell::init());
+    let mut builder = tauri::Builder::default()
+        .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_notification::init());
     if can_update {
         builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
     }
@@ -467,7 +495,9 @@ fn main() {
             update_status,
             set_update_checks,
             check_for_updates,
-            install_update
+            install_update,
+            notify_issue,
+            request_notification_permission
         ])
         .setup(move |app| {
             let prefs = app.path().app_config_dir().ok().map(|d| d.join("updates.json"));

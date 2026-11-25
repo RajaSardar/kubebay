@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Badge, Button, DataTable, EmptyState, InlineBanner, PageHeader, Row, Select, Stack, NsPill, type BadgeTone } from "@kubebay/ui";
 import { PageHelp } from "../components/PageHelp";
 import { InvestigateButton } from "../components/InvestigatePanel";
@@ -35,6 +35,9 @@ export default function Issues() {
   const { cluster } = useCluster();
   const navigate = useNavigate();
   const { issues, notChecked, counts, loading } = useIssues(cluster || undefined);
+  // A desktop notification opens /issues?issue=<id>: that one issue, with a way back to all.
+  const [params, setParams] = useSearchParams();
+  const only = params.get("issue");
   const [severity, setSeverity] = useState<IssueSeverity | "all">("all");
   const [kind, setKind] = useState("all");
   const [namespace, setNamespace] = useState("all");
@@ -47,8 +50,8 @@ export default function Issues() {
         severity: severity === "all" ? [] : [severity],
         kind: kind === "all" ? [] : [kind],
         namespace: namespace === "all" ? [] : [namespace],
-      }),
-    [issues, severity, kind, namespace],
+      }).filter((i) => !only || i.id === only),
+    [issues, severity, kind, namespace, only],
   );
 
   const header = <PageHeader help={<PageHelp route="/issues" />} level={2} title="Issues" count={issues.length > 0 ? `· ${issues.length}` : undefined} />;
@@ -93,6 +96,14 @@ export default function Issues() {
             ))}
           </Select>
         </Row>
+        {only && (
+          <InlineBanner>
+            Showing the one issue a notification pointed at.{" "}
+            <Button size="sm" variant="ghost" onClick={() => setParams({}, { replace: true })}>
+              Show all issues
+            </Button>
+          </InlineBanner>
+        )}
         {loading && pending.length > 0 && (
           <div className="small muted" role="status">
             Still checking {pending.length} {pending.length === 1 ? "source" : "sources"}. What is listed so far may not be everything.
@@ -111,7 +122,7 @@ export default function Issues() {
         loadingLabel="Checking the cluster for issues…"
         empty={
           issues.length > 0 ? (
-            <EmptyState title="No issue matches these filters." />
+            <EmptyState title={only ? "That issue is no longer raised." : "No issue matches these filters."} />
           ) : notChecked.length === 0 ? (
             <EmptyState title="No issues found." hint="Every check ran and found nothing wrong." />
           ) : (

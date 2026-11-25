@@ -1,0 +1,10 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "notifications",
+  "description": "Backlog 85: lets the engine-served page ask for notification permission and show a new-issue notification (a title and a body, nothing else).",
+  "windows": ["main", "win-*"],
+  "remote": {
+    "urls": ["http://127.0.0.1:*"]
+  },
+  "permissions": ["allow-notify-issue", "allow-request-notification-permission"]
+}

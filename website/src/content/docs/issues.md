@@ -38,3 +38,16 @@ The severity, kind and namespace pickers narrow the list. The count badges above
 Issues reads the same live streams the other pages use and adds no new request of its own, apart from the API discovery lists that Best practices and Upgrade readiness already fetch. A check can only report what your own permissions let you read. When a check can't run, because the data is still loading, your access doesn't allow reading it, or the cluster doesn't have the feature, a banner names it with the reason. **A missing check is never shown as all clear:** "No issues found" appears only when every check ran.
 
 It does not include the RBAC explorer's findings, because those need a heavy scan of the cluster, or any Secret contents. Nothing here changes the cluster: Investigate only opens a page. **Investigate with AI** hands the issue to your own Claude Code and shows its answer; it can only read, and any fix is yours to apply. See [AI assistants](/docs/ai-assistants/).
+It does not include the RBAC explorer's findings, because those need a heavy scan of the cluster, or any Secret contents. Nothing here changes the cluster: Investigate only opens a page.
+
+## Desktop notifications
+
+In the desktop app, **Settings, Notifications** can show an operating system notification when a new issue appears. It is off by default.
+
+- **Which issues.** Only issues that appear in the open cluster after you opened it. Whatever was already wrong when Kubebay started, or when you switched to the cluster, is the starting point and never notifies. Only the open cluster is watched, so a cluster you are not looking at sends nothing. **Notify for** chooses the lowest severity (Critical only by default), and **Mute a cluster** silences one cluster.
+- **When.** Never while the Kubebay window is in front. One issue notifies at most once every 6 hours. At most 3 notifications are shown a minute; the rest are folded into one "N new issues" summary, and anything held back is sent when there is room if it is still raised.
+- **What it says.** The severity, and the kind, namespace and name (for example "Critical issue" and "Pod prod/api-7d9"). Never a log line, an event message or anything from a Secret. Nothing leaves your computer: no telemetry, no server.
+- **Clicking it.** Opening Kubebay within two minutes of a notification (clicking the notification does this) opens the Issues page showing only that issue, with **Show all issues** to go back. The operating system does not tell Kubebay which notification you clicked, so this is a guess from the timing: switching to Kubebay by other means soon after a notification opens it too.
+- **The macOS prompt.** The first notification asks macOS for permission. If you said no, allow Kubebay under System Settings, Notifications and switch the setting on again. A copy of Kubebay run from the terminal or a development build may show its notifications under another app's name.
+
+It watches only what your own permissions let you read, as the Issues page does, and it opens those streams only while the setting is on. Not yet verified in a signed, packaged app.

@@ -42,9 +42,9 @@ function Where() {
   const l = useLocation();
   return <div data-testid="at">{l.pathname + l.search}</div>;
 }
-function renderPage() {
+function renderPage(url = "/issues") {
   return render(
-    <MemoryRouter initialEntries={["/issues"]}>
+    <MemoryRouter initialEntries={[url]}>
       <Routes>
         <Route path="/issues" element={<Issues />} />
         <Route path="*" element={<Where />} />
@@ -135,5 +135,18 @@ describe("Issues page", () => {
     ready();
     renderPage();
     expect(screen.getAllByRole("button", { name: "Investigate with AI" })).toHaveLength(issues.length);
+  it("shows only the issue a notification pointed at, with a way back to all", async () => {
+    ready();
+    renderPage("/issues?issue=b");
+    expect(screen.getAllByRole("row").slice(1)).toHaveLength(1);
+    expect(screen.getByText("web")).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Show all issues" }));
+    expect(screen.getAllByRole("row").slice(1)).toHaveLength(3);
+  });
+
+  it("says so when the notified issue is gone", () => {
+    ready();
+    renderPage("/issues?issue=gone");
+    expect(screen.getByText("That issue is no longer raised.")).toBeTruthy();
   });
 });

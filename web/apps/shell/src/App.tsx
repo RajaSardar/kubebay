@@ -94,6 +94,7 @@ import { SidebarResizer } from "./components/SidebarResizer";
 import { HideSidebarButton, ShowSidebarButton } from "./components/SidebarToggle";
 import { McpChip } from "./components/McpChip";
 import { UpdateBanner } from "./components/UpdateBanner";
+import { IssueNotifier } from "./components/IssueNotifier";
 import { WhatsNew } from "./components/WhatsNew";
 import { McpProposals } from "./components/McpProposals";
 
@@ -712,6 +713,7 @@ function AppInner() {
 
         <main className="content">
           <UpdateBanner />
+          <IssueNotifier cluster={effectiveActive || undefined} />
           <WhatsNew />
           <ErrorBoundary resetKey={location.pathname}>
             {/* Empty page shell, not a spinner: chunks resolve in a few ms on
