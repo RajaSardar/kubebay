@@ -46,3 +46,14 @@ describe("resolveActiveCluster", () => {
   });
 });
 
+
+import { pickerRedirectTarget } from "../clusterPickerLogic";
+
+describe("pickerRedirectTarget", () => {
+  it("sends a cluster-less /settings to the Clusters page with the settings drawer open", () => {
+    expect(pickerRedirectTarget("/settings", "")).toBe("/clusters?settings=1");
+  });
+  it("sends other pages to plain /clusters", () => {
+    expect(pickerRedirectTarget("/pods", "")).toBe("/clusters");
+  });
+});

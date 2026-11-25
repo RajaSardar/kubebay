@@ -5,7 +5,7 @@ import type { APIResourceEntry, ClusterInfo } from "./lib/api";
 import { NavLink, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { useClusterStore } from "./lib/cluster-store";
 import { usePalette } from "./lib/palette-store";
-import { resolveActiveCluster, shouldRedirectToPicker } from "./lib/clusterPickerLogic";
+import { pickerRedirectTarget, resolveActiveCluster, shouldRedirectToPicker } from "./lib/clusterPickerLogic";
 import { Button, DisclosureButton, DrawerInset, EmptyState, Kbd, KubebayMark, navItemClass, Spinner, StatusDot } from "@kubebay/ui";
 import { TerminalDock } from "./components/TerminalDock";
 import { DockToggle, SidebarTerminal, useDockInset, useDockShortcut } from "./components/DockEntryPoints";
@@ -829,7 +829,7 @@ export default function App() {
   useEffect(() => {
     const active = useClusterStore.getState().active;
     if (shouldRedirectToPicker(window.location.pathname, active)) {
-      navigate("/clusters", { replace: true });
+      navigate(pickerRedirectTarget(window.location.pathname, active), { replace: true });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

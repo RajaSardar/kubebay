@@ -6,7 +6,9 @@ order: 1
 appRoutes: ["/settings"]
 ---
 
-**Settings** is the last item in the sidebar's Tools.
+**Settings** is the last item in the sidebar's Tools. The same settings are also on the [Clusters page](/docs/connect-clusters/#settings-from-the-clusters-page): click **Settings** in its header to open them in a side panel without opening a cluster. They are shared by all your clusters, so both places show and change the same values.
+
+Inside a cluster this page starts with **This cluster**: the Prometheus Kubebay found for that cluster, with **Change** and **Test connection**. The Clusters page panel has no such section, since no cluster is open there. If the settings can't be loaded the page says "Couldn't load settings" with a **Retry** button, and Theme and Display still work.
 
 ## Display
 
@@ -35,7 +37,7 @@ One engine serves everyone in a cluster, or with OIDC sign-in, so the settings o
 
 ## Kubeconfig sources
 
-Kubeconfig files are added and removed on the Clusters page, next to the clusters they bring in. **Manage kubeconfig files** takes you there. See [Connect your clusters](/docs/connect-clusters/#adding-kubeconfig-files).
+Kubeconfig files are added and removed on the Clusters page, next to the clusters they bring in. **Manage kubeconfig files** takes you there, or opens the dialog directly when you are already on the Clusters page. See [Connect your clusters](/docs/connect-clusters/#adding-kubeconfig-files).
 
 ## Node shell image
 

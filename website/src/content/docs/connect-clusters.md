@@ -52,6 +52,10 @@ A sleeping cluster is labelled **Sleeping** in the Session column of the cluster
 
 The **cluster rail** at the far left shows an icon for each cluster you're connected to. Click an icon to switch. Right-click one to change its icon. While Kubebay switches, it shows each step: credentials, the API server, then the live stream.
 
+## Settings from the Clusters page
+
+**Settings** in the Clusters page header opens the app's [settings](/docs/settings/) in a side panel: theme and display, the default Prometheus URL, node shell and debug images, warm clusters, the change timeline, AI and MCP, notifications, updates, saved views and usage history. They are the same for every cluster, so you can set them before opening one. Press <kbd>Esc</kbd> or **Close** to leave. Each cluster's own Prometheus URL stays in its **⋮** menu. The panel's settings are read-only on a shared engine, as on the Settings page.
+
 ## Adding kubeconfig files
 
 Click **Add kubeconfig** on the Clusters page to open **Kubeconfig sources**. It lists the files Kubebay has loaded. To add another, type its path and click **Add file**. Its contexts are merged with your default kubeconfig.

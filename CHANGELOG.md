@@ -6,6 +6,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ## [Unreleased]
 
+### Added
+- **Settings on the Clusters page.** A **Settings** button in the header opens the app's settings (theme, display, Prometheus default, images, warm clusters, AI, notifications, updates, saved views, usage history) in a side panel, so you can change them before opening a cluster. The panel loads only when opened or when you hover or focus the button, so the Clusters page opens as fast as before. If settings or their code fail to load, it says so with a **Retry**. Locks on a shared engine (cluster or OIDC) behave the same there as on the Settings page. Tested with component tests only, not in the running app.
+
+### Changed
+- The Settings page and the new panel share one body. Inside a cluster the page now starts with **This cluster** (Prometheus status, **Change**, **Test connection**), and **Manage kubeconfig files** opens the dialog directly when you are on the Clusters page.
+- Opening **Settings** (the sidebar, the command palette or a link) before you have picked a cluster now lands on the Clusters page with the settings panel open, instead of dropping you on the plain list. Hovering the **Settings** button no longer logs an error if the panel's code can't be fetched.
+
 ## [0.8.5] - 2026-11-25
 
 ### Added

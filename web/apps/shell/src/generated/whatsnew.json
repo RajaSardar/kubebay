@@ -3,7 +3,30 @@
     {
       "version": "unreleased",
       "date": "",
-      "sections": []
+      "sections": [
+        {
+          "heading": "Added",
+          "items": [
+            {
+              "title": "Settings on the Clusters page",
+              "summary": "A Settings button in the header opens the app's settings (theme, display, Prometheus default, images, warm clusters, AI, notifications, updates, saved views, usage history) in a side panel, so you can change them before opening a cluster."
+            }
+          ]
+        },
+        {
+          "heading": "Changed",
+          "items": [
+            {
+              "title": "The Settings page and the new panel share one body",
+              "summary": ""
+            },
+            {
+              "title": "Opening Settings (the sidebar, the command palette or a link) before you have picked a cluster now lands on the Clusters page with the settings panel open, instead of dropping you on the plain list",
+              "summary": ""
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.8.5",

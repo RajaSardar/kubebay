@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { lazy, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, historyApi, type ClusterHistorySummary, type ClusterInfo, type FleetSummary } from "../lib/api";
@@ -57,6 +57,11 @@ import {
   type StatusTone,
 } from "@kubebay/ui";
 import { PageHelp } from "../components/PageHelp";
+import { SettingsDrawerHost } from "../components/SettingsDrawerHost";
+
+// Settings load only when opened, so the first paint of /clusters is unchanged.
+const loadSettingsDrawer = () => import("./settings/SettingsDrawer").catch(() => undefined);
+let SettingsDrawer = lazy(() => import("./settings/SettingsDrawer"));
 
 const APP_VERSION = "v0.8.5";
 /** Default column widths (px); the Name column holds the icon, name and provider badge. */
@@ -277,6 +282,20 @@ export default function ClusterPicker() {
     );
   }
 
+  const settingsOpen = sp.get("settings") === "1";
+  const [settingsAttempt, bumpSettings] = useState(0);
+  function setSettingsOpen(open: boolean) {
+    setSp(
+      (cur) => {
+        const next = new URLSearchParams(cur);
+        if (open) next.set("settings", "1");
+        else next.delete("settings");
+        return next;
+      },
+      { replace: true },
+    );
+  }
+
   const isConnected = (c: ClusterInfo) => !!c.connected || c.id === activeId;
   const hiddenClusters = list.filter((c) => meta[c.id]?.hidden);
   const sorted = sortClusters(filterClusters(list, meta, query), meta);
@@ -351,6 +370,14 @@ export default function ClusterPicker() {
                     )}
                     <Button variant="ghost" onClick={() => setKubeconfigOpen(true)}>
                       Add kubeconfig
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      onClick={() => setSettingsOpen(true)}
+                      onMouseEnter={() => void loadSettingsDrawer()}
+                      onFocus={() => void loadSettingsDrawer()}
+                    >
+                      Settings
                     </Button>
                   </Row>
                 }
@@ -612,6 +639,19 @@ export default function ClusterPicker() {
             </Row>
           </div>
         </Modal>
+      )}
+
+      {settingsOpen && (
+        <SettingsDrawerHost
+          key={settingsAttempt}
+          Drawer={SettingsDrawer}
+          onClose={() => setSettingsOpen(false)}
+          onManageKubeconfigs={() => setKubeconfigOpen(true)}
+          onRetry={() => {
+            SettingsDrawer = lazy(() => import("./settings/SettingsDrawer"));
+            bumpSettings((n) => n + 1);
+          }}
+        />
       )}
 
       {kubeconfigOpen && (

@@ -92,7 +92,7 @@ describe("@kubebay/ui owns the styles of its components", () => {
 });
 
 describe("Settings theme swatches", () => {
-  const settings = read("web/apps/shell/src/pages/Settings.tsx");
+  const settings = read("web/apps/shell/src/pages/settings/SettingsBody.tsx");
   const blocks = themeBlocks(tokensCss);
   const value = (id: string, name: string) =>
     new RegExp(`--${name}\\s*:\\s*([^;]+);`).exec(blocks[id]!)?.[1]?.trim().toLowerCase();
