@@ -154,6 +154,9 @@ func TestSharedOpCopiesShareOneEncoding(t *testing.T) {
 // shared encoding: 166 KB and 160 allocations; after: 16.5 KB and 11. The
 // ceilings are counts over many runs, not timings.
 func TestSharedEncodingAllocationBudget(t *testing.T) {
+	if raceEnabled {
+		t.Skip("the race detector drops pooled buffers at random; the budget is checked in normal builds (CI)")
+	}
 	pod := podOps(1)[0]
 	run := func() {
 		ops := []Op{SharedOp(pod.Op, pod.Key, pod.Obj)}
@@ -174,5 +177,25 @@ func TestSharedEncodingAllocationBudget(t *testing.T) {
 	runtime.ReadMemStats(&after)
 	if per := (after.TotalAlloc - before.TotalAlloc) / runs; per > 32<<10 {
 		t.Errorf("one pod to 10 subscriptions: %d B allocated, budget 32 KiB (was 166 KB)", per)
+	}
+}
+
+// Subscriptions send on their own goroutines; the first to send a shared op
+// encodes it and the rest wait for and reuse those bytes (run with -race).
+func TestSharedOpConcurrentSends(t *testing.T) {
+	op := sharedPodOps(1)[0]
+	want, _ := EncodeData(&DataFrame{Type: TypeDelta, ID: "s", Ops: []Op{{Op: op.Op, Key: op.Key, Obj: op.Obj}}})
+	done := make(chan int, subscribers)
+	for s := 0; s < subscribers; s++ {
+		go func() {
+			n := 0
+			_ = withEncodedData(&DataFrame{Type: TypeDelta, ID: "s", Ops: []Op{op}}, func(b []byte) error { n = len(b); return nil })
+			done <- n
+		}()
+	}
+	for s := 0; s < subscribers; s++ {
+		if n := <-done; n != len(want) {
+			t.Fatalf("frame %d bytes, want %d", n, len(want))
+		}
 	}
 }
