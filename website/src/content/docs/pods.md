@@ -40,7 +40,7 @@ Logs stream as the container writes them.
 
 - **Container** picks which container to show. It starts on the container the pod's `kubectl.kubernetes.io/default-container` annotation names, as `kubectl logs` does, and otherwise on the first container. The Terminal tab uses the same choice.
 - **tail** sets how many earlier lines to load.
-- **follow** keeps the newest line in view.
+- **follow** keeps the newest line in view. A log of more than 300 lines draws only the lines on screen (and a few above and below), so scrolling and new lines stay smooth at the 5000-line limit; use **Download** to copy a whole log, as the browser's find and text selection reach only the lines drawn.
 - **previous** shows the run before the last restart, which is where a crash's cause usually is.
 - **warnings and errors only** shows only lines whose level reads as warning or error: `level=warn`, `WARN`, `WARNING`, `ERROR`, `ERR`, `FATAL` or `PANIC` as a word, a JSON `level`, `severity` or `lvl` field, a klog `W`/`E`/`F` prefix, or logfmt. A line in a format Kubebay cannot read is hidden while this is on, and the count of hidden lines is shown beside it as **N lines hidden**.
 - **Filter lines…** narrows what's shown, and **Download** saves the lines as a `.log` file.
