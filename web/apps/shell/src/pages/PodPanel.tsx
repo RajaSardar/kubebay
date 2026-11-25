@@ -2,12 +2,13 @@ import { ObjectStarButton } from "../components/Favorites";
 import { InvestigateButton } from "../components/InvestigatePanel";
 import { requestFromObject } from "../lib/aiInvestigate";
 import { useCompare } from "../lib/compare-store";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { Badge, Button, InlineBanner, Modal, Row, Stack, Select, Spinner, StatusDot, Tabs, TextField, Drawer } from "@kubebay/ui";
 import { api } from "../lib/api";
 import { usePodLogs, type PodLogsSpec } from "../lib/usePodLogs";
 import { filterLogLines } from "../lib/logFilter";
 import { LogLine } from "../components/LogLine";
+import { LogList } from "../components/LogList";
 import { ExecTerm, YamlTab } from "../components/heavy";
 import { useDiscardGuard } from "../components/DiscardGuard";
 import { forceDeleteEffect, forceDeleteLabel } from "../lib/podDelete";
@@ -48,6 +49,9 @@ const POD_TAB_LABELS = {
   events: "Events",
   yaml: "YAML",
 };
+
+// Stable, so the memoised lines in LogList are not re-drawn by a batch of new ones.
+const renderLogLine = (line: string) => <LogLine line={line} />;
 
 export default function PodPanel({ pod, onClose: onCloseNow, onDeleted }: { pod: SelectedPod; onClose: () => void; onDeleted?: () => void }) {
   const [tab, setTabState] = useState<PodTab>(
@@ -92,14 +96,6 @@ export default function PodPanel({ pod, onClose: onCloseNow, onDeleted }: { pod:
   );
 
   const { lines, status, error } = usePodLogs(tab === "logs" ? spec : null);
-  const viewRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (follow && tab === "logs" && viewRef.current) {
-      viewRef.current.scrollTop = viewRef.current.scrollHeight;
-    }
-  }, [lines, follow, tab]);
-
   // Filter on the text you see, not on an app's escape codes.
   const { shown, hidden } = useMemo(() => filterLogLines(lines, { text: filter, problemsOnly }), [lines, filter, problemsOnly]);
 
@@ -305,7 +301,7 @@ export default function PodPanel({ pod, onClose: onCloseNow, onDeleted }: { pod:
               Download
             </Button>
           </div>
-          <div className="log-view" ref={viewRef}>
+          <LogList items={shown} render={renderLogLine} follow={follow && tab === "logs"}>
             {shown.length === 0 && status !== "idle" && (
               <div className="muted small" style={{ padding: 8 }}>
                 {status === "streaming" ? (
@@ -318,10 +314,7 @@ export default function PodPanel({ pod, onClose: onCloseNow, onDeleted }: { pod:
                 )}
               </div>
             )}
-            {shown.map((l, i) => (
-              <LogLine key={i} line={l} />
-            ))}
-          </div>
+          </LogList>
         </>
       ) : tab === "graphs" ? (
         <div style={{ overflow: "auto" }}>
