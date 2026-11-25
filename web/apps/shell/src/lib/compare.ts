@@ -99,6 +99,65 @@ export function toYaml(value: unknown): string {
 
 type Op = { t: " " | "-" | "+"; s: string };
 
+/**
+ * Shortest edit script (Myers, O(ND)): cost follows how much differs, not how
+ * long the files are, so two big objects with a few edits stay cheap. Null when
+ * the sides differ by more than `maxD` lines; the caller then shows the middle
+ * as replaced.
+ */
+function myers(a: string[], b: string[], maxD = 1500): Op[] | null {
+  const n = a.length;
+  const m = b.length;
+  if (n === 0 || m === 0) return [...a.map((s): Op => ({ t: "-", s })), ...b.map((s): Op => ({ t: "+", s }))];
+  const max = Math.min(n + m, maxD);
+  const off = max + 1;
+  const v = new Int32Array(2 * max + 3);
+  const trace: Int32Array[] = [];
+  let found = -1;
+  for (let d = 0; d <= max && found < 0; d++) {
+    trace.push(v.slice());
+    for (let k = -d; k <= d; k += 2) {
+      let x = k === -d || (k !== d && v[off + k - 1]! < v[off + k + 1]!) ? v[off + k + 1]! : v[off + k - 1]! + 1;
+      let y = x - k;
+      while (x < n && y < m && a[x] === b[y]) {
+        x++;
+        y++;
+      }
+      v[off + k] = x;
+      if (x >= n && y >= m) {
+        found = d;
+        break;
+      }
+    }
+  }
+  if (found < 0) return null;
+  const ops: Op[] = [];
+  let x = n;
+  let y = m;
+  for (let d = found; d > 0; d--) {
+    const pv = trace[d]!;
+    const k = x - y;
+    const prevK = k === -d || (k !== d && pv[off + k - 1]! < pv[off + k + 1]!) ? k + 1 : k - 1;
+    const prevX = pv[off + prevK]!;
+    const prevY = prevX - prevK;
+    while (x > prevX && y > prevY) {
+      ops.push({ t: " ", s: a[x - 1]! });
+      x--;
+      y--;
+    }
+    if (x === prevX) ops.push({ t: "+", s: b[y - 1]! });
+    else ops.push({ t: "-", s: a[x - 1]! });
+    x = prevX;
+    y = prevY;
+  }
+  while (x > 0 && y > 0) {
+    ops.push({ t: " ", s: a[x - 1]! });
+    x--;
+    y--;
+  }
+  return ops.reverse();
+}
+
 function diffOps(a: string[], b: string[]): Op[] {
   let pre = 0;
   while (pre < a.length && pre < b.length && a[pre] === b[pre]) pre++;
@@ -106,37 +165,7 @@ function diffOps(a: string[], b: string[]): Op[] {
   while (suf < a.length - pre && suf < b.length - pre && a[a.length - 1 - suf] === b[b.length - 1 - suf]) suf++;
   const am = a.slice(pre, a.length - suf);
   const bm = b.slice(pre, b.length - suf);
-  const mid: Op[] = [];
-  const n = am.length;
-  const m = bm.length;
-  if (n * m > 4_000_000) {
-    // Too big for the table: show the whole middle as replaced.
-    for (const s of am) mid.push({ t: "-", s });
-    for (const s of bm) mid.push({ t: "+", s });
-  } else {
-    const w = m + 1;
-    const lcs = new Uint32Array((n + 1) * w);
-    for (let i = n - 1; i >= 0; i--) {
-      for (let j = m - 1; j >= 0; j--) {
-        lcs[i * w + j] = am[i] === bm[j] ? lcs[(i + 1) * w + j + 1]! + 1 : Math.max(lcs[(i + 1) * w + j]!, lcs[i * w + j + 1]!);
-      }
-    }
-    let i = 0;
-    let j = 0;
-    while (i < n && j < m) {
-      if (am[i] === bm[j]) {
-        mid.push({ t: " ", s: am[i]! });
-        i++;
-        j++;
-      } else if (lcs[(i + 1) * w + j]! >= lcs[i * w + j + 1]!) {
-        mid.push({ t: "-", s: am[i++]! });
-      } else {
-        mid.push({ t: "+", s: bm[j++]! });
-      }
-    }
-    while (i < n) mid.push({ t: "-", s: am[i++]! });
-    while (j < m) mid.push({ t: "+", s: bm[j++]! });
-  }
+  const mid = myers(am, bm) ?? [...am.map((s): Op => ({ t: "-", s })), ...bm.map((s): Op => ({ t: "+", s }))];
   return [
     ...a.slice(0, pre).map((s): Op => ({ t: " ", s })),
     ...mid,

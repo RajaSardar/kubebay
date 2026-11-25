@@ -132,3 +132,37 @@ describe("making refs", () => {
     expect(refFromRowKey("/node-1", "dev", "v1/nodes").ns).toBe("");
   });
 });
+
+describe("unifiedDiff on a large object", () => {
+  it("shows only the lines that changed when the middle of a big file is unchanged", () => {
+    // e.g. two versions of a CRD: edits at the top and the bottom, 6000 equal lines between.
+    const mid = Array.from({ length: 6000 }, (_, i) => `line ${i}`);
+    const a = ["head a", ...mid, "tail a"].join("\n") + "\n";
+    const b = ["head b", ...mid, "tail b"].join("\n") + "\n";
+    const d = unifiedDiff(a, b, "L", "R");
+    expect(d.split("\n").length).toBeLessThan(30);
+    expect(d).toContain("-head a");
+    expect(d).toContain("+head b");
+    expect(d).toContain("-tail a");
+    expect(d).not.toContain("-line 3000");
+  });
+});
+
+describe("unifiedDiff correctness", () => {
+  it("applying the diff's - and + lines to the left side gives the right side, for random edits", () => {
+    let seed = 7;
+    const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+    for (let t = 0; t < 200; t++) {
+      const a = Array.from({ length: Math.floor(rnd() * 30) }, () => `l${Math.floor(rnd() * 6)}`);
+      const b = Array.from({ length: Math.floor(rnd() * 30) }, () => `l${Math.floor(rnd() * 6)}`);
+      const d = unifiedDiff(a.join("\n") + (a.length ? "\n" : ""), b.join("\n") + (b.length ? "\n" : ""), "L", "R", 100000);
+      if (d === "") {
+        expect(a).toEqual(b);
+        continue;
+      }
+      const body = d.split("\n").slice(2).filter((l) => l && !l.startsWith("@@"));
+      expect(body.filter((l) => l[0] !== "+").map((l) => l.slice(1))).toEqual(a);
+      expect(body.filter((l) => l[0] !== "-").map((l) => l.slice(1))).toEqual(b);
+    }
+  });
+});

@@ -74,7 +74,7 @@ Compare shows two objects as a side-by-side diff of their YAML, in an editor you
 - Open an object and choose **Compare with…** in its drawer header (Pods have it too). That object is the left side. Pick the right side in the dialog: choose a **cluster** from the connected ones, then search by name, or by kind and name as in the command palette (`deploy api`).
 - Open the command palette and type `compare`, then choose **Compare resources…** and pick both sides in the dialog.
 
-**Hide noise** is on at first. It leaves out what differs between any two objects without meaning anything: `metadata.managedFields`, `resourceVersion`, `uid`, `generation`, `creationTimestamp`, `status` and the `kubectl.kubernetes.io/last-applied-configuration` annotation. Turn it off to compare the whole object. Keys are sorted, so the same object always reads the same.
+**Hide noise** is on at first. It leaves out what differs between any two objects without meaning anything: `metadata.managedFields`, `resourceVersion`, `uid`, `generation`, `creationTimestamp`, `status` and the `kubectl.kubernetes.io/last-applied-configuration` annotation. Turn it off to compare the rest of the object as well (`uid`, `creationTimestamp`, `status` and the annotation); `managedFields`, `resourceVersion` and `generation` are never fetched for a comparison, so they do not show either way. Keys are sorted, so the same object always reads the same.
 
 **Swap sides** exchanges left and right. **Copy diff** copies the difference as unified diff text (three lines of context) for a ticket or a chat; it is disabled when there is nothing to copy. When the two sides are equal the dialog says **No differences**.
 

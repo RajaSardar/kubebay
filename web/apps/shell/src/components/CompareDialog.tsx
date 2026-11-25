@@ -131,7 +131,10 @@ export function CompareDialog() {
     };
   }, [leftSide, rightSide, hideNoise]);
 
-  const diff = texts && left && right ? unifiedDiff(texts.a, texts.b, refLabel(left), refLabel(right)) : "";
+  const diff = useMemo(
+    () => (texts && left && right ? unifiedDiff(texts.a, texts.b, refLabel(left), refLabel(right)) : ""),
+    [texts, left, right],
+  );
 
   async function copy() {
     try {
