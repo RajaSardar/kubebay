@@ -59,6 +59,13 @@ prometheus:
   # every namespace whatever their RBAC, so it's off unless you turn it on.
   allUsers: false
 
+# Kubebay's MCP server (AI assistants). It is only served on a desktop engine
+# on loopback, never in a cluster, so this is a belt-and-braces setting: it
+# keeps the write tools off even if the engine were ever started with MCP
+# reachable. Sets KUBEBAY_MCP_READ_ONLY.
+mcp:
+  readOnly: false
+
 # The audit log of every change made through Kubebay.
 auditLog:
   # Print every entry to stdout as one JSON line (time, user, action, gvr, cluster,
