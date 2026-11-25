@@ -244,7 +244,7 @@ describe("ActionsBar — Apply scale is highlighted while there is something to 
 
   it("a +10 step still shows no blast radius, and a -10 down to 0 shows it", () => {
     render(<ActionsBar {...props} currentReplicas={12} />);
-    fireEvent.click(screen.getByRole("button", { name: "Increase replicas by 10" }));
+    fireEvent.click(screen.getByRole("button", { name: "Increase replicas" }), { shiftKey: true });
     expect(screen.queryByRole("button", { name: /What this affects/ })).toBeNull();
     fireEvent.change(screen.getByRole("spinbutton", { name: "Replicas" }), { target: { value: "0" } });
     expect(screen.getByRole("button", { name: /What this affects/ })).toBeInTheDocument();

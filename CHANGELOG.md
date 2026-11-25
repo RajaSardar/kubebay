@@ -6,6 +6,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ## [Unreleased]
 
+### Changed
+- **Scale: the −10 and +10 buttons are gone.** The row had seven controls and looked cluttered. Type the count into the number box, use **−5** and **+5**, or hold <kbd>Shift</kbd> while you click **−** or **+** (or press <kbd>Shift</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd> in the box) to move by 10.
+
+### Fixed
+- **The drawer's title no longer overlaps the action buttons.** When the drawer body was tall (a Deployment with the scale row, the Pods table and a banner), the drawer's head shrank below its content, so the name and namespace were drawn over the row of buttons. The head now keeps its full height.
+
 ## [0.8.4] - 2026-11-25
 
 v0.8.1 and v0.8.3 were tagged but never published (a macOS build ran out of memory, then a Windows build and a Linux test run failed), so everything since v0.8.0 ships here.

@@ -273,6 +273,9 @@ describe("the drawer is flush with a chrome head", () => {
   it("its head and tab strip are chrome bands with a separator under them", () => {
     expect(decl(".drawer-head", "background")).toEqual(["var(--kb-bg-chrome)"]);
     expect(decl(".drawer-head", "min-height")).toEqual(["var(--kb-h-bar)"]);
+    // An explicit min-height lifts the flex item's content-size minimum, so without
+    // this the head shrinks when the body is tall and the title overlaps the actions.
+    expect(decl(".drawer-head", "flex-shrink")).toEqual(["0"]);
     expect(decl(".drawer-head", "border-bottom")).toEqual(["1px solid var(--kb-separator)"]);
     expect(decl(".drawer-pane-tabs", "background")).toEqual(["var(--kb-bg-chrome)"]);
     expect(decl(".drawer-pane-tabs", "border-bottom")).toEqual(["1px solid var(--kb-separator)"]);

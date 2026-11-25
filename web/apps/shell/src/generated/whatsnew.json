@@ -3,7 +3,26 @@
     {
       "version": "unreleased",
       "date": "",
-      "sections": []
+      "sections": [
+        {
+          "heading": "Changed",
+          "items": [
+            {
+              "title": "Scale: the −10 and +10 buttons are gone",
+              "summary": "The row had seven controls and looked cluttered."
+            }
+          ]
+        },
+        {
+          "heading": "Fixed",
+          "items": [
+            {
+              "title": "The drawer's title no longer overlaps the action buttons",
+              "summary": "When the drawer body was tall (a Deployment with the scale row, the Pods table and a banner), the drawer's head shrank below its content, so the name and namespace were drawn over the row of buttons."
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.8.4",

@@ -2031,6 +2031,7 @@ tr.row-clickable:active {
 }
 
 .drawer-head {
+  flex-shrink: 0;
   flex-wrap: wrap;
   display: flex;
   align-items: center;

@@ -34,14 +34,15 @@ describe("ReplicaStepper", () => {
     expect(field().value).toBe("0");
   });
 
-  it("steps by 1, by 5 and by 10 with the buttons", () => {
+  it("steps by 1 and by 5 with the buttons, and has no 10 buttons", () => {
     render(<Harness start={20} current={20} />);
-    fireEvent.click(screen.getByRole("button", { name: "Increase replicas by 10" }));
-    expect(field().value).toBe("30");
-    fireEvent.click(screen.getByRole("button", { name: "Decrease replicas by 5" }));
-    expect(field().value).toBe("25");
+    expect(screen.queryByRole("button", { name: "Increase replicas by 10" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Decrease replicas by 10" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Increase replicas by 5" }));
-    fireEvent.click(screen.getByRole("button", { name: "Decrease replicas by 10" }));
+    expect(field().value).toBe("25");
+    fireEvent.click(screen.getByRole("button", { name: "Decrease replicas by 5" }));
+    fireEvent.click(screen.getByRole("button", { name: "Increase replicas" }));
+    fireEvent.click(screen.getByRole("button", { name: "Decrease replicas" }));
     expect(field().value).toBe("20");
   });
 
@@ -63,7 +64,7 @@ describe("ReplicaStepper", () => {
 
   it("never goes below 0 and disables the decrease buttons there", () => {
     render(<Harness start={4} current={4} />);
-    fireEvent.click(screen.getByRole("button", { name: "Decrease replicas by 10" }));
+    fireEvent.click(screen.getByRole("button", { name: "Decrease replicas by 5" }));
     expect(field().value).toBe("0");
     expect(screen.getByRole("button", { name: "Decrease replicas" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Decrease replicas by 5" })).toBeDisabled();

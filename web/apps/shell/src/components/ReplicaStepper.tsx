@@ -6,8 +6,8 @@ export function clampReplicas(n: number): number {
 }
 
 /**
- * The replica count editor for Scale: − and + (Shift = 10), ±5 and ±10 buttons for big jumps, and a
- * field you can type a number into. Shows "Unsaved" while the count differs from `current`, so it is
+ * The replica count editor for Scale: − and + (Shift = 10), ±5 buttons, and a field you can type a
+ * number into (the way to make a big jump). Shows "Unsaved" while the count differs from `current`, so it is
  * clear there is something to apply. The caller owns the value and the Apply button.
  */
 export function ReplicaStepper({
@@ -37,7 +37,6 @@ export function ReplicaStepper({
   );
   return (
     <Row align="center" gap={1} wrap>
-      {step("Decrease replicas by 10", -10, "−10")}
       {step("Decrease replicas by 5", -5, "−5")}
       {step("Decrease replicas", -1, "−")}
       <TextField
@@ -59,7 +58,6 @@ export function ReplicaStepper({
       />
       {step("Increase replicas", 1, "+")}
       {step("Increase replicas by 5", 5, "+5")}
-      {step("Increase replicas by 10", 10, "+10")}
       {current !== undefined && value !== current && <Badge tone="warn">Unsaved</Badge>}
     </Row>
   );
