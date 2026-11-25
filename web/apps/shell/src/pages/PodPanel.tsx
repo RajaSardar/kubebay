@@ -1,4 +1,6 @@
 import { ObjectStarButton } from "../components/Favorites";
+import { InvestigateButton } from "../components/InvestigatePanel";
+import { requestFromObject } from "../lib/aiInvestigate";
 import { useCompare } from "../lib/compare-store";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Badge, Button, InlineBanner, Modal, Row, Stack, Select, Spinner, StatusDot, Tabs, TextField, Drawer } from "@kubebay/ui";
@@ -146,6 +148,10 @@ export default function PodPanel({ pod, onClose: onCloseNow, onDeleted }: { pod:
         <>
           {status === "closed" && <Badge tone="err">ended</Badge>}
           {error && <span className="error-text small">{error}</span>}
+          <InvestigateButton
+            request={requestFromObject({ cluster: pod.cluster, namespace: pod.namespace, kind: "Pod", name: pod.pod })}
+            onOpenObject={() => setTab("yaml")}
+          />
           <Button
             variant="ghost"
             onClick={() => useCompare.getState().show({ cluster: pod.cluster, gvr: "v1/pods", ns: pod.namespace, name: pod.pod, kind: "Pod" })}

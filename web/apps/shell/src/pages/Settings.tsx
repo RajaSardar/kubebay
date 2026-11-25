@@ -9,6 +9,7 @@ import { useCluster } from "../lib/useCluster";
 import { UsageHistoryCard } from "../components/UsageHistoryCard";
 import { ChangeTimelineCard } from "../components/ChangeTimelineCard";
 import { McpSettingsCard } from "../components/McpSettingsCard";
+import { AiSettingsCard } from "../components/AiSettingsCard";
 import { TriageSettingsCard } from "../components/TriageSettingsCard";
 import { WarmClustersCard } from "../components/WarmClustersCard";
 import { ExtensionsCard } from "../components/ExtensionsCard";
@@ -406,6 +407,7 @@ export default function Settings() {
       {settings.isSuccess && <UsageHistoryCard clusters={settings.data.historyClusters ?? {}} />}
       <ChangeTimelineCard />
       <McpSettingsCard />
+      <AiSettingsCard />
       <TriageSettingsCard />
       <WarmClustersCard />
       <ExtensionsCard />
