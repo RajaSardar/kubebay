@@ -8,6 +8,10 @@
           "heading": "Added",
           "items": [
             {
+              "title": "Changes page: a local change timeline",
+              "summary": "(backlog 82)."
+            },
+            {
               "title": "Auth-proxy sign-in for the in-cluster install",
               "summary": "(backlog 81)."
             },

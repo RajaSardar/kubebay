@@ -1286,3 +1286,42 @@ export const promApi = {
     return res.json();
   },
 };
+
+/** The desktop change timeline's state (`GET /api/timeline/status`, backlog 82). */
+export interface TimelineStatus {
+  enabled: boolean;
+  retentionDays: number;
+  rows: number;
+  dbBytes: number;
+  capBytes: number;
+  evicted: number;
+  /** Changes the recorder could not keep up with and dropped. */
+  dropped: number;
+  recovered?: string;
+  error?: string;
+}
+
+export interface TimelinePage {
+  changes: import("./timeline").TimelineChange[];
+  nextCursor?: string;
+  coverage: import("./timeline").TimelineCoverage[];
+  from: string;
+  to: string;
+  dropped: number;
+}
+
+export interface TimelineFacets {
+  kinds: string[];
+  namespaces: string[];
+  managers: string[];
+}
+
+/** Per-user change timeline; every call answers 403 with a reason on a shared engine. */
+export const timelineApi = {
+  status: () => get<TimelineStatus>("/api/timeline/status"),
+  changes: (query: string) => get<TimelinePage>(`/api/timeline/changes?${query}`),
+  facets: (cluster: string) => get<TimelineFacets>(`/api/timeline/facets?${q(cluster)}`),
+  setRetention: (retentionDays: number) => send<TimelineStatus>("PUT", "/api/timeline/settings", { retentionDays }),
+  /** One cluster's changes, or every cluster's when none is given. */
+  clear: (cluster?: string) => send<{ cleared: boolean }>("DELETE", `/api/timeline${cluster ? `?${q(cluster)}` : ""}`),
+};
