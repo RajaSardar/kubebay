@@ -130,3 +130,114 @@ Bench result JSON:
   fault injection tooling; baseline numbers are NOT measured and the README
   and docs state that.
 - Building or shipping the desktop app.
+
+## Challenge round
+
+Checked against `engine/internal/mcp/{tools,server}.go`, `kubetools/propose.go`,
+`httpapi/mcp.go` and `cmd/kubebay/mcp.go`. Each objection is followed by the
+decision, which supersedes the text above where they differ.
+
+1. **Shared-engine lock and Helm value are dead scope.** `MCPBlockReason`
+   already turns MCP off entirely for OIDC and in-cluster engines, and the
+   endpoint is loopback-only. There is no shared engine on which the switch
+   could matter, so `readOnlyLocked` for "shared", the `charts/values.yaml`
+   value, the chart test and `charts/README.md` have nothing to configure.
+   Decision: drop all of them. The only lock reason is "set by flag/env".
+
+2. **A switch already exists.** `MCPSettings.Writes` (`writesEnabled`, default
+   false) gates `propose_change` today, and the Settings UI has its toggle. A
+   second persisted `readOnly` boolean would be two switches with overlapping
+   meaning and a four-state matrix. The real gap is narrower: with writes off,
+   `propose_change` and `get_proposal_status` are still listed and only refuse
+   inside the handler (`t.d.Writes()`), which is the "handler-level check
+   someone forgets" the note wants to avoid. Decision: read-only is defined as
+   `!Writes()`. No new `MCPSettings` field and no new UI switch. Add
+   `--mcp-read-only` / `KUBEBAY_MCP_READ_ONLY` as an operator override that
+   forces `Writes()` false (flag wins, persisted `writesEnabled` is left
+   untouched); `/api/mcp` GET reports `readOnlyForced` plus the reason and the
+   existing writes toggle renders disabled with it. `resolveMCPReadOnly` stays,
+   reduced to flag/env parsing (`1/true/yes`).
+
+3. **Gate must be dynamic, not `SetReadOnly(bool)` pushed from settings.**
+   Pushing state into the registry creates a second copy that can drift from
+   `MCPAPI.conf` (HandleSave, restore at startup, flag). Decision: the
+   `Registry` takes a `func() bool` (`Writes`) at construction. `list()` and
+   `Get()` consult it live, so the toggle works without a restart and there is
+   one source of truth. `Access` stays on `Tool`, required at `Add` (panic on
+   unset), and `get_proposal_status` is `AccessWrite` (it only exists to serve
+   proposals; the note listed it as read).
+
+4. **"JSON-RPC error" is wrong for this server.** `Handler.call` returns every
+   failure, including unknown tool, as a tool result with `isError: true` so
+   the model can see it. Decision: a refused write tool returns that same shape
+   with the `ErrReadOnly` text, distinct from "unknown tool: ...". Test asserts
+   the shape.
+
+5. **Refusals were not audited by the gate.** The audit wrapper is
+   `t.audited(handler)` inside `kubetools`; a refusal in `Registry/Get` runs
+   before it, so the "refused call is itself audited" line would silently be
+   false. Decision: the gate refuses in `Handler.call` via a small `OnRefuse`
+   hook that `cmd/kubebay/mcp.go` wires to `auditLog.Record` with action
+   `mcp:refused:<tool>`, source `mcp`, client name and request id. A test
+   asserts one entry per refusal and zero proposals created.
+
+6. **Annotations are now wrong.** `list()` hardcodes `readOnlyHint: true` for
+   every tool, which is false for `propose_change` whenever it is listed.
+   Decision: derive `readOnlyHint` from `Access` (write tools: false,
+   `destructiveHint` false, since nothing is applied without approval).
+
+7. **Stale server instructions.** `mcpInstructions` tells models "Reads only,
+   except propose_change". Decision: build the text per request from
+   `Writes()`; in read-only it says reads only and does not mention
+   proposals. Tested.
+
+8. **Turning it off must clear pending work.** `HandleSave` already calls
+   `Proposals.RejectAll` when writes go off. The flag-forced path has no save
+   event, so at startup there are no live proposals (store is in memory), but
+   the guard test should cover the `RejectAll` path through HandleSave so the
+   behaviour is not lost in the refactor.
+
+9. **The "nil sentinel deps" test is untestable theatre.** Building read tools
+   with sentinel `Proposals`/`Writes` that fail when touched does not prove
+   anything about future code and is brittle. Decision: replace with the
+   explicit `{name: access}` table guard (fails when a tool is added without a
+   row, or its `Access` differs) plus a behavioural test: in read-only, call
+   every listed tool with `Proposals == nil` and `Writes == func() bool {
+   return false }` against the existing fake `Source` and assert no write
+   method of the fake was invoked.
+
+10. **Bench scope trap and wording.** Scenario files "written from the public
+    benchmark's scenario names" invites copying and a third-party reference in
+    a tracked file. Decision: scenarios are authored in our own words from our
+    own fault list (crash loop, bad image, OOM kill, unschedulable pod,
+    failing probe, missing ConfigMap, broken Service selector, Ingress
+    without backend, stuck PVC, scaled to zero) and the README names no
+    external product. Also: the bench never starts a cluster or fault
+    injection; `run.mjs` only drives an already-running server given
+    `--url` and `--token-file` plus `--kubeconfig`. The `kind-*` context
+    refusal is enforced on the cluster IDs returned by `list_clusters`, not
+    just the kubeconfig argument, since the engine can serve other
+    contexts. The token is read from the file and never written to the result
+    JSON; the test greps the output for it.
+
+11. **Bench must also check read-only.** Add one fixed scenario family
+    `readonly-*` that, against a read-only server, asserts `tools/list` has no
+    `AccessWrite` names and `propose_change` is refused. Unit-tested with the
+    fake client; no live run.
+
+12. **Docs.** `ai-assistants.md` and `settings.md` document the flag/env and
+    the disabled toggle. The CHANGELOG says plainly that the hiding is tested
+    with fakes and `httptest` and was not run against a live cluster or a real
+    assistant, and that no benchmark numbers were measured.
+
+### Final decisions (summary)
+- Read-only == `Writes()` false; one persisted field (`writesEnabled`), plus an
+  operator flag/env override that wins and locks the toggle.
+- Registry takes a live `func() bool`; `Access` mandatory; write tools
+  (`propose_change`, `get_proposal_status`) hidden from `tools/list` and
+  refused on `tools/call` as an `isError` tool result.
+- Refusals audited via an `OnRefuse` hook; annotations and instructions follow
+  the mode.
+- No Helm, no shared-engine lock, no new Settings field, no new UI switch.
+- Bench is offline-tested with a fake client, own-words scenarios, `kind-*`
+  enforcement on cluster IDs, token never serialised.
