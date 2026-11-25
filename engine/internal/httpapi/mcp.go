@@ -59,9 +59,11 @@ type MCPAPI struct {
 	// Proposals holds assistants' proposed changes awaiting a decision.
 	Proposals *proposals.Store
 
-	mu    sync.RWMutex
-	conf  MCPSettings
-	token string
+	mu sync.RWMutex
+	// readOnlyReason, when set, is the operator's flag or env forcing writes off.
+	readOnlyReason string
+	conf           MCPSettings
+	token          string
 }
 
 func mcpConnectionPath() (string, error) {
@@ -109,7 +111,16 @@ func NewMCPAPI(sm *SettingsManager, url, disabled string) *MCPAPI {
 func (a *MCPAPI) Writes() bool {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
-	return a.conf.Enabled && a.conf.Writes
+	return a.conf.Enabled && a.conf.Writes && a.readOnlyReason == ""
+}
+
+// ForceReadOnly turns assistants' write tools off whatever the user saved
+// (the stored choice is left alone), with reason shown beside the locked
+// toggle. Called once at startup from --mcp-read-only / KUBEBAY_MCP_READ_ONLY.
+func (a *MCPAPI) ForceReadOnly(reason string) {
+	a.mu.Lock()
+	a.readOnlyReason = reason
+	a.mu.Unlock()
 }
 
 func (a *MCPAPI) Scope() kubetools.Scope {
@@ -203,12 +214,16 @@ type mcpStatus struct {
 	ConnectionFile string   `json:"connectionFile,omitempty"`
 	Disabled       string   `json:"disabled,omitempty"`
 	BridgeCommand  []string `json:"bridgeCommand,omitempty"`
+	// ReadOnlyForced and ReadOnlyReason: an operator switched writes off.
+	ReadOnlyForced bool   `json:"readOnlyForced,omitempty"`
+	ReadOnlyReason string `json:"readOnlyReason,omitempty"`
 }
 
 func (a *MCPAPI) status() mcpStatus {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
-	st := mcpStatus{MCPSettings: a.conf, URL: a.URL, Disabled: a.Disabled, BridgeCommand: a.BridgeCommand}
+	st := mcpStatus{MCPSettings: a.conf, URL: a.URL, Disabled: a.Disabled, BridgeCommand: a.BridgeCommand,
+		ReadOnlyForced: a.readOnlyReason != "", ReadOnlyReason: a.readOnlyReason}
 	if st.Clusters == nil {
 		st.Clusters = map[string][]string{}
 	}
@@ -256,7 +271,7 @@ func (a *MCPAPI) HandleSave(w http.ResponseWriter, r *http.Request) {
 	wasOn := a.conf.Enabled && a.token != ""
 	a.conf = body
 	a.mu.Unlock()
-	if (!body.Enabled || !body.Writes) && a.Proposals != nil {
+	if (!body.Enabled || !body.Writes || !a.Writes()) && a.Proposals != nil {
 		a.Proposals.RejectAll("proposals were turned off in Kubebay")
 	}
 	switch {

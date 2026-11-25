@@ -63,6 +63,7 @@ func main() {
 	promURL := flag.String("prometheus-url", os.Getenv("KUBEBAY_PROMETHEUS_URL"), "Prometheus to query directly for every cluster; the only one a shared engine (in a cluster or with OIDC) uses (KUBEBAY_PROMETHEUS_URL)")
 	promAllUsers := flag.Bool("prometheus-all-users", os.Getenv("KUBEBAY_PROMETHEUS_ALL_USERS") == "true", "let every OIDC user send raw PromQL to --prometheus-url, which answers for every namespace whatever their RBAC (KUBEBAY_PROMETHEUS_ALL_USERS=true)")
 	helmRepos := flag.String("helm-repos", os.Getenv("KUBEBAY_HELM_REPOS"), "Helm repositories to configure at startup, as name=url,name=url; the only way to change them on a shared engine (in a cluster or with OIDC) (KUBEBAY_HELM_REPOS)")
+	mcpReadOnly := flag.Bool("mcp-read-only", false, "make the MCP server read-only: write tools are hidden and refused whatever the Settings toggle says (KUBEBAY_MCP_READ_ONLY=true)")
 	localShell := flag.Bool("local-shell", false, "serve a shell on this machine (requires a binary built with -tags localshell, a loopback --addr, no --in-cluster and no OIDC)")
 	auditStdout := flag.Bool("audit-stdout", false, "also print every audit entry to stdout as a JSON line (default on with --in-cluster, off otherwise; KUBEBAY_AUDIT_STDOUT)")
 	flag.Parse()
@@ -267,7 +268,7 @@ func main() {
 		NodeShell:  nodeShell,
 		NetDiag:    &httpapi.NetDiagManager{Clusters: mgr, Audit: auditLog},
 		ImageSigs:  &httpapi.ImageSignatureAPI{Clusters: mgr, Checker: &sigcheck.Checker{}, TrustRoots: sigstoreTrustRoots()},
-		MCP:        newMCP(settingsMgr, mgr, registry, auditLog, *addr, *inCluster, sharedIdentity),
+		MCP:        newMCP(settingsMgr, mgr, registry, auditLog, *addr, *inCluster, sharedIdentity, resolveMCPReadOnly(*mcpReadOnly, os.Getenv("KUBEBAY_MCP_READ_ONLY"))),
 		Triage:     newTriage(settingsMgr, mgr, registry, auditLog, *inCluster, sharedIdentity),
 		Settings:   settingsMgr,
 		Extensions: newExtensions(settingsMgr, *inCluster, sharedIdentity),
