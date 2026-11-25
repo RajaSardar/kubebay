@@ -325,18 +325,18 @@ func TestRecorderCoverageFollowsTheWatches(t *testing.T) {
 func TestRecorderOpenSpansAdvanceEveryFlushAndCloseOnShutdown(t *testing.T) {
 	r, st, clk := newRec(t, Options{})
 	r.WatchStart("c1", "Node", "")
-	clk.Add(time.Minute)
+	clk.Add(4 * time.Second)
 	_ = r.Flush()
 	sp, _ := st.Spans("c1", "Node", t0.Add(-time.Hour), t0.Add(time.Hour))
-	if len(sp) != 1 || !sp[0].End.Equal(t0.Add(time.Minute)) {
+	if len(sp) != 1 || !sp[0].End.Equal(t0.Add(4*time.Second)) {
 		t.Errorf("heartbeat: %+v", sp)
 	}
-	clk.Add(time.Minute)
+	clk.Add(4 * time.Second)
 	if err := r.Close(); err != nil {
 		t.Fatal(err)
 	}
 	sp, _ = st.Spans("c1", "Node", t0.Add(-time.Hour), t0.Add(time.Hour))
-	if len(sp) != 1 || sp[0].Reason != "app closed" || !sp[0].End.Equal(t0.Add(2*time.Minute)) {
+	if len(sp) != 1 || sp[0].Reason != "app closed" || !sp[0].End.Equal(t0.Add(8*time.Second)) {
 		t.Errorf("shutdown: %+v", sp)
 	}
 }
@@ -360,5 +360,55 @@ func TestRecorderSkipsEventsSeenOnlyThroughAMetadataWatch(t *testing.T) {
 	_ = r.Flush()
 	if got := rowsOf(t, st); len(got) != 0 {
 		t.Errorf("an event row with no reason or message was recorded: %+v", got)
+	}
+}
+
+// A laptop that sleeps for an hour must not have the hour counted as watched:
+// the heartbeat only moves a span's end across a normal flush interval.
+func TestRecorderSleepIsAGapNotCoverage(t *testing.T) {
+	r, st, clk := newRec(t, Options{})
+	r.WatchStart("c1", "Node", "")
+	clk.Add(2 * time.Second)
+	_ = r.Flush()
+	clk.Add(time.Hour) // asleep
+	_ = r.Flush()
+	clk.Add(2 * time.Second)
+	_ = r.Flush()
+	sp, _ := st.Spans("c1", "Node", t0.Add(-time.Hour), t0.Add(3*time.Hour))
+	gaps := Gaps(sp, t0, t0.Add(time.Hour+4*time.Second), 15*time.Second)
+	if len(gaps) != 1 {
+		t.Fatalf("the sleep must show as one gap, got %+v (spans %+v)", gaps, sp)
+	}
+	if g := gaps[0]; g.From.After(t0.Add(3*time.Second)) || g.To.Before(t0.Add(time.Hour)) {
+		t.Errorf("gap %v..%v does not cover the sleep", g.From, g.To)
+	}
+}
+
+// An object that updates all the time must still reach the database.
+func TestRecorderACeaselessBurstIsStillWritten(t *testing.T) {
+	r, st, clk := newRec(t, Options{})
+	prev := deploy("1", 1, "k", "2026-03-01T10:00:00Z")
+	for i := 2; i <= 400; i++ {
+		clk.Add(2 * time.Second) // never quiet for 30s
+		next := deploy(fmt.Sprint(i), i, "k", "2026-03-01T10:00:00Z")
+		r.Observe("c1", upd(prev, next))
+		prev = next
+		_ = r.Flush()
+	}
+	if got := len(rowsOf(t, st)); got < 3 {
+		t.Fatalf("13 minutes of constant updates left %d rows in the store", got)
+	}
+}
+
+func TestRecorderCloseAfterSleepDoesNotCoverTheSleep(t *testing.T) {
+	r, st, clk := newRec(t, Options{})
+	r.WatchStart("c1", "Node", "")
+	clk.Add(2 * time.Second)
+	_ = r.Flush()
+	clk.Add(time.Hour)
+	_ = r.Close()
+	sp, _ := st.Spans("c1", "Node", t0.Add(-time.Hour), t0.Add(3*time.Hour))
+	if len(Gaps(sp, t0, t0.Add(time.Hour), 15*time.Second)) != 1 {
+		t.Fatalf("closing right after a sleep hid it: %+v", sp)
 	}
 }

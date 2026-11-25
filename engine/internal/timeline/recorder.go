@@ -17,6 +17,13 @@ const (
 	DefaultMergeWindow = 30 * time.Second
 	seenCap            = 8192
 	reasonAppClosed    = "app closed"
+	reasonPaused       = "the computer was asleep or the app was paused"
+	// maxHold is the longest a merged row waits for its object to go quiet,
+	// in merge windows: an object that never rests is still written.
+	maxHoldWindows = 10
+	// pausedAfter is how many flush intervals may pass between two flushes
+	// before the time between them counts as not watched.
+	pausedAfter = 5
 )
 
 // Observed is one object event from a watch, as the informer pool sees it.
@@ -50,8 +57,9 @@ type RecorderStatus struct {
 type objKey struct{ cluster, uid string }
 
 type burst struct {
-	lastSeen time.Time
-	held     *Change
+	lastSeen  time.Time
+	heldSince time.Time
+	held      *Change
 }
 
 type watchKey struct{ cluster, kind, ns string }
@@ -210,7 +218,7 @@ func (r *Recorder) Observe(cluster string, ob Observed) {
 			if b.held == nil {
 				h := c
 				h.Merged = 1
-				b.held = &h
+				b.held, b.heldSince = &h, now
 			} else {
 				b.held.Fields, b.held.MoreFields = unionFields(b.held.Fields, c.Fields, b.held.MoreFields+c.MoreFields)
 				if c.FieldManager != "" {
@@ -364,6 +372,20 @@ func (r *Recorder) flush(final bool) error {
 				r.enqueue(*b.held)
 			}
 			delete(r.bursts, k)
+		} else if b.held != nil && now.Sub(b.heldSince) >= maxHoldWindows*r.o.MergeWindow {
+			r.enqueue(*b.held)
+			b.held = nil
+		}
+	}
+	for k, o := range r.open {
+		if now.Sub(o.span.End) > pausedAfter*r.o.FlushEvery {
+			// Nothing ran between the last heartbeat and now (the machine
+			// slept, or the process was stopped), so that time was not
+			// watched: close the span where it was last seen alive and
+			// open a new one now.
+			o.span.Reason = reasonPaused
+			r.closed = append(r.closed, o.span)
+			o.span = Span{Cluster: k.cluster, Kind: k.kind, Namespace: k.ns, Start: now, End: now}
 		}
 	}
 	if final {
