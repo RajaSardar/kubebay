@@ -132,8 +132,10 @@ export function ReplicaControl({
   const base = current ?? value;
   if (inline) return <Body value={value} current={base} onChange={onChange} disabled={disabled} statefulSet={statefulSet} />;
   const text = current !== undefined && value !== current ? `Scale: ${current} → ${value}` : `Scale: ${base}`;
+  // Room for the widest label a drag can reach (the slider's top), so the row never shifts.
+  const reserve = Math.max(14, text.length, `Scale: ${base} → ${sliderMax(base)}`.length);
   return (
-    <Popover label="Scale replicas" trigger={<span className="mono" style={{ display: "inline-block", minWidth: "14ch", textAlign: "start" }}>{text}</span>} triggerLabel={text} disabled={disabled}>
+    <Popover label="Scale replicas" trigger={<span className="mono" style={{ display: "inline-block", minWidth: `${reserve}ch`, textAlign: "start" }}>{text}</span>} triggerLabel={text} disabled={disabled}>
       <Body value={value} current={base} onChange={onChange} disabled={disabled} statefulSet={statefulSet} onEnter={onEnter} hint />
     </Popover>
   );

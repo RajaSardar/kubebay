@@ -216,4 +216,12 @@ describe("ReplicaControl (inline, for the Scale dialog)", () => {
     expect(fireEvent.keyDown(field(), { key: "Enter" })).toBe(true);
     expect(onEnter).not.toHaveBeenCalled();
   });
+
+  it("reserves room for the widest label a drag can reach, so the row does not shift while dragging", () => {
+    render(<Harness current={100} />);
+    const btn = screen.getByRole("button", { name: /^Scale:/ });
+    const label = btn.querySelector(".mono") as HTMLElement;
+    const widest = `Scale: 100 \u2192 ${sliderMax(100)}`;
+    expect(parseFloat(label.style.minWidth)).toBeGreaterThanOrEqual(widest.length);
+  });
 });
