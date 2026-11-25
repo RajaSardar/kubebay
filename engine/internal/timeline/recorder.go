@@ -80,7 +80,8 @@ type Recorder struct {
 	pending []Change
 	bursts  map[objKey]*burst
 	seen    map[string]bool
-	seenQ   []string
+	seenQ   []string // ring of seen keys, oldest at seenAt once full
+	seenAt  int
 	lastTS  time.Time
 	dropped int64
 	lastErr string
@@ -137,6 +138,10 @@ func (r *Recorder) Status() RecorderStatus {
 
 func str(m map[string]any, k string) string { s, _ := m[k].(string); return s }
 
+func seenKey(cluster, uid, rv, op string) string {
+	return cluster + "|" + uid + "|" + rv + "|" + op
+}
+
 func meta(o map[string]any) map[string]any { m, _ := o["metadata"].(map[string]any); return m }
 
 // Observe records one event. It never writes; Flush does.
@@ -156,6 +161,8 @@ func (r *Recorder) Observe(cluster string, ob Observed) {
 		return
 	}
 	md := meta(subject)
+	uid, rv := str(md, "uid"), str(md, "resourceVersion")
+	dedup := uid != "" && rv != ""
 	now := r.o.Now()
 
 	r.mu.Lock()
@@ -171,6 +178,11 @@ func (r *Recorder) Observe(cluster string, ob Observed) {
 		}
 	} else {
 		c = Change{Op: ob.Op, Fields: nil}
+		// Another watch of this kind already recorded this write: drop it
+		// before the diff rather than after.
+		if dedup && r.seen[seenKey(cluster, uid, rv, ob.Op)] {
+			return
+		}
 		switch ob.Op {
 		case OpUpdate:
 			if rv := str(meta(ob.New), "resourceVersion"); rv != "" && rv == str(meta(ob.Old), "resourceVersion") {
@@ -196,16 +208,18 @@ func (r *Recorder) Observe(cluster string, ob Observed) {
 	c.MetadataOnly, c.AfterGap = ob.MetadataOnly, ob.AfterGap
 
 	// The same change seen by two watches of one kind is one change.
-	sk := cluster + "|" + str(md, "uid") + "|" + str(md, "resourceVersion") + "|" + c.Op
-	if str(md, "uid") != "" && str(md, "resourceVersion") != "" {
+	if dedup {
+		sk := seenKey(cluster, uid, rv, c.Op)
 		if r.seen[sk] {
 			return
 		}
 		r.seen[sk] = true
-		r.seenQ = append(r.seenQ, sk)
-		if len(r.seenQ) > seenCap {
-			delete(r.seen, r.seenQ[0])
-			r.seenQ = r.seenQ[1:]
+		if len(r.seenQ) < seenCap {
+			r.seenQ = append(r.seenQ, sk)
+		} else {
+			delete(r.seen, r.seenQ[r.seenAt])
+			r.seenQ[r.seenAt] = sk
+			r.seenAt = (r.seenAt + 1) % seenCap
 		}
 	}
 	c.TS = r.stamp(now)

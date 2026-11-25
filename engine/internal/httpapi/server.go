@@ -163,6 +163,9 @@ func Router(d Deps, token string) http.Handler {
 		r.Get("/api/version", func(w http.ResponseWriter, _ *http.Request) {
 			writeJSON(w, map[string]string{"version": d.Version})
 		})
+		// Heap, allocation and goroutine profiles, so a user's live heap can be
+		// broken down. Token-gated like the rest of the API.
+		r.Get("/api/debug/pprof/{name}", pprofHandler)
 		// What a restart would interrupt; the desktop app checks it before
 		// installing an update (KB-04).
 		r.Get("/api/activity", activityHandler(d.Hub, d.PF, writes))

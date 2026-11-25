@@ -6,6 +6,9 @@ import (
 	"time"
 )
 
+// reuseBatch is the largest batch whose index and size carry over to the next.
+const reuseBatch = 256
+
 type Coalescer struct {
 	mu      sync.Mutex
 	pending []Op
@@ -94,8 +97,15 @@ func (c *Coalescer) flush() {
 		return
 	}
 	batch := c.pending
-	c.pending = nil
-	c.index = make(map[string]int)
+	// The next batch is likely about this size: reuse the index's buckets
+	// and size the slice, but drop both after a burst so an idle
+	// subscription does not keep them.
+	if len(batch) > reuseBatch {
+		c.pending, c.index = nil, make(map[string]int)
+	} else {
+		c.pending = make([]Op, 0, len(batch))
+		clear(c.index)
+	}
 	c.mu.Unlock()
 	select {
 	case c.out <- batch:

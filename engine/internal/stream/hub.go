@@ -131,11 +131,7 @@ func (w *connWriter) sendControl(f ControlFrame) error {
 }
 
 func (w *connWriter) sendData(f *DataFrame) error {
-	b, err := EncodeData(f)
-	if err != nil {
-		return err
-	}
-	return w.write(websocket.MessageBinary, b)
+	return withEncodedData(f, func(b []byte) error { return w.write(websocket.MessageBinary, b) })
 }
 
 func decodeChanEnvelope(payload []byte) (string, []byte, bool) {

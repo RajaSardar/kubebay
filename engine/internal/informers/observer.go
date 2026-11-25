@@ -2,7 +2,6 @@ package informers
 
 import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,11 +34,7 @@ func asMap(o any) map[string]any {
 	case *unstructured.Unstructured:
 		return v.Object
 	case *metav1.PartialObjectMetadata:
-		m, err := runtime.DefaultUnstructuredConverter.ToUnstructured(v)
-		if err != nil {
-			return nil
-		}
-		return m
+		return metadataMap(v) // what the reflection converter makes, by hand
 	}
 	return nil
 }
