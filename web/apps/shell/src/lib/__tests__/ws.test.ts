@@ -197,6 +197,29 @@ describe("frame order", () => {
     expect(seen).toEqual(["begin:ui-1", "items:ui-1:1", "sync:ui-1"]);
   });
 
+  // The engine sends metadata.generation and deletionGracePeriodSeconds as
+  // msgpack int64 (they were floats when objects went through JSON). They
+  // must reach the UI as plain numbers, not BigInts that break arithmetic,
+  // sorting and JSON.stringify.
+  it("decodes an int64 on the wire as a plain number", async () => {
+    const { mod, socket } = await freshWs();
+    const got: unknown[] = [];
+    mod.attach({ onItems: (_id, ops) => got.push(...ops) });
+    socket().accept();
+    // The engine's bytes for {type: items, id: ui-3, ops: [{op: a, key:
+    // ns/api, obj: {metadata: {generation: int64(3)}}}]}: generation is
+    // d3 then 8 bytes, a 9-byte int64.
+    const hex =
+      "83a474797065a56974656d73a26964a475692d33a36f70739183a26f70a161a36b6579a66e732f617069" +
+      "a36f626a81a86d6574616461746181aa67656e65726174696f6ed30000000000000003";
+    const u8 = new Uint8Array(hex.match(/../g)!.map((b) => parseInt(b, 16)));
+    socket().onmessage?.({ data: u8.buffer });
+    await new Promise((r) => setTimeout(r, 0));
+    const md = (got[0] as { obj: { metadata: Record<string, unknown> } }).obj.metadata;
+    expect(md.generation).toBe(3);
+    expect(typeof md.generation).toBe("number");
+  });
+
   it("keeps the order even if a frame arrives as a Blob", async () => {
     const { mod, socket } = await freshWs();
     const seen: string[] = [];
