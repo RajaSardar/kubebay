@@ -22,3 +22,7 @@ test("default: mcp.readOnly is false and sets nothing", opts, () => {
 test("mcp.readOnly=true sets KUBEBAY_MCP_READ_ONLY=true on the engine", opts, () => {
   assert.match(deployment(render("mcp.readOnly=true")), /- name: KUBEBAY_MCP_READ_ONLY\n\s+value: "true"/);
 });
+
+test("the chart README documents mcp.readOnly", () => {
+  assert.match(readFileSync(`${chart}/README.md`, "utf8"), /mcp\.readOnly/);
+});

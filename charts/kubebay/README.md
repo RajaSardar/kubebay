@@ -48,6 +48,9 @@ To enforce it, give Kyverno or Sigstore policy-controller the same identity, for
   answers for every namespace whatever their RBAC; until then their queries go through the API
   server's service proxy as them. Users can't add, repoint or remove Helm repositories either,
   since every user's installs use the same list: set them in `helmRepos` (each a `name` and `url`).
+- **MCP stays off.** The in-cluster engine never serves the MCP server. `mcp.readOnly` (default
+  `false`) sets `KUBEBAY_MCP_READ_ONLY=true` as a second lock that keeps assistants' write tools
+  off even if MCP were ever reachable.
 - The in-cluster deployment already turns off the local shell, MCP, AI triage, extensions, cloud
   discovery and the cloud audit feed.
 
