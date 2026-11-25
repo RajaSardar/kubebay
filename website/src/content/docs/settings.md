@@ -73,6 +73,10 @@ Adds a Triage tab to pods, which asks a model what's wrong. See [AI triage](/doc
 
 Where `~/.kubebay/extensions.yaml` is, what Kubebay loaded from it, and why it skipped any entries. **Reload** reads the file again. See [Extensions](/docs/extensions/).
 
+## Notifications
+
+In the desktop app only. **Notify me about new issues** is off by default. Turning it on asks the operating system for permission to show notifications: on macOS the first one brings up its prompt, and if you refuse, or have turned Kubebay off under System Settings, Notifications, the switch stays off and says so. **Notify for** sets the lowest severity (Critical only by default), and **Mute a cluster** silences one cluster. The choices are kept for you in this app only. See [Desktop notifications](/docs/issues/#desktop-notifications) for what is and is not sent.
+
 ## Updates
 
 In the desktop app only. **Check for updates automatically** turns the daily check on or off; the check only looks for a new version, it never downloads one. **Check now** checks at once, and **Update now** downloads and installs a version that was found. See [Install](/docs/install/#updates).
