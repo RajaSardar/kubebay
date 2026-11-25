@@ -6,6 +6,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ## [Unreleased]
 
+## [0.8.6] - 2026-11-25
+
 ### Added
 - **Settings on the Clusters page.** A **Settings** button in the header opens the app's settings (theme, display, Prometheus default, images, warm clusters, AI, notifications, updates, saved views, usage history) in a side panel, so you can change them before opening a cluster. The panel loads only when opened or when you hover or focus the button, so the Clusters page opens as fast as before. If settings or their code fail to load, it says so with a **Retry**. Locks on a shared engine (cluster or OIDC) behave the same there as on the Settings page. Tested with component tests only, not in the running app.
 
