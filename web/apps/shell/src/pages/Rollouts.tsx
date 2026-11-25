@@ -1,17 +1,20 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { EmptyState, PageHeader } from "@kubebay/ui";
+import { EmptyState, PageHeader, Tabs } from "@kubebay/ui";
 import { PageHelp } from "../components/PageHelp";
 import { PageLoader } from "../components/PageLoader";
 import { NamespaceFilter } from "../components/NamespaceFilter";
 import { ForbiddenState, NamespacesDeniedBanner } from "../components/ForbiddenState";
-import { RolloutArgoHint } from "../components/RolloutArgoHint";
+import { ArgoDashboard } from "../components/ArgoDashboard";
 import { RolloutsDashboard } from "../components/RolloutsDashboard";
 import { crdApi } from "../lib/api";
 import { useResourceStream } from "../lib/useResourceStream";
 import { useCluster } from "../lib/useCluster";
 import { useSelectedNamespaces } from "../lib/namespace-store";
 import { detectRollouts } from "../lib/rollouts";
+import { rolloutsDashApi } from "../lib/rolloutsDash";
+
+type View = "rollouts" | "argo";
 
 /** Argo Rollouts dashboard: every Rollout with its progress, revisions and AnalysisRuns. Shown only where the Rollout CRD exists. */
 export default function Rollouts() {
@@ -27,6 +30,18 @@ export default function Rollouts() {
     staleTime: 5 * 60_000,
     retry: false,
   });
+  const [view, setView] = useState<View>("rollouts");
+  // Asking starts nothing: the dashboard runs only once its tab is opened. A failed
+  // ask (an engine without the route) just means no tab.
+  const dash = useQuery({
+    queryKey: ["rollouts-dashboard-status", cluster],
+    queryFn: () => rolloutsDashApi.status(cluster),
+    enabled: !!cluster,
+    staleTime: 60_000,
+    retry: false,
+  });
+  const dashOffReason = dash.data?.state === "unavailable" ? dash.data.reason : undefined;
+  const dashAvailable = !!dash.data && dash.data.state !== "unavailable";
   const detection = useMemo(() => detectRollouts(crds.data ?? []), [crds.data]);
 
   const rollouts = useResourceStream(detection.rolloutGvr ? cluster : undefined, detection.rolloutGvr ?? "", {
@@ -103,15 +118,27 @@ export default function Rollouts() {
       {header}
       <div className="page-body">
         {rollouts.denied && rollouts.denied.length > 0 && <NamespacesDeniedBanner noun="Rollouts" namespaces={ns} denied={rollouts.denied} flush />}
-        <RolloutArgoHint />
-        <RolloutsDashboard
-          cluster={cluster}
-          rolloutGvr={detection.rolloutGvr}
-          rollouts={rollouts.rows}
-          replicaSets={replicaSets.rows}
-          analysisRuns={analysisRuns.rows}
-          services={services.forbidden ? null : services.rows}
-        />
+        {dashAvailable && (
+          <Tabs
+            tabs={["rollouts", "argo"] as const}
+            active={view}
+            labels={{ rollouts: "Rollouts", argo: "Argo dashboard" }}
+            onChange={setView}
+          />
+        )}
+        {dashOffReason && <p className="muted small">{dashOffReason}</p>}
+        {view === "argo" && dashAvailable ? (
+          <ArgoDashboard cluster={cluster} namespaces={ns} onUseReleaseView={() => setView("rollouts")} />
+        ) : (
+          <RolloutsDashboard
+            cluster={cluster}
+            rolloutGvr={detection.rolloutGvr}
+            rollouts={rollouts.rows}
+            replicaSets={replicaSets.rows}
+            analysisRuns={analysisRuns.rows}
+            services={services.forbidden ? null : services.rows}
+          />
+        )}
       </div>
     </div>
   );

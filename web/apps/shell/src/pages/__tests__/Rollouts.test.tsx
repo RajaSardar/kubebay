@@ -33,6 +33,20 @@ vi.mock("../../lib/useResourceStream", () => ({
   },
 }));
 
+const dash = vi.hoisted(() => ({ status: { state: "stopped" } as Record<string, unknown> }));
+vi.mock("../../lib/rolloutsDash", async (orig) => ({
+  ...(await orig<typeof import("../../lib/rolloutsDash")>()),
+  rolloutsDashApi: { status: vi.fn(async () => dash.status) },
+}));
+vi.mock("../../components/ArgoDashboard", () => ({
+  ArgoDashboard: (p: { cluster: string; namespaces?: string[]; onUseReleaseView: () => void }) => (
+    <div>
+      argo dashboard for {p.cluster} in {(p.namespaces ?? []).join(",") || "all"}
+      <button onClick={p.onUseReleaseView}>back</button>
+    </div>
+  ),
+}));
+
 const ro = (name: string, namespace: string) => ({ metadata: { name, namespace }, spec: {}, status: { phase: "Healthy" } });
 
 function renderPage() {
@@ -46,6 +60,7 @@ function renderPage() {
 }
 
 beforeEach(() => {
+  dash.status = { state: "stopped" };
   selected.ns = [];
   stream.calls = [];
   stream.rollouts = { rows: [], synced: true, connected: true };
@@ -156,5 +171,29 @@ describe("Rollouts page", () => {
       expect(screen.getByText(/No Rollouts match/)).toBeInTheDocument();
       expect(screen.queryByText(/No Rollouts found/)).toBeNull();
     });
+  });
+
+  it("has an Argo dashboard tab that opens the dashboard for the selected namespaces, and a way back", async () => {
+    selected.ns = ["shop"];
+    stream.rollouts = { rows: [ro("web", "shop")], synced: true, connected: true };
+    renderPage();
+    fireEvent.click(await screen.findByRole("tab", { name: "Argo dashboard" }));
+    expect(await screen.findByText(/argo dashboard for c1 in shop/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "back" }));
+    expect(screen.queryByText(/argo dashboard for/)).not.toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Rollouts", selected: true })).toBeInTheDocument();
+  });
+
+  it("does not start anything until the Argo dashboard tab is opened", async () => {
+    renderPage();
+    await screen.findByRole("tab", { name: "Argo dashboard" });
+    expect(screen.queryByText(/argo dashboard for/)).not.toBeInTheDocument();
+  });
+
+  it("hides the tab on a shared engine and says why", async () => {
+    dash.status = { state: "unavailable", reason: "the Argo dashboard is off in in-cluster mode: it would run with the engine's identity" };
+    renderPage();
+    expect(await screen.findByText(/off in in-cluster mode/)).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Argo dashboard" })).not.toBeInTheDocument();
   });
 });

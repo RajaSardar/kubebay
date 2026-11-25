@@ -8,7 +8,20 @@
           "heading": "Added",
           "items": [
             {
+              "title": "Argo dashboard tab on the Rollouts page",
+              "summary": "(backlog 87), desktop only."
+            },
+            {
               "title": "The Rollouts page has a filter box like every other list: plain words, phase:, ns:, strategy:, image:, revision:, label:, a quoted exact name and - negation, a \"N of M\" count, / to focus it, and a separate \"No Rollouts match this filter\"…",
+              "summary": ""
+            }
+          ]
+        },
+        {
+          "heading": "Changed",
+          "items": [
+            {
+              "title": "The shell's content security policy now has frame-src 'self' instead of 'none', so the Rollouts page can frame the Argo dashboard from the engine's own origin",
               "summary": ""
             }
           ]
