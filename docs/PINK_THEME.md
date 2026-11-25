@@ -147,3 +147,40 @@ First Rule check (speed, no hang, no error):
 3. Name: "Blossom" and "Blossom Night"? Recommendation: keep them; they say what they look like and carry no third-party name.
 4. Add an HC pink variant? Recommendation: not now; the editor themes are held at 4.5:1 and only the two native themes have HC. Revisit if users ask.
 5. Attribution wording: "inspired by Rosé Pine" in the public docs, or only the notices file? Recommendation: notices file plus the tokens.css comment, with no public "inspired by" line, so we imply no endorsement.
+
+## Decisions (debate)
+
+The owner delegated these five questions ("debate and decide, do not ask me"). Three perspectives (designer, skeptic, accessibility lead) argued; this is the synthesis. Read-only analysis; nothing is built yet.
+
+### Final decisions
+
+1. **Reference: modified yes.** Rose Pine is the structural model only (role-named palette, rose-tinted surfaces, light and dark pair). We do not claim it, or anything, is "the most-used pink theme", and no user-facing copy says "follow Rose Pine". Public copy: "a soft rose theme for everyone". The owner's "most like the famous pink theme" goal is unmeetable as stated because no ranking is verifiable (Rose Pine about 353k installs vs Dracula about 11M, which is not a pink theme). The real selling point is a distinctive pink canvas with better contrast than Dawn. Borrow Dracula's lesson for Night only: a hot, saturated pink accent that reads at a glance, as long as contrast holds.
+2. **Blossom Night: yes, ship in the same release, gated.** A pair reads as a system and most developers work in dark. Cost is CSS variables plus list entries, so the First Rule is unaffected. Gate: it merges only if `themeContrast`, `themeTokens`, `themeBoot`, `monacoTheme`, `nativeWindow` and the theme audit all pass with no guard weakened. If Night fails any gate and cannot be fixed in the slice, Blossom ships alone. Night accent may be tuned toward hotter pink (about #f58fbd to #ff8ac0) only after the tests pass; the canvas keeps a visible plum-pink tint, not near-black grey. Contrast figures in this doc are hand-computed; quote none until the tests run.
+3. **Names: yes.** Keep "Blossom" and "Blossom Night". Ids `blossom` and `blossom-night` are permanent (stored in user settings). Before release, grep the 13 existing theme names for collisions. "Blossom" is a generic word and we claim no exclusivity. Settings hints say "Light · soft pink" and "Dark · soft pink" so the name is never the only signal.
+4. **HC pink: no.** No dedicated Blossom HC theme (it would be a 15th block, with near-zero margin at 7:1, and pink at 7:1 drifts to maroon). Instead: both Blossom themes must meet 4.5:1 for text and 3:1 for non-text (focus ring, control borders, chart series); the docs theme page says users needing 7:1 should use Dawn HC or Dusk HC; the recipe (accent at least #8a1553, near-black plum text, 3:1 separators) stays in section 5; a backlog item is filed with trigger "first user request". Add the danger-vs-accent hue-gap guard now (it is worth more than an HC variant).
+5. **Attribution: yes.** `THIRD_PARTY_NOTICES.md` plus a `tokens.css` comment, no public "inspired by" line. Be accurate about scope: our hex values are our own, so the notice says "structure and role naming" and lists MIT text only for projects we actually derive from. Do not mention or copy Pink Cat Boo (unclear provenance). The notices file is a plain file and a comment: no gating test for its existence (slice 5's test is dropped as over-engineering). If the app has a licences or About screen, include the notice there.
+
+### Disagreements resolved
+
+- **Night now vs gated second slice (designer and accessibility: ship together; skeptic: Blossom first, Night after).** Resolved: same release, same PR series, but Night is its own slice after Blossom's slice 1 is green and is gated on the tests. The designer's point (a light-only pink is a novelty) and the skeptic's point (unmeasured numbers, maintenance) are both met: ship the pair if it passes, else Blossom alone.
+- **HC variant (designer: record recipe, no theme; skeptic: no; accessibility: no theme but make it a filed backlog item).** Resolved: no theme; recipe in doc plus a backlog item with a trigger; stronger non-text 3:1 assertions for the new themes. Accessibility's "filed item" wins over skeptic's "revisit only on request" because it costs one line.
+- **Notices test (designer neutral, skeptic: drop it, accessibility: bundle in app).** Resolved for the skeptic: no existence test. Accessibility's in-app notice is adopted only where a licences screen already exists; no new screen is built for this.
+- **Colour-blind safety (skeptic: fix hue gap 34 vs 36 floor; accessibility: hue is a weak proxy, run CVD simulation).** Resolved: both. Fix the 34-degree gap (slice 1) AND add a luminance-gap check plus the "accent is never a failure state and every error has icon plus label" rule. A full protan/deutan simulation is a manual audit item before release, not a new CI test.
+- **Extra decorative pink token (designer only).** Rejected for this release: a new colour must go into every theme block and pass contrast, which expands scope. Pink presence is checked in the screenshot pass instead; add the token only if the audit shows the theme reads as plum rather than pink.
+
+### Missed by the plan (adopted)
+
+- Slice 1 bug: Blossom danger is 34 degrees from the accent but the new floor is 36. Fix before Night.
+- Stale counts: `CLAUDE.md` says "all 12 theme blocks" (really 13, then 14); fix, and make the `DESIGN_SYSTEM.md` count derive from the test or at least be updated in the same PR (lines 7, 53, 144, 146, 190).
+- Speed First Rule evidence: add a guard test that the theme blocks declare no `--kb-space-*`, `--kb-h-*`, `--kb-text-*`, font or size tokens, and no transition or filter. Boot colour for Night in `index.html` as a plain map lookup.
+- Namespace tints `--kb-ns-1..6` and Monaco and xterm: check them in the screenshot pass in both themes (Monaco `vs` and `vs-dark` are blue-grey and may clash with a pink canvas). A custom Monaco theme (one-off `defineTheme`) is a follow-up only if the screenshots show a clash; it is not in this scope.
+- Check that selected-row (accent tint) and error-row (err tint) differ in more than hue; check surface-vs-canvas gap is not glaring; confirm nothing breaks under forced-colors.
+- Same-PR docs: CHANGELOG, whatsnew, `website/src/content/docs/settings.md`, artifact re-sync after merge. No "women" or survey-stat framing in any copy. Real screenshot of the shipped Mac app in both themes per CLAUDE.md.
+- Scope discipline: touch no other theme and no token beyond the two Blossom status tweaks.
+
+### Build scope
+
+- **Themes:** Blossom (existing, two status tweaks) and Blossom Night (new, 14th). No HC.
+- **Tokens changed:** Blossom `--kb-status-err` to #ae1c06 and `--kb-status-warn` to #8a5600 with their subtle and fg variants; new `:root[data-theme="blossom-night"]` block with `color-scheme: dark`, starting from the proposed palette in section 3 and adjusted only to pass tests. No new tokens.
+- **Files:** `web/packages/ui/src/tokens.css`; `web/apps/shell/src/__tests__/themeContrast.test.ts` (hue-gap, luminance gap, non-text 3:1, no-failure-uses-accent), `themeTokens.test.ts` (list plus no layout tokens), `themeBoot.test.ts`, `nativeWindow.test.ts`, `monacoTheme.test.ts`; `theme.ts`, `windowSyncApply.ts`, `index.html`, `Settings.tsx`; `scripts/theme-audit/theme-audit.mjs`; `desktop/src-tauri/src/window_theme.rs` if it lists themes; `THIRD_PARTY_NOTICES.md`; `docs/DESIGN_SYSTEM.md`; `CLAUDE.md` (count only); `website/src/content/docs/settings.md`; CHANGELOG and whatsnew; backlog entry for HC pink.
+- **Order:** slice 1 (status tweak plus guards), 2 (Night tokens), 3 (registrations), 4 (audit and screenshots), 5 (notices, no test), 6 to 8 (docs, counts, changelog). TDD at every slice; ship the Mac app per commit.
