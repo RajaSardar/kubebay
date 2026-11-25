@@ -1,0 +1,46 @@
+{
+  "id": "scaled-to-zero",
+  "title": "A workload was scaled to zero",
+  "fault": "In namespace bench-scaled-to-zero, a Deployment named app with replicas set to 0.",
+  "steps": [
+    {
+      "tool": "get_cluster_health",
+      "args": {
+        "cluster": "{cluster}"
+      }
+    },
+    {
+      "tool": "list_resources",
+      "args": {
+        "cluster": "{cluster}",
+        "kind": "pods",
+        "namespace": "{namespace}"
+      }
+    },
+    {
+      "tool": "list_events",
+      "args": {
+        "cluster": "{cluster}",
+        "namespace": "{namespace}",
+        "warningsOnly": false
+      }
+    },
+    {
+      "tool": "list_resources",
+      "args": {
+        "cluster": "{cluster}",
+        "kind": "deployments",
+        "namespace": "{namespace}"
+      }
+    }
+  ],
+  "expect": {
+    "all": [
+      "app"
+    ],
+    "none": [
+      "BEGIN (RSA |EC )?PRIVATE KEY",
+      "password="
+    ]
+  }
+}

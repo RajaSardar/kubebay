@@ -150,4 +150,14 @@ describe("McpSettingsCard", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save scope" }));
     await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith({ enabled: true, clusters: { "kind-dev": ["shop"] }, writesEnabled: true }));
   });
+
+  it("locks the propose-changes box and says why when the operator started the engine read-only", async () => {
+    status = { ...on(), writesEnabled: true, readOnlyForced: true, readOnlyReason: "set by --mcp-read-only or KUBEBAY_MCP_READ_ONLY" };
+    renderCard();
+    const box = await screen.findByRole("checkbox", { name: /let assistants propose changes/i });
+    expect(box).toBeDisabled();
+    expect(box).not.toBeChecked();
+    expect(screen.getByText(/read-only: set by --mcp-read-only or KUBEBAY_MCP_READ_ONLY/i)).toBeInTheDocument();
+    expect(screen.getByText(/write tools are hidden/i)).toBeInTheDocument();
+  });
 });

@@ -1,0 +1,38 @@
+{
+  "id": "failing-probe",
+  "title": "A readiness probe keeps failing",
+  "fault": "In namespace bench-failing-probe, a Deployment named app with an HTTP readiness probe on a port nothing listens on.",
+  "steps": [
+    {
+      "tool": "get_cluster_health",
+      "args": {
+        "cluster": "{cluster}"
+      }
+    },
+    {
+      "tool": "list_resources",
+      "args": {
+        "cluster": "{cluster}",
+        "kind": "pods",
+        "namespace": "{namespace}"
+      }
+    },
+    {
+      "tool": "list_events",
+      "args": {
+        "cluster": "{cluster}",
+        "namespace": "{namespace}",
+        "warningsOnly": false
+      }
+    }
+  ],
+  "expect": {
+    "all": [
+      "Readiness probe failed|Unhealthy|not ready"
+    ],
+    "none": [
+      "BEGIN (RSA |EC )?PRIVATE KEY",
+      "password="
+    ]
+  }
+}

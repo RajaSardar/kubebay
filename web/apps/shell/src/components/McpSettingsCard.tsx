@@ -121,8 +121,8 @@ export function McpSettingsCard() {
                   <input
                     type="checkbox"
                     aria-label="Let assistants propose changes"
-                    checked={!!st.writesEnabled}
-                    disabled={busy}
+                    checked={!!st.writesEnabled && !st.readOnlyForced}
+                    disabled={busy || !!st.readOnlyForced}
                     onChange={(e) => void run(() => mcpApi.save({ enabled: true, clusters: st.clusters, writesEnabled: e.target.checked }))}
                   />
                   <span className="small strong">Let assistants propose changes</span>
@@ -131,6 +131,12 @@ export function McpSettingsCard() {
                   To workloads, Services and Ingresses in the clusters above. A proposal changes nothing: Kubebay shows you the
                   diff and you approve or reject each one here. Turning this or MCP off rejects whatever is waiting.
                 </div>
+                {st.readOnlyForced && (
+                  <div className="small">
+                    Read-only: {st.readOnlyReason}. The write tools are hidden from assistants and refuse if called; your choice
+                    above is kept and applies again when the engine starts without it.
+                  </div>
+                )}
               </Stack>
             )}
             {st.enabled && bridge && bridge.length > 0 && (

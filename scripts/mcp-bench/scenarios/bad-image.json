@@ -1,0 +1,38 @@
+{
+  "id": "bad-image",
+  "title": "A pod cannot pull its image",
+  "fault": "In namespace bench-bad-image, a Deployment named app using the image tag registry.invalid/none:0.",
+  "steps": [
+    {
+      "tool": "get_cluster_health",
+      "args": {
+        "cluster": "{cluster}"
+      }
+    },
+    {
+      "tool": "list_resources",
+      "args": {
+        "cluster": "{cluster}",
+        "kind": "pods",
+        "namespace": "{namespace}"
+      }
+    },
+    {
+      "tool": "list_events",
+      "args": {
+        "cluster": "{cluster}",
+        "namespace": "{namespace}",
+        "warningsOnly": false
+      }
+    }
+  ],
+  "expect": {
+    "all": [
+      "ImagePullBackOff|ErrImagePull|Failed to pull"
+    ],
+    "none": [
+      "BEGIN (RSA |EC )?PRIVATE KEY",
+      "password="
+    ]
+  }
+}

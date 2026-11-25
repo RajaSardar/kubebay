@@ -896,6 +896,9 @@ export interface McpStatus {
   bridgeCommand?: string[];
   /** Assistants may propose changes; each waits for approval in Kubebay. */
   writesEnabled?: boolean;
+  /** An operator started the engine read-only (--mcp-read-only): write tools are off whatever writesEnabled says. */
+  readOnlyForced?: boolean;
+  readOnlyReason?: string;
 }
 
 /** One change an assistant proposed (backlog #5 phase 2). Nothing applies until approved. */

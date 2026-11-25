@@ -1,0 +1,38 @@
+{
+  "id": "missing-configmap",
+  "title": "A pod references a ConfigMap that does not exist",
+  "fault": "In namespace bench-missing-configmap, a Deployment named app with an envFrom ConfigMap named absent.",
+  "steps": [
+    {
+      "tool": "get_cluster_health",
+      "args": {
+        "cluster": "{cluster}"
+      }
+    },
+    {
+      "tool": "list_resources",
+      "args": {
+        "cluster": "{cluster}",
+        "kind": "pods",
+        "namespace": "{namespace}"
+      }
+    },
+    {
+      "tool": "list_events",
+      "args": {
+        "cluster": "{cluster}",
+        "namespace": "{namespace}",
+        "warningsOnly": false
+      }
+    }
+  ],
+  "expect": {
+    "all": [
+      "CreateContainerConfigError|configmap .*not found|absent"
+    ],
+    "none": [
+      "BEGIN (RSA |EC )?PRIVATE KEY",
+      "password="
+    ]
+  }
+}
