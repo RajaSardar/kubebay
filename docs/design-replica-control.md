@@ -1,7 +1,6 @@
 # Design: a better replica count control
 
-Status: proposal (design only, nothing built). Owner ask: replace the `−5 − [n] + +5` row with
-something better for the user than plus and minus buttons, such as a scrollbar or a popup.
+Status: proposal, design only. Owner ask: replace the `−5 − [n] + +5` row with a scrollbar or popup.
 
 ## Today (v0.8.5)
 
@@ -29,7 +28,7 @@ something better for the user than plus and minus buttons, such as a scrollbar o
    confirmation; the control never applies on release.
 5. HPA/KEDA-managed: show a note ("An HPA manages this workload and will override the count",
    link to it) and keep the control usable, since a manual scale is legal but temporary.
-6. Docs rule: `website/src/content/docs/` page and the ⓘ help entry change in the same PR.
+6. Docs rule: the docs page and the ⓘ help entry change in the same PR.
 
 ## Options
 
@@ -65,9 +64,8 @@ Keep − and +, hold repeats: 1/s, then 5/s, then 20/s.
 - Cons: 6 to 8 segments is wider than the stepper it replaces, useless for 18 → 24,
   presets cannot adapt to the current value without the row changing width (layout shift).
 
-### (e) Better: option (b), with the slider moved to a log-ish scale (recommended shape)
-Same panel as (b), the trigger behaves like (d) in miniature, and relative chips adapt to the
-current count (see "Scale mapping"). This is the recommendation.
+### (e) Option (b) with a log-ish slider scale and chips relative to the current count
+This is the recommendation (see "Scale mapping").
 
 ## Recommendation: (e), the popover
 
@@ -123,9 +121,4 @@ In the Scale dialog the same body renders inline (no popover) above the blast-ra
 3. `ReplicaControl` replaces `ReplicaStepper` (keep `clampReplicas`), wired in ActionsBar and
    WorkloadActionDialog; HPA lookup from the loaded HPA list, no new request.
 4. Docs page, ⓘ help entry, CHANGELOG with the measured drag cost (expect under one frame, 16ms).
-5. Build and ship the Mac app and screenshot it, as the repo rules require.
-
-## Open questions for the owner
-- Should the drawer keep an inline "Apply scale" next to the trigger, or only inside the panel?
-  (Default: both, the row one stays so a single click applies.)
-- Is Half and 2× enough, or do you want a "Match HPA min" chip when an HPA exists?
+5. Build, ship and screenshot the Mac app per the repo rules.
