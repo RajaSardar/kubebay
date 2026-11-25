@@ -10,6 +10,13 @@ describe("applySharedPref", () => {
     expect(useTheme.getState().resolved).toBe("dusk");
   });
 
+  it("takes Blossom and Blossom Night from another window", () => {
+    for (const id of ["blossom", "blossom-night"] as const) {
+      applySharedPref("kb.theme", id);
+      expect(useTheme.getState().theme).toBe(id);
+    }
+  });
+
   it("follows font size, font family and density", () => {
     applySharedPref("kb.fontSize", "lg");
     applySharedPref("kb.fontFamily", "mono");

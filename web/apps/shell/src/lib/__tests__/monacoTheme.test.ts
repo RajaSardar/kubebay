@@ -7,6 +7,7 @@ describe("monacoThemeFor", () => {
     ["dawn", "vs"],
     ["github-light", "vs"],
     ["blossom", "vs"],
+    ["blossom-night", "vs-dark"],
     ["dusk", "vs-dark"],
     ["nord", "vs-dark"],
     ["dusk-hc", "hc-black"],

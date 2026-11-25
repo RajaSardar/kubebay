@@ -7,7 +7,7 @@ import type { SharedKey } from "./windowSync";
 
 const THEMES: readonly ThemeName[] = [
   "dusk", "dawn", "system", "dusk-hc", "dawn-hc", "vscode-dark", "vscode-light",
-  "one-dark", "dracula", "nord", "github-dark", "github-light", "catppuccin", "blossom",
+  "one-dark", "dracula", "nord", "github-dark", "github-light", "catppuccin", "blossom", "blossom-night",
 ];
 const FAMILIES: readonly FontFamily[] = ["system", "mono", "jetbrains"];
 

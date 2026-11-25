@@ -26,7 +26,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, "../..");
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE ? pathToFileURL(process.env.PLAYWRIGHT_MODULE).href : "playwright");
 
-const THEMES = ["dawn", "dusk", "dawn-hc", "dusk-hc", "vscode-dark", "vscode-light", "one-dark", "dracula", "nord", "github-dark", "github-light", "catppuccin", "blossom"];
+const THEMES = ["dawn", "dusk", "dawn-hc", "dusk-hc", "vscode-dark", "vscode-light", "one-dark", "dracula", "nord", "github-dark", "github-light", "catppuccin", "blossom", "blossom-night"];
 const HC = new Set(["dawn-hc", "dusk-hc"]);
 const PORT = 9899;
 const shotsIdx = process.argv.indexOf("--shots");
