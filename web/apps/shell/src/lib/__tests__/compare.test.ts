@@ -58,8 +58,21 @@ describe("toYaml", () => {
     expect(t).toContain('c: ""');
     expect(t).toContain('d: "a: b"');
     expect(t).toContain("e: plain");
-    expect(t).toContain('f: "line1\\nline2"');
+    expect(t).toContain("f: |-\n  line1\n  line2");
     expect(t).toContain('g: "<7 bytes>"');
+  });
+});
+
+describe("toYaml multi-line strings", () => {
+  it("writes a ConfigMap file as a block literal so a one-line change is one changed line", () => {
+    const cm = (v: string) => toYaml({ data: { "app.conf": v }, l: ["a\nb"] });
+    expect(cm("x=1\ny=2\n")).toBe("data:\n  app.conf: |\n    x=1\n    y=2\nl:\n  - |-\n    a\n    b\n");
+    const d = unifiedDiff(cm("x=1\ny=2\nz=3\n"), cm("x=1\ny=9\nz=3\n"), "a", "b");
+    expect(d).toContain("-    y=2\n+    y=9\n");
+  });
+  it("falls back to a quoted string when a block literal would be ambiguous", () => {
+    expect(toYaml({ a: " lead\nx" })).toContain('a: " lead\\nx"');
+    expect(toYaml({ a: "x\n\n" })).toContain('a: "x\\n\\n"');
   });
 });
 

@@ -58,6 +58,21 @@ function scalar(v: string | number | boolean | null): string {
   return needsQuote ? JSON.stringify(v) : v;
 }
 
+/**
+ * A multi-line string as a block literal, so a ConfigMap's file diffs line by
+ * line instead of as one long quoted line. Null when it cannot be written
+ * safely (leading spaces or blank lines, several trailing newlines, control
+ * characters): the caller then quotes it.
+ */
+function blockLiteral(v: unknown, indent: number): string[] | null {
+  if (typeof v !== "string" || !v.includes("\n")) return null;
+  if (/[^\n\t\x20-\x7e\u00a0-\uffff]/.test(v) || /\n\n$/.test(v) || /^[\s]/.test(v)) return null;
+  const keep = v.endsWith("\n");
+  const body = (keep ? v.slice(0, -1) : v).split("\n");
+  const pad = " ".repeat(indent);
+  return [keep ? "|" : "|-", ...body.map((l) => (l === "" ? "" : pad + l))];
+}
+
 function lines(v: unknown, indent: number): string[] {
   const pad = " ".repeat(indent);
   if (Array.isArray(v)) {
@@ -67,6 +82,8 @@ function lines(v: unknown, indent: number): string[] {
         inner[0] = `${pad}- ${inner[0]!.slice(indent + 2)}`;
         return inner;
       }
+      const blk = blockLiteral(item, indent + 2);
+      if (blk) return [`${pad}- ${blk[0]}`, ...blk.slice(1)];
       return [`${pad}- ${inline(item)}`];
     });
   }
@@ -79,6 +96,8 @@ function lines(v: unknown, indent: number): string[] {
       if (isObj(val) ? Object.keys(val).length > 0 : Array.isArray(val) && val.length > 0) {
         return [`${pad}${key}:`, ...lines(val, indent + 2)];
       }
+      const blk = blockLiteral(val, indent + 2);
+      if (blk) return [`${pad}${key}: ${blk[0]}`, ...blk.slice(1)];
       return [`${pad}${key}: ${inline(val)}`];
     });
 }
