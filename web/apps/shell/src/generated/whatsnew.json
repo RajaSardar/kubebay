@@ -6,6 +6,59 @@
       "sections": []
     },
     {
+      "version": "0.8.8",
+      "date": "2026-11-25",
+      "sections": [
+        {
+          "heading": "Added",
+          "items": [
+            {
+              "title": "A token-gated heap profile at /api/debug/pprof/heap (also allocs and goroutine), so a large live heap can be broken down",
+              "summary": ""
+            },
+            {
+              "title": "Refresh everything: ⌘R / Ctrl+R",
+              "summary": ", and a Refresh button at the top of the sidebar."
+            }
+          ]
+        },
+        {
+          "heading": "Fixed",
+          "items": [
+            {
+              "title": "The engine no longer burns CPU on garbage collection on big clusters",
+              "summary": "It set a fixed 512 MiB soft memory limit for the Go GC whenever GOMEMLIMIT was unset; once a large cluster's caches pushed the live heap past it (680 MB seen), the GC ran back to back (135 to 254% CPU, mostly GC workers)."
+            }
+          ]
+        },
+        {
+          "heading": "Performance",
+          "items": [
+            {
+              "title": "Timeline diff without reflection",
+              "summary": "Recording a pod status write compared every subtree with reflect.DeepEqual before descending into it, so each leaf was compared up to 6 times."
+            },
+            {
+              "title": "A write seen by two watches is dropped before the diff",
+              "summary": "A namespaced, an all-namespaces and a metadata watch of the same kind each report the same write; the repeat was dropped only after the diff ran."
+            },
+            {
+              "title": "A live update is encoded once, not once per subscription",
+              "summary": "Each open table subscribes on its own, and every subscription msgpack-encoded the same object again, each into a new slice."
+            },
+            {
+              "title": "Metadata-only watches convert objects by hand",
+              "summary": "Pages and the search index that need only names, labels and owners watch metadata; each of those objects went through a JSON round trip for every live update and every snapshot (193 allocations, 8.0 KB) and through the reflection converter…"
+            },
+            {
+              "title": "Each subscription's 16 ms batching reuses its key index instead of building a new one every flush: 6 allocations to 1 per flush of 7 updates",
+              "summary": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
       "version": "0.8.7",
       "date": "2026-11-25",
       "sections": [

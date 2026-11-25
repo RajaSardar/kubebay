@@ -6,12 +6,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ## [Unreleased]
 
+## [0.8.8] - 2026-11-25
+
 ### Added
+- A token-gated heap profile at `/api/debug/pprof/heap` (also `allocs` and `goroutine`), so a large live heap can be broken down. The profile is gathered before any header is sent (5 to 6 KB in a test process), so a profile that cannot be written is a plain error asking you to try again, not a download of a cut-off file.
 - **Refresh everything: ⌘R / Ctrl+R**, and a **Refresh** button at the top of the sidebar. Every query refetches and every live stream re-subscribes, without reloading the window. Live tables keep their rows until the fresh list has synced (no skeleton flash), unsaved YAML stays, a 1-second cooldown stops a held key from flooding the cluster, and Ctrl+R in a terminal stays the shell's history search. Cost: one refetch of the queries on screen (inactive ones are only marked stale) and one re-list per open stream; it holds no extra memory.
 
 ### Fixed
 - **The engine no longer burns CPU on garbage collection on big clusters.** It set a fixed 512 MiB soft memory limit for the Go GC whenever `GOMEMLIMIT` was unset; once a large cluster's caches pushed the live heap past it (680 MB seen), the GC ran back to back (135 to 254% CPU, mostly GC workers). In a synthetic test with a 560 MiB live heap and 25 to 100 MB/s of garbage, GC used 5.8 cores with the limit and 0.0 to 0.3 cores without it (93 GC cycles in 6 s against 0 to 1). The default limit is gone; `GOMEMLIMIT` is still honoured. The cost is memory: with no limit the heap grows to about two to three times the live heap between collections. A committed test measures the trade-off at a smaller scale (36 MiB live heap, 320 MiB of garbage): 83 to 132 GC cycles and 0.11 to 0.20 s of GC CPU under a limit at half the live heap, against 5 to 12 cycles and 0.01 to 0.02 s with none, at a peak heap of 86 to 118 MiB instead of 44 MiB.
-- A token-gated heap profile at `/api/debug/pprof/heap` (also `allocs` and `goroutine`), so a large live heap can be broken down. The profile is gathered before any header is sent (5 to 6 KB in a test process), so a profile that cannot be written is a plain error asking you to try again, not a download of a cut-off file.
 
 ### Performance
 - **Timeline diff without reflection.** Recording a pod status write compared every subtree with `reflect.DeepEqual` before descending into it, so each leaf was compared up to 6 times. It now skips equal children with a type-switched compare and only builds paths where something changed. Per pod update (synthetic 2,000-pod fixture, Apple M2): 92 to 110 µs, 81 KB and 1,076 allocations before; 13 µs, 191 B and 7 allocations after. A heartbeat-only write: 81 µs, 84 KB, 1,034 allocations before; 9 µs, 48 B, 2 allocations after. At 400 updates a second that is about 32 MB/s less garbage. Timeline entries are unchanged: a test pins the output to the old walk over 60 pods (every name and namespace shape the fixture makes) and 23 kinds of edit, both ways and against nothing.
