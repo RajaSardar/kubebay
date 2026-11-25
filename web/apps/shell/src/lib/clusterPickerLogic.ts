@@ -10,6 +10,11 @@ export function shouldRedirectToPicker(pathname: string, activeCluster: string):
   return activeCluster.trim() === "";
 }
 
+/** Where a cluster-less visit goes: the settings are global, so /settings opens them over the Clusters page. */
+export function pickerRedirectTarget(pathname: string, _activeCluster: string): string {
+  return pathname === "/settings" ? "/clusters?settings=1" : "/clusters";
+}
+
 /**
  * The active cluster is only ever one the user chose: the URL's, else the
  * stored one. Never "the first reachable cluster": that fallback streamed a

@@ -60,7 +60,7 @@ import { PageHelp } from "../components/PageHelp";
 import { SettingsDrawerHost } from "../components/SettingsDrawerHost";
 
 // Settings load only when opened, so the first paint of /clusters is unchanged.
-const loadSettingsDrawer = () => import("./settings/SettingsDrawer");
+const loadSettingsDrawer = () => import("./settings/SettingsDrawer").catch(() => undefined);
 let SettingsDrawer = lazy(() => import("./settings/SettingsDrawer"));
 
 const APP_VERSION = "v0.8.5";

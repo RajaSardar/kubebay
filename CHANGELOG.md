@@ -11,6 +11,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ### Changed
 - The Settings page and the new panel share one body. Inside a cluster the page now starts with **This cluster** (Prometheus status, **Change**, **Test connection**), and **Manage kubeconfig files** opens the dialog directly when you are on the Clusters page.
+- Opening **Settings** (the sidebar, the command palette or a link) before you have picked a cluster now lands on the Clusters page with the settings panel open, instead of dropping you on the plain list. Hovering the **Settings** button no longer logs an error if the panel's code can't be fetched.
 
 ## [0.8.5] - 2026-11-25
 

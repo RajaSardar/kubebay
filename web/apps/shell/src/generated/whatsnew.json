@@ -19,6 +19,10 @@
             {
               "title": "The Settings page and the new panel share one body",
               "summary": ""
+            },
+            {
+              "title": "Opening Settings (the sidebar, the command palette or a link) before you have picked a cluster now lands on the Clusters page with the settings panel open, instead of dropping you on the plain list",
+              "summary": ""
             }
           ]
         }
