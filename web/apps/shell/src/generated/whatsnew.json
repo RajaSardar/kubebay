@@ -5,24 +5,6 @@
       "date": "",
       "sections": [
         {
-          "heading": "Changed",
-          "items": [
-            {
-              "title": "Scale: the −10 and +10 buttons are gone",
-              "summary": "The row had seven controls and looked cluttered."
-            }
-          ]
-        },
-        {
-          "heading": "Fixed",
-          "items": [
-            {
-              "title": "The drawer's title no longer overlaps the action buttons",
-              "summary": "When the drawer body was tall (a Deployment with the scale row, the Pods table and a banner), the drawer's head shrank below its content, so the name and namespace were drawn over the row of buttons."
-            }
-          ]
-        },
-        {
           "heading": "Added",
           "items": [
             {
@@ -32,21 +14,7 @@
             {
               "title": "The Rollouts page has a filter box like every other list: plain words, phase:, ns:, strategy:, image:, revision:, label:, a quoted exact name and - negation, a \"N of M\" count, / to focus it, and a separate \"No Rollouts match this filter\"…",
               "summary": ""
-            }
-          ]
-        },
-        {
-          "heading": "Changed",
-          "items": [
-            {
-              "title": "The shell's content security policy now has frame-src 'self' instead of 'none', so the Rollouts page can frame the Argo dashboard from the engine's own origin",
-              "summary": ""
-            }
-          ]
-        },
-        {
-          "heading": "Added",
-          "items": [
+            },
             {
               "title": "Prometheus diagnostics",
               "summary": "(backlog 88)."
@@ -57,6 +25,14 @@
           "heading": "Changed",
           "items": [
             {
+              "title": "Scale: the −10 and +10 buttons are gone",
+              "summary": "The row had seven controls and looked cluttered."
+            },
+            {
+              "title": "The shell's content security policy now has frame-src 'self' instead of 'none', so the Rollouts page can frame the Argo dashboard from the engine's own origin",
+              "summary": ""
+            },
+            {
               "title": "The default Prometheus URL in Settings is now only a fallback for clusters where no Prometheus Service is found; a URL set for one cluster still always wins",
               "summary": ""
             }
@@ -65,6 +41,10 @@
         {
           "heading": "Fixed",
           "items": [
+            {
+              "title": "The drawer's title no longer overlaps the action buttons",
+              "summary": "When the drawer body was tall (a Deployment with the scale row, the Pods table and a banner), the drawer's head shrank below its content, so the name and namespace were drawn over the row of buttons."
+            },
             {
               "title": "Prometheus: a URL set by the operator (the engine's environment) now wins over a stored default URL and over auto-detection, as documented",
               "summary": ""
