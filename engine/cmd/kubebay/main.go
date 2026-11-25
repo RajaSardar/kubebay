@@ -73,7 +73,10 @@ func main() {
 		return
 	}
 
-	applyMemoryLimit(os.Getenv("GOMEMLIMIT"))
+	// No memory limit of its own: GOMEMLIMIT, which the runtime applies
+	// before main, is the only one. A fixed 512 MiB limit below a large
+	// cluster's live heap kept the GC running back to back (see
+	// memlimit_test.go for the trade-off, measured).
 
 	log := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 

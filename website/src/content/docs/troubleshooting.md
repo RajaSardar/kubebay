@@ -69,7 +69,7 @@ Those pages read the custom resources their operator installs. Kubebay checks fo
 
 ## The engine uses a lot of memory or CPU
 
-On a large cluster most of the engine's memory is the cached objects of the pages you have open; it lets go of a kind about two minutes after no page shows it. The engine sets no Go memory limit of its own. To cap it, start it with `GOMEMLIMIT` set (for example `GOMEMLIMIT=2GiB`); a limit below what the open pages need makes the garbage collector run constantly, so set it with room to spare.
+On a large cluster most of the engine's memory is the cached objects of the pages you have open; it lets go of a kind about two minutes after no page shows it. The engine sets no Go memory limit of its own, so between collections its heap can grow to two to three times what the open pages hold. To cap it, start it with `GOMEMLIMIT` set (for example `GOMEMLIMIT=2GiB`); a limit below what the open pages need makes the garbage collector run constantly, so set it with room to spare.
 
 To see where the memory goes, save a heap profile and attach it to an issue:
 
