@@ -2,6 +2,7 @@ package aiinvest
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -28,6 +29,7 @@ sleep) sleep 60 ;;
 trap) trap '' TERM; echo ready > "$out/ready"; while true; do sleep 1; done ;;
 fork) sleep 300 & echo $! > "$out/child.pid"; echo ready > "$out/ready"; wait ;;
 flood) while true; do emit "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"; done ;;
+escape) python3 -c 'import os,time; os.setsid(); open(os.environ["CLAUDE_FAKE_OUT"]+"/child.pid","w").write(str(os.getpid())); time.sleep(25)' & sleep 0.5; exit 0 ;;
 crash) echo "Not logged in" >&2; exit 3 ;;
 esac
 `
@@ -318,4 +320,28 @@ func atoi(t *testing.T, s string) int {
 		n = n*10 + int(c-'0')
 	}
 	return n
+}
+
+// A helper that left the process group (setsid) keeps stderr open; the run must
+// still finish, revoke its token and remove its temp dir.
+func TestRunFinishesWhenAnEscapedChildHoldsStderr(t *testing.T) {
+	h := newHarness(t, "escape")
+	t.Cleanup(func() {
+		if b, err := os.ReadFile(filepath.Join(h.out, "child.pid")); err == nil {
+			var pid int
+			fmt.Sscan(string(b), &pid)
+			_ = syscall.Kill(pid, syscall.SIGKILL)
+		}
+	})
+	inv, err := h.m.Start("local", req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.wait(t, inv)
+	if h.revs != 1 {
+		t.Fatalf("token not revoked: %d", h.revs)
+	}
+	if entries, _ := os.ReadDir(h.root); len(entries) != 0 {
+		t.Fatalf("temp root not empty: %v", entries)
+	}
 }

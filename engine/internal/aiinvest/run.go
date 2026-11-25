@@ -191,6 +191,8 @@ func (m *Manager) Start(user string, req Request) (*Investigation, error) {
 	if strings.TrimSpace(req.Cluster) == "" {
 		return nil, errors.New("a cluster is required")
 	}
+	// These reach the audit entry as well as the prompt: bound them and drop control characters.
+	req.IssueID, req.Name, req.Namespace = clean(req.IssueID, 300), clean(req.Name, 300), clean(req.Namespace, 100)
 	m.mu.Lock()
 	if cur := m.active[user]; cur != nil && !cur.Done() {
 		m.mu.Unlock()
@@ -345,7 +347,14 @@ func (m *Manager) supervise(inv *Investigation, req Request, cmd *exec.Cmd, outR
 		outR.Close()
 		<-readerDone
 	}
-	errText := <-stderrDone
+	var errText string
+	select {
+	case errText = <-stderrDone:
+	case <-time.After(2 * time.Second):
+		// A helper that left the process group still holds stderr: do not wait for it.
+		errR.Close()
+		errText = <-stderrDone
+	}
 	if outcome == "limit" {
 		inv.add(Event{Kind: "notice", Text: "Stopped: the output size limit was reached."})
 	}

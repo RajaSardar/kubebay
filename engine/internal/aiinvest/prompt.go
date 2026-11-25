@@ -2,6 +2,7 @@ package aiinvest
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"unicode"
 )
@@ -36,6 +37,8 @@ const (
 	maxDetail = 1500
 )
 
+var fenceTag = regexp.MustCompile(`(?i)<\s*/?\s*untrusted-data\s*>`)
+
 func clean(s string, max int) string {
 	s = strings.Map(func(r rune) rune {
 		if r == '\n' || r == '\t' {
@@ -46,7 +49,15 @@ func clean(s string, max int) string {
 		}
 		return r
 	}, s)
-	s = strings.NewReplacer("<untrusted-data>", "", "</untrusted-data>", "").Replace(s)
+	// Repeat until stable: removing one tag must not assemble another
+	// ("<untrusted-<untrusted-data>data>"), and the match ignores case.
+	for {
+		t := fenceTag.ReplaceAllString(s, "")
+		if t == s {
+			break
+		}
+		s = t
+	}
 	if len(s) > max {
 		s = s[:max]
 	}
