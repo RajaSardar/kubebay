@@ -6,20 +6,22 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ## [Unreleased]
 
-## [0.8.6] - 2026-11-25
-
-### Added
-- **Settings on the Clusters page.** A **Settings** button in the header opens the app's settings (theme, display, Prometheus default, images, warm clusters, AI, notifications, updates, saved views, usage history) in a side panel, so you can change them before opening a cluster. The panel loads only when opened or when you hover or focus the button, so the Clusters page opens as fast as before. If settings or their code fail to load, it says so with a **Retry**. Locks on a shared engine (cluster or OIDC) behave the same there as on the Settings page. Tested with component tests only, not in the running app.
+## [0.8.7] - 2026-11-25
 
 ### Fixed
 - **Sideways scrolling in tables** (backlog 90). Trackpad and mouse-wheel sideways scrolling did nothing after a search left few rows, and was unreliable otherwise: a window-level wheel handler cancelled every gesture that was not also scrolling something vertically. The handler is gone (CSS `overscroll-behavior` stops the window bounce). Measured in a headless browser against 2,000 mock pods: a sideways wheel gesture moved the table 0 px before (every gesture cancelled, with or without a filter) and 300 px after, with 2,000 rows and with 2. Not checked in the Mac app: whether the window still bounces there is for you to confirm.
 - A filter that matches nothing no longer throws away the table: the headers and your sideways position stay, and the message sits at the left edge. Before, the position went back to 0 once you cleared the filter.
 
-### Changed (smoother scrolling, backlog 90)
+### Changed
 - Fewer re-renders and no forced layouts while scrolling a table. Headless browser, 2,000 mock pods, CPU throttled 6x, no pod updates: React commits per vertical wheel gesture 5.0 to 1.2, median frame 33 ms to 17 ms. With 40 pod updates a second the median frame went from 50 ms to 33 ms (runs vary, 83 ms at the 95th percentile). Rows are a fixed height and no longer observed one by one; the sideways scrollbar and the header measure on resize rather than after every render; a stream update re-sorts in near-linear time. A scrolling profile spent 120 ms of 4 s in a layout forced by the scrollbar before the last fix and about none after.
 - The pod and workload **Logs** views draw only the lines on screen once a log passes 300 lines. At 5,000 lines streaming with the view scrolled: 5,000 lines in the page and 7 long tasks over 4 s before, about 80 lines and none after; median frame 50 ms before, 16.7 ms after (headless browser, mock log stream). Text selection and the browser's find reach only the lines drawn; **Download** has the whole log.
 - The Network Policy matrix's sticky headers no longer use a blur behind them, which repainted on every scroll tick. Not measured separately.
 - Not changed: hover transitions on rows, the 4 px native scrollbar and the unminified web build, which the diagnosis listed as small or load-time items and which were not measured to matter for scrolling. Numbers are from headless Chromium without GPU raster, not WKWebView.
+
+## [0.8.6] - 2026-11-25
+
+### Added
+- **Settings on the Clusters page.** A **Settings** button in the header opens the app's settings (theme, display, Prometheus default, images, warm clusters, AI, notifications, updates, saved views, usage history) in a side panel, so you can change them before opening a cluster. The panel loads only when opened or when you hover or focus the button, so the Clusters page opens as fast as before. If settings or their code fail to load, it says so with a **Retry**. Locks on a shared engine (cluster or OIDC) behave the same there as on the Settings page. Tested with component tests only, not in the running app.
 
 ### Changed
 - The Settings page and the new panel share one body. Inside a cluster the page now starts with **This cluster** (Prometheus status, **Change**, **Test connection**), and **Manage kubeconfig files** opens the dialog directly when you are on the Clusters page.

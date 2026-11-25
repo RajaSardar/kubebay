@@ -63,7 +63,7 @@ import { SettingsDrawerHost } from "../components/SettingsDrawerHost";
 const loadSettingsDrawer = () => import("./settings/SettingsDrawer").catch(() => undefined);
 let SettingsDrawer = lazy(() => import("./settings/SettingsDrawer"));
 
-const APP_VERSION = "v0.8.6";
+const APP_VERSION = "v0.8.7";
 /** Default column widths (px); the Name column holds the icon, name and provider badge. */
 const COLUMN_WIDTHS: Readonly<Record<string, number>> = { Name: 320, Session: 130, API: 110, Version: 110, Pods: 150, Nodes: 80, "CPU · 7 days": 150, Requests: 150 };
 const HEADERS = ["Name", "Session", "API", "Version", "Pods", "Nodes", "CPU · 7 days", "Requests"] as const;
