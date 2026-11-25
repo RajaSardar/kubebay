@@ -50,6 +50,17 @@ describe("Popover", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
+  it("can be disabled, and a disabled one never opens", () => {
+    render(
+      <Popover label="Scale replicas" trigger="Scale: 3" disabled>
+        <input aria-label="Replicas" />
+      </Popover>,
+    );
+    expect(trigger()).toBeDisabled();
+    fireEvent.click(trigger());
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
   it("reports open changes", () => {
     const spy = vi.fn();
     render(<Fixture onOpenChange={spy} />);

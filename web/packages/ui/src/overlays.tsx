@@ -374,6 +374,8 @@ export interface PopoverProps {
   align?: "start" | "end";
   /** Tells the caller when it opens or closes; the panel's contents stay the caller's. */
   onOpenChange?: (open: boolean) => void;
+  /** Dims the button; the panel stays closed. */
+  disabled?: boolean;
   className?: string;
 }
 
@@ -386,7 +388,7 @@ export interface PopoverProps {
  * flips to the other side or upward when it would run out of its container. Closing it
  * keeps whatever the caller holds; the panel owns no state.
  */
-export function Popover({ label, trigger, triggerLabel, children, align = "start", onOpenChange, className }: PopoverProps) {
+export function Popover({ label, trigger, triggerLabel, children, align = "start", onOpenChange, disabled, className }: PopoverProps) {
   const [open, setOpen] = useState(false);
   const [flipped, setFlipped] = useState(false); // opposite side to `align`
   const [up, setUp] = useState(false);
@@ -465,6 +467,7 @@ export function Popover({ label, trigger, triggerLabel, children, align = "start
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
+        disabled={disabled}
         onClick={() => change(!open)}
       >
         {trigger}

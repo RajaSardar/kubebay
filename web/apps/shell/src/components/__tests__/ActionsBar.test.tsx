@@ -12,6 +12,13 @@ vi.mock("../../lib/api", async () => {
   return { ...actual, api: { ...actual.api, scale: vi.fn(), restart: vi.fn().mockResolvedValue({ ok: true }) } };
 });
 
+/** The Scale control is one button; its panel opens on first use. */
+const field = () => {
+  if (!screen.queryByRole("spinbutton", { name: "Replicas" })) fireEvent.click(screen.getByRole("button", { name: /^Scale:/ }));
+  return screen.getByRole("spinbutton", { name: "Replicas" }) as HTMLInputElement;
+};
+const bump = (d: number) => fireEvent.change(field(), { target: { value: String(Number(field().value) + d) } });
+
 const props = { slug: "deployments" as const, cluster: "kind-test", ns: "default", name: "example" };
 
 describe("ActionsBar — GitOps ownership warning", () => {
@@ -34,25 +41,46 @@ describe("ActionsBar — GitOps ownership warning", () => {
   });
 });
 
-describe("ActionsBar — replicas stepper (backlog #5)", () => {
-  it("shows − and + buttons with the current replica count", () => {
+describe("ActionsBar — replica control (backlog #5, #89)", () => {
+  it("shows one Scale button with the current count, and the controls in its panel", () => {
     render(<ActionsBar {...props} currentReplicas={3} />);
-    expect(screen.getByRole("button", { name: "Decrease replicas" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Increase replicas" })).toBeInTheDocument();
-    expect(screen.getByRole("spinbutton", { name: "Replicas" })).toHaveValue(3);
+    expect(screen.getByRole("button", { name: "Scale: 3" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Increase replicas" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Decrease replicas" })).toBeNull();
+    expect(field()).toHaveValue(3);
+    expect(screen.getByRole("slider", { name: "Replicas" })).toBeInTheDocument();
   });
 
-  it("+ increments, − decrements the displayed count", () => {
+  it("Enter in the number box moves focus to Apply scale and does not apply", () => {
+    render(<ActionsBar {...props} currentReplicas={3} />);
+    bump(1);
+    fireEvent.keyDown(field(), { key: "Enter" });
+    expect(screen.getByRole("button", { name: /apply scale/i })).toHaveFocus();
+    expect(api.scale).not.toHaveBeenCalledWith(expect.objectContaining({ replicas: 4 }));
+  });
+
+  it("Escape closes only the panel and the draft stays on the trigger", () => {
+    render(<ActionsBar {...props} currentReplicas={3} />);
+    bump(2);
+    fireEvent.keyDown(field(), { key: "Escape" });
+    expect(screen.queryByRole("spinbutton", { name: "Replicas" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Scale: 3 → 5" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /apply scale/i }).className).toContain("primary");
+  });
+
+  it("a step up and a step down change the displayed count", () => {
     render(<ActionsBar {...props} currentReplicas={2} />);
-    fireEvent.click(screen.getByRole("button", { name: "Increase replicas" }));
-    expect(screen.getByRole("spinbutton", { name: "Replicas" })).toHaveValue(3);
-    fireEvent.click(screen.getByRole("button", { name: "Decrease replicas" }));
-    expect(screen.getByRole("spinbutton", { name: "Replicas" })).toHaveValue(2);
+    bump(1);
+    expect(field()).toHaveValue(3);
+    bump(-1);
+    expect(field()).toHaveValue(2);
   });
 
-  it("− is disabled when count is 0", () => {
+  it("never goes below 0", () => {
     render(<ActionsBar {...props} currentReplicas={0} />);
-    expect(screen.getByRole("button", { name: "Decrease replicas" })).toBeDisabled();
+    bump(-1);
+    expect(field()).toHaveValue(0);
+    expect(screen.getByRole("button", { name: /apply scale/i })).toBeDisabled();
   });
 
   it("Apply scale is disabled when count equals current replicas", () => {
@@ -62,14 +90,14 @@ describe("ActionsBar — replicas stepper (backlog #5)", () => {
 
   it("Apply scale is enabled after changing count", () => {
     render(<ActionsBar {...props} currentReplicas={3} />);
-    fireEvent.click(screen.getByRole("button", { name: "Increase replicas" }));
+    bump(1);
     expect(screen.getByRole("button", { name: /apply scale/i })).not.toBeDisabled();
   });
 
   it("calls api.scale with the updated count", async () => {
     vi.mocked(api.scale).mockResolvedValueOnce({ ok: true } as never);
     render(<ActionsBar {...props} currentReplicas={2} />);
-    fireEvent.click(screen.getByRole("button", { name: "Increase replicas" }));
+    bump(1);
     fireEvent.click(screen.getByRole("button", { name: /apply scale/i }));
     await waitFor(() => expect(api.scale).toHaveBeenCalledWith(expect.objectContaining({ replicas: 3 })));
   });
@@ -79,15 +107,15 @@ describe("ActionsBar — blast-radius preview on a scale down", () => {
   it("shows What this affects only while the count is below the current one", () => {
     render(<ActionsBar {...props} currentReplicas={3} />);
     expect(screen.queryByRole("button", { name: /What this affects/ })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Decrease replicas" }));
+    bump(-1);
     expect(screen.getByRole("button", { name: /What this affects/ })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Increase replicas" }));
+    bump(1);
     expect(screen.queryByRole("button", { name: /What this affects/ })).toBeNull();
   });
 
   it("shows it for a scale to zero too", () => {
     render(<ActionsBar {...props} currentReplicas={1} />);
-    fireEvent.click(screen.getByRole("button", { name: "Decrease replicas" }));
+    bump(-1);
     expect(screen.getByRole("button", { name: /What this affects/ })).toBeInTheDocument();
   });
 });
@@ -96,9 +124,9 @@ describe("ActionsBar — replicas follows live value (regression)", () => {
   it("shows the real count when currentReplicas arrives after mount", () => {
     const { rerender } = render(<ActionsBar {...props} />);
     rerender(<ActionsBar {...props} currentReplicas={5} />);
-    expect(screen.getByRole("spinbutton", { name: "Replicas" })).toHaveValue(5);
-    fireEvent.click(screen.getByLabelText("Decrease replicas"));
-    expect(screen.getByRole("spinbutton", { name: "Replicas" })).toHaveValue(4);
+    expect(field()).toHaveValue(5);
+    bump(-1);
+    expect(field()).toHaveValue(4);
   });
 });
 
@@ -109,9 +137,9 @@ describe("ActionsBar — structured policy rejection (backlog #17)", () => {
     );
     render(<ActionsBar {...props} currentReplicas={0} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Increase replicas" }));
-    fireEvent.click(screen.getByRole("button", { name: "Increase replicas" }));
-    fireEvent.click(screen.getByRole("button", { name: "Increase replicas" }));
+    bump(1);
+    bump(1);
+    bump(1);
     fireEvent.click(screen.getByRole("button", { name: /apply scale/i }));
 
     expect(await screen.findByText(/kyverno policy rejected this change/i)).toBeTruthy();
@@ -123,9 +151,9 @@ describe("ActionsBar — structured policy rejection (backlog #17)", () => {
     vi.mocked(api.scale).mockRejectedValueOnce(new Error("connection refused"));
     render(<ActionsBar {...props} currentReplicas={0} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Increase replicas" }));
-    fireEvent.click(screen.getByRole("button", { name: "Increase replicas" }));
-    fireEvent.click(screen.getByRole("button", { name: "Increase replicas" }));
+    bump(1);
+    bump(1);
+    bump(1);
     fireEvent.click(screen.getByRole("button", { name: /apply scale/i }));
 
     expect(await screen.findByText(/connection refused/)).toBeTruthy();
@@ -136,7 +164,7 @@ describe("ActionsBar — Argo Rollouts (backlog #33)", () => {
   it("scales a Rollout like a Deployment", async () => {
     vi.mocked(api.scale).mockResolvedValue(undefined as never);
     render(<ActionsBar slug="rollouts" cluster="kind-test" ns="default" name="web" currentReplicas={2} />);
-    fireEvent.click(screen.getByRole("button", { name: "Increase replicas" }));
+    bump(1);
     fireEvent.click(screen.getByRole("button", { name: "Apply scale" }));
     await waitFor(() =>
       expect(api.scale).toHaveBeenCalledWith(
@@ -221,15 +249,15 @@ describe("ActionsBar — Argo Rollouts (backlog #33)", () => {
 
 describe("ActionsBar — Apply scale is highlighted while there is something to apply (backlog #69)", () => {
   const apply = () => screen.getByRole("button", { name: /apply scale/i });
-  it("is primary with an Unsaved hint once + or − changes the count, and back to ghost when equal", () => {
+  it("is primary with an Unsaved hint once the count changes, and back to ghost when equal", () => {
     render(<ActionsBar {...props} currentReplicas={3} />);
     expect(apply().className).toContain("ghost");
     expect(screen.queryByText("Unsaved")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Increase replicas" }));
+    bump(1);
     expect(apply().className).toContain("primary");
     expect(apply().className).not.toContain("ghost");
     expect(screen.getByText("Unsaved")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Decrease replicas" }));
+    bump(-1);
     expect(apply().className).toContain("ghost");
     expect(screen.queryByText("Unsaved")).toBeNull();
   });
@@ -237,16 +265,16 @@ describe("ActionsBar — Apply scale is highlighted while there is something to 
   it("takes a typed count and applies it", async () => {
     vi.mocked(api.scale).mockResolvedValueOnce({ ok: true } as never);
     render(<ActionsBar {...props} currentReplicas={3} />);
-    fireEvent.change(screen.getByRole("spinbutton", { name: "Replicas" }), { target: { value: "250" } });
+    fireEvent.change(field(), { target: { value: "250" } });
     fireEvent.click(apply());
     await waitFor(() => expect(api.scale).toHaveBeenCalledWith(expect.objectContaining({ replicas: 250 })));
   });
 
   it("a +10 step still shows no blast radius, and a -10 down to 0 shows it", () => {
     render(<ActionsBar {...props} currentReplicas={12} />);
-    fireEvent.click(screen.getByRole("button", { name: "Increase replicas" }), { shiftKey: true });
+    bump(10);
     expect(screen.queryByRole("button", { name: /What this affects/ })).toBeNull();
-    fireEvent.change(screen.getByRole("spinbutton", { name: "Replicas" }), { target: { value: "0" } });
+    fireEvent.change(field(), { target: { value: "0" } });
     expect(screen.getByRole("button", { name: /What this affects/ })).toBeInTheDocument();
   });
 });
