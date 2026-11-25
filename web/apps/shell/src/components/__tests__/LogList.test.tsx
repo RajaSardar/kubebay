@@ -48,4 +48,16 @@ describe("LogList", () => {
     // Only the new line is drawn: the others keep their elements.
     expect(row.mock.calls.length).toBeLessThanOrEqual(2);
   });
+
+  // The pod log keeps the newest 5000 lines: once full, a batch drops old lines and adds new ones, so
+  // the count stays put. The view must still follow the newest line.
+  it("keeps following when a full buffer rotates and the line count does not change", async () => {
+    const list = lines(100);
+    const { container, rerender } = render(<LogList items={list} render={draw} follow />);
+    const view = container.querySelector(".log-view") as HTMLElement;
+    await waitFor(() => expect(view.scrollTop).toBe(5000 * 19));
+    view.scrollTop = 0; // stands for the content having grown under a view that is no longer at the bottom
+    act(() => rerender(<LogList items={[...list.slice(1), "line 100"]} render={draw} follow />));
+    await waitFor(() => expect(view.scrollTop).toBe(5000 * 19));
+  });
 });

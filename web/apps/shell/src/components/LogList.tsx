@@ -39,7 +39,8 @@ export function LogList<T>({
     overscan: 30,
   });
 
-  // One pin per frame however many batches landed.
+  // One pin per frame however many batches landed. Keyed on the list, not its length: a full buffer
+  // (the newest 5000) drops lines as it adds them, so the length stops changing.
   const count = items.length;
   useEffect(() => {
     if (!follow) return;
@@ -48,7 +49,7 @@ export function LogList<T>({
       else if (viewRef.current) viewRef.current.scrollTop = viewRef.current.scrollHeight;
     });
     return () => cancelAnimationFrame(id);
-  }, [count, follow, windowed, virtualizer]);
+  }, [items, count, follow, windowed, virtualizer]);
 
   return (
     <div className="log-view" ref={viewRef}>
