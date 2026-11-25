@@ -63,7 +63,7 @@ How many connected clusters keep streaming live, and for how long one you haven'
 
 ## AI assistants (MCP)
 
-Lets an AI assistant such as Claude read the clusters you choose. If the engine was started with `--mcp-read-only`, **Let assistants propose changes** is disabled with the reason. See [AI assistants](/docs/ai-assistants/#read-only-mode).
+Lets an AI assistant such as Claude read the clusters you choose. If the engine was started with `--mcp-read-only`, **Let assistants propose changes** is disabled with the reason. It is also disabled, unticked, on a shared engine (in a cluster, with OIDC or behind an auth proxy), where MCP is off and only the operator can change it. See [AI assistants](/docs/ai-assistants/#read-only-mode).
 
 ## AI incident triage
 

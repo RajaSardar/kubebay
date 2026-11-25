@@ -27,7 +27,7 @@ With the Helm chart and OIDC, users sign in with your identity provider. The eng
 - **Helm repositories are read-only.** Every user's chart installs resolve a `repo/chart` name against the same repository list, so nobody can **Add repository**, point an existing name at a new URL, or **Remove repository** from the [Helm store](/docs/helm/#adding-and-removing-repositories). Otherwise one person could choose where another person's charts come from. Anyone can still refresh the indexes of the repositories that are there. The operator lists them in the chart's `helmRepos` value or the engine's `--helm-repos` flag.
 - **No usage history.** The usage sampler reads every namespace with the engine's own identity, so with OIDC usage history isn't recorded, whether the engine runs in a cluster or not, and nobody can turn it on or erase it for everyone.
 
-Features that only make sense on your own machine are off in a cluster: the local terminal, extensions, AI assistants (MCP), AI triage and usage history. Usage history is also off when OIDC is configured on an engine that doesn't run in a cluster.
+Features that only make sense on your own machine are off in a cluster: the local terminal, extensions, AI assistants (MCP), AI triage and usage history. With MCP off, the **Let assistants propose changes** switch is shown disabled and `POST /api/mcp` answers 403; the chart's `mcp.readOnly` value adds a second lock (`KUBEBAY_MCP_READ_ONLY`). Usage history is also off when OIDC is configured on an engine that doesn't run in a cluster.
 
 ### Sign in through an auth proxy
 
