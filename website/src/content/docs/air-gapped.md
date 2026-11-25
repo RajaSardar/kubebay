@@ -11,12 +11,12 @@ Each release from v0.7 has a `kubebay-airgap-<version>.tar.gz` asset with everyt
 ## What's in the bundle
 
 ```text
-kubebay-airgap-v0.8.4/
+kubebay-airgap-v0.8.5/
   README.md                                this guide
-  chart/kubebay-0.8.4.tgz                  the Helm chart, its image pinned to v0.8.4
-  images/kubebay-v0.8.4.oci.tar            the image for linux/amd64 and linux/arm64
-  images/kubebay-v0.8.4-linux-amd64.tar    one platform, for docker load or ctr import
-  images/kubebay-v0.8.4-linux-arm64.tar
+  chart/kubebay-0.8.5.tgz                  the Helm chart, its image pinned to v0.8.5
+  images/kubebay-v0.8.5.oci.tar            the image for linux/amd64 and linux/arm64
+  images/kubebay-v0.8.5-linux-amd64.tar    one platform, for docker load or ctr import
+  images/kubebay-v0.8.5-linux-arm64.tar
   SHA256SUMS                               a checksum of every file above
   SHA256SUMS.cosign.bundle                 a keyless signature of SHA256SUMS
 ```
@@ -24,18 +24,18 @@ kubebay-airgap-v0.8.4/
 ## 1. Check it before you carry it in
 
 ```bash
-cosign verify-blob kubebay-airgap-v0.8.4.tar.gz \
-  --bundle kubebay-airgap-v0.8.4.tar.gz.cosign.bundle \
+cosign verify-blob kubebay-airgap-v0.8.5.tar.gz \
+  --bundle kubebay-airgap-v0.8.5.tar.gz.cosign.bundle \
   --certificate-identity-regexp '^https://github\.com/RajaSardar/kubebay/\.github/workflows/release\.yml@refs/tags/v' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
-gh attestation verify kubebay-airgap-v0.8.4.tar.gz --repo RajaSardar/kubebay
+gh attestation verify kubebay-airgap-v0.8.5.tar.gz --repo RajaSardar/kubebay
 ```
 
 ## 2. Check what arrived
 
 ```bash
-tar -xzf kubebay-airgap-v0.8.4.tar.gz
-cd kubebay-airgap-v0.8.4
+tar -xzf kubebay-airgap-v0.8.5.tar.gz
+cd kubebay-airgap-v0.8.5
 sha256sum -c SHA256SUMS          # macOS: shasum -a 256 -c SHA256SUMS
 ```
 
@@ -46,23 +46,23 @@ To check the manifest itself inside the air gap, run `cosign verify-blob SHA256S
 Push it to the registry your cluster pulls from, keeping every platform:
 
 ```bash
-skopeo copy --all oci-archive:images/kubebay-v0.8.4.oci.tar docker://registry.example.internal/kubebay:v0.8.4
+skopeo copy --all oci-archive:images/kubebay-v0.8.5.oci.tar docker://registry.example.internal/kubebay:v0.8.5
 ```
 
 Or, without a registry, import the archive for your nodes' platform on each node:
 
 ```bash
-docker load -i images/kubebay-v0.8.4-linux-amd64.tar                    # Docker
-sudo ctr -n k8s.io images import images/kubebay-v0.8.4-linux-amd64.tar  # containerd
-sudo k3s ctr images import images/kubebay-v0.8.4-linux-amd64.tar        # k3s
+docker load -i images/kubebay-v0.8.5-linux-amd64.tar                    # Docker
+sudo ctr -n k8s.io images import images/kubebay-v0.8.5-linux-amd64.tar  # containerd
+sudo k3s ctr images import images/kubebay-v0.8.5-linux-amd64.tar        # k3s
 ```
 
-The per-platform archives name the image `ghcr.io/rajasardar/kubebay:v0.8.4`, as the chart does. Importing on each node needs `image.pullPolicy=IfNotPresent`, the chart's default.
+The per-platform archives name the image `ghcr.io/rajasardar/kubebay:v0.8.5`, as the chart does. Importing on each node needs `image.pullPolicy=IfNotPresent`, the chart's default.
 
 ## 4. Install the chart
 
 ```bash
-helm install kubebay chart/kubebay-0.8.4.tgz \
+helm install kubebay chart/kubebay-0.8.5.tgz \
   --namespace kubebay --create-namespace \
   --set image.repository=registry.example.internal/kubebay
 ```

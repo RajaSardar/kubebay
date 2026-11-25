@@ -108,3 +108,6 @@
 | 57 New look | Research and plan with a debate round and final verdict (docs/NEW_LOOK.md) | Your answers to the six questions, then the slices |
 
 Nothing in the table above has had a hands-on check in the running desktop app; the tests are unit and component tests.
+~~86. Rollouts: a search option on the Rollouts page~~ ✅ Done in v0.8.5
+~~87. kubectl argo rollouts dashboard should run automatically and show inside the Rollouts page~~ ✅ Done in v0.8.5 (desktop only; needs the kubectl-argo-rollouts plugin installed)
+~~88. Prometheus metrics not visible in any pod on the owner's app~~ ✅ Built in v0.8.5 (stale default URL fixed, broader discovery, Test connection); the owner's exact cause is unconfirmed until they try it
