@@ -1,13 +1,15 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Table, TableWrap, scrollThumb, scrollLeftForThumb } from "@kubebay/ui";
 
 // jsdom does no layout: give every element the box a real wide table would have.
+const reads = { n: 0 };
 function withBox(scrollWidth: number, clientWidth: number) {
+  reads.n = 0;
   const sw = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "scrollWidth");
   const cw = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "clientWidth");
-  Object.defineProperty(HTMLElement.prototype, "scrollWidth", { configurable: true, get: () => scrollWidth });
-  Object.defineProperty(HTMLElement.prototype, "clientWidth", { configurable: true, get: () => clientWidth });
+  Object.defineProperty(HTMLElement.prototype, "scrollWidth", { configurable: true, get: () => (reads.n++, scrollWidth) });
+  Object.defineProperty(HTMLElement.prototype, "clientWidth", { configurable: true, get: () => (reads.n++, clientWidth) });
   return () => {
     if (sw) Object.defineProperty(HTMLElement.prototype, "scrollWidth", sw);
     else delete (HTMLElement.prototype as unknown as Record<string, unknown>).scrollWidth;
@@ -55,13 +57,14 @@ describe("TableWrap's pinned horizontal scrollbar", () => {
     expect(wrapOf().contains(bar)).toBe(false);
   });
 
-  it("follows the table's own scrolling", () => {
+  it("follows the table's own scrolling", async () => {
     restore = withBox(1200, 400);
     mount();
     const wrap = wrapOf();
     wrap.scrollLeft = 300;
     fireEvent.scroll(wrap);
-    expect(screen.getByRole("scrollbar")).toHaveAttribute("aria-valuenow", "300");
+    // Once per frame, not once per scroll event.
+    await waitFor(() => expect(screen.getByRole("scrollbar")).toHaveAttribute("aria-valuenow", "300"));
   });
 
   it("scrolls the table with the arrow keys, Home and End", () => {
@@ -83,6 +86,41 @@ describe("TableWrap's pinned horizontal scrollbar", () => {
     restore = withBox(1200, 400);
     mount();
     expect(wrapOf()).toHaveClass("table-wrap");
+  });
+});
+
+// Backlog 90: reading scrollWidth/clientWidth forces a synchronous layout. The bar re-measured after
+// every render and on every scroll tick (vertical ones too): 89 ms of 4 s of scrolling in the profile.
+describe("TableWrap's scrollbar does not thrash layout", () => {
+  it("reads no layout when its parent re-renders", () => {
+    restore = withBox(1200, 400);
+    const ui = (n: number) => (
+      <TableWrap>
+        <Table>
+          <tbody>
+            <tr>
+              <td>pod-{n}</td>
+            </tr>
+          </tbody>
+        </Table>
+      </TableWrap>
+    );
+    const { rerender } = render(ui(0));
+    const after = reads.n;
+    for (let i = 1; i <= 20; i++) rerender(ui(i));
+    expect(reads.n).toBe(after);
+  });
+
+  it("reads no layout on a scroll tick that did not move sideways (a vertical scroll)", () => {
+    restore = withBox(1200, 400);
+    mount();
+    const wrap = wrapOf();
+    const after = reads.n;
+    for (let i = 0; i < 20; i++) {
+      wrap.scrollTop = i * 40;
+      fireEvent.scroll(wrap);
+    }
+    expect(reads.n).toBe(after);
   });
 });
 

@@ -35,6 +35,22 @@ describe("useTableVirtualizer", () => {
     expect(scrollTo).toHaveBeenLastCalledWith(expect.objectContaining({ top: 337 }));
   });
 
+  it("measures the header once, not after every render (a forced layout per scroll tick)", () => {
+    const scroller = document.createElement("div");
+    const head = document.createElement("thead");
+    const rect = vi.spyOn(head, "getBoundingClientRect").mockReturnValue({ height: 34 } as DOMRect);
+    Object.defineProperty(scroller, "scrollHeight", { configurable: true, value: 34 + 100 * 43 });
+    document.body.appendChild(scroller);
+    const hook = renderHook(
+      ({ count }) => useTableVirtualizer({ count, estimate: 43, scrollRef: { current: scroller }, headerRef: { current: head } }),
+      { initialProps: { count: 100 } },
+    );
+    const first = rect.mock.calls.length;
+    for (let i = 0; i < 20; i++) hook.rerender({ count: 100 + i });
+    expect(rect.mock.calls.length).toBe(first);
+    expect(first).toBeLessThanOrEqual(2);
+  });
+
   it("puts no phantom space above the first row", () => {
     const { hook } = setup(100);
     expect(hook.result.current.topSpace).toBe(0);

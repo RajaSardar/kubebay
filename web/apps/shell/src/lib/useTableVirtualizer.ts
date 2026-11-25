@@ -1,4 +1,4 @@
-import { useLayoutEffect, useState, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
 /**
@@ -22,9 +22,22 @@ export function useTableVirtualizer({
   headerRef: RefObject<HTMLElement | null>;
 }) {
   const [header, setHeader] = useState(0);
+  // Measured when the <thead> appears and when it changes size (ResizeObserver), not after every
+  // render: getBoundingClientRect forces a synchronous layout, and this renders on every scroll tick.
+  const observed = useRef<{ el: HTMLElement; ro?: ResizeObserver } | null>(null);
   useLayoutEffect(() => {
-    setHeader(Math.round(headerRef.current?.getBoundingClientRect().height ?? 0));
+    const el = headerRef.current;
+    if (el === (observed.current?.el ?? null)) return;
+    observed.current?.ro?.disconnect();
+    observed.current = null;
+    if (!el) return;
+    const read = () => setHeader(Math.round(el.getBoundingClientRect().height));
+    read();
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(read) : undefined;
+    ro?.observe(el);
+    observed.current = { el, ro };
   });
+  useEffect(() => () => observed.current?.ro?.disconnect(), []);
   const virtualizer = useVirtualizer({
     count,
     getScrollElement: () => scrollRef.current,

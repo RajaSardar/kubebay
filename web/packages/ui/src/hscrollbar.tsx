@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
+import { memo, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 
 /** The thumb is never thinner than this, however long the table: it stays grabbable. */
 const MIN_THUMB = 24;
@@ -33,23 +33,34 @@ interface Measure {
  * scrolls, however far down the rows go. It shows only while the target overflows sideways.
  * Drag the thumb, click the track to page, or use Left/Right/Home/End.
  */
-export function HScrollBar({ target, label = "Scroll sideways" }: { target: HTMLElement | null; label?: string }) {
+export const HScrollBar = memo(function HScrollBar({ target, label = "Scroll sideways" }: { target: HTMLElement | null; label?: string }) {
   const barRef = useRef<HTMLDivElement>(null);
   const drag = useRef<{ x: number; left: number } | null>(null);
   const [m, setM] = useState<Measure>({ scrollWidth: 0, clientWidth: 0, scrollLeft: 0 });
 
+  // Reading scrollWidth/clientWidth forces a synchronous layout, so it is done only when the
+  // target or its table changes size (ResizeObserver) and on an explicit jump, never per render
+  // or per scroll tick. A scroll tick reads scrollLeft alone.
   const measure = () => {
     if (!target) return;
     const next = { scrollWidth: target.scrollWidth, clientWidth: target.clientWidth, scrollLeft: target.scrollLeft };
     setM((p) => (p.scrollWidth === next.scrollWidth && p.clientWidth === next.clientWidth && p.scrollLeft === next.scrollLeft ? p : next));
   };
 
-  // The table's width follows its columns and its rows, so look again after every render.
-  useLayoutEffect(measure);
+  useLayoutEffect(measure, [target]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!target) return;
-    target.addEventListener("scroll", measure, { passive: true });
+    let raf = 0;
+    const onScroll = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        const scrollLeft = target.scrollLeft;
+        setM((p) => (p.scrollLeft === scrollLeft ? p : { ...p, scrollLeft }));
+      });
+    };
+    target.addEventListener("scroll", onScroll, { passive: true });
     let ro: ResizeObserver | undefined;
     if (typeof ResizeObserver !== "undefined") {
       ro = new ResizeObserver(measure);
@@ -57,7 +68,8 @@ export function HScrollBar({ target, label = "Scroll sideways" }: { target: HTML
       for (const c of Array.from(target.children)) ro.observe(c);
     }
     return () => {
-      target.removeEventListener("scroll", measure);
+      target.removeEventListener("scroll", onScroll);
+      if (raf) cancelAnimationFrame(raf);
       ro?.disconnect();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -131,4 +143,4 @@ export function HScrollBar({ target, label = "Scroll sideways" }: { target: HTML
       />
     </div>
   );
-}
+});
