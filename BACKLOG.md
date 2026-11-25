@@ -61,33 +61,33 @@
 ~~56. add a sidecar container to a workload just by clicking a button~~ ✅ Done (Add sidecar in the workload drawer; see docs/ADD_SIDECAR.md)
 ~~57. research how the new Lens/Freelens UI looks (block, rectangular, square design that reads as a grid everywhere without visible grid lines; fonts, default text size) in depth, and plan a new look for Kubebay~~ ✅ Done in v0.8.2 (slices 1 to 10 of docs/NEW_LOOK.md)
 ~~58. installing on Linux/Ubuntu does not work: test it, make an easy way to install, and put it everywhere (website, docs, GitHub README, which has no proper install instructions for every platform)~~ ✅ Done in v0.8.2 (scripts/install.sh one-liner, tested on Ubuntu 22.04 and 24.04; README Install section)
-59. show all logs of all pods of a StatefulSet or Deployment together, in one view
-60. Pod logs: a checkbox that shows only warning and error lines, not everything
-61. a way to find the exact pod name: several pods have similar names with a suffix added at the end, so offer exact-match search, copy of the full name and highlighting of the suffix
-~~62. the pod window cannot show pod labels, Secrets and env (environment variables); make all three visible~~ ✅ Done (unreleased, built after v0.8.2)
-~~63. use a different background colour for each selected namespace~~ ✅ Done (unreleased, built after v0.8.2)
-~~64. Services: endpoints are not visible~~ ✅ Done (unreleased, built after v0.8.2)
-~~65. Pods: labels are not visible~~ ✅ Done (unreleased, built after v0.8.2)
-~~66. Services: NodePort Services still do not show in the Services section~~ ✅ Done (unreleased, built after v0.8.2)
-~~67. Pods list: after a search the list does not scroll sideways; add a small horizontal scrollbar at the bottom for better UX~~ ✅ Done (unreleased, built after v0.8.2)
-~~68. the left sidebar and the right-hand Pods/Deployments/StatefulSets/Services window should be resizable (expand and collapse) by dragging~~ ✅ Done (unreleased, built after v0.8.2)
-~~69. Scale (replicas): when + or − changes the number, highlight the Apply scale button so it is clear there is something to apply; add a faster way to change large numbers (type a number, or larger steps), as only + and − exist now~~ ✅ Done (unreleased, built after v0.8.2)
-~~70. Cmd+K: searching `rollouts: <name>` sometimes says it has not loaded yet; load rollouts at that moment and show them. Also hide or disable "search all clusters" in the Cmd+K palette~~ ✅ Done (unreleased, built after v0.8.2)
-~~71. everywhere there is a Restart button, add one more confirmation step before restarting~~ ✅ Done (unreleased, built after v0.8.2)
-~~72. Rollouts: the Rollouts tool does not list all rollouts. In both Custom Resources > Rollouts and the sidebar's Rollouts, offer Promote, Promote full, Pause, Abort, Retry and Restart~~ ✅ Done (unreleased, built after v0.8.2)
-73. embed the Argo Rollouts dashboard (what `kubectl argo rollouts dashboard` serves) inside Kubebay
-~~74. add a beautifully designed pink theme for girls and women (a 13th theme, with all the theme tests and contrast rules)~~ ✅ Done (unreleased, built after v0.8.2)
-~~75. Deployments and StatefulSets: show all of the workload's pods in the lower part of its window~~ ✅ Done (unreleased, built after v0.8.2)
-76. Issues queue with Investigate: one ranked list across kinds, built on the existing detectors (pods, workloads, nodes, services, RBAC, upgrade readiness), each issue with an Investigate button that opens the right drawer and evidence
-77. Read-only mode for the MCP server (an owner switch), and measure our own MCP tools against the public SREGym benchmark on kind; add new tools only where the benchmark shows a gap
-78. AI investigations through Claude Code only, with built-in tools off, the read-only MCP mount, and fixes only as a diff you approve
-79. durable in-cluster audit log: JSON lines on stdout plus an optional PVC (today it is on a 64Mi emptyDir and lost on restart); export to OTLP, syslog or S3 stays a later, separate item
-80. Upgrade impact v2: PodDisruptionBudget drain blockers, version skew between control plane and nodes, and admission webhook failure policy
-~~81. auth-proxy header sign-in for the in-cluster install (trusted-source rule, security review first)~~ ✅ Done (unreleased, built after v0.8.2)
+~~59. show all logs of all pods of a StatefulSet or Deployment together, in one view~~ ✅ Done in v0.8.3
+~~60. Pod logs: a checkbox that shows only warning and error lines, not everything~~ ✅ Done in v0.8.3
+~~61. a way to find the exact pod name: several pods have similar names with a suffix added at the end, so offer exact-match search, copy of the full name and highlighting of the suffix~~ ✅ Done in v0.8.3
+~~62. the pod window cannot show pod labels, Secrets and env (environment variables); make all three visible~~ ✅ Done in v0.8.3
+~~63. use a different background colour for each selected namespace~~ ✅ Done in v0.8.3
+~~64. Services: endpoints are not visible~~ ✅ Done in v0.8.3
+~~65. Pods: labels are not visible~~ ✅ Done in v0.8.3
+~~66. Services: NodePort Services still do not show in the Services section~~ ✅ Done in v0.8.3
+~~67. Pods list: after a search the list does not scroll sideways; add a small horizontal scrollbar at the bottom for better UX~~ ✅ Done in v0.8.3
+~~68. the left sidebar and the right-hand Pods/Deployments/StatefulSets/Services window should be resizable (expand and collapse) by dragging~~ ✅ Done in v0.8.3
+~~69. Scale (replicas): when + or − changes the number, highlight the Apply scale button so it is clear there is something to apply; add a faster way to change large numbers (type a number, or larger steps), as only + and − exist now~~ ✅ Done in v0.8.3
+~~70. Cmd+K: searching `rollouts: <name>` sometimes says it has not loaded yet; load rollouts at that moment and show them. Also hide or disable "search all clusters" in the Cmd+K palette~~ ✅ Done in v0.8.3
+~~71. everywhere there is a Restart button, add one more confirmation step before restarting~~ ✅ Done in v0.8.3
+~~72. Rollouts: the Rollouts tool does not list all rollouts. In both Custom Resources > Rollouts and the sidebar's Rollouts, offer Promote, Promote full, Pause, Abort, Retry and Restart~~ ✅ Done in v0.8.3
+~~73. embed the Argo Rollouts dashboard (what `kubectl argo rollouts dashboard` serves) inside Kubebay~~ ✅ Done in v0.8.3 (native Release view; the upstream dashboard is not embedded, by design)
+~~74. add a beautifully designed pink theme for girls and women (a 13th theme, with all the theme tests and contrast rules)~~ ✅ Done in v0.8.3
+~~75. Deployments and StatefulSets: show all of the workload's pods in the lower part of its window~~ ✅ Done in v0.8.3
+~~76. Issues queue with Investigate: one ranked list across kinds, built on the existing detectors (pods, workloads, nodes, services, RBAC, upgrade readiness), each issue with an Investigate button that opens the right drawer and evidence~~ ✅ Done in v0.8.3
+~~77. Read-only mode for the MCP server (an owner switch), and measure our own MCP tools against the public SREGym benchmark on kind; add new tools only where the benchmark shows a gap~~ ✅ Done in v0.8.3 (read-only mode built; the benchmark harness exists but baseline numbers have not been measured yet)
+~~78. AI investigations through Claude Code only, with built-in tools off, the read-only MCP mount, and fixes only as a diff you approve~~ ✅ Done in v0.8.3
+~~79. durable in-cluster audit log: JSON lines on stdout plus an optional PVC (today it is on a 64Mi emptyDir and lost on restart); export to OTLP, syslog or S3 stays a later, separate item~~ ✅ Done in v0.8.3
+~~80. Upgrade impact v2: PodDisruptionBudget drain blockers, version skew between control plane and nodes, and admission webhook failure policy~~ ✅ Done in v0.8.3
+~~81. auth-proxy header sign-in for the in-cluster install (trusted-source rule, security review first)~~ ✅ Done in v0.8.3
 ~~82. desktop change timeline: events and changes in a local SQLite file with a retention setting, field manager shown, and gaps in coverage labelled~~ ✅ Done (unreleased; recording is passive per kind, a "keep watching" allowlist is a later step)
-83. Compare two resources side by side, including across clusters
-84. GitOps actions: Flux reconcile, suspend and resume, and Argo CD rollback, through the blast-radius preview and confirmation
-85. desktop notifications for new Issues (after the Issues queue)
+~~83. Compare two resources side by side, including across clusters~~ ✅ Done in v0.8.3
+~~84. GitOps actions: Flux reconcile, suspend and resume, and Argo CD rollback, through the blast-radius preview and confirmation~~ ✅ Done in v0.8.3
+~~85. desktop notifications for new Issues (after the Issues queue)~~ ✅ Done in v0.8.3
 ---
 
 ## Status of the open items (2026-11-23)
