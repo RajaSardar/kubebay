@@ -6,6 +6,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ## [Unreleased]
 
+### Changed
+- **Scale: a better replica count control** (backlog 89). The row of **−5**, **−**, number box, **+** and **+5** buttons is replaced by one **Scale: 3** button that opens a panel with an exact number box, a slider (one replica at a time from 0 to 10, coarser steps above, native keyboard and touch), one-click counts (0, 1, 2, 3, 5, 10, Half, 2×, Current) and a live `3 → 8 (+5)` line. Nothing changes until **Apply scale**; the **Unsaved** badge, **Reset to N**, the solid **Apply scale**, the **What this affects** preview, the confirmation, the audit entry and the GitOps warning are as before. Closing the panel (<kbd>Esc</kbd>, a click elsewhere) keeps your draft, and <kbd>Esc</kbd> in it does not close the drawer. <kbd>Enter</kbd> in the number box moves focus to **Apply scale** rather than applying. The Scale dialog from a table row shows the same controls in place. New `Popover` and `Slider` in the design system. Covered by component tests; the drag cost per frame was not measured in the Mac app (jsdom cannot measure it), and the HPA note from the design was not built.
+
 ## [0.8.5] - 2026-11-25
 
 ### Added

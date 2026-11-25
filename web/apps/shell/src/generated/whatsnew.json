@@ -3,7 +3,17 @@
     {
       "version": "unreleased",
       "date": "",
-      "sections": []
+      "sections": [
+        {
+          "heading": "Changed",
+          "items": [
+            {
+              "title": "Scale: a better replica count control",
+              "summary": "(backlog 89)."
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.8.5",
