@@ -29,6 +29,7 @@ type fakeAPIServer struct {
 	proxyUsers  []string
 	listUsers   []string
 	denyList    bool
+	denyProxy   bool
 	servicesRaw string
 }
 
@@ -49,6 +50,11 @@ func newFakeAPIServer(t *testing.T) *fakeAPIServer {
 			f.proxyPaths = append(f.proxyPaths, r.URL.Path)
 			f.proxyUsers = append(f.proxyUsers, r.Header.Get("Impersonate-User"))
 			w.Header().Set("Content-Type", "application/json")
+			if f.denyProxy {
+				w.WriteHeader(http.StatusForbidden)
+				_, _ = w.Write([]byte(`{"kind":"Status","apiVersion":"v1","status":"Failure","reason":"Forbidden","code":403}`))
+				return
+			}
 			if strings.HasSuffix(r.URL.Path, "/api/v1/query_range") {
 				fmt.Fprintf(w, `{"status":"success","data":{"resultType":"matrix","result":[{"metric":{},"values":[[%d,"0.5"]]}]}}`, time.Now().UTC().Truncate(time.Hour).Unix())
 				return

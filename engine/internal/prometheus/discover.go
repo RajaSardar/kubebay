@@ -373,6 +373,9 @@ func (c *Cache) GetReport(ctx context.Context, key string, load func(context.Con
 		cancel()
 		if err != nil {
 			res.Err = err.Error()
+			if res.Err == "" {
+				res.Err = "listing Services failed"
+			}
 		}
 		c.mu.Lock()
 		e.res, e.at, e.ok, e.loading = res, c.now(), true, nil
