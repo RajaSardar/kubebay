@@ -120,6 +120,10 @@ func newDashFix(t *testing.T, disabled string) *dashFix {
 		w.(http.Flusher).Flush()
 		<-r.Context().Done()
 	})
+	mux.HandleFunc("/api/rollouts-dashboard/TOKEN/redir", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Location", r.URL.Query().Get("to"))
+		w.WriteHeader(http.StatusFound)
+	})
 	mux.HandleFunc("/api/rollouts-dashboard/TOKEN/ws", func(w http.ResponseWriter, r *http.Request) {
 		c, rw, err := w.(http.Hijacker).Hijack()
 		if err != nil {
@@ -470,4 +474,18 @@ func auditEntries(t *testing.T, l *audit.Logger, action string) []audit.Entry {
 		}
 	}
 	return out
+}
+
+func TestDashProxyDropsRedirectsLeavingTheProxy(t *testing.T) {
+	f := newDashFix(t, "")
+	for _, to := range []string{"//evil.example/x", "https://evil.example/", "/\\evil.example/"} {
+		rec := f.do("GET", "/api/rollouts-dashboard/TOKEN/redir?to="+url.QueryEscape(to), "", nil)
+		if loc := rec.Header().Get("Location"); loc != "" {
+			t.Errorf("Location %q passed through for %q", loc, to)
+		}
+	}
+	rec := f.do("GET", "/api/rollouts-dashboard/TOKEN/redir?to="+url.QueryEscape("/api/rollouts-dashboard/TOKEN/x"), "", nil)
+	if rec.Header().Get("Location") == "" {
+		t.Error("a same-site redirect was dropped")
+	}
 }

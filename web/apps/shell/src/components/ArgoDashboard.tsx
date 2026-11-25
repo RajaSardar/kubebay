@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button, EmptyState, InlineBanner } from "@kubebay/ui";
 import { PageLoader } from "./PageLoader";
 import { CopyableCommand } from "./CopyableCommand";
@@ -21,11 +21,13 @@ interface Props {
 export function ArgoDashboard({ cluster, namespaces, onUseReleaseView }: Props) {
   const [status, setStatus] = useState<DashStatus | null>(null);
   const [attempt, setAttempt] = useState(0);
+  const runningRef = useRef(false);
   const nsKey = (namespaces ?? []).join(",");
 
   useEffect(() => {
     let dead = false;
     setStatus(null);
+    runningRef.current = false;
     const failed = (e: unknown): DashStatus => ({ state: "failed", message: e instanceof Error ? e.message : String(e) });
     async function open() {
       try {
@@ -35,7 +37,10 @@ export function ArgoDashboard({ cluster, namespaces, onUseReleaseView }: Props) 
           if (!dead) setStatus({ state: "starting" });
           s = await rolloutsDashApi.start(cluster, namespaces);
         }
-        if (!dead) setStatus(s);
+        if (!dead) {
+          runningRef.current = s.state === "running";
+          setStatus(s);
+        }
       } catch (e) {
         if (!dead) setStatus(failed(e));
       }
@@ -45,8 +50,8 @@ export function ArgoDashboard({ cluster, namespaces, onUseReleaseView }: Props) 
       rolloutsDashApi
         .heartbeat(cluster)
         .then((alive) => {
-          // The engine restarted or stopped it (a throttled webview): the designed recovery is to start again, quietly.
-          if (!alive && !dead) setAttempt((n) => n + 1);
+          // The engine restarted or stopped a dashboard that was running (a throttled webview): start again, quietly. A failure on screen is left for the user to retry.
+          if (!alive && !dead && runningRef.current) setAttempt((n) => n + 1);
         })
         .catch(() => {});
     }, HEARTBEAT_MS);

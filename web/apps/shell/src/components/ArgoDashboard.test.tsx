@@ -115,4 +115,16 @@ describe("ArgoDashboard", () => {
     await waitFor(() => expect(container.querySelector("iframe")?.getAttribute("src")).toBe("/api/rollouts-dashboard/NEW/"));
     expect(screen.queryByText(/failed|error/i)).toBeNull();
   });
+
+  it("does not retry on its own while showing a failure (the heartbeat only restarts a dashboard that was running)", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    api.status.mockResolvedValue({ state: "stopped" });
+    api.start.mockResolvedValue({ state: "failed", message: "the dashboard did not answer within 15s" });
+    api.heartbeat.mockResolvedValue(false);
+    render(<ArgoDashboard cluster="c1" onUseReleaseView={() => {}} />);
+    await vi.advanceTimersByTimeAsync(100);
+    await vi.advanceTimersByTimeAsync(95_000);
+    expect(api.start).toHaveBeenCalledTimes(1);
+    expect(screen.getByText(/did not answer within 15s/)).toBeTruthy();
+  });
 });

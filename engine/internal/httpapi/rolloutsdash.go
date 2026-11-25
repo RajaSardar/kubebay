@@ -257,7 +257,7 @@ func (a *RolloutsDashAPI) handleProxy(w http.ResponseWriter, r *http.Request) {
 					delete(res.Header, k)
 				}
 			}
-			if loc := res.Header.Get("Location"); loc != "" && !strings.HasPrefix(loc, "/") {
+			if loc := res.Header.Get("Location"); loc != "" && (!strings.HasPrefix(loc, "/") || strings.HasPrefix(loc, "//") || strings.HasPrefix(loc, "/\\")) {
 				res.Header.Del("Location")
 			}
 			return nil
