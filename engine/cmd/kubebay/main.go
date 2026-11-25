@@ -258,33 +258,41 @@ func main() {
 	mcpAPI := newMCP(settingsMgr, mgr, registry, auditLog, *addr, *inCluster, sharedIdentity, resolveMCPReadOnly(*mcpReadOnly, os.Getenv("KUBEBAY_MCP_READ_ONLY")))
 	aiAPI := newAI(mcpAPI, auditLog, *addr, *inCluster, sharedIdentity)
 	defer aiAPI.Manager.Shutdown()
+	rolloutsDashAPI, rolloutsDash := newRolloutsDash(mgr, auditLog, log, *addr, *inCluster, sharedIdentity)
+	if rolloutsDashAPI.Disabled == "" {
+		// A previous engine killed without cleaning up may have left a dashboard running.
+		rolloutsDash.Sweep()
+		mgr.OnDisconnect(rolloutsDash.StopCluster)
+	}
+	defer rolloutsDash.StopAll()
 	handler := httpapi.Router(httpapi.Deps{
-		Version:    version,
-		Log:        log,
-		Auth:       auth,
-		Proxy:      proxy,
-		Clusters:   mgr,
-		Pools:      registry,
-		Hub:        hub,
-		Channels:   channels,
-		PF:         pfManager,
-		Actions:    actions,
-		Metrics:    metrics,
-		RBAC:       rbac,
-		Helm:       helmMgr,
-		NodeShell:  nodeShell,
-		NetDiag:    &httpapi.NetDiagManager{Clusters: mgr, Audit: auditLog},
-		ImageSigs:  &httpapi.ImageSignatureAPI{Clusters: mgr, Checker: &sigcheck.Checker{}, TrustRoots: sigstoreTrustRoots()},
-		MCP:        mcpAPI,
-		AI:         aiAPI,
-		Triage:     newTriage(settingsMgr, mgr, registry, auditLog, *inCluster, sharedIdentity),
-		Settings:   settingsMgr,
-		Extensions: newExtensions(settingsMgr, *inCluster, sharedIdentity),
-		Audit:      auditLog,
-		Waste:      wasteSampler,
-		History:    historyAPI,
-		Timeline:   timelineAPI,
-		Search:     searchAPI,
+		Version:      version,
+		Log:          log,
+		Auth:         auth,
+		Proxy:        proxy,
+		Clusters:     mgr,
+		Pools:        registry,
+		Hub:          hub,
+		Channels:     channels,
+		PF:           pfManager,
+		Actions:      actions,
+		Metrics:      metrics,
+		RBAC:         rbac,
+		Helm:         helmMgr,
+		NodeShell:    nodeShell,
+		NetDiag:      &httpapi.NetDiagManager{Clusters: mgr, Audit: auditLog},
+		ImageSigs:    &httpapi.ImageSignatureAPI{Clusters: mgr, Checker: &sigcheck.Checker{}, TrustRoots: sigstoreTrustRoots()},
+		MCP:          mcpAPI,
+		AI:           aiAPI,
+		RolloutsDash: rolloutsDashAPI,
+		Triage:       newTriage(settingsMgr, mgr, registry, auditLog, *inCluster, sharedIdentity),
+		Settings:     settingsMgr,
+		Extensions:   newExtensions(settingsMgr, *inCluster, sharedIdentity),
+		Audit:        auditLog,
+		Waste:        wasteSampler,
+		History:      historyAPI,
+		Timeline:     timelineAPI,
+		Search:       searchAPI,
 		Discovery: &httpapi.DiscoveryAPI{
 			Settings: settingsMgr,
 			Clusters: mgr,
@@ -349,6 +357,7 @@ func main() {
 	log.Info("shutting down")
 	cancelWaste()
 	pfManager.StopAll()
+	rolloutsDash.StopAll()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	_ = srv.Shutdown(ctx)

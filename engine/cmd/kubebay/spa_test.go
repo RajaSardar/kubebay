@@ -153,3 +153,33 @@ func TestTheFallbackNoticeAllowsNoScriptAtAll(t *testing.T) {
 		t.Errorf("the notice page's default-src = %v, want 'none'", d["default-src"])
 	}
 }
+
+// Backlog 87: the Rollouts page frames the Argo dashboard through the engine's
+// own same-origin proxy, so frame-src is 'self'. That is the only loosening:
+// every other directive is what it was, and the shell itself still cannot be framed.
+func TestOnlyFrameSrcWasLoosenedForTheArgoDashboard(t *testing.T) {
+	d := directives(uiPolicy(indexWithInlineScript))
+	if got := d["frame-src"]; len(got) != 1 || got[0] != "'self'" {
+		t.Fatalf("frame-src = %v, want exactly 'self' (never a raw loopback port, a wildcard or a scheme)", got)
+	}
+	want := map[string]string{
+		"default-src":     "'self'",
+		"style-src":       "'self' 'unsafe-inline'",
+		"img-src":         "'self' data: blob:",
+		"font-src":        "'self' data:",
+		"connect-src":     "'self' ws: wss:",
+		"worker-src":      "'self' blob:",
+		"object-src":      "'none'",
+		"frame-ancestors": "'none'",
+		"base-uri":        "'self'",
+		"form-action":     "'self'",
+	}
+	for k, v := range want {
+		if got := strings.Join(d[k], " "); got != v {
+			t.Errorf("%s changed: %q, want %q", k, got, v)
+		}
+	}
+	if len(d) != len(want)+2 { // + script-src (hash-dependent) and frame-src
+		t.Errorf("unexpected directives: %v", d)
+	}
+}

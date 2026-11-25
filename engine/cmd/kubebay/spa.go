@@ -40,8 +40,9 @@ var inlineScript = regexp.MustCompile(`(?s)<script\b([^>]*)>(.*?)</script>`)
 // the engine's own origin, which is also where its WebSocket goes (wss: and ws: are named because
 // WebKit doesn't match 'self' to them). The one thing allowed to run inline is each inline <script>
 // in the index.html being served, by its SHA-256, so a script injected into the page isn't. No
-// eval, no plugins, no framing, no <base> or form posting elsewhere. Inline styles stay allowed:
-// the shell sets style attributes throughout.
+// eval, no plugins, no <base> or form posting elsewhere. Framing is limited to the engine's own origin
+// (frame-src 'self', for the Argo dashboard's same-origin proxy) and nothing may frame the shell.
+// Inline styles stay allowed: the shell sets style attributes throughout.
 func uiPolicy(index []byte) string {
 	script := "'self'"
 	for _, m := range inlineScript.FindAllSubmatch(index, -1) {
@@ -60,7 +61,7 @@ func uiPolicy(index []byte) string {
 		"connect-src 'self' ws: wss:",
 		"worker-src 'self' blob:",
 		"object-src 'none'",
-		"frame-src 'none'",
+		"frame-src 'self'",
 		"frame-ancestors 'none'",
 		"base-uri 'self'",
 		"form-action 'self'",

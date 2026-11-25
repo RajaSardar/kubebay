@@ -75,7 +75,11 @@ func TestFakePluginHelper(t *testing.T) {
 		_, _ = w.Write([]byte("<html>fake dashboard</html>"))
 	})
 	if mode == "exitlater" {
-		go func() { time.Sleep(700 * time.Millisecond); fmt.Fprintln(os.Stderr, "fatal: lost the cluster"); os.Exit(3) }()
+		go func() {
+			time.Sleep(700 * time.Millisecond)
+			fmt.Fprintln(os.Stderr, "fatal: lost the cluster")
+			os.Exit(3)
+		}()
 	}
 	l, err := net.Listen("tcp", "127.0.0.1:"+port)
 	if err != nil {
@@ -116,9 +120,11 @@ func (f fake) recorded(t *testing.T) record {
 func newManager(t *testing.T, f fake) *Manager {
 	t.Helper()
 	m := &Manager{
-		Locate:           func() string { return f.bin },
-		Kubeconfig:       func(c string) (string, string, error) { return "/kc/" + c, "ctx-" + c, nil },
-		Env:              func() []string { return []string{"HOME=/h", "PATH=/usr/bin:/bin", "KUBEBAY_TOKEN=nope", "KUBECONFIG=/other"} },
+		Locate:     func() string { return f.bin },
+		Kubeconfig: func(c string) (string, string, error) { return "/kc/" + c, "ctx-" + c, nil },
+		Env: func() []string {
+			return []string{"HOME=/h", "PATH=/usr/bin:/bin", "KUBEBAY_TOKEN=nope", "KUBECONFIG=/other"}
+		},
 		DataDir:          t.TempDir(),
 		HealthTimeout:    5 * time.Second,
 		PollEvery:        20 * time.Millisecond,
