@@ -38,8 +38,6 @@ The severity, kind and namespace pickers narrow the list. The count badges above
 Issues reads the same live streams the other pages use and adds no new request of its own, apart from the API discovery lists that Best practices and Upgrade readiness already fetch. A check can only report what your own permissions let you read. When a check can't run, because the data is still loading, your access doesn't allow reading it, or the cluster doesn't have the feature, a banner names it with the reason. **A missing check is never shown as all clear:** "No issues found" appears only when every check ran.
 
 It does not include the RBAC explorer's findings, because those need a heavy scan of the cluster, or any Secret contents. Nothing here changes the cluster: Investigate only opens a page. **Investigate with AI** hands the issue to your own Claude Code and shows its answer; it can only read, and any fix is yours to apply. See [AI assistants](/docs/ai-assistants/).
-It does not include the RBAC explorer's findings, because those need a heavy scan of the cluster, or any Secret contents. Nothing here changes the cluster: Investigate only opens a page.
-
 ## Desktop notifications
 
 In the desktop app, **Settings, Notifications** can show an operating system notification when a new issue appears. It is off by default.

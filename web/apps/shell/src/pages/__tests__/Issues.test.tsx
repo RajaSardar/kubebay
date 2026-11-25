@@ -131,10 +131,6 @@ describe("Issues page", () => {
     activeCluster = "c1";
   });
 
-  it("offers Investigate with AI on every row, without running anything until it is clicked", () => {
-    ready();
-    renderPage();
-    expect(screen.getAllByRole("button", { name: "Investigate with AI" })).toHaveLength(issues.length);
   it("shows only the issue a notification pointed at, with a way back to all", async () => {
     ready();
     renderPage("/issues?issue=b");
@@ -148,5 +144,11 @@ describe("Issues page", () => {
     ready();
     renderPage("/issues?issue=gone");
     expect(screen.getByText("That issue is no longer raised.")).toBeTruthy();
+  });
+
+  it("offers Investigate with AI on every row, without running anything until it is clicked", () => {
+    ready();
+    renderPage();
+    expect(screen.getAllByRole("button", { name: "Investigate with AI" })).toHaveLength(issues.length);
   });
 });
