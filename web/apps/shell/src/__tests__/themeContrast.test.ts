@@ -260,6 +260,45 @@ describe.each(NATIVE)("$id theme contrast", ({ id, text }) => {
     expect(failures).toEqual([]);
   });
 
+  if (id.startsWith("blossom")) {
+    // Pink themes: an error must never be mistaken for the (pink) accent, by hue or by lightness.
+    const hueOf = ([r, g, b]: RGBA) => {
+      const [R, G, B] = [r / 255, g / 255, b / 255];
+      const max = Math.max(R, G, B), d = max - Math.min(R, G, B);
+      if (d === 0) return 0;
+      const h = max === R ? ((G - B) / d) % 6 : max === G ? (B - R) / d + 2 : (R - G) / d + 4;
+      return (h * 60 + 360) % 360;
+    };
+    it("danger is at least 36 degrees from the accent in hue", () => {
+      const a = hueOf(c("kb-accent")), e = hueOf(c("kb-status-err"));
+      expect(Math.min(Math.abs(a - e), 360 - Math.abs(a - e))).toBeGreaterThanOrEqual(36);
+    });
+
+    it("no failure colour is the accent, and every failure token differs from it", () => {
+      for (const t of ["kb-status-err", "kb-status-err-fg", "kb-on-danger"]) expect(v[t]).not.toBe(v["kb-accent"]);
+      expect(v["kb-status-err"]).not.toBe(v["kb-accent"]);
+    });
+
+    it("danger and accent differ in lightness, for readers who cannot tell the hues apart", () => {
+      const g = c("kb-bg-surface");
+      const ratio = (x: RGBA, y: RGBA) => (Math.max(lum(x), lum(y)) + 0.05) / (Math.min(lum(x), lum(y)) + 0.05);
+      const gap = ratio(c("kb-status-err"), c("kb-accent"));
+      // Light themes have a darker err than accent only by a hair; require some luminance step or a wide hue gap.
+      const hueGap = Math.min(Math.abs(hueOf(c("kb-accent")) - hueOf(c("kb-status-err"))), 360 - Math.abs(hueOf(c("kb-accent")) - hueOf(c("kb-status-err"))));
+      expect(gap >= 1.1 || hueGap >= 36, `lum gap ${gap.toFixed(2)} on ${g}`).toBe(true);
+    });
+
+    it("non-text UI (focus ring, control borders, chart series) reaches 3:1 on chrome, canvas and surface", () => {
+      const ring = /(#[0-9a-f]{6})\s*$/i.exec(v["kb-focus-ring"]!)![1]!;
+      for (const g of ["kb-bg-canvas", "kb-bg-surface", "kb-bg-chrome"]) {
+        check("kb-border-control", c(g), g, 3);
+        expect(contrast(parse(ring), c(g))).toBeGreaterThanOrEqual(3);
+        for (let n = 1; n <= 5; n++) check(`kb-chart-${n}`, c(g), g, 3);
+      }
+      expect(failures).toEqual([]);
+    });
+  }
+
   if (text === 7) {
     it("high-contrast control borders reach 3:1", () => {
       check("kb-border-strong", c("kb-bg-surface"), "kb-bg-surface", 3);

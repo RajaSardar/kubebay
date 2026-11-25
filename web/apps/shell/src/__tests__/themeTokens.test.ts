@@ -59,6 +59,19 @@ describe("theme tokens", () => {
     }
   });
 
+  it("a theme is colours only: no space, size, text or font tokens, no transition or filter", () => {
+    const offenders: string[] = [];
+    for (const [id, body] of Object.entries(themeBlocks(tokensCss))) {
+      for (const d of body.matchAll(/(--?[\w-]+)\s*:/g)) {
+        const name = d[1]!;
+        if (/^--kb-(space|h|text|font|size|radius|gap|pad)-/.test(name)) offenders.push(`${id}: ${name}`);
+        if (/transition|animation|filter|backdrop/.test(name)) offenders.push(`${id}: ${name}`);
+      }
+      if (/\b(transition|animation|filter|backdrop-filter)\s*:/.test(body)) offenders.push(`${id}: motion or filter`);
+    }
+    expect(offenders).toEqual([]);
+  });
+
   it("shell chrome uses theme tokens, not hard-coded colours", () => {
     const rule = (sel: string) => {
       const m = new RegExp(`${sel.replace(/[.]/g, "\\.")}\\s*\\{([^}]*)\\}`).exec(appCss);

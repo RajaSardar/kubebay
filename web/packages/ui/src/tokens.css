@@ -1012,18 +1012,18 @@
   --kb-on-danger: #ffffff;
 
   --kb-status-ok:         #17703e;
-  --kb-status-warn:       #8f5200;
-  --kb-status-err:        #c2190f;
+  --kb-status-warn:       #8a5600;
+  --kb-status-err:        #ae1c06;
   --kb-status-pending:    #3347b8;
   --kb-status-info:       #3347b8;
   --kb-status-terminated: #9a8591;
 
   --kb-status-ok-subtle:      color-mix(in srgb, #17703e 8%, transparent);
   --kb-status-ok-fg:          #136536;
-  --kb-status-warn-subtle:    color-mix(in srgb, #8f5200 8%, transparent);
-  --kb-status-warn-fg:        #804a00;
-  --kb-status-err-subtle:     color-mix(in srgb, #c2190f 8%, transparent);
-  --kb-status-err-fg:         #ae160d;
+  --kb-status-warn-subtle:    color-mix(in srgb, #8a5600 8%, transparent);
+  --kb-status-warn-fg:        #7a4b00;
+  --kb-status-err-subtle:     color-mix(in srgb, #ae1c06 8%, transparent);
+  --kb-status-err-fg:         #a01905;
   --kb-status-pending-subtle: color-mix(in srgb, #3347b8 8%, transparent);
   --kb-status-pending-fg:     #2d409f;
   --kb-status-done:         #6b2fb8;
