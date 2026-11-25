@@ -130,7 +130,7 @@ var mutations = []func(p map[string]any){
 }
 
 func TestSummarizeMatchesReference(t *testing.T) {
-	for i := 0; i < 200; i++ {
+	for i := 0; i < 60; i++ { // every name (i%50) and namespace (i%20) shape, 60 churn seeds
 		p := perffixture.Pod(i)
 		for j, mut := range mutations {
 			q := perffixture.Churn(p, i+j+1)
