@@ -67,6 +67,19 @@ The local terminal is part of the desktop app. The standalone engine and the con
 
 Those pages read the custom resources their operator installs. Kubebay checks for the operator's CRDs. Without them, the page says so. Kubebay can install Trivy-Operator for you.
 
+## The engine uses a lot of memory or CPU
+
+On a large cluster most of the engine's memory is the cached objects of the pages you have open; it lets go of a kind about two minutes after no page shows it. The engine sets no Go memory limit of its own. To cap it, start it with `GOMEMLIMIT` set (for example `GOMEMLIMIT=2GiB`); a limit below what the open pages need makes the garbage collector run constantly, so set it with room to spare.
+
+To see where the memory goes, save a heap profile and attach it to an issue:
+
+```
+curl -H "X-Kubebay-Token: $(cat ~/.config/kubebay/session-token)" \
+  http://127.0.0.1:<port>/api/debug/pprof/heap -o heap.pb.gz
+```
+
+`allocs` and `goroutine` work the same way in place of `heap`. A profile names engine functions and object counts, not your cluster's data.
+
 ## Still stuck
 
 Search or open an issue on [GitHub](https://github.com/RajaSardar/kubebay/issues). Include your Kubebay version (`kubebay --version`), your OS, and the error text. Don't include your kubeconfig.
