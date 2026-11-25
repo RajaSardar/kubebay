@@ -19,3 +19,5 @@ func killGroup(pid int) {
 // pidAlive is false: the orphan sweep is a Unix-only safety net (a pid file
 // cannot prove a Windows pid is still ours).
 func pidAlive(pid int) bool { return false }
+
+func ident(pid int) string { return "" }

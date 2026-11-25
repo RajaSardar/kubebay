@@ -4,6 +4,8 @@ package rolloutsdash
 
 import (
 	"os/exec"
+	"strconv"
+	"strings"
 	"syscall"
 )
 
@@ -19,4 +21,14 @@ func killGroup(pid int) { _ = syscall.Kill(-pid, syscall.SIGKILL) }
 func pidAlive(pid int) bool {
 	err := syscall.Kill(pid, 0)
 	return err == nil || err == syscall.EPERM
+}
+
+// ident names a process so a recycled pid can be told apart from the original:
+// its start time and command, as ps prints them.
+func ident(pid int) string {
+	out, err := exec.Command("ps", "-o", "lstart=,comm=", "-p", strconv.Itoa(pid)).Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
 }
