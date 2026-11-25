@@ -201,7 +201,7 @@ export const PAGE_HELP: Record<string, PageHelpEntry> = {
   "/settings": {
     name: "Settings",
     what: "Themes and display, Prometheus, the node shell image, usage history, AI features, extensions and updates.",
-    how: "Kept on this machine, by the app and its engine; nothing here is stored in a cluster.",
+    how: "Shared by all clusters; also in the Clusters page's Settings button. Kept on this machine, never in a cluster. This cluster is first when one is open.",
     docs: "settings",
   },
 };

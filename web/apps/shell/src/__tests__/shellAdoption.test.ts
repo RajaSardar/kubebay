@@ -63,7 +63,7 @@ describe("shell uses @kubebay/ui instead of hand-written patterns", () => {
 
 describe("shell colours come from tokens", () => {
   // Data, not styling: theme swatches, user-picked cluster colours, chart series.
-  const allowed = ["pages/Settings.tsx", "components/ClusterIconPicker.tsx"];
+  const allowed = ["pages/settings/SettingsBody.tsx", "components/ClusterIconPicker.tsx"];
   const files = tsxFiles(src).map((f) => [relative(src, f), readFileSync(f, "utf8")] as const);
 
   it("no hex or rgb() colour literals in shell components", () => {
