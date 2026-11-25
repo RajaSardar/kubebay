@@ -23,6 +23,19 @@
             {
               "title": "Opening Settings (the sidebar, the command palette or a link) before you have picked a cluster now lands on the Clusters page with the settings panel open, instead of dropping you on the plain list",
               "summary": ""
+            },
+            {
+              "title": "Blossom Night",
+              "summary": ", a dark theme paired with Blossom: a plum-tinted page, rose-white text and a soft pink accent (Settings, Theme; 14 themes now)."
+            }
+          ]
+        },
+        {
+          "heading": "Changed",
+          "items": [
+            {
+              "title": "Blossom's error and warning colours",
+              "summary": "Moved away from the pink accent (--kb-status-err to #ae1c06, --kb-status-warn to #8a5600, with matching subtle and foreground tones), so an error is never mistaken for the accent."
             }
           ]
         }

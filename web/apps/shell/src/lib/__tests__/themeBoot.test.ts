@@ -45,6 +45,7 @@ const CASES: { stored: Record<string, string>; env: Env; want: string }[] = [
   { stored: {}, env: {}, want: "dawn" },
   { stored: { "kb.theme.version": "2", "kb.theme": "nord" }, env: {}, want: "nord" },
   { stored: { "kb.theme.version": "2", "kb.theme": "blossom" }, env: {}, want: "blossom" },
+  { stored: { "kb.theme.version": "2", "kb.theme": "blossom-night" }, env: {}, want: "blossom-night" },
   { stored: { "kb.theme": "nord" }, env: {}, want: "dawn" }, // pre-v2 choice is reset to the default
   { stored: { "kb.theme.version": "2", "kb.theme": "system" }, env: { dark: true }, want: "dusk" },
   { stored: { "kb.theme.version": "2", "kb.theme": "system" }, env: { dark: false }, want: "dawn" },

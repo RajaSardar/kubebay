@@ -978,7 +978,9 @@
 
 /* ── Blossom (light — soft pink canvas, rose accent) ─────────────────────────
    A light theme: a blush canvas with white-pink cards, plum text and a deep
-   rose accent. Every text and accent pair is held to 4.5:1 by themeContrast. */
+   rose accent. Role naming and the light/dark pairing follow the Rosé Pine
+   palette structure (MIT; see THIRD_PARTY_NOTICES.md); the values are our own.
+   Every text and accent pair is held to 4.5:1 by themeContrast. */
 :root[data-theme="blossom"] {
   color-scheme: light;
 
@@ -1012,18 +1014,18 @@
   --kb-on-danger: #ffffff;
 
   --kb-status-ok:         #17703e;
-  --kb-status-warn:       #8f5200;
-  --kb-status-err:        #c2190f;
+  --kb-status-warn:       #8a5600;
+  --kb-status-err:        #ae1c06;
   --kb-status-pending:    #3347b8;
   --kb-status-info:       #3347b8;
   --kb-status-terminated: #9a8591;
 
   --kb-status-ok-subtle:      color-mix(in srgb, #17703e 8%, transparent);
   --kb-status-ok-fg:          #136536;
-  --kb-status-warn-subtle:    color-mix(in srgb, #8f5200 8%, transparent);
-  --kb-status-warn-fg:        #804a00;
-  --kb-status-err-subtle:     color-mix(in srgb, #c2190f 8%, transparent);
-  --kb-status-err-fg:         #ae160d;
+  --kb-status-warn-subtle:    color-mix(in srgb, #8a5600 8%, transparent);
+  --kb-status-warn-fg:        #7a4b00;
+  --kb-status-err-subtle:     color-mix(in srgb, #ae1c06 8%, transparent);
+  --kb-status-err-fg:         #a01905;
   --kb-status-pending-subtle: color-mix(in srgb, #3347b8 8%, transparent);
   --kb-status-pending-fg:     #2d409f;
   --kb-status-done:         #6b2fb8;
@@ -1049,4 +1051,82 @@
   --kb-chart-3: #a15c00;
   --kb-chart-4: #6b2fb8;
   --kb-chart-5: #0c7285;
+}
+
+/* ── Blossom Night (dark — plum canvas, soft pink accent) ────────────────────
+   The dark pair of Blossom: a plum-tinted canvas, rose-white text and a soft
+   pink accent. Role naming and the light/dark pairing follow the Rosé Pine
+   palette structure (MIT; see THIRD_PARTY_NOTICES.md); the values are our own.
+   Every text and accent pair is held to 4.5:1 by themeContrast. */
+:root[data-theme="blossom-night"] {
+  color-scheme: dark;
+
+  --kb-bg-canvas:  #1d1520;
+  --kb-bg-surface: #251a29;
+  --kb-bg-raised:  #2d2132;
+  --kb-bg-overlay: #35283b;
+  --kb-bg-inset:   #150e18;
+  --kb-bg-chrome:  #120b15;
+  --kb-separator:  var(--kb-border-subtle);
+  --kb-card-edge:  transparent;
+  --kb-bg-hover:   rgba(246, 228, 238, 0.06);
+
+
+  --kb-fg-default: #f6e4ee;
+  --kb-fg-muted:   #cbaebf;
+  --kb-fg-subtle:  #ab93a1;
+
+  --kb-accent:        #f28bb5;
+  --kb-accent-hover:  #f7a6c6;
+  --kb-accent-subtle: rgba(242, 139, 181, 0.12);
+
+  /* Namespace tints: six hues, text stays --kb-fg-default (contrast-tested) */
+  --kb-ns-1: color-mix(in srgb, #3b82f6 24%, transparent);
+  --kb-ns-2: color-mix(in srgb, #14b8a6 24%, transparent);
+  --kb-ns-3: color-mix(in srgb, #84cc16 24%, transparent);
+  --kb-ns-4: color-mix(in srgb, #f59e0b 24%, transparent);
+  --kb-ns-5: color-mix(in srgb, #f43f5e 24%, transparent);
+  --kb-ns-6: color-mix(in srgb, #8b5cf6 24%, transparent);
+  --kb-row-changed: rgba(246, 228, 238, 0.10); /* a row whose shown data just changed (#24) */
+  --kb-accent-fg:     #2a0f1e;
+  --kb-on-danger: #2a0f1e;
+
+  --kb-status-ok:         #6fcf97;
+  --kb-status-warn:       #e8b04a;
+  --kb-status-err:        #ff7a59;
+  --kb-status-pending:    #8fa8ff;
+  --kb-status-info:       #8fa8ff;
+  --kb-status-terminated: #8d7886;
+
+  --kb-status-ok-subtle:      color-mix(in srgb, #6fcf97 10%, transparent);
+  --kb-status-ok-fg:          #6fcf97;
+  --kb-status-warn-subtle:    color-mix(in srgb, #e8b04a 10%, transparent);
+  --kb-status-warn-fg:        #e8b04a;
+  --kb-status-err-subtle:     color-mix(in srgb, #ff7a59 8%, transparent);
+  --kb-status-err-fg:         #ff7a59;
+  --kb-status-pending-subtle: color-mix(in srgb, #8fa8ff 10%, transparent);
+  --kb-status-pending-fg:     #8fa8ff;
+  --kb-status-done:         #c7a0ea;
+  --kb-status-done-subtle:  color-mix(in srgb, #c7a0ea 10%, transparent);
+  --kb-status-done-fg:      #c7a0ea;
+
+  --kb-border-subtle: rgba(246, 228, 238, 0.12);
+  --kb-border-strong: rgba(246, 228, 238, 0.22);
+  --kb-border-control: rgba(246, 228, 238, 0.55);
+  --kb-highlight-inset: inset 0 1px 0 rgba(246, 228, 238, 0.04);
+
+  --kb-shadow-lift: 0 8px 28px rgba(0, 0, 0, 0.65);
+  --kb-shadow-menu: 0 4px 16px rgba(0, 0, 0, 0.55), 0 0 0 0.5px rgba(246, 228, 238, 0.08);
+
+  --kb-focus-ring: 0 0 0 2px #f28bb5;
+  --kb-selection:  rgba(242, 139, 181, 0.22);
+
+  --kb-theme-color: #1d1520;
+
+  /* Chart series: 3:1 on every ground, hues at least 20° apart */
+  --kb-chart-1: #f28bb5;
+  --kb-chart-2: #6fcf97;
+  --kb-chart-3: #e8b04a;
+  --kb-chart-4: #c7a0ea;
+  --kb-chart-5: #7fd1e0;
 }

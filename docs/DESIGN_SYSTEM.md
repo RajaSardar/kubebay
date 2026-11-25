@@ -4,7 +4,7 @@ Every pixel of the Kubebay UI comes from one place: the `@kubebay/ui` package in
 `web/packages/ui`. The shell (`web/apps/shell`) composes pages from it and never
 restyles it. Tests enforce this, so a change that bypasses the system fails CI.
 
-The visual reference (tokens in all 13 themes, live component previews, usage
+The visual reference (tokens in all 14 themes, live component previews, usage
 rules) is the Kubebay design system artifact:
 https://claude.ai/artifact/J35D45QQ7X6Sgd7mwfRSnF
 
@@ -50,7 +50,7 @@ in `docs/NEW_LOOK.md`:
 
 | What | File | Notes |
 |---|---|---|
-| Colour, shadow and focus tokens for all 13 themes | `web/packages/ui/src/tokens.css` | `--kb-*` custom properties, one block per `data-theme`. Grounds: `--kb-bg-canvas`, `--kb-bg-surface`, `--kb-bg-raised`, `--kb-bg-inset`, `--kb-bg-chrome` (the opaque frame: 1.10 to 1.30:1 from surface in normal themes, the canvas colour in HC). `--kb-separator` (band hairlines: the subtle border, the strong border in HC) and `--kb-card-edge` (transparent, the strong border in HC) are aliases, declared per theme |
+| Colour, shadow and focus tokens for all 14 themes | `web/packages/ui/src/tokens.css` | `--kb-*` custom properties, one block per `data-theme`. Grounds: `--kb-bg-canvas`, `--kb-bg-surface`, `--kb-bg-raised`, `--kb-bg-inset`, `--kb-bg-chrome` (the opaque frame: 1.10 to 1.30:1 from surface in normal themes, the canvas colour in HC). `--kb-separator` (band hairlines: the subtle border, the strong border in HC) and `--kb-card-edge` (transparent, the strong border in HC) are aliases, declared per theme |
 | Type scale, spacing, radii, motion, layers, band heights, layout widths | `web/packages/ui/src/tokens.css` (`:root`) | `--kb-text-*`, `--kb-space-*`, `--kb-radius-tile` (0), `--kb-radius-control` (2px), `--kb-radius-float` (6px) (`--kb-radius` and `--kb-radius-sm` are kept only for the website), `--kb-dur*`, `--kb-ease*`, `--kb-z-*`, `--kb-h-bar` (40px page header and toolbar), `--kb-h-tabs` (36px tab strip), `--kb-h-status` (24px status bar), `--kb-line-row` (20px table line box), `--kb-rail-w`, `--kb-sidebar-w` |
 | Component styles | `web/packages/ui/src/styles.css` | the only CSS for package classes |
 | Core components | `web/packages/ui/src/index.tsx` | `Button` (`size="sm"` for the status bar or a dense header), `ArmedButton`, `Card`, `Badge`, `Avatar` (letter tile, never an image), `StatusDot`, `Skeleton`, `chartColor()` |
@@ -141,9 +141,9 @@ in `docs/NEW_LOOK.md`:
    warn and err stay saturated and at least 25° of hue apart, and muted text
    never takes the accent's hue. Clickable things are never faded to show a
    state; desaturate instead. Adding or changing a colour means updating all
-   13 theme blocks; the contrast test computes the ratios from `tokens.css`.
+   14 theme blocks; the contrast test computes the ratios from `tokens.css`.
    Token pairs are not the whole story: before a design-system change merges,
-   render every component in all 13 themes and measure each text run against
+   render every component in all 14 themes and measure each text run against
    its real composited background. `node scripts/theme-audit/theme-audit.mjs`
    does this for the token gate, cluster catalog and Settings (text, control
    edges and focus rings) against an offline kubeconfig, after `make build`.
@@ -187,7 +187,7 @@ All run with `pnpm --filter @kubebay/shell test`:
   inline brand marks in shell TSX; no colour literals outside the
   data files; every form `Button` declares its `type`.
 - `src/__tests__/themeTokens.test.ts`: every `--kb-*` variable used is declared;
-  all 13 themes define the same tokens; package classes are styled only in
+  all 14 themes define the same tokens; package classes are styled only in
   `styles.css`; `app.css` never names a package class; `app.css` has no colour
   literals; Settings swatches match their themes.
 - `src/__tests__/themeContrast.test.ts`: WCAG contrast for every theme, on

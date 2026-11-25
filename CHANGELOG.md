@@ -12,6 +12,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 ### Changed
 - The Settings page and the new panel share one body. Inside a cluster the page now starts with **This cluster** (Prometheus status, **Change**, **Test connection**), and **Manage kubeconfig files** opens the dialog directly when you are on the Clusters page.
 - Opening **Settings** (the sidebar, the command palette or a link) before you have picked a cluster now lands on the Clusters page with the settings panel open, instead of dropping you on the plain list. Hovering the **Settings** button no longer logs an error if the panel's code can't be fetched.
+- **Blossom Night**, a dark theme paired with Blossom: a plum-tinted page, rose-white text and a soft pink accent (Settings, Theme; 14 themes now). Its contrast is computed from `tokens.css` by `themeContrast` like every theme: 4.5:1 for text, 3:1 for the focus ring, control borders and chart series. The native window follows it as a dark theme and the editor uses the dark Monaco theme. Tested with unit tests and the contrast guards; not looked at in the running app.
+
+### Changed
+- **Blossom's error and warning colours** moved away from the pink accent (`--kb-status-err` to `#ae1c06`, `--kb-status-warn` to `#8a5600`, with matching subtle and foreground tones), so an error is never mistaken for the accent. New guards in `themeContrast` require the danger hue to sit at least 36 degrees from the accent in both Blossom themes and no failure token to equal the accent. There is no high-contrast pink theme; Dawn HC and Dusk HC cover 7:1.
 
 ## [0.8.5] - 2026-11-25
 

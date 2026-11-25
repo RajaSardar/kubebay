@@ -11,7 +11,7 @@ The request was a pink theme "the same as the most famous and most used pink the
 | Dracula | 11,176,307 VS Code installs, https://marketplace.visualstudio.com/items?itemName=dracula-theme.theme-dracula ; about 23.6k stars, https://github.com/dracula/dracula-theme | Dark theme, pink is one accent (#ff79c6) |
 | Catppuccin | 1,504,825 VS Code installs, https://marketplace.visualstudio.com/items?itemName=Catppuccin.catppuccin-vsc ; 19,977 stars (GitHub API), https://github.com/catppuccin/catppuccin | Blue-grey bases (Latte #eff1f5, Mocha #1e1e2e); pink is an accent |
 | Rosé Pine | 353,274 VS Code installs, https://marketplace.visualstudio.com/items?itemName=mvllow.rose-pine ; 1,636 stars (GitHub API), https://github.com/rose-pine/rose-pine-theme | Rose and cream tones, light variant "Dawn" (base #faf4ed); the closest to a pink character |
-| Pink Cat Boo | 74 GitHub stars (https://github.com/ftsamoyed/PinkCatBoo); marketplace installs unverified (page returned 404) | Dark theme with a coral-pink accent; licence header names a different copyright holder |
+| a niche pink theme | 74 GitHub stars (a small public repository); marketplace installs unverified (page returned 404) | Dark theme with a coral-pink accent; licence header names a different copyright holder |
 
 **Reference we follow: Rosé Pine, Dawn for the light theme, Main/Moon for the dark one.** We follow its structure (a role-named palette, pink as an accent on low-chroma surfaces, a light and a dark pair), not its hex values.
 
@@ -19,7 +19,7 @@ Confidence, stated honestly:
 - About 90% that no single most-used pink theme can be verified.
 - About 55% that Rosé Pine is the right single reference. The pick rests on how rosy the theme is and on its MIT licence, not on popularity. Catppuccin has about 4 times its installs and Dracula about 30 times.
 - Runner-up: Catppuccin (Latte, Mocha). We borrow only the idea of a named secondary accent set (rosewater, flamingo, pink), for the dark theme only. Its light pinks fail as text (Latte pink #ea76cb is 2.34:1 on #eff1f5).
-- Unverified: dedicated pink themes' install counts, JetBrains and other marketplaces, and any data on who uses pink dev themes. If the owner wants the ranking settled, paste the marketplace counts for Pink Cat Boo and similar themes.
+- Unverified: dedicated pink themes' install counts, JetBrains and other marketplaces, and any data on who uses pink dev themes. If the owner wants the ranking settled, paste the marketplace counts for a niche pink theme and similar themes.
 
 Audience framing: describe the theme as "a soft rose theme for everyone", not "for women". The only evidence found is Wikipedia-level (https://en.wikipedia.org/wiki/Pink): pink became gendered in the 1930s to 50s, and one cited survey had 3% of women and under 1% of men naming pink a favourite. That is one survey and says nothing about developer themes. Design for taste range: calm, warm, rosy.
 
@@ -107,7 +107,7 @@ What we do, conservatively:
 - Our hex values are our own, picked to pass contrast. No Rosé Pine or Catppuccin value is copied, except as listed below. Colour values are likely not copyrightable, but attribution costs nothing.
 - Still add attribution, because the structure and a few accents derive from them. Create `THIRD_PARTY_NOTICES.md` at the repo root (none exists today) with the full MIT text for each, headed "Blossom and Blossom Night take their palette structure and naming from Rosé Pine (Copyright (c) 2023 Rosé Pine) and the dark theme's accent idea from Catppuccin (Copyright (c) 2021 Catppuccin). Both are MIT licensed." Add a one-line pointer in the tokens.css comment above each block and a line in the website docs page.
 - Do not call the themes "Rosé Pine" or "Catppuccin", and do not say or imply endorsement. Say "inspired by" in docs only if the owner wants it.
-- Pink Cat Boo: take only the coral-pink hue idea. Its LICENSE.md names Jason Milkins (2015), so provenance is unclear. Copy nothing from it.
+- a niche pink theme: take only the coral-pink hue idea. Its licence header is inconsistent, so provenance is unclear. Copy nothing from it.
 
 ## 5. Accessibility
 
@@ -142,7 +142,7 @@ First Rule check (speed, no hang, no error):
 
 ## 7. Open questions for the owner
 
-1. Is the honest reference ("Rosé Pine for structure, not the most-used pink theme, since none can be verified") acceptable? Recommendation: yes. If you want the claim settled, paste marketplace counts for Pink Cat Boo and any other pink theme you have in mind and I will re-rank.
+1. Is the honest reference ("Rosé Pine for structure, not the most-used pink theme, since none can be verified") acceptable? Recommendation: yes. If you want the claim settled, paste marketplace counts for a niche pink theme and any other pink theme you have in mind and I will re-rank.
 2. Ship Blossom Night now, or Blossom alone? Recommendation: ship both. Rosé Pine ships light and dark, and a pink light theme is a poor fit for people who work in dark rooms.
 3. Name: "Blossom" and "Blossom Night"? Recommendation: keep them; they say what they look like and carry no third-party name.
 4. Add an HC pink variant? Recommendation: not now; the editor themes are held at 4.5:1 and only the two native themes have HC. Revisit if users ask.
@@ -158,7 +158,7 @@ The owner delegated these five questions ("debate and decide, do not ask me"). T
 2. **Blossom Night: yes, ship in the same release, gated.** A pair reads as a system and most developers work in dark. Cost is CSS variables plus list entries, so the First Rule is unaffected. Gate: it merges only if `themeContrast`, `themeTokens`, `themeBoot`, `monacoTheme`, `nativeWindow` and the theme audit all pass with no guard weakened. If Night fails any gate and cannot be fixed in the slice, Blossom ships alone. Night accent may be tuned toward hotter pink (about #f58fbd to #ff8ac0) only after the tests pass; the canvas keeps a visible plum-pink tint, not near-black grey. Contrast figures in this doc are hand-computed; quote none until the tests run.
 3. **Names: yes.** Keep "Blossom" and "Blossom Night". Ids `blossom` and `blossom-night` are permanent (stored in user settings). Before release, grep the 13 existing theme names for collisions. "Blossom" is a generic word and we claim no exclusivity. Settings hints say "Light · soft pink" and "Dark · soft pink" so the name is never the only signal.
 4. **HC pink: no.** No dedicated Blossom HC theme (it would be a 15th block, with near-zero margin at 7:1, and pink at 7:1 drifts to maroon). Instead: both Blossom themes must meet 4.5:1 for text and 3:1 for non-text (focus ring, control borders, chart series); the docs theme page says users needing 7:1 should use Dawn HC or Dusk HC; the recipe (accent at least #8a1553, near-black plum text, 3:1 separators) stays in section 5; a backlog item is filed with trigger "first user request". Add the danger-vs-accent hue-gap guard now (it is worth more than an HC variant).
-5. **Attribution: yes.** `THIRD_PARTY_NOTICES.md` plus a `tokens.css` comment, no public "inspired by" line. Be accurate about scope: our hex values are our own, so the notice says "structure and role naming" and lists MIT text only for projects we actually derive from. Do not mention or copy Pink Cat Boo (unclear provenance). The notices file is a plain file and a comment: no gating test for its existence (slice 5's test is dropped as over-engineering). If the app has a licences or About screen, include the notice there.
+5. **Attribution: yes.** `THIRD_PARTY_NOTICES.md` plus a `tokens.css` comment, no public "inspired by" line. Be accurate about scope: our hex values are our own, so the notice says "structure and role naming" and lists MIT text only for projects we actually derive from. Do not mention or copy a niche pink theme (unclear provenance). The notices file is a plain file and a comment: no gating test for its existence (slice 5's test is dropped as over-engineering). If the app has a licences or About screen, include the notice there.
 
 ### Disagreements resolved
 

@@ -44,11 +44,11 @@ describe("theme tokens", () => {
     expect(missing).toEqual([]);
   });
 
-  it("all thirteen themes define the same colour tokens as Dusk", () => {
+  it("all fourteen themes define the same colour tokens as Dusk", () => {
     const blocks = themeBlocks(tokensCss);
     expect(Object.keys(blocks).sort()).toEqual(
       [
-        "blossom", "catppuccin", "dawn", "dawn-hc", "dracula", "dusk", "dusk-hc", "github-dark",
+        "blossom", "blossom-night", "catppuccin", "dawn", "dawn-hc", "dracula", "dusk", "dusk-hc", "github-dark",
         "github-light", "nord", "one-dark", "vscode-dark", "vscode-light",
       ],
     );
@@ -57,6 +57,19 @@ describe("theme tokens", () => {
     for (const [id, body] of Object.entries(blocks)) {
       expect({ id, tokens: names(body) }).toEqual({ id, tokens: reference });
     }
+  });
+
+  it("a theme is colours only: no space, size, text or font tokens, no transition or filter", () => {
+    const offenders: string[] = [];
+    for (const [id, body] of Object.entries(themeBlocks(tokensCss))) {
+      for (const d of body.matchAll(/(--?[\w-]+)\s*:/g)) {
+        const name = d[1]!;
+        if (/^--kb-(space|h|text|font|size|radius|gap|pad)-/.test(name)) offenders.push(`${id}: ${name}`);
+        if (/transition|animation|filter|backdrop/.test(name)) offenders.push(`${id}: ${name}`);
+      }
+      if (/\b(transition|animation|filter|backdrop-filter)\s*:/.test(body)) offenders.push(`${id}: motion or filter`);
+    }
+    expect(offenders).toEqual([]);
   });
 
   it("shell chrome uses theme tokens, not hard-coded colours", () => {
@@ -189,4 +202,20 @@ describe("shell chrome stays legible and focusable", () => {
     expect(focus).toMatch(/box-shadow:\s*var\(--kb-focus-ring\)/);
     expect(css.indexOf(".kb-choice-card:focus-visible")).toBeGreaterThan(css.indexOf(".kb-choice-card.active"));
   });
+});
+
+describe("Blossom themes carry only our own hex values", () => {
+  // Rosé Pine's published palette (Main, Moon, Dawn). THIRD_PARTY_NOTICES.md says none is copied.
+  const rosePine = [
+    "191724", "1f1d2e", "26233a", "6e6a86", "908caa", "e0def4", "eb6f92", "f6c177", "ebbcba", "31748f", "9ccfd8", "c4a7e7",
+    "232136", "2a273f", "393552", "faf4ed", "fffaf3", "f4ede8", "dfdad9", "9893a5", "797593", "575279", "b4637a", "ea9d34",
+    "d7827e", "286983", "56949f", "907aa9",
+  ];
+  for (const id of ["blossom", "blossom-night"]) {
+    it(`${id} uses no Rose Pine hex`, () => {
+      const block = themeBlocks(tokensCss)[id] ?? "";
+      const hexes = (block.match(/#[0-9a-f]{6}\b/gi) ?? []).map((h) => h.slice(1).toLowerCase());
+      expect(hexes.filter((h) => rosePine.includes(h))).toEqual([]);
+    });
+  }
 });
