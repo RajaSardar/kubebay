@@ -203,3 +203,19 @@ describe("shell chrome stays legible and focusable", () => {
     expect(css.indexOf(".kb-choice-card:focus-visible")).toBeGreaterThan(css.indexOf(".kb-choice-card.active"));
   });
 });
+
+describe("Blossom themes carry only our own hex values", () => {
+  // Rosé Pine's published palette (Main, Moon, Dawn). THIRD_PARTY_NOTICES.md says none is copied.
+  const rosePine = [
+    "191724", "1f1d2e", "26233a", "6e6a86", "908caa", "e0def4", "eb6f92", "f6c177", "ebbcba", "31748f", "9ccfd8", "c4a7e7",
+    "232136", "2a273f", "393552", "faf4ed", "fffaf3", "f4ede8", "dfdad9", "9893a5", "797593", "575279", "b4637a", "ea9d34",
+    "d7827e", "286983", "56949f", "907aa9",
+  ];
+  for (const id of ["blossom", "blossom-night"]) {
+    it(`${id} uses no Rose Pine hex`, () => {
+      const block = themeBlocks(tokensCss)[id] ?? "";
+      const hexes = (block.match(/#[0-9a-f]{6}\b/gi) ?? []).map((h) => h.slice(1).toLowerCase());
+      expect(hexes.filter((h) => rosePine.includes(h))).toEqual([]);
+    });
+  }
+});

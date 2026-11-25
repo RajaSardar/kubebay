@@ -1106,9 +1106,9 @@
   --kb-status-err-fg:         #ff7a59;
   --kb-status-pending-subtle: color-mix(in srgb, #8fa8ff 10%, transparent);
   --kb-status-pending-fg:     #8fa8ff;
-  --kb-status-done:         #c4a7e7;
-  --kb-status-done-subtle:  color-mix(in srgb, #c4a7e7 10%, transparent);
-  --kb-status-done-fg:      #c4a7e7;
+  --kb-status-done:         #c7a0ea;
+  --kb-status-done-subtle:  color-mix(in srgb, #c7a0ea 10%, transparent);
+  --kb-status-done-fg:      #c7a0ea;
 
   --kb-border-subtle: rgba(246, 228, 238, 0.12);
   --kb-border-strong: rgba(246, 228, 238, 0.22);
@@ -1127,6 +1127,6 @@
   --kb-chart-1: #f28bb5;
   --kb-chart-2: #6fcf97;
   --kb-chart-3: #e8b04a;
-  --kb-chart-4: #c4a7e7;
+  --kb-chart-4: #c7a0ea;
   --kb-chart-5: #7fd1e0;
 }
