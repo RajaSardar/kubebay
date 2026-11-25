@@ -11,6 +11,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
+
+	"github.com/RajaSardar/kubebay/engine/internal/audit"
 )
 
 // argoCDApp is the response shape for a single ArgoCD Application.
@@ -168,7 +170,7 @@ func argoCDAppsHandler(m *Metrics) http.HandlerFunc {
 
 // argoCDSyncHandler handles POST /api/argocd/sync
 // Triggers a hard refresh by patching the refresh annotation.
-func argoCDSyncHandler(m *Metrics) http.HandlerFunc {
+func argoCDSyncHandler(m *Metrics, auditLog *audit.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
 			Cluster   string `json:"cluster"`
@@ -205,7 +207,22 @@ func argoCDSyncHandler(m *Metrics) http.HandlerFunc {
 			http.Error(w, fmt.Sprintf("patch: %v", err), http.StatusBadGateway)
 			return
 		}
+		auditLog.RecordCtx(r.Context(), argoCDRefreshAuditEntry(body.Cluster, body.Namespace, body.Name, r.Header.Get("User-Agent")))
 		writeJSON(w, map[string]bool{"ok": true})
+	}
+}
+
+// argoCDRefreshAuditEntry is the audit record for a hard refresh of an
+// Application. RecordCtx adds the signed-in user from the request context.
+func argoCDRefreshAuditEntry(cluster, ns, name, userAgent string) audit.Entry {
+	return audit.Entry{
+		Action:    "argocd-hard-refresh",
+		Cluster:   cluster,
+		GVR:       gvrString(argoCDAppGVR),
+		Namespace: ns,
+		Resource:  name,
+		Detail:    "gvr=" + gvrString(argoCDAppGVR) + " kind=Application",
+		UserAgent: userAgent,
 	}
 }
 
