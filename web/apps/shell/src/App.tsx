@@ -70,6 +70,8 @@ const ArgoWorkflows = lazy(() => import("./pages/ArgoWorkflows"));
 const ArgoEvents = lazy(() => import("./pages/ArgoEvents"));
 const BestPractices = lazy(() => import("./pages/BestPractices"));
 import { Palette } from "./components/Palette";
+import { RefreshButton } from "./components/RefreshButton";
+import { useRefreshShortcut } from "./lib/refreshAll";
 import { CompareHost } from "./components/CompareDialog";
 import { discoveryApi } from "./lib/api";
 import { KNOWN_GVRS, extSlug } from "./lib/resources";
@@ -496,11 +498,14 @@ export function Sidebar({ onOpenPalette, sidebar }: { onOpenPalette: () => void;
         </svg>
         <span>Clusters</span>
       </NavLink>
-      {active && (
-        <Button variant="ghost" size="sm" className="sidebar-disconnect" onClick={disconnectActive} title={`Disconnect ${active}`}>
-          Disconnect
-        </Button>
-      )}
+      <div className="sidebar-actions">
+        <RefreshButton />
+        {active && (
+          <Button variant="ghost" size="sm" onClick={disconnectActive} title={`Disconnect ${active}`}>
+            Disconnect
+          </Button>
+        )}
+      </div>
 
       <button className="palette-hint" onClick={onOpenPalette}>
         <IconSearch size={13} />
@@ -802,6 +807,8 @@ function AppInner() {
 
 export default function App() {
   const navigate = useNavigate();
+  // ⌘R / Ctrl+R refreshes every query and stream instead of reloading the window.
+  useRefreshShortcut(useQueryClient());
   useRemoteDisconnects();
   // KB-14: a desktop CI smoke run exits once the shell has painted.
   useSmokeReady();

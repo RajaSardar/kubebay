@@ -9,17 +9,18 @@ This skill enforces Anthropic's AI-native software development lifecycle on ever
 
 ---
 
-## Lesson 0 — First Rule: Speed, No Hang, No Error
+## Lesson 0 — First Rule: Speed, Low Memory, No Hang, No Error
 
-Kubebay's USP is that it is fast, never hangs and never shows an error. It outranks every other lesson and every feature (see CLAUDE.md "FIRST RULE").
+Kubebay's USP is that it is fast, light on memory, never hangs and never shows an error. It outranks every other lesson and every feature (see CLAUDE.md "FIRST RULE").
 
 For every task, before the spec is agreed, answer in writing:
 
 1. **Fast:** what runs on each keystroke, scroll, tab switch and live update, and what does it cost at 2,000 pods? Add or extend a scale/perf test and record the number.
-2. **No hang:** which network call, stream, process or wait does this add, and what are its timeout, cancel path and visible waiting state? Who owns each goroutine, watcher or process, and where is it closed?
-3. **No error:** how does each failure read to the user (plain sentence, next step), and what catches it so no stack trace or blank screen can appear?
+2. **Low memory:** what does this hold per pod, per line or per cluster, what caps it, and when is it freed? Measure heap or RSS at 2,000 pods and record it.
+3. **No hang:** which network call, stream, process or wait does this add, and what are its timeout, cancel path and visible waiting state? Who owns each goroutine, watcher or process, and where is it closed?
+4. **No error:** how does each failure read to the user (plain sentence, next step), and what catches it so no stack trace or blank screen can appear?
 
-A spec without these three answers is not done. In review, treat a missing timeout, an unbounded buffer, a leaked watcher/process, a flaky test or a raw error string as a blocking defect. Agents you launch must be given this rule in their prompt.
+A spec without these four answers is not done. In review, treat a missing timeout, an unbounded buffer, a leaked watcher/process, a flaky test or a raw error string as a blocking defect. An uncapped cache or a store that outlives its page is also blocking. Agents you launch must be given this rule in their prompt.
 
 ---
 

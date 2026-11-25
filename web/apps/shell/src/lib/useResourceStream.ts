@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { attach, subscribe, unsubscribe, type Op } from "./ws";
 import { getStreamCache, setStreamCache } from "./streamCache";
 import { isHidden, onVisible } from "./visibility";
+import { useRefreshEpoch } from "./refreshAll";
 
 export interface StreamState {
   rows: Record<string, unknown>[];
@@ -80,6 +81,8 @@ export function useResourceStream(
   const specKey = `${cluster ?? ""}|${gvr}|${opts.ns?.join(",") ?? "*"}|${opts.labelSelector ?? ""}|${opts.mode ?? "metadata"}`;
   // Not part of the cache key, but a stream enabled late must still subscribe.
   const enabled = opts.enabled !== false;
+  // ⌘R bumps this: the effect below re-subscribes, keeping the rows on screen.
+  const refreshEpoch = useRefreshEpoch((s) => s.epoch);
 
   // Schedules a debounced flush (16 ms = one animation frame). All WS mutations
   // call this. Collapses rapid-fire delta bursts into a single re-render while
@@ -236,7 +239,7 @@ export function useResourceStream(
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [specKey, enabled]);
+  }, [specKey, enabled, refreshEpoch]);
 
   // Derive the rows array from the Map only when the epoch changes.
   const rows = useMemo(

@@ -1,10 +1,11 @@
 # Kubebay — Claude Code Rules
 
-## FIRST RULE: Speed. No hang. No error.
+## FIRST RULE: Speed. Low memory. No hang. No error.
 
-**Kubebay's reason to exist is that it is fast, never hangs and never shows an error. This outranks every other rule in this file and every feature.** Check it on every change, before TDD, design or docs.
+**Kubebay's reason to exist is that it is fast, light on memory, never hangs and never shows an error. This outranks every other rule in this file and every feature.** Check it on every change, before TDD, design or docs.
 
 - **Fast.** Nothing may slow the first paint, a tab switch, scrolling, typing or a live update. Big lists are virtualised, derived data is cached or indexed (no O(n²) over pods), heavy work leaves the main thread, streams are bounded. A change that costs time on a 2,000-pod cluster needs a measured test (see the `*Scale.test.ts` files and `scripts/perf-budgets.mjs`) and the number in its commit or CHANGELOG entry.
+- **Low memory.** Kubebay must stay light on the user's machine. Every cache, buffer, log view and stream has a size cap and is freed when its page, tab or cluster closes; nothing keeps a copy of every object it has seen. Measure heap or RSS for anything that holds data per pod or per line (2,000 pods, 5,000 log lines) and put the number in the commit or CHANGELOG entry. Prefer windowing, indexes and shared caches over copies.
 - **No hang.** Every network call, stream, child process and wait has a timeout and a way to cancel, and the UI shows progress or a clear state while it waits. Nothing blocks on a cluster that is slow, down or forbidden, and one bad cluster never slows another. No unbounded buffers, retries or goroutines; every goroutine, watcher and process has an owner that stops it (`Close`).
 - **No error.** Users never see a stack trace, a blank screen or a raw error string. Every failure is caught at the nearest boundary and turned into a plain sentence with what to do next. Known flaky tests are bugs: fix the race, never retry or skip. Tests must pass under CI's limits (Linux, 1,024 open files, 128 inotify instances) and cross-compile for macOS, Linux and Windows.
 - **Prove it.** When you report a change as done, say what you did for speed, hang and error handling. If you could not measure, say so: never claim "fast" without a number.

@@ -6,6 +6,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ## [Unreleased]
 
+### Added
+- **Refresh everything: ⌘R / Ctrl+R**, and a **Refresh** button at the top of the sidebar. Every query refetches and every live stream re-subscribes, without reloading the window. Live tables keep their rows until the fresh list has synced (no skeleton flash), unsaved YAML stays, a 1-second cooldown stops a held key from flooding the cluster, and Ctrl+R in a terminal stays the shell's history search. Cost: one refetch of the queries on screen (inactive ones are only marked stale) and one re-list per open stream; it holds no extra memory.
+
 ## [0.8.7] - 2026-11-25
 
 ### Fixed

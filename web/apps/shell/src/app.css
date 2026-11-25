@@ -1192,7 +1192,9 @@ h2 {
   opacity: 1;
 }
 
-.sidebar-disconnect {
+.sidebar-actions {
+  display: flex;
+  gap: 4px;
   margin: 6px var(--kb-gutter) 0;
 }
 

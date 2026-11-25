@@ -143,6 +143,10 @@ A saved view keeps a table as you have it: the cluster, the kind, the namespaces
 
 Saved views are listed in the sidebar and in the command palette. Opening one switches to its cluster and opens its table. In [Settings](/docs/settings/#saved-views) you can delete them, **Export** them to a file, and **Import…** a file, for example one a teammate shared.
 
+## Refresh
+
+Press <kbd>⌘</kbd> <kbd>R</kbd> (<kbd>Ctrl</kbd> <kbd>R</kbd> on Windows and Linux), or click **Refresh** at the top of the sidebar, to reload everything you're looking at from the cluster without reloading the window. Live tables keep showing their rows until the fresh list arrives, so nothing goes blank, and a page you have unsaved YAML in keeps it. Pressing it again within a second does nothing, so holding the keys down can't flood the cluster. In a terminal on Windows and Linux, <kbd>Ctrl</kbd> <kbd>R</kbd> stays the shell's history search. <kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>R</kbd> still reloads the whole window.
+
 ## Keyboard shortcuts
 
 | Shortcut | Does |
@@ -150,6 +154,7 @@ Saved views are listed in the sidebar and in the command palette. Opening one sw
 | <kbd>⌘</kbd> <kbd>K</kbd> | open the command palette |
 | <kbd>⌘</kbd> <kbd>B</kbd> | hide or show the sidebar |
 | <kbd>⌘</kbd> <kbd>N</kbd> | open a new window (desktop app) |
+| <kbd>⌘</kbd> <kbd>R</kbd> | refresh everything: every list, chart and live table reloads from the cluster |
 | <kbd>/</kbd> | jump to a table's filter |
 | <kbd>j</kbd> <kbd>k</kbd> <kbd>Enter</kbd> <kbd>x</kbd> | move, open and select in a table |
 | <kbd>Esc</kbd> | close a drawer, dialog, ⓘ or the palette |
