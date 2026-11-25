@@ -118,6 +118,9 @@ type Stats struct {
 	DBBytes  int64 `json:"dbBytes"`
 	CapBytes int64 `json:"capBytes"`
 	Evicted  int64 `json:"evicted"`
+	// EvictedBefore: rows older than this were removed to stay under the
+	// size cap, so nothing before it can be shown, whatever coverage says.
+	EvictedBefore time.Time `json:"evictedBefore,omitempty"`
 }
 
 // Store is where changes and coverage live. Everything but store_test.go

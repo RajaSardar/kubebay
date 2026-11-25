@@ -179,6 +179,15 @@ func (t *TimelineAPI) HandleChanges(w http.ResponseWriter, r *http.Request) {
 			kinds = kinds[:timelineMaxCoverageKinds]
 		}
 	}
+	// Rows removed for the size cap leave coverage that still says "watched":
+	// the time before them is not recorded as far as anyone can see.
+	var evicted time.Time
+	if stats, err := st.Stats(); err == nil && stats.EvictedBefore.After(from) {
+		evicted = stats.EvictedBefore
+		if evicted.After(to) {
+			evicted = to
+		}
+	}
 	cov := make([]kindCoverage, 0, len(kinds))
 	for _, k := range kinds {
 		spans, err := st.Spans(c, k, from, to)
@@ -186,7 +195,14 @@ func (t *TimelineAPI) HandleChanges(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		cov = append(cov, kindCoverage{Kind: k, Gaps: nonNilGaps(timeline.Gaps(timeline.SpansFor(spans, tq.Namespace), from, to, timelineGapSlack))})
+		gapFrom := from
+		var lead []timeline.Gap
+		if !evicted.IsZero() {
+			gapFrom = evicted
+			lead = []timeline.Gap{{From: from, To: evicted, Reason: timeline.ReasonEvicted}}
+		}
+		gaps := append(lead, timeline.Gaps(timeline.SpansFor(spans, tq.Namespace), gapFrom, to, timelineGapSlack)...)
+		cov = append(cov, kindCoverage{Kind: k, Gaps: nonNilGaps(gaps)})
 	}
 	changes := page.Changes
 	if changes == nil {

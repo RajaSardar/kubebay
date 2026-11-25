@@ -8,6 +8,7 @@ import (
 // Gap reasons.
 const (
 	ReasonNotRecorded = "not recorded"
+	ReasonEvicted     = "removed to keep the file under its size limit"
 	ReasonNotRunning  = "the app was not running or the watch was not open"
 )
 

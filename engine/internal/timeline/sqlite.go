@@ -310,6 +310,12 @@ func (s *SQLiteStore) enforceCapLocked() error {
 			break
 		}
 		n := max(rows/5, 100)
+		var upTo sql.NullInt64
+		_ = s.db.QueryRow("SELECT max(ts) FROM (SELECT ts FROM changes ORDER BY ts ASC, id ASC LIMIT ?)", n).Scan(&upTo)
+		if upTo.Valid {
+			_, _ = s.db.Exec(`INSERT INTO meta (key, value) VALUES ('evicted_before', ?1)
+				ON CONFLICT (key) DO UPDATE SET value = ?1 WHERE CAST(value AS INTEGER) < CAST(?1 AS INTEGER)`, fmt.Sprint(upTo.Int64))
+		}
 		res, err := s.db.Exec("DELETE FROM changes WHERE id IN (SELECT id FROM changes ORDER BY ts ASC, id ASC LIMIT ?)", n)
 		if err != nil {
 			return err
@@ -489,7 +495,12 @@ func (s *SQLiteStore) Stats() (Stats, error) {
 	if err := s.db.QueryRow("SELECT count(*) FROM changes").Scan(&rows); err != nil {
 		return Stats{}, err
 	}
-	return Stats{Rows: rows, DBBytes: s.liveBytes(), CapBytes: s.max, Evicted: s.evicted.Load()}, nil
+	st := Stats{Rows: rows, DBBytes: s.liveBytes(), CapBytes: s.max, Evicted: s.evicted.Load()}
+	var ms int64
+	if err := s.db.QueryRow("SELECT CAST(value AS INTEGER) FROM meta WHERE key = 'evicted_before'").Scan(&ms); err == nil && ms > 0 {
+		st.EvictedBefore = time.UnixMilli(ms).UTC()
+	}
+	return st, nil
 }
 
 func (s *SQLiteStore) Clear(cluster string) error {

@@ -120,6 +120,9 @@ func TestSQLiteSizeCapEvictsOldestFirst(t *testing.T) {
 	if st.Evicted == 0 {
 		t.Error("nothing was evicted")
 	}
+	if st.EvictedBefore.IsZero() || st.EvictedBefore.After(t0.Add(40*time.Minute)) {
+		t.Errorf("the cap must say how far back it removed rows: %v", st.EvictedBefore)
+	}
 	p, _ := s.Query(Query{Cluster: "c1", Limit: 1})
 	if len(p.Changes) != 1 || !strings.HasPrefix(p.Changes[0].Name, "pod-39-") {
 		t.Errorf("newest row gone: %+v", p.Changes)

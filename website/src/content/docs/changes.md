@@ -23,7 +23,7 @@ It never records a Secret, of any kind, or any value. It also skips objects that
 
 ## Not recorded
 
-Kubebay starts no watches of its own for this, so it records a kind only while a page that shows it is open, with the app running. The **Recording coverage by kind** bars above the list show, for each kind, a shaded stretch wherever nothing was recording it: the app was closed, no page had that kind open, or the cluster refused access. A gap is never filled in by guessing, and a quiet row of bars does not mean nothing happened, only that Kubebay was not looking.
+Kubebay starts no watches of its own for this, so it records a kind only while a page that shows it is open, with the app running. The **Recording coverage by kind** bars above the list show, for each kind, a shaded stretch wherever nothing was recording it: the app was closed, no page had that kind open, the computer was asleep or the app was paused, the cluster refused access, or the oldest rows were removed to keep the file under its size limit. A gap is never filled in by guessing, and a quiet row of bars does not mean nothing happened, only that Kubebay was not looking.
 
 Two limits to know:
 

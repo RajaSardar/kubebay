@@ -220,3 +220,46 @@ func TestTimelineRetentionSurvivesASettingsSave(t *testing.T) {
 		t.Errorf("default = %d", sm.TimelineRetentionDays())
 	}
 }
+
+type evictedStore struct {
+	*timeline.MemStore
+	before time.Time
+}
+
+func (e evictedStore) Stats() (timeline.Stats, error) {
+	return timeline.Stats{EvictedBefore: e.before}, nil
+}
+
+// Rows removed to stay under the size cap must show as not recorded, even
+// though the coverage records for that time say a watch was open.
+func TestTimelineShowsSizeCapEvictionAsAGap(t *testing.T) {
+	before := time.Now().Add(-time.Hour)
+	sm := settingsWithManager(t)
+	m := timeline.NewManager(timeline.ManagerOptions{Dir: t.TempDir(), RetentionDays: 7,
+		Open: func(string) (timeline.Store, error) { return evictedStore{timeline.NewMemStore(), before}, nil }})
+	if err := m.Start(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(m.Close)
+	api := &TimelineAPI{Manager: m, Settings: sm, Known: func(string) bool { return true }}
+	tlSeed(t, api, "kind-dev", 1)
+	rec := tlGet(api.HandleChanges, "/api/timeline/changes?cluster=kind-dev&kind=Deployment")
+	var out struct {
+		Coverage []struct {
+			Gaps []timeline.Gap `json:"gaps"`
+		} `json:"coverage"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &out)
+	if len(out.Coverage) != 1 {
+		t.Fatalf("%s", rec.Body)
+	}
+	var found bool
+	for _, g := range out.Coverage[0].Gaps {
+		if g.Reason == timeline.ReasonEvicted && g.To.Sub(before).Abs() < time.Second {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("no size-cap gap in %+v", out.Coverage[0].Gaps)
+	}
+}
