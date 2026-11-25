@@ -112,7 +112,7 @@ func SharedOp(op, key string, obj map[string]any) Op {
 func (o Op) Shared() bool { return o.enc != nil }
 
 func (o Op) encodedObj() ([]byte, error) {
-	o.enc.once.Do(func() { o.enc.b, o.enc.err = msgpack.Marshal(o.Obj) })
+	o.enc.once.Do(func() { o.enc.b, o.enc.err = encodeExact(o.Obj) })
 	return o.enc.b, o.enc.err
 }
 
@@ -273,6 +273,26 @@ func withEncodedData(f *DataFrame, send func([]byte) error) error {
 		frameBufs.Put(buf)
 	}
 	return err
+}
+
+// encodeExact is msgpack.Marshal(m) kept in a slice of exactly its size: it
+// is encoded into a pooled buffer and copied out, so a shared op does not
+// hold the doubled slice msgpack.Marshal grows (16.5 KB for a 5.8 KB pod).
+func encodeExact(m map[string]any) ([]byte, error) {
+	buf := frameBufs.Get().(*bytes.Buffer)
+	buf.Reset()
+	enc := msgpack.GetEncoder()
+	enc.Reset(buf)
+	err := enc.EncodeMap(m)
+	msgpack.PutEncoder(enc)
+	var b []byte
+	if err == nil {
+		b = bytes.Clone(buf.Bytes())
+	}
+	if buf.Cap() <= maxPooledFrame {
+		frameBufs.Put(buf)
+	}
+	return b, err
 }
 
 func DecodeData(b []byte) (*DataFrame, error) {
