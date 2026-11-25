@@ -52,15 +52,23 @@ export const HScrollBar = memo(function HScrollBar({ target, label = "Scroll sid
   useEffect(() => {
     if (!target) return;
     let raf = 0;
+    let last = target.scrollLeft;
+    // scrollLeft is read here, in the scroll event, where layout is clean; read in the frame callback
+    // it would force a layout right after React's commit (a vertical scroll never changes it).
     const onScroll = () => {
+      const scrollLeft = target.scrollLeft;
+      if (scrollLeft === last) return;
+      last = scrollLeft;
       if (raf) return;
       raf = requestAnimationFrame(() => {
         raf = 0;
-        const scrollLeft = target.scrollLeft;
-        setM((p) => (p.scrollLeft === scrollLeft ? p : { ...p, scrollLeft }));
+        const now = last;
+        setM((p) => (p.scrollLeft === now ? p : { ...p, scrollLeft: now }));
       });
     };
-    target.addEventListener("scroll", onScroll, { passive: true });
+    // Capture: at the target, capturing listeners run first, ahead of the row virtualiser's own scroll
+    // listener, whose synchronous React commit would dirty layout before this read.
+    target.addEventListener("scroll", onScroll, { passive: true, capture: true });
     let ro: ResizeObserver | undefined;
     if (typeof ResizeObserver !== "undefined") {
       ro = new ResizeObserver(measure);
@@ -68,7 +76,7 @@ export const HScrollBar = memo(function HScrollBar({ target, label = "Scroll sid
       for (const c of Array.from(target.children)) ro.observe(c);
     }
     return () => {
-      target.removeEventListener("scroll", onScroll);
+      target.removeEventListener("scroll", onScroll, { capture: true });
       if (raf) cancelAnimationFrame(raf);
       ro?.disconnect();
     };

@@ -129,7 +129,6 @@ interface ListRowProps<R> {
   r: R;
   rowKey: string;
   index: number;
-  measureRef: (el: HTMLTableRowElement | null) => void;
   selected: boolean;
   active: boolean;
   dimmed: boolean;
@@ -156,7 +155,6 @@ function ListRowImpl<R>(p: ListRowProps<R>) {
   return (
     <TableRow
       data-index={index}
-      ref={p.measureRef}
       clickable
       selected={selected}
       hovered={active}
@@ -217,7 +215,7 @@ function sameRow<R>(a: ListRowProps<R>, b: ListRowProps<R>): boolean {
   if (
     a.rowKey !== b.rowKey || a.index !== b.index || a.selected !== b.selected || a.active !== b.active ||
     a.dimmed !== b.dimmed || a.changed !== b.changed || a.visible !== b.visible || a.byCol !== b.byCol ||
-    a.cluster !== b.cluster || a.measureRef !== b.measureRef || a.onOpen !== b.onOpen || a.onToggle !== b.onToggle ||
+    a.cluster !== b.cluster || a.onOpen !== b.onOpen || a.onToggle !== b.onToggle ||
     a.onMenu !== b.onMenu || a.onNamespace !== b.onNamespace
   )
     return false;
@@ -401,7 +399,7 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
   useEffect(() => {
     if (confirming) cancelRef.current?.focus();
   }, [confirming]);
-  const { virtualizer, items: virtualRows, topSpace, bottomSpace } = list.virtual;
+  const { items: virtualRows, topSpace, bottomSpace } = list.virtual;
 
   // Row callbacks are stable (they read the latest props through refs) so a
   // memoised row re-renders only when its own object or state changes.
@@ -556,7 +554,6 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
                     r={rows[virtualRow.index]!}
                     rowKey={key}
                     index={virtualRow.index}
-                    measureRef={virtualizer.measureElement}
                     selected={selectedKeys.has(key)}
                     active={activeRow === virtualRow.index}
                     dimmed={p.isDimmed?.(rows[virtualRow.index]!) ?? false}

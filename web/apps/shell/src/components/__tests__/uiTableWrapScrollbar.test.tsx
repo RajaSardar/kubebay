@@ -1,5 +1,5 @@
-import { afterEach, describe, expect, it } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Table, TableWrap, scrollThumb, scrollLeftForThumb } from "@kubebay/ui";
 
 // jsdom does no layout: give every element the box a real wide table would have.
@@ -121,6 +121,27 @@ describe("TableWrap's scrollbar does not thrash layout", () => {
       fireEvent.scroll(wrap);
     }
     expect(reads.n).toBe(after);
+  });
+});
+
+describe("TableWrap's scrollbar reads scrollLeft when the scroll event fires, not in the frame callback", () => {
+  it("a sideways scroll is read in the event, so the frame callback forces no layout after React's commit", () => {
+    restore = withBox(1200, 400);
+    const queued: FrameRequestCallback[] = [];
+    const raf = vi.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => (queued.push(cb), queued.length));
+    mount();
+    const wrap = wrapOf();
+    let left = 0;
+    let reads = 0;
+    Object.defineProperty(wrap, "scrollLeft", { configurable: true, get: () => (reads++, left), set: (v) => (left = v) });
+    left = 120;
+    fireEvent.scroll(wrap);
+    expect(reads).toBeGreaterThan(0); // read in the event
+    const inEvent = reads;
+    act(() => queued.splice(0).forEach((cb) => cb(0)));
+    expect(reads).toBe(inEvent); // none in the frame callback
+    expect(screen.getByRole("scrollbar")).toHaveAttribute("aria-valuenow", "120");
+    raf.mockRestore();
   });
 });
 
