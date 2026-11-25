@@ -79,9 +79,9 @@ describe("theme changes reach the desktop window", () => {
 describe("the desktop app accepts the call", () => {
   const tauri = resolve(__dirname, "../../../../../../desktop/src-tauri");
   // The page's whole IPC surface, exactly: set_window_theme; smoke_ready
-  // (KB-14), which does nothing outside a KUBEBAY_SMOKE=1 run; and the
-  // updater's four commands (KB-04).
-  const commands = ["set_window_theme", "smoke_ready", "update_status", "set_update_checks", "check_for_updates", "install_update"];
+  // (KB-14), which does nothing outside a KUBEBAY_SMOKE=1 run; the
+  // updater's four commands (KB-04) and the two notification commands (backlog 85).
+  const commands = ["set_window_theme", "smoke_ready", "update_status", "set_update_checks", "check_for_updates", "install_update", "notify_issue", "request_notification_permission"];
   it("declares exactly its commands, callable only from the engine-served page", () => {
     const build = readFileSync(resolve(tauri, "build.rs"), "utf8");
     const declared = /commands\(&\[([^\]]*)\]\)/.exec(build)?.[1] ?? "";
@@ -98,5 +98,9 @@ describe("the desktop app accepts the call", () => {
     const updates = JSON.parse(readFileSync(resolve(tauri, "capabilities/updates.json"), "utf8"));
     expect(updates).toMatchObject({ windows: ["main", "win-*"], remote: { urls: ["http://127.0.0.1:*"] } });
     expect(updates.permissions).toEqual(["allow-update-status", "allow-set-update-checks", "allow-check-for-updates", "allow-install-update"]);
+    // Backlog 85: exactly our two notification commands, never the plugin's own.
+    const notif = JSON.parse(readFileSync(resolve(tauri, "capabilities/notifications.json"), "utf8"));
+    expect(notif).toMatchObject({ windows: ["main", "win-*"], remote: { urls: ["http://127.0.0.1:*"] } });
+    expect(notif.permissions).toEqual(["allow-notify-issue", "allow-request-notification-permission"]);
   });
 });

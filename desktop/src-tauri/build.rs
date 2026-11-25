@@ -11,6 +11,8 @@ fn main() {
             "set_update_checks",
             "check_for_updates",
             "install_update",
+            "notify_issue",
+            "request_notification_permission",
         ]),
     ))
     .expect("failed to run tauri-build");
