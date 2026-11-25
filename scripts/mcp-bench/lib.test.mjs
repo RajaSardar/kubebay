@@ -5,8 +5,9 @@ import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { homedir } from "node:os";
-import { loadScenarios, assertKindClusters, parseClusters, checkKubeconfigArg, runScenario, runReadOnlyChecks, runBench, redact } from "./lib.mjs";
+import { homedir, tmpdir } from "node:os";
+import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync } from "node:fs";
+import { loadScenarios, assertKindClusters, parseClusters, checkKubeconfigArg, kubeconfigContexts, assertKindContexts, assertClustersInKubeconfig, engineLaunch, seedSettings, runScenario, runReadOnlyChecks, runBench, redact } from "./lib.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -85,14 +86,17 @@ test("a tool error, a thrown error and a timeout each fail the scenario and carr
   assert.match(slow.error, /timed out/);
 });
 
-test("read-only checks: no write tool listed and propose_change refused", async () => {
-  const good = fakeClient({ tools: ["list_clusters", "get_logs"], answers: { propose_change: { isError: true, text: "kubebay MCP is read-only: this tool can change cluster state and is turned off in Kubebay" } } });
+test("read-only check only lists tools: it never calls a write tool", async () => {
+  const good = fakeClient({ tools: ["list_clusters", "get_logs"] });
   const rs = await runReadOnlyChecks(good, ctx);
-  assert.deepEqual(rs.map((r) => r.id), ["readonly-no-write-tools-listed", "readonly-propose-refused"]);
+  assert.deepEqual(rs.map((r) => r.id), ["readonly-no-write-tools-listed"]);
   assert.ok(rs.every((r) => r.pass));
+  assert.deepEqual(good.calls, []);
+  // An engine that is not read-only lists propose_change: the check fails, and still calls nothing.
   const bad = fakeClient({ tools: ["list_clusters", "propose_change"], answers: { propose_change: { isError: false, text: "proposal created" } } });
   const rb = await runReadOnlyChecks(bad, ctx);
   assert.ok(rb.every((r) => !r.pass));
+  assert.deepEqual(bad.calls, []);
 });
 
 test("assertKindClusters refuses any cluster that is not a kind-* one", () => {
@@ -106,6 +110,50 @@ test("the default kubeconfig is refused and an explicit path is required", () =>
   assert.throws(() => checkKubeconfigArg(join(homedir(), ".kube", "config")), /default/);
   assert.throws(() => checkKubeconfigArg("~/.kube/config"), /default/);
   assert.equal(checkKubeconfigArg("/tmp/kind-bench.kubeconfig"), "/tmp/kind-bench.kubeconfig");
+});
+
+test("only kind-* kubeconfig files are allowed, and a symlink to the default is refused", () => {
+  assert.throws(() => checkKubeconfigArg("/tmp/prod.kubeconfig"), /kind-\*/);
+  assert.throws(() => checkKubeconfigArg("/tmp/config"), /kind-\*/);
+  assert.throws(() => checkKubeconfigArg("/tmp/kind-x/../prod"), /kind-\*/);
+  const dir = mkdtempSync(join(tmpdir(), "bench-"));
+  const fake = join(dir, "home");
+  mkdirSync(join(fake, ".kube"), { recursive: true });
+  writeFileSync(join(fake, ".kube", "config"), "apiVersion: v1\n");
+  symlinkSync(join(fake, ".kube", "config"), join(dir, "kind-link"));
+  assert.throws(() => checkKubeconfigArg(join(dir, "kind-link"), { home: fake }), /default/);
+});
+
+test("kubeconfigContexts lists context names, and every one must be kind-*", () => {
+  const yaml = "apiVersion: v1\nclusters:\n- name: kind-bench\n  cluster: {server: 'https://127.0.0.1:1'}\ncontexts:\n- context: {cluster: kind-bench, user: kind-bench}\n  name: kind-bench\n- name: kind-two\n  context: {cluster: kind-bench, user: x}\ncurrent-context: kind-bench\n";
+  assert.deepEqual(kubeconfigContexts(yaml), ["kind-bench", "kind-two"]);
+  assertKindContexts(["kind-bench"]);
+  assert.throws(() => assertKindContexts(["kind-bench", "prod-eks"]), /prod-eks/);
+  assert.throws(() => assertKindContexts([]), /no contexts/);
+});
+
+test("clusters the server lists must come from the given kubeconfig", () => {
+  assertClustersInKubeconfig([{ id: "kind-bench" }], ["kind-bench", "kind-two"]);
+  assert.throws(() => assertClustersInKubeconfig([{ id: "kind-other" }], ["kind-bench"]), /kind-other/);
+});
+
+test("the engine the harness starts gets the kubeconfig, an isolated home and read-only on request", () => {
+  const l = engineLaunch({ engine: "/bin/kubebay", kubeconfig: "/tmp/kind-bench.kubeconfig", port: 19898, home: "/tmp/h", readOnly: true });
+  assert.equal(l.command, "/bin/kubebay");
+  assert.deepEqual(l.args.slice(0, 2), ["--kubeconfig", "/tmp/kind-bench.kubeconfig"]);
+  assert.ok(l.args.includes("--no-open") && l.args.includes("--mcp-read-only"));
+  assert.ok(l.args.includes("127.0.0.1:19898"));
+  assert.equal(l.env.KUBEBAY_KUBECONFIG, "/tmp/kind-bench.kubeconfig");
+  assert.equal(l.env.HOME, "/tmp/h");
+  assert.equal(l.env.KUBECONFIG, "/tmp/kind-bench.kubeconfig");
+  assert.equal(engineLaunch({ engine: "/bin/kubebay", kubeconfig: "/tmp/kind-b", port: 1, home: "/tmp/h" }).args.includes("--mcp-read-only"), false);
+});
+
+test("seedSettings turns MCP on for exactly the kubeconfig's contexts, read-only writes off", () => {
+  const home = mkdtempSync(join(tmpdir(), "bench-home-"));
+  seedSettings(home, ["kind-bench"]);
+  const saved = JSON.parse(readFileSync(join(home, ".kubebay", "settings.json"), "utf8"));
+  assert.deepEqual(saved.mcp, { enabled: true, clusters: { "kind-bench": [] } });
 });
 
 test("runBench records every scenario, writes the shape, and never contains the token", async () => {
