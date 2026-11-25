@@ -142,7 +142,6 @@ permission mode or the allowlist change or any built-in tool name appears in the
   themeTokens, themeContrast stay green; website `docs.test` and `help.test` pass.
 
 ## Out of scope
-
 Other providers or API keys, a hosted or shared-engine mode, letting the model run any built-in tool or any
 write MCP tool, auto-applying fixes, multi-turn chat or session resume, storing transcripts, background or
 scheduled investigations, investigating multiple clusters in one run, a Claude Code installer or updater.
