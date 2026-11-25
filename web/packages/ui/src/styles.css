@@ -488,6 +488,8 @@ button.nav-item {
   overflow: auto;
   background: var(--kb-bg-surface);
   min-height: 0;
+  /* Reaching an edge never chains to the window (WKWebView bounce): CSS, not a wheel listener. */
+  overscroll-behavior: none;
 }
 
 /* TableWrap's frame: the scrolling viewport above, its sideways scrollbar pinned below it. The bar is
