@@ -130,6 +130,22 @@ describe("Rollouts page", () => {
       expect(screen.getByText("api")).toBeInTheDocument();
     });
 
+    it("label:key=value matches the Rollout's own labels instead of hiding every row", async () => {
+      stream.rollouts = {
+        rows: [
+          { metadata: { name: "web", namespace: "shop", labels: { app: "web" } }, spec: { strategy: { canary: {} } }, status: { phase: "Healthy" } },
+          { metadata: { name: "api", namespace: "infra", labels: { app: "api" } }, spec: { strategy: { canary: {} } }, status: { phase: "Healthy" } },
+        ],
+        synced: true,
+        connected: true,
+      };
+      renderPage();
+      await screen.findByText("web");
+      type("label:app=api");
+      expect(screen.getByText("api")).toBeInTheDocument();
+      expect(screen.queryByText("web")).toBeNull();
+    });
+
     it("says no Rollouts match, distinct from none found, and / focuses the box", async () => {
       two();
       renderPage();

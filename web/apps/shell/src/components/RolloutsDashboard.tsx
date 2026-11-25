@@ -72,13 +72,16 @@ export function RolloutsDashboard({
   const shown = useMemo(() => {
     if (!filter.trim()) return rows;
     const q = parseQuery(filter, ["phase", "strategy", "image", "revision"]);
-    return rows.filter(({ d }) => {
+    return rows.filter(({ ro, d }) => {
+      const rawLabels = (ro.metadata as { labels?: Record<string, unknown> } | undefined)?.labels ?? {};
+      const labels = Object.fromEntries(Object.entries(rawLabels).filter(([, v]) => typeof v === "string")) as Record<string, string>;
       const images = [d.stable, d.canary].flatMap((r) => r?.images ?? []);
       const revisions = [d.stable, d.canary].flatMap((r) => (r ? [r.name, r.revision] : []));
       return matchesQuery(
         {
           text: [d.name, d.ns, d.strategy, d.phase, ...images, ...revisions],
           fields: { ns: d.ns, name: d.name, phase: d.phase, strategy: d.strategy, image: images.join(" "), revision: revisions.join(" ") },
+          labels,
         },
         q,
       );
@@ -126,7 +129,7 @@ export function RolloutsDashboard({
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           spellCheck={false}
-          title="key:value with ns, name, phase, strategy, image, revision; a leading - excludes; quotes match the whole name"
+          title="key:value with ns, name, phase, strategy, image, revision, label; a leading - excludes; quotes match the whole name"
         />
         <Badge title={shown.length === rows.length ? undefined : "Shown of total"}>{countLabel(shown.length, rows.length)}</Badge>
       </div>
