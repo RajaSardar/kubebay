@@ -112,7 +112,13 @@ export const ARGO_APPLICATIONS_GVR = "argoproj.io/v1alpha1/applications";
 /** spec.syncPolicy.automated present (even as {}): Argo CD syncs the app back to Git by itself. */
 export function argoAutomatedSync(app: Obj | null | undefined): boolean {
   const a = rec(rec(rec(app).spec).syncPolicy).automated;
-  return !!a && typeof a === "object";
+  // Argo CD 2.x+ lets `automated.enabled: false` keep the block but turn it off.
+  return !!a && typeof a === "object" && rec(a).enabled !== false;
+}
+
+/** The GVR carries a GitOps action (a Flux kind or an Argo CD Application). */
+export function isGitOpsKind(gvr: string): boolean {
+  return gvr === ARGO_APPLICATIONS_GVR || fluxKindOf(gvr) !== null;
 }
 
 export interface ArgoHistoryEntry {

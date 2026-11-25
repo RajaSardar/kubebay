@@ -11,6 +11,7 @@ import { WarningSparkline } from "./WarningSparkline";
 import { WorkloadHealthChip } from "./WorkloadHealthChip";
 import { ActionsBar } from "./ActionsBar";
 import { GitOpsActionsBar } from "./GitOpsActionsBar";
+import { isGitOpsKind } from "../lib/gitopsActions";
 import { NodeSummary } from "./NodeSummary";
 import { ServiceSummary } from "./ServiceSummary";
 import { NamespaceSummary } from "./NamespaceSummary";
@@ -554,7 +555,7 @@ export default function GenericDrawer({
       )}
 
       {/* ── GitOps actions: Flux reconcile/suspend/resume, Argo CD rollback ── */}
-      {obj && typeof obj === "object" && (
+      {obj && typeof obj === "object" && isGitOpsKind(def.gvr) && (
         <div style={{ padding: "8px 14px 0" }}>
           <GitOpsActionsBar cluster={cluster} gvr={def.gvr} ns={ns} name={name} obj={obj as Record<string, unknown>} />
         </div>

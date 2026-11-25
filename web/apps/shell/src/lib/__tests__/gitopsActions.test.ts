@@ -9,6 +9,7 @@ import {
   fluxKindOf,
   fluxSuspended,
   gitopsActionImpact,
+  isGitOpsKind,
 } from "../gitopsActions";
 
 const KS = "kustomize.toolkit.fluxcd.io/v1/kustomizations";
@@ -94,6 +95,15 @@ describe("argo rollback", () => {
     expect(argoAutomatedSync({ spec: { syncPolicy: { automated: {} } } })).toBe(true);
     expect(argoAutomatedSync({ spec: { syncPolicy: {} } })).toBe(false);
     expect(argoAutomatedSync({ spec: { syncPolicy: { automated: null } } })).toBe(false);
+  });
+  it("treats automated.enabled: false as manual sync, as Argo CD does", () => {
+    expect(argoAutomatedSync({ spec: { syncPolicy: { automated: { enabled: false } } } })).toBe(false);
+    expect(argoAutomatedSync({ spec: { syncPolicy: { automated: { enabled: true } } } })).toBe(true);
+  });
+  it("knows which kinds carry GitOps actions", () => {
+    expect(isGitOpsKind("argoproj.io/v1alpha1/applications")).toBe(true);
+    expect(isGitOpsKind("kustomize.toolkit.fluxcd.io/v1/kustomizations")).toBe(true);
+    expect(isGitOpsKind("apps/v1/deployments")).toBe(false);
   });
   it("explains why a rollback is refused", () => {
     expect(argoRollbackBlocker(app())).toBeNull();
