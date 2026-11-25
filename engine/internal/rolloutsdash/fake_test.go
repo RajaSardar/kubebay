@@ -462,3 +462,25 @@ func TestSweepKillsOnlyTheSameProcess(t *testing.T) {
 		t.Fatal("pid file not cleared")
 	}
 }
+
+func TestStartForAnotherNamespaceReplacesTheRunningDashboard(t *testing.T) {
+	m := newManager(t, newFake(t, "ok"))
+	a, _ := m.Start(context.Background(), "dev", []string{"shop"})
+	if a.Namespace != "shop" {
+		t.Fatalf("status must say which namespace it runs for: %+v", a)
+	}
+	pidA := m.pidOf("dev")
+	same, _ := m.Start(context.Background(), "dev", []string{"shop"})
+	if same.URL != a.URL {
+		t.Fatal("same namespace must reuse")
+	}
+	// Two namespaces mean all namespaces, which is a different run from "shop".
+	b, _ := m.Start(context.Background(), "dev", []string{"shop", "infra"})
+	if b.State != StateRunning || b.URL == a.URL || b.Namespace != "" {
+		t.Fatalf("got %+v", b)
+	}
+	waitFor(t, "old process gone", func() bool { return gone(pidA) })
+	if m.Status("dev").Namespace != "" {
+		t.Fatal("status")
+	}
+}

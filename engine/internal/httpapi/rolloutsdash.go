@@ -131,7 +131,7 @@ func (a *RolloutsDashAPI) handleStart(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	before := a.Svc.Status(b.Cluster).State
+	before := a.Svc.Status(b.Cluster)
 	st, err := a.Svc.Start(r.Context(), b.Cluster, b.Namespaces)
 	if err != nil {
 		code := http.StatusInternalServerError
@@ -141,8 +141,8 @@ func (a *RolloutsDashAPI) handleStart(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), code)
 		return
 	}
-	// One entry per process started: reusing a running dashboard is not a start.
-	if st.State == rolloutsdash.StateRunning && before != rolloutsdash.StateRunning && before != rolloutsdash.StateStarting && a.Audit != nil {
+	// One entry per process started (a new run has a new URL): reusing a running dashboard is not a start.
+	if st.State == rolloutsdash.StateRunning && st.URL != before.URL && a.Audit != nil {
 		detail := "namespaces=all"
 		if len(b.Namespaces) > 0 {
 			detail = "namespaces=" + strings.Join(b.Namespaces, ",")

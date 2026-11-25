@@ -38,8 +38,10 @@ var ErrCapReached = errors.New("three Argo dashboards are already running; close
 
 // Status is what the UI sees.
 type Status struct {
-	State      State  `json:"state"`
-	URL        string `json:"url,omitempty"`
+	State State  `json:"state"`
+	URL   string `json:"url,omitempty"`
+	// Namespace is the one namespace the dashboard was started for; empty is all.
+	Namespace  string `json:"namespace,omitempty"`
 	Message    string `json:"message,omitempty"`
 	StderrTail string `json:"stderrTail,omitempty"`
 	Install    *Help  `json:"install,omitempty"`
@@ -86,6 +88,7 @@ const (
 
 type run struct {
 	cluster string
+	ns      string
 	token   string
 	port    int
 	cmd     *exec.Cmd
@@ -141,6 +144,7 @@ func (m *Manager) statusOf(r *run) Status {
 	st := Status{State: r.state}
 	if r.state == StateRunning {
 		st.URL = m.prefix() + r.token + "/"
+		st.Namespace = r.ns
 	}
 	return st
 }
@@ -170,8 +174,18 @@ func (m *Manager) Status(cluster string) Status {
 // failed). A second call while one runs or starts returns that run: one per
 // cluster, so a double click cannot spawn two.
 func (m *Manager) Start(ctx context.Context, cluster string, namespaces []string) (Status, error) {
+	ns := ""
+	if len(namespaces) == 1 {
+		ns = namespaces[0]
+	}
 	m.mu.Lock()
 	m.init()
+	if r := m.runs[cluster]; r != nil && r.state == StateRunning && r.ns != ns {
+		// Started for another namespace: the tool takes it on the command line, so replace the run.
+		m.mu.Unlock()
+		m.stop(r)
+		m.mu.Lock()
+	}
 	if r := m.runs[cluster]; r != nil {
 		if r.state == StateRunning {
 			m.arm(r, kindHeartbeat)
@@ -206,7 +220,7 @@ func (m *Manager) Start(ctx context.Context, cluster string, namespaces []string
 		return Status{}, err
 	}
 
-	r := &run{cluster: cluster, token: token, state: StateStarting, tail: &tailBuf{max: 2048}}
+	r := &run{cluster: cluster, ns: ns, token: token, state: StateStarting, tail: &tailBuf{max: 2048}}
 	m.mu.Lock()
 	if cur := m.runs[cluster]; cur != nil {
 		st := m.statusOf(cur)
