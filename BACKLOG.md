@@ -92,6 +92,7 @@
 ~~87. kubectl argo rollouts dashboard should run automatically and show inside the Rollouts page~~ ✅ Done in v0.8.5 (desktop only; needs the kubectl-argo-rollouts plugin installed)
 ~~88. Prometheus metrics not visible in any pod on the owner's app~~ ✅ Built in v0.8.5 (stale default URL fixed, broader discovery, Test connection); the owner's exact cause is unconfirmed until they try it
 89. Scale (replicas): instead of + and − buttons, a better control for the replica count (a slider with a number box, a popover with presets, or something better the debate picks), fast for big and small changes, with the Unsaved highlight and the blast-radius preview kept
+90. Scrolling: after searching in Pods, scrolling sideways still does not work properly (item 67 did not fix it for the owner). Re-check the whole scrolling mechanism and make scrolling smooth everywhere (tables, drawer, logs, sidebar, dock): find the cause of the sideways problem in the real app (virtualised table width, sticky columns, wheel/trackpad handling, overflow containers), measure scroll frame times at 2,000 pods, and fix it. Picked up after the current work finishes (owner's order, 2026-11-25).
 ---
 
 ## Status of the open items (2026-11-23)
