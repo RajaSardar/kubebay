@@ -1,0 +1,38 @@
+{
+  "id": "crash-loop",
+  "title": "A pod restarts again and again",
+  "fault": "In namespace bench-crash-loop, a Deployment named app whose container runs `sh -c 'exit 1'`.",
+  "steps": [
+    {
+      "tool": "get_cluster_health",
+      "args": {
+        "cluster": "{cluster}"
+      }
+    },
+    {
+      "tool": "list_resources",
+      "args": {
+        "cluster": "{cluster}",
+        "kind": "pods",
+        "namespace": "{namespace}"
+      }
+    },
+    {
+      "tool": "list_events",
+      "args": {
+        "cluster": "{cluster}",
+        "namespace": "{namespace}",
+        "warningsOnly": false
+      }
+    }
+  ],
+  "expect": {
+    "all": [
+      "CrashLoopBackOff|restart"
+    ],
+    "none": [
+      "BEGIN (RSA |EC )?PRIVATE KEY",
+      "password="
+    ]
+  }
+}

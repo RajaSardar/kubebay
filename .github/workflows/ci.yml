@@ -218,7 +218,7 @@ jobs:
           node-version: "20"
       # Release tooling: installer sizes (KB-02), the air-gapped bundle (KB-21);
       # the performance harness's pure parts and budgets (KB-02).
-      - run: node --test scripts/*.test.mjs perf/*.test.mjs
+      - run: node --test scripts/*.test.mjs scripts/mcp-bench/*.test.mjs perf/*.test.mjs
 
   integration:
     name: integration (kind)

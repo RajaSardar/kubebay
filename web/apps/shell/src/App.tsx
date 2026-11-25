@@ -43,6 +43,7 @@ const Settings = lazy(() => import("./pages/Settings"));
 const Workloads = lazy(loadWorkloads);
 const Ports = lazy(() => import("./pages/Ports"));
 const Timeline = lazy(() => import("./pages/Timeline"));
+const Changes = lazy(() => import("./pages/Changes"));
 const Topology = lazy(() => import("./pages/Topology"));
 const Rbac = lazy(() => import("./pages/Rbac"));
 const Vulnerabilities = lazy(() => import("./pages/Vulnerabilities"));
@@ -252,6 +253,7 @@ const TOOLS = [
   { to: "/search", label: "Search all clusters", icon: <IconSearch /> },
   { to: "/audit", label: "Audit Log", icon: <IconTimeline /> },
   { to: "/timeline", label: "Timeline", icon: <IconTimeline /> },
+  { to: "/changes", label: "Changes", icon: <IconTimeline /> },
   { to: "/topology", label: "Topology", icon: <IconTopology /> },
   { to: "/settings", label: "Settings", icon: <IconSliders /> },
 ];
@@ -722,6 +724,7 @@ function AppInner() {
               <Route path="/detail/:kind/:ns/:name" element={<ResourceDetail />} />
               <Route path="/ports" element={<Ports />} />
               <Route path="/timeline" element={<Timeline />} />
+              <Route path="/changes" element={<Changes />} />
               <Route path="/topology" element={<Topology />} />
               <Route path="/rbac" element={<Rbac />} />
               <Route path="/vulnerabilities" element={<Vulnerabilities />} />

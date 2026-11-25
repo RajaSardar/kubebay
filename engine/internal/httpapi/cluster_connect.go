@@ -54,7 +54,7 @@ func connectClusterHandler(mgr *clusters.Manager) http.HandlerFunc {
 func disconnectClusterHandler(mgr *clusters.Manager, authOn bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if authOn {
-			http.Error(w, "disconnect is not available when OIDC is configured: streams are shared between users", http.StatusForbidden)
+			http.Error(w, "disconnect is not available when OIDC or an auth proxy is configured: streams are shared between users", http.StatusForbidden)
 			return
 		}
 		if err := mgr.Disconnect(chi.URLParam(r, "id")); err != nil {
@@ -71,7 +71,7 @@ func disconnectClusterHandler(mgr *clusters.Manager, authOn bool) http.HandlerFu
 func protectClustersHandler(mgr *clusters.Manager, authOn bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if authOn {
-			http.Error(w, "not available when OIDC is configured: streams are shared between users", http.StatusForbidden)
+			http.Error(w, "not available when OIDC or an auth proxy is configured: streams are shared between users", http.StatusForbidden)
 			return
 		}
 		var body struct {

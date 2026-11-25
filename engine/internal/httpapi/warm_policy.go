@@ -29,7 +29,7 @@ const (
 func WarmPolicyBlockReason(inCluster, oidcEnabled bool) string {
 	switch {
 	case oidcEnabled:
-		return "Not available when OIDC is configured: streams are shared between users, so the engine keeps every cluster streaming."
+		return "Not available when OIDC or an auth proxy is configured: streams are shared between users, so the engine keeps every cluster streaming."
 	case inCluster:
 		return "Not available when Kubebay runs in a cluster: streams are shared between users, so the engine keeps every cluster streaming."
 	}

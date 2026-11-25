@@ -1,0 +1,46 @@
+{
+  "id": "ingress-no-backend",
+  "title": "An Ingress points at a Service that does not exist",
+  "fault": "In namespace bench-ingress-no-backend, an Ingress named web whose backend Service is named missing-svc.",
+  "steps": [
+    {
+      "tool": "get_cluster_health",
+      "args": {
+        "cluster": "{cluster}"
+      }
+    },
+    {
+      "tool": "list_resources",
+      "args": {
+        "cluster": "{cluster}",
+        "kind": "pods",
+        "namespace": "{namespace}"
+      }
+    },
+    {
+      "tool": "list_events",
+      "args": {
+        "cluster": "{cluster}",
+        "namespace": "{namespace}",
+        "warningsOnly": false
+      }
+    },
+    {
+      "tool": "list_resources",
+      "args": {
+        "cluster": "{cluster}",
+        "kind": "ingresses",
+        "namespace": "{namespace}"
+      }
+    }
+  ],
+  "expect": {
+    "all": [
+      "missing-svc|web"
+    ],
+    "none": [
+      "BEGIN (RSA |EC )?PRIVATE KEY",
+      "password="
+    ]
+  }
+}

@@ -13,10 +13,11 @@ import (
 	"time"
 
 	"github.com/RajaSardar/kubebay/engine/internal/audit"
+	"github.com/RajaSardar/kubebay/engine/internal/authproxy"
 	"github.com/RajaSardar/kubebay/engine/internal/clusters"
 	"github.com/RajaSardar/kubebay/engine/internal/httpapi"
-	"github.com/RajaSardar/kubebay/engine/internal/netguard"
 	"github.com/RajaSardar/kubebay/engine/internal/informers"
+	"github.com/RajaSardar/kubebay/engine/internal/netguard"
 	"github.com/RajaSardar/kubebay/engine/internal/sigcheck"
 	"github.com/RajaSardar/kubebay/engine/internal/stream"
 	"github.com/RajaSardar/kubebay/engine/internal/waste"
@@ -50,12 +51,21 @@ func main() {
 	oidcClientID := flag.String("oidc-client-id", os.Getenv("KUBEBAY_OIDC_CLIENT_ID"), "OIDC client id")
 	oidcClientSecret := flag.String("oidc-client-secret", os.Getenv("KUBEBAY_OIDC_CLIENT_SECRET"), "OIDC client secret")
 	oidcRedirect := flag.String("oidc-redirect-url", os.Getenv("KUBEBAY_OIDC_REDIRECT"), "OAuth2 redirect URL")
+	proxyUserHeader := flag.String("auth-proxy-user-header", os.Getenv("KUBEBAY_AUTH_PROXY_USER_HEADER"), "trust this header from an authenticating reverse proxy as the user name, instead of OIDC, e.g. X-Auth-Request-Email (KUBEBAY_AUTH_PROXY_USER_HEADER)")
+	proxyGroupsHeader := flag.String("auth-proxy-groups-header", os.Getenv("KUBEBAY_AUTH_PROXY_GROUPS_HEADER"), "header holding the user's comma separated groups (KUBEBAY_AUTH_PROXY_GROUPS_HEADER)")
+	proxyCIDRs := flag.String("auth-proxy-trusted-cidrs", os.Getenv("KUBEBAY_AUTH_PROXY_TRUSTED_CIDRS"), "comma separated CIDRs the proxy connects from; the identity headers are honoured only from a peer inside them (KUBEBAY_AUTH_PROXY_TRUSTED_CIDRS)")
+	proxySecretHeader := flag.String("auth-proxy-secret-header", os.Getenv("KUBEBAY_AUTH_PROXY_SECRET_HEADER"), "header the proxy must send with the shared secret (KUBEBAY_AUTH_PROXY_SECRET_HEADER)")
+	proxySecretFile := flag.String("auth-proxy-secret-file", os.Getenv("KUBEBAY_AUTH_PROXY_SECRET_FILE"), "file holding the shared secret; the KUBEBAY_AUTH_PROXY_SECRET env var also works, there is no flag for the value")
+	proxyAllowAny := flag.Bool("auth-proxy-allow-any-peer", os.Getenv("KUBEBAY_AUTH_PROXY_ALLOW_ANY_PEER") == "true", "acknowledge the risk of trusting an empty, 0.0.0.0/0 or wide CIDR range without a shared secret (KUBEBAY_AUTH_PROXY_ALLOW_ANY_PEER=true)")
+	proxyAllowSystem := flag.Bool("auth-proxy-allow-system-identities", os.Getenv("KUBEBAY_AUTH_PROXY_ALLOW_SYSTEM_IDENTITIES") == "true", "let the proxy name system: users and the system:masters group (default off; KUBEBAY_AUTH_PROXY_ALLOW_SYSTEM_IDENTITIES=true)")
 	warmClusters := flag.String("warm-clusters", os.Getenv("KUBEBAY_WARM_CLUSTERS"), "most connected clusters kept streaming; the least recently viewed unpinned one sleeps past it (default 5, 0 = no limit; KUBEBAY_WARM_CLUSTERS)")
 	warmIdle := flag.String("warm-idle", os.Getenv("KUBEBAY_WARM_IDLE"), "a connected cluster nobody viewed for this long sleeps, e.g. 30m (default 30m, 0 = never; KUBEBAY_WARM_IDLE)")
 	promURL := flag.String("prometheus-url", os.Getenv("KUBEBAY_PROMETHEUS_URL"), "Prometheus to query directly for every cluster; the only one a shared engine (in a cluster or with OIDC) uses (KUBEBAY_PROMETHEUS_URL)")
 	promAllUsers := flag.Bool("prometheus-all-users", os.Getenv("KUBEBAY_PROMETHEUS_ALL_USERS") == "true", "let every OIDC user send raw PromQL to --prometheus-url, which answers for every namespace whatever their RBAC (KUBEBAY_PROMETHEUS_ALL_USERS=true)")
 	helmRepos := flag.String("helm-repos", os.Getenv("KUBEBAY_HELM_REPOS"), "Helm repositories to configure at startup, as name=url,name=url; the only way to change them on a shared engine (in a cluster or with OIDC) (KUBEBAY_HELM_REPOS)")
+	mcpReadOnly := flag.Bool("mcp-read-only", false, "make the MCP server read-only: write tools are hidden and refused whatever the Settings toggle says (KUBEBAY_MCP_READ_ONLY=true)")
 	localShell := flag.Bool("local-shell", false, "serve a shell on this machine (requires a binary built with -tags localshell, a loopback --addr, no --in-cluster and no OIDC)")
+	auditStdout := flag.Bool("audit-stdout", false, "also print every audit entry to stdout as a JSON line (default on with --in-cluster, off otherwise; KUBEBAY_AUDIT_STDOUT)")
 	flag.Parse()
 
 	if *showVersion {
@@ -66,6 +76,28 @@ func main() {
 	applyMemoryLimit(os.Getenv("GOMEMLIMIT"))
 
 	log := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+
+	// Sign-in comes from OIDC or from an authenticating proxy, never both. The
+	// proxy build refuses an unsafe or conflicting setup, so a mistake is a
+	// startup failure rather than a quietly open engine.
+	proxy, proxyErr := authproxy.Build(authproxy.Options{
+		UserHeader: *proxyUserHeader, GroupsHeader: *proxyGroupsHeader, TrustedCIDRs: *proxyCIDRs,
+		SecretHeader: *proxySecretHeader, SecretFile: *proxySecretFile, Secret: os.Getenv("KUBEBAY_AUTH_PROXY_SECRET"),
+		AllowAnyPeer: *proxyAllowAny, AllowSystemIdentities: *proxyAllowSystem,
+	}, *oidcIssuer)
+	if proxyErr != nil {
+		log.Error("auth-proxy configuration refused", "err", proxyErr)
+		os.Exit(1)
+	}
+	auth, authErr := httpapi.NewAuthenticator(*oidcIssuer, *oidcClientID, *oidcClientSecret, *oidcRedirect)
+	if authErr != nil {
+		log.Error("oidc init failed", "err", authErr)
+		os.Exit(1)
+	}
+
+	// One engine serves several signed-in people, whichever way it learns who
+	// they are. Every shared-state decision below takes this, not auth.Enabled().
+	sharedIdentity := auth.Enabled() || proxy.Enabled()
 
 	var mgr *clusters.Manager
 	var err error
@@ -84,7 +116,7 @@ func main() {
 
 	// Streams are shared between users with OIDC or in-cluster, so one
 	// person's idle clock must not cut another's: no eviction there.
-	if !*inCluster && *oidcIssuer == "" {
+	if !*inCluster && !sharedIdentity {
 		warmCap, idle := clusters.ParseWarmPolicy(*warmClusters, *warmIdle)
 		mgr.SetWarmPolicy(warmCap, idle)
 		sweepCtx, cancelSweep := context.WithCancel(context.Background())
@@ -92,22 +124,22 @@ func main() {
 		mgr.StartIdleSweeper(sweepCtx)
 	}
 
-	auditLog, err := audit.New(log)
+	auditOpts := audit.OptionsFromEnv(os.Getenv, *inCluster)
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == "audit-stdout" {
+			auditOpts.Stdout = *auditStdout
+		}
+	})
+	auditLog, err := audit.NewWithOptions(log, auditOpts)
 	if err != nil {
 		log.Error("audit log init failed", "err", err)
 		os.Exit(1)
 	}
 	defer auditLog.Close()
 
-	auth, authErr := httpapi.NewAuthenticator(*oidcIssuer, *oidcClientID, *oidcClientSecret, *oidcRedirect)
-	if authErr != nil {
-		log.Error("oidc init failed", "err", authErr)
-		os.Exit(1)
-	}
-
 	registry := informers.NewPoolRegistry(mgr)
 	channels := httpapi.NewChannels(mgr, auditLog)
-	chanDeps, localShellStatus, closeLocalShell := setupLocalShell(log, channels, *localShell, *inCluster, auth.Enabled(), *addr)
+	chanDeps, localShellStatus, closeLocalShell := setupLocalShell(log, channels, *localShell, *inCluster, sharedIdentity, *addr)
 	defer closeLocalShell()
 	hub := stream.NewHub(log, chanDeps)
 	pfManager := httpapi.NewPFManager(mgr)
@@ -129,7 +161,7 @@ func main() {
 	helmMgr.Outbound = outbound
 	// One repositories file serves every user's installs on a shared engine,
 	// so only the operator changes it, through --helm-repos.
-	helmMgr.ReposLocked = httpapi.SharedHelmReposBlockReason(*inCluster, auth.Enabled())
+	helmMgr.ReposLocked = httpapi.SharedHelmReposBlockReason(*inCluster, sharedIdentity)
 	operatorRepos, err := httpapi.ParseOperatorHelmRepos(*helmRepos)
 	if err != nil {
 		log.Error("bad --helm-repos", "err", err)
@@ -153,11 +185,11 @@ func main() {
 		}()
 	}
 	settingsMgr.LocalShell = localShellStatus
-	settingsMgr.AuditFeedDisabled = httpapi.AuditFeedBlockReason(*inCluster, auth.Enabled())
-	settingsMgr.WarmPolicyDisabled = httpapi.WarmPolicyBlockReason(*inCluster, auth.Enabled())
+	settingsMgr.AuditFeedDisabled = httpapi.AuditFeedBlockReason(*inCluster, sharedIdentity)
+	settingsMgr.WarmPolicyDisabled = httpapi.WarmPolicyBlockReason(*inCluster, sharedIdentity)
 	// One engine serving many people: what the node shell and debug containers
 	// run, and which Prometheus is queried, come from the operator only.
-	settingsMgr.SharedLocked = httpapi.SharedSettingsBlockReason(*inCluster, auth.Enabled())
+	settingsMgr.SharedLocked = httpapi.SharedSettingsBlockReason(*inCluster, sharedIdentity)
 	settingsMgr.HelmReposLocked = helmMgr.ReposLocked
 	settingsMgr.Operator = httpapi.OperatorSettings{PrometheusURL: *promURL, PrometheusAllUsers: *promAllUsers}
 	// A policy saved in Settings wins over the flag and env defaults.
@@ -170,8 +202,11 @@ func main() {
 	// usage history, never on every context that answers /version.
 	wasteSampler.SetGate(func(id string) bool { return mgr.IsConnected(id) || settingsMgr.HistoryEnabled(id) })
 	wasteSampler.SetConnected(mgr.IsConnected)
-	historyAPI, closeHistory := setupHistory(log, mgr, settingsMgr, wasteSampler, httpapi.HistoryBlockReason(*inCluster, auth.Enabled()), wasteCtx)
+	historyAPI, closeHistory := setupHistory(log, mgr, settingsMgr, wasteSampler, httpapi.HistoryBlockReason(*inCluster, sharedIdentity), wasteCtx)
 	defer closeHistory()
+	timelineAPI, closeTimeline := setupTimeline(log, mgr, settingsMgr, registry, httpapi.TimelineBlockReason(*inCluster, sharedIdentity), wasteCtx)
+	defer closeTimeline()
+	timelineAPI.Audit = auditLog
 	// Started only now, after the history recorder is set, so the sampler
 	// goroutine never races those fields.
 	wasteSampler.Start(wasteCtx)
@@ -220,6 +255,7 @@ func main() {
 		Version:    version,
 		Log:        log,
 		Auth:       auth,
+		Proxy:      proxy,
 		Clusters:   mgr,
 		Pools:      registry,
 		Hub:        hub,
@@ -232,18 +268,19 @@ func main() {
 		NodeShell:  nodeShell,
 		NetDiag:    &httpapi.NetDiagManager{Clusters: mgr, Audit: auditLog},
 		ImageSigs:  &httpapi.ImageSignatureAPI{Clusters: mgr, Checker: &sigcheck.Checker{}, TrustRoots: sigstoreTrustRoots()},
-		MCP:        newMCP(settingsMgr, mgr, registry, auditLog, *addr, *inCluster, auth.Enabled()),
-		Triage:     newTriage(settingsMgr, mgr, registry, auditLog, *inCluster, auth.Enabled()),
+		MCP:        newMCP(settingsMgr, mgr, registry, auditLog, *addr, *inCluster, sharedIdentity, resolveMCPReadOnly(*mcpReadOnly, os.Getenv("KUBEBAY_MCP_READ_ONLY"))),
+		Triage:     newTriage(settingsMgr, mgr, registry, auditLog, *inCluster, sharedIdentity),
 		Settings:   settingsMgr,
-		Extensions: newExtensions(settingsMgr, *inCluster, auth.Enabled()),
+		Extensions: newExtensions(settingsMgr, *inCluster, sharedIdentity),
 		Audit:      auditLog,
 		Waste:      wasteSampler,
 		History:    historyAPI,
+		Timeline:   timelineAPI,
 		Search:     searchAPI,
 		Discovery: &httpapi.DiscoveryAPI{
 			Settings: settingsMgr,
 			Clusters: mgr,
-			Disabled: httpapi.DiscoveryBlockReason(*inCluster, auth.Enabled()),
+			Disabled: httpapi.DiscoveryBlockReason(*inCluster, sharedIdentity),
 		},
 	}, token)
 
@@ -263,6 +300,11 @@ func main() {
 		} else {
 			handler = fallbackNotice(handler)
 		}
+	}
+
+	if proxy.Enabled() {
+		handler = httpapi.ProxyGate(proxy, log)(handler)
+		log.Info("auth-proxy mode: identity comes from a trusted proxy's headers", "userHeader", *proxyUserHeader)
 	}
 
 	// Wraps the SPA as well as the API: a rebound page should not be able to

@@ -29,7 +29,24 @@ With the Helm chart and OIDC, users sign in with your identity provider. The eng
 
 Features that only make sense on your own machine are off in a cluster: the local terminal, extensions, AI assistants (MCP), AI triage and usage history. Usage history is also off when OIDC is configured on an engine that doesn't run in a cluster.
 
-**Known limitation:** the engine's [Audit Log](/docs/audit-log/) and settings are written to a 64Mi `emptyDir`, so they're lost when the pod restarts or moves, and the chart has no option for a persistent volume yet. If you need a lasting record, rely on the cluster's API server audit log. Every change Kubebay makes there carries the signed-in user's name, because the engine impersonates them.
+### Sign in through an auth proxy
+
+Instead of OIDC, the chart can take the signed-in user from an authenticating reverse proxy in front of the engine (oauth2-proxy, an ingress with auth, a corporate gateway). The proxy signs people in and adds their name, and optionally their groups, as request headers. The engine then treats that person exactly like an OIDC user: it acts as them through impersonation, so RBAC decides what they see, each person gets their own caches, the audit log records their name, and everything in the list above applies, including the read-only settings and no usage history. You turn it on with `authProxy.enabled`. It can't be on together with OIDC, and the engine refuses to start if both are set.
+
+The rules that keep it safe:
+
+- **Only the connection counts.** The engine reads the identity headers only when the connection comes from an address inside `authProxy.trustedCIDRs`. It looks at the address the TCP connection came from. It never reads `X-Forwarded-For`, `Forwarded` or `X-Real-IP`, because a client can set those.
+- **No anonymous fallback.** A request from any other address gets 401 on every page and endpoint, whatever headers it carries, and so does a request from the proxy without a user header. The launch token is not a way in. Only `/api/healthz` (for the Kubernetes probes) and `/api/auth-mode` stay open.
+- **Checked values.** A user or group is at most 256 bytes. There can be at most 64 groups and the groups header is at most 8 KiB. Control characters, line breaks and invalid UTF-8 are refused, and so are a duplicated user header and an empty group. A bad request is refused whole, never partly used. Users that start with `system:` and the `system:masters` group are refused unless you set `authProxy.allowSystemIdentities`.
+- **Start-up refusals.** The engine won't start with no trusted range, with `0.0.0.0/0` or `::/0`, or with a range wider than a /24 (IPv4) or /64 (IPv6) and no shared secret, unless you set `authProxy.allowAnyPeer` to say you accept the risk.
+- **No cross-site actions.** The proxy adds your identity to everything your browser sends, so the engine refuses a change (or a WebSocket upgrade) that the browser marks as coming from another site, using the `Sec-Fetch-Site` header. Requests without that header are not affected.
+- **A shared secret.** You can have the proxy send a secret in a header you name (`authProxy.secret.header`). The engine reads the secret from a mounted Secret file, never from a value in the chart, and compares it in constant time.
+
+**Any other pod inside the trusted range can pretend to be anyone.** Keep `trustedCIDRs` to the proxy's own addresses, set the secret header if you can't, and add a NetworkPolicy so that only the proxy can reach the engine's port. If the proxy reaches the engine from a node address (the ingress source-NATs), the engine sees the node, not the proxy: use `externalTrafficPolicy: Local` or run the proxy inside the cluster. The engine does not check a signed token from the proxy; it trusts the connection and the headers.
+
+The MCP endpoint, the local terminal, extensions, AI triage, the shared audit feed and cluster disconnect are off here as they are with OIDC. Not run against a live cluster or a real proxy: the rules above are covered by unit and HTTP tests.
+
+**Durable audit log:** the engine's settings are written to a 64Mi `emptyDir` and are lost when the pod restarts or moves. The [Audit Log](/docs/audit-log/#in-a-cluster) is also printed to the engine's output as JSON lines, one per change, so a log collector can keep it, and `auditLog.persistence.enabled` keeps the file on a PersistentVolumeClaim. Anyone who can read the engine pod's logs can read every user's lines. The cluster's API server audit log is the other record: every change Kubebay makes there carries the signed-in user's name, because the engine impersonates them.
 
 ## Secrets
 

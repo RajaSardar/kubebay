@@ -21,7 +21,7 @@ import (
 func SharedHelmReposBlockReason(inCluster, oidcEnabled bool) string {
 	switch {
 	case oidcEnabled:
-		return "Helm repositories are read-only when OIDC is configured: every user's chart installs use them, so the operator sets them through the engine's --helm-repos flag or the Helm chart's helmRepos value."
+		return "Helm repositories are read-only when OIDC or an auth proxy is configured: every user's chart installs use them, so the operator sets them through the engine's --helm-repos flag or the Helm chart's helmRepos value."
 	case inCluster:
 		return "Helm repositories are read-only when Kubebay runs in a cluster: every user's chart installs use them, so the operator sets them through the engine's --helm-repos flag or the Helm chart's helmRepos value."
 	}

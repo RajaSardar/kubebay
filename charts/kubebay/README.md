@@ -38,8 +38,10 @@ To enforce it, give Kyverno or Sigstore policy-controller the same identity, for
   ```
 - **A locked-down pod.** It runs as non-root with the runtime's default seccomp profile, no
   privilege escalation, every Linux capability dropped and a read-only root filesystem. Settings
-  and the audit log are written to a 64Mi `emptyDir` mounted at `/tmp`, so they do not survive a
-  restart. There is no persistent volume option yet.
+  are written to a 64Mi `emptyDir` mounted at `/tmp`, so they do not survive a restart. The audit
+  log is also printed to stdout as JSON lines (`auditLog.stdout`) and can be kept on a
+  PersistentVolumeClaim with `auditLog.persistence.enabled`; the file rotates at
+  `auditLog.maxSizeMiB` so it cannot fill the volume.
 - **Shared settings come from values.** The app's Settings page can't change what applies to every
   user: `nodeShellImage` (the privileged node-shell pod), `debugImage`, and `prometheus.url`. With
   OIDC, users can query `prometheus.url` only once you set `prometheus.allUsers: true`, since it

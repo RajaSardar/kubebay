@@ -38,7 +38,7 @@ type OperatorSettings struct {
 func SharedSettingsBlockReason(inCluster, oidcEnabled bool) string {
 	switch {
 	case oidcEnabled:
-		return "Settings are read-only when OIDC is configured: they would apply to every user, so the operator sets them through the engine's flags or the Helm chart's values."
+		return "Settings are read-only when OIDC or an auth proxy is configured: they would apply to every user, so the operator sets them through the engine's flags or the Helm chart's values."
 	case inCluster:
 		return "Settings are read-only when Kubebay runs in a cluster: they would apply to every user, so the operator sets them through the engine's flags or the Helm chart's values."
 	}

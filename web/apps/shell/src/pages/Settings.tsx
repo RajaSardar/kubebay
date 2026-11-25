@@ -7,6 +7,7 @@ import { settingsApi, promApi } from "../lib/api";
 import ConfigurePrometheusModal from "../components/ConfigurePrometheusModal";
 import { useCluster } from "../lib/useCluster";
 import { UsageHistoryCard } from "../components/UsageHistoryCard";
+import { ChangeTimelineCard } from "../components/ChangeTimelineCard";
 import { McpSettingsCard } from "../components/McpSettingsCard";
 import { TriageSettingsCard } from "../components/TriageSettingsCard";
 import { WarmClustersCard } from "../components/WarmClustersCard";
@@ -403,6 +404,7 @@ export default function Settings() {
         />
       )}
       {settings.isSuccess && <UsageHistoryCard clusters={settings.data.historyClusters ?? {}} />}
+      <ChangeTimelineCard />
       <McpSettingsCard />
       <TriageSettingsCard />
       <WarmClustersCard />

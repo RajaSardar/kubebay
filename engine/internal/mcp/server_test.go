@@ -16,6 +16,7 @@ func echoServer(t *testing.T) (*Handler, *[]CallInfo) {
 	var calls []CallInfo
 	reg := NewRegistry()
 	reg.Add(Tool{
+		Access:      AccessRead,
 		Name:        "echo",
 		Title:       "Echo",
 		Description: "Echoes its text argument.",
@@ -34,7 +35,7 @@ func echoServer(t *testing.T) (*Handler, *[]CallInfo) {
 			return TextResult("echo: " + a.Text), nil
 		},
 	})
-	reg.Add(Tool{Name: "alpha", Description: "Listed first.", InputSchema: json.RawMessage(`{"type":"object"}`),
+	reg.Add(Tool{Access: AccessRead, Name: "alpha", Description: "Listed first.", InputSchema: json.RawMessage(`{"type":"object"}`),
 		Handler: func(context.Context, json.RawMessage, CallInfo) (Result, error) { return TextResult("a"), nil }})
 	return &Handler{Tools: reg, Name: "kubebay", Version: "test"}, &calls
 }

@@ -11,8 +11,31 @@ oidc:
   clientSecret: ""
   redirectUrl: ""
 
-# Who the engine may impersonate once OIDC is on. Empty means any user or group, which
-# includes system:masters; list the groups (and users) your IdP issues to narrow it.
+# Sign in through an authenticating reverse proxy (oauth2-proxy, an ingress with
+# auth, a corporate gateway) instead of OIDC. Never together with oidc.*.
+# The engine reads the identity headers only from a peer whose address is inside
+# trustedCIDRs, and refuses everyone else with a 401. Every other pod inside those
+# ranges could forge an identity, so keep them to the proxy's own addresses and
+# add a NetworkPolicy that lets only the proxy reach the engine.
+authProxy:
+  enabled: false
+  userHeader: X-Auth-Request-Email
+  groupsHeader: X-Auth-Request-Groups
+  # Required, e.g. ["10.42.1.0/24"]: the addresses the proxy connects to the engine from.
+  trustedCIDRs: []
+  # Acknowledges the risk of trusting every peer (an empty or 0.0.0.0/0 range).
+  allowAnyPeer: false
+  # Lets the proxy name system: users and system:masters. Off.
+  allowSystemIdentities: false
+  # A header the proxy must send with a shared secret, read from an existing
+  # Secret (never a value here). Required if trustedCIDRs is wider than a /24.
+  secret:
+    header: ""
+    existingSecret: ""
+    key: secret
+
+# Who the engine may impersonate once OIDC or authProxy is on. Empty means any user or group, which
+# includes system:masters; list the groups (and users) your IdP or proxy issues to narrow it.
 impersonation:
   users: []
   groups: []
@@ -35,6 +58,23 @@ prometheus:
   # With OIDC, let every signed-in user send raw PromQL to `url`. It answers for
   # every namespace whatever their RBAC, so it's off unless you turn it on.
   allUsers: false
+
+# The audit log of every change made through Kubebay.
+auditLog:
+  # Print every entry to stdout as one JSON line (time, user, action, gvr, cluster,
+  # namespace, name, result), so a log collector keeps a copy outside the pod.
+  stdout: true
+  # The file rotates at this size (audit.log -> audit.log.1), so it takes at most twice
+  # this on disk. Without persistence it shares the 64Mi /tmp volume with settings.
+  maxSizeMiB: 16
+  # Keep the file on a PersistentVolumeClaim so it survives a restart or reschedule.
+  # The claim is ReadWriteOnce: with replicaCount above 1 use a storage class that allows it.
+  persistence:
+    enabled: false
+    size: 1Gi
+    storageClass: ""
+    # Use a claim you made yourself; none is created, and size is not checked.
+    existingClaim: ""
 
 ingress:
   enabled: false

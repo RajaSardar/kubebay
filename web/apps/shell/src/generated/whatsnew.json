@@ -24,6 +24,22 @@
               "summary": "(backlog 60)."
             },
             {
+              "title": "MCP read-only mode and a benchmark harness",
+              "summary": "(backlog 77)."
+            },
+            {
+              "title": "Changes page: a local change timeline",
+              "summary": "(backlog 82)."
+            },
+            {
+              "title": "Auth-proxy sign-in for the in-cluster install",
+              "summary": "(backlog 81)."
+            },
+            {
+              "title": "Durable in-cluster audit log",
+              "summary": "(backlog 79)."
+            },
+            {
               "title": "Blossom theme",
               "summary": "(backlog 74)."
             },

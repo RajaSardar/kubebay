@@ -1,0 +1,46 @@
+{
+  "id": "service-selector",
+  "title": "A Service selects no pods",
+  "fault": "In namespace bench-service-selector, a healthy Deployment named app and a Service named app-svc whose selector is app=wrong.",
+  "steps": [
+    {
+      "tool": "get_cluster_health",
+      "args": {
+        "cluster": "{cluster}"
+      }
+    },
+    {
+      "tool": "list_resources",
+      "args": {
+        "cluster": "{cluster}",
+        "kind": "pods",
+        "namespace": "{namespace}"
+      }
+    },
+    {
+      "tool": "list_events",
+      "args": {
+        "cluster": "{cluster}",
+        "namespace": "{namespace}",
+        "warningsOnly": false
+      }
+    },
+    {
+      "tool": "list_resources",
+      "args": {
+        "cluster": "{cluster}",
+        "kind": "services",
+        "namespace": "{namespace}"
+      }
+    }
+  ],
+  "expect": {
+    "all": [
+      "app-svc"
+    ],
+    "none": [
+      "BEGIN (RSA |EC )?PRIVATE KEY",
+      "password="
+    ]
+  }
+}

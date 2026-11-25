@@ -1,8 +1,8 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { Button } from "@kubebay/ui";
-import { authMode, checkToken, getToken, setToken } from "../lib/api";
+import { Button, InlineBanner } from "@kubebay/ui";
+import { authMode, checkToken, getToken, proxyIdentity, PROXY_REFUSED_MESSAGE, setToken } from "../lib/api";
 
-type Phase = "checking" | "ready" | "needed";
+type Phase = "checking" | "ready" | "needed" | "proxy-refused";
 
 /**
  * Holds the app back until it has a credential to work with.
@@ -22,7 +22,14 @@ export function TokenGate({ children }: { children: ReactNode }) {
     if (phase !== "checking") return;
     let cancelled = false;
     authMode()
-      .then((mode) => {
+      .then(async (mode) => {
+        if (mode === "proxy") {
+          // The proxy signs people in; there is nothing to type. If it did not
+          // identify this request, say so rather than asking for a token.
+          const who = await proxyIdentity().catch(() => null);
+          if (!cancelled) setPhase(who ? "ready" : "proxy-refused");
+          return;
+        }
         if (!cancelled) setPhase(mode === "token" ? "needed" : "ready");
       })
       // Engine unreachable: let the app render and show its own error rather
@@ -37,6 +44,13 @@ export function TokenGate({ children }: { children: ReactNode }) {
 
   if (phase === "ready") return <>{children}</>;
   if (phase === "checking") return null;
+  if (phase === "proxy-refused") {
+    return (
+      <div className="token-gate">
+        <InlineBanner role="alert">{PROXY_REFUSED_MESSAGE}</InlineBanner>
+      </div>
+    );
+  }
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();

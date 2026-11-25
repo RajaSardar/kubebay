@@ -22,13 +22,19 @@ import (
 
 const mcpInstructions = "Kubebay is a Kubernetes desktop app. These tools read the clusters its user allowed: start with list_clusters, then pass a cluster ID to the others. Reads only, except propose_change, which changes nothing by itself: the user approves or rejects each proposal in Kubebay. Secrets are never available."
 
+// mcpReadOnlyInstructions is what the model is told while write tools are off.
+const mcpReadOnlyInstructions = "Kubebay is a Kubernetes desktop app. These tools read the clusters its user allowed: start with list_clusters, then pass a cluster ID to the others. Reads only: no tool changes anything. Secrets are never available."
+
 // newMCP builds the MCP endpoint (backlog #5): off until the user turns it
 // on, and absent altogether in server mode.
-func newMCP(sm *httpapi.SettingsManager, mgr *clusters.Manager, pools *informers.PoolRegistry, auditLog *audit.Logger, addr string, inCluster, oidc bool) *httpapi.MCPAPI {
+func newMCP(sm *httpapi.SettingsManager, mgr *clusters.Manager, pools *informers.PoolRegistry, auditLog *audit.Logger, addr string, inCluster, oidc, readOnly bool) *httpapi.MCPAPI {
 	api := httpapi.NewMCPAPI(sm, fmt.Sprintf("http://%s/mcp", addr), httpapi.MCPBlockReason(inCluster, oidc, httpapi.IsLoopbackListenAddr(addr)))
 	src := kubetools.PoolSource{Pools: pools, Manager: mgr}
 	api.Proposals = proposals.New(src, auditLog.Record)
-	reg := mcp.NewRegistry()
+	if readOnly {
+		api.ForceReadOnly(mcpReadOnlyReason)
+	}
+	reg := mcp.NewRegistryGated(api.Writes)
 	kubetools.Register(reg, kubetools.Deps{
 		Source:    src,
 		Scope:     api.Scope,
@@ -36,7 +42,8 @@ func newMCP(sm *httpapi.SettingsManager, mgr *clusters.Manager, pools *informers
 		Proposals: api.Proposals,
 		Writes:    api.Writes,
 	})
-	api.Handler = &mcp.Handler{Tools: reg, Name: "kubebay", Version: version, Instructions: mcpInstructions}
+	api.Handler = &mcp.Handler{Tools: reg, Name: "kubebay", Version: version, Instructions: mcpInstructions,
+		ReadOnlyInstructions: mcpReadOnlyInstructions, OnRefuse: mcpRefusalAudit(auditLog.Record)}
 	if exe, err := os.Executable(); err == nil {
 		api.BridgeCommand = []string{exe, "mcp-stdio"}
 	}

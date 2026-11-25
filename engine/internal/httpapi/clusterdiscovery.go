@@ -33,7 +33,7 @@ type DiscoveryAPI struct {
 func DiscoveryBlockReason(inCluster, oidcEnabled bool) string {
 	switch {
 	case oidcEnabled:
-		return "cluster discovery runs the cloud CLIs with the engine host's own credentials, so it is off when OIDC is configured"
+		return "cluster discovery runs the cloud CLIs with the engine host's own credentials, so it is off when OIDC or an auth proxy is configured"
 	case inCluster:
 		return "cluster discovery runs the cloud CLIs with the engine host's own credentials, so it is off in in-cluster mode"
 	}

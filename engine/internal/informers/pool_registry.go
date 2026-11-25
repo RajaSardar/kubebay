@@ -22,6 +22,16 @@ type PoolRegistry struct {
 	mgr   ClusterConfigSource
 	mu    sync.Mutex
 	pools map[string]*Pool
+	obs   Observer
+}
+
+// SetObserver attaches o to the engine's own pools (never an impersonated
+// user's: the change timeline is a desktop, single-user feature). Call it
+// before the first pool is built.
+func (r *PoolRegistry) SetObserver(o Observer) {
+	r.mu.Lock()
+	r.obs = o
+	r.mu.Unlock()
 }
 
 func NewPoolRegistry(mgr ClusterConfigSource) *PoolRegistry {
@@ -59,6 +69,9 @@ func (r *PoolRegistry) ForUser(_ context.Context, clusterID string, ident *clust
 	p, err := New(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("init pool for %q: %w", clusterID, err)
+	}
+	if r.obs != nil && (ident == nil || ident.Name == "") {
+		p.SetObserver(clusterID, r.obs)
 	}
 	r.pools[key] = p
 	return p, nil

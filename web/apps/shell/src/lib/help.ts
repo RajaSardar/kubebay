@@ -180,6 +180,12 @@ export const PAGE_HELP: Record<string, PageHelpEntry> = {
     how: "A file Kubebay appends to, never sent anywhere. Each entry names who acted (the OIDC user, else local); with OIDC you see only your own.",
     docs: "audit-log",
   },
+  "/changes": {
+    name: "Changes",
+    what: "What changed in a cluster and who changed it, with the periods nothing was recording shown as shaded bars.",
+    how: "Kubebay keeps paths and field managers, never values, in a local file while pages are open; set the days to keep in Settings.",
+    docs: "changes",
+  },
   "/timeline": {
     name: "Timeline",
     what: "The cluster's events as they happen, with a warnings-only view and an hour of warning activity.",

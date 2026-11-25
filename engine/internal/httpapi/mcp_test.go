@@ -17,7 +17,7 @@ func mcpFixture(t *testing.T) (*MCPAPI, *SettingsManager) {
 	t.Helper()
 	sm := settingsWithManager(t)
 	reg := mcp.NewRegistry()
-	reg.Add(mcp.Tool{Name: "ping_tool", Description: "test", InputSchema: json.RawMessage(`{"type":"object"}`),
+	reg.Add(mcp.Tool{Access: mcp.AccessRead, Name: "ping_tool", Description: "test", InputSchema: json.RawMessage(`{"type":"object"}`),
 		Handler: func(context.Context, json.RawMessage, mcp.CallInfo) (mcp.Result, error) {
 			return mcp.TextResult("pong"), nil
 		}})
@@ -230,5 +230,40 @@ func TestMCPRoutesUseSeparateCredentials(t *testing.T) {
 		if rec.Code != http.StatusUnauthorized {
 			t.Errorf("%s %s with the MCP token: %d, want 401", rt.method, rt.path, rec.Code)
 		}
+	}
+}
+
+func TestOperatorReadOnlyForcesWritesOffAndSaysWhy(t *testing.T) {
+	a, _ := mcpFixture(t)
+	a.ForceReadOnly("set by --mcp-read-only or KUBEBAY_MCP_READ_ONLY")
+	if rec := mcpSave(t, a, `{"enabled":true,"clusters":{"kind-dev":[]},"writesEnabled":true}`); rec.Code != http.StatusOK {
+		t.Fatalf("save: %d %s", rec.Code, rec.Body)
+	}
+	if a.Writes() {
+		t.Fatal("Writes() must be false while the operator forces read-only, whatever was saved")
+	}
+	var st map[string]any
+	rec := httptest.NewRecorder()
+	a.HandleGet(rec, httptest.NewRequest(http.MethodGet, "/api/mcp", nil))
+	if err := json.Unmarshal(rec.Body.Bytes(), &st); err != nil {
+		t.Fatal(err)
+	}
+	if st["readOnlyForced"] != true || !strings.Contains(st["readOnlyReason"].(string), "--mcp-read-only") {
+		t.Fatalf("status = %v", st)
+	}
+	if st["writesEnabled"] != true {
+		t.Fatalf("the stored choice must be left untouched: %v", st)
+	}
+	if _, ok := st["readOnlyForced"]; !ok {
+		t.Fatal("missing readOnlyForced")
+	}
+}
+
+func TestReadOnlyNotForcedByDefault(t *testing.T) {
+	a, _ := mcpFixture(t)
+	rec := httptest.NewRecorder()
+	a.HandleGet(rec, httptest.NewRequest(http.MethodGet, "/api/mcp", nil))
+	if strings.Contains(rec.Body.String(), "readOnlyForced") {
+		t.Fatalf("unforced status should omit it: %s", rec.Body)
 	}
 }

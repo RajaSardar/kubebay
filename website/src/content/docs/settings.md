@@ -53,13 +53,17 @@ Each cluster you've connected to is listed as **recording** or **stopped**. **St
 
 Usage history isn't recorded when the engine runs in a cluster, or when OIDC sign-in is configured: the history is collected with the engine's own access, not each user's, so one person would see usage from namespaces their RBAC hides. Connecting doesn't turn it on there, and nobody can turn it on or erase it.
 
+## Change timeline
+
+**Keep changes for** sets how long the [Changes](/docs/changes/) page's local record is kept: **Off**, 1, 3, 7 (the default), 14 or 30 days. The card shows how many changes are stored and how much of the 100 MB cap they use. **Clear** deletes the record, and **Off** deletes the file. It is not kept when the engine runs in a cluster or with OIDC or an auth proxy: the card then says why.
+
 ## Warm clusters
 
 How many connected clusters keep streaming live, and for how long one you haven't looked at stays warm. Set **Warm clusters** (0 to 50, 0 for no limit) and **Idle minutes** (0 to 1440, 0 for never), then **Save**; the engine applies it at once, and lowering the number puts the extra least recently viewed clusters to sleep right away. **Reset to defaults** puts back 5 clusters and 30 minutes. The cluster you're on and your pinned clusters never go to sleep. A value saved here wins over the `--warm-clusters` and `--warm-idle` flags. The fields are disabled, with the reason, when Kubebay runs in a cluster or with OIDC, where streams are shared between users. See [Switching clusters](/docs/connect-clusters/#switching-clusters).
 
 ## AI assistants (MCP)
 
-Lets an AI assistant such as Claude read the clusters you choose. See [AI assistants](/docs/ai-assistants/).
+Lets an AI assistant such as Claude read the clusters you choose. If the engine was started with `--mcp-read-only`, **Let assistants propose changes** is disabled with the reason. See [AI assistants](/docs/ai-assistants/#read-only-mode).
 
 ## AI incident triage
 

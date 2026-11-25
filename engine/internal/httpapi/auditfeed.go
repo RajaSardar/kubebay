@@ -22,13 +22,13 @@ const (
 
 // AuditFeedBlockReason says why the audit feed must be off, or "" when it may
 // run. It reads a file on the engine host as the engine's OS user, so like
-// the local shell (localshell.Allowed) it is refused when OIDC is configured
+// the local shell (localshell.Allowed) it is refused when OIDC or an auth proxy is configured
 // (every logged-in user would see the cluster-wide audit trail, past their own
 // RBAC) and under --in-cluster (the engine host is not the user's machine).
 func AuditFeedBlockReason(inCluster, oidcEnabled bool) string {
 	switch {
 	case oidcEnabled:
-		return "the audit feed reads a file on the engine host, so it is off when OIDC is configured: every logged-in user would see the whole cluster's audit trail"
+		return "the audit feed reads a file on the engine host, so it is off when OIDC or an auth proxy is configured: every logged-in user would see the whole cluster's audit trail"
 	case inCluster:
 		return "the audit feed reads a file on the engine host, so it is off in in-cluster mode"
 	}

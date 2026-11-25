@@ -141,6 +141,9 @@ The token is in `docker logs kubebay`.
 | `--no-open` | `false` | Don't open a browser on start |
 | `--in-cluster` | `false` | Use the pod's ServiceAccount instead of a kubeconfig |
 | `--oidc-issuer-url`, `--oidc-client-id`, `--oidc-client-secret`, `--oidc-redirect-url` | | Sign users in with OIDC (in-cluster installs) |
+| `--auth-proxy-user-header`, `--auth-proxy-groups-header`, `--auth-proxy-trusted-cidrs` | | Take the user from a reverse proxy's headers instead of OIDC, honoured only from a peer inside the trusted CIDRs. See [Sign in through an auth proxy](#sign-in-through-an-auth-proxy). Each has a `KUBEBAY_AUTH_PROXY_*` environment variable |
+| `--auth-proxy-secret-header`, `--auth-proxy-secret-file` | | A header the proxy must send, and the file holding its secret (or `KUBEBAY_AUTH_PROXY_SECRET`) |
+| `--auth-proxy-allow-any-peer`, `--auth-proxy-allow-system-identities` | `false` | Accept an empty, `0.0.0.0/0` or wide trusted range without a secret; let the proxy name `system:` users |
 | `--prometheus-url` | | A Prometheus the engine queries directly for every cluster. On your own machine a URL set in Settings wins over it. In a cluster or with OIDC it's the only one used. `KUBEBAY_PROMETHEUS_URL` |
 | `--prometheus-all-users` | `false` | With OIDC, let every signed-in user send queries to `--prometheus-url`. `KUBEBAY_PROMETHEUS_ALL_USERS=true` |
 | `--helm-repos` | | Helm repositories to add at startup, as `name=url,name=url`. In a cluster or with OIDC it's the only way to change them. `KUBEBAY_HELM_REPOS` |
@@ -155,7 +158,7 @@ The chart in [`charts/kubebay`](https://github.com/RajaSardar/kubebay/tree/main/
 helm install kubebay charts/kubebay --set ingress.enabled=true --set ingress.host=kubebay.example.com
 ```
 
-The chart's values cover OIDC, TLS and resources. In a cluster, Kubebay turns off what only makes sense on your own machine: the local terminal, AI assistants (MCP), AI triage and usage history.
+The chart's values cover OIDC (or an auth proxy), TLS and resources. In a cluster, Kubebay turns off what only makes sense on your own machine: the local terminal, AI assistants (MCP), AI triage and usage history.
 
 One engine serves everyone, so settings that apply to every user are read-only in the app, and **Save** on them says so. You set them in the chart's values instead:
 
@@ -171,7 +174,43 @@ Leave `prometheus.url` empty and each user's queries go to an auto-detected Prom
 
 With OIDC, [Cost / Waste](/docs/cost-waste/#workload-usage-vs-requests) shows each person only the workloads in namespaces where they may list pods. See [Security and privacy](/docs/security/#in-a-cluster).
 
-The audit log and settings live on a 64Mi `emptyDir`, so a pod restart loses them. The chart has no persistent volume option yet.
+### Sign in through an auth proxy
+
+If you already run an authenticating proxy, use it instead of OIDC. Turn on `authProxy.enabled`, name the headers it sets, and list the addresses it connects from. This example uses oauth2-proxy with `--set-xauthrequest`, which sends `X-Auth-Request-Email` and `X-Auth-Request-Groups`:
+
+```yaml
+# values.yaml
+authProxy:
+  enabled: true
+  userHeader: X-Auth-Request-Email
+  groupsHeader: X-Auth-Request-Groups
+  trustedCIDRs: ["10.42.3.0/24"]   # where the oauth2-proxy pods get their addresses
+  secret:                           # optional but advisable: a header only the proxy knows
+    header: X-Proxy-Secret
+    existingSecret: kubebay-proxy-secret   # a Secret with the key `secret`
+```
+
+Create the Secret first (`kubectl create secret generic kubebay-proxy-secret --from-literal=secret=<long random value>`) and set your proxy to add the same value in that header on every request it forwards, using whatever it offers for a fixed request header. Then add a NetworkPolicy that lets only the proxy reach the engine on port 8080, because any other pod inside the trusted range could pretend to be a user. The chart's impersonation role is created exactly as it is for OIDC, and `impersonation.users` and `impersonation.groups` narrow it the same way; the chart refuses to render if `oidc.issuerUrl` is also set, or if `trustedCIDRs` is empty.
+
+| Value | Environment variable | What it sets |
+|---|---|---|
+| `authProxy.userHeader`, `groupsHeader` | `KUBEBAY_AUTH_PROXY_USER_HEADER`, `KUBEBAY_AUTH_PROXY_GROUPS_HEADER` | The headers that carry the user and the comma separated groups |
+| `authProxy.trustedCIDRs` | `KUBEBAY_AUTH_PROXY_TRUSTED_CIDRS` | The addresses the proxy connects from; every other peer gets 401 |
+| `authProxy.secret.header`, `existingSecret`, `key` | `KUBEBAY_AUTH_PROXY_SECRET_HEADER`, `KUBEBAY_AUTH_PROXY_SECRET_FILE` | A shared secret header, read from a mounted file |
+| `authProxy.allowAnyPeer` | `KUBEBAY_AUTH_PROXY_ALLOW_ANY_PEER` | Accept a wide range without a secret. Unsafe |
+| `authProxy.allowSystemIdentities` | `KUBEBAY_AUTH_PROXY_ALLOW_SYSTEM_IDENTITIES` | Let the proxy name `system:` users and `system:masters`. Off |
+
+The app doesn't show a sign-in page here; if the proxy doesn't identify a request it says so. What the mode trusts, and what it refuses, is in [Security and privacy](/docs/security/#sign-in-through-an-auth-proxy). It was checked with unit tests, HTTP tests and `helm template`, not against a live cluster or a real proxy.
+
+Settings live on a 64Mi `emptyDir`, so a pod restart loses them. The [audit log](/docs/audit-log/#in-a-cluster) is printed to the engine's output as JSON lines (`auditLog.stdout`, on by default) and can be kept on a volume:
+
+| Value | What it does |
+|---|---|
+| `auditLog.stdout` | Print every audit entry as one JSON line (`KUBEBAY_AUDIT_STDOUT`) |
+| `auditLog.maxSizeMiB` | Rotate the file at this size, default 16; it takes at most twice that |
+| `auditLog.persistence.enabled` | Keep the file on a PersistentVolumeClaim (ReadWriteOnce) mounted at `/var/lib/kubebay/audit` |
+| `auditLog.persistence.size`, `storageClass` | The claim to create, default 1Gi |
+| `auditLog.persistence.existingClaim` | Use a claim you made; none is created |
 
 ## Verify a download
 
