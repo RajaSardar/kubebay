@@ -978,7 +978,9 @@
 
 /* ── Blossom (light — soft pink canvas, rose accent) ─────────────────────────
    A light theme: a blush canvas with white-pink cards, plum text and a deep
-   rose accent. Every text and accent pair is held to 4.5:1 by themeContrast. */
+   rose accent. Role naming and the light/dark pairing follow the Rosé Pine
+   palette structure (MIT; see THIRD_PARTY_NOTICES.md); the values are our own.
+   Every text and accent pair is held to 4.5:1 by themeContrast. */
 :root[data-theme="blossom"] {
   color-scheme: light;
 

@@ -91,6 +91,7 @@
 ~~86. Rollouts: a search option on the Rollouts page~~ ✅ Done in v0.8.5
 ~~87. kubectl argo rollouts dashboard should run automatically and show inside the Rollouts page~~ ✅ Done in v0.8.5 (desktop only; needs the kubectl-argo-rollouts plugin installed)
 ~~88. Prometheus metrics not visible in any pod on the owner's app~~ ✅ Built in v0.8.5 (stale default URL fixed, broader discovery, Test connection); the owner's exact cause is unconfirmed until they try it
+91. A high-contrast pink theme (Blossom HC, 7:1). Not built: Blossom and Blossom Night meet 4.5:1 for text and 3:1 for non-text, and users who need 7:1 are pointed to Dawn HC and Dusk HC. Trigger: the first user request. Recipe in docs/PINK_THEME.md section 5 (accent at least #8a1553, near-black plum text, 3:1 separators and card edges); it would be a 15th theme block.
 ---
 
 ## Status of the open items (2026-11-23)

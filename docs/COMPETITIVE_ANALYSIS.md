@@ -70,7 +70,7 @@ Legend: ✅ built in · 💲 paid tier only · ⚠️ partial or via add-on · �
 | **Delivery** | Platforms | Any browser | macOS, Windows, Linux | macOS (primary); Windows and Linux builds released but untested; web; in-cluster |
 | | Auto-update | — (server upgrades via Helm) | ✅ | ❌ |
 | | Air-gapped | ✅ documented | 💲 Enterprise offline activation | ✅ by nature (no account, no phone-home), but no packaged bundle or docs |
-| | Accessibility / theming | standard | standard | ✅ 13 themes at WCAG AA; high-contrast themes at 7:1, guarded by tests |
+| | Accessibility / theming | standard | standard | ✅ 14 themes at WCAG AA; high-contrast themes at 7:1, guarded by tests |
 
 ### 2.2 Where each one wins
 

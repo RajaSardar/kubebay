@@ -6,6 +6,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ## [Unreleased]
 
+### Added
+- **Blossom Night**, a dark theme paired with Blossom: a plum-tinted page, rose-white text and a soft pink accent (Settings, Theme; 14 themes now). Its contrast is computed from `tokens.css` by `themeContrast` like every theme: 4.5:1 for text, 3:1 for the focus ring, control borders and chart series. The native window follows it as a dark theme and the editor uses the dark Monaco theme. Tested with unit tests and the contrast guards; not looked at in the running app.
+
+### Changed
+- **Blossom's error and warning colours** moved away from the pink accent (`--kb-status-err` to `#ae1c06`, `--kb-status-warn` to `#8a5600`, with matching subtle and foreground tones), so an error is never mistaken for the accent. New guards in `themeContrast` require the danger hue to sit at least 36 degrees from the accent in both Blossom themes and no failure token to equal the accent. There is no high-contrast pink theme; Dawn HC and Dusk HC cover 7:1.
+
 ## [0.8.5] - 2026-11-25
 
 ### Added
