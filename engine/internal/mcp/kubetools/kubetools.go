@@ -85,6 +85,7 @@ const (
 func Register(reg *mcp.Registry, d Deps) {
 	t := &tools{d: d}
 	reg.Add(mcp.Tool{
+		Access:      mcp.AccessRead,
 		Name:        "list_clusters",
 		Title:       "List clusters",
 		Description: "Lists the Kubernetes clusters Kubebay's user has allowed this assistant to read, with each cluster's reachability and version. Every other tool needs one of these cluster IDs.",
@@ -99,6 +100,7 @@ func Register(reg *mcp.Registry, d Deps) {
 		`"limit":{"type":"integer","minimum":1,"maximum":%d,"default":%d}},`+
 		`"required":["cluster","kind"],"additionalProperties":false}`, mustJSON(kindNames()), maxLimit, defaultLimit)
 	reg.Add(mcp.Tool{
+		Access:      mcp.AccessRead,
 		Name:        "list_resources",
 		Title:       "List resources",
 		Description: "Lists resources of one kind as compact rows (status, readiness, restarts, age), not full objects. Secrets are never listed; ConfigMaps by name only.",

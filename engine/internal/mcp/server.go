@@ -42,6 +42,18 @@ type Handler struct {
 	Version string
 	// Instructions is shown to the model by clients that surface it.
 	Instructions string
+	// ReadOnlyInstructions replaces Instructions while write tools are off.
+	ReadOnlyInstructions string
+	// OnRefuse is told about every call a read-only gate turned away (the
+	// gate runs before a tool's own audit wrapper, so this is how it is audited).
+	OnRefuse func(CallInfo)
+}
+
+func (h *Handler) instructions() string {
+	if h.ReadOnlyInstructions != "" && !h.Tools.WritesAllowed() {
+		return h.ReadOnlyInstructions
+	}
+	return h.Instructions
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -149,7 +161,7 @@ func (h *Handler) serveModern(w http.ResponseWriter, r *http.Request, req reques
 			"resultType":        "complete",
 			"supportedVersions": modernVersions,
 			"capabilities":      map[string]any{"tools": map[string]any{}},
-			"instructions":      h.Instructions,
+			"instructions":      h.instructions(),
 			"ttlMs":             60_000,
 			"cacheScope":        "private",
 			"_meta":             h.serverMeta(),
@@ -202,7 +214,7 @@ func (h *Handler) serveLegacy(w http.ResponseWriter, r *http.Request, req reques
 			"protocolVersion": version,
 			"capabilities":    map[string]any{"tools": map[string]any{}},
 			"serverInfo":      map[string]string{"name": h.Name, "version": h.Version},
-			"instructions":    h.Instructions,
+			"instructions":    h.instructions(),
 		})
 	case "ping":
 		writeResult(w, req.ID, map[string]any{})
@@ -227,16 +239,23 @@ func (h *Handler) call(ctx context.Context, p params, ci clientInfo, id json.Raw
 	if !ok {
 		return Result{Content: []Content{{Type: "text", Text: "unknown tool: " + p.Name}}, IsError: true}
 	}
-	args := p.Arguments
-	if len(args) == 0 || string(args) == "null" {
-		args = json.RawMessage(`{}`)
-	}
-	res, err := tool.Handler(ctx, args, CallInfo{
+	info := CallInfo{
 		Tool:          p.Name,
 		ClientName:    ci.Name,
 		ClientVersion: ci.Version,
 		RequestID:     strings.Trim(string(id), `"`),
-	})
+	}
+	if h.Tools.Refuses(tool) {
+		if h.OnRefuse != nil {
+			h.OnRefuse(info)
+		}
+		return Result{Content: []Content{{Type: "text", Text: ErrReadOnly.Error()}}, IsError: true}
+	}
+	args := p.Arguments
+	if len(args) == 0 || string(args) == "null" {
+		args = json.RawMessage(`{}`)
+	}
+	res, err := tool.Handler(ctx, args, info)
 	if err != nil {
 		return Result{Content: []Content{{Type: "text", Text: err.Error()}}, IsError: true}
 	}

@@ -64,16 +64,18 @@ func registerInspection(reg *mcp.Registry, t *tools) {
 		`"namespace":{"type":"string","description":"Required for namespaced kinds."},"name":{"type":"string"}},`+
 		`"required":["cluster","kind","name"],"additionalProperties":false}`, mustJSON(inspectKinds()))
 	reg.Add(mcp.Tool{
-		Name:  "describe_resource",
-		Title: "Describe a resource",
+		Access: mcp.AccessRead,
+		Name:   "describe_resource",
+		Title:  "Describe a resource",
 		Description: "Why is this resource unhealthy? For a pod: each container's image, state, restarts and last termination (reason, exit code), " +
 			"conditions, the owner chain up to its Deployment, and its latest events, warnings first. Env values are redacted.",
 		InputSchema: json.RawMessage(objSchema),
 		Handler:     t.audited(t.describe),
 	})
 	reg.Add(mcp.Tool{
-		Name:  "get_logs",
-		Title: "Get pod logs",
+		Access: mcp.AccessRead,
+		Name:   "get_logs",
+		Title:  "Get pod logs",
 		Description: "Recent log lines of one pod container, repeated lines collapsed with a count, capped at 40KB. " +
 			"For a CrashLoopBackOff, set previous:true: the useful lines are in the container that died, not the one restarting.",
 		InputSchema: json.RawMessage(fmt.Sprintf(`{"type":"object","properties":{`+
@@ -85,6 +87,7 @@ func registerInspection(reg *mcp.Registry, t *tools) {
 		Handler: t.audited(t.logs),
 	})
 	reg.Add(mcp.Tool{
+		Access:      mcp.AccessRead,
 		Name:        "list_events",
 		Title:       "List events",
 		Description: "Kubernetes events grouped by object and reason, with counts and the latest message; warnings only unless warningsOnly is false.",
@@ -95,16 +98,18 @@ func registerInspection(reg *mcp.Registry, t *tools) {
 		Handler: t.audited(t.events),
 	})
 	reg.Add(mcp.Tool{
-		Name:  "get_manifest",
-		Title: "Get a manifest",
+		Access: mcp.AccessRead,
+		Name:   "get_manifest",
+		Title:  "Get a manifest",
 		Description: "The resource's YAML when the summary tools aren't enough, without managedFields or the last-applied annotation, " +
 			"env values redacted, capped at 40KB. Secrets and ConfigMap contents are never available.",
 		InputSchema: json.RawMessage(objSchema),
 		Handler:     t.audited(t.manifest),
 	})
 	reg.Add(mcp.Tool{
-		Name:  "get_cluster_health",
-		Title: "Cluster health",
+		Access: mcp.AccessRead,
+		Name:   "get_cluster_health",
+		Title:  "Cluster health",
 		Description: "One-call overview: node readiness, pods that aren't running or ready (with the reason), and the most frequent warning events. " +
 			"Start here when asked what's wrong with a cluster.",
 		InputSchema: json.RawMessage(`{"type":"object","properties":{"cluster":{"type":"string"}},"required":["cluster"],"additionalProperties":false}`),

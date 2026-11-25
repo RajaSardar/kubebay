@@ -18,8 +18,9 @@ var writableKinds = []string{"cronjobs", "daemonsets", "deployments", "ingresses
 
 func registerProposals(reg *mcp.Registry, t *tools) {
 	reg.Add(mcp.Tool{
-		Name:  "propose_change",
-		Title: "Propose a change",
+		Access: mcp.AccessWrite,
+		Name:   "propose_change",
+		Title:  "Propose a change",
 		Description: "Proposes a change to one workload, Service or Ingress as a strategic merge patch of spec (and metadata labels/annotations). " +
 			"It changes nothing: Kubebay dry-runs it and shows the diff to its user, who approves or rejects it in Kubebay. " +
 			"Then poll get_proposal_status. Proposals expire after 5 minutes. Only works when Kubebay's user has allowed proposals.",
@@ -31,6 +32,7 @@ func registerProposals(reg *mcp.Registry, t *tools) {
 		Handler: t.audited(t.propose),
 	})
 	reg.Add(mcp.Tool{
+		Access:      mcp.AccessWrite,
 		Name:        "get_proposal_status",
 		Title:       "Proposal status",
 		Description: "Whether a proposal from propose_change is still pending, or was applied, rejected, expired, or became stale because the object changed.",
