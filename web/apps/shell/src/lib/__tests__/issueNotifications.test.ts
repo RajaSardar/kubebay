@@ -5,6 +5,7 @@ import {
   createIssueNotifier,
   loadNotifySettings,
   saveNotifySettings,
+  type IssueNotification,
   type NotifySettings,
 } from "../issueNotifications";
 import type { Issue, IssueSeverity } from "../issues";
@@ -64,9 +65,9 @@ describe("baseline", () => {
     obs([issue("a")]);
     const out = obs([issue("a"), issue("b")]);
     expect(out).toHaveLength(1);
-    expect(out[0].title).toBe("Critical issue");
-    expect(out[0].body).toBe("Pod prod/b");
-    expect(out[0].issueId).toBe(issue("b").id);
+    expect(out[0]!.title).toBe("Critical issue");
+    expect(out[0]!.body).toBe("Pod prod/b");
+    expect(out[0]!.issueId).toBe(issue("b").id);
   });
   it("re-baselines when the cluster changes", () => {
     const { obs } = setup();
@@ -100,7 +101,7 @@ describe("filters", () => {
     obs2([]);
     const out = obs2([issue("h", "high"), issue("m", "medium"), issue("c", "critical")]);
     expect(out.map((o) => o.issueId)).toEqual([issue("c").id, issue("h", "high").id]);
-    expect(out[1].title).toBe("High issue");
+    expect(out[1]!.title).toBe("High issue");
   });
   it("stays quiet for a muted cluster", () => {
     const { obs } = setup({ ...on, mutedClusters: ["c1"] });
@@ -136,7 +137,7 @@ describe("dedupe and rate limit", () => {
     expect(out).toHaveLength(4);
     expect(out.slice(0, 3).every((o) => o.issueId)).toBe(true);
     expect(out[3]).toMatchObject({ title: "2 new issues", body: "Open Kubebay to see them." });
-    expect(out[3].issueId).toBeUndefined();
+    expect(out[3]!.issueId).toBeUndefined();
   });
   it("counts the minute window across observations and refills after it", () => {
     const { obs, advance } = setup();
@@ -145,7 +146,7 @@ describe("dedupe and rate limit", () => {
     advance(10_000);
     const out = obs([issue("a"), issue("b"), issue("c"), issue("d")]);
     expect(out).toHaveLength(2); // one more single, then one summary
-    expect(out[1].title).toBe("1 new issue");
+    expect(out[1]!.title).toBe("1 new issue");
     advance(61_000);
     expect(obs([issue("a"), issue("b"), issue("c"), issue("d"), issue("e")])).toHaveLength(1);
   });
@@ -176,7 +177,7 @@ describe("text", () => {
   it("carries only kind, namespace/name and severity, never the summary", () => {
     const { obs } = setup();
     obs([]);
-    const [o] = obs([issue("a", "critical", "Node", "")]);
+    const [o] = obs([issue("a", "critical", "Node", "")]) as [IssueNotification];
     expect(o.body).toBe("Node a");
     expect(JSON.stringify(o)).not.toMatch(/hunter2|log line/);
   });

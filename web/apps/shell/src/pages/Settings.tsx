@@ -13,6 +13,7 @@ import { TriageSettingsCard } from "../components/TriageSettingsCard";
 import { WarmClustersCard } from "../components/WarmClustersCard";
 import { ExtensionsCard } from "../components/ExtensionsCard";
 import { UpdatesCard } from "../components/UpdatesCard";
+import { NotificationsCard } from "../components/NotificationsCard";
 import { SavedViewsCard } from "../components/SavedViews";
 import { useTheme, type ThemeName } from "../lib/theme";
 import { useDisplay, type FontSize, type FontFamily, type Density } from "../lib/display";
@@ -409,6 +410,7 @@ export default function Settings() {
       <TriageSettingsCard />
       <WarmClustersCard />
       <ExtensionsCard />
+      <NotificationsCard />
       <UpdatesCard />
       <SavedViewsCard />
     </div>

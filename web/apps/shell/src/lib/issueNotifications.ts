@@ -45,8 +45,11 @@ export function loadNotifySettings(): NotifySettings {
   return { ...DEFAULT_NOTIFY_SETTINGS, mutedClusters: [] };
 }
 
+export const NOTIFY_SETTINGS_EVENT = "kb:issue-notify-settings";
+
 export function saveNotifySettings(s: NotifySettings): void {
   localStorage.setItem(KEY, JSON.stringify(s));
+  window.dispatchEvent(new Event(NOTIFY_SETTINGS_EVENT));
 }
 
 export interface IssueNotification {
