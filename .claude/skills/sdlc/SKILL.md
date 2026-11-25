@@ -9,6 +9,20 @@ This skill enforces Anthropic's AI-native software development lifecycle on ever
 
 ---
 
+## Lesson 0 — First Rule: Speed, No Hang, No Error
+
+Kubebay's USP is that it is fast, never hangs and never shows an error. It outranks every other lesson and every feature (see CLAUDE.md "FIRST RULE").
+
+For every task, before the spec is agreed, answer in writing:
+
+1. **Fast:** what runs on each keystroke, scroll, tab switch and live update, and what does it cost at 2,000 pods? Add or extend a scale/perf test and record the number.
+2. **No hang:** which network call, stream, process or wait does this add, and what are its timeout, cancel path and visible waiting state? Who owns each goroutine, watcher or process, and where is it closed?
+3. **No error:** how does each failure read to the user (plain sentence, next step), and what catches it so no stack trace or blank screen can appear?
+
+A spec without these three answers is not done. In review, treat a missing timeout, an unbounded buffer, a leaked watcher/process, a flaky test or a raw error string as a blocking defect. Agents you launch must be given this rule in their prompt.
+
+---
+
 ## Lesson 1 — Spec First, Code Second
 
 Before writing a single line of implementation:

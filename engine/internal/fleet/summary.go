@@ -230,7 +230,7 @@ func fetch(ctx context.Context, id string, base *rest.Config, timeout time.Durat
 		err = json.Unmarshal(raw, &v)
 	}
 	if err != nil {
-		if ctx.Err() != nil {
+		if searchTimedOut(ctx, err) {
 			return Summary{ID: id, Status: StatusUnreachable, Error: "summary timed out"}
 		}
 		return Summary{ID: id, Status: StatusUnreachable, Error: err.Error()}
@@ -244,7 +244,7 @@ func fetch(ctx context.Context, id string, base *rest.Config, timeout time.Durat
 		}
 		list, err := client.CoreV1().Nodes().List(ctx, metav1.ListOptions{Limit: nodePageSize, Continue: cont})
 		if err != nil {
-			if ctx.Err() != nil {
+			if searchTimedOut(ctx, err) {
 				sum.Error = "nodes: summary timed out"
 			} else {
 				sum.Error = fmt.Sprintf("nodes: %v", err)

@@ -9,7 +9,9 @@ package fleet
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net"
 	"sort"
 	"strings"
 	"sync"
@@ -414,7 +416,7 @@ func (s *Searcher) list(ctx context.Context, base *rest.Config, kinds []searchin
 			list, err := md.Resource(parseGVR(k.GVR)).List(ctx, metav1.ListOptions{Limit: int64(s.pageSize), Continue: cont})
 			if err != nil {
 				switch {
-				case ctx.Err() != nil:
+				case searchTimedOut(ctx, err):
 					return out, "search timed out"
 				case apierrors.IsForbidden(err):
 					kn.names, kn.denied = nil, err.Error()
@@ -435,4 +437,14 @@ func (s *Searcher) list(ctx context.Context, base *rest.Config, kinds []searchin
 		out[k.Slug] = kn
 	}
 	return out, ""
+}
+
+// searchTimedOut (used by the search and the summary) is true when the work ran out of time: its context ended, or
+// the HTTP client's own timeout (set to the same duration) fired first.
+func searchTimedOut(ctx context.Context, err error) bool {
+	if ctx.Err() != nil || errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+	var ne net.Error
+	return errors.As(err, &ne) && ne.Timeout()
 }
