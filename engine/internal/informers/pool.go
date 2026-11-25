@@ -567,6 +567,8 @@ func (e *entry) emit(opType string, obj any) {
 	if !ok {
 		return
 	}
+	// Every subscription gets a copy; the object is encoded once for all.
+	op = stream.SharedOp(op.Op, op.Key, op.Obj)
 	select {
 	case e.fanout <- op:
 	default:
