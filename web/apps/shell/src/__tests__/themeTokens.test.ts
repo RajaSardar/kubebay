@@ -44,11 +44,11 @@ describe("theme tokens", () => {
     expect(missing).toEqual([]);
   });
 
-  it("all thirteen themes define the same colour tokens as Dusk", () => {
+  it("all fourteen themes define the same colour tokens as Dusk", () => {
     const blocks = themeBlocks(tokensCss);
     expect(Object.keys(blocks).sort()).toEqual(
       [
-        "blossom", "catppuccin", "dawn", "dawn-hc", "dracula", "dusk", "dusk-hc", "github-dark",
+        "blossom", "blossom-night", "catppuccin", "dawn", "dawn-hc", "dracula", "dusk", "dusk-hc", "github-dark",
         "github-light", "nord", "one-dark", "vscode-dark", "vscode-light",
       ],
     );
