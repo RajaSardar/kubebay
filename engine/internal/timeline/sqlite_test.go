@@ -1,6 +1,7 @@
 package timeline
 
 import (
+	"database/sql"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -219,5 +220,39 @@ func TestSQLiteFacetsFollowPruneAndClear(t *testing.T) {
 	}
 	if f, _ := s.Facets("c1"); len(f.Kinds) != 1 {
 		t.Errorf("another cluster's facets were cleared: %+v", f)
+	}
+}
+
+// A database another process holds locked is not corrupt: it must not be
+// moved aside (that would take the file out from under its owner).
+func TestSQLiteDoesNotSetAsideALockedDatabase(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "t.db")
+	s, err := OpenSQLite(path, SQLiteOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Append([]Change{row("c1", 1, "Pod", "n", "a", "m")}); err != nil {
+		t.Fatal(err)
+	}
+	s.Close()
+	holder, err := sql.Open("sqlite", "file:"+path+"?_pragma=locking_mode(EXCLUSIVE)&_pragma=journal_mode(DELETE)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer holder.Close()
+	holder.SetMaxOpenConns(1)
+	if _, err := holder.Exec("BEGIN EXCLUSIVE"); err != nil {
+		t.Fatal(err)
+	}
+	s2, err := OpenSQLite(path, SQLiteOptions{BusyTimeout: 50 * time.Millisecond})
+	if err == nil {
+		s2.Close()
+		t.Fatal("a locked database should not open")
+	}
+	if _, err := os.Stat(path); err != nil {
+		t.Fatalf("the database was moved aside: %v", err)
+	}
+	if matches, _ := filepath.Glob(path + ".corrupt-*"); len(matches) != 0 {
+		t.Fatalf("a healthy, locked file was renamed as corrupt: %v", matches)
 	}
 }

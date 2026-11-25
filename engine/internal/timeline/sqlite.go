@@ -12,7 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	_ "modernc.org/sqlite" // pure Go: the engine builds with CGO_ENABLED=0
+	"modernc.org/sqlite" // pure Go: the engine builds with CGO_ENABLED=0
 )
 
 // DefaultMaxBytes is the hard size cap on the database file.
@@ -61,6 +61,8 @@ type SQLiteOptions struct {
 	// MaxBytes is the hard cap on live data; the oldest rows go first.
 	MaxBytes int64
 	Now      func() time.Time
+	// BusyTimeout is how long to wait on a lock held elsewhere (default 5s).
+	BusyTimeout time.Duration
 }
 
 // SQLiteStore is the Store on one SQLite file in WAL mode.
@@ -107,7 +109,9 @@ func OpenSQLite(path string, o SQLiteOptions) (*SQLiteStore, error) {
 		return nil, err
 	}
 	s, err := openOnce(path, o)
-	if err == nil || errors.Is(err, ErrNewerSchema) {
+	if err == nil || errors.Is(err, ErrNewerSchema) || !isCorruption(err) {
+		// Only a file that is not a database is set aside. A lock held by
+		// another process, a full disk or a refused permission leaves it be.
 		return s, err
 	}
 	moved := fmt.Sprintf("%s.corrupt-%d", path, o.Now().Unix())
@@ -124,6 +128,26 @@ func OpenSQLite(path string, o SQLiteOptions) (*SQLiteStore, error) {
 	return s, nil
 }
 
+// errIntegrity marks a failed integrity check.
+var errIntegrity = errors.New("timeline: integrity check failed")
+
+// isCorruption is true for the errors SQLite gives for a file that is not a
+// usable database (SQLITE_CORRUPT 11, SQLITE_NOTADB 26) and for a failed
+// integrity check; anything else (busy, locked, read-only, I/O) is not.
+func isCorruption(err error) bool {
+	if errors.Is(err, errIntegrity) {
+		return true
+	}
+	var se *sqlite.Error
+	if errors.As(err, &se) {
+		switch se.Code() & 0xff {
+		case 11, 26:
+			return true
+		}
+	}
+	return false
+}
+
 func openOnce(path string, o SQLiteOptions) (*SQLiteStore, error) {
 	// Created private before SQLite does, so the -wal and -shm files follow.
 	if f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0o600); err != nil {
@@ -133,7 +157,10 @@ func openOnce(path string, o SQLiteOptions) (*SQLiteStore, error) {
 	}
 	_ = os.Chmod(path, 0o600)
 	v := url.Values{}
-	v.Add("_pragma", "busy_timeout(5000)")
+	if o.BusyTimeout <= 0 {
+		o.BusyTimeout = 5 * time.Second
+	}
+	v.Add("_pragma", fmt.Sprintf("busy_timeout(%d)", o.BusyTimeout.Milliseconds()))
 	v.Add("_pragma", "journal_mode(WAL)")
 	v.Add("_pragma", "synchronous(NORMAL)")
 	v.Add("_pragma", "auto_vacuum(INCREMENTAL)")
@@ -170,7 +197,7 @@ func (s *SQLiteStore) init() error {
 		return err
 	}
 	if check != "ok" {
-		return fmt.Errorf("timeline: integrity check failed: %s", check)
+		return fmt.Errorf("%w: %s", errIntegrity, check)
 	}
 	for ; ver < len(migrations); ver++ {
 		tx, err := s.db.Begin()
