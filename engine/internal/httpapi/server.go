@@ -45,10 +45,12 @@ type Deps struct {
 	Auth      *Authenticator
 	// Proxy takes identity from an authenticating reverse proxy's headers
 	// (backlog 81); nil or disabled leaves OIDC / the launch token in charge.
-	Proxy     identitySource
-	Audit     *audit.Logger
-	Waste     wasteSnapshotter
-	History   *HistoryAPI
+	Proxy   identitySource
+	Audit   *audit.Logger
+	Waste   wasteSnapshotter
+	History *HistoryAPI
+	// Timeline is the desktop change timeline (backlog 82); nil = routes absent.
+	Timeline  *TimelineAPI
 	Discovery *DiscoveryAPI
 	// Search finds objects by name across kinds the app does not hold in memory.
 	Search *SearchAPI
@@ -621,6 +623,14 @@ func Router(d Deps, token string) http.Handler {
 			r.Get("/api/history/series", d.History.HandleSeries)
 			r.Get("/api/history/health", d.History.HandleHealth)
 			r.Get("/api/history/summary", d.History.HandleSummary)
+		}
+
+		if d.Timeline != nil {
+			r.Get("/api/timeline/status", d.Timeline.HandleStatus)
+			r.Get("/api/timeline/changes", d.Timeline.HandleChanges)
+			r.Get("/api/timeline/facets", d.Timeline.HandleFacets)
+			r.Put("/api/timeline/settings", d.Timeline.HandleSettings)
+			r.Delete("/api/timeline", d.Timeline.HandleClear)
 		}
 
 		r.Post("/api/helm/rollback", d.Helm.HandleRollback)

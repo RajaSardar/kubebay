@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"github.com/RajaSardar/kubebay/engine/internal/auditfeed"
+	"github.com/RajaSardar/kubebay/engine/internal/timeline"
 
 	"context"
 	"crypto/rand"
@@ -54,6 +55,10 @@ type AppSettings struct {
 	// Warm is the warm-cluster cap and idle limit (backlog #37). Set only
 	// through /api/warm-policy.
 	Warm *WarmSettings `json:"warm,omitempty"`
+	// TimelineRetentionDays is how long the desktop change timeline keeps
+	// changes (backlog 82): 0 is off, nil is the default. Set only through
+	// /api/timeline/settings.
+	TimelineRetentionDays *int `json:"timelineRetentionDays,omitempty"`
 }
 
 // PrometheusURLFor resolves the endpoint to query for one cluster. A
@@ -312,7 +317,9 @@ func (s *SettingsManager) HandleSave(w http.ResponseWriter, r *http.Request) {
 	var mcpSettings *MCPSettings
 	var triageSettings *TriageSettings
 	var warmSettings *WarmSettings
+	var timelineDays *int
 	if current != nil {
+		timelineDays = current.TimelineRetentionDays
 		warmSettings = current.Warm
 		mcpSettings = current.MCP
 		triageSettings = current.Triage
@@ -360,6 +367,8 @@ func (s *SettingsManager) HandleSave(w http.ResponseWriter, r *http.Request) {
 		MCP:               mcpSettings,
 		Triage:            triageSettings,
 		Warm:              warmSettings,
+
+		TimelineRetentionDays: timelineDays,
 	}
 	if err := s.save(next); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -479,3 +488,28 @@ var (
 	_ = context.Background
 	_ = rand.Read
 )
+
+// TimelineRetentionDays is the stored retention of the change timeline in
+// days (0 = off); the default when none was ever chosen.
+func (s *SettingsManager) TimelineRetentionDays() int {
+	set, err := s.Load()
+	if err != nil || set.TimelineRetentionDays == nil {
+		return timeline.DefaultRetentionDays
+	}
+	return *set.TimelineRetentionDays
+}
+
+// SetTimelineRetentionDays stores the retention after checking its range.
+func (s *SettingsManager) SetTimelineRetentionDays(days int) error {
+	if days < 0 || days > timeline.MaxRetentionDays {
+		return fmt.Errorf("retention must be between 0 and %d days", timeline.MaxRetentionDays)
+	}
+	s.mu <- struct{}{}
+	defer func() { <-s.mu }()
+	set, err := s.Load()
+	if err != nil {
+		return err
+	}
+	set.TimelineRetentionDays = &days
+	return s.save(set)
+}

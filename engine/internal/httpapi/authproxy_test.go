@@ -239,6 +239,7 @@ func TestEveryBlockReasonLocksWhenIdentityIsShared(t *testing.T) {
 		"audit feed": AuditFeedBlockReason(false, true),
 		"warm":       WarmPolicyBlockReason(false, true),
 		"history":    HistoryBlockReason(false, true),
+		"timeline":   TimelineBlockReason(false, true),
 		"mcp":        MCPBlockReason(false, true, true),
 		"triage":     TriageBlockReason(false, true),
 		"extensions": ExtensionsBlockReason(false, true),

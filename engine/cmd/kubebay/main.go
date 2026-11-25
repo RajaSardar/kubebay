@@ -203,6 +203,9 @@ func main() {
 	wasteSampler.SetConnected(mgr.IsConnected)
 	historyAPI, closeHistory := setupHistory(log, mgr, settingsMgr, wasteSampler, httpapi.HistoryBlockReason(*inCluster, sharedIdentity), wasteCtx)
 	defer closeHistory()
+	timelineAPI, closeTimeline := setupTimeline(log, mgr, settingsMgr, registry, httpapi.TimelineBlockReason(*inCluster, sharedIdentity), wasteCtx)
+	defer closeTimeline()
+	timelineAPI.Audit = auditLog
 	// Started only now, after the history recorder is set, so the sampler
 	// goroutine never races those fields.
 	wasteSampler.Start(wasteCtx)
@@ -271,6 +274,7 @@ func main() {
 		Audit:      auditLog,
 		Waste:      wasteSampler,
 		History:    historyAPI,
+		Timeline:   timelineAPI,
 		Search:     searchAPI,
 		Discovery: &httpapi.DiscoveryAPI{
 			Settings: settingsMgr,

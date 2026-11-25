@@ -33,7 +33,7 @@ func TestMainUsesOneSharedIdentityBoolean(t *testing.T) {
 		t.Error("main.go compares the OIDC issuer directly; use sharedIdentity")
 	}
 	// Every shared-state helper must be handed it.
-	for _, call := range []string{"setupLocalShell(", "SharedHelmReposBlockReason(", "AuditFeedBlockReason(", "WarmPolicyBlockReason(", "SharedSettingsBlockReason(", "HistoryBlockReason(", "newMCP(", "newTriage(", "newExtensions(", "DiscoveryBlockReason("} {
+	for _, call := range []string{"setupLocalShell(", "SharedHelmReposBlockReason(", "AuditFeedBlockReason(", "WarmPolicyBlockReason(", "SharedSettingsBlockReason(", "HistoryBlockReason(", "TimelineBlockReason(", "newMCP(", "newTriage(", "newExtensions(", "DiscoveryBlockReason("} {
 		found := false
 		for _, line := range strings.Split(text, "\n") {
 			if strings.Contains(line, call) && strings.Contains(line, "sharedIdentity") {
