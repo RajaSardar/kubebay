@@ -8,6 +8,22 @@
           "heading": "Added",
           "items": [
             {
+              "title": "Issues queue",
+              "summary": "(backlog 76)."
+            },
+            {
+              "title": "All of a workload's logs in one view",
+              "summary": "(backlog 59)."
+            },
+            {
+              "title": "Finding the exact pod",
+              "summary": "(backlog 61)."
+            },
+            {
+              "title": "Pod logs: warnings and errors only",
+              "summary": "(backlog 60)."
+            },
+            {
               "title": "Blossom theme",
               "summary": "(backlog 74)."
             },

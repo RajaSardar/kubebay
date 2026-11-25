@@ -13,6 +13,7 @@ import { compareValues } from "../lib/tableUx";
 import { WorkloadTabBar } from "../components/WorkloadTabBar";
 import { usageBar, type UsageBar } from "../lib/podUsage";
 import { derivePod, podTone, type PodRow } from "../lib/pods";
+import { PodName } from "../components/PodName";
 import { ResourceListView, type ListColumn } from "../components/ResourceListView";
 import { PageHelp } from "../components/PageHelp";
 import { fmtBytes, fmtCpu } from "../lib/format";
@@ -49,6 +50,7 @@ function UsageMeter({ bar, text }: { bar: UsageBar; text: string }) {
 }
 
 const nameOf = (p: PodRow) => p.name;
+const nameCell = (p: PodRow) => <PodName name={p.name} />;
 const nsOf = (p: PodRow) => p.namespace;
 const createdOf = (p: PodRow) => p.created;
 const isTerminating = (p: PodRow) => p.statusLabel === "Terminating";
@@ -276,6 +278,7 @@ export default function Workloads() {
         cluster={effectiveCluster}
         nsFiltered={nsFilter.length > 0}
         nameOf={nameOf}
+        nameCell={nameCell}
         nsOf={nsOf}
         createdOf={createdOf}
         isDimmed={isTerminating}

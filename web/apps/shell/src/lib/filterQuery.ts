@@ -3,6 +3,7 @@
  *   plain words      match any shown text; every word must match
  *   ns:shop          a field: ns, name, or a column's filterKey (status:, node:, …)
  *   label:app=web    a label with that exact value; label:app means the label exists (l: too)
+ *   "name" or =name  the whole name, not a part of it (backlog 61)
  *   -word, -key:val  negation
  * A `key:value` whose key the table does not know stays plain text, so a
  * name such as "system:node" still matches as written. Matching ignores case
@@ -24,7 +25,7 @@ export interface QueryToken {
 }
 
 export interface Query {
-  terms: { text: string; neg: boolean }[];
+  terms: { text: string; neg: boolean; exact?: true }[];
   tokens: QueryToken[];
 }
 
@@ -35,11 +36,18 @@ const ALIASES: Record<string, string> = { l: "label", namespace: "ns" };
 export function parseQuery(q: string, columnKeys: readonly string[] = []): Query {
   const known = new Set([...BUILT_IN, ...columnKeys.map((k) => k.toLowerCase())]);
   const out: Query = { terms: [], tokens: [] };
-  for (const raw of q.trim().split(/\s+/)) {
-    if (!raw) continue;
+  // A quoted phrase stays one word, whatever is inside it.
+  for (const raw of q.match(/-?"[^"]*"|\S+/g) ?? []) {
     const neg = raw.startsWith("-") && raw.length > 1;
     const word = neg ? raw.slice(1) : raw;
     if (word === "-") continue;
+    // "name" or =name: the whole name.
+    const quoted = /^"([^"]+)"$/.exec(word);
+    const exact = quoted ? quoted[1]! : word.length > 1 && word.startsWith("=") ? word.slice(1) : "";
+    if (exact) {
+      out.terms.push({ text: exact, neg, exact: true });
+      continue;
+    }
     const colon = word.indexOf(":");
     if (colon > 0) {
       const typed = word.slice(0, colon).toLowerCase();
@@ -71,6 +79,11 @@ function tokenMatches(row: QueryRow, t: QueryToken): boolean {
 export function matchesQuery(row: QueryRow, q: Query): boolean {
   for (const term of q.terms) {
     const needle = term.text.toLowerCase();
+    if (term.exact) {
+      const name = (row.fields.name ?? row.text[0] ?? "").toLowerCase();
+      if ((name === needle) === term.neg) return false;
+      continue;
+    }
     const hit = row.text.some((f) => f.toLowerCase().includes(needle));
     if (hit === term.neg) return false;
   }

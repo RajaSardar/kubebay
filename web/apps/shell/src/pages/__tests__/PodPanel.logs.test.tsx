@@ -51,6 +51,14 @@ describe("PodPanel logs", () => {
     expect(screen.getAllByText(/./, { selector: ".log-line" })).toHaveLength(1);
   });
 
+  it("shows only warning and error lines on request, with a count of what it hid", () => {
+    render(<PodPanel pod={pod} onClose={() => {}} />);
+    fireEvent.click(screen.getByLabelText("warnings and errors only"));
+    // error JSON, WARN, and the ANSI-coloured ERROR line.
+    expect(screen.getAllByText(/./, { selector: ".log-line" })).toHaveLength(3);
+    expect(screen.getByText("3 lines hidden")).toBeInTheDocument();
+  });
+
   it("opens on the container the default-container annotation names", () => {
     const annotated = {
       ...pod,

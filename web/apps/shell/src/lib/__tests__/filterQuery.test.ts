@@ -75,3 +75,35 @@ describe("filter syntax", () => {
     ]);
   });
 });
+
+// Backlog 61: a quoted "name" or =name matches the whole name, not a part of it.
+describe("exact name match", () => {
+  const rowOf = (name: string): QueryRow => ({ text: [name, "shop"], fields: { name, ns: "shop" } });
+  const web = rowOf("web");
+  const web2 = rowOf("web-7f9c6b5d4-x2k4q");
+
+  it("matches a part of a name by default, the whole name when quoted or after =", () => {
+    expect(matchesQuery(web2, parseQuery("web"))).toBe(true);
+    expect(matchesQuery(web2, parseQuery('"web"'))).toBe(false);
+    expect(matchesQuery(web, parseQuery('"web"'))).toBe(true);
+    expect(matchesQuery(web2, parseQuery("=web"))).toBe(false);
+    expect(matchesQuery(web, parseQuery("=web"))).toBe(true);
+    expect(matchesQuery(web2, parseQuery('"web-7f9c6b5d4-x2k4q"'))).toBe(true);
+  });
+
+  it("ignores case, and combines with other words and tokens", () => {
+    expect(matchesQuery(web, parseQuery('"WEB" ns:shop'))).toBe(true);
+    expect(matchesQuery(web, parseQuery('"web" ns:other'))).toBe(false);
+  });
+
+  it("can be negated", () => {
+    expect(matchesQuery(web, parseQuery('-"web"'))).toBe(false);
+    expect(matchesQuery(web2, parseQuery("-=web"))).toBe(true);
+  });
+
+  it("keeps a quoted phrase with spaces together, and a lone quote or = as plain text", () => {
+    expect(parseQuery('"a b"').terms).toEqual([{ text: "a b", neg: false, exact: true }]);
+    expect(parseQuery("=").terms).toEqual([{ text: "=", neg: false }]);
+    expect(parseQuery('"').terms).toEqual([{ text: '"', neg: false }]);
+  });
+});

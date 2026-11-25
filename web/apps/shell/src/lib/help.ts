@@ -156,6 +156,12 @@ export const PAGE_HELP: Record<string, PageHelpEntry> = {
     how: "Read from Rollouts, their ReplicaSets and AnalysisRuns; actions patch the Rollout with your own permissions and are audited.",
     docs: "argo-rollouts",
   },
+  "/issues": {
+    name: "Issues",
+    what: "One ranked list of what is wrong in this cluster, across pods, nodes, services, certificates and risks.",
+    how: "Built from checks other pages already run, on your own permissions. Investigate opens the evidence.",
+    docs: "issues",
+  },
   "/upgrade-readiness": {
     name: "Upgrade Readiness",
     what: "API versions your cluster still serves that the next Kubernetes releases remove.",

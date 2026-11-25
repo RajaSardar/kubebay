@@ -70,6 +70,8 @@ export interface ResourceListViewProps<R> {
   /** A namespace filter is on (for the empty-state hint). */
   nsFiltered: boolean;
   nameOf: (r: R) => string;
+  /** How the name shows in its cell (default: the plain name). Keep it a stable reference. */
+  nameCell?: (r: R) => ReactNode;
   nsOf: (r: R) => string;
   createdOf: (r: R) => string;
   isDimmed?: (r: R) => boolean;
@@ -133,6 +135,7 @@ interface ListRowProps<R> {
   cluster: string;
   versionOf?: (r: R) => string;
   nameOf: (r: R) => string;
+  nameCell?: (r: R) => ReactNode;
   nsOf: (r: R) => string;
   createdOf: (r: R) => string;
   onOpen: (r: R) => void;
@@ -160,7 +163,7 @@ function ListRowImpl<R>(p: ListRowProps<R>) {
       onContextMenu={(e) => { e.preventDefault(); p.onMenu(e.clientX, e.clientY, r); }}
     >
       <SelectCell checked={selected} onChange={() => p.onToggle(rowKey)} label={`Select ${name}`} />
-      <td className="mono td-name" title={name}><span>{name}</span></td>
+      <td className="mono td-name" title={name}><span>{p.nameCell ? p.nameCell(r) : name}</span></td>
       {p.visible.map((id) => {
         if (id === "Namespace")
           return (
@@ -564,6 +567,7 @@ export function ResourceListView<R>(p: ResourceListViewProps<R>) {
                     cluster={p.cluster}
                     versionOf={p.versionOf}
                     nameOf={nameOf}
+                    nameCell={p.nameCell}
                     nsOf={nsOf}
                     createdOf={createdOf}
                     onOpen={openRow}

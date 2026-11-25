@@ -1,4 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { podNameText } from "../../testing/podName";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
@@ -58,7 +59,7 @@ function renderPods() {
     </QueryClientProvider>,
   );
 }
-const rowOf = (name: string) => screen.getByText(name).closest("tr")!;
+const rowOf = (name: string) => screen.getByText(podNameText(name)).closest("tr")!;
 
 describe("Pods: Owner column", () => {
   beforeAll(() => {
@@ -88,7 +89,7 @@ describe("Pods: Owner column", () => {
   it("filters by the owner's kind", () => {
     renderPods();
     fireEvent.change(screen.getByRole("textbox", { name: /^Filter/ }), { target: { value: "controller:statefulset" } });
-    expect(screen.queryByText("web-1-abc")).toBeNull();
-    expect(screen.getByText("db-0")).toBeInTheDocument();
+    expect(screen.queryByText(podNameText("web-1-abc"))).toBeNull();
+    expect(screen.getByText(podNameText("db-0"))).toBeInTheDocument();
   });
 });

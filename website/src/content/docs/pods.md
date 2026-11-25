@@ -12,6 +12,8 @@ appRoutes: ["/workloads"]
 
 Columns: Name, Namespace, Ready, Status, Owner, Restarts, Node, IP, CPU, Memory and Age, and **Labels** (hidden until you tick it in **Columns**; the first three labels as chips, the rest as +N, all of them in the tooltip). `label:app=web` filters on a pod's labels whether or not the column is shown, and `labels:tier=front` matches the column's text. **Owner** is the pod's controller from its `ownerReferences`, as `Kind/name` linking to that object's drawer: a Deployment's pods show the Deployment (read through the ReplicaSet), others show their StatefulSet, DaemonSet, Job, a custom resource such as an Argo `Rollout`, or the Node for a static pod. A pod nothing controls shows —. Filter it with `controller:statefulset` or `controller:web`. CPU and memory show a bar against the pod's limit, or its request when it has no limit. [Filter and sort](/docs/interface/#filtering-a-table) as on any table. For example, `status:crash` finds crashing pods, and `node:worker-2` finds the pods on one node.
 
+**Finding one exact pod.** Pods of one workload share their name up to a generated end, so the end of each name in the list is set in bold: the ReplicaSet hash and random characters of a Deployment's pod, the five characters of a DaemonSet's or Job's, the ordinal of a StatefulSet's. The whole name is always there as text, and the drawer title shows it in full with a copy button (**Copy name** in the row menu copies it too). Typing `"web-7d9f8c6b5d-x2k4q"` or `=web-7d9f8c6b5d-x2k4q` in the filter matches that name exactly, and not names that only contain it. The bold end is a guess from the usual shapes of generated names; a pod named by hand that happens to look like one is marked the same way.
+
 Status is a coloured pill, and the word always stays on it. Green is Running (or Ready), blue is Pending or still starting, purple is Succeeded or Completed, orange is a warning such as Running with containers not ready or Evicted, red is a failure such as Failed, CrashLoopBackOff or ImagePullBackOff, struck-through grey is Terminating, and plain grey is a status Kubebay doesn't recognise. Other tables use the same colours for their status words.
 
 The **⋮** at the end of a row has **View details**, **Logs**, **Shell**, **Edit YAML**, **Copy name** and **Delete**.
@@ -40,6 +42,7 @@ Logs stream as the container writes them.
 - **tail** sets how many earlier lines to load.
 - **follow** keeps the newest line in view.
 - **previous** shows the run before the last restart, which is where a crash's cause usually is.
+- **warnings and errors only** shows only lines whose level reads as warning or error: `level=warn`, `WARN`, `WARNING`, `ERROR`, `ERR`, `FATAL` or `PANIC` as a word, a JSON `level`, `severity` or `lvl` field, a klog `W`/`E`/`F` prefix, or logfmt. A line in a format Kubebay cannot read is hidden while this is on, and the count of hidden lines is shown beside it as **N lines hidden**.
 - **Filter lines…** narrows what's shown, and **Download** saves the lines as a `.log` file.
 - Lines are coloured by their level: errors red, warnings amber, success green, debug and trace dimmed. Kubebay reads the level from the line itself:
   - a JSON field such as `"level":"error"`, including pino's numeric levels;

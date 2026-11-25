@@ -25,6 +25,7 @@ import {
   IconRefresh,
   IconSearch,
   IconShield,
+  IconAlert,
   IconSliders,
   IconTimeline,
   IconTopology,
@@ -61,6 +62,7 @@ const CostWaste = lazy(() => import("./pages/CostWaste"));
 const Karpenter = lazy(() => import("./pages/Karpenter"));
 const Keda = lazy(() => import("./pages/Keda"));
 const Rollouts = lazy(() => import("./pages/Rollouts"));
+const Issues = lazy(() => import("./pages/Issues"));
 const UpgradeReadiness = lazy(() => import("./pages/UpgradeReadiness"));
 const Flux = lazy(() => import("./pages/Flux"));
 const ArgoWorkflows = lazy(() => import("./pages/ArgoWorkflows"));
@@ -229,6 +231,7 @@ const GROUPS: NavGroupDef[] = [
 ];
 
 const TOOLS = [
+  { to: "/issues", label: "Issues", icon: <IconAlert /> },
   { to: "/create-resource", label: "Create Resource", icon: <IconPlus /> },
   { to: "/crds", label: "CRDs", icon: <IconGrid /> },
   { to: "/ports", label: "Ports", icon: <IconForward /> },
@@ -728,6 +731,7 @@ function AppInner() {
               <Route path="/karpenter" element={<Karpenter />} />
               <Route path="/keda" element={<Keda />} />
               <Route path="/rollouts" element={<Rollouts />} />
+              <Route path="/issues" element={<Issues />} />
               <Route path="/upgrade-readiness" element={<UpgradeReadiness />} />
               <Route path="/best-practices" element={<BestPractices />} />
               <Route path="/helm" element={<Helm />} />
