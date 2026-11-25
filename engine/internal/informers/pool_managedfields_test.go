@@ -68,8 +68,7 @@ func TestTrimManagedFieldsKeepsWhoAndWhenButNotTheFieldSets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Stored as the map ops and the timeline read (see metadatamap.go).
-	e := out.(*unstructured.Unstructured).GetManagedFields()[0]
+	e := out.(*metav1.PartialObjectMetadata).ManagedFields[0]
 	if e.FieldsV1 != nil {
 		t.Errorf("metadata: managedFields entry still has fieldsV1 %s", e.FieldsV1.Raw)
 	}

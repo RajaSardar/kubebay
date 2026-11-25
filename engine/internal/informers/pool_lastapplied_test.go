@@ -29,7 +29,7 @@ func TestTrimDropsLastAppliedConfigurationValue(t *testing.T) {
 
 	pm := &metav1.PartialObjectMetadata{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{lastApplied: big, "team": "payments"}}}
 	out, _ = trimManagedFields(pm)
-	got := out.(*unstructured.Unstructured).GetAnnotations()
+	got := out.(*metav1.PartialObjectMetadata).Annotations
 	if len(got[lastApplied]) > 64 || got["team"] != "payments" {
 		t.Fatalf("metadata: got %v", got)
 	}

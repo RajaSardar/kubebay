@@ -69,9 +69,24 @@ func TestMetadataMapMatchesTheConverters(t *testing.T) {
 	}
 }
 
-// A metadata informer's object is made a map once, as it enters the cache,
-// with fieldsV1 and last-applied trimmed as before.
-func TestMetadataTransformStoresAMap(t *testing.T) {
+// jsonToMap is the JSON round trip ops were made with before the
+// hand-written conversion; frames must carry the same values.
+func jsonToMap(v any) map[string]any {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return nil
+	}
+	var m map[string]any
+	if err := json.Unmarshal(b, &m); err != nil {
+		return nil
+	}
+	return m
+}
+
+// A metadata informer's object stays typed in the cache, with fieldsV1 and
+// last-applied trimmed: as a map it would hold four times the memory (see
+// TestCacheHeap2000Pods).
+func TestMetadataTransformKeepsTheTrimmedTypedObject(t *testing.T) {
 	o := metaPod(1)
 	o.Annotations[lastAppliedAnnotation] = `{"big":"manifest"}`
 	o.ManagedFields[0].FieldsV1 = &metav1.FieldsV1{Raw: []byte(`{"f:spec":{}}`)}
@@ -79,31 +94,31 @@ func TestMetadataTransformStoresAMap(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	u, ok := got.(*unstructured.Unstructured)
+	pm, ok := got.(*metav1.PartialObjectMetadata)
 	if !ok {
-		t.Fatalf("stored %T, want *unstructured.Unstructured", got)
+		t.Fatalf("stored %T, want *metav1.PartialObjectMetadata", got)
 	}
-	if u.GetName() != o.Name || u.GetNamespace() != o.Namespace || u.GetKind() != "PartialObjectMetadata" {
-		t.Fatalf("stored %v/%v kind %q", u.GetNamespace(), u.GetName(), u.GetKind())
-	}
-	if u.GetAnnotations()[lastAppliedAnnotation] != lastAppliedTrimmed {
+	if pm.Annotations[lastAppliedAnnotation] != lastAppliedTrimmed {
 		t.Error("last-applied was not trimmed")
 	}
-	for _, mf := range u.GetManagedFields() {
+	for _, mf := range pm.ManagedFields {
 		if mf.FieldsV1 != nil {
 			t.Error("fieldsV1 was kept")
 		}
 	}
-	// A second pass (client-go may transform an object again) is a no-op.
-	again, _ := trimManagedFields(u)
-	if !reflect.DeepEqual(again, u) {
-		t.Error("transforming a stored object changed it")
+	// An op made from it is the hand-written map, with no field sets.
+	op, ok := opOf("MODIFIED", pm)
+	if !ok || !reflect.DeepEqual(op.Obj, metadataMap(pm)) {
+		t.Fatalf("op = %+v", op)
+	}
+	if u := (&unstructured.Unstructured{Object: op.Obj}); u.GetName() != o.Name || u.GetNamespace() != o.Namespace {
+		t.Fatalf("op object %v/%v", u.GetNamespace(), u.GetName())
 	}
 }
 
 // Per event, a metadata-mode op and timeline observation used to cost 194
-// and 232 allocations (a JSON and a reflection round trip). From the stored
-// map they cost what full mode does.
+// and 232 allocations (a JSON and a reflection round trip). Made by hand
+// from the typed object they cost about 72 and twice that.
 func TestMetadataEventAllocationBudget(t *testing.T) {
 	stored := func(rv string) any {
 		o := metaPod(1)
@@ -112,13 +127,13 @@ func TestMetadataEventAllocationBudget(t *testing.T) {
 		return s
 	}
 	old, nw := stored("1000"), stored("1001")
-	if n := testing.AllocsPerRun(100, func() { _, _ = opOf("MODIFIED", nw) }); n > 2 {
-		t.Errorf("opOf on a metadata object: %.0f allocs, budget 2 (was 194)", n)
+	if n := testing.AllocsPerRun(100, func() { _, _ = opOf("MODIFIED", nw) }); n > 90 {
+		t.Errorf("opOf on a metadata object: %.0f allocs, budget 90 (was 194)", n)
 	}
 	if n := testing.AllocsPerRun(100, func() {
 		_, _ = toObserved(timeline.OpUpdate, old, nw, "", "v1", "pods", ModeMetadata)
-	}); n > 2 {
-		t.Errorf("toObserved on a metadata update: %.0f allocs, budget 2 (was 232)", n)
+	}); n > 180 {
+		t.Errorf("toObserved on a metadata update: %.0f allocs, budget 180 (was 232)", n)
 	}
 	ob, ok := toObserved(timeline.OpUpdate, old, nw, "", "v1", "pods", ModeMetadata)
 	if !ok || ob.ObjKind != "" || !ob.MetadataOnly {

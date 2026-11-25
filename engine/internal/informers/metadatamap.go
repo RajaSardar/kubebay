@@ -8,11 +8,12 @@ import (
 )
 
 // metadataMap is o as runtime.DefaultUnstructuredConverter.ToUnstructured
-// makes it, written out by hand: a metadata informer's object is converted
-// once, as it enters the cache, instead of through a JSON round trip for
-// every op (194 allocations) and the reflection converter twice for every
-// timeline observation (232). An object with a field set still in it (the
-// transform trims them) goes through the converter.
+// makes it, written out by hand: 2.6 us and 72 allocations, against 15 us
+// and 194 for the JSON round trip every op took and 15 us and 232 for the
+// reflection converter every timeline observation ran twice. The cache keeps
+// the typed object (2.3 MiB for 2,000 pods against 9.5 MiB as maps), so this
+// runs per event. An object with a field set still in it (the transform
+// trims them) goes through the converter.
 func metadataMap(o *metav1.PartialObjectMetadata) map[string]any {
 	for i := range o.ManagedFields {
 		if o.ManagedFields[i].FieldsV1 != nil {
