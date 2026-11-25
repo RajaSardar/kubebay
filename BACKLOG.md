@@ -84,7 +84,7 @@
 79. durable in-cluster audit log: JSON lines on stdout plus an optional PVC (today it is on a 64Mi emptyDir and lost on restart); export to OTLP, syslog or S3 stays a later, separate item
 80. Upgrade impact v2: PodDisruptionBudget drain blockers, version skew between control plane and nodes, and admission webhook failure policy
 ~~81. auth-proxy header sign-in for the in-cluster install (trusted-source rule, security review first)~~ ✅ Done (unreleased, built after v0.8.2)
-82. desktop change timeline: events and changes in a local SQLite file with a retention setting, field manager shown, and gaps in coverage labelled
+~~82. desktop change timeline: events and changes in a local SQLite file with a retention setting, field manager shown, and gaps in coverage labelled~~ ✅ Done (unreleased; recording is passive per kind, a "keep watching" allowlist is a later step)
 83. Compare two resources side by side, including across clusters
 84. GitOps actions: Flux reconcile, suspend and resume, and Argo CD rollback, through the blast-radius preview and confirmation
 85. desktop notifications for new Issues (after the Issues queue)

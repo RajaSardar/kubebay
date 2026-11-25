@@ -14,6 +14,7 @@ Recorded actions include:
 - Helm installs, upgrades, rollbacks and uninstalls;
 - sessions: a container shell, the local terminal, a port-forward, a network diagnostic pod;
 - revealing a Secret's value, or all of a Secret's values with **Reveal values** on its YAML tab;
+- changing how long the [change timeline](/docs/changes/) is kept, and clearing it (`timeline-retention`, `timeline-clear`);
 - a change an admission policy rejected, marked as rejected;
 - every call an AI assistant made through [MCP](/docs/ai-assistants/), reads included, marked as coming from MCP.
 
