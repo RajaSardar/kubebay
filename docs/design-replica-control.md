@@ -31,7 +31,6 @@ Status: proposal, design only. Owner ask: replace the `−5 − [n] + +5` row wi
 6. Docs rule: the docs page and the ⓘ help entry change in the same PR.
 
 ## Options
-
 ### (a) Slider + number box + live label
 `<input type="range">` styled by tokens, number box beside it, label "18 → 24 (+6)".
 - Pros: direct manipulation, one glance shows relative position, native keyboard and touch.
@@ -39,7 +38,6 @@ Status: proposal, design only. Owner ask: replace the `−5 − [n] + +5` row wi
   the true max is unbounded. Needs a non-linear scale and a "max" rule. It is wide (about
   240px), so it makes the cramped drawer row worse unless hidden in a popover.
   Dragging produces many intermediate values, which is harmless as nothing applies until Apply.
-
 ### (b) Popover from a single "Scale: 18 ▾" button: presets + slider + exact input
 The row holds one button. It opens a panel (portal, anchored under the button, Escape and
 outside click close, focus moves in and returns to the button).
@@ -50,20 +48,17 @@ Panel: exact number input, slider, preset chips (0, 1, 2, 3, 5, 10, ½, 2×, Cur
   The same panel works in the drawer and the Scale dialog (inline, no popover, inside the dialog).
 - Cons: needs a new Popover primitive (focus management, collision flip, Esc), one more click to
   start. Most code and most tests of the four.
-
 ### (c) Stepper with press-and-hold acceleration
 Keep − and +, hold repeats: 1/s, then 5/s, then 20/s.
 - Pros: tiny change, no new primitive, familiar.
 - Cons: still plus and minus (the thing the owner dislikes), slow for big jumps, timers on hold
   (must clear on blur, pointercancel, unmount), and a poor fit for touch and screen readers.
   Does not solve the cluttered row.
-
 ### (d) Segmented preset row
 `SegmentedControl` of 0 | 1 | 2 | 3 | 5 | 10 plus Custom.
 - Pros: one click, zero new primitives, great for small counts.
 - Cons: 6 to 8 segments is wider than the stepper it replaces, useless for 18 → 24,
   presets cannot adapt to the current value without the row changing width (layout shift).
-
 ### (e) Option (b) with a log-ish slider scale and chips relative to the current count
 This is the recommendation (see "Scale mapping").
 
@@ -73,7 +68,6 @@ The row becomes `[Scale: 18 ▾] [Restart] ...`. When the draft differs the trig
 `Scale: 18 → 24 ▾` with the "Unsaved" badge inside the panel and a primary "Apply scale" button
 (also at the foot of the panel, plus still on the row so one click applies once chosen).
 In the Scale dialog the same body renders inline (no popover) above the blast-radius preview.
-
 ### Panel layout (fixed 280px wide, so nothing shifts)
 1. Number input (role spinbutton, type=number, inputMode=numeric, min 0, no upper cap) with the
    live label "18 → 24 (+6)" or "No change".
@@ -85,7 +79,6 @@ In the Scale dialog the same body renders inline (no popover) above the blast-ra
 4. Notes (only when they apply): HPA/KEDA note with a link to the HPA; StatefulSet note
    "Scaling down removes the highest ordinals first (web-5, web-4, ...)"; scale-to-0 warning.
 5. Footer: "Reset to 18" (ghost, only when dirty) and "Apply scale" (primary only when dirty).
-
 ### Scale mapping
 - Slider max = max(10, 3 × current), rounded up to a "nice" value (10, 20, 30, 50, 100, 200 ...).
 - Position to value is piecewise: the first 40% of the track covers 0..10 one by one, the rest
@@ -95,7 +88,6 @@ In the Scale dialog the same body renders inline (no popover) above the blast-ra
   and the label still shows the real value. The slider never changes the max while dragging
   (max is computed from the live count, not the draft), so the track does not jump.
 - A live count change while open updates "now", not the draft.
-
 ### Keyboard and touch
 - Slider: Left/Down -1, Right/Up +1, PageUp/PageDown +10 (or one tick of the current band),
   Home 0, End slider max; Shift+arrows +10 stays as in today's box.
@@ -105,7 +97,6 @@ In the Scale dialog the same body renders inline (no popover) above the blast-ra
   scrolling the drawer is not hijacked, pointer capture while dragging.
 - Drag uses `requestAnimationFrame` to coalesce, only the panel re-renders (draft lives in the
   panel, committed upward on change through the existing `onChange`).
-
 ### Safety
 - Drag, chip or typing only changes the draft. Apply is the only write; the existing confirmation
   and `restartGuard` for scale-to-0 or big drops, audit and GitOps warning run unchanged.
