@@ -6,7 +6,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ## [Unreleased]
 
-## [0.8.3] - 2026-11-25
+## [0.8.4] - 2026-11-25
+
+v0.8.1 and v0.8.3 were tagged but never published (a macOS build ran out of memory, then a Windows build and a Linux test run failed), so everything since v0.8.0 ships here.
 
 ### Added
 - **MCP read-only, follow-up** (backlog 77b). The Helm chart has `mcp.readOnly` (default `false`), which sets `KUBEBAY_MCP_READ_ONLY=true`; MCP is still never served in a cluster, so this is a second lock. `GET /api/settings` now reports `mcpReadOnly`, `mcpReadOnlyReason` and, on a shared engine, `mcpLocked`, and Settings shows **Let assistants propose changes** disabled and unticked on a shared engine, with the reason (`POST /api/mcp` already answered 403 there). In `scripts/mcp-bench`, `--kubeconfig` is now used: it must be a file named `kind-*` (the default `~/.kube/config` and links to it are refused) with only `kind-*` contexts, `--engine <binary>` starts the engine with that kubeconfig and a temporary home, and with `--url` the run is refused unless every cluster the server lists is in that kubeconfig. The `--read-only` check only lists tools and never calls `propose_change`. Tested with `helm template`, Go tests, Vitest and offline script tests; the harness starting a real engine has not been run, and neither has the benchmark.
