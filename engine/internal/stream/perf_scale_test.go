@@ -151,7 +151,7 @@ func TestSharedOpCopiesShareOneEncoding(t *testing.T) {
 }
 
 // Allocation budget for one pod update reaching 10 subscriptions. Before the
-// shared encoding: 166 KB and 150 allocations. The
+// shared encoding (measured on main): 166 KB and 160 allocations. The
 // ceilings are counts over many runs, not timings.
 func TestSharedEncodingAllocationBudget(t *testing.T) {
 	if raceEnabled {
@@ -166,7 +166,7 @@ func TestSharedEncodingAllocationBudget(t *testing.T) {
 	}
 	run() // warm the pools
 	if n := testing.AllocsPerRun(100, run); n > 6 {
-		t.Errorf("one pod to 10 subscriptions: %.0f allocs, budget 6 (was 150)", n)
+		t.Errorf("one pod to 10 subscriptions: %.0f allocs, budget 6 (was 160)", n)
 	}
 	// The object's encoding is kept at its own size (a 5.8 KB frame), not in
 	// the doubled slice msgpack.Marshal grows (16.5 KB).
