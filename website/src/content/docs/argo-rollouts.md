@@ -10,7 +10,7 @@ appRoutes: ["/rollouts"]
 
 ## Searching
 
-Above the cards, the **Filter rollouts** box narrows the list as you type; press `/` anywhere on the page to jump to it and Escape to clear it. Plain words match the name, namespace, strategy, phase, container images and revision names or numbers, and every word must match. `phase:degraded`, `ns:shop`, `name:`, `strategy:bluegreen`, `image:` and `revision:` match one field. `"web"` or `=web` matches the whole name, and a leading `-` excludes (`-phase:healthy`). A badge beside the box reads "3 of 12" when the filter hides some. If nothing matches, the page says **No Rollouts match this filter**, which is different from "No Rollouts found on this cluster". This has been checked with component tests, not against a live cluster.
+Above the cards, the **Filter rollouts** box narrows the list as you type; press `/` anywhere on the page to jump to it and Escape to clear it. Plain words match the name, namespace, strategy, phase, container images and revision names or numbers, and every word must match. `phase:degraded`, `ns:shop`, `name:`, `strategy:bluegreen`, `image:` and `revision:` match one field, and `label:app=web` matches a label on the Rollout itself. `"web"` or `=web` matches the whole name, and a leading `-` excludes (`-phase:healthy`). A badge beside the box reads "3 of 12" when the filter hides some. If nothing matches, the page says **No Rollouts match this filter**, which is different from "No Rollouts found on this cluster". This has been checked with component tests, not against a live cluster.
 
 ## What each Rollout shows
 

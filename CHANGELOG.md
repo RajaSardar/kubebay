@@ -8,7 +8,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ### Added
 
-- The Rollouts page has a filter box like every other list: plain words, `phase:`, `ns:`, `strategy:`, `image:`, `revision:`, a quoted exact name and `-` negation, a "N of M" count, `/` to focus it, and a separate "No Rollouts match this filter" message. Tested with component tests only, not against a live cluster.
+- The Rollouts page has a filter box like every other list: plain words, `phase:`, `ns:`, `strategy:`, `image:`, `revision:`, `label:`, a quoted exact name and `-` negation, a "N of M" count, `/` to focus it, and a separate "No Rollouts match this filter" message. Tested with component tests only, not against a live cluster.
 
 ## [0.8.4] - 2026-11-25
 
