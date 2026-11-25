@@ -13,7 +13,6 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 	"unicode"
 
@@ -261,7 +260,7 @@ func (m *Manager) launch(inv *Investigation, req Request, claude, root, work str
 	cmd := exec.Command(claude, args...)
 	cmd.Dir = work
 	cmd.Env = ScrubEnv(parent)
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	inOwnGroup(cmd)
 	outR, outW, err := os.Pipe()
 	if err != nil {
 		return err
@@ -315,11 +314,11 @@ func (m *Manager) supervise(inv *Investigation, req Request, cmd *exec.Cmd, outR
 	outcome := "done"
 	var waitErr error
 	terminate := func() {
-		_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGTERM)
+		terminateGroup(cmd.Process.Pid)
 		select {
 		case waitErr = <-waitCh:
 		case <-time.After(m.Limits.Grace):
-			_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+			killGroup(cmd.Process.Pid)
 			waitErr = <-waitCh
 		}
 	}
@@ -340,7 +339,7 @@ func (m *Manager) supervise(inv *Investigation, req Request, cmd *exec.Cmd, outR
 		terminate()
 	}
 	// Whatever the leader left behind (a forked helper) dies with the group.
-	_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+	killGroup(cmd.Process.Pid)
 	select {
 	case <-readerDone:
 	case <-time.After(2 * time.Second):
